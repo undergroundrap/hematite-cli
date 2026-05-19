@@ -13753,7 +13753,7 @@ fn test_multi_topic_batch37_audio_share_storage_disk_connectivity_startup_update
 fn test_routing_parity38_system_specs_routes_to_hardware() {
     use hematite::agent::routing::{all_host_inspection_topics, preferred_host_inspection_topic};
     let t = preferred_host_inspection_topic("what are my system specs");
-    assert_eq!(t.as_deref(), Some("hardware"));
+    assert_eq!(t, Some("hardware"));
     let topics = all_host_inspection_topics("what are my system specs");
     assert!(topics.contains(&"hardware"), "hardware missing: {topics:?}");
 }
@@ -13762,7 +13762,7 @@ fn test_routing_parity38_system_specs_routes_to_hardware() {
 fn test_routing_parity38_graphics_card_routes_to_hardware() {
     use hematite::agent::routing::{all_host_inspection_topics, preferred_host_inspection_topic};
     let t = preferred_host_inspection_topic("tell me about my graphics card");
-    assert_eq!(t.as_deref(), Some("hardware"));
+    assert_eq!(t, Some("hardware"));
     let topics = all_host_inspection_topics("tell me about my graphics card");
     assert!(topics.contains(&"hardware"), "hardware missing: {topics:?}");
 }
@@ -13771,7 +13771,7 @@ fn test_routing_parity38_graphics_card_routes_to_hardware() {
 fn test_routing_parity38_fan_always_on_routes_to_thermal() {
     use hematite::agent::routing::{all_host_inspection_topics, preferred_host_inspection_topic};
     let t = preferred_host_inspection_topic("my fan is always on");
-    assert_eq!(t.as_deref(), Some("thermal"));
+    assert_eq!(t, Some("thermal"));
     let topics = all_host_inspection_topics("my fan is always on");
     assert!(topics.contains(&"thermal"), "thermal missing: {topics:?}");
 }
@@ -13780,7 +13780,7 @@ fn test_routing_parity38_fan_always_on_routes_to_thermal() {
 fn test_routing_parity38_laptop_hot_routes_to_thermal() {
     use hematite::agent::routing::{all_host_inspection_topics, preferred_host_inspection_topic};
     let t = preferred_host_inspection_topic("my laptop is getting hot");
-    assert_eq!(t.as_deref(), Some("thermal"));
+    assert_eq!(t, Some("thermal"));
     let topics = all_host_inspection_topics("my laptop is getting hot");
     assert!(topics.contains(&"thermal"), "thermal missing: {topics:?}");
 }
@@ -13789,7 +13789,7 @@ fn test_routing_parity38_laptop_hot_routes_to_thermal() {
 fn test_routing_parity38_product_key_routes_to_activation() {
     use hematite::agent::routing::{all_host_inspection_topics, preferred_host_inspection_topic};
     let t = preferred_host_inspection_topic("where is my product key");
-    assert_eq!(t.as_deref(), Some("activation"));
+    assert_eq!(t, Some("activation"));
     let topics = all_host_inspection_topics("where is my product key");
     assert!(
         topics.contains(&"activation"),
@@ -13801,7 +13801,7 @@ fn test_routing_parity38_product_key_routes_to_activation() {
 fn test_routing_parity38_not_activated_routes_to_activation() {
     use hematite::agent::routing::{all_host_inspection_topics, preferred_host_inspection_topic};
     let t = preferred_host_inspection_topic("windows is not activated");
-    assert_eq!(t.as_deref(), Some("activation"));
+    assert_eq!(t, Some("activation"));
     let topics = all_host_inspection_topics("windows is not activated");
     assert!(
         topics.contains(&"activation"),
@@ -13813,7 +13813,7 @@ fn test_routing_parity38_not_activated_routes_to_activation() {
 fn test_routing_parity38_keeps_restarting_routes_to_recent_crashes() {
     use hematite::agent::routing::{all_host_inspection_topics, preferred_host_inspection_topic};
     let t = preferred_host_inspection_topic("my PC keeps restarting");
-    assert_eq!(t.as_deref(), Some("recent_crashes"));
+    assert_eq!(t, Some("recent_crashes"));
     let topics = all_host_inspection_topics("my PC keeps restarting");
     assert!(
         topics.contains(&"recent_crashes"),
@@ -13825,7 +13825,7 @@ fn test_routing_parity38_keeps_restarting_routes_to_recent_crashes() {
 fn test_routing_parity38_random_reboot_routes_to_recent_crashes() {
     use hematite::agent::routing::{all_host_inspection_topics, preferred_host_inspection_topic};
     let t = preferred_host_inspection_topic("random reboot overnight");
-    assert_eq!(t.as_deref(), Some("recent_crashes"));
+    assert_eq!(t, Some("recent_crashes"));
     let topics = all_host_inspection_topics("random reboot overnight");
     assert!(
         topics.contains(&"recent_crashes"),
@@ -13837,7 +13837,7 @@ fn test_routing_parity38_random_reboot_routes_to_recent_crashes() {
 fn test_routing_parity38_apps_crashing_routes_to_app_crashes() {
     use hematite::agent::routing::{all_host_inspection_topics, preferred_host_inspection_topic};
     let t = preferred_host_inspection_topic("apps crashing constantly");
-    assert_eq!(t.as_deref(), Some("app_crashes"));
+    assert_eq!(t, Some("app_crashes"));
     let topics = all_host_inspection_topics("apps crashing constantly");
     assert!(
         topics.contains(&"app_crashes"),
@@ -13849,7 +13849,7 @@ fn test_routing_parity38_apps_crashing_routes_to_app_crashes() {
 fn test_routing_parity38_what_crashed_routes_to_app_crashes() {
     use hematite::agent::routing::{all_host_inspection_topics, preferred_host_inspection_topic};
     let t = preferred_host_inspection_topic("what crashed today");
-    assert_eq!(t.as_deref(), Some("app_crashes"));
+    assert_eq!(t, Some("app_crashes"));
     let topics = all_host_inspection_topics("what crashed today");
     assert!(
         topics.contains(&"app_crashes"),
@@ -13861,7 +13861,7 @@ fn test_routing_parity38_what_crashed_routes_to_app_crashes() {
 fn test_routing_parity38_windows_log_routes_to_log_check() {
     use hematite::agent::routing::{all_host_inspection_topics, preferred_host_inspection_topic};
     let t = preferred_host_inspection_topic("show me the windows log");
-    assert_eq!(t.as_deref(), Some("log_check"));
+    assert_eq!(t, Some("log_check"));
     let topics = all_host_inspection_topics("show me the windows log");
     assert!(
         topics.contains(&"log_check"),
@@ -13873,7 +13873,7 @@ fn test_routing_parity38_windows_log_routes_to_log_check() {
 fn test_routing_parity38_high_cpu_routes_to_resource_load() {
     use hematite::agent::routing::{all_host_inspection_topics, preferred_host_inspection_topic};
     let t = preferred_host_inspection_topic("high cpu usage right now");
-    assert_eq!(t.as_deref(), Some("resource_load"));
+    assert_eq!(t, Some("resource_load"));
     let topics = all_host_inspection_topics("high cpu usage right now");
     assert!(
         topics.contains(&"resource_load"),
@@ -13885,7 +13885,7 @@ fn test_routing_parity38_high_cpu_routes_to_resource_load() {
 fn test_routing_parity38_free_space_routes_to_storage() {
     use hematite::agent::routing::{all_host_inspection_topics, preferred_host_inspection_topic};
     let t = preferred_host_inspection_topic("how much free space do I have");
-    assert_eq!(t.as_deref(), Some("storage"));
+    assert_eq!(t, Some("storage"));
     let topics = all_host_inspection_topics("how much free space do I have");
     assert!(topics.contains(&"storage"), "storage missing: {topics:?}");
 }
@@ -13894,7 +13894,7 @@ fn test_routing_parity38_free_space_routes_to_storage() {
 fn test_routing_parity38_running_out_of_space_routes_to_storage() {
     use hematite::agent::routing::{all_host_inspection_topics, preferred_host_inspection_topic};
     let t = preferred_host_inspection_topic("I'm running out of space");
-    assert_eq!(t.as_deref(), Some("storage"));
+    assert_eq!(t, Some("storage"));
     let topics = all_host_inspection_topics("I'm running out of space");
     assert!(topics.contains(&"storage"), "storage missing: {topics:?}");
 }
@@ -13903,7 +13903,7 @@ fn test_routing_parity38_running_out_of_space_routes_to_storage() {
 fn test_routing_parity38_what_is_listening_routes_to_ports() {
     use hematite::agent::routing::{all_host_inspection_topics, preferred_host_inspection_topic};
     let t = preferred_host_inspection_topic("what is listening on this machine");
-    assert_eq!(t.as_deref(), Some("ports"));
+    assert_eq!(t, Some("ports"));
     let topics = all_host_inspection_topics("what is listening on this machine");
     assert!(topics.contains(&"ports"), "ports missing: {topics:?}");
 }
@@ -13912,7 +13912,7 @@ fn test_routing_parity38_what_is_listening_routes_to_ports() {
 fn test_routing_parity38_cpu_speed_routes_to_cpu_power() {
     use hematite::agent::routing::{all_host_inspection_topics, preferred_host_inspection_topic};
     let t = preferred_host_inspection_topic("why is my cpu speed so low");
-    assert_eq!(t.as_deref(), Some("cpu_power"));
+    assert_eq!(t, Some("cpu_power"));
     let topics = all_host_inspection_topics("why is my cpu speed so low");
     assert!(
         topics.contains(&"cpu_power"),
@@ -13924,7 +13924,7 @@ fn test_routing_parity38_cpu_speed_routes_to_cpu_power() {
 fn test_routing_parity38_boost_disabled_routes_to_cpu_power() {
     use hematite::agent::routing::{all_host_inspection_topics, preferred_host_inspection_topic};
     let t = preferred_host_inspection_topic("boost is disabled on my processor");
-    assert_eq!(t.as_deref(), Some("cpu_power"));
+    assert_eq!(t, Some("cpu_power"));
     let topics = all_host_inspection_topics("boost is disabled on my processor");
     assert!(
         topics.contains(&"cpu_power"),
@@ -14429,7 +14429,9 @@ fn test_correlate_thermal_throttling_causes_high_cpu() {
     let results = correlate_findings(raw);
     assert!(!results.is_empty(), "thermal throttle + high CPU must fire");
     assert_eq!(results[0].confidence, "HIGH");
-    assert!(results[0].summary.contains("thermal throttl") || results[0].summary.contains("Thermal"));
+    assert!(
+        results[0].summary.contains("thermal throttl") || results[0].summary.contains("Thermal")
+    );
 }
 
 #[test]
@@ -14438,8 +14440,13 @@ fn test_correlate_thermal_throttle_no_fire_without_cpu_warning() {
     // throttle present but no CPU warning — rule must not fire
     let raw = "Throttle Reason: Power Limit\nCore Temp: 92°C";
     let results = correlate_findings(raw);
-    let fired = results.iter().any(|r| r.summary.contains("thermal throttl") || r.summary.contains("Thermal throttl"));
-    assert!(!fired, "thermal CPU rule must not fire without the CPU load warning");
+    let fired = results
+        .iter()
+        .any(|r| r.summary.contains("thermal throttl") || r.summary.contains("Thermal throttl"));
+    assert!(
+        !fired,
+        "thermal CPU rule must not fire without the CPU load warning"
+    );
 }
 
 #[test]
@@ -14457,8 +14464,13 @@ fn test_correlate_ram_pressure_no_fire_without_disk_queue() {
     use hematite::agent::correlation::correlate_findings;
     let raw = "[Warning] Memory usage is near capacity. Swap activity may slow down the machine.";
     let results = correlate_findings(raw);
-    let fired = results.iter().any(|r| r.summary.contains("RAM") || r.summary.contains("pagefile"));
-    assert!(!fired, "RAM+disk rule must not fire without disk queue signal");
+    let fired = results
+        .iter()
+        .any(|r| r.summary.contains("RAM") || r.summary.contains("pagefile"));
+    assert!(
+        !fired,
+        "RAM+disk rule must not fire without disk queue signal"
+    );
 }
 
 #[test]
@@ -14466,7 +14478,10 @@ fn test_correlate_installer_disabled_plus_cbs_reboot() {
     use hematite::agent::correlation::correlate_findings;
     let raw = "Windows Installer service (msiserver) is disabled - MSI installs cannot start until it is re-enabled.\nWindows component install/update requires a restart";
     let results = correlate_findings(raw);
-    assert!(!results.is_empty(), "installer disabled + CBS reboot must fire");
+    assert!(
+        !results.is_empty(),
+        "installer disabled + CBS reboot must fire"
+    );
     assert_eq!(results[0].confidence, "HIGH");
     assert!(results[0].summary.contains("Installer") || results[0].summary.contains("installer"));
 }
@@ -14477,6 +14492,8 @@ fn test_correlate_installer_no_fire_without_both_signals() {
     // only one of the two signals — must not fire
     let raw = "Windows Installer service (msiserver) is disabled - MSI installs cannot start until it is re-enabled.";
     let results = correlate_findings(raw);
-    let fired = results.iter().any(|r| r.summary.contains("Installer") || r.summary.contains("installer"));
+    let fired = results
+        .iter()
+        .any(|r| r.summary.contains("Installer") || r.summary.contains("installer"));
     assert!(!fired, "installer rule must not fire with only one signal");
 }

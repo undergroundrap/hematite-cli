@@ -1,4 +1,4 @@
-﻿// â”€â”€â”€ Data analysis tools â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â”€â”€â”€ Data analysis tools â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Random sampling, correlation matrix, time-series analysis.
 // All use the Python code sandbox â€” no external deps, no model required.
 
@@ -14,10 +14,11 @@ pub async fn sample_data(
     split: f64,
     output: &str,
 ) -> Result<String, String> {
-    let hex_path:   String = file_path.bytes().map(|b| format!("{:02x}", b)).collect();
+    let hex_path: String = file_path.bytes().map(|b| format!("{:02x}", b)).collect();
     let hex_output: String = output.bytes().map(|b| format!("{:02x}", b)).collect();
 
-    let script = format!(r####"import csv as _csv, json as _js, sqlite3 as _sq, os, sys, random
+    let script = format!(
+        r####"import csv as _csv, json as _js, sqlite3 as _sq, os, sys, random
 
 _path   = bytes.fromhex("{hex_path}").decode().strip()
 _outdir = bytes.fromhex("{hex_output}").decode().strip()
@@ -101,12 +102,12 @@ else:
     print("# Sampled %d / %d rows  (seed=%d)" % (k, total, _seed))
     print("# Use --sample-output DIR to save to file, or --split 0.8 for train/test split")
 "####,
-        hex_path   = hex_path,
+        hex_path = hex_path,
         hex_output = hex_output,
-        n          = n,
-        fraction   = fraction,
-        seed       = seed,
-        split      = split,
+        n = n,
+        fraction = fraction,
+        seed = seed,
+        split = split,
     );
 
     let sandbox_args = serde_json::json!({
@@ -120,10 +121,11 @@ else:
 // â”€â”€ Correlation matrix â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 pub async fn correlation_matrix(file_path: &str, method: &str) -> Result<String, String> {
-    let hex_path:   String = file_path.bytes().map(|b| format!("{:02x}", b)).collect();
+    let hex_path: String = file_path.bytes().map(|b| format!("{:02x}", b)).collect();
     let hex_method: String = method.bytes().map(|b| format!("{:02x}", b)).collect();
 
-    let script = format!(r####"import csv as _csv, json as _js, sqlite3 as _sq, os, sys, math
+    let script = format!(
+        r####"import csv as _csv, json as _js, sqlite3 as _sq, os, sys, math
 
 _path   = bytes.fromhex("{hex_path}").decode().strip()
 _method = bytes.fromhex("{hex_method}").decode().strip().lower() or "pearson"
@@ -250,7 +252,7 @@ if pairs_flat:
         print("  %s  %-15s  Ã—  %-15s" % (("r=%+.4f"%v), a[:15], b[:15]))
         print("         (%s %s)" % (strength, direction))
 "####,
-        hex_path   = hex_path,
+        hex_path = hex_path,
         hex_method = hex_method,
     );
 
@@ -270,11 +272,12 @@ pub async fn timeseries_analyze(
     value_col: &str,
     window: usize,
 ) -> Result<String, String> {
-    let hex_path:     String = file_path.bytes().map(|b| format!("{:02x}", b)).collect();
+    let hex_path: String = file_path.bytes().map(|b| format!("{:02x}", b)).collect();
     let hex_date_col: String = date_col.bytes().map(|b| format!("{:02x}", b)).collect();
-    let hex_val_col:  String = value_col.bytes().map(|b| format!("{:02x}", b)).collect();
+    let hex_val_col: String = value_col.bytes().map(|b| format!("{:02x}", b)).collect();
 
-    let script = format!(r####"import csv as _csv, json as _js, sqlite3 as _sq, os, sys, math, re
+    let script = format!(
+        r####"import csv as _csv, json as _js, sqlite3 as _sq, os, sys, math, re
 
 _path     = bytes.fromhex("{hex_path}").decode().strip()
 _date_col = bytes.fromhex("{hex_date_col}").decode().strip()
@@ -394,10 +397,10 @@ for i in range(max(0,n-5), n):
     print("    %-16s  value=%g   roll_mean=%.4f%s" % (dates[i][:16], vals[i], roll_mean[i], flag))
 print("="*W)
 "####,
-        hex_path     = hex_path,
+        hex_path = hex_path,
         hex_date_col = hex_date_col,
-        hex_val_col  = hex_val_col,
-        window       = window,
+        hex_val_col = hex_val_col,
+        window = window,
     );
 
     let sandbox_args = serde_json::json!({
@@ -414,9 +417,10 @@ print("="*W)
 
 pub async fn percentile_report(file_path: &str, col: &str) -> Result<String, String> {
     let hex_path: String = file_path.bytes().map(|b| format!("{:02x}", b)).collect();
-    let hex_col:  String = col.bytes().map(|b| format!("{:02x}", b)).collect();
+    let hex_col: String = col.bytes().map(|b| format!("{:02x}", b)).collect();
 
-    let script = format!(r####"import csv as _csv, json as _js, sqlite3 as _sq, os, sys, math
+    let script = format!(
+        r####"import csv as _csv, json as _js, sqlite3 as _sq, os, sys, math
 
 _path   = bytes.fromhex("{hex_path}").decode().strip()
 _col    = bytes.fromhex("{hex_col}").decode().strip()
@@ -505,7 +509,7 @@ if len(target_cols) == 1:
     print("  Mean: %g   Std: %g   IQR: %g   N: %d" % (mean, std, iqr, len(vals)))
 "####,
         hex_path = hex_path,
-        hex_col  = hex_col,
+        hex_col = hex_col,
     );
 
     let sandbox_args = serde_json::json!({
@@ -527,13 +531,14 @@ pub async fn pivot_table(
     value_col: &str,
     agg: &str,
 ) -> Result<String, String> {
-    let hex_path:    String = file_path.bytes().map(|b| format!("{:02x}", b)).collect();
+    let hex_path: String = file_path.bytes().map(|b| format!("{:02x}", b)).collect();
     let hex_row_col: String = row_col.bytes().map(|b| format!("{:02x}", b)).collect();
     let hex_col_col: String = col_col.bytes().map(|b| format!("{:02x}", b)).collect();
     let hex_val_col: String = value_col.bytes().map(|b| format!("{:02x}", b)).collect();
-    let hex_agg:     String = agg.bytes().map(|b| format!("{:02x}", b)).collect();
+    let hex_agg: String = agg.bytes().map(|b| format!("{:02x}", b)).collect();
 
-    let script = format!(r####"import csv as _csv, json as _js, sqlite3 as _sq, os, sys
+    let script = format!(
+        r####"import csv as _csv, json as _js, sqlite3 as _sq, os, sys
 
 _path    = bytes.fromhex("{hex_path}").decode().strip()
 _row_col = bytes.fromhex("{hex_row_col}").decode().strip()
@@ -622,11 +627,11 @@ for rk in row_keys:
         print("  %-*s" % (CW, cell[:CW]), end="")
     print()
 "####,
-        hex_path    = hex_path,
+        hex_path = hex_path,
         hex_row_col = hex_row_col,
         hex_col_col = hex_col_col,
         hex_val_col = hex_val_col,
-        hex_agg     = hex_agg,
+        hex_agg = hex_agg,
     );
 
     let sandbox_args = serde_json::json!({
@@ -647,12 +652,13 @@ pub async fn linear_regression(
     predictors: &[&str],
     target: &str,
 ) -> Result<String, String> {
-    let hex_path:   String = file_path.bytes().map(|b| format!("{:02x}", b)).collect();
+    let hex_path: String = file_path.bytes().map(|b| format!("{:02x}", b)).collect();
     let hex_target: String = target.bytes().map(|b| format!("{:02x}", b)).collect();
     let preds_joined = predictors.join("\n");
-    let hex_preds:  String = preds_joined.bytes().map(|b| format!("{:02x}", b)).collect();
+    let hex_preds: String = preds_joined.bytes().map(|b| format!("{:02x}", b)).collect();
 
-    let script = format!(r####"import csv as _csv, json as _js, sqlite3 as _sq, os, sys, math
+    let script = format!(
+        r####"import csv as _csv, json as _js, sqlite3 as _sq, os, sys, math
 
 _path   = bytes.fromhex("{hex_path}").decode().strip()
 _target = bytes.fromhex("{hex_target}").decode().strip()
@@ -782,9 +788,9 @@ print("  %-10s  %-10s  %-10s" % ("Actual", "Predicted", "Residual"))
 for i3 in range(min(10,n)):
     print("  %-10.4g  %-10.4g  %-10.4g" % (y[i3], preds_vals[i3], residuals[i3]))
 "####,
-        hex_path   = hex_path,
+        hex_path = hex_path,
         hex_target = hex_target,
-        hex_preds  = hex_preds,
+        hex_preds = hex_preds,
     );
 
     let sandbox_args = serde_json::json!({
@@ -799,16 +805,13 @@ for i3 in range(min(10,n)):
 // IQR (1.5Ã— fence) and Z-score (|z|>3) detection.
 // Optional: output clean CSV with outliers removed.
 
-pub async fn detect_outliers(
-    file_path: &str,
-    col: &str,
-    output: &str,
-) -> Result<String, String> {
-    let hex_path:   String = file_path.bytes().map(|b| format!("{:02x}", b)).collect();
-    let hex_col:    String = col.bytes().map(|b| format!("{:02x}", b)).collect();
+pub async fn detect_outliers(file_path: &str, col: &str, output: &str) -> Result<String, String> {
+    let hex_path: String = file_path.bytes().map(|b| format!("{:02x}", b)).collect();
+    let hex_col: String = col.bytes().map(|b| format!("{:02x}", b)).collect();
     let hex_output: String = output.bytes().map(|b| format!("{:02x}", b)).collect();
 
-    let script = format!(r####"import csv as _csv, json as _js, sqlite3 as _sq, os, sys, math
+    let script = format!(
+        r####"import csv as _csv, json as _js, sqlite3 as _sq, os, sys, math
 
 _path   = bytes.fromhex("{hex_path}").decode().strip()
 _col    = bytes.fromhex("{hex_col}").decode().strip()
@@ -909,8 +912,8 @@ if _output and outlier_row_indices:
 elif _output:
     print("  No outliers to remove â€” output file not written.")
 "####,
-        hex_path   = hex_path,
-        hex_col    = hex_col,
+        hex_path = hex_path,
+        hex_col = hex_col,
         hex_output = hex_output,
     );
 
@@ -935,14 +938,15 @@ pub async fn plot_chart(
     title: &str,
     output: &str,
 ) -> Result<String, String> {
-    let hex_path:  String = file_path.bytes().map(|b| format!("{:02x}", b)).collect();
-    let hex_x:     String = x_col.bytes().map(|b| format!("{:02x}", b)).collect();
-    let hex_y:     String = y_col.bytes().map(|b| format!("{:02x}", b)).collect();
-    let hex_type:  String = chart_type.bytes().map(|b| format!("{:02x}", b)).collect();
+    let hex_path: String = file_path.bytes().map(|b| format!("{:02x}", b)).collect();
+    let hex_x: String = x_col.bytes().map(|b| format!("{:02x}", b)).collect();
+    let hex_y: String = y_col.bytes().map(|b| format!("{:02x}", b)).collect();
+    let hex_type: String = chart_type.bytes().map(|b| format!("{:02x}", b)).collect();
     let hex_title: String = title.bytes().map(|b| format!("{:02x}", b)).collect();
-    let hex_out:   String = output.bytes().map(|b| format!("{:02x}", b)).collect();
+    let hex_out: String = output.bytes().map(|b| format!("{:02x}", b)).collect();
 
-    let script = format!(r####"import csv as _csv, json as _js, sqlite3 as _sq, os, sys, math
+    let script = format!(
+        r####"import csv as _csv, json as _js, sqlite3 as _sq, os, sys, math
 
 _path  = bytes.fromhex("{hex_path}").decode().strip()
 _xcol  = bytes.fromhex("{hex_x}").decode().strip()
@@ -1127,12 +1131,12 @@ with open(_out, 'w', encoding='utf-8') as fh:
 print("Chart saved: %s  (%d data points  type=%s)" % (_out, len(pairs), _ctype))
 print("Open in any browser to view.")
 "####,
-        hex_path  = hex_path,
-        hex_x     = hex_x,
-        hex_y     = hex_y,
-        hex_type  = hex_type,
+        hex_path = hex_path,
+        hex_x = hex_x,
+        hex_y = hex_y,
+        hex_type = hex_type,
         hex_title = hex_title,
-        hex_out   = hex_out,
+        hex_out = hex_out,
     );
 
     let sandbox_args = serde_json::json!({
@@ -1153,9 +1157,10 @@ pub async fn fourier_analysis(
     sample_rate: f64,
 ) -> Result<String, String> {
     let hex_path: String = file_path.bytes().map(|b| format!("{:02x}", b)).collect();
-    let hex_col:  String = col.bytes().map(|b| format!("{:02x}", b)).collect();
+    let hex_col: String = col.bytes().map(|b| format!("{:02x}", b)).collect();
 
-    let script = format!(r####"import csv as _csv, json as _js, sqlite3 as _sq, os, sys, math
+    let script = format!(
+        r####"import csv as _csv, json as _js, sqlite3 as _sq, os, sys, math
 
 _path        = bytes.fromhex("{hex_path}").decode().strip()
 _col         = bytes.fromhex("{hex_col}").decode().strip()
@@ -1254,9 +1259,9 @@ print()
 print("  Top %d components contain %.1f%% of signal power." % (len(top), 100*top_power/max(total_power,1e-30)))
 print("="*W)
 "####,
-        hex_path    = hex_path,
-        hex_col     = hex_col,
-        top_n       = top_n,
+        hex_path = hex_path,
+        hex_col = hex_col,
+        top_n = top_n,
         sample_rate = sample_rate,
     );
 
@@ -1279,12 +1284,13 @@ pub async fn cluster_kmeans(
     max_iter: usize,
     output: &str,
 ) -> Result<String, String> {
-    let hex_path:   String = file_path.bytes().map(|b| format!("{:02x}", b)).collect();
+    let hex_path: String = file_path.bytes().map(|b| format!("{:02x}", b)).collect();
     let cols_joined = cols.join("\n");
-    let hex_cols:   String = cols_joined.bytes().map(|b| format!("{:02x}", b)).collect();
+    let hex_cols: String = cols_joined.bytes().map(|b| format!("{:02x}", b)).collect();
     let hex_output: String = output.bytes().map(|b| format!("{:02x}", b)).collect();
 
-    let script = format!(r####"import csv as _csv, json as _js, sqlite3 as _sq, os, sys, math, random
+    let script = format!(
+        r####"import csv as _csv, json as _js, sqlite3 as _sq, os, sys, math, random
 
 _path    = bytes.fromhex("{hex_path}").decode().strip()
 _cols_raw = bytes.fromhex("{hex_cols}").decode().strip()
@@ -1388,11 +1394,11 @@ if _output:
             w.writerow(r2)
     print("Labeled data saved to: %s" % _output)
 "####,
-        hex_path   = hex_path,
-        hex_cols   = hex_cols,
+        hex_path = hex_path,
+        hex_cols = hex_cols,
         hex_output = hex_output,
-        k          = k,
-        max_iter   = max_iter,
+        k = k,
+        max_iter = max_iter,
     );
 
     let sandbox_args = serde_json::json!({
@@ -1413,13 +1419,14 @@ pub async fn normalize_dataset(
     cols: &[&str],
     output: &str,
 ) -> Result<String, String> {
-    let hex_path:   String = file_path.bytes().map(|b| format!("{:02x}", b)).collect();
+    let hex_path: String = file_path.bytes().map(|b| format!("{:02x}", b)).collect();
     let cols_joined = cols.join("\n");
-    let hex_cols:   String = cols_joined.bytes().map(|b| format!("{:02x}", b)).collect();
+    let hex_cols: String = cols_joined.bytes().map(|b| format!("{:02x}", b)).collect();
     let hex_method: String = method.bytes().map(|b| format!("{:02x}", b)).collect();
     let hex_output: String = output.bytes().map(|b| format!("{:02x}", b)).collect();
 
-    let script = format!(r####"import csv as _csv, json as _js, sqlite3 as _sq, os, sys, math
+    let script = format!(
+        r####"import csv as _csv, json as _js, sqlite3 as _sq, os, sys, math
 
 _path    = bytes.fromhex("{hex_path}").decode().strip()
 _cols_raw = bytes.fromhex("{hex_cols}").decode().strip()
@@ -1515,8 +1522,8 @@ if _output:
 else:
     print("  (No --normalize-output specified â€” use --normalize-output FILE to save scaled CSV)")
 "####,
-        hex_path   = hex_path,
-        hex_cols   = hex_cols,
+        hex_path = hex_path,
+        hex_cols = hex_cols,
         hex_method = hex_method,
         hex_output = hex_output,
     );
@@ -1540,11 +1547,16 @@ pub async fn pca_analyze(
     cols: &[&str],
     output: &str,
 ) -> Result<String, String> {
-    let hex_path:   String = file_path.bytes().map(|b| format!("{:02x}", b)).collect();
-    let hex_cols:   String = cols.join(",").bytes().map(|b| format!("{:02x}", b)).collect();
+    let hex_path: String = file_path.bytes().map(|b| format!("{:02x}", b)).collect();
+    let hex_cols: String = cols
+        .join(",")
+        .bytes()
+        .map(|b| format!("{:02x}", b))
+        .collect();
     let hex_output: String = output.bytes().map(|b| format!("{:02x}", b)).collect();
 
-    let script = format!(r####"import csv as _csv, os, sys, math
+    let script = format!(
+        r####"import csv as _csv, os, sys, math
 
 _path   = bytes.fromhex("{hex_path}").decode().strip()
 _cstr   = bytes.fromhex("{hex_cols}").decode().strip()
@@ -1671,8 +1683,8 @@ if _output:
 else:
     print("  (Use --pca-output FILE to save projected coordinates as CSV)")
 "####,
-        hex_path   = hex_path,
-        hex_cols   = hex_cols,
+        hex_path = hex_path,
+        hex_cols = hex_cols,
         hex_output = hex_output,
         n_components = n_components,
     );
@@ -1695,11 +1707,12 @@ pub async fn hypothesis_test(
     alpha: f64,
     mu: f64,
 ) -> Result<String, String> {
-    let hex_test:   String = test_type.bytes().map(|b| format!("{:02x}", b)).collect();
-    let hex_g1:     String = group1_str.bytes().map(|b| format!("{:02x}", b)).collect();
-    let hex_g2:     String = group2_str.bytes().map(|b| format!("{:02x}", b)).collect();
+    let hex_test: String = test_type.bytes().map(|b| format!("{:02x}", b)).collect();
+    let hex_g1: String = group1_str.bytes().map(|b| format!("{:02x}", b)).collect();
+    let hex_g2: String = group2_str.bytes().map(|b| format!("{:02x}", b)).collect();
 
-    let script = format!(r####"import math, statistics as _st, sys
+    let script = format!(
+        r####"import math, statistics as _st, sys
 
 _test  = bytes.fromhex("{hex_test}").decode().strip().lower()
 _g1s   = bytes.fromhex("{hex_g1}").decode().strip()
@@ -1986,11 +1999,11 @@ else:
 
 print("="*W)
 "####,
-        hex_test   = hex_test,
-        hex_g1     = hex_g1,
-        hex_g2     = hex_g2,
-        alpha      = alpha,
-        mu         = mu,
+        hex_test = hex_test,
+        hex_g1 = hex_g1,
+        hex_g2 = hex_g2,
+        alpha = alpha,
+        mu = mu,
     );
 
     let sandbox_args = serde_json::json!({
@@ -2009,11 +2022,12 @@ pub async fn describe_stats(
     cols_str: &str,
     output: &str,
 ) -> Result<String, String> {
-    let hex_path:   String = file_path.bytes().map(|b| format!("{:02x}", b)).collect();
-    let hex_cols:   String = cols_str.bytes().map(|b| format!("{:02x}", b)).collect();
+    let hex_path: String = file_path.bytes().map(|b| format!("{:02x}", b)).collect();
+    let hex_cols: String = cols_str.bytes().map(|b| format!("{:02x}", b)).collect();
     let hex_output: String = output.bytes().map(|b| format!("{:02x}", b)).collect();
 
-    let script = format!(r####"import csv as _csv, json as _js, sqlite3 as _sq, os, math
+    let script = format!(
+        r####"import csv as _csv, json as _js, sqlite3 as _sq, os, math
 
 _path   = bytes.fromhex("{hex_path}").decode().strip()
 _cols_s = bytes.fromhex("{hex_cols}").decode().strip()
@@ -2169,8 +2183,8 @@ elif _output == '' and results:
 
 print("\n" + "=" * W)
 "####,
-        hex_path   = hex_path,
-        hex_cols   = hex_cols,
+        hex_path = hex_path,
+        hex_cols = hex_cols,
         hex_output = hex_output,
     );
 
@@ -2193,13 +2207,14 @@ pub async fn classify_data(
     k: usize,
     method: &str,
 ) -> Result<String, String> {
-    let hex_path:    String = file_path.bytes().map(|b| format!("{:02x}", b)).collect();
-    let hex_label:   String = label_col.bytes().map(|b| format!("{:02x}", b)).collect();
-    let hex_feats:   String = feature_cols.bytes().map(|b| format!("{:02x}", b)).collect();
+    let hex_path: String = file_path.bytes().map(|b| format!("{:02x}", b)).collect();
+    let hex_label: String = label_col.bytes().map(|b| format!("{:02x}", b)).collect();
+    let hex_feats: String = feature_cols.bytes().map(|b| format!("{:02x}", b)).collect();
     let hex_predict: String = predict_str.bytes().map(|b| format!("{:02x}", b)).collect();
-    let hex_method:  String = method.bytes().map(|b| format!("{:02x}", b)).collect();
+    let hex_method: String = method.bytes().map(|b| format!("{:02x}", b)).collect();
 
-    let script = format!(r####"import csv as _csv, json as _js, sqlite3 as _sq, os, math
+    let script = format!(
+        r####"import csv as _csv, json as _js, sqlite3 as _sq, os, math
 from collections import Counter, defaultdict
 
 _path    = bytes.fromhex("{hex_path}").decode().strip()
@@ -2369,12 +2384,12 @@ if _pred_s:
 
 print("="*W)
 "####,
-        hex_path    = hex_path,
-        hex_label   = hex_label,
-        hex_feats   = hex_feats,
+        hex_path = hex_path,
+        hex_label = hex_label,
+        hex_feats = hex_feats,
         hex_predict = hex_predict,
-        hex_method  = hex_method,
-        k           = k,
+        hex_method = hex_method,
+        k = k,
     );
 
     let sandbox_args = serde_json::json!({
@@ -2393,13 +2408,14 @@ pub async fn regression_analysis(
     degree: usize,
     predict_x: &str,
 ) -> Result<String, String> {
-    let hex_path:    String = file_path.bytes().map(|b| format!("{:02x}", b)).collect();
-    let hex_x_col:  String = x_col.bytes().map(|b| format!("{:02x}", b)).collect();
-    let hex_y_col:  String = y_col.bytes().map(|b| format!("{:02x}", b)).collect();
+    let hex_path: String = file_path.bytes().map(|b| format!("{:02x}", b)).collect();
+    let hex_x_col: String = x_col.bytes().map(|b| format!("{:02x}", b)).collect();
+    let hex_y_col: String = y_col.bytes().map(|b| format!("{:02x}", b)).collect();
     let hex_predict: String = predict_x.bytes().map(|b| format!("{:02x}", b)).collect();
-    let deg = degree.max(1).min(10);
+    let deg = degree.clamp(1, 10);
 
-    let script = format!(r####"import csv, sys, math
+    let script = format!(
+        r####"import csv, sys, math
 
 _path   = bytes.fromhex("{hex_path}").decode().strip()
 _x_col  = bytes.fromhex("{hex_x_col}").decode().strip()
@@ -2580,11 +2596,11 @@ if _pred_s:
         print()
 print("=" * W)
 "####,
-        hex_path    = hex_path,
-        hex_x_col   = hex_x_col,
-        hex_y_col   = hex_y_col,
+        hex_path = hex_path,
+        hex_x_col = hex_x_col,
+        hex_y_col = hex_y_col,
         hex_predict = hex_predict,
-        deg         = deg,
+        deg = deg,
     );
 
     let sandbox_args = serde_json::json!({

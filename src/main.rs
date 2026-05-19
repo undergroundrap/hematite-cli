@@ -339,61 +339,59 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     "{}",
                     serde_json::to_string_pretty(&json_out).unwrap_or_default()
                 );
+            } else if auto_cmds.is_empty() {
+                println!("\nNo safe auto-fixes available for these findings.");
             } else {
-                if auto_cmds.is_empty() {
-                    println!("\nNo safe auto-fixes available for these findings.");
+                println!("\nFound {} safe auto-fix(es):", auto_cmds.len());
+                for (i, fix) in auto_cmds.iter().enumerate() {
+                    println!("  [{}] {}", i + 1, fix.label);
+                }
+                use std::io::Write;
+                let approved = if cockpit.yes {
+                    println!("\nApplying fixes automatically (--yes)...");
+                    true
                 } else {
-                    println!("\nFound {} safe auto-fix(es):", auto_cmds.len());
-                    for (i, fix) in auto_cmds.iter().enumerate() {
-                        println!("  [{}] {}", i + 1, fix.label);
-                    }
-                    use std::io::Write;
-                    let approved = if cockpit.yes {
-                        println!("\nApplying fixes automatically (--yes)...");
-                        true
-                    } else {
-                        print!("\nRun these now? [Y/n]: ");
+                    print!("\nRun these now? [Y/n]: ");
+                    let _ = std::io::stdout().flush();
+                    let mut answer = String::new();
+                    let _ = std::io::stdin().read_line(&mut answer);
+                    !answer.trim().eq_ignore_ascii_case("n")
+                };
+                if approved {
+                    println!();
+                    for fix in &auto_cmds {
+                        print!("  Running: {}... ", fix.label);
                         let _ = std::io::stdout().flush();
-                        let mut answer = String::new();
-                        let _ = std::io::stdin().read_line(&mut answer);
-                        !answer.trim().eq_ignore_ascii_case("n")
-                    };
-                    if approved {
-                        println!();
-                        for fix in &auto_cmds {
-                            print!("  Running: {}... ", fix.label);
-                            let _ = std::io::stdout().flush();
-                            let status = std::process::Command::new("cmd")
-                                .args(["/C", fix.cmd])
-                                .stdout(std::process::Stdio::null())
-                                .stderr(std::process::Stdio::null())
-                                .status();
-                            match status {
-                                Ok(s) if s.success() => {
-                                    println!("OK");
-                                    if let (Some(topic), Some(gone)) =
-                                        (fix.verify_topic, fix.verify_gone)
-                                    {
-                                        print!("    Verifying {}... ", topic);
-                                        let _ = std::io::stdout().flush();
-                                        let verify_out =
-                                            hematite::agent::report_export::generate_inspect_output(
-                                                topic,
-                                            )
-                                            .await;
-                                        if verify_out.to_ascii_lowercase().contains(gone) {
-                                            println!("\x1B[33m✗ Still present\x1B[0m — run: hematite --fix \"{}\"", issue_str);
-                                        } else {
-                                            println!("\x1B[32m✓ Verified resolved\x1B[0m");
-                                        }
+                        let status = std::process::Command::new("cmd")
+                            .args(["/C", fix.cmd])
+                            .stdout(std::process::Stdio::null())
+                            .stderr(std::process::Stdio::null())
+                            .status();
+                        match status {
+                            Ok(s) if s.success() => {
+                                println!("OK");
+                                if let (Some(topic), Some(gone)) =
+                                    (fix.verify_topic, fix.verify_gone)
+                                {
+                                    print!("    Verifying {}... ", topic);
+                                    let _ = std::io::stdout().flush();
+                                    let verify_out =
+                                        hematite::agent::report_export::generate_inspect_output(
+                                            topic,
+                                        )
+                                        .await;
+                                    if verify_out.to_ascii_lowercase().contains(gone) {
+                                        println!("\x1B[33m✗ Still present\x1B[0m — run: hematite --fix \"{}\"", issue_str);
+                                    } else {
+                                        println!("\x1B[32m✓ Verified resolved\x1B[0m");
                                     }
                                 }
-                                Ok(s) => println!("Failed (code {})", s.code().unwrap_or(1)),
-                                Err(e) => println!("Error: {}", e),
                             }
+                            Ok(s) => println!("Failed (code {})", s.code().unwrap_or(1)),
+                            Err(e) => println!("Error: {}", e),
                         }
-                        println!("\nAuto-fix run complete.");
                     }
+                    println!("\nAuto-fix run complete.");
                 }
             }
         }
@@ -2409,7 +2407,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     if let Some(ref expr) = cockpit.convert {
         let result = hematite::tools::math_util::unit_convert(expr.trim());
         println!("{}", result.trim());
-        if cockpit.clipboard { copy_to_clipboard(&result); println!("Copied to clipboard."); }
+        if cockpit.clipboard {
+            copy_to_clipboard(&result);
+            println!("Copied to clipboard.");
+        }
         return Ok(());
     }
 
@@ -2467,20 +2468,25 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     if let Some(ref query) = cockpit.formula {
-        println!("{}", hematite::tools::scientific_ext::search_formulas(query.trim()));
+        println!(
+            "{}",
+            hematite::tools::scientific_ext::search_formulas(query.trim())
+        );
         return Ok(());
     }
 
     if let Some(ref kind) = cockpit.random {
-        let length     = cockpit.length.unwrap_or(match kind.trim() {
+        let length = cockpit.length.unwrap_or(match kind.trim() {
             "password" | "pwd" | "pass" => 20,
-            "pin"                       => 6,
-            "bytes"                     => 16,
-            _                           => 32,
+            "pin" => 6,
+            "bytes" => 16,
+            _ => 32,
         });
-        let count      = cockpit.count.unwrap_or(1) as usize;
-        let extra      = cockpit.random_args.as_deref().unwrap_or("");
-        match hematite::tools::scientific_ext::generate_random(kind.trim(), length, count, extra).await {
+        let count = cockpit.count.unwrap_or(1) as usize;
+        let extra = cockpit.random_args.as_deref().unwrap_or("");
+        match hematite::tools::scientific_ext::generate_random(kind.trim(), length, count, extra)
+            .await
+        {
             Ok(result) => {
                 println!("{}", result.trim());
                 if cockpit.clipboard {
@@ -2505,8 +2511,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             );
             std::process::exit(1);
         }
-        let path_a  = parts[0].trim();
-        let path_b  = parts[1].trim();
+        let path_a = parts[0].trim();
+        let path_b = parts[1].trim();
         let key_col = cockpit.diff_key.as_deref().unwrap_or("");
         eprintln!("Comparing {} → {}...", path_a, path_b);
         match hematite::tools::scientific_ext::diff_data(path_a, path_b, key_col).await {
@@ -2526,12 +2532,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     if let Some(ref file_path) = cockpit.describe {
-        let cols   = cockpit.column.as_deref().unwrap_or("");
+        let cols = cockpit.column.as_deref().unwrap_or("");
         let output = "";
         match hematite::tools::data_tools::describe_stats(file_path.trim(), cols, output).await {
             Ok(result) => {
                 println!("{}", result.trim());
-                if cockpit.clipboard { copy_to_clipboard(&result); println!("Copied to clipboard."); }
+                if cockpit.clipboard {
+                    copy_to_clipboard(&result);
+                    println!("Copied to clipboard.");
+                }
             }
             Err(e) => {
                 eprintln!("Error: {}", e);
@@ -2557,13 +2566,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         };
         let result = hematite::tools::math_util::matrix_calc(&query);
         println!("{}", result.trim());
-        if cockpit.clipboard { copy_to_clipboard(&result); println!("Copied to clipboard."); }
+        if cockpit.clipboard {
+            copy_to_clipboard(&result);
+            println!("Copied to clipboard.");
+        }
         return Ok(());
     }
 
     if let Some(ref eq) = cockpit.solve {
         let var = cockpit.solve_var.as_deref().unwrap_or("x");
-        let (x0, x1) = cockpit.solve_range.as_deref()
+        let (x0, x1) = cockpit
+            .solve_range
+            .as_deref()
             .and_then(|s| {
                 let mut it = s.splitn(2, ',');
                 let lo = it.next()?.trim().parse::<f64>().ok()?;
@@ -2588,10 +2602,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     if let Some(ref file_path) = cockpit.curve_fit {
-        let x_col  = cockpit.fit_x.as_deref().unwrap_or("");
-        let y_col  = cockpit.fit_y.as_deref().unwrap_or("");
-        let model  = cockpit.fit_model.as_deref().unwrap_or("auto");
-        match hematite::tools::scientific_ext::curve_fit(file_path.trim(), x_col, y_col, model).await {
+        let x_col = cockpit.fit_x.as_deref().unwrap_or("");
+        let y_col = cockpit.fit_y.as_deref().unwrap_or("");
+        let model = cockpit.fit_model.as_deref().unwrap_or("auto");
+        match hematite::tools::scientific_ext::curve_fit(file_path.trim(), x_col, y_col, model)
+            .await
+        {
             Ok(result) => {
                 println!("{}", result.trim());
                 if cockpit.clipboard {
@@ -2609,12 +2625,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     if let Some(ref expr) = cockpit.integrate {
         let var = cockpit.int_var.as_deref().unwrap_or("x");
-        let n   = cockpit.int_n.unwrap_or(1000);
+        let n = cockpit.int_n.unwrap_or(1000);
         let parse_bound = |s: Option<&str>| -> Option<f64> {
             let s = s?.trim();
             // allow "pi", "e", "2*pi", etc via simple substitutions
-            let s = s.replace("pi", &std::f64::consts::PI.to_string())
-                     .replace('e',  &std::f64::consts::E.to_string());
+            let s = s
+                .replace("pi", &std::f64::consts::PI.to_string())
+                .replace('e', &std::f64::consts::E.to_string());
             s.parse::<f64>().ok()
         };
         let lo = parse_bound(cockpit.int_from.as_deref()).unwrap_or(0.0);
@@ -2622,31 +2639,47 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         match hematite::tools::scientific_ext::integrate(expr.trim(), var, lo, hi, n).await {
             Ok(result) => {
                 println!("{}", result.trim());
-                if cockpit.clipboard { copy_to_clipboard(&result); println!("Copied to clipboard."); }
+                if cockpit.clipboard {
+                    copy_to_clipboard(&result);
+                    println!("Copied to clipboard.");
+                }
             }
-            Err(e) => { eprintln!("Error: {}", e); std::process::exit(1); }
+            Err(e) => {
+                eprintln!("Error: {}", e);
+                std::process::exit(1);
+            }
         }
         return Ok(());
     }
 
     if let Some(ref expr) = cockpit.differentiate {
-        let var   = cockpit.int_var.as_deref().unwrap_or("x");
+        let var = cockpit.int_var.as_deref().unwrap_or("x");
         let order = cockpit.order.unwrap_or(1);
         let at_str = cockpit.at.as_deref().unwrap_or("0");
-        let at = at_str.trim()
+        let at = at_str
+            .trim()
             .replace("pi", &std::f64::consts::PI.to_string())
-            .replace('e',  &std::f64::consts::E.to_string())
+            .replace('e', &std::f64::consts::E.to_string())
             .parse::<f64>()
             .unwrap_or_else(|_| {
-                eprintln!("Error: --at must be a number (got '{}'). Use --at 3.14 or --at pi", at_str);
+                eprintln!(
+                    "Error: --at must be a number (got '{}'). Use --at 3.14 or --at pi",
+                    at_str
+                );
                 std::process::exit(1);
             });
         match hematite::tools::scientific_ext::differentiate(expr.trim(), var, at, order).await {
             Ok(result) => {
                 println!("{}", result.trim());
-                if cockpit.clipboard { copy_to_clipboard(&result); println!("Copied to clipboard."); }
+                if cockpit.clipboard {
+                    copy_to_clipboard(&result);
+                    println!("Copied to clipboard.");
+                }
             }
-            Err(e) => { eprintln!("Error: {}", e); std::process::exit(1); }
+            Err(e) => {
+                eprintln!("Error: {}", e);
+                std::process::exit(1);
+            }
         }
         return Ok(());
     }
@@ -2655,9 +2688,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         match hematite::tools::scientific_ext::data_profile(file_path.trim()).await {
             Ok(result) => {
                 println!("{}", result.trim());
-                if cockpit.clipboard { copy_to_clipboard(&result); println!("Copied to clipboard."); }
+                if cockpit.clipboard {
+                    copy_to_clipboard(&result);
+                    println!("Copied to clipboard.");
+                }
             }
-            Err(e) => { eprintln!("Error: {}", e); std::process::exit(1); }
+            Err(e) => {
+                eprintln!("Error: {}", e);
+                std::process::exit(1);
+            }
         }
         return Ok(());
     }
@@ -2665,206 +2704,304 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     if let Some(n) = cockpit.prime {
         let result = hematite::tools::math_util::prime_info(n);
         println!("{}", result.trim());
-        if cockpit.clipboard { copy_to_clipboard(&result); println!("Copied to clipboard."); }
+        if cockpit.clipboard {
+            copy_to_clipboard(&result);
+            println!("Copied to clipboard.");
+        }
         return Ok(());
     }
 
     if let Some(ref kind) = cockpit.sequence {
         let count = cockpit.seq_count.unwrap_or(10);
         let start = cockpit.seq_start.unwrap_or(1.0);
-        let step  = cockpit.seq_step.unwrap_or(1.0);
+        let step = cockpit.seq_step.unwrap_or(1.0);
         let result = hematite::tools::math_util::generate_sequence(kind.trim(), count, start, step);
         println!("{}", result.trim());
-        if cockpit.clipboard { copy_to_clipboard(&result); println!("Copied to clipboard."); }
+        if cockpit.clipboard {
+            copy_to_clipboard(&result);
+            println!("Copied to clipboard.");
+        }
         return Ok(());
     }
 
     if let Some(ref nk) = cockpit.choose {
-        let parts: Vec<&str> = nk.split(|c: char| c == ',' || c == ' ').filter(|s| !s.is_empty()).collect();
+        let parts: Vec<&str> = nk.split([',', ' ']).filter(|s| !s.is_empty()).collect();
         if parts.len() < 2 {
             eprintln!("Error: --choose requires two integers N and K (e.g. --choose '10 3' or --choose '10,3')");
             std::process::exit(1);
         }
-        let n = parts[0].trim().parse::<u64>().unwrap_or_else(|_| { eprintln!("Invalid N: {}", parts[0]); std::process::exit(1); });
-        let k = parts[1].trim().parse::<u64>().unwrap_or_else(|_| { eprintln!("Invalid K: {}", parts[1]); std::process::exit(1); });
+        let n = parts[0].trim().parse::<u64>().unwrap_or_else(|_| {
+            eprintln!("Invalid N: {}", parts[0]);
+            std::process::exit(1);
+        });
+        let k = parts[1].trim().parse::<u64>().unwrap_or_else(|_| {
+            eprintln!("Invalid K: {}", parts[1]);
+            std::process::exit(1);
+        });
         let result = hematite::tools::math_util::combinatorics(n, k);
         println!("{}", result.trim());
-        if cockpit.clipboard { copy_to_clipboard(&result); println!("Copied to clipboard."); }
+        if cockpit.clipboard {
+            copy_to_clipboard(&result);
+            println!("Copied to clipboard.");
+        }
         return Ok(());
     }
 
     if let Some(ref expr) = cockpit.truth_table {
         let result = hematite::tools::math_util::truth_table(expr.trim());
         println!("{}", result.trim());
-        if cockpit.clipboard { copy_to_clipboard(&result); println!("Copied to clipboard."); }
+        if cockpit.clipboard {
+            copy_to_clipboard(&result);
+            println!("Copied to clipboard.");
+        }
         return Ok(());
     }
 
     if let Some(ref nk) = cockpit.gcd {
-        let parts: Vec<&str> = nk.split(|c: char| c == ',' || c == ' ').filter(|s| !s.is_empty()).collect();
+        let parts: Vec<&str> = nk.split([',', ' ']).filter(|s| !s.is_empty()).collect();
         if parts.len() < 2 {
             eprintln!("Error: --gcd requires two integers (e.g. --gcd '48,18' or --gcd '48 18')");
             std::process::exit(1);
         }
-        let a = parts[0].trim().parse::<u128>().unwrap_or_else(|_| { eprintln!("Invalid A: {}", parts[0]); std::process::exit(1); });
-        let b = parts[1].trim().parse::<u128>().unwrap_or_else(|_| { eprintln!("Invalid B: {}", parts[1]); std::process::exit(1); });
+        let a = parts[0].trim().parse::<u128>().unwrap_or_else(|_| {
+            eprintln!("Invalid A: {}", parts[0]);
+            std::process::exit(1);
+        });
+        let b = parts[1].trim().parse::<u128>().unwrap_or_else(|_| {
+            eprintln!("Invalid B: {}", parts[1]);
+            std::process::exit(1);
+        });
         let result = hematite::tools::math_util::gcd_lcm(a, b);
         println!("{}", result.trim());
-        if cockpit.clipboard { copy_to_clipboard(&result); println!("Copied to clipboard."); }
+        if cockpit.clipboard {
+            copy_to_clipboard(&result);
+            println!("Copied to clipboard.");
+        }
         return Ok(());
     }
 
     if let Some(ref input) = cockpit.roman {
         let result = hematite::tools::math_util::roman_info(input.trim());
         println!("{}", result.trim());
-        if cockpit.clipboard { copy_to_clipboard(&result); println!("Copied to clipboard."); }
+        if cockpit.clipboard {
+            copy_to_clipboard(&result);
+            println!("Copied to clipboard.");
+        }
         return Ok(());
     }
 
     if let Some(ref input) = cockpit.base_convert {
         let from = cockpit.base_from.unwrap_or(10);
-        let to   = cockpit.base_to.unwrap_or(2);
+        let to = cockpit.base_to.unwrap_or(2);
         let result = hematite::tools::math_util::base_convert(input.trim(), from, to);
         println!("{}", result.trim());
-        if cockpit.clipboard { copy_to_clipboard(&result); println!("Copied to clipboard."); }
+        if cockpit.clipboard {
+            copy_to_clipboard(&result);
+            println!("Copied to clipboard.");
+        }
         return Ok(());
     }
 
     if let Some(ref input) = cockpit.date {
         let result = hematite::tools::math_util::date_calc(input.trim());
         println!("{}", result.trim());
-        if cockpit.clipboard { copy_to_clipboard(&result); println!("Copied to clipboard."); }
+        if cockpit.clipboard {
+            copy_to_clipboard(&result);
+            println!("Copied to clipboard.");
+        }
         return Ok(());
     }
 
     if let Some(ref cidr) = cockpit.subnet {
         let result = hematite::tools::math_util::subnet_calc(cidr.trim());
         println!("{}", result.trim());
-        if cockpit.clipboard { copy_to_clipboard(&result); println!("Copied to clipboard."); }
+        if cockpit.clipboard {
+            copy_to_clipboard(&result);
+            println!("Copied to clipboard.");
+        }
         return Ok(());
     }
 
     if let Some(ref input) = cockpit.color {
         let result = hematite::tools::math_util::color_convert(input.trim());
         println!("{}", result.trim());
-        if cockpit.clipboard { copy_to_clipboard(&result); println!("Copied to clipboard."); }
+        if cockpit.clipboard {
+            copy_to_clipboard(&result);
+            println!("Copied to clipboard.");
+        }
         return Ok(());
     }
 
     if let Some(ref formula) = cockpit.mw {
         let result = hematite::tools::math_util::molecular_weight(formula.trim());
         println!("{}", result.trim());
-        if cockpit.clipboard { copy_to_clipboard(&result); println!("Copied to clipboard."); }
+        if cockpit.clipboard {
+            copy_to_clipboard(&result);
+            println!("Copied to clipboard.");
+        }
         return Ok(());
     }
 
     if let Some(ref query) = cockpit.r#const {
         let result = hematite::tools::math_util::physical_const(query.trim());
         println!("{}", result.trim());
-        if cockpit.clipboard { copy_to_clipboard(&result); println!("Copied to clipboard."); }
+        if cockpit.clipboard {
+            copy_to_clipboard(&result);
+            println!("Copied to clipboard.");
+        }
         return Ok(());
     }
 
     if let Some(ref query) = cockpit.normal {
         let result = hematite::tools::math_util::stat_normal(query.trim());
         println!("{}", result.trim());
-        if cockpit.clipboard { copy_to_clipboard(&result); println!("Copied to clipboard."); }
+        if cockpit.clipboard {
+            copy_to_clipboard(&result);
+            println!("Copied to clipboard.");
+        }
         return Ok(());
     }
 
     if let Some(ref expr) = cockpit.vectors {
         let result = hematite::tools::math_util::vector_calc(expr.trim());
         println!("{}", result.trim());
-        if cockpit.clipboard { copy_to_clipboard(&result); println!("Copied to clipboard."); }
+        if cockpit.clipboard {
+            copy_to_clipboard(&result);
+            println!("Copied to clipboard.");
+        }
         return Ok(());
     }
 
     if let Some(ref query) = cockpit.number_theory {
         let result = hematite::tools::math_util::number_theory(query.trim());
         println!("{}", result.trim());
-        if cockpit.clipboard { copy_to_clipboard(&result); println!("Copied to clipboard."); }
+        if cockpit.clipboard {
+            copy_to_clipboard(&result);
+            println!("Copied to clipboard.");
+        }
         return Ok(());
     }
 
     if let Some(ref query) = cockpit.simulate {
         let result = hematite::tools::math_util::simulate(query.trim());
         println!("{}", result.trim());
-        if cockpit.clipboard { copy_to_clipboard(&result); println!("Copied to clipboard."); }
+        if cockpit.clipboard {
+            copy_to_clipboard(&result);
+            println!("Copied to clipboard.");
+        }
         return Ok(());
     }
 
     if let Some(ref query) = cockpit.graph {
         let result = hematite::tools::math_util::graph_theory(query.trim());
         println!("{}", result.trim());
-        if cockpit.clipboard { copy_to_clipboard(&result); println!("Copied to clipboard."); }
+        if cockpit.clipboard {
+            copy_to_clipboard(&result);
+            println!("Copied to clipboard.");
+        }
         return Ok(());
     }
 
     if let Some(ref query) = cockpit.symbolic {
         let result = hematite::tools::math_util::symbolic_calc(query.trim());
         println!("{}", result.trim());
-        if cockpit.clipboard { copy_to_clipboard(&result); println!("Copied to clipboard."); }
+        if cockpit.clipboard {
+            copy_to_clipboard(&result);
+            println!("Copied to clipboard.");
+        }
         return Ok(());
     }
 
     if let Some(ref query) = cockpit.finance {
         let result = hematite::tools::math_util::finance_calc(query.trim());
         println!("{}", result.trim());
-        if cockpit.clipboard { copy_to_clipboard(&result); println!("Copied to clipboard."); }
+        if cockpit.clipboard {
+            copy_to_clipboard(&result);
+            println!("Copied to clipboard.");
+        }
         return Ok(());
     }
 
     if let Some(ref query) = cockpit.logic {
         let result = hematite::tools::math_util::logic_calc(query.trim());
         println!("{}", result.trim());
-        if cockpit.clipboard { copy_to_clipboard(&result); println!("Copied to clipboard."); }
+        if cockpit.clipboard {
+            copy_to_clipboard(&result);
+            println!("Copied to clipboard.");
+        }
         return Ok(());
     }
 
     if let Some(ref query) = cockpit.signal {
         let result = hematite::tools::math_util::signal_calc(query.trim());
         println!("{}", result.trim());
-        if cockpit.clipboard { copy_to_clipboard(&result); println!("Copied to clipboard."); }
+        if cockpit.clipboard {
+            copy_to_clipboard(&result);
+            println!("Copied to clipboard.");
+        }
         return Ok(());
     }
 
     if let Some(ref query) = cockpit.interpolate {
         let result = hematite::tools::math_util::interpolate_calc(query.trim());
         println!("{}", result.trim());
-        if cockpit.clipboard { copy_to_clipboard(&result); println!("Copied to clipboard."); }
+        if cockpit.clipboard {
+            copy_to_clipboard(&result);
+            println!("Copied to clipboard.");
+        }
         return Ok(());
     }
 
     if let Some(ref query) = cockpit.units {
         let result = hematite::tools::math_util::units_calc(query.trim());
         println!("{}", result.trim());
-        if cockpit.clipboard { copy_to_clipboard(&result); println!("Copied to clipboard."); }
+        if cockpit.clipboard {
+            copy_to_clipboard(&result);
+            println!("Copied to clipboard.");
+        }
         return Ok(());
     }
 
     if let Some(ref query) = cockpit.ode {
         let result = hematite::tools::math_util::ode_solve(query.trim());
         println!("{}", result.trim());
-        if cockpit.clipboard { copy_to_clipboard(&result); println!("Copied to clipboard."); }
+        if cockpit.clipboard {
+            copy_to_clipboard(&result);
+            println!("Copied to clipboard.");
+        }
         return Ok(());
     }
 
     if let Some(ref query) = cockpit.optimize {
         let result = hematite::tools::math_util::optimize_calc(query.trim());
         println!("{}", result.trim());
-        if cockpit.clipboard { copy_to_clipboard(&result); println!("Copied to clipboard."); }
+        if cockpit.clipboard {
+            copy_to_clipboard(&result);
+            println!("Copied to clipboard.");
+        }
         return Ok(());
     }
 
     if let Some(ref group1) = cockpit.hypothesis {
         let test_type = cockpit.hypothesis_test.as_deref().unwrap_or("one-t");
-        let group2    = cockpit.hypothesis_group2.as_deref().unwrap_or("");
-        let alpha     = cockpit.hypothesis_alpha.unwrap_or(0.05);
-        let mu        = cockpit.hypothesis_mu.unwrap_or(0.0);
-        match hematite::tools::data_tools::hypothesis_test(test_type, group1.trim(), group2.trim(), alpha, mu).await {
+        let group2 = cockpit.hypothesis_group2.as_deref().unwrap_or("");
+        let alpha = cockpit.hypothesis_alpha.unwrap_or(0.05);
+        let mu = cockpit.hypothesis_mu.unwrap_or(0.0);
+        match hematite::tools::data_tools::hypothesis_test(
+            test_type,
+            group1.trim(),
+            group2.trim(),
+            alpha,
+            mu,
+        )
+        .await
+        {
             Ok(result) => {
                 println!("{}", result.trim());
-                if cockpit.clipboard { copy_to_clipboard(&result); println!("Copied to clipboard."); }
+                if cockpit.clipboard {
+                    copy_to_clipboard(&result);
+                    println!("Copied to clipboard.");
+                }
             }
             Err(e) => eprintln!("hypothesis-test error: {}", e),
         }
@@ -2872,15 +3009,27 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     if let Some(ref file_path) = cockpit.classify {
-        let label   = cockpit.classify_label.as_deref().unwrap_or("");
-        let feats   = cockpit.classify_cols.as_deref().unwrap_or("");
+        let label = cockpit.classify_label.as_deref().unwrap_or("");
+        let feats = cockpit.classify_cols.as_deref().unwrap_or("");
         let predict = cockpit.classify_predict.as_deref().unwrap_or("");
-        let k       = cockpit.classify_k.unwrap_or(3);
-        let method  = cockpit.classify_method.as_deref().unwrap_or("knn");
-        match hematite::tools::data_tools::classify_data(file_path.trim(), label, feats, predict, k, method).await {
+        let k = cockpit.classify_k.unwrap_or(3);
+        let method = cockpit.classify_method.as_deref().unwrap_or("knn");
+        match hematite::tools::data_tools::classify_data(
+            file_path.trim(),
+            label,
+            feats,
+            predict,
+            k,
+            method,
+        )
+        .await
+        {
             Ok(result) => {
                 println!("{}", result.trim());
-                if cockpit.clipboard { copy_to_clipboard(&result); println!("Copied to clipboard."); }
+                if cockpit.clipboard {
+                    copy_to_clipboard(&result);
+                    println!("Copied to clipboard.");
+                }
             }
             Err(e) => eprintln!("classify error: {}", e),
         }
@@ -2888,14 +3037,25 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     if let Some(ref file_path) = cockpit.polyfit {
-        let x_col   = cockpit.polyfit_x.as_deref().unwrap_or("");
-        let y_col   = cockpit.polyfit_y.as_deref().unwrap_or("");
-        let degree  = cockpit.polyfit_degree.unwrap_or(1);
+        let x_col = cockpit.polyfit_x.as_deref().unwrap_or("");
+        let y_col = cockpit.polyfit_y.as_deref().unwrap_or("");
+        let degree = cockpit.polyfit_degree.unwrap_or(1);
         let predict = cockpit.polyfit_predict.as_deref().unwrap_or("");
-        match hematite::tools::data_tools::regression_analysis(file_path.trim(), x_col, y_col, degree, predict).await {
+        match hematite::tools::data_tools::regression_analysis(
+            file_path.trim(),
+            x_col,
+            y_col,
+            degree,
+            predict,
+        )
+        .await
+        {
             Ok(result) => {
                 println!("{}", result.trim());
-                if cockpit.clipboard { copy_to_clipboard(&result); println!("Copied to clipboard."); }
+                if cockpit.clipboard {
+                    copy_to_clipboard(&result);
+                    println!("Copied to clipboard.");
+                }
             }
             Err(e) => eprintln!("polyfit error: {}", e),
         }
@@ -2905,81 +3065,121 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     if let Some(ref query) = cockpit.probability {
         let result = hematite::tools::math_util::prob_calc(query.trim());
         println!("{}", result.trim());
-        if cockpit.clipboard { copy_to_clipboard(&result); println!("Copied to clipboard."); }
+        if cockpit.clipboard {
+            copy_to_clipboard(&result);
+            println!("Copied to clipboard.");
+        }
         return Ok(());
     }
 
     if let Some(ref query) = cockpit.bitwise {
         let result = hematite::tools::math_util::bitwise_calc(query.trim());
         println!("{}", result.trim());
-        if cockpit.clipboard { copy_to_clipboard(&result); println!("Copied to clipboard."); }
+        if cockpit.clipboard {
+            copy_to_clipboard(&result);
+            println!("Copied to clipboard.");
+        }
         return Ok(());
     }
 
     if let Some(ref query) = cockpit.set {
         let result = hematite::tools::math_util::set_calc(query.trim());
         println!("{}", result.trim());
-        if cockpit.clipboard { copy_to_clipboard(&result); println!("Copied to clipboard."); }
+        if cockpit.clipboard {
+            copy_to_clipboard(&result);
+            println!("Copied to clipboard.");
+        }
         return Ok(());
     }
 
     if let Some(ref query) = cockpit.cipher {
         let result = hematite::tools::math_util::cipher_calc(query.trim());
         println!("{}", result.trim());
-        if cockpit.clipboard { copy_to_clipboard(&result); println!("Copied to clipboard."); }
+        if cockpit.clipboard {
+            copy_to_clipboard(&result);
+            println!("Copied to clipboard.");
+        }
         return Ok(());
     }
 
     if let Some(ref text) = cockpit.text_stats {
         let result = hematite::tools::math_util::text_stats(text.trim());
         println!("{}", result.trim());
-        if cockpit.clipboard { copy_to_clipboard(&result); println!("Copied to clipboard."); }
+        if cockpit.clipboard {
+            copy_to_clipboard(&result);
+            println!("Copied to clipboard.");
+        }
         return Ok(());
     }
 
     if let Some(ref query) = cockpit.levenshtein {
         let result = hematite::tools::math_util::string_dist(query.trim());
         println!("{}", result.trim());
-        if cockpit.clipboard { copy_to_clipboard(&result); println!("Copied to clipboard."); }
+        if cockpit.clipboard {
+            copy_to_clipboard(&result);
+            println!("Copied to clipboard.");
+        }
         return Ok(());
     }
 
     if let Some(ref query) = cockpit.number_format {
         let result = hematite::tools::math_util::number_format(query.trim());
         println!("{}", result.trim());
-        if cockpit.clipboard { copy_to_clipboard(&result); println!("Copied to clipboard."); }
+        if cockpit.clipboard {
+            copy_to_clipboard(&result);
+            println!("Copied to clipboard.");
+        }
         return Ok(());
     }
 
     if let Some(ref query) = cockpit.sort_viz {
         let result = hematite::tools::math_util::sort_viz(query.trim());
         println!("{}", result.trim());
-        if cockpit.clipboard { copy_to_clipboard(&result); println!("Copied to clipboard."); }
+        if cockpit.clipboard {
+            copy_to_clipboard(&result);
+            println!("Copied to clipboard.");
+        }
         return Ok(());
     }
 
     if let Some(ref text) = cockpit.checksum {
         let result = hematite::tools::math_util::checksum_calc(text.trim());
         println!("{}", result.trim());
-        if cockpit.clipboard { copy_to_clipboard(&result); println!("Copied to clipboard."); }
+        if cockpit.clipboard {
+            copy_to_clipboard(&result);
+            println!("Copied to clipboard.");
+        }
         return Ok(());
     }
 
     if let Some(ref text) = cockpit.validate {
         let result = hematite::tools::math_util::validate_calc(text.trim());
         println!("{}", result.trim());
-        if cockpit.clipboard { copy_to_clipboard(&result); println!("Copied to clipboard."); }
+        if cockpit.clipboard {
+            copy_to_clipboard(&result);
+            println!("Copied to clipboard.");
+        }
         return Ok(());
     }
 
     if let Some(ref file_path) = cockpit.fourier {
-        let col         = cockpit.fourier_col.as_deref().unwrap_or("");
-        let top_n       = cockpit.fourier_top.unwrap_or(10);
+        let col = cockpit.fourier_col.as_deref().unwrap_or("");
+        let top_n = cockpit.fourier_top.unwrap_or(10);
         let sample_rate = cockpit.fourier_rate.unwrap_or(1.0);
-        match hematite::tools::data_tools::fourier_analysis(file_path.trim(), col, top_n, sample_rate).await {
+        match hematite::tools::data_tools::fourier_analysis(
+            file_path.trim(),
+            col,
+            top_n,
+            sample_rate,
+        )
+        .await
+        {
             Ok(result) => {
                 println!("{}", result.trim());
-                if cockpit.clipboard { copy_to_clipboard(&result); println!("Copied to clipboard."); }
+                if cockpit.clipboard {
+                    copy_to_clipboard(&result);
+                    println!("Copied to clipboard.");
+                }
             }
             Err(e) => eprintln!("Error: {}", e),
         }
@@ -2987,14 +3187,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     if let Some(ref file_path) = cockpit.cluster {
-        let k        = cockpit.cluster_k.unwrap_or(3);
+        let k = cockpit.cluster_k.unwrap_or(3);
         let cols_str = cockpit.cluster_cols.as_deref().unwrap_or("");
-        let cols: Vec<&str> = if cols_str.is_empty() { vec![] } else { cols_str.split(',').map(str::trim).collect() };
-        let output   = cockpit.cluster_output.as_deref().unwrap_or("");
-        match hematite::tools::data_tools::cluster_kmeans(file_path.trim(), k, &cols, 300, output).await {
+        let cols: Vec<&str> = if cols_str.is_empty() {
+            vec![]
+        } else {
+            cols_str.split(',').map(str::trim).collect()
+        };
+        let output = cockpit.cluster_output.as_deref().unwrap_or("");
+        match hematite::tools::data_tools::cluster_kmeans(file_path.trim(), k, &cols, 300, output)
+            .await
+        {
             Ok(result) => {
                 println!("{}", result.trim());
-                if cockpit.clipboard { copy_to_clipboard(&result); println!("Copied to clipboard."); }
+                if cockpit.clipboard {
+                    copy_to_clipboard(&result);
+                    println!("Copied to clipboard.");
+                }
             }
             Err(e) => eprintln!("Error: {}", e),
         }
@@ -3002,14 +3211,28 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     if let Some(ref file_path) = cockpit.normalize {
-        let method   = cockpit.normalize_method.as_deref().unwrap_or("minmax");
+        let method = cockpit.normalize_method.as_deref().unwrap_or("minmax");
         let cols_str = cockpit.normalize_cols.as_deref().unwrap_or("");
-        let cols: Vec<&str> = if cols_str.is_empty() { vec![] } else { cols_str.split(',').map(str::trim).collect() };
-        let output   = cockpit.normalize_output.as_deref().unwrap_or("");
-        match hematite::tools::data_tools::normalize_dataset(file_path.trim(), method, &cols, output).await {
+        let cols: Vec<&str> = if cols_str.is_empty() {
+            vec![]
+        } else {
+            cols_str.split(',').map(str::trim).collect()
+        };
+        let output = cockpit.normalize_output.as_deref().unwrap_or("");
+        match hematite::tools::data_tools::normalize_dataset(
+            file_path.trim(),
+            method,
+            &cols,
+            output,
+        )
+        .await
+        {
             Ok(result) => {
                 println!("{}", result.trim());
-                if cockpit.clipboard { copy_to_clipboard(&result); println!("Copied to clipboard."); }
+                if cockpit.clipboard {
+                    copy_to_clipboard(&result);
+                    println!("Copied to clipboard.");
+                }
             }
             Err(e) => eprintln!("Error: {}", e),
         }
@@ -3017,14 +3240,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     if let Some(ref file_path) = cockpit.pca {
-        let n_comp   = cockpit.pca_components.unwrap_or(3);
+        let n_comp = cockpit.pca_components.unwrap_or(3);
         let cols_str = cockpit.pca_cols.as_deref().unwrap_or("");
-        let cols: Vec<&str> = if cols_str.is_empty() { vec![] } else { cols_str.split(',').map(str::trim).collect() };
-        let output   = cockpit.pca_output.as_deref().unwrap_or("");
-        match hematite::tools::data_tools::pca_analyze(file_path.trim(), n_comp, &cols, output).await {
+        let cols: Vec<&str> = if cols_str.is_empty() {
+            vec![]
+        } else {
+            cols_str.split(',').map(str::trim).collect()
+        };
+        let output = cockpit.pca_output.as_deref().unwrap_or("");
+        match hematite::tools::data_tools::pca_analyze(file_path.trim(), n_comp, &cols, output)
+            .await
+        {
             Ok(result) => {
                 println!("{}", result.trim());
-                if cockpit.clipboard { copy_to_clipboard(&result); println!("Copied to clipboard."); }
+                if cockpit.clipboard {
+                    copy_to_clipboard(&result);
+                    println!("Copied to clipboard.");
+                }
             }
             Err(e) => eprintln!("Error: {}", e),
         }
@@ -3036,7 +3268,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         match hematite::tools::data_tools::percentile_report(file_path.trim(), col).await {
             Ok(result) => {
                 println!("{}", result.trim());
-                if cockpit.clipboard { copy_to_clipboard(&result); println!("Copied to clipboard."); }
+                if cockpit.clipboard {
+                    copy_to_clipboard(&result);
+                    println!("Copied to clipboard.");
+                }
             }
             Err(e) => eprintln!("Error: {}", e),
         }
@@ -3047,11 +3282,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let row_col = cockpit.pivot_row.as_deref().unwrap_or("");
         let col_col = cockpit.pivot_col.as_deref().unwrap_or("");
         let val_col = cockpit.pivot_val.as_deref().unwrap_or("");
-        let agg     = cockpit.pivot_agg.as_deref().unwrap_or("count");
-        match hematite::tools::data_tools::pivot_table(file_path.trim(), row_col, col_col, val_col, agg).await {
+        let agg = cockpit.pivot_agg.as_deref().unwrap_or("count");
+        match hematite::tools::data_tools::pivot_table(
+            file_path.trim(),
+            row_col,
+            col_col,
+            val_col,
+            agg,
+        )
+        .await
+        {
             Ok(result) => {
                 println!("{}", result.trim());
-                if cockpit.clipboard { copy_to_clipboard(&result); println!("Copied to clipboard."); }
+                if cockpit.clipboard {
+                    copy_to_clipboard(&result);
+                    println!("Copied to clipboard.");
+                }
             }
             Err(e) => eprintln!("Error: {}", e),
         }
@@ -3066,10 +3312,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         } else {
             preds_str.split(',').map(str::trim).collect()
         };
-        match hematite::tools::data_tools::linear_regression(file_path.trim(), &preds, target).await {
+        match hematite::tools::data_tools::linear_regression(file_path.trim(), &preds, target).await
+        {
             Ok(result) => {
                 println!("{}", result.trim());
-                if cockpit.clipboard { copy_to_clipboard(&result); println!("Copied to clipboard."); }
+                if cockpit.clipboard {
+                    copy_to_clipboard(&result);
+                    println!("Copied to clipboard.");
+                }
             }
             Err(e) => eprintln!("Error: {}", e),
         }
@@ -3077,12 +3327,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     if let Some(ref file_path) = cockpit.outliers {
-        let col    = cockpit.outlier_col.as_deref().unwrap_or("");
+        let col = cockpit.outlier_col.as_deref().unwrap_or("");
         let output = cockpit.outlier_output.as_deref().unwrap_or("");
         match hematite::tools::data_tools::detect_outliers(file_path.trim(), col, output).await {
             Ok(result) => {
                 println!("{}", result.trim());
-                if cockpit.clipboard { copy_to_clipboard(&result); println!("Copied to clipboard."); }
+                if cockpit.clipboard {
+                    copy_to_clipboard(&result);
+                    println!("Copied to clipboard.");
+                }
             }
             Err(e) => eprintln!("Error: {}", e),
         }
@@ -3090,12 +3343,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     if let Some(ref file_path) = cockpit.plot {
-        let x_col      = cockpit.plot_x.as_deref().unwrap_or("");
-        let y_col      = cockpit.plot_y.as_deref().unwrap_or("");
+        let x_col = cockpit.plot_x.as_deref().unwrap_or("");
+        let y_col = cockpit.plot_y.as_deref().unwrap_or("");
         let chart_type = cockpit.plot_type.as_deref().unwrap_or("line");
-        let title      = cockpit.plot_title.as_deref().unwrap_or("");
-        let output     = cockpit.plot_output.as_deref().unwrap_or("");
-        match hematite::tools::data_tools::plot_chart(file_path.trim(), x_col, y_col, chart_type, title, output).await {
+        let title = cockpit.plot_title.as_deref().unwrap_or("");
+        let output = cockpit.plot_output.as_deref().unwrap_or("");
+        match hematite::tools::data_tools::plot_chart(
+            file_path.trim(),
+            x_col,
+            y_col,
+            chart_type,
+            title,
+            output,
+        )
+        .await
+        {
             Ok(result) => {
                 println!("{}", result.trim());
                 // Auto-open if --open flag set
@@ -3111,7 +3373,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     };
                     open_path(std::path::Path::new(&svg_path));
                 }
-                if cockpit.clipboard { copy_to_clipboard(&result); println!("Copied to clipboard."); }
+                if cockpit.clipboard {
+                    copy_to_clipboard(&result);
+                    println!("Copied to clipboard.");
+                }
             }
             Err(e) => eprintln!("Error: {}", e),
         }
@@ -3119,15 +3384,27 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     if let Some(ref file_path) = cockpit.sample {
-        let n       = cockpit.sample_n.unwrap_or(0);
-        let frac    = cockpit.sample_frac.unwrap_or(0.0);
-        let seed    = cockpit.sample_seed.unwrap_or(42);
-        let split   = cockpit.split.unwrap_or(0.0);
+        let n = cockpit.sample_n.unwrap_or(0);
+        let frac = cockpit.sample_frac.unwrap_or(0.0);
+        let seed = cockpit.sample_seed.unwrap_or(42);
+        let split = cockpit.split.unwrap_or(0.0);
         let out_dir = cockpit.sample_output.as_deref().unwrap_or("");
-        match hematite::tools::data_tools::sample_data(file_path.trim(), n, frac, seed, split, out_dir).await {
+        match hematite::tools::data_tools::sample_data(
+            file_path.trim(),
+            n,
+            frac,
+            seed,
+            split,
+            out_dir,
+        )
+        .await
+        {
             Ok(result) => {
                 println!("{}", result.trim());
-                if cockpit.clipboard { copy_to_clipboard(&result); println!("Copied to clipboard."); }
+                if cockpit.clipboard {
+                    copy_to_clipboard(&result);
+                    println!("Copied to clipboard.");
+                }
             }
             Err(e) => eprintln!("Error: {}", e),
         }
@@ -3139,7 +3416,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         match hematite::tools::data_tools::correlation_matrix(file_path.trim(), method).await {
             Ok(result) => {
                 println!("{}", result.trim());
-                if cockpit.clipboard { copy_to_clipboard(&result); println!("Copied to clipboard."); }
+                if cockpit.clipboard {
+                    copy_to_clipboard(&result);
+                    println!("Copied to clipboard.");
+                }
             }
             Err(e) => eprintln!("Error: {}", e),
         }
@@ -3148,12 +3428,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     if let Some(ref file_path) = cockpit.timeseries {
         let date_col = cockpit.ts_date.as_deref().unwrap_or("");
-        let val_col  = cockpit.ts_value.as_deref().unwrap_or("");
-        let window   = cockpit.ts_window.unwrap_or(7);
-        match hematite::tools::data_tools::timeseries_analyze(file_path.trim(), date_col, val_col, window).await {
+        let val_col = cockpit.ts_value.as_deref().unwrap_or("");
+        let window = cockpit.ts_window.unwrap_or(7);
+        match hematite::tools::data_tools::timeseries_analyze(
+            file_path.trim(),
+            date_col,
+            val_col,
+            window,
+        )
+        .await
+        {
             Ok(result) => {
                 println!("{}", result.trim());
-                if cockpit.clipboard { copy_to_clipboard(&result); println!("Copied to clipboard."); }
+                if cockpit.clipboard {
+                    copy_to_clipboard(&result);
+                    println!("Copied to clipboard.");
+                }
             }
             Err(e) => eprintln!("Error: {}", e),
         }
@@ -3187,7 +3477,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
 
-
     if let Some(ref path_str) = cockpit.analyze {
         let path_str = path_str.trim();
         eprintln!("Analyzing: {}...", path_str);
@@ -3202,7 +3491,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let ts = hematite::agent::report_export::timestamp_label();
         let safe_ts: String = ts
             .chars()
-            .map(|c| if c.is_alphanumeric() || c == '-' { c } else { '_' })
+            .map(|c| {
+                if c.is_alphanumeric() || c == '-' {
+                    c
+                } else {
+                    '_'
+                }
+            })
             .collect();
         let fmt = cockpit.report_format.trim().to_ascii_lowercase();
         let report_dir = hematite::tools::file_ops::hematite_dir().join("reports");
@@ -3237,7 +3532,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             open_path(&report_path);
         }
         if cockpit.notify {
-            show_toast("Hematite Analyze", &format!("Profile complete: {}", path_str));
+            show_toast(
+                "Hematite Analyze",
+                &format!("Profile complete: {}", path_str),
+            );
         }
         return Ok(());
     }

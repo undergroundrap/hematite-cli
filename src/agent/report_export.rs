@@ -1587,6 +1587,7 @@ static AUTO_CMD_AC: std::sync::OnceLock<AutoCmdAc> = std::sync::OnceLock::new();
 fn auto_cmd_ac() -> &'static AutoCmdAc {
     AUTO_CMD_AC.get_or_init(|| {
         // (trigger, label, cmd, verify_topic, verify_gone, include_in_sweep)
+        #[allow(clippy::type_complexity)]
         const SAFE: &[(&str, &str, &str, Option<&str>, Option<&str>, bool)] = &[
             (
                 "dns: failed",

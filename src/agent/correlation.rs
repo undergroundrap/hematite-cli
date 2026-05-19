@@ -4,7 +4,6 @@
 /// Each rule requires ALL of its signals to appear in the combined raw output
 /// (AND logic). When a rule fires it means two or more separate topics reported
 /// conditions that almost certainly trace back to one underlying problem.
-
 pub struct CorrelatedFinding {
     pub confidence: &'static str, // "HIGH" or "MEDIUM"
     pub summary: &'static str,    // one-sentence root cause

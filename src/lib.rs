@@ -618,10 +618,20 @@ pub struct CliCockpit {
     )]
     pub plot_y: Option<String>,
 
-    #[arg(long, help_heading = "Headless Reports", value_name = "TEXT", help = "Chart title for --plot (auto-generated if omitted).")]
+    #[arg(
+        long,
+        help_heading = "Headless Reports",
+        value_name = "TEXT",
+        help = "Chart title for --plot (auto-generated if omitted)."
+    )]
     pub plot_title: Option<String>,
 
-    #[arg(long, help_heading = "Headless Reports", value_name = "FILE", help = "Output SVG file path for --plot (default: <input>_plot.svg).")]
+    #[arg(
+        long,
+        help_heading = "Headless Reports",
+        value_name = "FILE",
+        help = "Output SVG file path for --plot (default: <input>_plot.svg)."
+    )]
     pub plot_output: Option<String>,
 
     #[arg(
@@ -640,13 +650,28 @@ pub struct CliCockpit {
     )]
     pub fourier: Option<String>,
 
-    #[arg(long, help_heading = "Data Analysis", value_name = "COL", help = "Column to analyze with --fourier (auto-detected if omitted).")]
+    #[arg(
+        long,
+        help_heading = "Data Analysis",
+        value_name = "COL",
+        help = "Column to analyze with --fourier (auto-detected if omitted)."
+    )]
     pub fourier_col: Option<String>,
 
-    #[arg(long, help_heading = "Data Analysis", value_name = "N", help = "Number of top frequency components to report for --fourier (default 10).")]
+    #[arg(
+        long,
+        help_heading = "Data Analysis",
+        value_name = "N",
+        help = "Number of top frequency components to report for --fourier (default 10)."
+    )]
     pub fourier_top: Option<usize>,
 
-    #[arg(long, help_heading = "Data Analysis", value_name = "HZ", help = "Sample rate in Hz for --fourier (default 1.0 — reports normalized frequencies).")]
+    #[arg(
+        long,
+        help_heading = "Data Analysis",
+        value_name = "HZ",
+        help = "Sample rate in Hz for --fourier (default 1.0 — reports normalized frequencies)."
+    )]
     pub fourier_rate: Option<f64>,
 
     #[arg(
@@ -657,13 +682,28 @@ pub struct CliCockpit {
     )]
     pub cluster: Option<String>,
 
-    #[arg(long, help_heading = "Data Analysis", value_name = "N", help = "Number of clusters for --cluster (default 3).")]
+    #[arg(
+        long,
+        help_heading = "Data Analysis",
+        value_name = "N",
+        help = "Number of clusters for --cluster (default 3)."
+    )]
     pub cluster_k: Option<usize>,
 
-    #[arg(long, help_heading = "Data Analysis", value_name = "COL1,COL2,...", help = "Feature columns for --cluster, comma-separated (default: all numeric).")]
+    #[arg(
+        long,
+        help_heading = "Data Analysis",
+        value_name = "COL1,COL2,...",
+        help = "Feature columns for --cluster, comma-separated (default: all numeric)."
+    )]
     pub cluster_cols: Option<String>,
 
-    #[arg(long, help_heading = "Data Analysis", value_name = "FILE", help = "Output CSV with cluster labels appended for --cluster.")]
+    #[arg(
+        long,
+        help_heading = "Data Analysis",
+        value_name = "FILE",
+        help = "Output CSV with cluster labels appended for --cluster."
+    )]
     pub cluster_output: Option<String>,
 
     #[arg(
@@ -674,91 +714,242 @@ pub struct CliCockpit {
     )]
     pub normalize: Option<String>,
 
-    #[arg(long, help_heading = "Data Analysis", value_name = "METHOD", help = "Normalization method: minmax (default), zscore, robust.")]
+    #[arg(
+        long,
+        help_heading = "Data Analysis",
+        value_name = "METHOD",
+        help = "Normalization method: minmax (default), zscore, robust."
+    )]
     pub normalize_method: Option<String>,
 
-    #[arg(long, help_heading = "Data Analysis", value_name = "COL1,COL2,...", help = "Columns to normalize for --normalize, comma-separated (default: all numeric).")]
+    #[arg(
+        long,
+        help_heading = "Data Analysis",
+        value_name = "COL1,COL2,...",
+        help = "Columns to normalize for --normalize, comma-separated (default: all numeric)."
+    )]
     pub normalize_cols: Option<String>,
 
-    #[arg(long, help_heading = "Data Analysis", value_name = "FILE", help = "Output CSV with normalized values for --normalize.")]
+    #[arg(
+        long,
+        help_heading = "Data Analysis",
+        value_name = "FILE",
+        help = "Output CSV with normalized values for --normalize."
+    )]
     pub normalize_output: Option<String>,
 
-    #[arg(long, help_heading = "Data Analysis", value_name = "FILE", help = "Run PCA on a CSV/TSV file. Reports eigenvalues, variance explained per component, and top loadings. Example: hematite --pca data.csv --pca-components 3")]
+    #[arg(
+        long,
+        help_heading = "Data Analysis",
+        value_name = "FILE",
+        help = "Run PCA on a CSV/TSV file. Reports eigenvalues, variance explained per component, and top loadings. Example: hematite --pca data.csv --pca-components 3"
+    )]
     pub pca: Option<String>,
 
-    #[arg(long, help_heading = "Data Analysis", value_name = "N", help = "Number of principal components to compute for --pca (default: 3).")]
+    #[arg(
+        long,
+        help_heading = "Data Analysis",
+        value_name = "N",
+        help = "Number of principal components to compute for --pca (default: 3)."
+    )]
     pub pca_components: Option<usize>,
 
-    #[arg(long, help_heading = "Data Analysis", value_name = "COL1,COL2,...", help = "Columns to include in --pca, comma-separated (default: all numeric).")]
+    #[arg(
+        long,
+        help_heading = "Data Analysis",
+        value_name = "COL1,COL2,...",
+        help = "Columns to include in --pca, comma-separated (default: all numeric)."
+    )]
     pub pca_cols: Option<String>,
 
-    #[arg(long, help_heading = "Data Analysis", value_name = "FILE", help = "Output CSV with projected coordinates for --pca.")]
+    #[arg(
+        long,
+        help_heading = "Data Analysis",
+        value_name = "FILE",
+        help = "Output CSV with projected coordinates for --pca."
+    )]
     pub pca_output: Option<String>,
 
-    #[arg(long, help_heading = "Math & Science", value_name = "QUERY", help = "Graph theory — parse an edge list and run BFS/DFS/Dijkstra/components/topo-sort. Example: hematite --graph 'shortest A D\\nA B 2\\nB D 3'")]
+    #[arg(
+        long,
+        help_heading = "Math & Science",
+        value_name = "QUERY",
+        help = "Graph theory — parse an edge list and run BFS/DFS/Dijkstra/components/topo-sort. Example: hematite --graph 'shortest A D\\nA B 2\\nB D 3'"
+    )]
     pub graph: Option<String>,
 
-    #[arg(long, help_heading = "Math & Science", value_name = "QUERY", help = "Symbolic calculus — differentiate, integrate, simplify, or evaluate. Example: hematite --symbolic 'diff x^3 + sin(x)'  or  'integrate 3*x^2'  or  'x^2+1 at x=5'")]
+    #[arg(
+        long,
+        help_heading = "Math & Science",
+        value_name = "QUERY",
+        help = "Symbolic calculus — differentiate, integrate, simplify, or evaluate. Example: hematite --symbolic 'diff x^3 + sin(x)'  or  'integrate 3*x^2'  or  'x^2+1 at x=5'"
+    )]
     pub symbolic: Option<String>,
 
-    #[arg(long, help_heading = "Math & Science", value_name = "QUERY", help = "Financial math — NPV, IRR, loan amortization, compound interest, bond pricing, Black-Scholes. Example: hematite --finance 'loan 200000 6.5% 30'  or  'bs 100 100 5% 20% 1 call'")]
+    #[arg(
+        long,
+        help_heading = "Math & Science",
+        value_name = "QUERY",
+        help = "Financial math — NPV, IRR, loan amortization, compound interest, bond pricing, Black-Scholes. Example: hematite --finance 'loan 200000 6.5% 30'  or  'bs 100 100 5% 20% 1 call'"
+    )]
     pub finance: Option<String>,
 
-    #[arg(long, help_heading = "Math & Science", value_name = "QUERY", help = "Propositional logic — truth table, SAT, tautology, CNF/DNF, equivalence, simplify. Example: hematite --logic 'A and (B or not C)'  or  'equiv A->B ; not A or B'")]
+    #[arg(
+        long,
+        help_heading = "Math & Science",
+        value_name = "QUERY",
+        help = "Propositional logic — truth table, SAT, tautology, CNF/DNF, equivalence, simplify. Example: hematite --logic 'A and (B or not C)'  or  'equiv A->B ; not A or B'"
+    )]
     pub logic: Option<String>,
 
-    #[arg(long, help_heading = "Math & Science", value_name = "QUERY", help = "Signal processing (DSP) — DFT, convolution, cross-correlation, moving average, FIR filter design, waveform generation. No model, no cloud. Example: hematite --signal 'dft 1,0,-1,0'  or  'lowpass 0.1 31 hamming'  or  'gen sine 2 64'")]
+    #[arg(
+        long,
+        help_heading = "Math & Science",
+        value_name = "QUERY",
+        help = "Signal processing (DSP) — DFT, convolution, cross-correlation, moving average, FIR filter design, waveform generation. No model, no cloud. Example: hematite --signal 'dft 1,0,-1,0'  or  'lowpass 0.1 31 hamming'  or  'gen sine 2 64'"
+    )]
     pub signal: Option<String>,
 
-    #[arg(long, help_heading = "Math & Science", value_name = "QUERY", help = "Interpolation & curve fitting — linear, cubic spline, Lagrange polynomial, nearest-neighbor, with ASCII curve preview. Example: hematite --interpolate 'spline 0,0 1,1 2,4 3,9 at 1.5'  or  'linear 0,0 10,100 at 3,7'")]
+    #[arg(
+        long,
+        help_heading = "Math & Science",
+        value_name = "QUERY",
+        help = "Interpolation & curve fitting — linear, cubic spline, Lagrange polynomial, nearest-neighbor, with ASCII curve preview. Example: hematite --interpolate 'spline 0,0 1,1 2,4 3,9 at 1.5'  or  'linear 0,0 10,100 at 3,7'"
+    )]
     pub interpolate: Option<String>,
 
-    #[arg(long, help_heading = "Math & Science", value_name = "QUERY", help = "Unit conversion — 14 categories, 130+ units. Length, mass, temperature, energy, digital storage, pressure, angle, and more. Example: hematite --units '100 km to miles'  or  '98.6 f to c'  or  '5 kg'  or  'list length'")]
+    #[arg(
+        long,
+        help_heading = "Math & Science",
+        value_name = "QUERY",
+        help = "Unit conversion — 14 categories, 130+ units. Length, mass, temperature, energy, digital storage, pressure, angle, and more. Example: hematite --units '100 km to miles'  or  '98.6 f to c'  or  '5 kg'  or  'list length'"
+    )]
     pub units: Option<String>,
 
-    #[arg(long, help_heading = "Math & Science", value_name = "QUERY", help = "ODE solver — solves ordinary differential equations using Euler, RK4, or adaptive RK45. Preset models: logistic, exponential, Lotka-Volterra, SIR. Example: hematite --ode 'dy/dt = -y  y0=1  t=5'  or  'logistic r=1 K=100 y0=5 t=10'")]
+    #[arg(
+        long,
+        help_heading = "Math & Science",
+        value_name = "QUERY",
+        help = "ODE solver — solves ordinary differential equations using Euler, RK4, or adaptive RK45. Preset models: logistic, exponential, Lotka-Volterra, SIR. Example: hematite --ode 'dy/dt = -y  y0=1  t=5'  or  'logistic r=1 K=100 y0=5 t=10'"
+    )]
     pub ode: Option<String>,
 
-    #[arg(long, help_heading = "Math & Science", value_name = "QUERY", help = "Numerical optimization — minimize/maximize 1D/2D functions, gradient descent, root finding. No model. Example: hematite --optimize 'min x^2-4*x+3 a=0 b=5'  or  'max sin(x) a=0 b=6.28'  or  'root x^3-2 a=0 b=2'")]
+    #[arg(
+        long,
+        help_heading = "Math & Science",
+        value_name = "QUERY",
+        help = "Numerical optimization — minimize/maximize 1D/2D functions, gradient descent, root finding. No model. Example: hematite --optimize 'min x^2-4*x+3 a=0 b=5'  or  'max sin(x) a=0 b=6.28'  or  'root x^3-2 a=0 b=2'"
+    )]
     pub optimize: Option<String>,
 
-    #[arg(long, help_heading = "Data Analysis", value_name = "DATA", help = "Statistical hypothesis test — t-tests, chi-square, ANOVA, Mann-Whitney, Pearson, proportion z-test, confidence intervals. Provide comma-separated numbers or 'successes,n' for proportions. Example: hematite --hypothesis '2.1,2.8,3.2,2.5' --hypothesis-test one-t --hypothesis-mu 2.0")]
+    #[arg(
+        long,
+        help_heading = "Data Analysis",
+        value_name = "DATA",
+        help = "Statistical hypothesis test — t-tests, chi-square, ANOVA, Mann-Whitney, Pearson, proportion z-test, confidence intervals. Provide comma-separated numbers or 'successes,n' for proportions. Example: hematite --hypothesis '2.1,2.8,3.2,2.5' --hypothesis-test one-t --hypothesis-mu 2.0"
+    )]
     pub hypothesis: Option<String>,
 
-    #[arg(long, help_heading = "Data Analysis", value_name = "TYPE", help = "Test type for --hypothesis. Options: one-t two-t paired chi2 anova mannwhitney pearson proportion prop2 ci. Default: one-t.")]
+    #[arg(
+        long,
+        help_heading = "Data Analysis",
+        value_name = "TYPE",
+        help = "Test type for --hypothesis. Options: one-t two-t paired chi2 anova mannwhitney pearson proportion prop2 ci. Default: one-t."
+    )]
     pub hypothesis_test: Option<String>,
 
-    #[arg(long, help_heading = "Data Analysis", value_name = "DATA", help = "Second group data for --hypothesis (two-t, paired, mannwhitney, pearson, prop2). Comma-separated numbers or 'successes,n'.")]
+    #[arg(
+        long,
+        help_heading = "Data Analysis",
+        value_name = "DATA",
+        help = "Second group data for --hypothesis (two-t, paired, mannwhitney, pearson, prop2). Comma-separated numbers or 'successes,n'."
+    )]
     pub hypothesis_group2: Option<String>,
 
-    #[arg(long, help_heading = "Data Analysis", value_name = "ALPHA", help = "Significance level for --hypothesis (default: 0.05).")]
+    #[arg(
+        long,
+        help_heading = "Data Analysis",
+        value_name = "ALPHA",
+        help = "Significance level for --hypothesis (default: 0.05)."
+    )]
     pub hypothesis_alpha: Option<f64>,
 
-    #[arg(long, help_heading = "Data Analysis", value_name = "MU", help = "Null hypothesis mean or proportion for --hypothesis one-t or proportion tests (default: 0.0).")]
+    #[arg(
+        long,
+        help_heading = "Data Analysis",
+        value_name = "MU",
+        help = "Null hypothesis mean or proportion for --hypothesis one-t or proportion tests (default: 0.0)."
+    )]
     pub hypothesis_mu: Option<f64>,
 
-    #[arg(long, help_heading = "Data Analysis", value_name = "FILE", help = "Classification (k-NN or Naive Bayes) — train on labeled CSV, LOO cross-validate, predict new samples. Example: hematite --classify data.csv --classify-label species --classify-k 3")]
+    #[arg(
+        long,
+        help_heading = "Data Analysis",
+        value_name = "FILE",
+        help = "Classification (k-NN or Naive Bayes) — train on labeled CSV, LOO cross-validate, predict new samples. Example: hematite --classify data.csv --classify-label species --classify-k 3"
+    )]
     pub classify: Option<String>,
-    #[arg(long, value_name = "COL", help = "Label column for --classify (default: last column).")]
+    #[arg(
+        long,
+        value_name = "COL",
+        help = "Label column for --classify (default: last column)."
+    )]
     pub classify_label: Option<String>,
-    #[arg(long, value_name = "COL1,COL2,...", help = "Feature columns for --classify (default: all except label).")]
+    #[arg(
+        long,
+        value_name = "COL1,COL2,...",
+        help = "Feature columns for --classify (default: all except label)."
+    )]
     pub classify_cols: Option<String>,
-    #[arg(long, value_name = "V1,V2,...", help = "Predict class for this comma-separated feature vector.")]
+    #[arg(
+        long,
+        value_name = "V1,V2,...",
+        help = "Predict class for this comma-separated feature vector."
+    )]
     pub classify_predict: Option<String>,
-    #[arg(long, value_name = "N", help = "k neighbors for --classify k-NN (default: 3).")]
+    #[arg(
+        long,
+        value_name = "N",
+        help = "k neighbors for --classify k-NN (default: 3)."
+    )]
     pub classify_k: Option<usize>,
-    #[arg(long, value_name = "METHOD", help = "Algorithm for --classify: knn (default) or nb (Naive Bayes).")]
+    #[arg(
+        long,
+        value_name = "METHOD",
+        help = "Algorithm for --classify: knn (default) or nb (Naive Bayes)."
+    )]
     pub classify_method: Option<String>,
 
-    #[arg(long, help_heading = "Data Analysis", value_name = "FILE", help = "Polynomial curve fit — fit a degree-N polynomial to two CSV columns, compute R², RMSE, ASCII scatter+curve plot, and residual plot. Example: hematite --polyfit data.csv --polyfit-x age --polyfit-y salary --polyfit-degree 2")]
+    #[arg(
+        long,
+        help_heading = "Data Analysis",
+        value_name = "FILE",
+        help = "Polynomial curve fit — fit a degree-N polynomial to two CSV columns, compute R², RMSE, ASCII scatter+curve plot, and residual plot. Example: hematite --polyfit data.csv --polyfit-x age --polyfit-y salary --polyfit-degree 2"
+    )]
     pub polyfit: Option<String>,
-    #[arg(long, value_name = "COL", help = "X column for --polyfit (default: first column).")]
+    #[arg(
+        long,
+        value_name = "COL",
+        help = "X column for --polyfit (default: first column)."
+    )]
     pub polyfit_x: Option<String>,
-    #[arg(long, value_name = "COL", help = "Y column for --polyfit (default: last column).")]
+    #[arg(
+        long,
+        value_name = "COL",
+        help = "Y column for --polyfit (default: last column)."
+    )]
     pub polyfit_y: Option<String>,
-    #[arg(long, value_name = "N", help = "Polynomial degree for --polyfit (default: 1 = linear, max: 10).")]
+    #[arg(
+        long,
+        value_name = "N",
+        help = "Polynomial degree for --polyfit (default: 1 = linear, max: 10)."
+    )]
     pub polyfit_degree: Option<usize>,
-    #[arg(long, value_name = "X1,X2,...", help = "Predict y values for these x values with --polyfit.")]
+    #[arg(
+        long,
+        value_name = "X1,X2,...",
+        help = "Predict y values for these x values with --polyfit."
+    )]
     pub polyfit_predict: Option<String>,
 
     #[arg(
@@ -1006,10 +1197,18 @@ pub struct CliCockpit {
     )]
     pub curve_fit: Option<String>,
 
-    #[arg(long, value_name = "COL", help = "X column for --curve-fit. Defaults to first numeric column.")]
+    #[arg(
+        long,
+        value_name = "COL",
+        help = "X column for --curve-fit. Defaults to first numeric column."
+    )]
     pub fit_x: Option<String>,
 
-    #[arg(long, value_name = "COL", help = "Y column for --curve-fit. Defaults to second numeric column.")]
+    #[arg(
+        long,
+        value_name = "COL",
+        help = "Y column for --curve-fit. Defaults to second numeric column."
+    )]
     pub fit_y: Option<String>,
 
     #[arg(
@@ -1027,16 +1226,32 @@ pub struct CliCockpit {
     )]
     pub integrate: Option<String>,
 
-    #[arg(long, value_name = "N", help = "Lower bound for --integrate. Example: --int-from 0")]
+    #[arg(
+        long,
+        value_name = "N",
+        help = "Lower bound for --integrate. Example: --int-from 0"
+    )]
     pub int_from: Option<String>,
 
-    #[arg(long, value_name = "N", help = "Upper bound for --integrate. Example: --int-to pi")]
+    #[arg(
+        long,
+        value_name = "N",
+        help = "Upper bound for --integrate. Example: --int-to pi"
+    )]
     pub int_to: Option<String>,
 
-    #[arg(long, value_name = "VAR", help = "Integration variable for --integrate. Default: x.")]
+    #[arg(
+        long,
+        value_name = "VAR",
+        help = "Integration variable for --integrate. Default: x."
+    )]
     pub int_var: Option<String>,
 
-    #[arg(long, value_name = "N", help = "Number of intervals for --integrate (default: 1000). Adaptive Simpson uses this as fallback.")]
+    #[arg(
+        long,
+        value_name = "N",
+        help = "Number of intervals for --integrate (default: 1000). Adaptive Simpson uses this as fallback."
+    )]
     pub int_n: Option<usize>,
 
     #[arg(
@@ -1047,10 +1262,18 @@ pub struct CliCockpit {
     )]
     pub differentiate: Option<String>,
 
-    #[arg(long, value_name = "X", help = "Point at which to evaluate --differentiate or --solve. Example: --at 3.14")]
+    #[arg(
+        long,
+        value_name = "X",
+        help = "Point at which to evaluate --differentiate or --solve. Example: --at 3.14"
+    )]
     pub at: Option<String>,
 
-    #[arg(long, value_name = "N", help = "Derivative order for --differentiate (1st, 2nd, 3rd, 4th). Default: 1.")]
+    #[arg(
+        long,
+        value_name = "N",
+        help = "Derivative order for --differentiate (1st, 2nd, 3rd, 4th). Default: 1."
+    )]
     pub order: Option<u8>,
 
     #[arg(
@@ -1077,13 +1300,25 @@ pub struct CliCockpit {
     )]
     pub sequence: Option<String>,
 
-    #[arg(long, value_name = "N", help = "Number of terms for --sequence (default: 10).")]
+    #[arg(
+        long,
+        value_name = "N",
+        help = "Number of terms for --sequence (default: 10)."
+    )]
     pub seq_count: Option<usize>,
 
-    #[arg(long, value_name = "N", help = "Starting value for --sequence (default: 1).")]
+    #[arg(
+        long,
+        value_name = "N",
+        help = "Starting value for --sequence (default: 1)."
+    )]
     pub seq_start: Option<f64>,
 
-    #[arg(long, value_name = "N", help = "Step or ratio for --sequence (default: 1 for arithmetic, 2 for geometric).")]
+    #[arg(
+        long,
+        value_name = "N",
+        help = "Step or ratio for --sequence (default: 1 for arithmetic, 2 for geometric)."
+    )]
     pub seq_step: Option<f64>,
 
     #[arg(
@@ -1126,10 +1361,18 @@ pub struct CliCockpit {
     )]
     pub base_convert: Option<String>,
 
-    #[arg(long, value_name = "N", help = "Source base for --base-convert (2–36). Default: 10.")]
+    #[arg(
+        long,
+        value_name = "N",
+        help = "Source base for --base-convert (2–36). Default: 10."
+    )]
     pub base_from: Option<u32>,
 
-    #[arg(long, value_name = "N", help = "Target base for --base-convert (2–36). Default: 2.")]
+    #[arg(
+        long,
+        value_name = "N",
+        help = "Target base for --base-convert (2–36). Default: 2."
+    )]
     pub base_to: Option<u32>,
 
     #[arg(
@@ -1204,7 +1447,12 @@ pub struct CliCockpit {
     )]
     pub percentile: Option<String>,
 
-    #[arg(long, help_heading = "Data Analysis", value_name = "COL", help = "Column to analyze with --percentile (default: all numeric columns).")]
+    #[arg(
+        long,
+        help_heading = "Data Analysis",
+        value_name = "COL",
+        help = "Column to analyze with --percentile (default: all numeric columns)."
+    )]
     pub percentile_col: Option<String>,
 
     #[arg(
@@ -1215,16 +1463,36 @@ pub struct CliCockpit {
     )]
     pub pivot: Option<String>,
 
-    #[arg(long, help_heading = "Data Analysis", value_name = "COL", help = "Row grouping column for --pivot.")]
+    #[arg(
+        long,
+        help_heading = "Data Analysis",
+        value_name = "COL",
+        help = "Row grouping column for --pivot."
+    )]
     pub pivot_row: Option<String>,
 
-    #[arg(long, help_heading = "Data Analysis", value_name = "COL", help = "Column grouping column for --pivot.")]
+    #[arg(
+        long,
+        help_heading = "Data Analysis",
+        value_name = "COL",
+        help = "Column grouping column for --pivot."
+    )]
     pub pivot_col: Option<String>,
 
-    #[arg(long, help_heading = "Data Analysis", value_name = "COL", help = "Value column for --pivot aggregation.")]
+    #[arg(
+        long,
+        help_heading = "Data Analysis",
+        value_name = "COL",
+        help = "Value column for --pivot aggregation."
+    )]
     pub pivot_val: Option<String>,
 
-    #[arg(long, help_heading = "Data Analysis", value_name = "AGG", help = "Aggregation for --pivot: count (default), sum, mean, min, max.")]
+    #[arg(
+        long,
+        help_heading = "Data Analysis",
+        value_name = "AGG",
+        help = "Aggregation for --pivot: count (default), sum, mean, min, max."
+    )]
     pub pivot_agg: Option<String>,
 
     #[arg(
@@ -1235,10 +1503,20 @@ pub struct CliCockpit {
     )]
     pub regression: Option<String>,
 
-    #[arg(long, help_heading = "Data Analysis", value_name = "COL", help = "Target (dependent) column for --regression (auto-detected if omitted).")]
+    #[arg(
+        long,
+        help_heading = "Data Analysis",
+        value_name = "COL",
+        help = "Target (dependent) column for --regression (auto-detected if omitted)."
+    )]
     pub regression_target: Option<String>,
 
-    #[arg(long, help_heading = "Data Analysis", value_name = "COL1,COL2,...", help = "Predictor (independent) columns for --regression, comma-separated (auto-detected if omitted).")]
+    #[arg(
+        long,
+        help_heading = "Data Analysis",
+        value_name = "COL1,COL2,...",
+        help = "Predictor (independent) columns for --regression, comma-separated (auto-detected if omitted)."
+    )]
     pub regression_predictors: Option<String>,
 
     #[arg(
@@ -1249,10 +1527,20 @@ pub struct CliCockpit {
     )]
     pub outliers: Option<String>,
 
-    #[arg(long, help_heading = "Data Analysis", value_name = "COL", help = "Column to analyze for --outliers (default: all numeric columns).")]
+    #[arg(
+        long,
+        help_heading = "Data Analysis",
+        value_name = "COL",
+        help = "Column to analyze for --outliers (default: all numeric columns)."
+    )]
     pub outlier_col: Option<String>,
 
-    #[arg(long, help_heading = "Data Analysis", value_name = "FILE", help = "Save clean data (outliers removed) to this CSV path.")]
+    #[arg(
+        long,
+        help_heading = "Data Analysis",
+        value_name = "FILE",
+        help = "Save clean data (outliers removed) to this CSV path."
+    )]
     pub outlier_output: Option<String>,
 
     #[arg(
@@ -1263,19 +1551,44 @@ pub struct CliCockpit {
     )]
     pub sample: Option<String>,
 
-    #[arg(long, help_heading = "Data Analysis", value_name = "N", help = "Number of rows to sample (default 100).")]
+    #[arg(
+        long,
+        help_heading = "Data Analysis",
+        value_name = "N",
+        help = "Number of rows to sample (default 100)."
+    )]
     pub sample_n: Option<usize>,
 
-    #[arg(long, help_heading = "Data Analysis", value_name = "FRAC", help = "Fraction of rows to sample, e.g. 0.1 for 10%.")]
+    #[arg(
+        long,
+        help_heading = "Data Analysis",
+        value_name = "FRAC",
+        help = "Fraction of rows to sample, e.g. 0.1 for 10%."
+    )]
     pub sample_frac: Option<f64>,
 
-    #[arg(long, help_heading = "Data Analysis", value_name = "SEED", help = "Random seed for reproducible sampling (default 42).")]
+    #[arg(
+        long,
+        help_heading = "Data Analysis",
+        value_name = "SEED",
+        help = "Random seed for reproducible sampling (default 42)."
+    )]
     pub sample_seed: Option<u64>,
 
-    #[arg(long, help_heading = "Data Analysis", value_name = "FRAC", help = "Train/test split fraction, e.g. 0.8 saves 80% to train and 20% to test. Requires --sample-output.")]
+    #[arg(
+        long,
+        help_heading = "Data Analysis",
+        value_name = "FRAC",
+        help = "Train/test split fraction, e.g. 0.8 saves 80% to train and 20% to test. Requires --sample-output."
+    )]
     pub split: Option<f64>,
 
-    #[arg(long, help_heading = "Data Analysis", value_name = "DIR", help = "Output directory for sampled files. If omitted, prints sample to stdout.")]
+    #[arg(
+        long,
+        help_heading = "Data Analysis",
+        value_name = "DIR",
+        help = "Output directory for sampled files. If omitted, prints sample to stdout."
+    )]
     pub sample_output: Option<String>,
 
     #[arg(
@@ -1286,7 +1599,12 @@ pub struct CliCockpit {
     )]
     pub correlation: Option<String>,
 
-    #[arg(long, help_heading = "Data Analysis", value_name = "METHOD", help = "Correlation method: pearson (default) or spearman.")]
+    #[arg(
+        long,
+        help_heading = "Data Analysis",
+        value_name = "METHOD",
+        help = "Correlation method: pearson (default) or spearman."
+    )]
     pub corr_method: Option<String>,
 
     #[arg(
@@ -1297,13 +1615,28 @@ pub struct CliCockpit {
     )]
     pub timeseries: Option<String>,
 
-    #[arg(long, help_heading = "Data Analysis", value_name = "COL", help = "Date column name for --timeseries (auto-detected if omitted).")]
+    #[arg(
+        long,
+        help_heading = "Data Analysis",
+        value_name = "COL",
+        help = "Date column name for --timeseries (auto-detected if omitted)."
+    )]
     pub ts_date: Option<String>,
 
-    #[arg(long, help_heading = "Data Analysis", value_name = "COL", help = "Value column name for --timeseries (auto-detected if omitted).")]
+    #[arg(
+        long,
+        help_heading = "Data Analysis",
+        value_name = "COL",
+        help = "Value column name for --timeseries (auto-detected if omitted)."
+    )]
     pub ts_value: Option<String>,
 
-    #[arg(long, help_heading = "Data Analysis", value_name = "N", help = "Rolling window size for --timeseries (default 7).")]
+    #[arg(
+        long,
+        help_heading = "Data Analysis",
+        value_name = "N",
+        help = "Rolling window size for --timeseries (default 7)."
+    )]
     pub ts_window: Option<usize>,
 
     #[arg(long, hide = true)]

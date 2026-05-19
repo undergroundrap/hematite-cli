@@ -161,9 +161,7 @@ pub async fn analyze_dataset(path_str: &str) -> Result<String, String> {
 
     // Escape backslashes (Windows paths) and double-quotes so the path can be
     // safely embedded inside a Python double-quoted string literal.
-    let safe_path = path_str
-        .replace('\\', "\\\\")
-        .replace('"', "\\\"");
+    let safe_path = path_str.replace('\\', "\\\\").replace('"', "\\\"");
 
     let script = format!(
         r####"import os, sys, csv as _csv, sqlite3 as _sql3
@@ -417,8 +415,12 @@ async fn manage_ledger(args: &Value) -> Result<String, String> {
 
 async fn calculate_on_dataset(args: &Value) -> Result<String, String> {
     let path_str = args["path"].as_str().ok_or("Missing 'path' to dataset")?;
-    let sql = args["sql"].as_str().unwrap_or("SELECT * FROM data LIMIT 10000");
-    let python_op = args["python_op"].as_str().unwrap_or("print(f'{row_count} rows loaded. Columns: {columns}')");
+    let sql = args["sql"]
+        .as_str()
+        .unwrap_or("SELECT * FROM data LIMIT 10000");
+    let python_op = args["python_op"]
+        .as_str()
+        .unwrap_or("print(f'{row_count} rows loaded. Columns: {columns}')");
 
     let path = std::path::PathBuf::from(path_str);
     let data = crate::tools::data_query::query_to_json_helper(&path, sql).await?;
@@ -871,7 +873,10 @@ async fn run_hypothesis(args: &Value) -> Result<String, String> {
         .unwrap_or("")
         .replace('\\', "\\\\")
         .replace('"', "\\\"");
-    let col_a = args["column_a"].as_str().unwrap_or("a").replace('"', "\\\"");
+    let col_a = args["column_a"]
+        .as_str()
+        .unwrap_or("a")
+        .replace('"', "\\\"");
     let col_b = args["column_b"].as_str().unwrap_or("").replace('"', "\\\"");
 
     let script = format!(
@@ -1557,9 +1562,9 @@ pub async fn plot_dataset(
     out_path: &str,
 ) -> Result<String, String> {
     let safe_path = path_str.replace('\\', "\\\\").replace('"', "\\\"");
-    let safe_out  = out_path.replace('\\', "\\\\").replace('"', "\\\"");
-    let safe_x    = x_col.replace('"', "\\\"");
-    let safe_y    = y_col.replace('"', "\\\"");
+    let safe_out = out_path.replace('\\', "\\\\").replace('"', "\\\"");
+    let safe_x = x_col.replace('"', "\\\"");
+    let safe_y = y_col.replace('"', "\\\"");
 
     let script = format!(
         r####"import os, sys, csv as _csv, sqlite3 as _sql3
@@ -1746,10 +1751,10 @@ with open(_out_path, 'w', encoding='utf-8') as _f:
 print(_out_path)
 "####,
         safe_path = safe_path,
-        safe_out  = safe_out,
+        safe_out = safe_out,
         plot_type = plot_type,
-        safe_x    = safe_x,
-        safe_y    = safe_y,
+        safe_x = safe_x,
+        safe_y = safe_y,
     );
 
     let sandbox_args = serde_json::json!({
@@ -1847,7 +1852,7 @@ if _total > 2000: _label += ' (showing first 2000)'
 print('(' + _label + ')')
 "####,
         safe_path = safe_path,
-        sql_hex   = sql_hex,
+        sql_hex = sql_hex,
     );
 
     let sandbox_args = serde_json::json!({
@@ -1986,45 +1991,56 @@ const ELEMENTS_DATA: &str = r#"1|H|Hydrogen|1.008|nonmetal|1|1|2.20|G
 pub fn lookup_element(query: &str) -> Result<String, String> {
     let q = query.trim();
     if q.is_empty() {
-        return Err("No element specified. Try a symbol (H, Au), name (Gold), or atomic number (79).".into());
+        return Err(
+            "No element specified. Try a symbol (H, Au), name (Gold), or atomic number (79)."
+                .into(),
+        );
     }
     let q_lower = q.to_ascii_lowercase();
     let q_num: Option<u32> = q.parse().ok();
 
     for line in ELEMENTS_DATA.lines() {
         let f: Vec<&str> = line.splitn(9, '|').collect();
-        if f.len() < 9 { continue; }
+        if f.len() < 9 {
+            continue;
+        }
         let z: u32 = f[0].parse().unwrap_or(0);
-        let sym  = f[1];
+        let sym = f[1];
         let name = f[2];
 
-        let matched = q_num.map_or(false, |n| n == z)
+        let matched = (q_num == Some(z))
             || sym.eq_ignore_ascii_case(q)
             || name.to_ascii_lowercase().starts_with(&q_lower);
-        if !matched { continue; }
+        if !matched {
+            continue;
+        }
 
-        let mass_raw  = f[3];
-        let cat_raw   = f[4];
-        let period    = f[5];
-        let group     = f[6];
-        let en_raw    = f[7];
+        let mass_raw = f[3];
+        let cat_raw = f[4];
+        let period = f[5];
+        let group = f[6];
+        let en_raw = f[7];
         let state_raw = f[8];
 
         let category = match cat_raw {
-            "alkali"     => "Alkali Metal",
-            "alkaline"   => "Alkaline Earth Metal",
+            "alkali" => "Alkali Metal",
+            "alkaline" => "Alkaline Earth Metal",
             "transition" => "Transition Metal",
             "post-trans" => "Post-Transition Metal",
-            "metalloid"  => "Metalloid",
-            "nonmetal"   => "Nonmetal",
-            "halogen"    => "Halogen",
-            "noble"      => "Noble Gas",
+            "metalloid" => "Metalloid",
+            "nonmetal" => "Nonmetal",
+            "halogen" => "Halogen",
+            "noble" => "Noble Gas",
             "lanthanide" => "Lanthanide",
-            "actinide"   => "Actinide",
-            other        => other,
+            "actinide" => "Actinide",
+            other => other,
         };
         let group_disp = if group == "0" {
-            match cat_raw { "lanthanide" => "La series", "actinide" => "Ac series", _ => "\u{2014}" }
+            match cat_raw {
+                "lanthanide" => "La series",
+                "actinide" => "Ac series",
+                _ => "\u{2014}",
+            }
         } else {
             group
         };
@@ -2034,7 +2050,10 @@ pub fn lookup_element(query: &str) -> Result<String, String> {
             format!("{} (Pauling)", en_raw)
         };
         let state_disp = match state_raw {
-            "S" => "Solid", "L" => "Liquid", "G" => "Gas", _ => "Unknown",
+            "S" => "Solid",
+            "L" => "Liquid",
+            "G" => "Gas",
+            _ => "Unknown",
         };
         let mass_disp = if mass_raw.contains('.') {
             format!("{} u", mass_raw)
@@ -2064,7 +2083,7 @@ pub fn lookup_element(query: &str) -> Result<String, String> {
 
 pub async fn hash_input(input: &str, algo: &str) -> Result<String, String> {
     let safe_input = input.replace('\\', "\\\\").replace('"', "\\\"");
-    let safe_algo  = algo.trim().to_ascii_lowercase().replace('"', "");
+    let safe_algo = algo.trim().to_ascii_lowercase().replace('"', "");
 
     let script = format!(
         r####"import hashlib, os, sys
@@ -2097,7 +2116,7 @@ for _a in _algos:
         print(_a + ": " + str(_e), file=sys.stderr); sys.exit(1)
 "####,
         safe_input = safe_input,
-        safe_algo  = safe_algo,
+        safe_algo = safe_algo,
     );
 
     let sandbox_args = serde_json::json!({
@@ -2159,9 +2178,9 @@ try:
 except Exception as _e:
     print("Error: " + str(_e), file=sys.stderr); sys.exit(1)
 "####,
-        text_hex   = text_hex,
+        text_hex = text_hex,
         safe_codec = safe_codec,
-        mode       = mode,
+        mode = mode,
     );
 
     let sandbox_args = serde_json::json!({

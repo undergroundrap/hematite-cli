@@ -84,7 +84,11 @@ pub fn search_formulas(query: &str) -> String {
         }
         let mut out = format!("Formula library — {} entries\n\n", FORMULAS.len());
         for (cat, names) in &cats {
-            out.push_str(&format!("{}  ({} formulas)\n", cat.to_uppercase(), names.len()));
+            out.push_str(&format!(
+                "{}  ({} formulas)\n",
+                cat.to_uppercase(),
+                names.len()
+            ));
             for n in names {
                 out.push_str(&format!("  {n}\n"));
             }
@@ -95,7 +99,8 @@ pub fn search_formulas(query: &str) -> String {
     }
 
     let q_lower = q.to_ascii_lowercase();
-    let hits: Vec<_> = FORMULAS.iter()
+    let hits: Vec<_> = FORMULAS
+        .iter()
         .filter(|(name, formula, cat, vars)| {
             name.to_ascii_lowercase().contains(&q_lower)
                 || cat.to_ascii_lowercase().contains(&q_lower)
@@ -129,10 +134,10 @@ pub async fn generate_random(
     count: usize,
     extra: &str,
 ) -> Result<String, String> {
-    let safe_kind  = kind.trim().to_ascii_lowercase().replace('"', "");
+    let safe_kind = kind.trim().to_ascii_lowercase().replace('"', "");
     let safe_extra: String = extra.bytes().map(|b| format!("{:02x}", b)).collect();
-    let eff_count  = count.max(1).min(1000);
-    let eff_length = length.max(1).min(4096);
+    let eff_count = count.clamp(1, 1000);
+    let eff_length = length.clamp(1, 4096);
 
     let script = format!(
         r####"import secrets, uuid as _uuid, sys, string, re as _re
@@ -189,10 +194,10 @@ for _i in range(_count):
     except Exception as _e:
         print("Error: " + str(_e), file=sys.stderr); sys.exit(1)
 "####,
-        safe_kind  = safe_kind,
+        safe_kind = safe_kind,
         safe_extra = safe_extra,
         eff_length = eff_length,
-        eff_count  = eff_count,
+        eff_count = eff_count,
     );
 
     let sandbox_args = serde_json::json!({
@@ -206,8 +211,8 @@ for _i in range(_count):
 // ── Row-level data diff ───────────────────────────────────────────────────────
 
 pub async fn diff_data(path_a: &str, path_b: &str, key_col: &str) -> Result<String, String> {
-    let hex_a:   String = path_a.bytes().map(|b| format!("{:02x}", b)).collect();
-    let hex_b:   String = path_b.bytes().map(|b| format!("{:02x}", b)).collect();
+    let hex_a: String = path_a.bytes().map(|b| format!("{:02x}", b)).collect();
+    let hex_b: String = path_b.bytes().map(|b| format!("{:02x}", b)).collect();
     let hex_key: String = key_col.bytes().map(|b| format!("{:02x}", b)).collect();
 
     let script = format!(
@@ -314,8 +319,8 @@ if _modified:
 
 print("Summary:  +%d added  -%d removed  ~%d modified" % (len(_added), len(_removed), len(_modified)))
 "####,
-        hex_a   = hex_a,
-        hex_b   = hex_b,
+        hex_a = hex_a,
+        hex_b = hex_b,
         hex_key = hex_key,
     );
 
@@ -331,9 +336,10 @@ print("Summary:  +%d added  -%d removed  ~%d modified" % (len(_added), len(_remo
 
 pub async fn column_stats(file_path: &str, column: &str) -> Result<String, String> {
     let hex_path: String = file_path.bytes().map(|b| format!("{:02x}", b)).collect();
-    let hex_col:  String = column.bytes().map(|b| format!("{:02x}", b)).collect();
+    let hex_col: String = column.bytes().map(|b| format!("{:02x}", b)).collect();
 
-    let script = format!(r####"import csv as _csv, json as _js, sqlite3 as _sq, os, sys, math
+    let script = format!(
+        r####"import csv as _csv, json as _js, sqlite3 as _sq, os, sys, math
 
 _path = bytes.fromhex("{hex_path}").decode()
 _col  = bytes.fromhex("{hex_col}").decode().strip()
@@ -453,7 +459,7 @@ else:
         print()
 "####,
         hex_path = hex_path,
-        hex_col  = hex_col,
+        hex_col = hex_col,
     );
 
     let sandbox_args = serde_json::json!({
@@ -470,10 +476,11 @@ else:
 
 pub async fn matrix_op(op: &str, matrix_a: &str, matrix_b: &str) -> Result<String, String> {
     let hex_op: String = op.bytes().map(|b| format!("{:02x}", b)).collect();
-    let hex_a:  String = matrix_a.bytes().map(|b| format!("{:02x}", b)).collect();
-    let hex_b:  String = matrix_b.bytes().map(|b| format!("{:02x}", b)).collect();
+    let hex_a: String = matrix_a.bytes().map(|b| format!("{:02x}", b)).collect();
+    let hex_b: String = matrix_b.bytes().map(|b| format!("{:02x}", b)).collect();
 
-    let script = format!(r####"import json as _js, math, sys
+    let script = format!(
+        r####"import json as _js, math, sys
 
 _op = bytes.fromhex("{hex_op}").decode().strip().lower()
 _sa = bytes.fromhex("{hex_a}").decode().strip()
@@ -661,8 +668,8 @@ except ValueError as e:
     print("Error:", e, file=sys.stderr); sys.exit(1)
 "####,
         hex_op = hex_op,
-        hex_a  = hex_a,
-        hex_b  = hex_b,
+        hex_a = hex_a,
+        hex_b = hex_b,
     );
 
     let sandbox_args = serde_json::json!({
@@ -676,10 +683,11 @@ except ValueError as e:
 // ── Equation solver ───────────────────────────────────────────────────────────
 
 pub async fn solve_equation(equation: &str, var: &str, x0: f64, x1: f64) -> Result<String, String> {
-    let hex_eq:  String = equation.bytes().map(|b| format!("{:02x}", b)).collect();
+    let hex_eq: String = equation.bytes().map(|b| format!("{:02x}", b)).collect();
     let hex_var: String = var.bytes().map(|b| format!("{:02x}", b)).collect();
 
-    let script = format!(r####"import math, sys
+    let script = format!(
+        r####"import math, sys
 from math import (sin,cos,tan,asin,acos,atan,atan2,sinh,cosh,tanh,
                   sqrt,log,log2,log10,exp,floor,ceil,pi,e,inf,nan)
 
@@ -764,10 +772,10 @@ for r in sorted(candidates):
     flag = "" if chk < 1e-8 else "  [residual: %.2e]" % chk
     print("  %s = %.10g%s" % (_var, r, flag))
 "####,
-        hex_eq  = hex_eq,
+        hex_eq = hex_eq,
         hex_var = hex_var,
-        x0      = x0,
-        x1      = x1,
+        x0 = x0,
+        x1 = x1,
     );
 
     let sandbox_args = serde_json::json!({
@@ -786,12 +794,13 @@ pub async fn curve_fit(
     y_col: &str,
     model: &str,
 ) -> Result<String, String> {
-    let hex_path:  String = file_path.bytes().map(|b| format!("{:02x}", b)).collect();
-    let hex_xcol:  String = x_col.bytes().map(|b| format!("{:02x}", b)).collect();
-    let hex_ycol:  String = y_col.bytes().map(|b| format!("{:02x}", b)).collect();
+    let hex_path: String = file_path.bytes().map(|b| format!("{:02x}", b)).collect();
+    let hex_xcol: String = x_col.bytes().map(|b| format!("{:02x}", b)).collect();
+    let hex_ycol: String = y_col.bytes().map(|b| format!("{:02x}", b)).collect();
     let hex_model: String = model.bytes().map(|b| format!("{:02x}", b)).collect();
 
-    let script = format!(r####"import csv as _csv, json as _js, sqlite3 as _sq, os, sys, math
+    let script = format!(
+        r####"import csv as _csv, json as _js, sqlite3 as _sq, os, sys, math
 
 _path  = bytes.fromhex("{hex_path}").decode().strip()
 _xcol  = bytes.fromhex("{hex_xcol}").decode().strip()
@@ -934,9 +943,9 @@ if invalid:
         print("    %-12s %s"%(nm+":",err))
 print("="*W)
 "####,
-        hex_path  = hex_path,
-        hex_xcol  = hex_xcol,
-        hex_ycol  = hex_ycol,
+        hex_path = hex_path,
+        hex_xcol = hex_xcol,
+        hex_ycol = hex_ycol,
         hex_model = hex_model,
     );
 
@@ -950,11 +959,18 @@ print("="*W)
 
 // ── Numerical integration ─────────────────────────────────────────────────────
 
-pub async fn integrate(expr: &str, var: &str, lo: f64, hi: f64, n: usize) -> Result<String, String> {
+pub async fn integrate(
+    expr: &str,
+    var: &str,
+    lo: f64,
+    hi: f64,
+    n: usize,
+) -> Result<String, String> {
     let hex_expr: String = expr.bytes().map(|b| format!("{:02x}", b)).collect();
-    let hex_var:  String = var.bytes().map(|b| format!("{:02x}", b)).collect();
+    let hex_var: String = var.bytes().map(|b| format!("{:02x}", b)).collect();
 
-    let script = format!(r####"import math, sys
+    let script = format!(
+        r####"import math, sys
 from math import (sin,cos,tan,asin,acos,atan,atan2,sinh,cosh,tanh,
                   sqrt,log,log2,log10,exp,floor,ceil,pi,e,inf,nan)
 
@@ -1014,10 +1030,10 @@ if method.startswith("Adaptive"):
     print("Est. error: %.2e  (vs basic Simpson/%d)" % (err_est, _n))
 "####,
         hex_expr = hex_expr,
-        hex_var  = hex_var,
-        lo       = lo,
-        hi       = hi,
-        n        = n,
+        hex_var = hex_var,
+        lo = lo,
+        hi = hi,
+        n = n,
     );
 
     let sandbox_args = serde_json::json!({
@@ -1032,9 +1048,10 @@ if method.startswith("Adaptive"):
 
 pub async fn differentiate(expr: &str, var: &str, at: f64, order: u8) -> Result<String, String> {
     let hex_expr: String = expr.bytes().map(|b| format!("{:02x}", b)).collect();
-    let hex_var:  String = var.bytes().map(|b| format!("{:02x}", b)).collect();
+    let hex_var: String = var.bytes().map(|b| format!("{:02x}", b)).collect();
 
-    let script = format!(r####"import math, sys
+    let script = format!(
+        r####"import math, sys
 from math import (sin,cos,tan,asin,acos,atan,atan2,sinh,cosh,tanh,
                   sqrt,log,log2,log10,exp,floor,ceil,pi,e,inf,nan)
 
@@ -1087,9 +1104,9 @@ except Exception as ex:
     print("Error:", ex, file=sys.stderr); sys.exit(1)
 "####,
         hex_expr = hex_expr,
-        hex_var  = hex_var,
-        at       = at,
-        order    = order,
+        hex_var = hex_var,
+        at = at,
+        order = order,
     );
 
     let sandbox_args = serde_json::json!({
@@ -1107,7 +1124,8 @@ except Exception as ex:
 pub async fn data_profile(file_path: &str) -> Result<String, String> {
     let hex_path: String = file_path.bytes().map(|b| format!("{:02x}", b)).collect();
 
-    let script = format!(r####"import csv as _csv, json as _js, sqlite3 as _sq, os, sys, math
+    let script = format!(
+        r####"import csv as _csv, json as _js, sqlite3 as _sq, os, sys, math
 
 _path = bytes.fromhex("{hex_path}").decode().strip()
 

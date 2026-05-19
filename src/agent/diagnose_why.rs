@@ -3,7 +3,6 @@
 /// Maps a user's plain-English symptom to a curated topic group, runs all
 /// topics, collects findings via the fix-recipe engine, and returns a ranked
 /// diagnosis with evidence excerpts from the live output.
-
 pub struct SymptomGroup {
     pub category: &'static str,
     pub keywords: &'static [&'static str],

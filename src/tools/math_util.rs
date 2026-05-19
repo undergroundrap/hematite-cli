@@ -1,17 +1,29 @@
 // ─── Pure-Rust math utilities ─────────────────────────────────────────────────
 // Number theory, sequences, combinatorics — no Python sandbox, instant results.
 
+// Index-based loops are standard notation for DP tables, matrix ops, and
+// numeric algorithms. Iterator rewrites hurt readability in math code.
+#![allow(clippy::needless_range_loop)]
+
 use std::fmt::Write;
 
 // ── Primality and factorization ───────────────────────────────────────────────
 
 fn is_prime(n: u64) -> bool {
-    if n < 2 { return false; }
-    if n < 4 { return true; }
-    if n % 2 == 0 || n % 3 == 0 { return false; }
+    if n < 2 {
+        return false;
+    }
+    if n < 4 {
+        return true;
+    }
+    if n % 2 == 0 || n % 3 == 0 {
+        return false;
+    }
     let mut i = 5u64;
     while i * i <= n {
-        if n % i == 0 || n % (i + 2) == 0 { return false; }
+        if n % i == 0 || n % (i + 2) == 0 {
+            return false;
+        }
         i += 6;
     }
     true
@@ -19,11 +31,16 @@ fn is_prime(n: u64) -> bool {
 
 fn factorize(mut n: u64) -> Vec<(u64, u32)> {
     let mut factors: Vec<(u64, u32)> = Vec::new();
-    if n < 2 { return factors; }
+    if n < 2 {
+        return factors;
+    }
     for p in [2u64, 3] {
         if n % p == 0 {
             let mut exp = 0u32;
-            while n % p == 0 { n /= p; exp += 1; }
+            while n % p == 0 {
+                n /= p;
+                exp += 1;
+            }
             factors.push((p, exp));
         }
     }
@@ -31,32 +48,48 @@ fn factorize(mut n: u64) -> Vec<(u64, u32)> {
     while i * i <= n {
         if n % i == 0 {
             let mut exp = 0u32;
-            while n % i == 0 { n /= i; exp += 1; }
+            while n % i == 0 {
+                n /= i;
+                exp += 1;
+            }
             factors.push((i, exp));
         }
         if n % (i + 2) == 0 {
             let mut exp = 0u32;
-            while n % (i + 2) == 0 { n /= i + 2; exp += 1; }
+            while n % (i + 2) == 0 {
+                n /= i + 2;
+                exp += 1;
+            }
             factors.push((i + 2, exp));
         }
         i += 6;
     }
-    if n > 1 { factors.push((n, 1)); }
+    if n > 1 {
+        factors.push((n, 1));
+    }
     factors
 }
 
 fn next_prime(n: u64) -> u64 {
     let mut c = n + 1;
-    while !is_prime(c) { c += 1; }
+    while !is_prime(c) {
+        c += 1;
+    }
     c
 }
 
 fn prev_prime(n: u64) -> Option<u64> {
-    if n <= 2 { return None; }
+    if n <= 2 {
+        return None;
+    }
     let mut c = n - 1;
     while c >= 2 {
-        if is_prime(c) { return Some(c); }
-        if c == 2 { break; }
+        if is_prime(c) {
+            return Some(c);
+        }
+        if c == 2 {
+            break;
+        }
         c -= 1;
     }
     None
@@ -71,9 +104,16 @@ pub fn prime_info(n: u64) -> String {
     if factors.is_empty() {
         let _ = writeln!(out, "Factors: 1 (or 0)");
     } else {
-        let expr: Vec<String> = factors.iter().map(|(p, e)| {
-            if *e == 1 { format!("{}", p) } else { format!("{}^{}", p, e) }
-        }).collect();
+        let expr: Vec<String> = factors
+            .iter()
+            .map(|(p, e)| {
+                if *e == 1 {
+                    format!("{}", p)
+                } else {
+                    format!("{}^{}", p, e)
+                }
+            })
+            .collect();
         let _ = writeln!(out, "Factors: {}", expr.join(" × "));
 
         // divisors from factors
@@ -83,33 +123,58 @@ pub fn prime_info(n: u64) -> String {
             let mut pw = 1u64;
             for _ in 0..*e {
                 pw *= p;
-                for i in 0..len { divisors.push(divisors[i] * pw); }
+                for i in 0..len {
+                    divisors.push(divisors[i] * pw);
+                }
             }
         }
         divisors.sort_unstable();
-        let _ = writeln!(out, "Divisors ({} total): {}", divisors.len(),
+        let _ = writeln!(
+            out,
+            "Divisors ({} total): {}",
+            divisors.len(),
             if divisors.len() <= 24 {
-                divisors.iter().map(|d| d.to_string()).collect::<Vec<_>>().join(", ")
+                divisors
+                    .iter()
+                    .map(|d| d.to_string())
+                    .collect::<Vec<_>>()
+                    .join(", ")
             } else {
-                format!("{} ... {} [first 12 + last 12]",
-                    divisors[..12].iter().map(|d| d.to_string()).collect::<Vec<_>>().join(", "),
-                    divisors[divisors.len()-12..].iter().map(|d| d.to_string()).collect::<Vec<_>>().join(", "))
+                format!(
+                    "{} ... {} [first 12 + last 12]",
+                    divisors[..12]
+                        .iter()
+                        .map(|d| d.to_string())
+                        .collect::<Vec<_>>()
+                        .join(", "),
+                    divisors[divisors.len() - 12..]
+                        .iter()
+                        .map(|d| d.to_string())
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                )
             }
         );
         // Euler's totient φ(n)
         let phi = factors.iter().fold(n, |acc, (p, _)| acc / p * (p - 1));
         let _ = writeln!(out, "φ(n):   {}", phi);
         // sum of divisors σ(n)
-        let sigma: u64 = factors.iter().map(|(p, e)| {
-            (p.pow(e + 1) - 1) / (p - 1)
-        }).product();
+        let sigma: u64 = factors
+            .iter()
+            .map(|(p, e)| (p.pow(e + 1) - 1) / (p - 1))
+            .product();
         let _ = writeln!(out, "σ(n):   {}", sigma);
         // perfect number check
-        if sigma == 2 * n { let _ = writeln!(out, "✓ Perfect number"); }
+        if sigma == 2 * n {
+            let _ = writeln!(out, "✓ Perfect number");
+        }
     }
 
-    if let Some(pp) = prev_prime(n) { let _ = writeln!(out, "Prev prime: {}", pp); }
-    else { let _ = writeln!(out, "Prev prime: (none)"); }
+    if let Some(pp) = prev_prime(n) {
+        let _ = writeln!(out, "Prev prime: {}", pp);
+    } else {
+        let _ = writeln!(out, "Prev prime: (none)");
+    }
     let np = next_prime(n);
     let _ = writeln!(out, "Next prime: {}", np);
     out
@@ -118,18 +183,22 @@ pub fn prime_info(n: u64) -> String {
 // ── Sequences ─────────────────────────────────────────────────────────────────
 
 pub fn generate_sequence(kind: &str, count: usize, start: f64, step: f64) -> String {
-    let count = count.max(1).min(10_000);
+    let count = count.clamp(1, 10_000);
     let kind = kind.trim().to_lowercase();
     let mut out = String::new();
 
     let nums: Vec<f64> = match kind.as_str() {
-        "arithmetic" | "arith" | "linear" => {
-            (0..count).map(|i| start + i as f64 * step).collect()
-        }
+        "arithmetic" | "arith" | "linear" => (0..count).map(|i| start + i as f64 * step).collect(),
         "geometric" | "geo" | "geom" => {
             let ratio = if step == 0.0 { 2.0 } else { step };
             let mut v = start;
-            (0..count).map(|_| { let x = v; v *= ratio; x }).collect()
+            (0..count)
+                .map(|_| {
+                    let x = v;
+                    v *= ratio;
+                    x
+                })
+                .collect()
         }
         "fibonacci" | "fib" => {
             let (mut a, mut b) = (start as u64, (start + step) as u64);
@@ -137,7 +206,8 @@ pub fn generate_sequence(kind: &str, count: usize, start: f64, step: f64) -> Str
             for _ in 2..count {
                 let c = a.saturating_add(b);
                 seq.push(c as f64);
-                a = b; b = c;
+                a = b;
+                b = c;
             }
             seq.truncate(count);
             seq
@@ -145,7 +215,9 @@ pub fn generate_sequence(kind: &str, count: usize, start: f64, step: f64) -> Str
         "prime" | "primes" => {
             let mut seq = Vec::with_capacity(count);
             let mut n: u64 = start.max(2.0) as u64;
-            if !is_prime(n) { n = next_prime(n - 1); }
+            if !is_prime(n) {
+                n = next_prime(n - 1);
+            }
             while seq.len() < count {
                 seq.push(n as f64);
                 n = next_prime(n);
@@ -158,7 +230,9 @@ pub fn generate_sequence(kind: &str, count: usize, start: f64, step: f64) -> Str
         }
         "triangular" | "triangle" => {
             let s = start.max(0.0) as u64;
-            (s..s + count as u64).map(|i| (i * (i + 1) / 2) as f64).collect()
+            (s..s + count as u64)
+                .map(|i| (i * (i + 1) / 2) as f64)
+                .collect()
         }
         "cube" | "cubes" => {
             let s = start.max(0.0) as u64;
@@ -178,29 +252,45 @@ pub fn generate_sequence(kind: &str, count: usize, start: f64, step: f64) -> Str
     };
 
     let label = match kind.as_str() {
-        "arithmetic" | "arith" | "linear" =>
-            format!("Arithmetic (start={}, step={})", start, step),
-        "geometric" | "geo" | "geom" =>
-            format!("Geometric (start={}, ratio={})", start, if step == 0.0 { 2.0 } else { step }),
+        "arithmetic" | "arith" | "linear" => format!("Arithmetic (start={}, step={})", start, step),
+        "geometric" | "geo" | "geom" => format!(
+            "Geometric (start={}, ratio={})",
+            start,
+            if step == 0.0 { 2.0 } else { step }
+        ),
         _ => kind[..1].to_uppercase() + &kind[1..],
     };
     let _ = writeln!(out, "{}: {} terms", label, nums.len());
-    let strs: Vec<String> = nums.iter().map(|x| {
-        if x.fract() == 0.0 && x.abs() < 1e15 { format!("{}", *x as i64) }
-        else {
-            let s = format!("{:.6e}", x);
-            // trim trailing zeros in mantissa
-            s
-        }
-    }).collect();
+    let strs: Vec<String> = nums
+        .iter()
+        .map(|x| {
+            if x.fract() == 0.0 && x.abs() < 1e15 {
+                format!("{}", *x as i64)
+            } else {
+                let s = format!("{:.6e}", x);
+                // trim trailing zeros in mantissa
+                s
+            }
+        })
+        .collect();
     // Wrap at 72 chars
     let mut line = String::new();
     for (i, s) in strs.iter().enumerate() {
-        let piece = if i == 0 { s.clone() } else { format!(", {}", s) };
-        if line.len() + piece.len() > 72 { let _ = writeln!(out, "{}", line); line = s.clone(); }
-        else { line.push_str(&piece); }
+        let piece = if i == 0 {
+            s.clone()
+        } else {
+            format!(", {}", s)
+        };
+        if line.len() + piece.len() > 72 {
+            let _ = writeln!(out, "{}", line);
+            line = s.clone();
+        } else {
+            line.push_str(&piece);
+        }
     }
-    if !line.is_empty() { let _ = writeln!(out, "{}", line); }
+    if !line.is_empty() {
+        let _ = writeln!(out, "{}", line);
+    }
     out
 }
 
@@ -218,21 +308,41 @@ pub fn combinatorics(n: u64, k: u64) -> String {
     };
 
     // P(n,k) = n! / (n-k)!
-    let perm: u128 = if k > n { 0 } else {
+    let perm: u128 = if k > n {
+        0
+    } else {
         (n - k + 1..=n).fold(1u128, |acc, i| acc.saturating_mul(i as u128))
     };
 
     let _ = writeln!(out, "n = {}  k = {}", n, k);
-    let _ = writeln!(out, "C(n,k) = n! / (k!(n-k)!) = {}  (combinations — order does not matter)", binom);
-    let _ = writeln!(out, "P(n,k) = n! / (n-k)!     = {}  (permutations — order matters)", perm);
+    let _ = writeln!(
+        out,
+        "C(n,k) = n! / (k!(n-k)!) = {}  (combinations — order does not matter)",
+        binom
+    );
+    let _ = writeln!(
+        out,
+        "P(n,k) = n! / (n-k)!     = {}  (permutations — order matters)",
+        perm
+    );
 
     // Pascal's triangle row
     if n <= 20 {
-        let row: Vec<u128> = (0..=n).map(|j| {
-            let j = j.min(n - j);
-            (0..j).fold(1u128, |acc, i| acc * (n - i) as u128 / (i + 1) as u128)
-        }).collect();
-        let _ = writeln!(out, "Pascal row {}: {}", n, row.iter().map(|x| x.to_string()).collect::<Vec<_>>().join(", "));
+        let row: Vec<u128> = (0..=n)
+            .map(|j| {
+                let j = j.min(n - j);
+                (0..j).fold(1u128, |acc, i| acc * (n - i) as u128 / (i + 1) as u128)
+            })
+            .collect();
+        let _ = writeln!(
+            out,
+            "Pascal row {}: {}",
+            n,
+            row.iter()
+                .map(|x| x.to_string())
+                .collect::<Vec<_>>()
+                .join(", ")
+        );
     }
     out
 }
@@ -242,7 +352,8 @@ pub fn combinatorics(n: u64, k: u64) -> String {
 
 pub fn truth_table(expr: &str) -> String {
     // Collect variables (single uppercase or lowercase letters A-Z)
-    let mut vars: Vec<char> = expr.chars()
+    let mut vars: Vec<char> = expr
+        .chars()
         .filter(|c| c.is_ascii_alphabetic())
         .collect::<std::collections::HashSet<char>>()
         .into_iter()
@@ -250,44 +361,75 @@ pub fn truth_table(expr: &str) -> String {
     vars.sort_unstable();
 
     if vars.is_empty() {
-        return format!("No variables found in: {}\nUse single letters (A, B, C, ...) as variables.", expr);
+        return format!(
+            "No variables found in: {}\nUse single letters (A, B, C, ...) as variables.",
+            expr
+        );
     }
     if vars.len() > 6 {
-        return format!("Too many variables ({}). Limit: 6 (for 2^6 = 64 rows).", vars.len());
+        return format!(
+            "Too many variables ({}). Limit: 6 (for 2^6 = 64 rows).",
+            vars.len()
+        );
     }
 
     let n_vars = vars.len();
     let n_rows = 1usize << n_vars;
     let mut out = String::new();
-    let expr_display = expr.trim()
-        .replace("AND", "∧").replace("OR", "∨").replace("NOT", "¬")
-        .replace("XOR", "⊕").replace("NAND", "⊼").replace("NOR", "⊽");
+    let expr_display = expr
+        .trim()
+        .replace("AND", "∧")
+        .replace("OR", "∨")
+        .replace("NOT", "¬")
+        .replace("XOR", "⊕")
+        .replace("NAND", "⊼")
+        .replace("NOR", "⊽");
 
     // Header
-    for v in &vars { let _ = write!(out, " {}  ", v); }
+    for v in &vars {
+        let _ = write!(out, " {}  ", v);
+    }
     let _ = writeln!(out, "| {}", expr_display);
-    let sep: String = vars.iter().map(|_| "----").collect::<String>() + "+--" + &"-".repeat(expr_display.len());
+    let sep: String =
+        vars.iter().map(|_| "----").collect::<String>() + "+--" + &"-".repeat(expr_display.len());
     let _ = writeln!(out, "{}", sep);
 
     let mut true_rows = 0usize;
     for row in 0..n_rows {
-        let vals: Vec<bool> = (0..n_vars).map(|i| (row >> (n_vars - 1 - i)) & 1 == 1).collect();
-        for &v in &vals { let _ = write!(out, " {}  ", if v { 'T' } else { 'F' }); }
+        let vals: Vec<bool> = (0..n_vars)
+            .map(|i| (row >> (n_vars - 1 - i)) & 1 == 1)
+            .collect();
+        for &v in &vals {
+            let _ = write!(out, " {}  ", if v { 'T' } else { 'F' });
+        }
         let result = eval_bool(expr, &vars, &vals);
         match result {
             Ok(r) => {
-                if r { true_rows += 1; }
+                if r {
+                    true_rows += 1;
+                }
                 let _ = writeln!(out, "| {}", if r { 'T' } else { 'F' });
             }
-            Err(e) => { let _ = writeln!(out, "| Error: {}", e); }
+            Err(e) => {
+                let _ = writeln!(out, "| Error: {}", e);
+            }
         }
     }
     let _ = writeln!(out, "{}", sep);
-    let _ = writeln!(out, "True rows: {} / {}  ({}%)",
-        true_rows, n_rows, 100 * true_rows / n_rows);
-    if true_rows == 0       { let _ = writeln!(out, "Classification: Contradiction (always false)"); }
-    else if true_rows == n_rows { let _ = writeln!(out, "Classification: Tautology (always true)"); }
-    else                    { let _ = writeln!(out, "Classification: Contingency"); }
+    let _ = writeln!(
+        out,
+        "True rows: {} / {}  ({}%)",
+        true_rows,
+        n_rows,
+        100 * true_rows / n_rows
+    );
+    if true_rows == 0 {
+        let _ = writeln!(out, "Classification: Contradiction (always false)");
+    } else if true_rows == n_rows {
+        let _ = writeln!(out, "Classification: Tautology (always true)");
+    } else {
+        let _ = writeln!(out, "Classification: Contingency");
+    }
     out
 }
 
@@ -298,16 +440,37 @@ fn eval_bool(expr: &str, vars: &[char], vals: &[bool]) -> Result<bool, String> {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-enum BoolToken { Var(char), True, False, Not, And, Or, Xor, Nand, Nor, LParen, RParen }
+enum BoolToken {
+    Var(char),
+    True,
+    False,
+    Not,
+    And,
+    Or,
+    Xor,
+    Nand,
+    Nor,
+    LParen,
+    RParen,
+}
 
 fn tokenize_bool(s: &str) -> Result<Vec<BoolToken>, String> {
     let mut tokens = Vec::new();
-    let s = s.replace("NAND", "⊼").replace("NOR", "⊽").replace("XOR", "⊕")
-             .replace("AND", "∧").replace("OR", "∨").replace("NOT", "¬")
-             .replace("&&", "∧").replace("||", "∨").replace("!", "¬")
-             .replace('&', "∧").replace('|', "∨").replace('^', "⊕");
-    let mut chars = s.chars().peekable();
-    while let Some(c) = chars.next() {
+    let s = s
+        .replace("NAND", "⊼")
+        .replace("NOR", "⊽")
+        .replace("XOR", "⊕")
+        .replace("AND", "∧")
+        .replace("OR", "∨")
+        .replace("NOT", "¬")
+        .replace("&&", "∧")
+        .replace("||", "∨")
+        .replace("!", "¬")
+        .replace('&', "∧")
+        .replace('|', "∨")
+        .replace('^', "⊕");
+    let chars = s.chars().peekable();
+    for c in chars {
         match c {
             ' ' | '\t' | '\n' => {}
             '(' => tokens.push(BoolToken::LParen),
@@ -327,64 +490,109 @@ fn tokenize_bool(s: &str) -> Result<Vec<BoolToken>, String> {
     Ok(tokens)
 }
 
-fn parse_bool_or(tokens: &[BoolToken], pos: usize, vars: &[char], vals: &[bool]) -> Result<(bool, usize), String> {
+fn parse_bool_or(
+    tokens: &[BoolToken],
+    pos: usize,
+    vars: &[char],
+    vals: &[bool],
+) -> Result<(bool, usize), String> {
     let (mut lhs, mut pos) = parse_bool_and(tokens, pos, vars, vals)?;
     while pos < tokens.len() {
         match &tokens[pos] {
-            BoolToken::Or  => { let (rhs, np) = parse_bool_and(tokens, pos+1, vars, vals)?; lhs = lhs || rhs; pos = np; }
-            BoolToken::Nor => { let (rhs, np) = parse_bool_and(tokens, pos+1, vars, vals)?; lhs = !(lhs || rhs); pos = np; }
+            BoolToken::Or => {
+                let (rhs, np) = parse_bool_and(tokens, pos + 1, vars, vals)?;
+                lhs = lhs || rhs;
+                pos = np;
+            }
+            BoolToken::Nor => {
+                let (rhs, np) = parse_bool_and(tokens, pos + 1, vars, vals)?;
+                lhs = !(lhs || rhs);
+                pos = np;
+            }
             _ => break,
         }
     }
     Ok((lhs, pos))
 }
 
-fn parse_bool_and(tokens: &[BoolToken], pos: usize, vars: &[char], vals: &[bool]) -> Result<(bool, usize), String> {
+fn parse_bool_and(
+    tokens: &[BoolToken],
+    pos: usize,
+    vars: &[char],
+    vals: &[bool],
+) -> Result<(bool, usize), String> {
     let (mut lhs, mut pos) = parse_bool_xor(tokens, pos, vars, vals)?;
     while pos < tokens.len() {
         match &tokens[pos] {
-            BoolToken::And  => { let (rhs, np) = parse_bool_xor(tokens, pos+1, vars, vals)?; lhs = lhs && rhs; pos = np; }
-            BoolToken::Nand => { let (rhs, np) = parse_bool_xor(tokens, pos+1, vars, vals)?; lhs = !(lhs && rhs); pos = np; }
+            BoolToken::And => {
+                let (rhs, np) = parse_bool_xor(tokens, pos + 1, vars, vals)?;
+                lhs = lhs && rhs;
+                pos = np;
+            }
+            BoolToken::Nand => {
+                let (rhs, np) = parse_bool_xor(tokens, pos + 1, vars, vals)?;
+                lhs = !(lhs && rhs);
+                pos = np;
+            }
             _ => break,
         }
     }
     Ok((lhs, pos))
 }
 
-fn parse_bool_xor(tokens: &[BoolToken], pos: usize, vars: &[char], vals: &[bool]) -> Result<(bool, usize), String> {
+fn parse_bool_xor(
+    tokens: &[BoolToken],
+    pos: usize,
+    vars: &[char],
+    vals: &[bool],
+) -> Result<(bool, usize), String> {
     let (mut lhs, mut pos) = parse_bool_not(tokens, pos, vars, vals)?;
     while pos < tokens.len() && tokens[pos] == BoolToken::Xor {
-        let (rhs, np) = parse_bool_not(tokens, pos+1, vars, vals)?;
-        lhs = lhs ^ rhs;
+        let (rhs, np) = parse_bool_not(tokens, pos + 1, vars, vals)?;
+        lhs ^= rhs;
         pos = np;
     }
     Ok((lhs, pos))
 }
 
-fn parse_bool_not(tokens: &[BoolToken], pos: usize, vars: &[char], vals: &[bool]) -> Result<(bool, usize), String> {
+fn parse_bool_not(
+    tokens: &[BoolToken],
+    pos: usize,
+    vars: &[char],
+    vals: &[bool],
+) -> Result<(bool, usize), String> {
     if pos < tokens.len() && tokens[pos] == BoolToken::Not {
-        let (inner, np) = parse_bool_not(tokens, pos+1, vars, vals)?;
+        let (inner, np) = parse_bool_not(tokens, pos + 1, vars, vals)?;
         return Ok((!inner, np));
     }
     parse_bool_atom(tokens, pos, vars, vals)
 }
 
-fn parse_bool_atom(tokens: &[BoolToken], pos: usize, vars: &[char], vals: &[bool]) -> Result<(bool, usize), String> {
-    if pos >= tokens.len() { return Err("Unexpected end of expression".into()); }
+fn parse_bool_atom(
+    tokens: &[BoolToken],
+    pos: usize,
+    vars: &[char],
+    vals: &[bool],
+) -> Result<(bool, usize), String> {
+    if pos >= tokens.len() {
+        return Err("Unexpected end of expression".into());
+    }
     match &tokens[pos] {
         BoolToken::LParen => {
-            let (inner, np) = parse_bool_or(tokens, pos+1, vars, vals)?;
+            let (inner, np) = parse_bool_or(tokens, pos + 1, vars, vals)?;
             if np >= tokens.len() || tokens[np] != BoolToken::RParen {
                 return Err("Missing closing ')'".into());
             }
             Ok((inner, np + 1))
         }
         BoolToken::Var(c) => {
-            let idx = vars.iter().position(|v| v == c)
+            let idx = vars
+                .iter()
+                .position(|v| v == c)
                 .ok_or_else(|| format!("Unknown variable '{}'", c))?;
             Ok((vals[idx], pos + 1))
         }
-        BoolToken::True  => Ok((true,  pos + 1)),
+        BoolToken::True => Ok((true, pos + 1)),
         BoolToken::False => Ok((false, pos + 1)),
         other => Err(format!("Unexpected token: {:?}", other)),
     }
@@ -393,7 +601,11 @@ fn parse_bool_atom(tokens: &[BoolToken], pos: usize, vars: &[char], vals: &[bool
 // ── GCD / LCM ─────────────────────────────────────────────────────────────────
 
 fn gcd(a: u128, b: u128) -> u128 {
-    if b == 0 { a } else { gcd(b, a % b) }
+    if b == 0 {
+        a
+    } else {
+        gcd(b, a % b)
+    }
 }
 
 pub fn gcd_lcm(a: u128, b: u128) -> String {
@@ -423,9 +635,17 @@ pub fn number_theory(query: &str) -> String {
     }
     match tokens[0].to_lowercase().as_str() {
         "extgcd" | "xgcd" => {
-            if tokens.len() < 3 { return "Usage: extgcd A B".into(); }
-            let a: i128 = match tokens[1].parse() { Ok(v) => v, Err(_) => return format!("Not a number: {}", tokens[1]) };
-            let b: i128 = match tokens[2].parse() { Ok(v) => v, Err(_) => return format!("Not a number: {}", tokens[2]) };
+            if tokens.len() < 3 {
+                return "Usage: extgcd A B".into();
+            }
+            let a: i128 = match tokens[1].parse() {
+                Ok(v) => v,
+                Err(_) => return format!("Not a number: {}", tokens[1]),
+            };
+            let b: i128 = match tokens[2].parse() {
+                Ok(v) => v,
+                Err(_) => return format!("Not a number: {}", tokens[2]),
+            };
             let (g, x, y) = ext_gcd(a, b);
             format!(
                 "Extended GCD({}, {}):\n  GCD = {}\n  Bézout: {}×{} + {}×{} = {}\n  (verify: {}×{} + {}×{} = {})",
@@ -437,56 +657,103 @@ pub fn number_theory(query: &str) -> String {
             if tokens.len() < 5 || tokens.len() % 2 == 0 {
                 return "Usage: crt r1 m1 r2 m2 [r3 m3 ...]\n  Example: crt 2 3 3 5  (x ≡ 2 mod 3 and x ≡ 3 mod 5)".into();
             }
-            let pairs: Vec<(i128,i128)> = tokens[1..].chunks(2)
+            let pairs: Vec<(i128, i128)> = tokens[1..]
+                .chunks(2)
                 .filter_map(|c| {
                     let r = c[0].parse::<i128>().ok()?;
                     let m = c[1].parse::<i128>().ok()?;
                     Some((r, m))
                 })
                 .collect();
-            if pairs.len() < 2 { return "Need at least 2 remainder-modulus pairs.".into(); }
+            if pairs.len() < 2 {
+                return "Need at least 2 remainder-modulus pairs.".into();
+            }
             match crt(&pairs) {
                 Some((x, m)) => {
-                    let mut out = format!("Chinese Remainder Theorem:\n");
-                    for (r, mo) in &pairs { out.push_str(&format!("  x ≡ {} (mod {})\n", r, mo)); }
-                    out.push_str(&format!("Solution: x ≡ {} (mod {})  [smallest positive: {}]", x, m, ((x % m) + m) % m));
+                    let mut out = "Chinese Remainder Theorem:\n".to_string();
+                    for (r, mo) in &pairs {
+                        out.push_str(&format!("  x ≡ {} (mod {})\n", r, mo));
+                    }
+                    out.push_str(&format!(
+                        "Solution: x ≡ {} (mod {})  [smallest positive: {}]",
+                        x,
+                        m,
+                        ((x % m) + m) % m
+                    ));
                     out
                 }
                 None => "No solution — moduli are not pairwise coprime.".into(),
             }
         }
         "mobius" | "möbius" | "mu" => {
-            if tokens.len() < 2 { return "Usage: mobius N".into(); }
-            let n: u64 = match tokens[1].parse() { Ok(v) => v, Err(_) => return format!("Not a number: {}", tokens[1]) };
+            if tokens.len() < 2 {
+                return "Usage: mobius N".into();
+            }
+            let n: u64 = match tokens[1].parse() {
+                Ok(v) => v,
+                Err(_) => return format!("Not a number: {}", tokens[1]),
+            };
             let mu = mobius(n);
             let explanation = match mu {
-                0  => "n has a squared prime factor → μ(n) = 0",
-                1  => "n is squarefree with even number of prime factors → μ(n) = 1",
+                0 => "n has a squared prime factor → μ(n) = 0",
+                1 => "n is squarefree with even number of prime factors → μ(n) = 1",
                 -1 => "n is squarefree with odd number of prime factors → μ(n) = -1",
-                _  => "",
+                _ => "",
             };
             format!("Möbius function μ({}) = {}\n  {}", n, mu, explanation)
         }
         "modinv" => {
-            if tokens.len() < 3 { return "Usage: modinv A MOD".into(); }
-            let a: i128 = match tokens[1].parse() { Ok(v) => v, Err(_) => return format!("Not a number: {}", tokens[1]) };
-            let m: i128 = match tokens[2].parse() { Ok(v) => v, Err(_) => return format!("Not a number: {}", tokens[2]) };
+            if tokens.len() < 3 {
+                return "Usage: modinv A MOD".into();
+            }
+            let a: i128 = match tokens[1].parse() {
+                Ok(v) => v,
+                Err(_) => return format!("Not a number: {}", tokens[1]),
+            };
+            let m: i128 = match tokens[2].parse() {
+                Ok(v) => v,
+                Err(_) => return format!("Not a number: {}", tokens[2]),
+            };
             match mod_inv(a, m) {
-                Some(inv) => format!("Modular inverse: {}⁻¹ ≡ {} (mod {})\nVerify: {} × {} = {} ≡ 1 (mod {})", a, inv, m, a, inv, a*inv, m),
+                Some(inv) => format!(
+                    "Modular inverse: {}⁻¹ ≡ {} (mod {})\nVerify: {} × {} = {} ≡ 1 (mod {})",
+                    a,
+                    inv,
+                    m,
+                    a,
+                    inv,
+                    a * inv,
+                    m
+                ),
                 None => format!("No modular inverse: gcd({}, {}) ≠ 1 (not coprime)", a, m),
             }
         }
         "modpow" | "powmod" => {
-            if tokens.len() < 4 { return "Usage: modpow BASE EXP MOD".into(); }
-            let base: u128 = match tokens[1].parse() { Ok(v) => v, Err(_) => return format!("Not a number: {}", tokens[1]) };
-            let exp:  u128 = match tokens[2].parse() { Ok(v) => v, Err(_) => return format!("Not a number: {}", tokens[2]) };
-            let modu: u128 = match tokens[3].parse() { Ok(v) => v, Err(_) => return format!("Not a number: {}", tokens[3]) };
-            if modu == 0 { return "Modulus cannot be zero.".into(); }
+            if tokens.len() < 4 {
+                return "Usage: modpow BASE EXP MOD".into();
+            }
+            let base: u128 = match tokens[1].parse() {
+                Ok(v) => v,
+                Err(_) => return format!("Not a number: {}", tokens[1]),
+            };
+            let exp: u128 = match tokens[2].parse() {
+                Ok(v) => v,
+                Err(_) => return format!("Not a number: {}", tokens[2]),
+            };
+            let modu: u128 = match tokens[3].parse() {
+                Ok(v) => v,
+                Err(_) => return format!("Not a number: {}", tokens[3]),
+            };
+            if modu == 0 {
+                return "Modulus cannot be zero.".into();
+            }
             let result = mod_pow(base, exp, modu);
             format!("{}^{} mod {} = {}", base, exp, modu, result)
         }
         "cf" | "cfrac" | "continued_fraction" => {
-            if tokens.len() < 2 { return "Usage: cf N/D  or  cf DECIMAL".into(); }
+            if tokens.len() < 2 {
+                return "Usage: cf N/D  or  cf DECIMAL".into();
+            }
             let input = tokens[1];
             let (num, den) = if input.contains('/') {
                 let parts: Vec<&str> = input.splitn(2, '/').collect();
@@ -500,11 +767,25 @@ pub fn number_theory(query: &str) -> String {
             } else {
                 return format!("Cannot parse: {}", input);
             };
-            if den == 0 { return "Denominator cannot be zero.".into(); }
+            if den == 0 {
+                return "Denominator cannot be zero.".into();
+            }
             let coeffs = cf_expansion(num, den, 20);
             let convergents = cf_convergents(&coeffs);
-            let mut out = format!("Continued fraction of {}/{} = {}:\n", num, den, num as f64 / den as f64);
-            out.push_str(&format!("  CF = [{}]\n", coeffs.iter().map(|x| x.to_string()).collect::<Vec<_>>().join("; ")));
+            let mut out = format!(
+                "Continued fraction of {}/{} = {}:\n",
+                num,
+                den,
+                num as f64 / den as f64
+            );
+            out.push_str(&format!(
+                "  CF = [{}]\n",
+                coeffs
+                    .iter()
+                    .map(|x| x.to_string())
+                    .collect::<Vec<_>>()
+                    .join("; ")
+            ));
             out.push_str("  Convergents:\n");
             for (p, q) in &convergents {
                 out.push_str(&format!("    {}/{} = {:.8}\n", p, q, *p as f64 / *q as f64));
@@ -512,10 +793,17 @@ pub fn number_theory(query: &str) -> String {
             out
         }
         "goldbach" => {
-            if tokens.len() < 2 { return "Usage: goldbach N (must be even, > 2)".into(); }
-            let n: u64 = match tokens[1].parse() { Ok(v) => v, Err(_) => return format!("Not a number: {}", tokens[1]) };
-            if n <= 2 || n % 2 != 0 { return format!("{} must be even and > 2 for Goldbach's conjecture.", n); }
-            let pairs: Vec<(u64,u64)> = (2..=n/2)
+            if tokens.len() < 2 {
+                return "Usage: goldbach N (must be even, > 2)".into();
+            }
+            let n: u64 = match tokens[1].parse() {
+                Ok(v) => v,
+                Err(_) => return format!("Not a number: {}", tokens[1]),
+            };
+            if n <= 2 || n % 2 != 0 {
+                return format!("{} must be even and > 2 for Goldbach's conjecture.", n);
+            }
+            let pairs: Vec<(u64, u64)> = (2..=n / 2)
                 .filter(|&p| is_prime(p) && is_prime(n - p))
                 .map(|p| (p, n - p))
                 .collect();
@@ -526,27 +814,47 @@ pub fn number_theory(query: &str) -> String {
                 for (p, q) in pairs.iter().take(10) {
                     out.push_str(&format!("  {} = {} + {}\n", n, p, q));
                 }
-                if pairs.len() > 10 { out.push_str(&format!("  ... ({} total decompositions)\n", pairs.len())); }
+                if pairs.len() > 10 {
+                    out.push_str(&format!("  ... ({} total decompositions)\n", pairs.len()));
+                }
             }
             out
         }
         "totient" | "phi" | "euler" => {
-            if tokens.len() < 2 { return "Usage: totient N".into(); }
-            let n: u64 = match tokens[1].parse() { Ok(v) => v, Err(_) => return format!("Not a number: {}", tokens[1]) };
+            if tokens.len() < 2 {
+                return "Usage: totient N".into();
+            }
+            let n: u64 = match tokens[1].parse() {
+                Ok(v) => v,
+                Err(_) => return format!("Not a number: {}", tokens[1]),
+            };
             let phi = euler_totient(n);
-            format!("Euler's totient φ({}) = {}\n  (count of integers 1..{} coprime to {})", n, phi, n, n)
+            format!(
+                "Euler's totient φ({}) = {}\n  (count of integers 1..{} coprime to {})",
+                n, phi, n, n
+            )
         }
         "jacobi" => {
-            if tokens.len() < 3 { return "Usage: jacobi A N (N must be odd)".into(); }
-            let a: i64 = match tokens[1].parse() { Ok(v) => v, Err(_) => return format!("Not a number: {}", tokens[1]) };
-            let n: i64 = match tokens[2].parse() { Ok(v) => v, Err(_) => return format!("Not a number: {}", tokens[2]) };
-            if n <= 0 || n % 2 == 0 { return "N must be a positive odd integer.".into(); }
+            if tokens.len() < 3 {
+                return "Usage: jacobi A N (N must be odd)".into();
+            }
+            let a: i64 = match tokens[1].parse() {
+                Ok(v) => v,
+                Err(_) => return format!("Not a number: {}", tokens[1]),
+            };
+            let n: i64 = match tokens[2].parse() {
+                Ok(v) => v,
+                Err(_) => return format!("Not a number: {}", tokens[2]),
+            };
+            if n <= 0 || n % 2 == 0 {
+                return "N must be a positive odd integer.".into();
+            }
             let j = jacobi_symbol(a, n);
             let meaning = match j {
-                0  => "a is not coprime to n",
-                1  => "a is a quadratic residue mod n (or n is composite)",
+                0 => "a is not coprime to n",
+                1 => "a is a quadratic residue mod n (or n is composite)",
                 -1 => "a is a quadratic non-residue mod n",
-                _  => "",
+                _ => "",
             };
             format!("Jacobi symbol ({}/{}) = {}\n  {}", a, n, j, meaning)
         }
@@ -572,7 +880,8 @@ fn nt_usage() -> String {
      hematite --number-theory 'goldbach 28'\n\
      hematite --number-theory 'totient 36'\n\
      hematite --number-theory 'jacobi 5 15'\n\
-     hematite --number-theory '42'    (full report for a number)".into()
+     hematite --number-theory '42'    (full report for a number)"
+        .into()
 }
 
 fn nt_report(n: u64) -> String {
@@ -583,12 +892,20 @@ fn nt_report(n: u64) -> String {
     if n < 1_000_000 {
         let sigma: u64 = (1..=n).filter(|d| n % d == 0).sum();
         let _ = writeln!(out, "  Sum of divisors σ(n) = {}", sigma);
-        if sigma == 2 * n { let _ = writeln!(out, "  → Perfect number!"); }
-        else if sigma > 2 * n { let _ = writeln!(out, "  → Abundant number"); }
-        else { let _ = writeln!(out, "  → Deficient number"); }
+        if sigma == 2 * n {
+            let _ = writeln!(out, "  → Perfect number!");
+        } else if sigma > 2 * n {
+            let _ = writeln!(out, "  → Abundant number");
+        } else {
+            let _ = writeln!(out, "  → Deficient number");
+        }
     }
     if n >= 4 && n % 2 == 0 {
-        if let Some((p, q)) = (2..=n/2).filter(|&p| is_prime(p) && is_prime(n - p)).map(|p| (p, n-p)).next() {
+        if let Some((p, q)) = (2..=n / 2)
+            .filter(|&p| is_prime(p) && is_prime(n - p))
+            .map(|p| (p, n - p))
+            .next()
+        {
             let _ = writeln!(out, "  Goldbach: {} = {} + {}", n, p, q);
         }
     }
@@ -596,23 +913,31 @@ fn nt_report(n: u64) -> String {
 }
 
 fn ext_gcd(a: i128, b: i128) -> (i128, i128, i128) {
-    if b == 0 { return (a, 1, 0); }
+    if b == 0 {
+        return (a, 1, 0);
+    }
     let (g, x1, y1) = ext_gcd(b, a % b);
     (g, y1, x1 - (a / b) * y1)
 }
 
 fn mod_inv(a: i128, m: i128) -> Option<i128> {
     let (g, x, _) = ext_gcd(a.rem_euclid(m), m);
-    if g != 1 { return None; }
+    if g != 1 {
+        return None;
+    }
     Some(x.rem_euclid(m))
 }
 
 fn mod_pow(mut base: u128, mut exp: u128, modu: u128) -> u128 {
-    if modu == 1 { return 0; }
+    if modu == 1 {
+        return 0;
+    }
     let mut result = 1u128;
     base %= modu;
     while exp > 0 {
-        if exp % 2 == 1 { result = result.wrapping_mul(base) % modu; }
+        if exp % 2 == 1 {
+            result = result.wrapping_mul(base) % modu;
+        }
         exp /= 2;
         base = base.wrapping_mul(base) % modu;
     }
@@ -624,7 +949,9 @@ fn crt(pairs: &[(i128, i128)]) -> Option<(i128, i128)> {
     let mut m = pairs[0].1;
     for &(r, mi) in &pairs[1..] {
         let g = gcd(m as u128, mi.unsigned_abs()) as i128;
-        if (r - x) % g != 0 { return None; }
+        if (r - x) % g != 0 {
+            return None;
+        }
         let lcm = m / g * mi;
         let inv = mod_inv(m / g, mi / g)?;
         x = x + m * ((r - x) / g % (mi / g) * inv % (mi / g));
@@ -635,17 +962,31 @@ fn crt(pairs: &[(i128, i128)]) -> Option<(i128, i128)> {
 }
 
 fn mobius(n: u64) -> i32 {
-    if n == 1 { return 1; }
+    if n == 1 {
+        return 1;
+    }
     let factors = factorize(n);
-    for (_, exp) in &factors { if *exp > 1 { return 0; } }
-    if factors.len() % 2 == 0 { 1 } else { -1 }
+    for (_, exp) in &factors {
+        if *exp > 1 {
+            return 0;
+        }
+    }
+    if factors.len() % 2 == 0 {
+        1
+    } else {
+        -1
+    }
 }
 
 fn euler_totient(n: u64) -> u64 {
-    if n == 0 { return 0; }
+    if n == 0 {
+        return 0;
+    }
     let factors = factorize(n);
     let mut phi = n;
-    for (p, _) in factors { phi = phi / p * (p - 1); }
+    for (p, _) in factors {
+        phi = phi / p * (p - 1);
+    }
     phi
 }
 
@@ -654,8 +995,11 @@ fn cf_expansion(mut num: i64, mut den: i64, max_terms: usize) -> Vec<i64> {
     for _ in 0..max_terms {
         coeffs.push(num / den);
         let rem = num % den;
-        if rem == 0 { break; }
-        num = den; den = rem;
+        if rem == 0 {
+            break;
+        }
+        num = den;
+        den = rem;
     }
     coeffs
 }
@@ -669,55 +1013,117 @@ fn cf_convergents(coeffs: &[i64]) -> Vec<(i64, i64)> {
         let p_next = a * p_curr + p_prev;
         let q_next = a * q_curr + q_prev;
         result.push((p_next, q_next));
-        p_prev = p_curr; q_prev = q_curr;
-        p_curr = p_next; q_curr = q_next;
+        p_prev = p_curr;
+        q_prev = q_curr;
+        p_curr = p_next;
+        q_curr = q_next;
     }
     result
 }
 
 fn jacobi_symbol(mut a: i64, mut n: i64) -> i32 {
-    if n <= 0 || n % 2 == 0 { return 0; }
+    if n <= 0 || n % 2 == 0 {
+        return 0;
+    }
     let mut result = 1i32;
     a = a.rem_euclid(n);
     while a != 0 {
         while a % 2 == 0 {
             a /= 2;
-            if n % 8 == 3 || n % 8 == 5 { result = -result; }
+            if n % 8 == 3 || n % 8 == 5 {
+                result = -result;
+            }
         }
         std::mem::swap(&mut a, &mut n);
-        if a % 4 == 3 && n % 4 == 3 { result = -result; }
+        if a % 4 == 3 && n % 4 == 3 {
+            result = -result;
+        }
         a %= n;
     }
-    if n == 1 { result } else { 0 }
+    if n == 1 {
+        result
+    } else {
+        0
+    }
 }
 
 // ── Roman numerals ────────────────────────────────────────────────────────────
 
 pub fn to_roman(mut n: u64) -> String {
-    if n == 0 { return "Roman numerals start at 1.".into(); }
-    if n > 3_999_999 { return format!("{n} is too large for standard Roman numerals (max 3,999,999)."); }
+    if n == 0 {
+        return "Roman numerals start at 1.".into();
+    }
+    if n > 3_999_999 {
+        return format!("{n} is too large for standard Roman numerals (max 3,999,999).");
+    }
     const TABLE: &[(u64, &str)] = &[
-        (1_000_000,"M̄"),(900_000,"C̄M̄"),(500_000,"D̄"),(400_000,"C̄D̄"),
-        (100_000,"C̄"),(90_000,"X̄C̄"),(50_000,"L̄"),(40_000,"X̄L̄"),
-        (10_000,"X̄"),(9_000,"MX̄"),(5_000,"V̄"),(4_000,"MV̄"),
-        (1000,"M"),(900,"CM"),(500,"D"),(400,"CD"),(100,"C"),(90,"XC"),
-        (50,"L"),(40,"XL"),(10,"X"),(9,"IX"),(5,"V"),(4,"IV"),(1,"I"),
+        (1_000_000, "M̄"),
+        (900_000, "C̄M̄"),
+        (500_000, "D̄"),
+        (400_000, "C̄D̄"),
+        (100_000, "C̄"),
+        (90_000, "X̄C̄"),
+        (50_000, "L̄"),
+        (40_000, "X̄L̄"),
+        (10_000, "X̄"),
+        (9_000, "MX̄"),
+        (5_000, "V̄"),
+        (4_000, "MV̄"),
+        (1000, "M"),
+        (900, "CM"),
+        (500, "D"),
+        (400, "CD"),
+        (100, "C"),
+        (90, "XC"),
+        (50, "L"),
+        (40, "XL"),
+        (10, "X"),
+        (9, "IX"),
+        (5, "V"),
+        (4, "IV"),
+        (1, "I"),
     ];
     let mut out = String::new();
     for &(val, sym) in TABLE {
-        while n >= val { out.push_str(sym); n -= val; }
+        while n >= val {
+            out.push_str(sym);
+            n -= val;
+        }
     }
     out
 }
 
 pub fn from_roman(s: &str) -> String {
     let s = s.trim().to_uppercase();
-    let map = [("M̄",1_000_000u64),("C̄M̄",900_000),("D̄",500_000),("C̄D̄",400_000),
-               ("C̄",100_000),("X̄C̄",90_000),("L̄",50_000),("X̄L̄",40_000),
-               ("X̄",10_000),("MX̄",9_000),("V̄",5_000),("MV̄",4_000),
-               ("M",1000),("CM",900),("D",500),("CD",400),("C",100),("XC",90),
-               ("L",50),("XL",40),("X",10),("IX",9),("V",5),("IV",4),("I",1)];
-    let mut pos = 0usize; let chars: Vec<char> = s.chars().collect();
+    let map = [
+        ("M̄", 1_000_000u64),
+        ("C̄M̄", 900_000),
+        ("D̄", 500_000),
+        ("C̄D̄", 400_000),
+        ("C̄", 100_000),
+        ("X̄C̄", 90_000),
+        ("L̄", 50_000),
+        ("X̄L̄", 40_000),
+        ("X̄", 10_000),
+        ("MX̄", 9_000),
+        ("V̄", 5_000),
+        ("MV̄", 4_000),
+        ("M", 1000),
+        ("CM", 900),
+        ("D", 500),
+        ("CD", 400),
+        ("C", 100),
+        ("XC", 90),
+        ("L", 50),
+        ("XL", 40),
+        ("X", 10),
+        ("IX", 9),
+        ("V", 5),
+        ("IV", 4),
+        ("I", 1),
+    ];
+    let mut pos = 0usize;
+    let chars: Vec<char> = s.chars().collect();
     let mut total = 0u64;
     'outer: while pos < chars.len() {
         for &(sym, val) in &map {
@@ -728,7 +1134,10 @@ pub fn from_roman(s: &str) -> String {
                 continue 'outer;
             }
         }
-        return format!("Unrecognized Roman numeral character at position {}: '{}'", pos, chars[pos]);
+        return format!(
+            "Unrecognized Roman numeral character at position {}: '{}'",
+            pos, chars[pos]
+        );
     }
     format!("{} = {}", s, total)
 }
@@ -746,21 +1155,25 @@ pub fn roman_info(input: &str) -> String {
 // ── Number base conversion ────────────────────────────────────────────────────
 
 pub fn base_convert(input: &str, from_base: u32, to_base: u32) -> String {
-    if from_base < 2 || from_base > 36 || to_base < 2 || to_base > 36 {
+    if !(2..=36).contains(&from_base) || !(2..=36).contains(&to_base) {
         return "Base must be between 2 and 36.".into();
     }
     let s = input.trim().to_ascii_uppercase();
-    let value = u128::from_str_radix(&s, from_base)
-        .unwrap_or_else(|_| return 0);
+    let value = u128::from_str_radix(&s, from_base).unwrap_or(0);
     // check parse success separately
     if u128::from_str_radix(&s, from_base).is_err() {
         return format!("'{}' is not a valid base-{} number.", s, from_base);
     }
     let to_str = |mut v: u128, base: u32| -> String {
-        if v == 0 { return "0".into(); }
+        if v == 0 {
+            return "0".into();
+        }
         let digits: &[u8] = b"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
         let mut result = Vec::new();
-        while v > 0 { result.push(digits[(v % base as u128) as usize] as char); v /= base as u128; }
+        while v > 0 {
+            result.push(digits[(v % base as u128) as usize] as char);
+            v /= base as u128;
+        }
         result.into_iter().rev().collect()
     };
     let _ = value; // used via closure
@@ -768,10 +1181,21 @@ pub fn base_convert(input: &str, from_base: u32, to_base: u32) -> String {
     let mut out = String::new();
     let _ = writeln!(out, "Input (base {}): {}", from_base, s);
     let _ = writeln!(out, "Decimal: {}", value2);
-    let _ = writeln!(out, "Output (base {}): {}", to_base, to_str(value2, to_base));
-    if to_base != 2 && from_base != 2 { let _ = writeln!(out, "Binary:  {}", to_str(value2, 2)); }
-    if to_base != 16 && from_base != 16 { let _ = writeln!(out, "Hex:     {}", to_str(value2, 16)); }
-    if to_base != 8 && from_base != 8 { let _ = writeln!(out, "Octal:   {}", to_str(value2, 8)); }
+    let _ = writeln!(
+        out,
+        "Output (base {}): {}",
+        to_base,
+        to_str(value2, to_base)
+    );
+    if to_base != 2 && from_base != 2 {
+        let _ = writeln!(out, "Binary:  {}", to_str(value2, 2));
+    }
+    if to_base != 16 && from_base != 16 {
+        let _ = writeln!(out, "Hex:     {}", to_str(value2, 16));
+    }
+    if to_base != 8 && from_base != 8 {
+        let _ = writeln!(out, "Octal:   {}", to_str(value2, 8));
+    }
     out
 }
 
@@ -779,9 +1203,15 @@ pub fn base_convert(input: &str, from_base: u32, to_base: u32) -> String {
 
 fn days_in_month(year: i32, month: u32) -> u32 {
     match month {
-        1|3|5|7|8|10|12 => 31,
-        4|6|9|11 => 30,
-        2 => if year % 400 == 0 || (year % 4 == 0 && year % 100 != 0) { 29 } else { 28 },
+        1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
+        4 | 6 | 9 | 11 => 30,
+        2 => {
+            if year % 400 == 0 || (year % 4 == 0 && year % 100 != 0) {
+                29
+            } else {
+                28
+            }
+        }
         _ => 30,
     }
 }
@@ -790,7 +1220,9 @@ fn to_jdn(y: i32, m: u32, d: u32) -> i64 {
     let a = (14 - m as i32) / 12;
     let yr = y + 4800 - a;
     let mo = m as i32 + 12 * a - 3;
-    d as i64 + (153 * mo + 2) as i64 / 5 + 365 * yr as i64 + yr as i64 / 4 - yr as i64 / 100 + yr as i64 / 400 - 32045
+    d as i64 + (153 * mo + 2) as i64 / 5 + 365 * yr as i64 + yr as i64 / 4 - yr as i64 / 100
+        + yr as i64 / 400
+        - 32045
 }
 
 fn from_jdn(jdn: i64) -> (i32, u32, u32) {
@@ -810,19 +1242,30 @@ fn from_jdn(jdn: i64) -> (i32, u32, u32) {
 fn parse_date(s: &str) -> Option<(i32, u32, u32)> {
     let s = s.trim();
     // Try YYYY-MM-DD
-    let parts: Vec<&str> = s.splitn(3, |c: char| !c.is_ascii_digit()).filter(|p| !p.is_empty()).collect();
+    let parts: Vec<&str> = s
+        .splitn(3, |c: char| !c.is_ascii_digit())
+        .filter(|p| !p.is_empty())
+        .collect();
     if parts.len() == 3 {
         let y = parts[0].parse::<i32>().ok()?;
         let m = parts[1].parse::<u32>().ok()?;
         let d = parts[2].parse::<u32>().ok()?;
-        if m >= 1 && m <= 12 && d >= 1 && d <= days_in_month(y, m) {
+        if (1..=12).contains(&m) && d >= 1 && d <= days_in_month(y, m) {
             return Some((y, m, d));
         }
     }
     None
 }
 
-const WEEKDAYS: &[&str] = &["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
+const WEEKDAYS: &[&str] = &[
+    "Monday",
+    "Tuesday",
+    "Wednesday",
+    "Thursday",
+    "Friday",
+    "Saturday",
+    "Sunday",
+];
 
 pub fn date_calc(input: &str) -> String {
     let s = input.trim();
@@ -862,10 +1305,13 @@ pub fn date_calc(input: &str) -> String {
 
     // Split on "to" or ","
     let (a_str, b_str) = if let Some(pos) = s.to_lowercase().find(" to ") {
-        (s[..pos].trim(), Some(s[pos+4..].trim()))
+        (s[..pos].trim(), Some(s[pos + 4..].trim()))
     } else if s.contains(',') {
         let mut it = s.splitn(2, ',');
-        (it.next().unwrap_or("").trim(), Some(it.next().unwrap_or("").trim()))
+        (
+            it.next().unwrap_or("").trim(),
+            Some(it.next().unwrap_or("").trim()),
+        )
     } else {
         (s, None)
     };
@@ -873,12 +1319,16 @@ pub fn date_calc(input: &str) -> String {
     // Check for "+N" or "-N" at the end (date arithmetic)
     let plus_re = {
         let a = a_str.trim_end();
-        if let Some(idx) = a.rfind(|c: char| c == '+' || c == '-') {
+        if let Some(idx) = a.rfind(['+', '-']) {
             let (date_part, offset_part) = a.split_at(idx);
             if let Ok(n) = offset_part.trim().parse::<i64>() {
                 Some((date_part.trim(), n))
-            } else { None }
-        } else { None }
+            } else {
+                None
+            }
+        } else {
+            None
+        }
     };
 
     if let Some((date_part, offset)) = plus_re {
@@ -886,11 +1336,23 @@ pub fn date_calc(input: &str) -> String {
             let jdn = to_jdn(y, m, d) + offset;
             let (y2, m2, d2) = from_jdn(jdn);
             let dow = ((jdn + 1) % 7) as usize;
-            let _ = writeln!(out, "{}-{:02}-{:02}  {} {} days  →  {}-{:02}-{:02} ({})",
-                y, m, d, if offset >= 0 { "+" } else { "" }, offset,
-                y2, m2, d2, WEEKDAYS[dow]);
+            let _ = writeln!(
+                out,
+                "{}-{:02}-{:02}  {} {} days  →  {}-{:02}-{:02} ({})",
+                y,
+                m,
+                d,
+                if offset >= 0 { "+" } else { "" },
+                offset,
+                y2,
+                m2,
+                d2,
+                WEEKDAYS[dow]
+            );
         } else {
-            out.push_str("Could not parse date. Use: --date '2024-03-15 +90' or '2024-01-01 to 2024-12-31'");
+            out.push_str(
+                "Could not parse date. Use: --date '2024-03-15 +90' or '2024-01-01 to 2024-12-31'",
+            );
         }
         return out;
     }
@@ -904,11 +1366,22 @@ pub fn date_calc(input: &str) -> String {
             let dow2 = ((jdn2 + 1) % 7) as usize;
             let _ = writeln!(out, "From: {}-{:02}-{:02} ({})", y1, m1, d1, WEEKDAYS[dow1]);
             let _ = writeln!(out, "To:   {}-{:02}-{:02} ({})", y2, m2, d2, WEEKDAYS[dow2]);
-            let _ = writeln!(out, "Difference: {} days  ({} weeks {} days)",
-                diff.abs(), diff.abs() / 7, diff.abs() % 7);
-            let _ = writeln!(out, "           ≈ {:.2} months  ≈ {:.3} years",
-                diff.abs() as f64 / 30.4375, diff.abs() as f64 / 365.25);
-            if diff < 0 { let _ = writeln!(out, "(B is before A — {} days ago)", diff.abs()); }
+            let _ = writeln!(
+                out,
+                "Difference: {} days  ({} weeks {} days)",
+                diff.abs(),
+                diff.abs() / 7,
+                diff.abs() % 7
+            );
+            let _ = writeln!(
+                out,
+                "           ≈ {:.2} months  ≈ {:.3} years",
+                diff.abs() as f64 / 30.4375,
+                diff.abs() as f64 / 365.25
+            );
+            if diff < 0 {
+                let _ = writeln!(out, "(B is before A — {} days ago)", diff.abs());
+            }
         } else {
             out.push_str("Could not parse second date.");
         }
@@ -919,13 +1392,19 @@ pub fn date_calc(input: &str) -> String {
     if let Some((y, m, d)) = parse_date(a_str) {
         let jdn = to_jdn(y, m, d);
         let dow = ((jdn + 1) % 7) as usize;
-        let ts  = (jdn - 2440588) * 86400;
+        let ts = (jdn - 2440588) * 86400;
         let day_of_year: u32 = (1..m).map(|mo| days_in_month(y, mo)).sum::<u32>() + d;
         let is_leap = y % 400 == 0 || (y % 4 == 0 && y % 100 != 0);
         let days_left = (if is_leap { 366 } else { 365 }) - day_of_year;
         let _ = writeln!(out, "Date:       {}-{:02}-{:02}", y, m, d);
-        let _ = writeln!(out, "Day:        {} (day {} of {}, {} remaining)",
-            WEEKDAYS[dow], day_of_year, if is_leap { 366 } else { 365 }, days_left);
+        let _ = writeln!(
+            out,
+            "Day:        {} (day {} of {}, {} remaining)",
+            WEEKDAYS[dow],
+            day_of_year,
+            if is_leap { 366 } else { 365 },
+            days_left
+        );
         let _ = writeln!(out, "Leap year:  {}", if is_leap { "Yes" } else { "No" });
         let _ = writeln!(out, "Unix stamp: {} (midnight UTC)", ts);
         let _ = writeln!(out, "Julian day: {}", jdn);
@@ -943,7 +1422,7 @@ pub fn subnet_calc(cidr: &str) -> String {
 
     // Parse "A.B.C.D/prefix" or "A.B.C.D mask M.M.M.M"
     let (ip_str, prefix) = if let Some(idx) = cidr.find('/') {
-        let prefix: u8 = match cidr[idx+1..].trim().parse() {
+        let prefix: u8 = match cidr[idx + 1..].trim().parse() {
             Ok(v) => v,
             Err(_) => return "Invalid prefix length. Use CIDR format: 192.168.1.0/24".into(),
         };
@@ -954,8 +1433,16 @@ pub fn subnet_calc(cidr: &str) -> String {
 
     let parse_ip = |s: &str| -> Option<u32> {
         let parts: Vec<u8> = s.trim().split('.').filter_map(|x| x.parse().ok()).collect();
-        if parts.len() == 4 { Some(((parts[0] as u32) << 24) | ((parts[1] as u32) << 16) | ((parts[2] as u32) << 8) | parts[3] as u32) }
-        else { None }
+        if parts.len() == 4 {
+            Some(
+                ((parts[0] as u32) << 24)
+                    | ((parts[1] as u32) << 16)
+                    | ((parts[2] as u32) << 8)
+                    | parts[3] as u32,
+            )
+        } else {
+            None
+        }
     };
 
     let ip = match parse_ip(ip_str) {
@@ -963,23 +1450,47 @@ pub fn subnet_calc(cidr: &str) -> String {
         None => return format!("Invalid IP address: '{}'", ip_str),
     };
 
-    if prefix > 32 { return "Prefix must be 0–32.".into(); }
+    if prefix > 32 {
+        return "Prefix must be 0–32.".into();
+    }
 
-    let mask: u32 = if prefix == 0 { 0 } else { !0u32 << (32 - prefix) };
-    let network  = ip & mask;
+    let mask: u32 = if prefix == 0 {
+        0
+    } else {
+        !0u32 << (32 - prefix)
+    };
+    let network = ip & mask;
     let broadcast = network | !mask;
     let first_host = if prefix >= 31 { network } else { network + 1 };
-    let last_host  = if prefix >= 31 { broadcast } else { broadcast - 1 };
-    let host_count: u64 = if prefix >= 32 { 1 } else if prefix == 31 { 2 } else { (1u64 << (32 - prefix)) - 2 };
+    let last_host = if prefix >= 31 {
+        broadcast
+    } else {
+        broadcast - 1
+    };
+    let host_count: u64 = if prefix >= 32 {
+        1
+    } else if prefix == 31 {
+        2
+    } else {
+        (1u64 << (32 - prefix)) - 2
+    };
 
-    let fmt_ip = |v: u32| format!("{}.{}.{}.{}", v >> 24, (v >> 16) & 0xff, (v >> 8) & 0xff, v & 0xff);
+    let fmt_ip = |v: u32| {
+        format!(
+            "{}.{}.{}.{}",
+            v >> 24,
+            (v >> 16) & 0xff,
+            (v >> 8) & 0xff,
+            v & 0xff
+        )
+    };
 
     let class = match ip >> 24 {
-        0..=127   => "A",
+        0..=127 => "A",
         128..=191 => "B",
         192..=223 => "C",
         224..=239 => "D (Multicast)",
-        _         => "E (Reserved)",
+        _ => "E (Reserved)",
     };
     let private = (ip >> 24) == 10
         || ((ip >> 24) == 172 && ((ip >> 20) & 0xf) == 1)
@@ -992,7 +1503,12 @@ pub fn subnet_calc(cidr: &str) -> String {
     let _ = writeln!(out, "First host: {}", fmt_ip(first_host));
     let _ = writeln!(out, "Last host:  {}", fmt_ip(last_host));
     let _ = writeln!(out, "Hosts:      {}", host_count);
-    let _ = writeln!(out, "Class:      {}  |  Private: {}", class, if private { "Yes" } else { "No" });
+    let _ = writeln!(
+        out,
+        "Class:      {}  |  Private: {}",
+        class,
+        if private { "Yes" } else { "No" }
+    );
     out
 }
 
@@ -1005,25 +1521,38 @@ pub fn color_convert(input: &str) -> String {
     // Parse hex: #RRGGBB or RRGGBB or #RGB
     let hex_input = s.trim_start_matches('#');
     let (r8, g8, b8) = if hex_input.len() == 6 {
-        if let (Ok(r),Ok(g),Ok(b)) = (
-            u8::from_str_radix(&hex_input[0..2],16),
-            u8::from_str_radix(&hex_input[2..4],16),
-            u8::from_str_radix(&hex_input[4..6],16)) {
+        if let (Ok(r), Ok(g), Ok(b)) = (
+            u8::from_str_radix(&hex_input[0..2], 16),
+            u8::from_str_radix(&hex_input[2..4], 16),
+            u8::from_str_radix(&hex_input[4..6], 16),
+        ) {
             (r, g, b)
-        } else { return format!("Invalid hex: '{}'", input); }
+        } else {
+            return format!("Invalid hex: '{}'", input);
+        }
     } else if hex_input.len() == 3 {
-        if let (Ok(r),Ok(g),Ok(b)) = (
-            u8::from_str_radix(&hex_input[0..1].repeat(2),16),
-            u8::from_str_radix(&hex_input[1..2].repeat(2),16),
-            u8::from_str_radix(&hex_input[2..3].repeat(2),16)) {
+        if let (Ok(r), Ok(g), Ok(b)) = (
+            u8::from_str_radix(&hex_input[0..1].repeat(2), 16),
+            u8::from_str_radix(&hex_input[1..2].repeat(2), 16),
+            u8::from_str_radix(&hex_input[2..3].repeat(2), 16),
+        ) {
             (r, g, b)
-        } else { return format!("Invalid hex: '{}'", input); }
+        } else {
+            return format!("Invalid hex: '{}'", input);
+        }
     } else if s.starts_with("rgb(") || s.starts_with("rgb ") {
-        let nums: Vec<u8> = s.chars().filter(|c| c.is_ascii_digit() || *c == ' ' || *c == ',')
-            .collect::<String>().split(|c: char| !c.is_ascii_digit())
-            .filter_map(|x| x.parse().ok()).collect();
-        if nums.len() >= 3 { (nums[0], nums[1], nums[2]) }
-        else { return "Usage: --color '#ff8800' or --color 'rgb(255,136,0)'".into(); }
+        let nums: Vec<u8> = s
+            .chars()
+            .filter(|c| c.is_ascii_digit() || *c == ' ' || *c == ',')
+            .collect::<String>()
+            .split(|c: char| !c.is_ascii_digit())
+            .filter_map(|x| x.parse().ok())
+            .collect();
+        if nums.len() >= 3 {
+            (nums[0], nums[1], nums[2])
+        } else {
+            return "Usage: --color '#ff8800' or --color 'rgb(255,136,0)'".into();
+        }
     } else {
         return "Usage: --color '#ff8800' or --color 'rgb(255,136,0)' or --color '3f8'".into();
     };
@@ -1037,8 +1566,14 @@ pub fn color_convert(input: &str) -> String {
     let cmin = rf.min(gf).min(bf);
     let delta = cmax - cmin;
     let l = (cmax + cmin) / 2.0;
-    let s_hsl = if delta == 0.0 { 0.0 } else { delta / (1.0 - (2.0 * l - 1.0).abs()) };
-    let h_hsl = if delta == 0.0 { 0.0 } else if cmax == rf {
+    let s_hsl = if delta == 0.0 {
+        0.0
+    } else {
+        delta / (1.0 - (2.0 * l - 1.0).abs())
+    };
+    let h_hsl = if delta == 0.0 {
+        0.0
+    } else if cmax == rf {
         60.0 * (((gf - bf) / delta) % 6.0)
     } else if cmax == gf {
         60.0 * ((bf - rf) / delta + 2.0)
@@ -1053,21 +1588,53 @@ pub fn color_convert(input: &str) -> String {
 
     // RGB → CMYK
     let k_cmyk = 1.0 - cmax;
-    let (c_cmyk, m_cmyk, y_cmyk) = if k_cmyk == 1.0 { (0.0,0.0,0.0) } else {
-        ((1.0-rf-k_cmyk)/(1.0-k_cmyk), (1.0-gf-k_cmyk)/(1.0-k_cmyk), (1.0-bf-k_cmyk)/(1.0-k_cmyk))
+    let (c_cmyk, m_cmyk, y_cmyk) = if k_cmyk == 1.0 {
+        (0.0, 0.0, 0.0)
+    } else {
+        (
+            (1.0 - rf - k_cmyk) / (1.0 - k_cmyk),
+            (1.0 - gf - k_cmyk) / (1.0 - k_cmyk),
+            (1.0 - bf - k_cmyk) / (1.0 - k_cmyk),
+        )
     };
 
     let _ = writeln!(out, "Hex:   #{:02X}{:02X}{:02X}", r8, g8, b8);
     let _ = writeln!(out, "RGB:   rgb({}, {}, {})", r8, g8, b8);
-    let _ = writeln!(out, "HSL:   hsl({:.1}°, {:.1}%, {:.1}%)", h_hsl, s_hsl*100.0, l*100.0);
-    let _ = writeln!(out, "HSV:   hsv({:.1}°, {:.1}%, {:.1}%)", h_hsl, s_hsv*100.0, v_hsv*100.0);
-    let _ = writeln!(out, "CMYK:  cmyk({:.0}%, {:.0}%, {:.0}%, {:.0}%)",
-        c_cmyk*100.0, m_cmyk*100.0, y_cmyk*100.0, k_cmyk*100.0);
+    let _ = writeln!(
+        out,
+        "HSL:   hsl({:.1}°, {:.1}%, {:.1}%)",
+        h_hsl,
+        s_hsl * 100.0,
+        l * 100.0
+    );
+    let _ = writeln!(
+        out,
+        "HSV:   hsv({:.1}°, {:.1}%, {:.1}%)",
+        h_hsl,
+        s_hsv * 100.0,
+        v_hsv * 100.0
+    );
+    let _ = writeln!(
+        out,
+        "CMYK:  cmyk({:.0}%, {:.0}%, {:.0}%, {:.0}%)",
+        c_cmyk * 100.0,
+        m_cmyk * 100.0,
+        y_cmyk * 100.0,
+        k_cmyk * 100.0
+    );
     // Luminance (WCAG)
-    let lum = 0.2126*rf + 0.7152*gf + 0.0722*bf;
-    let _ = writeln!(out, "Luminance: {:.4}  (WCAG relative, 0=black 1=white)", lum);
+    let lum = 0.2126 * rf + 0.7152 * gf + 0.0722 * bf;
+    let _ = writeln!(
+        out,
+        "Luminance: {:.4}  (WCAG relative, 0=black 1=white)",
+        lum
+    );
     let contrast_white = (1.0 + 0.05) / (lum + 0.05);
-    let _ = writeln!(out, "Contrast vs white: {:.2}:1  (WCAG AA needs 4.5:1)", contrast_white);
+    let _ = writeln!(
+        out,
+        "Contrast vs white: {:.2}:1  (WCAG AA needs 4.5:1)",
+        contrast_white
+    );
     out
 }
 
@@ -1077,35 +1644,132 @@ pub fn color_convert(input: &str) -> String {
 // Symbol → atomic mass (standard atomic weights, IUPAC 2021)
 fn atomic_masses() -> &'static [(&'static str, f64)] {
     &[
-        ("H",1.008),("He",4.0026),("Li",6.94),("Be",9.0122),("B",10.81),
-        ("C",12.011),("N",14.007),("O",15.999),("F",18.998),("Ne",20.180),
-        ("Na",22.990),("Mg",24.305),("Al",26.982),("Si",28.085),("P",30.974),
-        ("S",32.06),("Cl",35.45),("Ar",39.948),("K",39.098),("Ca",40.078),
-        ("Sc",44.956),("Ti",47.867),("V",50.942),("Cr",51.996),("Mn",54.938),
-        ("Fe",55.845),("Co",58.933),("Ni",58.693),("Cu",63.546),("Zn",65.38),
-        ("Ga",69.723),("Ge",72.630),("As",74.922),("Se",78.971),("Br",79.904),
-        ("Kr",83.798),("Rb",85.468),("Sr",87.62),("Y",88.906),("Zr",91.224),
-        ("Nb",92.906),("Mo",95.95),("Tc",98.0),("Ru",101.07),("Rh",102.906),
-        ("Pd",106.42),("Ag",107.868),("Cd",112.414),("In",114.818),("Sn",118.710),
-        ("Sb",121.760),("Te",127.60),("I",126.904),("Xe",131.293),("Cs",132.905),
-        ("Ba",137.327),("La",138.905),("Ce",140.116),("Pr",140.908),("Nd",144.242),
-        ("Pm",145.0),("Sm",150.36),("Eu",151.964),("Gd",157.25),("Tb",158.925),
-        ("Dy",162.500),("Ho",164.930),("Er",167.259),("Tm",168.934),("Yb",173.045),
-        ("Lu",174.967),("Hf",178.49),("Ta",180.948),("W",183.84),("Re",186.207),
-        ("Os",190.23),("Ir",192.217),("Pt",195.084),("Au",196.967),("Hg",200.592),
-        ("Tl",204.38),("Pb",207.2),("Bi",208.980),("Po",209.0),("At",210.0),
-        ("Rn",222.0),("Fr",223.0),("Ra",226.0),("Ac",227.0),("Th",232.038),
-        ("Pa",231.036),("U",238.029),("Np",237.0),("Pu",244.0),("Am",243.0),
-        ("Cm",247.0),("Bk",247.0),("Cf",251.0),("Es",252.0),("Fm",257.0),
-        ("Md",258.0),("No",259.0),("Lr",266.0),("Rf",267.0),("Db",268.0),
-        ("Sg",271.0),("Bh",270.0),("Hs",277.0),("Mt",278.0),("Ds",281.0),
-        ("Rg",282.0),("Cn",285.0),("Nh",286.0),("Fl",289.0),("Mc",290.0),
-        ("Lv",293.0),("Ts",294.0),("Og",294.0),
+        ("H", 1.008),
+        ("He", 4.0026),
+        ("Li", 6.94),
+        ("Be", 9.0122),
+        ("B", 10.81),
+        ("C", 12.011),
+        ("N", 14.007),
+        ("O", 15.999),
+        ("F", 18.998),
+        ("Ne", 20.180),
+        ("Na", 22.990),
+        ("Mg", 24.305),
+        ("Al", 26.982),
+        ("Si", 28.085),
+        ("P", 30.974),
+        ("S", 32.06),
+        ("Cl", 35.45),
+        ("Ar", 39.948),
+        ("K", 39.098),
+        ("Ca", 40.078),
+        ("Sc", 44.956),
+        ("Ti", 47.867),
+        ("V", 50.942),
+        ("Cr", 51.996),
+        ("Mn", 54.938),
+        ("Fe", 55.845),
+        ("Co", 58.933),
+        ("Ni", 58.693),
+        ("Cu", 63.546),
+        ("Zn", 65.38),
+        ("Ga", 69.723),
+        ("Ge", 72.630),
+        ("As", 74.922),
+        ("Se", 78.971),
+        ("Br", 79.904),
+        ("Kr", 83.798),
+        ("Rb", 85.468),
+        ("Sr", 87.62),
+        ("Y", 88.906),
+        ("Zr", 91.224),
+        ("Nb", 92.906),
+        ("Mo", 95.95),
+        ("Tc", 98.0),
+        ("Ru", 101.07),
+        ("Rh", 102.906),
+        ("Pd", 106.42),
+        ("Ag", 107.868),
+        ("Cd", 112.414),
+        ("In", 114.818),
+        ("Sn", 118.710),
+        ("Sb", 121.760),
+        ("Te", 127.60),
+        ("I", 126.904),
+        ("Xe", 131.293),
+        ("Cs", 132.905),
+        ("Ba", 137.327),
+        ("La", 138.905),
+        ("Ce", 140.116),
+        ("Pr", 140.908),
+        ("Nd", 144.242),
+        ("Pm", 145.0),
+        ("Sm", 150.36),
+        ("Eu", 151.964),
+        ("Gd", 157.25),
+        ("Tb", 158.925),
+        ("Dy", 162.500),
+        ("Ho", 164.930),
+        ("Er", 167.259),
+        ("Tm", 168.934),
+        ("Yb", 173.045),
+        ("Lu", 174.967),
+        ("Hf", 178.49),
+        ("Ta", 180.948),
+        ("W", 183.84),
+        ("Re", 186.207),
+        ("Os", 190.23),
+        ("Ir", 192.217),
+        ("Pt", 195.084),
+        ("Au", 196.967),
+        ("Hg", 200.592),
+        ("Tl", 204.38),
+        ("Pb", 207.2),
+        ("Bi", 208.980),
+        ("Po", 209.0),
+        ("At", 210.0),
+        ("Rn", 222.0),
+        ("Fr", 223.0),
+        ("Ra", 226.0),
+        ("Ac", 227.0),
+        ("Th", 232.038),
+        ("Pa", 231.036),
+        ("U", 238.029),
+        ("Np", 237.0),
+        ("Pu", 244.0),
+        ("Am", 243.0),
+        ("Cm", 247.0),
+        ("Bk", 247.0),
+        ("Cf", 251.0),
+        ("Es", 252.0),
+        ("Fm", 257.0),
+        ("Md", 258.0),
+        ("No", 259.0),
+        ("Lr", 266.0),
+        ("Rf", 267.0),
+        ("Db", 268.0),
+        ("Sg", 271.0),
+        ("Bh", 270.0),
+        ("Hs", 277.0),
+        ("Mt", 278.0),
+        ("Ds", 281.0),
+        ("Rg", 282.0),
+        ("Cn", 285.0),
+        ("Nh", 286.0),
+        ("Fl", 289.0),
+        ("Mc", 290.0),
+        ("Lv", 293.0),
+        ("Ts", 294.0),
+        ("Og", 294.0),
     ]
 }
 
 fn lookup_mass(sym: &str) -> Option<f64> {
-    atomic_masses().iter().find(|(s, _)| *s == sym).map(|(_, m)| *m)
+    atomic_masses()
+        .iter()
+        .find(|(s, _)| *s == sym)
+        .map(|(_, m)| *m)
 }
 
 fn parse_formula(chars: &[char], pos: &mut usize) -> Result<Vec<(String, u32)>, String> {
@@ -1120,7 +1784,9 @@ fn parse_formula(chars: &[char], pos: &mut usize) -> Result<Vec<(String, u32)>, 
                 }
                 *pos += 1;
                 let count = read_number(chars, pos).unwrap_or(1);
-                for (sym, n) in inner { items.push((sym, n * count)); }
+                for (sym, n) in inner {
+                    items.push((sym, n * count));
+                }
             }
             '[' => {
                 *pos += 1;
@@ -1130,7 +1796,9 @@ fn parse_formula(chars: &[char], pos: &mut usize) -> Result<Vec<(String, u32)>, 
                 }
                 *pos += 1;
                 let count = read_number(chars, pos).unwrap_or(1);
-                for (sym, n) in inner { items.push((sym, n * count)); }
+                for (sym, n) in inner {
+                    items.push((sym, n * count));
+                }
             }
             ')' | ']' => break,
             c if c.is_ascii_uppercase() => {
@@ -1143,8 +1811,12 @@ fn parse_formula(chars: &[char], pos: &mut usize) -> Result<Vec<(String, u32)>, 
                 let count = read_number(chars, pos).unwrap_or(1);
                 items.push((sym, count));
             }
-            '·' | '•' | '.' => { *pos += 1; } // hydrate dot
-            ' ' | '\t' => { *pos += 1; }
+            '·' | '•' | '.' => {
+                *pos += 1;
+            } // hydrate dot
+            ' ' | '\t' => {
+                *pos += 1;
+            }
             other => return Err(format!("Unexpected character: '{}'", other)),
         }
     }
@@ -1153,8 +1825,12 @@ fn parse_formula(chars: &[char], pos: &mut usize) -> Result<Vec<(String, u32)>, 
 
 fn read_number(chars: &[char], pos: &mut usize) -> Option<u32> {
     let start = *pos;
-    while *pos < chars.len() && chars[*pos].is_ascii_digit() { *pos += 1; }
-    if *pos == start { None } else {
+    while *pos < chars.len() && chars[*pos].is_ascii_digit() {
+        *pos += 1;
+    }
+    if *pos == start {
+        None
+    } else {
         chars[start..*pos].iter().collect::<String>().parse().ok()
     }
 }
@@ -1190,20 +1866,27 @@ pub fn molecular_weight(formula: &str) -> String {
     }
 
     if !unknown.is_empty() {
-        return format!("Unknown element(s): {}. Check your formula.", unknown.join(", "));
+        return format!(
+            "Unknown element(s): {}. Check your formula.",
+            unknown.join(", ")
+        );
     }
 
     let mut out = String::new();
     let _ = writeln!(out, "Formula: {}", formula.trim());
     let _ = writeln!(out, "Molecular weight: {:.4} g/mol", mw);
-    let _ = writeln!(out, "");
+    let _ = writeln!(out);
     let _ = writeln!(out, "Composition:");
     for (sym, n, contrib) in &breakdown {
         let pct = 100.0 * contrib / mw;
-        let _ = writeln!(out, "  {:2} × {:2}  {:8.4} g/mol  ({:.2}%)", n, sym, contrib, pct);
+        let _ = writeln!(
+            out,
+            "  {:2} × {:2}  {:8.4} g/mol  ({:.2}%)",
+            n, sym, contrib, pct
+        );
     }
     // Common derived values
-    let _ = writeln!(out, "");
+    let _ = writeln!(out);
     let _ = writeln!(out, "1 mole = {:.4} g", mw);
     let _ = writeln!(out, "1 g    = {:.6} mol", 1.0 / mw);
     out
@@ -1213,31 +1896,156 @@ pub fn molecular_weight(formula: &str) -> String {
 
 const CONSTANTS: &[(&str, &str, &str, &str)] = &[
     // (name, value, unit, aliases)
-    ("Speed of light",          "299792458",                     "m/s",            "c,light,speed of light,c0"),
-    ("Planck constant",         "6.62607015e-34",                "J·s",            "h,planck,planck constant"),
-    ("Reduced Planck (ℏ)",      "1.054571817e-34",               "J·s",            "hbar,h-bar,reduced planck,hbar"),
-    ("Gravitational constant",  "6.67430e-11",                   "N·m²/kg²",       "G,gravity,gravitational,newton gravity"),
-    ("Elementary charge",       "1.602176634e-19",               "C",              "e,electron charge,elementary charge,charge"),
-    ("Electron mass",           "9.1093837015e-31",              "kg",             "me,electron mass,m_e"),
-    ("Proton mass",             "1.67262192369e-27",             "kg",             "mp,proton mass,m_p"),
-    ("Neutron mass",            "1.67492749804e-27",             "kg",             "mn,neutron mass,m_n"),
-    ("Avogadro constant",       "6.02214076e23",                 "mol⁻¹",          "NA,avogadro,avogadro constant,N_A"),
-    ("Boltzmann constant",      "1.380649e-23",                  "J/K",            "k,kb,boltzmann,boltzmann constant,k_B"),
-    ("Gas constant",            "8.314462618",                   "J/(mol·K)",      "R,gas constant,universal gas constant,molar gas"),
-    ("Stefan-Boltzmann",        "5.670374419e-8",                "W/(m²·K⁴)",      "sigma,stefan,stefan-boltzmann,σ"),
-    ("Vacuum permittivity",     "8.8541878128e-12",              "F/m",            "eps0,epsilon0,vacuum permittivity,ε₀"),
-    ("Vacuum permeability",     "1.25663706212e-6",              "N/A²",           "mu0,mu_0,vacuum permeability,μ₀"),
-    ("Bohr radius",             "5.29177210903e-11",             "m",              "a0,bohr,bohr radius,a_0"),
-    ("Fine structure constant", "7.2973525693e-3",               "dimensionless",  "alpha,fine structure,α"),
-    ("Rydberg constant",        "10973731.568160",               "m⁻¹",            "Ry,rydberg,rydberg constant"),
-    ("Faraday constant",        "96485.33212",                   "C/mol",          "F,faraday,faraday constant"),
-    ("Standard gravity",        "9.80665",                       "m/s²",           "g,grav,standard gravity,g0,g_n"),
-    ("Atomic mass unit",        "1.66053906660e-27",             "kg",             "amu,u,dalton,atomic mass unit"),
-    ("Standard atmosphere",     "101325",                        "Pa",             "atm,atmosphere,standard atmosphere"),
-    ("Electron volt",           "1.602176634e-19",               "J",              "eV,electronvolt,electron volt"),
-    ("Speed of sound (20°C)",   "343",                           "m/s",            "sound,speed of sound,vsound"),
-    ("Molar volume (STP)",      "22.414",                        "L/mol",          "molar volume,vm,STP volume"),
-    ("Wien displacement",       "2.897771955e-3",                "m·K",            "wien,wien displacement,b"),
+    (
+        "Speed of light",
+        "299792458",
+        "m/s",
+        "c,light,speed of light,c0",
+    ),
+    (
+        "Planck constant",
+        "6.62607015e-34",
+        "J·s",
+        "h,planck,planck constant",
+    ),
+    (
+        "Reduced Planck (ℏ)",
+        "1.054571817e-34",
+        "J·s",
+        "hbar,h-bar,reduced planck,hbar",
+    ),
+    (
+        "Gravitational constant",
+        "6.67430e-11",
+        "N·m²/kg²",
+        "G,gravity,gravitational,newton gravity",
+    ),
+    (
+        "Elementary charge",
+        "1.602176634e-19",
+        "C",
+        "e,electron charge,elementary charge,charge",
+    ),
+    (
+        "Electron mass",
+        "9.1093837015e-31",
+        "kg",
+        "me,electron mass,m_e",
+    ),
+    (
+        "Proton mass",
+        "1.67262192369e-27",
+        "kg",
+        "mp,proton mass,m_p",
+    ),
+    (
+        "Neutron mass",
+        "1.67492749804e-27",
+        "kg",
+        "mn,neutron mass,m_n",
+    ),
+    (
+        "Avogadro constant",
+        "6.02214076e23",
+        "mol⁻¹",
+        "NA,avogadro,avogadro constant,N_A",
+    ),
+    (
+        "Boltzmann constant",
+        "1.380649e-23",
+        "J/K",
+        "k,kb,boltzmann,boltzmann constant,k_B",
+    ),
+    (
+        "Gas constant",
+        "8.314462618",
+        "J/(mol·K)",
+        "R,gas constant,universal gas constant,molar gas",
+    ),
+    (
+        "Stefan-Boltzmann",
+        "5.670374419e-8",
+        "W/(m²·K⁴)",
+        "sigma,stefan,stefan-boltzmann,σ",
+    ),
+    (
+        "Vacuum permittivity",
+        "8.8541878128e-12",
+        "F/m",
+        "eps0,epsilon0,vacuum permittivity,ε₀",
+    ),
+    (
+        "Vacuum permeability",
+        "1.25663706212e-6",
+        "N/A²",
+        "mu0,mu_0,vacuum permeability,μ₀",
+    ),
+    (
+        "Bohr radius",
+        "5.29177210903e-11",
+        "m",
+        "a0,bohr,bohr radius,a_0",
+    ),
+    (
+        "Fine structure constant",
+        "7.2973525693e-3",
+        "dimensionless",
+        "alpha,fine structure,α",
+    ),
+    (
+        "Rydberg constant",
+        "10973731.568160",
+        "m⁻¹",
+        "Ry,rydberg,rydberg constant",
+    ),
+    (
+        "Faraday constant",
+        "96485.33212",
+        "C/mol",
+        "F,faraday,faraday constant",
+    ),
+    (
+        "Standard gravity",
+        "9.80665",
+        "m/s²",
+        "g,grav,standard gravity,g0,g_n",
+    ),
+    (
+        "Atomic mass unit",
+        "1.66053906660e-27",
+        "kg",
+        "amu,u,dalton,atomic mass unit",
+    ),
+    (
+        "Standard atmosphere",
+        "101325",
+        "Pa",
+        "atm,atmosphere,standard atmosphere",
+    ),
+    (
+        "Electron volt",
+        "1.602176634e-19",
+        "J",
+        "eV,electronvolt,electron volt",
+    ),
+    (
+        "Speed of sound (20°C)",
+        "343",
+        "m/s",
+        "sound,speed of sound,vsound",
+    ),
+    (
+        "Molar volume (STP)",
+        "22.414",
+        "L/mol",
+        "molar volume,vm,STP volume",
+    ),
+    (
+        "Wien displacement",
+        "2.897771955e-3",
+        "m·K",
+        "wien,wien displacement,b",
+    ),
 ];
 
 pub fn physical_const(query: &str) -> String {
@@ -1253,12 +2061,19 @@ pub fn physical_const(query: &str) -> String {
         return out;
     }
 
-    let matches: Vec<_> = CONSTANTS.iter().filter(|(name, _, _, aliases)| {
-        name.to_lowercase().contains(&q) || aliases.to_lowercase().contains(&q)
-    }).collect();
+    let matches: Vec<_> = CONSTANTS
+        .iter()
+        .filter(|(name, _, _, aliases)| {
+            name.to_lowercase().contains(&q) || aliases.to_lowercase().contains(&q)
+        })
+        .collect();
 
     if matches.is_empty() {
-        let _ = writeln!(out, "No constant found for '{}'. Use --const list to see all.", query.trim());
+        let _ = writeln!(
+            out,
+            "No constant found for '{}'. Use --const list to see all.",
+            query.trim()
+        );
         return out;
     }
 
@@ -1273,7 +2088,7 @@ pub fn physical_const(query: &str) -> String {
                 let _ = writeln!(out, "  ≈        {:.6e}", v);
             }
         }
-        let _ = writeln!(out, "");
+        let _ = writeln!(out);
     }
     out
 }
@@ -1286,7 +2101,11 @@ fn erf_approx(x: f64) -> f64 {
     let sign = if x < 0.0 { -1.0 } else { 1.0 };
     let x = x.abs();
     let t = 1.0 / (1.0 + 0.3275911 * x);
-    let y = 1.0 - (((((1.061405429 * t - 1.453152027) * t) + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t * (-x * x).exp();
+    let y = 1.0
+        - (((((1.061405429 * t - 1.453152027) * t) + 1.421413741) * t - 0.284496736) * t
+            + 0.254829592)
+            * t
+            * (-x * x).exp();
     sign * y
 }
 
@@ -1306,16 +2125,16 @@ fn normal_inv_cdf(p: f64) -> f64 {
         let t = (-2.0 * p.ln()).sqrt();
         let c = [2.515517, 0.802853, 0.010328];
         let d = [1.432788, 0.189269, 0.001308];
-        let num = c[0] + c[1]*t + c[2]*t*t;
-        let den = 1.0 + d[0]*t + d[1]*t*t + d[2]*t*t*t;
-        (-(t - num/den), p)
+        let num = c[0] + c[1] * t + c[2] * t * t;
+        let den = 1.0 + d[0] * t + d[1] * t * t + d[2] * t * t * t;
+        (-(t - num / den), p)
     } else {
         let t = (-2.0 * (1.0 - p).ln()).sqrt();
         let c = [2.515517, 0.802853, 0.010328];
         let d = [1.432788, 0.189269, 0.001308];
-        let num = c[0] + c[1]*t + c[2]*t*t;
-        let den = 1.0 + d[0]*t + d[1]*t*t + d[2]*t*t*t;
-        (t - num/den, p)
+        let num = c[0] + c[1] * t + c[2] * t * t;
+        let den = 1.0 + d[0] * t + d[1] * t * t + d[2] * t * t * t;
+        (t - num / den, p)
     };
     let _ = b;
     a
@@ -1336,47 +2155,87 @@ pub fn stat_normal(query: &str) -> String {
 
     match parts[0] {
         "cdf" if parts.len() >= 2 => {
-            let x  = parse_f(parts[1]).unwrap_or(0.0);
-            let mu = if parts.len() > 2 { parse_f(parts[2]).unwrap_or(0.0) } else { 0.0 };
-            let sg = if parts.len() > 3 { parse_f(parts[3]).unwrap_or(1.0) } else { 1.0 };
-            let p  = normal_cdf(x, mu, sg);
-            let z  = (x - mu) / sg;
+            let x = parse_f(parts[1]).unwrap_or(0.0);
+            let mu = if parts.len() > 2 {
+                parse_f(parts[2]).unwrap_or(0.0)
+            } else {
+                0.0
+            };
+            let sg = if parts.len() > 3 {
+                parse_f(parts[3]).unwrap_or(1.0)
+            } else {
+                1.0
+            };
+            let p = normal_cdf(x, mu, sg);
+            let z = (x - mu) / sg;
             let _ = writeln!(out, "Distribution: N({}, {})", mu, sg);
             let _ = writeln!(out, "x = {}", x);
             let _ = writeln!(out, "z-score = {:.6}", z);
             let _ = writeln!(out, "P(X ≤ {}) = {:.8}  ({:.4}%)", x, p, p * 100.0);
-            let _ = writeln!(out, "P(X > {}) = {:.8}  ({:.4}%)", x, 1.0 - p, (1.0-p)*100.0);
+            let _ = writeln!(
+                out,
+                "P(X > {}) = {:.8}  ({:.4}%)",
+                x,
+                1.0 - p,
+                (1.0 - p) * 100.0
+            );
         }
         "pdf" if parts.len() >= 2 => {
-            let x  = parse_f(parts[1]).unwrap_or(0.0);
-            let mu = if parts.len() > 2 { parse_f(parts[2]).unwrap_or(0.0) } else { 0.0 };
-            let sg = if parts.len() > 3 { parse_f(parts[3]).unwrap_or(1.0) } else { 1.0 };
-            let p  = normal_pdf(x, mu, sg);
+            let x = parse_f(parts[1]).unwrap_or(0.0);
+            let mu = if parts.len() > 2 {
+                parse_f(parts[2]).unwrap_or(0.0)
+            } else {
+                0.0
+            };
+            let sg = if parts.len() > 3 {
+                parse_f(parts[3]).unwrap_or(1.0)
+            } else {
+                1.0
+            };
+            let p = normal_pdf(x, mu, sg);
             let _ = writeln!(out, "PDF at x={}: {:.8}", x, p);
         }
         "inv" | "quantile" | "ppf" if parts.len() >= 2 => {
-            let p  = parse_f(parts[1]).unwrap_or(0.5);
-            let mu = if parts.len() > 2 { parse_f(parts[2]).unwrap_or(0.0) } else { 0.0 };
-            let sg = if parts.len() > 3 { parse_f(parts[3]).unwrap_or(1.0) } else { 1.0 };
-            let z  = normal_inv_cdf(p);
-            let x  = mu + sg * z;
+            let p = parse_f(parts[1]).unwrap_or(0.5);
+            let mu = if parts.len() > 2 {
+                parse_f(parts[2]).unwrap_or(0.0)
+            } else {
+                0.0
+            };
+            let sg = if parts.len() > 3 {
+                parse_f(parts[3]).unwrap_or(1.0)
+            } else {
+                1.0
+            };
+            let z = normal_inv_cdf(p);
+            let x = mu + sg * z;
             let _ = writeln!(out, "P = {} → z-score = {:.6} → x = {:.6}", p, z, x);
-            let _ = writeln!(out, "Interpretation: P(X ≤ {:.6}) = {:.4}%", x, p*100.0);
+            let _ = writeln!(out, "Interpretation: P(X ≤ {:.6}) = {:.4}%", x, p * 100.0);
         }
         "between" | "interval" if parts.len() >= 3 => {
-            let a  = parse_f(parts[1]).unwrap_or(-1.96);
-            let b  = parse_f(parts[2]).unwrap_or( 1.96);
-            let mu = if parts.len() > 3 { parse_f(parts[3]).unwrap_or(0.0) } else { 0.0 };
-            let sg = if parts.len() > 4 { parse_f(parts[4]).unwrap_or(1.0) } else { 1.0 };
-            let p  = normal_cdf(b, mu, sg) - normal_cdf(a, mu, sg);
-            let _ = writeln!(out, "P({} ≤ X ≤ {}) = {:.8}  ({:.4}%)", a, b, p, p*100.0);
+            let a = parse_f(parts[1]).unwrap_or(-1.96);
+            let b = parse_f(parts[2]).unwrap_or(1.96);
+            let mu = if parts.len() > 3 {
+                parse_f(parts[3]).unwrap_or(0.0)
+            } else {
+                0.0
+            };
+            let sg = if parts.len() > 4 {
+                parse_f(parts[4]).unwrap_or(1.0)
+            } else {
+                1.0
+            };
+            let p = normal_cdf(b, mu, sg) - normal_cdf(a, mu, sg);
+            let _ = writeln!(out, "P({} ≤ X ≤ {}) = {:.8}  ({:.4}%)", a, b, p, p * 100.0);
         }
         "table" | "z-table" => {
             let _ = writeln!(out, "Standard Normal CDF  P(Z ≤ z)");
             let _ = writeln!(out, "  z     P(Z ≤ z)   P(Z > z)");
             let _ = writeln!(out, "  ─────────────────────────────");
-            for &z in &[-3.0f64, -2.576, -2.326, -1.960, -1.645, -1.282, -0.842, 0.0,
-                         0.842, 1.282, 1.645, 1.960, 2.326, 2.576, 3.0] {
+            for &z in &[
+                -3.0f64, -2.576, -2.326, -1.960, -1.645, -1.282, -0.842, 0.0, 0.842, 1.282, 1.645,
+                1.960, 2.326, 2.576, 3.0,
+            ] {
                 let p = normal_cdf(z, 0.0, 1.0);
                 let _ = writeln!(out, "  {:6.3}   {:.6}   {:.6}", z, p, 1.0 - p);
             }
@@ -1412,21 +2271,27 @@ pub fn stat_normal(query: &str) -> String {
 pub fn prob_calc(query: &str) -> String {
     use std::f64::consts::PI;
     let q = query.trim().to_lowercase();
-    if q.is_empty() || q == "help" || q == "?" { return prob_usage(); }
+    if q.is_empty() || q == "help" || q == "?" {
+        return prob_usage();
+    }
 
     let parts: Vec<&str> = q.split_whitespace().collect();
-    if parts.is_empty() { return prob_usage(); }
+    if parts.is_empty() {
+        return prob_usage();
+    }
 
     // Parse named params like mu=2.5, sd=1.0
     let get_param = |parts: &[&str], name: &str, default: f64| -> f64 {
-        parts.iter()
+        parts
+            .iter()
             .find(|s| s.starts_with(name))
-            .and_then(|s| s.splitn(2, '=').nth(1))
+            .and_then(|s| s.split_once('=').map(|x| x.1))
             .and_then(|v| v.parse().ok())
             .unwrap_or(default)
     };
     let get_positional = |parts: &[&str], idx: usize| -> Option<f64> {
-        parts.iter()
+        parts
+            .iter()
             .filter(|s| !s.contains('='))
             .nth(idx)
             .and_then(|s| s.parse().ok())
@@ -1435,7 +2300,10 @@ pub fn prob_calc(query: &str) -> String {
     let dist = parts[0];
     // Determine op: second token if it's a known op, else "all"
     let op_candidate = parts.get(1).copied().unwrap_or("all");
-    let (op, data_start) = if matches!(op_candidate, "cdf"|"pdf"|"pmf"|"inv"|"quantile"|"between"|"all") {
+    let (op, data_start) = if matches!(
+        op_candidate,
+        "cdf" | "pdf" | "pmf" | "inv" | "quantile" | "between" | "all"
+    ) {
         (op_candidate, 2usize)
     } else {
         ("all", 1usize)
@@ -1447,9 +2315,13 @@ pub fn prob_calc(query: &str) -> String {
 
     match dist {
         "normal" | "norm" | "gaussian" => {
-            let x  = get_positional(data, 0).unwrap_or(0.0);
+            let x = get_positional(data, 0).unwrap_or(0.0);
             let mu = get_param(data, "mu", get_param(data, "mean", 0.0));
-            let sd = get_param(data, "sd", get_param(data, "sigma", get_param(data, "std", 1.0)));
+            let sd = get_param(
+                data,
+                "sd",
+                get_param(data, "sigma", get_param(data, "std", 1.0)),
+            );
             let _ = writeln!(out, "{}", sep);
             let _ = writeln!(out, "  Normal Distribution  N(μ={}, σ={})", mu, sd);
             let _ = writeln!(out, "{}", sep);
@@ -1476,26 +2348,39 @@ pub fn prob_calc(query: &str) -> String {
             }
             if op == "all" {
                 // Common quantiles
-                let _ = writeln!(out, "  Quantiles: p=.025 → {:.4}  p=.975 → {:.4}  p=.5 → {:.4}",
-                    mu + sd * normal_inv_cdf(0.025), mu + sd * normal_inv_cdf(0.975), mu);
+                let _ = writeln!(
+                    out,
+                    "  Quantiles: p=.025 → {:.4}  p=.975 → {:.4}  p=.5 → {:.4}",
+                    mu + sd * normal_inv_cdf(0.025),
+                    mu + sd * normal_inv_cdf(0.975),
+                    mu
+                );
             }
         }
         "binomial" | "binom" | "bin" => {
-            let k  = get_positional(data, 0).unwrap_or(0.0) as i64;
-            let n  = get_param(data, "n", 10.0) as u64;
-            let p  = get_param(data, "p", 0.5);
+            let k = get_positional(data, 0).unwrap_or(0.0) as i64;
+            let n = get_param(data, "n", 10.0) as u64;
+            let p = get_param(data, "p", 0.5);
             let _ = writeln!(out, "{}", sep);
             let _ = writeln!(out, "  Binomial Distribution  Bin(n={}, p={})", n, p);
             let _ = writeln!(out, "{}", sep);
             let mean = n as f64 * p;
-            let var  = n as f64 * p * (1.0 - p);
-            let _ = writeln!(out, "  Mean={:.4}  Var={:.4}  StdDev={:.4}", mean, var, var.sqrt());
+            let var = n as f64 * p * (1.0 - p);
+            let _ = writeln!(
+                out,
+                "  Mean={:.4}  Var={:.4}  StdDev={:.4}",
+                mean,
+                var,
+                var.sqrt()
+            );
             let binom_pmf = |k: i64, n: u64, p: f64| -> f64 {
-                if k < 0 || k > n as i64 { return 0.0; }
+                if k < 0 || k > n as i64 {
+                    return 0.0;
+                }
                 let k = k as u64;
                 // Log-space computation to avoid overflow
-                let log_binom: f64 = log_factorial(n) - log_factorial(k) - log_factorial(n-k);
-                (log_binom + k as f64 * p.ln() + (n-k) as f64 * (1.0-p).ln()).exp()
+                let log_binom: f64 = log_factorial(n) - log_factorial(k) - log_factorial(n - k);
+                (log_binom + k as f64 * p.ln() + (n - k) as f64 * (1.0 - p).ln()).exp()
             };
             if op == "pmf" || op == "all" {
                 let pmf = binom_pmf(k, n, p);
@@ -1519,14 +2404,22 @@ pub fn prob_calc(query: &str) -> String {
             }
         }
         "poisson" | "pois" => {
-            let k   = get_positional(data, 0).unwrap_or(0.0) as i64;
+            let k = get_positional(data, 0).unwrap_or(0.0) as i64;
             let lam = get_param(data, "lam", get_param(data, "lambda", 1.0));
             let _ = writeln!(out, "{}", sep);
             let _ = writeln!(out, "  Poisson Distribution  Poi(λ={})", lam);
             let _ = writeln!(out, "{}", sep);
-            let _ = writeln!(out, "  Mean={:.4}  Var={:.4}  StdDev={:.4}", lam, lam, lam.sqrt());
+            let _ = writeln!(
+                out,
+                "  Mean={:.4}  Var={:.4}  StdDev={:.4}",
+                lam,
+                lam,
+                lam.sqrt()
+            );
             let pois_pmf = |k: i64, lam: f64| -> f64 {
-                if k < 0 { return 0.0; }
+                if k < 0 {
+                    return 0.0;
+                }
                 (-lam + k as f64 * lam.ln() - log_factorial(k as u64)).exp()
             };
             if op == "pmf" || op == "all" {
@@ -1548,7 +2441,7 @@ pub fn prob_calc(query: &str) -> String {
             }
         }
         "t" | "student" | "t-dist" => {
-            let x  = get_positional(data, 0).unwrap_or(0.0);
+            let x = get_positional(data, 0).unwrap_or(0.0);
             let df = get_param(data, "df", get_param(data, "dof", 1.0));
             let _ = writeln!(out, "{}", sep);
             let _ = writeln!(out, "  Student's t Distribution  t(df={})", df);
@@ -1562,9 +2455,13 @@ pub fn prob_calc(query: &str) -> String {
             // t CDF via regularized incomplete beta
             let t_cdf = |x: f64, df: f64| -> f64 {
                 let t2 = x * x;
-                let z  = df / (df + t2);
+                let z = df / (df + t2);
                 let ib = reg_inc_beta(df / 2.0, 0.5, z);
-                if x >= 0.0 { 1.0 - 0.5 * ib } else { 0.5 * ib }
+                if x >= 0.0 {
+                    1.0 - 0.5 * ib
+                } else {
+                    0.5 * ib
+                }
             };
             if op == "pdf" || op == "all" {
                 let _ = writeln!(out, "  PDF f({:.4}) = {:.8}", x, t_pdf(x, df));
@@ -1572,7 +2469,12 @@ pub fn prob_calc(query: &str) -> String {
             if op == "cdf" || op == "all" {
                 let p = t_cdf(x, df);
                 let _ = writeln!(out, "  CDF P(T≤{:.4}) = {:.8}", x, p);
-                let _ = writeln!(out, "  Two-tailed P  = {:.8}  (p-value for |T|≥{:.4})", 2.0 * (1.0 - t_cdf(x.abs(), df)), x.abs());
+                let _ = writeln!(
+                    out,
+                    "  Two-tailed P  = {:.8}  (p-value for |T|≥{:.4})",
+                    2.0 * (1.0 - t_cdf(x.abs(), df)),
+                    x.abs()
+                );
             }
             if op == "all" {
                 // Common critical values
@@ -1586,20 +2488,30 @@ pub fn prob_calc(query: &str) -> String {
             }
         }
         "chi2" | "chisquare" | "chi-square" | "chi_sq" => {
-            let x  = get_positional(data, 0).unwrap_or(1.0);
+            let x = get_positional(data, 0).unwrap_or(1.0);
             let df = get_param(data, "df", get_param(data, "dof", 1.0));
             let _ = writeln!(out, "{}", sep);
             let _ = writeln!(out, "  Chi-Square Distribution  χ²(df={})", df);
             let _ = writeln!(out, "{}", sep);
-            let _ = writeln!(out, "  Mean={:.4}  Var={:.4}  StdDev={:.4}", df, 2.0*df, (2.0*df).sqrt());
+            let _ = writeln!(
+                out,
+                "  Mean={:.4}  Var={:.4}  StdDev={:.4}",
+                df,
+                2.0 * df,
+                (2.0 * df).sqrt()
+            );
             let chi2_pdf = |x: f64, k: f64| -> f64 {
-                if x <= 0.0 { return 0.0; }
+                if x <= 0.0 {
+                    return 0.0;
+                }
                 let lg = lgamma(k / 2.0);
-                ((k/2.0 - 1.0) * x.ln() - x / 2.0 - (k/2.0) * 2.0f64.ln() - lg).exp()
+                ((k / 2.0 - 1.0) * x.ln() - x / 2.0 - (k / 2.0) * 2.0f64.ln() - lg).exp()
             };
             // Chi2 CDF via regularized incomplete gamma
             let chi2_cdf = |x: f64, k: f64| -> f64 {
-                if x <= 0.0 { return 0.0; }
+                if x <= 0.0 {
+                    return 0.0;
+                }
                 reg_inc_gamma(k / 2.0, x / 2.0)
             };
             if op == "pdf" || op == "all" {
@@ -1619,18 +2531,36 @@ pub fn prob_calc(query: &str) -> String {
             }
         }
         "exponential" | "exp" | "expon" => {
-            let x   = get_positional(data, 0).unwrap_or(1.0);
-            let lam = get_param(data, "lam", get_param(data, "lambda", get_param(data, "rate", 1.0)));
+            let x = get_positional(data, 0).unwrap_or(1.0);
+            let lam = get_param(
+                data,
+                "lam",
+                get_param(data, "lambda", get_param(data, "rate", 1.0)),
+            );
             let _ = writeln!(out, "{}", sep);
             let _ = writeln!(out, "  Exponential Distribution  Exp(λ={})", lam);
             let _ = writeln!(out, "{}", sep);
-            let _ = writeln!(out, "  Mean={:.4}  StdDev={:.4}  Median={:.4}", 1.0/lam, 1.0/lam, 2.0f64.ln()/lam);
+            let _ = writeln!(
+                out,
+                "  Mean={:.4}  StdDev={:.4}  Median={:.4}",
+                1.0 / lam,
+                1.0 / lam,
+                2.0f64.ln() / lam
+            );
             if op == "pdf" || op == "all" {
-                let pdf = if x >= 0.0 { lam * (-lam * x).exp() } else { 0.0 };
+                let pdf = if x >= 0.0 {
+                    lam * (-lam * x).exp()
+                } else {
+                    0.0
+                };
                 let _ = writeln!(out, "  PDF f({:.4}) = {:.8}", x, pdf);
             }
             if op == "cdf" || op == "all" {
-                let p = if x >= 0.0 { 1.0 - (-lam * x).exp() } else { 0.0 };
+                let p = if x >= 0.0 {
+                    1.0 - (-lam * x).exp()
+                } else {
+                    0.0
+                };
                 let _ = writeln!(out, "  CDF P(X≤{:.4}) = {:.8}", x, p);
                 let _ = writeln!(out, "  P(X>{:.4})    = {:.8}", x, 1.0 - p);
                 let _ = writeln!(out, "  Quantile p=.5  → {:.6}  (median)", 2.0f64.ln() / lam);
@@ -1644,26 +2574,50 @@ pub fn prob_calc(query: &str) -> String {
             let _ = writeln!(out, "  Uniform Distribution  U({}, {})", a, b);
             let _ = writeln!(out, "{}", sep);
             let rng = b - a;
-            let _ = writeln!(out, "  Mean={:.4}  Var={:.6}  StdDev={:.4}", (a+b)/2.0, rng*rng/12.0, (rng*rng/12.0).sqrt());
+            let _ = writeln!(
+                out,
+                "  Mean={:.4}  Var={:.6}  StdDev={:.4}",
+                (a + b) / 2.0,
+                rng * rng / 12.0,
+                (rng * rng / 12.0).sqrt()
+            );
             if op == "pdf" || op == "all" {
                 let pdf = if x >= a && x <= b { 1.0 / rng } else { 0.0 };
                 let _ = writeln!(out, "  PDF f({:.4}) = {:.8}", x, pdf);
             }
             if op == "cdf" || op == "all" {
-                let p = if x < a { 0.0 } else if x > b { 1.0 } else { (x - a) / rng };
+                let p = if x < a {
+                    0.0
+                } else if x > b {
+                    1.0
+                } else {
+                    (x - a) / rng
+                };
                 let _ = writeln!(out, "  CDF P(X≤{:.4}) = {:.8}", x, p);
             }
         }
         "geometric" | "geo" | "geom" => {
-            let k  = get_positional(data, 0).unwrap_or(1.0) as i64;
-            let p  = get_param(data, "p", 0.5);
+            let k = get_positional(data, 0).unwrap_or(1.0) as i64;
+            let p = get_param(data, "p", 0.5);
             let _ = writeln!(out, "{}", sep);
-            let _ = writeln!(out, "  Geometric Distribution  Geo(p={})  [trials until first success]", p);
+            let _ = writeln!(
+                out,
+                "  Geometric Distribution  Geo(p={})  [trials until first success]",
+                p
+            );
             let _ = writeln!(out, "{}", sep);
-            let _ = writeln!(out, "  Mean={:.4}  Var={:.4}  StdDev={:.4}", 1.0/p, (1.0-p)/(p*p), ((1.0-p)/(p*p)).sqrt());
+            let _ = writeln!(
+                out,
+                "  Mean={:.4}  Var={:.4}  StdDev={:.4}",
+                1.0 / p,
+                (1.0 - p) / (p * p),
+                ((1.0 - p) / (p * p)).sqrt()
+            );
             let geo_pmf = |k: i64, p: f64| -> f64 {
-                if k < 1 { return 0.0; }
-                (1.0 - p).powi((k-1) as i32) * p
+                if k < 1 {
+                    return 0.0;
+                }
+                (1.0 - p).powi((k - 1) as i32) * p
             };
             if op == "pmf" || op == "all" {
                 let _ = writeln!(out, "  PMF P(X={}) = {:.8}", k, geo_pmf(k, p));
@@ -1702,16 +2656,24 @@ fn lgamma(x: f64) -> f64 {
     // Lanczos approximation
     let g = 7.0;
     let c: [f64; 9] = [
-        0.99999999999980993, 676.5203681218851, -1259.1392167224028,
-        771.32342877765313, -176.61502916214059, 12.507343278686905,
-        -0.13857109526572012, 9.9843695780195716e-6, 1.5056327351493116e-7,
+        0.999_999_999_999_809_9,
+        676.5203681218851,
+        -1259.1392167224028,
+        771.323_428_777_653_1,
+        -176.615_029_162_140_6,
+        12.507343278686905,
+        -0.13857109526572012,
+        9.984_369_578_019_572e-6,
+        1.5056327351493116e-7,
     ];
     if x < 0.5 {
         PI.ln() - (PI * x).sin().ln() - lgamma(1.0 - x)
     } else {
         let x = x - 1.0;
         let mut a = c[0];
-        for i in 1..9 { a += c[i] / (x + i as f64); }
+        for i in 1..9 {
+            a += c[i] / (x + i as f64);
+        }
         let t = x + g + 0.5;
         0.5 * (2.0 * PI).ln() + (x + 0.5) * t.ln() - t + a.ln()
     }
@@ -1719,8 +2681,12 @@ fn lgamma(x: f64) -> f64 {
 
 fn reg_inc_beta(a: f64, b: f64, x: f64) -> f64 {
     // Regularized incomplete beta via continued fraction (Lentz's method)
-    if x <= 0.0 { return 0.0; }
-    if x >= 1.0 { return 1.0; }
+    if x <= 0.0 {
+        return 0.0;
+    }
+    if x >= 1.0 {
+        return 1.0;
+    }
     // Use symmetry for stability
     if x > (a + 1.0) / (a + b + 2.0) {
         return 1.0 - reg_inc_beta(b, a, 1.0 - x);
@@ -1728,60 +2694,91 @@ fn reg_inc_beta(a: f64, b: f64, x: f64) -> f64 {
     let lbeta = lgamma(a) + lgamma(b) - lgamma(a + b);
     let front = (a * x.ln() + b * (1.0 - x).ln() - lbeta).exp() / a;
     // Lentz continued fraction
-    let mut f = 1.0; let mut c_cf = 1.0; let mut d_cf = 1.0 - (a + b) * x / (a + 1.0);
-    if d_cf.abs() < 1e-30 { d_cf = 1e-30; }
-    d_cf = 1.0 / d_cf; f = d_cf;
+    let mut c_cf = 1.0;
+    let mut d_cf = 1.0 - (a + b) * x / (a + 1.0);
+    if d_cf.abs() < 1e-30 {
+        d_cf = 1e-30;
+    }
+    d_cf = 1.0 / d_cf;
+    let mut f = d_cf;
     for m in 1..200usize {
         let mf = m as f64;
         // Even step
-        let nm = mf * (b - mf) * x / ((a + 2.0*mf - 1.0) * (a + 2.0*mf));
-        d_cf = 1.0 + nm * d_cf; if d_cf.abs() < 1e-30 { d_cf = 1e-30; }
-        c_cf = 1.0 + nm / c_cf; if c_cf.abs() < 1e-30 { c_cf = 1e-30; }
+        let nm = mf * (b - mf) * x / ((a + 2.0 * mf - 1.0) * (a + 2.0 * mf));
+        d_cf = 1.0 + nm * d_cf;
+        if d_cf.abs() < 1e-30 {
+            d_cf = 1e-30;
+        }
+        c_cf = 1.0 + nm / c_cf;
+        if c_cf.abs() < 1e-30 {
+            c_cf = 1e-30;
+        }
         d_cf = 1.0 / d_cf;
         f *= d_cf * c_cf;
         // Odd step
-        let nm2 = -(a + mf) * (a + b + mf) * x / ((a + 2.0*mf) * (a + 2.0*mf + 1.0));
-        d_cf = 1.0 + nm2 * d_cf; if d_cf.abs() < 1e-30 { d_cf = 1e-30; }
-        c_cf = 1.0 + nm2 / c_cf; if c_cf.abs() < 1e-30 { c_cf = 1e-30; }
+        let nm2 = -(a + mf) * (a + b + mf) * x / ((a + 2.0 * mf) * (a + 2.0 * mf + 1.0));
+        d_cf = 1.0 + nm2 * d_cf;
+        if d_cf.abs() < 1e-30 {
+            d_cf = 1e-30;
+        }
+        c_cf = 1.0 + nm2 / c_cf;
+        if c_cf.abs() < 1e-30 {
+            c_cf = 1e-30;
+        }
         d_cf = 1.0 / d_cf;
         let delta = d_cf * c_cf;
         f *= delta;
-        if (delta - 1.0).abs() < 3e-7 { break; }
+        if (delta - 1.0).abs() < 3e-7 {
+            break;
+        }
     }
     front * f
 }
 
 fn reg_inc_gamma(a: f64, x: f64) -> f64 {
     // Regularized lower incomplete gamma via series expansion
-    if x <= 0.0 { return 0.0; }
+    if x <= 0.0 {
+        return 0.0;
+    }
     if x > a + 1.0 {
         // Use continued fraction for large x
         return 1.0 - reg_inc_gamma_upper(a, x);
     }
-    let mut sum = 1.0 / a; let mut term = 1.0 / a;
+    let mut sum = 1.0 / a;
+    let mut term = 1.0 / a;
     for n in 1..200u64 {
         term *= x / (a + n as f64);
-        sum  += term;
-        if term.abs() < 1e-10 * sum.abs() { break; }
+        sum += term;
+        if term.abs() < 1e-10 * sum.abs() {
+            break;
+        }
     }
     sum * (-x + a * x.ln() - lgamma(a)).exp()
 }
 
 fn reg_inc_gamma_upper(a: f64, x: f64) -> f64 {
     // Regularized upper incomplete gamma via Lentz CF
-    let mut f = 1.0; let mut c_cf = 1.0;
+    let mut c_cf = 1.0;
     let b0 = x + 1.0 - a;
     let mut d_cf = if b0.abs() < 1e-30 { 1e30 } else { 1.0 / b0 };
-    f = d_cf;
+    let mut f = d_cf;
     for i in 1..200u64 {
         let ai = -(i as f64) * (i as f64 - a);
-        let bi = x + (2*i+1) as f64 - a;
-        d_cf = bi + ai * d_cf; if d_cf.abs() < 1e-30 { d_cf = 1e-30; }
-        c_cf = bi + ai / c_cf; if c_cf.abs() < 1e-30 { c_cf = 1e-30; }
+        let bi = x + (2 * i + 1) as f64 - a;
+        d_cf = bi + ai * d_cf;
+        if d_cf.abs() < 1e-30 {
+            d_cf = 1e-30;
+        }
+        c_cf = bi + ai / c_cf;
+        if c_cf.abs() < 1e-30 {
+            c_cf = 1e-30;
+        }
         d_cf = 1.0 / d_cf;
         let delta = d_cf * c_cf;
         f *= delta;
-        if (delta - 1.0).abs() < 3e-7 { break; }
+        if (delta - 1.0).abs() < 3e-7 {
+            break;
+        }
     }
     f * (-x + a * x.ln() - lgamma(a)).exp()
 }
@@ -1789,7 +2786,11 @@ fn reg_inc_gamma_upper(a: f64, x: f64) -> f64 {
 fn bisect<F: Fn(f64) -> f64>(f: F, mut lo: f64, mut hi: f64, iters: usize) -> f64 {
     for _ in 0..iters {
         let mid = (lo + hi) / 2.0;
-        if f(mid) < 0.0 { lo = mid; } else { hi = mid; }
+        if f(mid) < 0.0 {
+            lo = mid;
+        } else {
+            hi = mid;
+        }
     }
     (lo + hi) / 2.0
 }
@@ -1820,18 +2821,26 @@ fn prob_usage() -> String {
 
 pub fn unit_convert(query: &str) -> String {
     let q = query.trim();
-    if q.eq_ignore_ascii_case("list") || q.eq_ignore_ascii_case("units") || q.eq_ignore_ascii_case("help") {
+    if q.eq_ignore_ascii_case("list")
+        || q.eq_ignore_ascii_case("units")
+        || q.eq_ignore_ascii_case("help")
+    {
         return unit_convert_list();
     }
 
     // Parse: "<value> <from_unit> to <to_unit>"
     // Also accept: "<value> <from_unit> in <to_unit>"
     let lower = q.to_lowercase();
-    let sep = if lower.contains(" to ") { " to " } else if lower.contains(" in ") { " in " } else { "" };
+    let sep = if lower.contains(" to ") {
+        " to "
+    } else if lower.contains(" in ") {
+        " in "
+    } else {
+        ""
+    };
 
     if sep.is_empty() {
-        return format!(
-            "Usage: hematite --convert '5 km to miles'\n\
+        return "Usage: hematite --convert '5 km to miles'\n\
              Common examples:\n\
              hematite --convert '100 f to c'\n\
              hematite --convert '1 atm to Pa'\n\
@@ -1839,13 +2848,17 @@ pub fn unit_convert(query: &str) -> String {
              hematite --convert '1 GiB to MB'\n\
              hematite --convert '1 cal to J'\n\
              hematite --convert 'list'    (show all units)"
-        );
+            .to_string();
     }
 
-    let parts: Vec<&str> = q.splitn(2, &sep.to_uppercase().as_str().to_string()).collect();
+    let parts: Vec<&str> = q
+        .splitn(2, &sep.to_uppercase().as_str().to_string())
+        .collect();
     let parts: Vec<&str> = if parts.len() < 2 {
         q.splitn(2, sep).collect()
-    } else { parts };
+    } else {
+        parts
+    };
 
     if parts.len() < 2 {
         return format!("Could not parse: '{}'. Try: '5 km to miles'", q);
@@ -1864,13 +2877,20 @@ pub fn unit_convert(query: &str) -> String {
     match convert(value, from_unit.trim(), to_unit.trim()) {
         Ok((result, category)) => {
             let result_str = if result.abs() >= 1e-3 && result.abs() < 1e7 {
-                format!("{:.8}", result).trim_end_matches('0').trim_end_matches('.').to_string()
+                format!("{:.8}", result)
+                    .trim_end_matches('0')
+                    .trim_end_matches('.')
+                    .to_string()
             } else {
                 format!("{:.6e}", result)
             };
             format!(
                 "{} {} = {} {}\n({})",
-                value_str.trim(), from_unit.trim(), result_str, to_unit.trim(), category
+                value_str.trim(),
+                from_unit.trim(),
+                result_str,
+                to_unit.trim(),
+                category
             )
         }
         Err(e) => e,
@@ -1890,7 +2910,9 @@ fn split_value_unit(s: &str) -> (&str, &str) {
             break;
         }
     }
-    if end == 0 { end = s.len(); }
+    if end == 0 {
+        end = s.len();
+    }
     (&s[..end], s[end..].trim())
 }
 
@@ -1898,18 +2920,25 @@ fn split_value_unit(s: &str) -> (&str, &str) {
 fn convert(value: f64, from: &str, to: &str) -> Result<(f64, &'static str), String> {
     // Normalize unit names
     let from_n = norm_unit(from);
-    let to_n   = norm_unit(to);
+    let to_n = norm_unit(to);
 
     // Walk categories
     for (cat_name, units) in UNIT_CATEGORIES {
         // Find from_unit base factor
-        let from_entry = units.iter().find(|(names, _)| names.iter().any(|n| *n == from_n.as_str()));
-        let to_entry   = units.iter().find(|(names, _)| names.iter().any(|n| *n == to_n.as_str()));
+        let from_entry = units
+            .iter()
+            .find(|(names, _)| names.contains(&from_n.as_str()));
+        let to_entry = units
+            .iter()
+            .find(|(names, _)| names.contains(&to_n.as_str()));
 
         if let (Some(fe), Some(te)) = (from_entry, to_entry) {
             // Temperature handled specially
             if *cat_name == "Temperature" {
-                return Ok((convert_temperature(value, from_n.as_str(), to_n.as_str()), "Temperature"));
+                return Ok((
+                    convert_temperature(value, from_n.as_str(), to_n.as_str()),
+                    "Temperature",
+                ));
             }
             // For all other categories: value * from_factor = SI base; SI base / to_factor = result
             let si = value * fe.1;
@@ -1923,19 +2952,32 @@ fn convert(value: f64, from: &str, to: &str) -> Result<(f64, &'static str), Stri
         .iter()
         .flat_map(|(_, units)| units.iter().flat_map(|(names, _)| names.iter().copied()))
         .collect();
-    let mut close: Vec<&str> = known.iter().filter(|n| levenshtein(n, from_n.as_str()) <= 2).copied().collect();
-    close.extend(known.iter().filter(|n| levenshtein(n, to_n.as_str()) <= 2).copied());
+    let mut close: Vec<&str> = known
+        .iter()
+        .filter(|n| levenshtein(n, from_n.as_str()) <= 2)
+        .copied()
+        .collect();
+    close.extend(
+        known
+            .iter()
+            .filter(|n| levenshtein(n, to_n.as_str()) <= 2)
+            .copied(),
+    );
     close.dedup();
 
     if close.is_empty() {
-        Err(format!("Unknown units: '{}' or '{}'. Run 'hematite --convert list' to see all.", from, to))
+        Err(format!(
+            "Unknown units: '{}' or '{}'. Run 'hematite --convert list' to see all.",
+            from, to
+        ))
     } else {
         Err(format!("Unknown unit(s). Did you mean: {}?\nRun 'hematite --convert list' for all supported units.", close.join(", ")))
     }
 }
 
 fn norm_unit(s: &str) -> String {
-    s.trim().to_lowercase()
+    s.trim()
+        .to_lowercase()
         .replace("°", "")
         .replace("²", "2")
         .replace("³", "3")
@@ -1946,18 +2988,18 @@ fn norm_unit(s: &str) -> String {
 fn convert_temperature(value: f64, from: &str, to: &str) -> f64 {
     // Convert to Kelvin first
     let kelvin = match from {
-        "c" | "celsius"     => value + 273.15,
-        "f" | "fahrenheit"  => (value - 32.0) * 5.0 / 9.0 + 273.15,
-        "k" | "kelvin"      => value,
-        "r" | "rankine"     => value * 5.0 / 9.0,
-        _                   => value,
+        "c" | "celsius" => value + 273.15,
+        "f" | "fahrenheit" => (value - 32.0) * 5.0 / 9.0 + 273.15,
+        "k" | "kelvin" => value,
+        "r" | "rankine" => value * 5.0 / 9.0,
+        _ => value,
     };
     match to {
-        "c" | "celsius"     => kelvin - 273.15,
-        "f" | "fahrenheit"  => (kelvin - 273.15) * 9.0 / 5.0 + 32.0,
-        "k" | "kelvin"      => kelvin,
-        "r" | "rankine"     => kelvin * 9.0 / 5.0,
-        _                   => kelvin,
+        "c" | "celsius" => kelvin - 273.15,
+        "f" | "fahrenheit" => (kelvin - 273.15) * 9.0 / 5.0 + 32.0,
+        "k" | "kelvin" => kelvin,
+        "r" | "rankine" => kelvin * 9.0 / 5.0,
+        _ => kelvin,
     }
 }
 
@@ -1966,14 +3008,18 @@ fn levenshtein(a: &str, b: &str) -> usize {
     let b: Vec<char> = b.chars().collect();
     let (m, n) = (a.len(), b.len());
     let mut dp = vec![vec![0usize; n + 1]; m + 1];
-    for i in 0..=m { dp[i][0] = i; }
-    for j in 0..=n { dp[0][j] = j; }
+    for i in 0..=m {
+        dp[i][0] = i;
+    }
+    for j in 0..=n {
+        dp[0][j] = j;
+    }
     for i in 1..=m {
         for j in 1..=n {
-            dp[i][j] = if a[i-1] == b[j-1] {
-                dp[i-1][j-1]
+            dp[i][j] = if a[i - 1] == b[j - 1] {
+                dp[i - 1][j - 1]
             } else {
-                1 + dp[i-1][j].min(dp[i][j-1]).min(dp[i-1][j-1])
+                1 + dp[i - 1][j].min(dp[i][j - 1]).min(dp[i - 1][j - 1])
             };
         }
     }
@@ -1986,204 +3032,370 @@ type UnitEntry = (&'static [&'static str], f64);
 type UnitCategory = (&'static str, &'static [UnitEntry]);
 
 static UNIT_CATEGORIES: &[UnitCategory] = &[
-    ("Length", &[
-        (&["m", "meter", "meters", "metre", "metres"],                   1.0),
-        (&["km", "kilometer", "kilometers", "kilometre", "kilometres"],   1000.0),
-        (&["cm", "centimeter", "centimeters", "centimetre", "centimetres"], 0.01),
-        (&["mm", "millimeter", "millimeters", "millimetre", "millimetres"], 0.001),
-        (&["um", "micrometer", "micrometers", "micron", "microns"],       1e-6),
-        (&["nm", "nanometer", "nanometers", "nanometre", "nanometres"],   1e-9),
-        (&["mi", "mile", "miles"],                                        1609.344),
-        (&["yd", "yard", "yards"],                                        0.9144),
-        (&["ft", "foot", "feet"],                                         0.3048),
-        (&["in", "inch", "inches"],                                       0.0254),
-        (&["nmi", "nautical_mile", "nautical_miles"],                     1852.0),
-        (&["ly", "light_year", "light_years", "lightyear", "lightyears"], 9.460730472580800e15),
-        (&["au", "astronomical_unit", "astronomical_units"],              1.495978707e11),
-        (&["pc", "parsec", "parsecs"],                                    3.085677581e16),
-        (&["ang", "angstrom", "angstroms"],                               1e-10),
-    ]),
-    ("Mass", &[
-        (&["kg", "kilogram", "kilograms", "kilogramme"],                  1.0),
-        (&["g", "gram", "grams", "gramme"],                               0.001),
-        (&["mg", "milligram", "milligrams", "milligramme"],               1e-6),
-        (&["ug", "microgram", "micrograms"],                              1e-9),
-        (&["t", "tonne", "tonnes", "metric_ton", "metric_tons"],          1000.0),
-        (&["lb", "lbs", "pound", "pounds"],                               0.45359237),
-        (&["oz", "ounce", "ounces"],                                      0.028349523125),
-        (&["st", "stone", "stones"],                                      6.35029318),
-        (&["ton", "short_ton", "short_tons"],                             907.18474),
-        (&["long_ton", "long_tons"],                                      1016.0469088),
-        (&["gr", "grain", "grains"],                                      6.479891e-5),
-        (&["u", "amu", "dalton", "daltons", "da"],                        1.66053906660e-27),
-    ]),
-    ("Temperature", &[
-        (&["c", "celsius"],                                               1.0),  // factors unused
-        (&["f", "fahrenheit"],                                            1.0),
-        (&["k", "kelvin"],                                                1.0),
-        (&["r", "rankine"],                                               1.0),
-    ]),
-    ("Time", &[
-        (&["s", "sec", "second", "seconds"],                              1.0),
-        (&["ms", "millisecond", "milliseconds"],                          0.001),
-        (&["us", "microsecond", "microseconds"],                          1e-6),
-        (&["ns", "nanosecond", "nanoseconds"],                            1e-9),
-        (&["min", "minute", "minutes"],                                   60.0),
-        (&["h", "hr", "hour", "hours"],                                   3600.0),
-        (&["d", "day", "days"],                                           86400.0),
-        (&["wk", "week", "weeks"],                                        604800.0),
-        (&["mo", "month", "months"],                                      2629800.0),
-        (&["yr", "year", "years"],                                        31557600.0),
-    ]),
-    ("Area", &[
-        (&["m2", "sqm", "square_meter", "square_meters", "square_metre"],  1.0),
-        (&["km2", "sqkm", "square_kilometer", "square_km"],                1e6),
-        (&["cm2", "sqcm", "square_centimeter", "square_centimeters"],      1e-4),
-        (&["mm2", "sqmm", "square_millimeter", "square_millimeters"],      1e-6),
-        (&["ha", "hectare", "hectares"],                                    1e4),
-        (&["ac", "acre", "acres"],                                          4046.8564224),
-        (&["sqft", "sq_ft", "square_foot", "square_feet"],                 0.09290304),
-        (&["sqin", "sq_in", "square_inch", "square_inches"],               6.4516e-4),
-        (&["sqmi", "sq_mi", "square_mile", "square_miles"],                2589988.110336),
-        (&["sqyd", "sq_yd", "square_yard", "square_yards"],                0.83612736),
-    ]),
-    ("Volume", &[
-        (&["m3", "cubic_meter", "cubic_meters", "cubic_metre"],            1.0),
-        (&["l", "liter", "liters", "litre", "litres"],                     0.001),
-        (&["ml", "milliliter", "milliliters", "millilitre"],               1e-6),
-        (&["cl", "centiliter", "centiliters"],                             1e-5),
-        (&["dl", "deciliter", "deciliters"],                               1e-4),
-        (&["ul", "microliter", "microliters"],                             1e-9),
-        (&["cm3", "cc", "cubic_centimeter", "cubic_centimeters"],          1e-6),
-        (&["mm3", "cubic_millimeter", "cubic_millimeters"],                1e-9),
-        (&["km3", "cubic_kilometer", "cubic_kilometers"],                  1e9),
-        (&["ft3", "cubic_foot", "cubic_feet"],                             0.0283168466),
-        (&["in3", "cubic_inch", "cubic_inches"],                           1.6387064e-5),
-        (&["yd3", "cubic_yard", "cubic_yards"],                            0.764554858),
-        (&["gal", "gallon", "gallons"],                                    0.003785411784),
-        (&["qt", "quart", "quarts"],                                       9.46352946e-4),
-        (&["pt", "pint", "pints"],                                         4.73176473e-4),
-        (&["cup", "cups"],                                                 2.36588237e-4),
-        (&["floz", "fl_oz", "fluid_ounce", "fluid_ounces"],                2.95735296e-5),
-        (&["tbsp", "tablespoon", "tablespoons"],                           1.47867648e-5),
-        (&["tsp", "teaspoon", "teaspoons"],                                4.92892159e-6),
-        (&["bbl", "barrel", "barrels"],                                    0.158987295),
-        (&["gal_uk", "uk_gallon", "imperial_gallon", "imperial_gallons"],  0.00454609),
-    ]),
-    ("Speed", &[
-        (&["m_per_s", "m/s", "mps"],                                       1.0),
-        (&["km_per_s", "km/s", "kmps"],                                    1000.0),
-        (&["km/h", "kmh", "kph", "km_per_h", "km_per_hour"],              1.0/3.6),
-        (&["mph", "mi/h", "mi_per_h", "miles_per_hour"],                   0.44704),
-        (&["knot", "knots", "kn"],                                          0.514444),
-        (&["ft_per_s", "ft/s", "fps"],                                      0.3048),
-        (&["c_speed", "speed_of_light"],                                    299792458.0),
-        (&["mach"],                                                          340.29),
-    ]),
-    ("Force", &[
-        (&["n", "newton", "newtons"],                                       1.0),
-        (&["kn", "kilonewton", "kilonewtons"],                              1000.0),
-        (&["mn", "meganewton", "meganewtons"],                              1e6),
-        (&["lbf", "pound_force", "pound-force"],                            4.44822162),
-        (&["kgf", "kilogram_force", "kilogram-force"],                      9.80665),
-        (&["dyn", "dyne", "dynes"],                                         1e-5),
-        (&["ozf", "ounce_force"],                                           0.278013851),
-    ]),
-    ("Pressure", &[
-        (&["pa", "pascal", "pascals"],                                      1.0),
-        (&["kpa", "kilopascal", "kilopascals"],                             1000.0),
-        (&["mpa", "megapascal", "megapascals"],                             1e6),
-        (&["gpa", "gigapascal", "gigapascals"],                             1e9),
-        (&["hpa", "hectopascal", "hectopascals", "mbar", "millibar", "millibars"], 100.0),
-        (&["bar", "bars"],                                                  1e5),
-        (&["atm", "atmosphere", "atmospheres"],                             101325.0),
-        (&["torr"],                                                         133.322368),
-        (&["mmhg", "mm_hg", "millimeter_of_mercury"],                       133.322368),
-        (&["psi", "pound_per_square_inch"],                                 6894.75729),
-        (&["inhg", "in_hg", "inch_of_mercury"],                             3386.389),
-    ]),
-    ("Energy", &[
-        (&["j", "joule", "joules"],                                         1.0),
-        (&["kj", "kilojoule", "kilojoules"],                                1000.0),
-        (&["mj", "megajoule", "megajoules"],                                1e6),
-        (&["gj", "gigajoule", "gigajoules"],                                1e9),
-        (&["cal", "calorie", "calories", "thermochemical_calorie"],         4.184),
-        (&["kcal", "kilocalorie", "kilocalories", "food_calorie"],          4184.0),
-        (&["wh", "watt_hour", "watt_hours"],                                3600.0),
-        (&["kwh", "kilowatt_hour", "kilowatt_hours"],                       3.6e6),
-        (&["mwh", "megawatt_hour", "megawatt_hours"],                       3.6e9),
-        (&["ev", "electronvolt", "electronvolts"],                          1.602176634e-19),
-        (&["kev", "kiloelectronvolt", "kiloelectronvolts"],                 1.602176634e-16),
-        (&["mev", "megaelectronvolt", "megaelectronvolts"],                 1.602176634e-13),
-        (&["gev", "gigaelectronvolt", "gigaelectronvolts"],                 1.602176634e-10),
-        (&["tev", "teraelectronvolt", "teraelectronvolts"],                 1.602176634e-7),
-        (&["btu", "british_thermal_unit"],                                  1055.05585),
-        (&["erg", "ergs"],                                                  1e-7),
-        (&["ft_lb", "foot_pound", "foot_pounds"],                           1.35581795),
-        (&["therm", "therms"],                                              1.05480400e8),
-    ]),
-    ("Power", &[
-        (&["w", "watt", "watts"],                                           1.0),
-        (&["kw", "kilowatt", "kilowatts"],                                  1000.0),
-        (&["mw", "megawatt", "megawatts"],                                  1e6),
-        (&["gw", "gigawatt", "gigawatts"],                                  1e9),
-        (&["tw", "terawatt", "terawatts"],                                  1e12),
-        (&["mw_milli", "milliwatt", "milliwatts"],                          0.001),
-        (&["hp", "horsepower"],                                             745.69987),
-        (&["ps", "metric_horsepower"],                                      735.49875),
-        (&["btu_h", "btu/h", "btu_per_hour"],                              0.29307107),
-        (&["erg_s", "erg/s", "erg_per_second"],                            1e-7),
-        (&["ft_lb_s", "ft_lb/s"],                                          1.35581795),
-    ]),
-    ("Data", &[
-        (&["bit", "bits"],                                                   1.0),
-        (&["byte", "bytes", "b"],                                            8.0),
-        (&["kb", "kilobit", "kilobits"],                                    1e3),
-        (&["kib", "kibibit", "kibibits"],                                   1024.0),
-        (&["mb", "megabit", "megabits"],                                    1e6),
-        (&["mib", "mebibit", "mebibits"],                                   1024.0*1024.0),
-        (&["gb", "gigabit", "gigabits"],                                    1e9),
-        (&["gib", "gibibit", "gibibits"],                                   1024.0*1024.0*1024.0),
-        (&["tb", "terabit", "terabits"],                                    1e12),
-        (&["tib", "tebibit", "tebibits"],                                   1024.0*1024.0*1024.0*1024.0),
-        (&["pb", "petabit", "petabits"],                                    1e15),
-        (&["kb_byte", "kilobyte", "kilobytes"],                             8e3),
-        (&["kib_byte", "kibibyte", "kibibytes"],                            8.0*1024.0),
-        (&["mb_byte", "megabyte", "megabytes"],                             8e6),
-        (&["mib_byte", "mebibyte", "mebibytes"],                            8.0*1024.0*1024.0),
-        (&["gb_byte", "gigabyte", "gigabytes"],                             8e9),
-        (&["gib_byte", "gibibyte", "gibibytes"],                            8.0*1024.0*1024.0*1024.0),
-        (&["tb_byte", "terabyte", "terabytes"],                             8e12),
-        (&["tib_byte", "tebibyte", "tebibytes"],                            8.0*1024.0*1024.0*1024.0*1024.0),
-    ]),
-    ("Angle", &[
-        (&["rad", "radian", "radians"],                                      1.0),
-        (&["deg", "degree", "degrees"],                                      std::f64::consts::PI / 180.0),
-        (&["grad", "gradian", "gradians", "gon", "gons"],                   std::f64::consts::PI / 200.0),
-        (&["arcmin", "arc_minute", "arc_minutes", "minute_of_arc"],         std::f64::consts::PI / 10800.0),
-        (&["arcsec", "arc_second", "arc_seconds", "second_of_arc"],         std::f64::consts::PI / 648000.0),
-        (&["rev", "revolution", "revolutions", "turn", "turns"],            2.0 * std::f64::consts::PI),
-    ]),
-    ("Frequency", &[
-        (&["hz", "hertz"],                                                   1.0),
-        (&["khz", "kilohertz"],                                              1e3),
-        (&["mhz", "megahertz"],                                              1e6),
-        (&["ghz", "gigahertz"],                                              1e9),
-        (&["thz", "terahertz"],                                              1e12),
-        (&["rpm", "revolutions_per_minute"],                                 1.0/60.0),
-        (&["rad_per_s", "rad/s"],                                            1.0/(2.0*std::f64::consts::PI)),
-    ]),
-    ("Illuminance", &[
-        (&["lx", "lux"],                                                     1.0),
-        (&["fc", "footcandle", "footcandles"],                               10.7639),
-        (&["phot", "phots"],                                                 1e4),
-    ]),
-    ("Fuel Economy", &[
-        (&["mpg", "miles_per_gallon"],                                       1.0),
-        (&["mpg_uk", "miles_per_gallon_uk", "imperial_mpg"],                 1.20095),
-        (&["l_per_100km", "l/100km", "liters_per_100km"],                    235.214583),
-        (&["km_per_l", "km/l", "km_per_liter"],                              2.35214583),
-    ]),
+    (
+        "Length",
+        &[
+            (&["m", "meter", "meters", "metre", "metres"], 1.0),
+            (
+                &["km", "kilometer", "kilometers", "kilometre", "kilometres"],
+                1000.0,
+            ),
+            (
+                &[
+                    "cm",
+                    "centimeter",
+                    "centimeters",
+                    "centimetre",
+                    "centimetres",
+                ],
+                0.01,
+            ),
+            (
+                &[
+                    "mm",
+                    "millimeter",
+                    "millimeters",
+                    "millimetre",
+                    "millimetres",
+                ],
+                0.001,
+            ),
+            (
+                &["um", "micrometer", "micrometers", "micron", "microns"],
+                1e-6,
+            ),
+            (
+                &["nm", "nanometer", "nanometers", "nanometre", "nanometres"],
+                1e-9,
+            ),
+            (&["mi", "mile", "miles"], 1609.344),
+            (&["yd", "yard", "yards"], 0.9144),
+            (&["ft", "foot", "feet"], 0.3048),
+            (&["in", "inch", "inches"], 0.0254),
+            (&["nmi", "nautical_mile", "nautical_miles"], 1852.0),
+            (
+                &["ly", "light_year", "light_years", "lightyear", "lightyears"],
+                9.460_730_472_580_8e15,
+            ),
+            (
+                &["au", "astronomical_unit", "astronomical_units"],
+                1.495978707e11,
+            ),
+            (&["pc", "parsec", "parsecs"], 3.085677581e16),
+            (&["ang", "angstrom", "angstroms"], 1e-10),
+        ],
+    ),
+    (
+        "Mass",
+        &[
+            (&["kg", "kilogram", "kilograms", "kilogramme"], 1.0),
+            (&["g", "gram", "grams", "gramme"], 0.001),
+            (&["mg", "milligram", "milligrams", "milligramme"], 1e-6),
+            (&["ug", "microgram", "micrograms"], 1e-9),
+            (
+                &["t", "tonne", "tonnes", "metric_ton", "metric_tons"],
+                1000.0,
+            ),
+            (&["lb", "lbs", "pound", "pounds"], 0.45359237),
+            (&["oz", "ounce", "ounces"], 0.028349523125),
+            (&["st", "stone", "stones"], 6.35029318),
+            (&["ton", "short_ton", "short_tons"], 907.18474),
+            (&["long_ton", "long_tons"], 1016.0469088),
+            (&["gr", "grain", "grains"], 6.479891e-5),
+            (&["u", "amu", "dalton", "daltons", "da"], 1.66053906660e-27),
+        ],
+    ),
+    (
+        "Temperature",
+        &[
+            (&["c", "celsius"], 1.0), // factors unused
+            (&["f", "fahrenheit"], 1.0),
+            (&["k", "kelvin"], 1.0),
+            (&["r", "rankine"], 1.0),
+        ],
+    ),
+    (
+        "Time",
+        &[
+            (&["s", "sec", "second", "seconds"], 1.0),
+            (&["ms", "millisecond", "milliseconds"], 0.001),
+            (&["us", "microsecond", "microseconds"], 1e-6),
+            (&["ns", "nanosecond", "nanoseconds"], 1e-9),
+            (&["min", "minute", "minutes"], 60.0),
+            (&["h", "hr", "hour", "hours"], 3600.0),
+            (&["d", "day", "days"], 86400.0),
+            (&["wk", "week", "weeks"], 604800.0),
+            (&["mo", "month", "months"], 2629800.0),
+            (&["yr", "year", "years"], 31557600.0),
+        ],
+    ),
+    (
+        "Area",
+        &[
+            (
+                &["m2", "sqm", "square_meter", "square_meters", "square_metre"],
+                1.0,
+            ),
+            (&["km2", "sqkm", "square_kilometer", "square_km"], 1e6),
+            (
+                &["cm2", "sqcm", "square_centimeter", "square_centimeters"],
+                1e-4,
+            ),
+            (
+                &["mm2", "sqmm", "square_millimeter", "square_millimeters"],
+                1e-6,
+            ),
+            (&["ha", "hectare", "hectares"], 1e4),
+            (&["ac", "acre", "acres"], 4046.8564224),
+            (&["sqft", "sq_ft", "square_foot", "square_feet"], 0.09290304),
+            (
+                &["sqin", "sq_in", "square_inch", "square_inches"],
+                6.4516e-4,
+            ),
+            (
+                &["sqmi", "sq_mi", "square_mile", "square_miles"],
+                2589988.110336,
+            ),
+            (
+                &["sqyd", "sq_yd", "square_yard", "square_yards"],
+                0.83612736,
+            ),
+        ],
+    ),
+    (
+        "Volume",
+        &[
+            (&["m3", "cubic_meter", "cubic_meters", "cubic_metre"], 1.0),
+            (&["l", "liter", "liters", "litre", "litres"], 0.001),
+            (&["ml", "milliliter", "milliliters", "millilitre"], 1e-6),
+            (&["cl", "centiliter", "centiliters"], 1e-5),
+            (&["dl", "deciliter", "deciliters"], 1e-4),
+            (&["ul", "microliter", "microliters"], 1e-9),
+            (
+                &["cm3", "cc", "cubic_centimeter", "cubic_centimeters"],
+                1e-6,
+            ),
+            (&["mm3", "cubic_millimeter", "cubic_millimeters"], 1e-9),
+            (&["km3", "cubic_kilometer", "cubic_kilometers"], 1e9),
+            (&["ft3", "cubic_foot", "cubic_feet"], 0.0283168466),
+            (&["in3", "cubic_inch", "cubic_inches"], 1.6387064e-5),
+            (&["yd3", "cubic_yard", "cubic_yards"], 0.764554858),
+            (&["gal", "gallon", "gallons"], 0.003785411784),
+            (&["qt", "quart", "quarts"], 9.46352946e-4),
+            (&["pt", "pint", "pints"], 4.73176473e-4),
+            (&["cup", "cups"], 2.36588237e-4),
+            (
+                &["floz", "fl_oz", "fluid_ounce", "fluid_ounces"],
+                2.95735296e-5,
+            ),
+            (&["tbsp", "tablespoon", "tablespoons"], 1.47867648e-5),
+            (&["tsp", "teaspoon", "teaspoons"], 4.92892159e-6),
+            (&["bbl", "barrel", "barrels"], 0.158987295),
+            (
+                &["gal_uk", "uk_gallon", "imperial_gallon", "imperial_gallons"],
+                0.00454609,
+            ),
+        ],
+    ),
+    (
+        "Speed",
+        &[
+            (&["m_per_s", "m/s", "mps"], 1.0),
+            (&["km_per_s", "km/s", "kmps"], 1000.0),
+            (
+                &["km/h", "kmh", "kph", "km_per_h", "km_per_hour"],
+                1.0 / 3.6,
+            ),
+            (&["mph", "mi/h", "mi_per_h", "miles_per_hour"], 0.44704),
+            (&["knot", "knots", "kn"], 0.514444),
+            (&["ft_per_s", "ft/s", "fps"], 0.3048),
+            (&["c_speed", "speed_of_light"], 299792458.0),
+            (&["mach"], 340.29),
+        ],
+    ),
+    (
+        "Force",
+        &[
+            (&["n", "newton", "newtons"], 1.0),
+            (&["kn", "kilonewton", "kilonewtons"], 1000.0),
+            (&["mn", "meganewton", "meganewtons"], 1e6),
+            (&["lbf", "pound_force", "pound-force"], 4.44822162),
+            (&["kgf", "kilogram_force", "kilogram-force"], 9.80665),
+            (&["dyn", "dyne", "dynes"], 1e-5),
+            (&["ozf", "ounce_force"], 0.278013851),
+        ],
+    ),
+    (
+        "Pressure",
+        &[
+            (&["pa", "pascal", "pascals"], 1.0),
+            (&["kpa", "kilopascal", "kilopascals"], 1000.0),
+            (&["mpa", "megapascal", "megapascals"], 1e6),
+            (&["gpa", "gigapascal", "gigapascals"], 1e9),
+            (
+                &[
+                    "hpa",
+                    "hectopascal",
+                    "hectopascals",
+                    "mbar",
+                    "millibar",
+                    "millibars",
+                ],
+                100.0,
+            ),
+            (&["bar", "bars"], 1e5),
+            (&["atm", "atmosphere", "atmospheres"], 101325.0),
+            (&["torr"], 133.322368),
+            (&["mmhg", "mm_hg", "millimeter_of_mercury"], 133.322368),
+            (&["psi", "pound_per_square_inch"], 6894.75729),
+            (&["inhg", "in_hg", "inch_of_mercury"], 3386.389),
+        ],
+    ),
+    (
+        "Energy",
+        &[
+            (&["j", "joule", "joules"], 1.0),
+            (&["kj", "kilojoule", "kilojoules"], 1000.0),
+            (&["mj", "megajoule", "megajoules"], 1e6),
+            (&["gj", "gigajoule", "gigajoules"], 1e9),
+            (
+                &["cal", "calorie", "calories", "thermochemical_calorie"],
+                4.184,
+            ),
+            (
+                &["kcal", "kilocalorie", "kilocalories", "food_calorie"],
+                4184.0,
+            ),
+            (&["wh", "watt_hour", "watt_hours"], 3600.0),
+            (&["kwh", "kilowatt_hour", "kilowatt_hours"], 3.6e6),
+            (&["mwh", "megawatt_hour", "megawatt_hours"], 3.6e9),
+            (&["ev", "electronvolt", "electronvolts"], 1.602176634e-19),
+            (
+                &["kev", "kiloelectronvolt", "kiloelectronvolts"],
+                1.602176634e-16,
+            ),
+            (
+                &["mev", "megaelectronvolt", "megaelectronvolts"],
+                1.602176634e-13,
+            ),
+            (
+                &["gev", "gigaelectronvolt", "gigaelectronvolts"],
+                1.602176634e-10,
+            ),
+            (
+                &["tev", "teraelectronvolt", "teraelectronvolts"],
+                1.602176634e-7,
+            ),
+            (&["btu", "british_thermal_unit"], 1055.05585),
+            (&["erg", "ergs"], 1e-7),
+            (&["ft_lb", "foot_pound", "foot_pounds"], 1.35581795),
+            (&["therm", "therms"], 1.05480400e8),
+        ],
+    ),
+    (
+        "Power",
+        &[
+            (&["w", "watt", "watts"], 1.0),
+            (&["kw", "kilowatt", "kilowatts"], 1000.0),
+            (&["mw", "megawatt", "megawatts"], 1e6),
+            (&["gw", "gigawatt", "gigawatts"], 1e9),
+            (&["tw", "terawatt", "terawatts"], 1e12),
+            (&["mw_milli", "milliwatt", "milliwatts"], 0.001),
+            (&["hp", "horsepower"], 745.69987),
+            (&["ps", "metric_horsepower"], 735.49875),
+            (&["btu_h", "btu/h", "btu_per_hour"], 0.29307107),
+            (&["erg_s", "erg/s", "erg_per_second"], 1e-7),
+            (&["ft_lb_s", "ft_lb/s"], 1.35581795),
+        ],
+    ),
+    (
+        "Data",
+        &[
+            (&["bit", "bits"], 1.0),
+            (&["byte", "bytes", "b"], 8.0),
+            (&["kb", "kilobit", "kilobits"], 1e3),
+            (&["kib", "kibibit", "kibibits"], 1024.0),
+            (&["mb", "megabit", "megabits"], 1e6),
+            (&["mib", "mebibit", "mebibits"], 1024.0 * 1024.0),
+            (&["gb", "gigabit", "gigabits"], 1e9),
+            (&["gib", "gibibit", "gibibits"], 1024.0 * 1024.0 * 1024.0),
+            (&["tb", "terabit", "terabits"], 1e12),
+            (
+                &["tib", "tebibit", "tebibits"],
+                1024.0 * 1024.0 * 1024.0 * 1024.0,
+            ),
+            (&["pb", "petabit", "petabits"], 1e15),
+            (&["kb_byte", "kilobyte", "kilobytes"], 8e3),
+            (&["kib_byte", "kibibyte", "kibibytes"], 8.0 * 1024.0),
+            (&["mb_byte", "megabyte", "megabytes"], 8e6),
+            (
+                &["mib_byte", "mebibyte", "mebibytes"],
+                8.0 * 1024.0 * 1024.0,
+            ),
+            (&["gb_byte", "gigabyte", "gigabytes"], 8e9),
+            (
+                &["gib_byte", "gibibyte", "gibibytes"],
+                8.0 * 1024.0 * 1024.0 * 1024.0,
+            ),
+            (&["tb_byte", "terabyte", "terabytes"], 8e12),
+            (
+                &["tib_byte", "tebibyte", "tebibytes"],
+                8.0 * 1024.0 * 1024.0 * 1024.0 * 1024.0,
+            ),
+        ],
+    ),
+    (
+        "Angle",
+        &[
+            (&["rad", "radian", "radians"], 1.0),
+            (&["deg", "degree", "degrees"], std::f64::consts::PI / 180.0),
+            (
+                &["grad", "gradian", "gradians", "gon", "gons"],
+                std::f64::consts::PI / 200.0,
+            ),
+            (
+                &["arcmin", "arc_minute", "arc_minutes", "minute_of_arc"],
+                std::f64::consts::PI / 10800.0,
+            ),
+            (
+                &["arcsec", "arc_second", "arc_seconds", "second_of_arc"],
+                std::f64::consts::PI / 648000.0,
+            ),
+            (
+                &["rev", "revolution", "revolutions", "turn", "turns"],
+                2.0 * std::f64::consts::PI,
+            ),
+        ],
+    ),
+    (
+        "Frequency",
+        &[
+            (&["hz", "hertz"], 1.0),
+            (&["khz", "kilohertz"], 1e3),
+            (&["mhz", "megahertz"], 1e6),
+            (&["ghz", "gigahertz"], 1e9),
+            (&["thz", "terahertz"], 1e12),
+            (&["rpm", "revolutions_per_minute"], 1.0 / 60.0),
+            (&["rad_per_s", "rad/s"], 1.0 / (2.0 * std::f64::consts::PI)),
+        ],
+    ),
+    (
+        "Illuminance",
+        &[
+            (&["lx", "lux"], 1.0),
+            (&["fc", "footcandle", "footcandles"], 10.7639),
+            (&["phot", "phots"], 1e4),
+        ],
+    ),
+    (
+        "Fuel Economy",
+        &[
+            (&["mpg", "miles_per_gallon"], 1.0),
+            (&["mpg_uk", "miles_per_gallon_uk", "imperial_mpg"], 1.20095),
+            (&["l_per_100km", "l/100km", "liters_per_100km"], 235.214583),
+            (&["km_per_l", "km/l", "km_per_liter"], 2.35214583),
+        ],
+    ),
 ];
 
 fn unit_convert_list() -> String {
@@ -2234,7 +3446,9 @@ pub fn vector_calc(query: &str) -> String {
     if let Some(rest) = strip_prefix_ci(q, "norm") {
         if let Some(v) = parse_vec(rest.trim()) {
             let mag = vec_mag(&v);
-            if mag == 0.0 { return "Zero vector has no unit direction.".into(); }
+            if mag == 0.0 {
+                return "Zero vector has no unit direction.".into();
+            }
             let n: Vec<f64> = v.iter().map(|x| x / mag).collect();
             return format_vec_display("Unit vector (normalized)", &n);
         }
@@ -2242,7 +3456,9 @@ pub fn vector_calc(query: &str) -> String {
     if let Some(rest) = strip_prefix_ci(q, "normalize") {
         if let Some(v) = parse_vec(rest.trim()) {
             let mag = vec_mag(&v);
-            if mag == 0.0 { return "Zero vector has no unit direction.".into(); }
+            if mag == 0.0 {
+                return "Zero vector has no unit direction.".into();
+            }
             let n: Vec<f64> = v.iter().map(|x| x / mag).collect();
             return format_vec_display("Unit vector (normalized)", &n);
         }
@@ -2252,17 +3468,27 @@ pub fn vector_calc(query: &str) -> String {
     if let Some(rest) = strip_prefix_ci(q, "angle") {
         let vecs = find_all_vecs(rest.trim());
         if vecs.len() >= 2 {
-            let a = &vecs[0]; let b = &vecs[1];
-            if a.len() != b.len() { return "Vectors must have the same dimension for angle.".into(); }
+            let a = &vecs[0];
+            let b = &vecs[1];
+            if a.len() != b.len() {
+                return "Vectors must have the same dimension for angle.".into();
+            }
             let dot = vec_dot(a, b);
-            let ma = vec_mag(a); let mb = vec_mag(b);
-            if ma == 0.0 || mb == 0.0 { return "Cannot compute angle involving a zero vector.".into(); }
+            let ma = vec_mag(a);
+            let mb = vec_mag(b);
+            if ma == 0.0 || mb == 0.0 {
+                return "Cannot compute angle involving a zero vector.".into();
+            }
             let cos_theta = (dot / (ma * mb)).clamp(-1.0, 1.0);
             let deg = cos_theta.acos().to_degrees();
             let rad = cos_theta.acos();
             return format!(
                 "Angle between {} and {}:\n  {:.6}°  ({:.6} radians)\n  cos θ = {:.6}",
-                fmt_vec(a), fmt_vec(b), deg, rad, cos_theta
+                fmt_vec(a),
+                fmt_vec(b),
+                deg,
+                rad,
+                cos_theta
             );
         }
     }
@@ -2271,10 +3497,15 @@ pub fn vector_calc(query: &str) -> String {
     if q.to_lowercase().contains("proj") && q.to_lowercase().contains("onto") {
         let vecs = find_all_vecs(q);
         if vecs.len() >= 2 {
-            let a = &vecs[0]; let b = &vecs[1];
-            if a.len() != b.len() { return "Vectors must have the same dimension for projection.".into(); }
+            let a = &vecs[0];
+            let b = &vecs[1];
+            if a.len() != b.len() {
+                return "Vectors must have the same dimension for projection.".into();
+            }
             let b_mag2: f64 = b.iter().map(|x| x * x).sum();
-            if b_mag2 == 0.0 { return "Cannot project onto a zero vector.".into(); }
+            if b_mag2 == 0.0 {
+                return "Cannot project onto a zero vector.".into();
+            }
             let scalar = vec_dot(a, b) / b_mag2;
             let proj: Vec<f64> = b.iter().map(|x| x * scalar).collect();
             let mut out = String::new();
@@ -2291,9 +3522,12 @@ pub fn vector_calc(query: &str) -> String {
     // dot product
     if lower.contains(" dot ") {
         if let Some(idx) = lower.find(" dot ") {
-            let left = &q[..idx]; let right = &q[idx+5..];
+            let left = &q[..idx];
+            let right = &q[idx + 5..];
             if let (Some(a), Some(b)) = (parse_vec(left.trim()), parse_vec(right.trim())) {
-                if a.len() != b.len() { return format!("Dimension mismatch: {} vs {}", a.len(), b.len()); }
+                if a.len() != b.len() {
+                    return format!("Dimension mismatch: {} vs {}", a.len(), b.len());
+                }
                 let d = vec_dot(&a, &b);
                 return format!("{} · {} = {}", fmt_vec(&a), fmt_vec(&b), fmt_scalar(d));
             }
@@ -2303,7 +3537,8 @@ pub fn vector_calc(query: &str) -> String {
     // cross product
     if lower.contains(" cross ") {
         if let Some(idx) = lower.find(" cross ") {
-            let left = &q[..idx]; let right = &q[idx+7..];
+            let left = &q[..idx];
+            let right = &q[idx + 7..];
             if let (Some(a), Some(b)) = (parse_vec(left.trim()), parse_vec(right.trim())) {
                 if a.len() != 3 || b.len() != 3 {
                     return "Cross product requires two 3D vectors.".into();
@@ -2311,7 +3546,10 @@ pub fn vector_calc(query: &str) -> String {
                 let c = vec_cross(&a, &b);
                 return format!(
                     "{} × {} = {}\n  |result| = {}",
-                    fmt_vec(&a), fmt_vec(&b), fmt_vec(&c), fmt_scalar(vec_mag(&c))
+                    fmt_vec(&a),
+                    fmt_vec(&b),
+                    fmt_vec(&c),
+                    fmt_scalar(vec_mag(&c))
                 );
             }
         }
@@ -2320,7 +3558,8 @@ pub fn vector_calc(query: &str) -> String {
     // scalar × vector: "3 * [1,2,3]" or "[1,2,3] * 3"
     if lower.contains(" * ") {
         if let Some(idx) = q.find(" * ") {
-            let left = q[..idx].trim(); let right = q[idx+3..].trim();
+            let left = q[..idx].trim();
+            let right = q[idx + 3..].trim();
             // scalar * vec
             if let (Ok(s), Some(v)) = (left.parse::<f64>(), parse_vec(right)) {
                 let result: Vec<f64> = v.iter().map(|x| x * s).collect();
@@ -2336,20 +3575,26 @@ pub fn vector_calc(query: &str) -> String {
 
     // vector + vector
     if let Some(idx) = q.find(" + ") {
-        let left = q[..idx].trim(); let right = q[idx+3..].trim();
+        let left = q[..idx].trim();
+        let right = q[idx + 3..].trim();
         if let (Some(a), Some(b)) = (parse_vec(left), parse_vec(right)) {
-            if a.len() != b.len() { return format!("Dimension mismatch: {} vs {}", a.len(), b.len()); }
-            let c: Vec<f64> = a.iter().zip(b.iter()).map(|(x,y)| x + y).collect();
+            if a.len() != b.len() {
+                return format!("Dimension mismatch: {} vs {}", a.len(), b.len());
+            }
+            let c: Vec<f64> = a.iter().zip(b.iter()).map(|(x, y)| x + y).collect();
             return format!("{} + {} = {}", fmt_vec(&a), fmt_vec(&b), fmt_vec(&c));
         }
     }
 
     // vector - vector
     if let Some(idx) = q.rfind(" - ") {
-        let left = q[..idx].trim(); let right = q[idx+3..].trim();
+        let left = q[..idx].trim();
+        let right = q[idx + 3..].trim();
         if let (Some(a), Some(b)) = (parse_vec(left), parse_vec(right)) {
-            if a.len() != b.len() { return format!("Dimension mismatch: {} vs {}", a.len(), b.len()); }
-            let c: Vec<f64> = a.iter().zip(b.iter()).map(|(x,y)| x - y).collect();
+            if a.len() != b.len() {
+                return format!("Dimension mismatch: {} vs {}", a.len(), b.len());
+            }
+            let c: Vec<f64> = a.iter().zip(b.iter()).map(|(x, y)| x - y).collect();
             return format!("{} - {} = {}", fmt_vec(&a), fmt_vec(&b), fmt_vec(&c));
         }
     }
@@ -2397,17 +3642,27 @@ fn strip_prefix_ci<'a>(s: &'a str, prefix: &str) -> Option<&'a str> {
 
 fn parse_vec(s: &str) -> Option<Vec<f64>> {
     // Accepts: [1,2,3]  (1,2,3)  1,2,3  1 2 3
-    let s = s.trim().trim_start_matches(['[', '(']).trim_end_matches([']', ')']);
+    let s = s
+        .trim()
+        .trim_start_matches(['[', '('])
+        .trim_end_matches([']', ')']);
     let parts: Vec<&str> = if s.contains(',') {
         s.split(',').collect()
     } else {
         s.split_whitespace().collect()
     };
-    if parts.is_empty() { return None; }
-    let nums: Vec<f64> = parts.iter()
+    if parts.is_empty() {
+        return None;
+    }
+    let nums: Vec<f64> = parts
+        .iter()
         .filter_map(|p| p.trim().parse::<f64>().ok())
         .collect();
-    if nums.len() == parts.len() && !nums.is_empty() { Some(nums) } else { None }
+    if nums.len() == parts.len() && !nums.is_empty() {
+        Some(nums)
+    } else {
+        None
+    }
 }
 
 fn find_all_vecs(s: &str) -> Vec<Vec<f64>> {
@@ -2418,8 +3673,8 @@ fn find_all_vecs(s: &str) -> Vec<Vec<f64>> {
     while i < chars.len() {
         if chars[i] == '[' || chars[i] == '(' {
             let close = if chars[i] == '[' { ']' } else { ')' };
-            if let Some(j) = chars[i+1..].iter().position(|&c| c == close) {
-                let inner: String = chars[i+1..i+1+j].iter().collect();
+            if let Some(j) = chars[i + 1..].iter().position(|&c| c == close) {
+                let inner: String = chars[i + 1..i + 1 + j].iter().collect();
                 if let Some(v) = parse_vec(&inner) {
                     result.push(v);
                 }
@@ -2442,9 +3697,9 @@ fn vec_mag(v: &[f64]) -> f64 {
 
 fn vec_cross(a: &[f64], b: &[f64]) -> Vec<f64> {
     vec![
-        a[1]*b[2] - a[2]*b[1],
-        a[2]*b[0] - a[0]*b[2],
-        a[0]*b[1] - a[1]*b[0],
+        a[1] * b[2] - a[2] * b[1],
+        a[2] * b[0] - a[0] * b[2],
+        a[0] * b[1] - a[1] * b[0],
     ]
 }
 
@@ -2457,7 +3712,10 @@ fn fmt_scalar(x: f64) -> String {
     if x.fract() == 0.0 && x.abs() < 1e12 {
         format!("{}", x as i64)
     } else if x.abs() >= 1e-3 && x.abs() < 1e7 {
-        format!("{:.6}", x).trim_end_matches('0').trim_end_matches('.').to_string()
+        format!("{:.6}", x)
+            .trim_end_matches('0')
+            .trim_end_matches('.')
+            .to_string()
     } else {
         format!("{:.6e}", x)
     }
@@ -2490,14 +3748,19 @@ pub fn simulate(query: &str) -> String {
 
     match tokens[0].to_lowercase().as_str() {
         "pi" => {
-            let n: u64 = tokens.get(1).and_then(|s| s.parse().ok()).unwrap_or(1_000_000);
+            let n: u64 = tokens
+                .get(1)
+                .and_then(|s| s.parse().ok())
+                .unwrap_or(1_000_000);
             let n = n.min(100_000_000);
             let mut inside = 0u64;
             let mut rng = Lcg64::new(0xdeadbeef_12345678);
             for _ in 0..n {
                 let x = rng.next_f64() * 2.0 - 1.0;
                 let y = rng.next_f64() * 2.0 - 1.0;
-                if x*x + y*y <= 1.0 { inside += 1; }
+                if x * x + y * y <= 1.0 {
+                    inside += 1;
+                }
             }
             let pi_est = 4.0 * inside as f64 / n as f64;
             let error = (pi_est - std::f64::consts::PI).abs();
@@ -2512,14 +3775,27 @@ pub fn simulate(query: &str) -> String {
             let p_no_match = (0..n as u64).fold(1.0f64, |acc, i| acc * (365 - i) as f64 / 365.0);
             let p_match = 1.0 - p_no_match;
             let mut out = format!("Birthday problem — room of {} people:\n", n);
-            out.push_str(&format!("  P(at least 2 share a birthday) = {:.6} ({:.2}%)\n", p_match, p_match*100.0));
-            out.push_str(&format!("  P(all different birthdays)      = {:.6} ({:.2}%)\n", p_no_match, p_no_match*100.0));
+            out.push_str(&format!(
+                "  P(at least 2 share a birthday) = {:.6} ({:.2}%)\n",
+                p_match,
+                p_match * 100.0
+            ));
+            out.push_str(&format!(
+                "  P(all different birthdays)      = {:.6} ({:.2}%)\n",
+                p_no_match,
+                p_no_match * 100.0
+            ));
             // Find 50% threshold
-            let n50 = (1..366u32).find(|&k| {
-                let p = 1.0 - (0..k as u64).fold(1.0f64, |a,i| a*(365-i) as f64/365.0);
-                p >= 0.5
-            }).unwrap_or(23);
-            out.push_str(&format!("  Minimum group for ≥50% chance: {} people\n", n50));
+            let n50 = (1..366u32)
+                .find(|&k| {
+                    let p = 1.0 - (0..k as u64).fold(1.0f64, |a, i| a * (365 - i) as f64 / 365.0);
+                    p >= 0.5
+                })
+                .unwrap_or(23);
+            out.push_str(&format!(
+                "  Minimum group for ≥50% chance: {} people\n",
+                n50
+            ));
             out
         }
         "dice" => {
@@ -2532,31 +3808,46 @@ pub fn simulate(query: &str) -> String {
             let mut counts: std::collections::HashMap<i64, u64> = std::collections::HashMap::new();
             let mut rng = Lcg64::new(0xcafe_babe_dead_beef);
             for _ in 0..rolls {
-                let total: i64 = (0..n_dice).map(|_| (rng.next_u64() % sides as u64) as i64 + 1).sum::<i64>() + bonus;
+                let total: i64 = (0..n_dice)
+                    .map(|_| (rng.next_u64() % sides as u64) as i64 + 1)
+                    .sum::<i64>()
+                    + bonus;
                 *counts.entry(total).or_insert(0) += 1;
             }
             let mut sorted_keys: Vec<i64> = counts.keys().copied().collect();
             sorted_keys.sort();
-            let mean: f64 = sorted_keys.iter().map(|&k| k as f64 * counts[&k] as f64).sum::<f64>() / rolls as f64;
+            let mean: f64 = sorted_keys
+                .iter()
+                .map(|&k| k as f64 * counts[&k] as f64)
+                .sum::<f64>()
+                / rolls as f64;
             let mut out = format!("Dice simulation: {} × {} rolls\n", rolls, spec);
-            let _ = write!(out, "  Mean: {:.3}   Range: {}–{}\n", mean, sorted_keys.first().unwrap_or(&0), sorted_keys.last().unwrap_or(&0));
+            let _ = writeln!(
+                out,
+                "  Mean: {:.3}   Range: {}–{}",
+                mean,
+                sorted_keys.first().unwrap_or(&0),
+                sorted_keys.last().unwrap_or(&0)
+            );
             out.push_str("  Distribution:\n");
             let max_count = counts.values().copied().max().unwrap_or(1);
             for k in &sorted_keys {
                 let c = counts[k];
                 let pct = 100.0 * c as f64 / rolls as f64;
                 let bar_len = (c as f64 / max_count as f64 * 30.0) as usize;
-                let _ = write!(out, "    {:4}  {:6.2}%  {}\n", k, pct, "█".repeat(bar_len));
+                let _ = writeln!(out, "    {:4}  {:6.2}%  {}", k, pct, "█".repeat(bar_len));
             }
             out
         }
         "ruin" | "gambler" => {
-            let p: f64   = tokens.get(1).and_then(|s| s.parse().ok()).unwrap_or(0.5);
-            let a: i64   = tokens.get(2).and_then(|s| s.parse().ok()).unwrap_or(10);
-            let b: i64   = tokens.get(3).and_then(|s| s.parse().ok()).unwrap_or(20);
-            let n: u64   = tokens.get(4).and_then(|s| s.parse().ok()).unwrap_or(10_000);
+            let p: f64 = tokens.get(1).and_then(|s| s.parse().ok()).unwrap_or(0.5);
+            let a: i64 = tokens.get(2).and_then(|s| s.parse().ok()).unwrap_or(10);
+            let b: i64 = tokens.get(3).and_then(|s| s.parse().ok()).unwrap_or(20);
+            let n: u64 = tokens.get(4).and_then(|s| s.parse().ok()).unwrap_or(10_000);
             let n = n.min(100_000);
-            if a <= 0 || b <= a { return "Usage: ruin PROB START GOAL N_SIM (GOAL > START > 0)".into(); }
+            if a <= 0 || b <= a {
+                return "Usage: ruin PROB START GOAL N_SIM (GOAL > START > 0)".into();
+            }
 
             let mut wins = 0u64;
             let mut steps_total = 0u64;
@@ -2568,9 +3859,13 @@ pub fn simulate(query: &str) -> String {
                     let r = rng.next_f64();
                     money += if r < p { 1 } else { -1 };
                     steps += 1;
-                    if steps > 100_000 { break; }
+                    if steps > 100_000 {
+                        break;
+                    }
                 }
-                if money >= b { wins += 1; }
+                if money >= b {
+                    wins += 1;
+                }
                 steps_total += steps;
             }
             let win_rate = wins as f64 / n as f64;
@@ -2587,12 +3882,20 @@ pub fn simulate(query: &str) -> String {
                 "Gambler's Ruin ({} simulations):\n  Win prob p={:.4}  Start=${} → Goal=${}\n\
                  \n  Simulated win rate:  {:.4} ({:.2}%)\n  Exact formula:       {:.4} ({:.2}%)\n\
                  \n  Average steps to finish: {:.1}",
-                n, p, a, b, win_rate, win_rate*100.0, exact, exact*100.0, avg_steps
+                n,
+                p,
+                a,
+                b,
+                win_rate,
+                win_rate * 100.0,
+                exact,
+                exact * 100.0,
+                avg_steps
             )
         }
         "walk" | "random_walk" => {
             let n_walks: u64 = tokens.get(1).and_then(|s| s.parse().ok()).unwrap_or(1000);
-            let steps: u64   = tokens.get(2).and_then(|s| s.parse().ok()).unwrap_or(100);
+            let steps: u64 = tokens.get(2).and_then(|s| s.parse().ok()).unwrap_or(100);
             let n_walks = n_walks.min(100_000);
             let steps = steps.min(100_000);
             let mut final_positions: Vec<f64> = Vec::with_capacity(n_walks as usize);
@@ -2604,10 +3907,16 @@ pub fn simulate(query: &str) -> String {
                     pos += if rng.next_f64() < 0.5 { 1.0 } else { -1.0 };
                 }
                 final_positions.push(pos);
-                if pos.abs() > max_deviation { max_deviation = pos.abs(); }
+                if pos.abs() > max_deviation {
+                    max_deviation = pos.abs();
+                }
             }
             let mean = final_positions.iter().sum::<f64>() / n_walks as f64;
-            let variance: f64 = final_positions.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / n_walks as f64;
+            let variance: f64 = final_positions
+                .iter()
+                .map(|x| (x - mean).powi(2))
+                .sum::<f64>()
+                / n_walks as f64;
             let std_dev = variance.sqrt();
             let theoretical_std = (steps as f64).sqrt();
             format!(
@@ -2632,24 +3941,25 @@ fn simulate_usage() -> String {
      hematite --simulate 'birthday 23'          birthday problem\n\
      hematite --simulate 'dice 2d6 10000'       roll 2d6 × 10000\n\
      hematite --simulate 'ruin 0.48 10 20 5000' gambler's ruin\n\
-     hematite --simulate 'walk 1000 200'        random walk simulation".into()
+     hematite --simulate 'walk 1000 200'        random walk simulation"
+        .into()
 }
 
 fn parse_dice_spec(spec: &str) -> (i64, i64, i64) {
     // NdM+K or NdM-K
     let lower = spec.to_lowercase();
     let (dice_part, bonus) = if let Some(idx) = lower.rfind('+') {
-        let b: i64 = spec[idx+1..].parse().unwrap_or(0);
+        let b: i64 = spec[idx + 1..].parse().unwrap_or(0);
         (&spec[..idx], b)
-    } else if let Some(idx) = lower[1..].rfind('-').map(|i| i+1) {
-        let b: i64 = spec[idx+1..].parse().unwrap_or(0);
+    } else if let Some(idx) = lower[1..].rfind('-').map(|i| i + 1) {
+        let b: i64 = spec[idx + 1..].parse().unwrap_or(0);
         (&spec[..idx], -b)
     } else {
         (spec, 0i64)
     };
     if let Some(d_pos) = dice_part.to_lowercase().find('d') {
         let n: i64 = dice_part[..d_pos].parse().unwrap_or(1).max(1);
-        let s: i64 = dice_part[d_pos+1..].parse().unwrap_or(6).max(2);
+        let s: i64 = dice_part[d_pos + 1..].parse().unwrap_or(6).max(2);
         (n, s, bonus)
     } else {
         (1, 6, 0)
@@ -2657,11 +3967,20 @@ fn parse_dice_spec(spec: &str) -> (i64, i64, i64) {
 }
 
 // Minimal 64-bit LCG PRNG — no stdlib rng needed
-struct Lcg64 { state: u64 }
+struct Lcg64 {
+    state: u64,
+}
 impl Lcg64 {
-    fn new(seed: u64) -> Self { Self { state: seed.wrapping_add(1) } }
+    fn new(seed: u64) -> Self {
+        Self {
+            state: seed.wrapping_add(1),
+        }
+    }
     fn next_u64(&mut self) -> u64 {
-        self.state = self.state.wrapping_mul(6_364_136_223_846_793_005).wrapping_add(1_442_695_040_888_963_407);
+        self.state = self
+            .state
+            .wrapping_mul(6_364_136_223_846_793_005)
+            .wrapping_add(1_442_695_040_888_963_407);
         self.state
     }
     fn next_f64(&mut self) -> f64 {
@@ -2688,6 +4007,7 @@ impl Lcg64 {
 // ── Boolean expression AST ────────────────────────────────────────────────
 
 #[derive(Clone, Debug, PartialEq)]
+#[allow(dead_code)]
 enum BExpr {
     Var(String),
     Not(Box<BExpr>),
@@ -2708,10 +4028,22 @@ struct BParser<'a> {
 }
 
 impl<'a> BParser<'a> {
-    fn new(chars: &'a [char]) -> Self { Self { chars, pos: 0 } }
-    fn peek(&self) -> Option<char> { self.chars.get(self.pos).copied() }
-    fn consume(&mut self) -> Option<char> { let c = self.peek(); self.pos += 1; c }
-    fn skip_ws(&mut self) { while matches!(self.peek(), Some(' ') | Some('\t')) { self.pos += 1; } }
+    fn new(chars: &'a [char]) -> Self {
+        Self { chars, pos: 0 }
+    }
+    fn peek(&self) -> Option<char> {
+        self.chars.get(self.pos).copied()
+    }
+    fn consume(&mut self) -> Option<char> {
+        let c = self.peek();
+        self.pos += 1;
+        c
+    }
+    fn skip_ws(&mut self) {
+        while matches!(self.peek(), Some(' ') | Some('\t')) {
+            self.pos += 1;
+        }
+    }
 
     fn parse_iff(&mut self) -> Result<BExpr, String> {
         let mut left = self.parse_implies()?;
@@ -2720,7 +4052,9 @@ impl<'a> BParser<'a> {
             if self.try_keyword("iff") || self.try_str("<->") || self.try_str("<=>") {
                 let right = self.parse_implies()?;
                 left = BExpr::Iff(Box::new(left), Box::new(right));
-            } else { break; }
+            } else {
+                break;
+            }
         }
         Ok(left)
     }
@@ -2739,16 +4073,16 @@ impl<'a> BParser<'a> {
         let mut left = self.parse_xor()?;
         loop {
             self.skip_ws();
-            if self.try_str("||") || self.try_str("|") || self.try_keyword("or") || self.try_keyword("nor") {
-                let is_nor = {
-                    let prev_is_nor = self.chars.get(self.pos.saturating_sub(3))
-                        .map(|c| *c == 'r').unwrap_or(false);
-                    // Check if we consumed "nor"
-                    false // simplification: treat nor separately
-                };
+            if self.try_str("||")
+                || self.try_str("|")
+                || self.try_keyword("or")
+                || self.try_keyword("nor")
+            {
                 let right = self.parse_xor()?;
                 left = BExpr::Or(Box::new(left), Box::new(right));
-            } else { break; }
+            } else {
+                break;
+            }
         }
         Ok(left)
     }
@@ -2757,13 +4091,12 @@ impl<'a> BParser<'a> {
         let mut left = self.parse_and()?;
         loop {
             self.skip_ws();
-            if self.try_keyword("xor") || self.try_keyword("xnor") {
+            if self.try_keyword("xor") || self.try_keyword("xnor") || self.try_str("^") {
                 let right = self.parse_and()?;
                 left = BExpr::Xor(Box::new(left), Box::new(right));
-            } else if self.try_str("^") {
-                let right = self.parse_and()?;
-                left = BExpr::Xor(Box::new(left), Box::new(right));
-            } else { break; }
+            } else {
+                break;
+            }
         }
         Ok(left)
     }
@@ -2772,13 +4105,17 @@ impl<'a> BParser<'a> {
         let mut left = self.parse_not()?;
         loop {
             self.skip_ws();
-            if self.try_str("&&") || self.try_str("&") || self.try_keyword("and") || self.try_keyword("nand") {
+            if self.try_str("&&")
+                || self.try_str("&")
+                || self.try_keyword("and")
+                || self.try_keyword("nand")
+                || self.try_str("*")
+            {
                 let right = self.parse_not()?;
                 left = BExpr::And(Box::new(left), Box::new(right));
-            } else if self.try_str("*") {
-                let right = self.parse_not()?;
-                left = BExpr::And(Box::new(left), Box::new(right));
-            } else { break; }
+            } else {
+                break;
+            }
         }
         Ok(left)
     }
@@ -2803,20 +4140,31 @@ impl<'a> BParser<'a> {
             self.consume();
             let inner = self.parse_iff()?;
             self.skip_ws();
-            if self.peek() == Some(')') { self.consume(); }
+            if self.peek() == Some(')') {
+                self.consume();
+            }
             return Ok(inner);
         }
         // Keyword literals
-        if self.try_keyword("true") || self.try_keyword("1") { return Ok(BExpr::Const(true)); }
-        if self.try_keyword("false") || self.try_keyword("0") { return Ok(BExpr::Const(false)); }
+        if self.try_keyword("true") || self.try_keyword("1") {
+            return Ok(BExpr::Const(true));
+        }
+        if self.try_keyword("false") || self.try_keyword("0") {
+            return Ok(BExpr::Const(false));
+        }
         // Variable name
         if matches!(self.peek(), Some(c) if c.is_alphabetic() || c == '_') {
             let start = self.pos;
-            while matches!(self.peek(), Some(c) if c.is_alphanumeric() || c == '_') { self.pos += 1; }
+            while matches!(self.peek(), Some(c) if c.is_alphanumeric() || c == '_') {
+                self.pos += 1;
+            }
             let name: String = self.chars[start..self.pos].iter().collect();
             return Ok(BExpr::Var(name));
         }
-        Err(format!("unexpected char '{}'", self.peek().map(|c| c.to_string()).unwrap_or("EOF".into())))
+        Err(format!(
+            "unexpected char '{}'",
+            self.peek().map(|c| c.to_string()).unwrap_or("EOF".into())
+        ))
     }
 
     fn try_str(&mut self, s: &str) -> bool {
@@ -2835,7 +4183,11 @@ impl<'a> BParser<'a> {
         let chars: Vec<char> = kw.chars().collect();
         let remaining = &self.chars[self.pos..];
         if remaining.len() >= chars.len()
-            && remaining[..chars.len()].iter().map(|c| c.to_lowercase().next().unwrap()).collect::<Vec<_>>() == chars
+            && remaining[..chars.len()]
+                .iter()
+                .map(|c| c.to_lowercase().next().unwrap())
+                .collect::<Vec<_>>()
+                == chars
             && !matches!(remaining.get(chars.len()), Some(c) if c.is_alphanumeric() || *c == '_')
         {
             self.pos += chars.len();
@@ -2863,11 +4215,22 @@ fn parse_bexpr(s: &str) -> Result<BExpr, String> {
 // Collect variables in order of first appearance
 fn collect_vars(e: &BExpr, vars: &mut Vec<String>) {
     match e {
-        BExpr::Var(v) => { if !vars.contains(v) { vars.push(v.clone()); } }
+        BExpr::Var(v) => {
+            if !vars.contains(v) {
+                vars.push(v.clone());
+            }
+        }
         BExpr::Not(a) => collect_vars(a, vars),
-        BExpr::And(a,b)|BExpr::Or(a,b)|BExpr::Xor(a,b)|BExpr::Implies(a,b)|BExpr::Iff(a,b)
-        |BExpr::Nand(a,b)|BExpr::Nor(a,b)|BExpr::Xnor(a,b) => {
-            collect_vars(a, vars); collect_vars(b, vars);
+        BExpr::And(a, b)
+        | BExpr::Or(a, b)
+        | BExpr::Xor(a, b)
+        | BExpr::Implies(a, b)
+        | BExpr::Iff(a, b)
+        | BExpr::Nand(a, b)
+        | BExpr::Nor(a, b)
+        | BExpr::Xnor(a, b) => {
+            collect_vars(a, vars);
+            collect_vars(b, vars);
         }
         BExpr::Const(_) => {}
     }
@@ -2876,16 +4239,20 @@ fn collect_vars(e: &BExpr, vars: &mut Vec<String>) {
 fn eval_bexpr(e: &BExpr, assignment: &[(&str, bool)]) -> bool {
     match e {
         BExpr::Const(b) => *b,
-        BExpr::Var(v) => assignment.iter().find(|(n,_)| n == v).map(|(_,b)| *b).unwrap_or(false),
+        BExpr::Var(v) => assignment
+            .iter()
+            .find(|(n, _)| n == v)
+            .map(|(_, b)| *b)
+            .unwrap_or(false),
         BExpr::Not(a) => !eval_bexpr(a, assignment),
-        BExpr::And(a,b) => eval_bexpr(a, assignment) && eval_bexpr(b, assignment),
-        BExpr::Or(a,b)  => eval_bexpr(a, assignment) || eval_bexpr(b, assignment),
-        BExpr::Xor(a,b) => eval_bexpr(a, assignment) ^ eval_bexpr(b, assignment),
-        BExpr::Xnor(a,b) => !(eval_bexpr(a, assignment) ^ eval_bexpr(b, assignment)),
-        BExpr::Nand(a,b) => !(eval_bexpr(a, assignment) && eval_bexpr(b, assignment)),
-        BExpr::Nor(a,b)  => !(eval_bexpr(a, assignment) || eval_bexpr(b, assignment)),
-        BExpr::Implies(a,b) => !eval_bexpr(a, assignment) || eval_bexpr(b, assignment),
-        BExpr::Iff(a,b)     => eval_bexpr(a, assignment) == eval_bexpr(b, assignment),
+        BExpr::And(a, b) => eval_bexpr(a, assignment) && eval_bexpr(b, assignment),
+        BExpr::Or(a, b) => eval_bexpr(a, assignment) || eval_bexpr(b, assignment),
+        BExpr::Xor(a, b) => eval_bexpr(a, assignment) ^ eval_bexpr(b, assignment),
+        BExpr::Xnor(a, b) => !(eval_bexpr(a, assignment) ^ eval_bexpr(b, assignment)),
+        BExpr::Nand(a, b) => !(eval_bexpr(a, assignment) && eval_bexpr(b, assignment)),
+        BExpr::Nor(a, b) => !(eval_bexpr(a, assignment) || eval_bexpr(b, assignment)),
+        BExpr::Implies(a, b) => !eval_bexpr(a, assignment) || eval_bexpr(b, assignment),
+        BExpr::Iff(a, b) => eval_bexpr(a, assignment) == eval_bexpr(b, assignment),
     }
 }
 
@@ -2895,14 +4262,14 @@ fn bexpr_to_str(e: &BExpr) -> String {
         BExpr::Const(false) => "false".into(),
         BExpr::Var(v) => v.clone(),
         BExpr::Not(a) => format!("¬{}", bexpr_atom_str(a)),
-        BExpr::And(a,b) => format!("({} ∧ {})", bexpr_to_str(a), bexpr_to_str(b)),
-        BExpr::Or(a,b)  => format!("({} ∨ {})", bexpr_to_str(a), bexpr_to_str(b)),
-        BExpr::Xor(a,b) => format!("({} ⊕ {})", bexpr_to_str(a), bexpr_to_str(b)),
-        BExpr::Implies(a,b) => format!("({} → {})", bexpr_to_str(a), bexpr_to_str(b)),
-        BExpr::Iff(a,b) => format!("({} ↔ {})", bexpr_to_str(a), bexpr_to_str(b)),
-        BExpr::Nand(a,b) => format!("({}↑{})", bexpr_to_str(a), bexpr_to_str(b)),
-        BExpr::Nor(a,b)  => format!("({}↓{})", bexpr_to_str(a), bexpr_to_str(b)),
-        BExpr::Xnor(a,b) => format!("({}⊙{})", bexpr_to_str(a), bexpr_to_str(b)),
+        BExpr::And(a, b) => format!("({} ∧ {})", bexpr_to_str(a), bexpr_to_str(b)),
+        BExpr::Or(a, b) => format!("({} ∨ {})", bexpr_to_str(a), bexpr_to_str(b)),
+        BExpr::Xor(a, b) => format!("({} ⊕ {})", bexpr_to_str(a), bexpr_to_str(b)),
+        BExpr::Implies(a, b) => format!("({} → {})", bexpr_to_str(a), bexpr_to_str(b)),
+        BExpr::Iff(a, b) => format!("({} ↔ {})", bexpr_to_str(a), bexpr_to_str(b)),
+        BExpr::Nand(a, b) => format!("({}↑{})", bexpr_to_str(a), bexpr_to_str(b)),
+        BExpr::Nor(a, b) => format!("({}↓{})", bexpr_to_str(a), bexpr_to_str(b)),
+        BExpr::Xnor(a, b) => format!("({}⊙{})", bexpr_to_str(a), bexpr_to_str(b)),
     }
 }
 
@@ -2925,7 +4292,8 @@ fn simplify_bexpr(e: BExpr) -> BExpr {
             }
         }
         BExpr::And(a, b) => {
-            let a = simplify_bexpr(*a); let b = simplify_bexpr(*b);
+            let a = simplify_bexpr(*a);
+            let b = simplify_bexpr(*b);
             match (&a, &b) {
                 (BExpr::Const(false), _) | (_, BExpr::Const(false)) => BExpr::Const(false),
                 (BExpr::Const(true), _) => b,
@@ -2935,7 +4303,8 @@ fn simplify_bexpr(e: BExpr) -> BExpr {
             }
         }
         BExpr::Or(a, b) => {
-            let a = simplify_bexpr(*a); let b = simplify_bexpr(*b);
+            let a = simplify_bexpr(*a);
+            let b = simplify_bexpr(*b);
             match (&a, &b) {
                 (BExpr::Const(true), _) | (_, BExpr::Const(true)) => BExpr::Const(true),
                 (BExpr::Const(false), _) => b,
@@ -2945,7 +4314,8 @@ fn simplify_bexpr(e: BExpr) -> BExpr {
             }
         }
         BExpr::Xor(a, b) => {
-            let a = simplify_bexpr(*a); let b = simplify_bexpr(*b);
+            let a = simplify_bexpr(*a);
+            let b = simplify_bexpr(*b);
             match (&a, &b) {
                 (BExpr::Const(false), _) => b,
                 (_, BExpr::Const(false)) => a,
@@ -2956,7 +4326,8 @@ fn simplify_bexpr(e: BExpr) -> BExpr {
             }
         }
         BExpr::Implies(a, b) => {
-            let a = simplify_bexpr(*a); let b = simplify_bexpr(*b);
+            let a = simplify_bexpr(*a);
+            let b = simplify_bexpr(*b);
             match (&a, &b) {
                 (BExpr::Const(false), _) => BExpr::Const(true),
                 (BExpr::Const(true), _) => b,
@@ -2966,7 +4337,8 @@ fn simplify_bexpr(e: BExpr) -> BExpr {
             }
         }
         BExpr::Iff(a, b) => {
-            let a = simplify_bexpr(*a); let b = simplify_bexpr(*b);
+            let a = simplify_bexpr(*a);
+            let b = simplify_bexpr(*b);
             match (&a, &b) {
                 _ if a == b => BExpr::Const(true),
                 _ => BExpr::Iff(Box::new(a), Box::new(b)),
@@ -2981,28 +4353,53 @@ pub fn logic_calc(query: &str) -> String {
     let q_lower = q.to_lowercase();
 
     // Detect mode
-    let (mode, expr_str, expr2_str) = if q_lower.starts_with("table ") || q_lower.starts_with("truth ") {
-        ("table", q.splitn(2, ' ').nth(1).unwrap_or("").trim(), "")
-    } else if q_lower.starts_with("sat ") {
-        ("sat", q.splitn(2, ' ').nth(1).unwrap_or("").trim(), "")
-    } else if q_lower.starts_with("taut ") {
-        ("taut", q.splitn(2, ' ').nth(1).unwrap_or("").trim(), "")
-    } else if q_lower.starts_with("cnf ") {
-        ("cnf", q.splitn(2, ' ').nth(1).unwrap_or("").trim(), "")
-    } else if q_lower.starts_with("dnf ") {
-        ("dnf", q.splitn(2, ' ').nth(1).unwrap_or("").trim(), "")
-    } else if q_lower.starts_with("simplify ") {
-        ("simplify", q.splitn(2, ' ').nth(1).unwrap_or("").trim(), "")
-    } else if q_lower.starts_with("equiv ") {
-        let rest = q.splitn(2, ' ').nth(1).unwrap_or("").trim();
-        if let Some(semi) = rest.find(';') {
-            ("equiv", rest[..semi].trim(), rest[semi+1..].trim())
+    let (mode, expr_str, expr2_str) =
+        if q_lower.starts_with("table ") || q_lower.starts_with("truth ") {
+            (
+                "table",
+                q.split_once(' ').map(|x| x.1).unwrap_or("").trim(),
+                "",
+            )
+        } else if q_lower.starts_with("sat ") {
+            (
+                "sat",
+                q.split_once(' ').map(|x| x.1).unwrap_or("").trim(),
+                "",
+            )
+        } else if q_lower.starts_with("taut ") {
+            (
+                "taut",
+                q.split_once(' ').map(|x| x.1).unwrap_or("").trim(),
+                "",
+            )
+        } else if q_lower.starts_with("cnf ") {
+            (
+                "cnf",
+                q.split_once(' ').map(|x| x.1).unwrap_or("").trim(),
+                "",
+            )
+        } else if q_lower.starts_with("dnf ") {
+            (
+                "dnf",
+                q.split_once(' ').map(|x| x.1).unwrap_or("").trim(),
+                "",
+            )
+        } else if q_lower.starts_with("simplify ") {
+            (
+                "simplify",
+                q.split_once(' ').map(|x| x.1).unwrap_or("").trim(),
+                "",
+            )
+        } else if q_lower.starts_with("equiv ") {
+            let rest = q.split_once(' ').map(|x| x.1).unwrap_or("").trim();
+            if let Some(semi) = rest.find(';') {
+                ("equiv", rest[..semi].trim(), rest[semi + 1..].trim())
+            } else {
+                ("equiv", rest, "")
+            }
         } else {
-            ("equiv", rest, "")
-        }
-    } else {
-        ("info", q, "")
-    };
+            ("info", q, "")
+        };
 
     let mut out = String::new();
     let w = 64usize;
@@ -3012,7 +4409,11 @@ pub fn logic_calc(query: &str) -> String {
         Ok(e) => e,
         Err(e) => {
             let _ = writeln!(out, "  Logic — parse error: {}", e);
-            let _ = writeln!(out, "  Input: {}", expr_str.chars().take(60).collect::<String>());
+            let _ = writeln!(
+                out,
+                "  Input: {}",
+                expr_str.chars().take(60).collect::<String>()
+            );
             let _ = writeln!(out, "  Usage: hematite --logic 'A and (B or C)'");
             let _ = writeln!(out, "{}", "=".repeat(w));
             return out;
@@ -3039,36 +4440,58 @@ pub fn logic_calc(query: &str) -> String {
     let rows = 1usize << n;
 
     // Evaluate all rows
-    let results: Vec<bool> = (0..rows).map(|mask| {
-        let assignment: Vec<(&str, bool)> = vars.iter().enumerate()
-            .map(|(i, v)| (v.as_str(), (mask >> (n-1-i)) & 1 == 1))
-            .collect();
-        eval_bexpr(&expr, &assignment)
-    }).collect();
+    let results: Vec<bool> = (0..rows)
+        .map(|mask| {
+            let assignment: Vec<(&str, bool)> = vars
+                .iter()
+                .enumerate()
+                .map(|(i, v)| (v.as_str(), (mask >> (n - 1 - i)) & 1 == 1))
+                .collect();
+            eval_bexpr(&expr, &assignment)
+        })
+        .collect();
 
     let sat_count = results.iter().filter(|&&b| b).count();
     let is_taut = sat_count == rows;
-    let is_sat  = sat_count > 0;
+    let is_sat = sat_count > 0;
     let is_contra = sat_count == 0;
 
     let _ = writeln!(out, "  Boolean Logic Analysis");
     let _ = writeln!(out, "  Expression: {}", bexpr_to_str(&expr));
     let _ = writeln!(out, "  Variables : {}", vars.join(", "));
-    let _ = writeln!(out, "  {} satisfying assignments of {} ({}%)",
-        sat_count, rows, sat_count * 100 / rows);
-    let _ = writeln!(out, "  Status: {}",
-        if is_taut { "TAUTOLOGY (always true)" }
-        else if is_contra { "CONTRADICTION (always false)" }
-        else { "CONTINGENT (sometimes true)" });
+    let _ = writeln!(
+        out,
+        "  {} satisfying assignments of {} ({}%)",
+        sat_count,
+        rows,
+        sat_count * 100 / rows
+    );
+    let _ = writeln!(
+        out,
+        "  Status: {}",
+        if is_taut {
+            "TAUTOLOGY (always true)"
+        } else if is_contra {
+            "CONTRADICTION (always false)"
+        } else {
+            "CONTINGENT (sometimes true)"
+        }
+    );
 
     match mode {
         "sat" => {
             if is_sat {
                 let first_sat = (0..rows).find(|&mask| results[mask]).unwrap();
-                let assignment: Vec<String> = vars.iter().enumerate()
-                    .map(|(i, v)| format!("{}={}", v, (first_sat >> (n-1-i)) & 1 == 1))
+                let assignment: Vec<String> = vars
+                    .iter()
+                    .enumerate()
+                    .map(|(i, v)| format!("{}={}", v, (first_sat >> (n - 1 - i)) & 1 == 1))
                     .collect();
-                let _ = writeln!(out, "  SAT: YES — satisfying assignment: {}", assignment.join(", "));
+                let _ = writeln!(
+                    out,
+                    "  SAT: YES — satisfying assignment: {}",
+                    assignment.join(", ")
+                );
             } else {
                 let _ = writeln!(out, "  SAT: NO — contradiction");
             }
@@ -3077,8 +4500,10 @@ pub fn logic_calc(query: &str) -> String {
             let _ = writeln!(out, "  TAUTOLOGY: {}", if is_taut { "YES" } else { "NO" });
             if !is_taut {
                 let first_false = (0..rows).find(|&mask| !results[mask]).unwrap();
-                let assignment: Vec<String> = vars.iter().enumerate()
-                    .map(|(i, v)| format!("{}={}", v, (first_false >> (n-1-i)) & 1 == 1))
+                let assignment: Vec<String> = vars
+                    .iter()
+                    .enumerate()
+                    .map(|(i, v)| format!("{}={}", v, (first_false >> (n - 1 - i)) & 1 == 1))
                     .collect();
                 let _ = writeln!(out, "  Counterexample: {}", assignment.join(", "));
             }
@@ -3091,12 +4516,22 @@ pub fn logic_calc(query: &str) -> String {
             } else {
                 let _ = writeln!(out, "  CNF (maxterms):");
                 for mask in &false_rows[..false_rows.len().min(8)] {
-                    let clause: Vec<String> = vars.iter().enumerate()
-                        .map(|(i, v)| if (mask >> (n-1-i)) & 1 == 0 { v.clone() } else { format!("¬{}", v) })
+                    let clause: Vec<String> = vars
+                        .iter()
+                        .enumerate()
+                        .map(|(i, v)| {
+                            if (mask >> (n - 1 - i)) & 1 == 0 {
+                                v.clone()
+                            } else {
+                                format!("¬{}", v)
+                            }
+                        })
                         .collect();
                     let _ = writeln!(out, "  ({})", clause.join(" ∨ "));
                 }
-                if false_rows.len() > 8 { let _ = writeln!(out, "  ... ({} more clauses)", false_rows.len()-8); }
+                if false_rows.len() > 8 {
+                    let _ = writeln!(out, "  ... ({} more clauses)", false_rows.len() - 8);
+                }
             }
         }
         "dnf" => {
@@ -3107,12 +4542,22 @@ pub fn logic_calc(query: &str) -> String {
             } else {
                 let _ = writeln!(out, "  DNF (minterms):");
                 for mask in &true_rows[..true_rows.len().min(8)] {
-                    let term: Vec<String> = vars.iter().enumerate()
-                        .map(|(i, v)| if (mask >> (n-1-i)) & 1 == 1 { v.clone() } else { format!("¬{}", v) })
+                    let term: Vec<String> = vars
+                        .iter()
+                        .enumerate()
+                        .map(|(i, v)| {
+                            if (mask >> (n - 1 - i)) & 1 == 1 {
+                                v.clone()
+                            } else {
+                                format!("¬{}", v)
+                            }
+                        })
                         .collect();
                     let _ = writeln!(out, "  ({})", term.join(" ∧ "));
                 }
-                if true_rows.len() > 8 { let _ = writeln!(out, "  ... ({} more terms)", true_rows.len()-8); }
+                if true_rows.len() > 8 {
+                    let _ = writeln!(out, "  ... ({} more terms)", true_rows.len() - 8);
+                }
             }
         }
         "simplify" => {
@@ -3122,42 +4567,88 @@ pub fn logic_calc(query: &str) -> String {
         "equiv" => {
             let expr2 = match parse_bexpr(expr2_str) {
                 Ok(e) => e,
-                Err(e) => { let _ = writeln!(out, "  Parse error (expr2): {}", e); let _ = writeln!(out, "{}", "=".repeat(w)); return out; }
+                Err(e) => {
+                    let _ = writeln!(out, "  Parse error (expr2): {}", e);
+                    let _ = writeln!(out, "{}", "=".repeat(w));
+                    return out;
+                }
             };
             let mut vars2 = vars.clone();
             collect_vars(&expr2, &mut vars2);
-            vars2.sort(); vars2.dedup();
+            vars2.sort();
+            vars2.dedup();
             let n2 = vars2.len();
             let rows2 = 1usize << n2;
             let equiv = (0..rows2).all(|mask| {
-                let assignment: Vec<(&str, bool)> = vars2.iter().enumerate()
-                    .map(|(i, v)| (v.as_str(), (mask >> (n2-1-i)) & 1 == 1))
+                let assignment: Vec<(&str, bool)> = vars2
+                    .iter()
+                    .enumerate()
+                    .map(|(i, v)| (v.as_str(), (mask >> (n2 - 1 - i)) & 1 == 1))
                     .collect();
                 eval_bexpr(&expr, &assignment) == eval_bexpr(&expr2, &assignment)
             });
             let _ = writeln!(out, "  Expr1: {}", bexpr_to_str(&expr));
             let _ = writeln!(out, "  Expr2: {}", bexpr_to_str(&expr2));
-            let _ = writeln!(out, "  Logically equivalent: {}", if equiv { "YES" } else { "NO" });
+            let _ = writeln!(
+                out,
+                "  Logically equivalent: {}",
+                if equiv { "YES" } else { "NO" }
+            );
         }
         _ => {
             // "info" or "table" — show full truth table
             let max_table_rows = if n <= 4 { rows } else { rows.min(32) };
             let _ = writeln!(out, "\n  Truth Table:");
             // Header
-            let var_header: String = vars.iter().map(|v| format!("  {:>3}", v)).collect::<Vec<_>>().join("");
+            let var_header: String = vars
+                .iter()
+                .map(|v| format!("  {:>3}", v))
+                .collect::<Vec<_>>()
+                .join("");
             let _ = writeln!(out, "{}  │  Result", var_header);
-            let _ = writeln!(out, "  {}", "-".repeat(vars.len()*5 + 10));
+            let _ = writeln!(out, "  {}", "-".repeat(vars.len() * 5 + 10));
             for mask in 0..max_table_rows {
-                let row_vals: String = (0..n).map(|i| format!("  {:>3}", if (mask >> (n-1-i)) & 1 == 1 { "T" } else { "F" })).collect::<Vec<_>>().join("");
-                let _ = writeln!(out, "{}  │  {}", row_vals, if results[mask] { "T" } else { "F" });
+                let row_vals: String = (0..n)
+                    .map(|i| {
+                        format!(
+                            "  {:>3}",
+                            if (mask >> (n - 1 - i)) & 1 == 1 {
+                                "T"
+                            } else {
+                                "F"
+                            }
+                        )
+                    })
+                    .collect::<Vec<_>>()
+                    .join("");
+                let _ = writeln!(
+                    out,
+                    "{}  │  {}",
+                    row_vals,
+                    if results[mask] { "T" } else { "F" }
+                );
             }
-            if max_table_rows < rows { let _ = writeln!(out, "  ... ({} rows omitted — use --logic 'table EXPR' for full table with ≤4 vars)", rows - max_table_rows); }
+            if max_table_rows < rows {
+                let _ = writeln!(out, "  ... ({} rows omitted — use --logic 'table EXPR' for full table with ≤4 vars)", rows - max_table_rows);
+            }
 
             // SAT summary
             if is_sat {
                 let first_sat = (0..rows).find(|&m| results[m]).unwrap();
-                let sat_ex: Vec<String> = vars.iter().enumerate()
-                    .map(|(i, v)| format!("{}={}", v, if (first_sat >> (n-1-i)) & 1 == 1 { "T" } else { "F" }))
+                let sat_ex: Vec<String> = vars
+                    .iter()
+                    .enumerate()
+                    .map(|(i, v)| {
+                        format!(
+                            "{}={}",
+                            v,
+                            if (first_sat >> (n - 1 - i)) & 1 == 1 {
+                                "T"
+                            } else {
+                                "F"
+                            }
+                        )
+                    })
                     .collect();
                 let _ = writeln!(out, "\n  SAT witness: {}", sat_ex.join(", "));
             }
@@ -3189,8 +4680,12 @@ pub fn logic_calc(query: &str) -> String {
 
 type Matrix = Vec<Vec<f64>>;
 
-fn mat_rows(m: &Matrix) -> usize { m.len() }
-fn mat_cols(m: &Matrix) -> usize { m.first().map(|r| r.len()).unwrap_or(0) }
+fn mat_rows(m: &Matrix) -> usize {
+    m.len()
+}
+fn mat_cols(m: &Matrix) -> usize {
+    m.first().map(|r| r.len()).unwrap_or(0)
+}
 
 fn parse_matrix(s: &str) -> Result<Matrix, String> {
     let s = s.trim();
@@ -3199,24 +4694,36 @@ fn parse_matrix(s: &str) -> Result<Matrix, String> {
         return parse_matrix_json(s);
     }
     // Semicolon or newline rows
-    let row_strs: Vec<&str> = s.split(|c: char| c == ';' || c == '\n')
+    let row_strs: Vec<&str> = s
+        .split([';', '\n'])
         .map(str::trim)
         .filter(|r| !r.is_empty())
         .collect();
-    if row_strs.is_empty() { return Err("empty matrix".into()); }
+    if row_strs.is_empty() {
+        return Err("empty matrix".into());
+    }
     let mut mat: Matrix = Vec::new();
     for row_str in &row_strs {
-        let row: Vec<f64> = row_str.split(|c: char| c == ',' || c == ' ' || c == '\t')
+        let row: Vec<f64> = row_str
+            .split([',', ' ', '\t'])
             .map(str::trim)
             .filter(|s| !s.is_empty())
-            .map(|tok| tok.parse::<f64>().map_err(|_| format!("bad number: {}", tok)))
+            .map(|tok| {
+                tok.parse::<f64>()
+                    .map_err(|_| format!("bad number: {}", tok))
+            })
             .collect::<Result<Vec<_>, _>>()?;
         mat.push(row);
     }
     let ncols = mat[0].len();
     for (i, row) in mat.iter().enumerate() {
         if row.len() != ncols {
-            return Err(format!("row {} has {} columns, expected {}", i, row.len(), ncols));
+            return Err(format!(
+                "row {} has {} columns, expected {}",
+                i,
+                row.len(),
+                ncols
+            ));
         }
     }
     Ok(mat)
@@ -3227,41 +4734,64 @@ fn parse_matrix_json(s: &str) -> Result<Matrix, String> {
     let chars: Vec<char> = s.chars().collect();
     let mut pos = 0;
     fn skip(chars: &[char], pos: &mut usize) {
-        while *pos < chars.len() && chars[*pos].is_whitespace() { *pos += 1; }
+        while *pos < chars.len() && chars[*pos].is_whitespace() {
+            *pos += 1;
+        }
     }
     fn parse_num(chars: &[char], pos: &mut usize) -> Result<f64, String> {
         skip(chars, pos);
         let start = *pos;
-        while *pos < chars.len() && (chars[*pos].is_ascii_digit() || matches!(chars[*pos], '.' | '-' | '+' | 'e' | 'E')) {
+        while *pos < chars.len()
+            && (chars[*pos].is_ascii_digit() || matches!(chars[*pos], '.' | '-' | '+' | 'e' | 'E'))
+        {
             *pos += 1;
         }
         let s: String = chars[start..*pos].iter().collect();
-        s.trim().parse::<f64>().map_err(|_| format!("bad number: '{}'", s))
+        s.trim()
+            .parse::<f64>()
+            .map_err(|_| format!("bad number: '{}'", s))
     }
     fn parse_row(chars: &[char], pos: &mut usize) -> Result<Vec<f64>, String> {
         skip(chars, pos);
-        if chars.get(*pos) != Some(&'[') { return Err("expected '[' for row".into()); }
+        if chars.get(*pos) != Some(&'[') {
+            return Err("expected '[' for row".into());
+        }
         *pos += 1;
         let mut row = Vec::new();
         loop {
             skip(chars, pos);
-            if chars.get(*pos) == Some(&']') { *pos += 1; break; }
+            if chars.get(*pos) == Some(&']') {
+                *pos += 1;
+                break;
+            }
             if !row.is_empty() {
-                if chars.get(*pos) == Some(&',') { *pos += 1; } else { return Err("expected ','".into()); }
+                if chars.get(*pos) == Some(&',') {
+                    *pos += 1;
+                } else {
+                    return Err("expected ','".into());
+                }
             }
             row.push(parse_num(chars, pos)?);
         }
         Ok(row)
     }
     skip(&chars, &mut pos);
-    if chars.get(pos) != Some(&'[') { return Err("expected outer '['".into()); }
+    if chars.get(pos) != Some(&'[') {
+        return Err("expected outer '['".into());
+    }
     pos += 1;
     let mut mat: Matrix = Vec::new();
     loop {
         skip(&chars, &mut pos);
-        if chars.get(pos) == Some(&']') { pos += 1; break; }
+        if chars.get(pos) == Some(&']') {
+            break;
+        }
         if !mat.is_empty() {
-            if chars.get(pos) == Some(&',') { pos += 1; } else { return Err("expected ','".into()); }
+            if chars.get(pos) == Some(&',') {
+                pos += 1;
+            } else {
+                return Err("expected ','".into());
+            }
         }
         skip(&chars, &mut pos);
         // Check if this is a number (1-D vector case) or another row
@@ -3273,44 +4803,69 @@ fn parse_matrix_json(s: &str) -> Result<Matrix, String> {
             mat.push(vec![n]);
         }
     }
-    if mat.is_empty() { return Err("empty matrix".into()); }
+    if mat.is_empty() {
+        return Err("empty matrix".into());
+    }
     let ncols = mat[0].len();
     for (i, row) in mat.iter().enumerate() {
         if row.len() != ncols {
-            return Err(format!("row {} has {} cols, expected {}", i, row.len(), ncols));
+            return Err(format!(
+                "row {} has {} cols, expected {}",
+                i,
+                row.len(),
+                ncols
+            ));
         }
     }
     Ok(mat)
 }
 
-fn mat_clone(m: &Matrix) -> Matrix { m.clone() }
+fn mat_clone(m: &Matrix) -> Matrix {
+    m.clone()
+}
 
 fn mat_identity(n: usize) -> Matrix {
-    (0..n).map(|i| (0..n).map(|j| if i==j { 1.0 } else { 0.0 }).collect()).collect()
+    (0..n)
+        .map(|i| (0..n).map(|j| if i == j { 1.0 } else { 0.0 }).collect())
+        .collect()
 }
 
 fn mat_fmt(m: &Matrix) -> String {
     let rows = mat_rows(m);
     let cols = mat_cols(m);
-    let cells: Vec<String> = m.iter().flat_map(|row| row.iter().map(|v| {
-        if v.abs() < 1e-12 { "0".to_string() }
-        else if v.fract() == 0.0 && v.abs() < 1e9 { format!("{}", *v as i64) }
-        else { format!("{:.6}", v).trim_end_matches('0').trim_end_matches('.').to_string() }
-    })).collect();
+    let cells: Vec<String> = m
+        .iter()
+        .flat_map(|row| {
+            row.iter().map(|v| {
+                if v.abs() < 1e-12 {
+                    "0".to_string()
+                } else if v.fract() == 0.0 && v.abs() < 1e9 {
+                    format!("{}", *v as i64)
+                } else {
+                    format!("{:.6}", v)
+                        .trim_end_matches('0')
+                        .trim_end_matches('.')
+                        .to_string()
+                }
+            })
+        })
+        .collect();
     // Align columns
     let mut col_widths: Vec<usize> = vec![0; cols];
     for r in 0..rows {
         for c in 0..cols {
-            col_widths[c] = col_widths[c].max(cells[r*cols+c].len());
+            col_widths[c] = col_widths[c].max(cells[r * cols + c].len());
         }
     }
     let mut out = String::new();
     for r in 0..rows {
         out.push_str("  [ ");
         for c in 0..cols {
-            let s = &cells[r*cols+c];
+            let s = &cells[r * cols + c];
             out.push_str(&format!("{:>w$}", s, w = col_widths[c]));
-            if c < cols-1 { out.push_str("  "); }
+            if c < cols - 1 {
+                out.push_str("  ");
+            }
         }
         out.push_str(" ]\n");
     }
@@ -3320,7 +4875,9 @@ fn mat_fmt(m: &Matrix) -> String {
 // Returns (L, U, P, sign) where P*A = L*U and sign is the permutation sign
 fn lu_decompose(a: &Matrix) -> Result<(Matrix, Matrix, Vec<usize>, i32), String> {
     let n = mat_rows(a);
-    if mat_cols(a) != n { return Err("LU requires square matrix".into()); }
+    if mat_cols(a) != n {
+        return Err("LU requires square matrix".into());
+    }
     let mut u = mat_clone(a);
     let mut l = mat_identity(n);
     let mut perm: Vec<usize> = (0..n).collect();
@@ -3330,10 +4887,15 @@ fn lu_decompose(a: &Matrix) -> Result<(Matrix, Matrix, Vec<usize>, i32), String>
         // Partial pivoting
         let mut max_row = col;
         let mut max_val = u[col][col].abs();
-        for row in (col+1)..n {
-            if u[row][col].abs() > max_val { max_val = u[row][col].abs(); max_row = row; }
+        for row in (col + 1)..n {
+            if u[row][col].abs() > max_val {
+                max_val = u[row][col].abs();
+                max_row = row;
+            }
         }
-        if max_val < 1e-14 { return Err("matrix is singular (or near-singular)".into()); }
+        if max_val < 1e-14 {
+            return Err("matrix is singular (or near-singular)".into());
+        }
         if max_row != col {
             u.swap(col, max_row);
             perm.swap(col, max_row);
@@ -3345,10 +4907,12 @@ fn lu_decompose(a: &Matrix) -> Result<(Matrix, Matrix, Vec<usize>, i32), String>
                 l[max_row][j] = tmp;
             }
         }
-        for row in (col+1)..n {
+        for row in (col + 1)..n {
             let factor = u[row][col] / u[col][col];
             l[row][col] = factor;
-            for k in col..n { u[row][k] -= factor * u[col][k]; }
+            for k in col..n {
+                u[row][k] -= factor * u[col][k];
+            }
         }
     }
     Ok((l, u, perm, sign))
@@ -3376,7 +4940,7 @@ fn mat_solve_lu(l: &Matrix, u: &Matrix, perm: &[usize], b: &[f64]) -> Vec<f64> {
     // Back substitution Ux = y
     let mut x = vec![0.0f64; n];
     for i in (0..n).rev() {
-        x[i] = (y[i] - (i+1..n).map(|j| u[i][j] * x[j]).sum::<f64>()) / u[i][i];
+        x[i] = (y[i] - (i + 1..n).map(|j| u[i][j] * x[j]).sum::<f64>()) / u[i][i];
     }
     x
 }
@@ -3386,9 +4950,11 @@ fn mat_inv(a: &Matrix) -> Result<Matrix, String> {
     let (l, u, perm, _) = lu_decompose(a)?;
     let mut inv = mat_identity(n);
     for col in 0..n {
-        let b: Vec<f64> = (0..n).map(|i| if i==col { 1.0 } else { 0.0 }).collect();
+        let b: Vec<f64> = (0..n).map(|i| if i == col { 1.0 } else { 0.0 }).collect();
         let x = mat_solve_lu(&l, &u, &perm, &b);
-        for row in 0..n { inv[row][col] = x[row]; }
+        for row in 0..n {
+            inv[row][col] = x[row];
+        }
     }
     Ok(inv)
 }
@@ -3396,9 +4962,20 @@ fn mat_inv(a: &Matrix) -> Result<Matrix, String> {
 fn mat_mul(a: &Matrix, b: &Matrix) -> Result<Matrix, String> {
     let (ar, ac) = (mat_rows(a), mat_cols(a));
     let (br, bc) = (mat_rows(b), mat_cols(b));
-    if ac != br { return Err(format!("incompatible dimensions {}×{} × {}×{}", ar, ac, br, bc)); }
+    if ac != br {
+        return Err(format!(
+            "incompatible dimensions {}×{} × {}×{}",
+            ar, ac, br, bc
+        ));
+    }
     let mut c = vec![vec![0.0f64; bc]; ar];
-    for i in 0..ar { for j in 0..bc { for k in 0..ac { c[i][j] += a[i][k] * b[k][j]; } } }
+    for i in 0..ar {
+        for j in 0..bc {
+            for k in 0..ac {
+                c[i][j] += a[i][k] * b[k][j];
+            }
+        }
+    }
     Ok(c)
 }
 
@@ -3418,11 +4995,15 @@ fn mat_rank(a: &Matrix) -> usize {
         if let Some(pr) = pivot {
             m.swap(row_cursor, pr);
             let pivot_val = m[row_cursor][col];
-            for j in col..cols { m[row_cursor][j] /= pivot_val; }
+            for j in col..cols {
+                m[row_cursor][j] /= pivot_val;
+            }
             for r in 0..rows {
                 if r != row_cursor && m[r][col].abs() > 1e-10 {
                     let factor = m[r][col];
-                    for j in col..cols { m[r][j] -= factor * m[row_cursor][j]; }
+                    for j in col..cols {
+                        m[r][j] -= factor * m[row_cursor][j];
+                    }
                 }
             }
             rank += 1;
@@ -3435,41 +5016,57 @@ fn mat_rank(a: &Matrix) -> usize {
 // Power iteration eigenvalue (largest eigenvalue only)
 fn mat_eigen_power(a: &Matrix, max_iter: usize) -> Option<(f64, Vec<f64>)> {
     let n = mat_rows(a);
-    if n == 0 { return None; }
-    let mut v: Vec<f64> = (0..n).map(|i| if i==0 { 1.0 } else { 0.1 }).collect();
+    if n == 0 {
+        return None;
+    }
+    let mut v: Vec<f64> = (0..n).map(|i| if i == 0 { 1.0 } else { 0.1 }).collect();
     let mut lam = 0.0f64;
     for _ in 0..max_iter {
         // Av
-        let av: Vec<f64> = (0..n).map(|i| (0..n).map(|j| a[i][j] * v[j]).sum::<f64>()).collect();
-        let norm = av.iter().map(|x| x*x).sum::<f64>().sqrt();
-        if norm < 1e-14 { break; }
-        lam = av.iter().zip(&v).map(|(a,b)| a*b).sum::<f64>();
-        v = av.iter().map(|x| x/norm).collect();
+        let av: Vec<f64> = (0..n)
+            .map(|i| (0..n).map(|j| a[i][j] * v[j]).sum::<f64>())
+            .collect();
+        let norm = av.iter().map(|x| x * x).sum::<f64>().sqrt();
+        if norm < 1e-14 {
+            break;
+        }
+        lam = av.iter().zip(&v).map(|(a, b)| a * b).sum::<f64>();
+        v = av.iter().map(|x| x / norm).collect();
     }
     Some((lam, v))
 }
 
 // QR decomposition via modified Gram-Schmidt
 fn mat_qr(a: &Matrix) -> (Matrix, Matrix) {
-    let m = mat_rows(a); let n = mat_cols(a);
+    let m = mat_rows(a);
+    let n = mat_cols(a);
     let cols_a: Vec<Vec<f64>> = (0..n).map(|j| (0..m).map(|i| a[i][j]).collect()).collect();
     let mut q_cols: Vec<Vec<f64>> = Vec::new();
     let mut r: Matrix = vec![vec![0.0; n]; n.min(m)];
     for j in 0..n {
         let mut v: Vec<f64> = cols_a[j].clone();
         for (k, qk) in q_cols.iter().enumerate() {
-            let proj: f64 = v.iter().zip(qk).map(|(a,b)| a*b).sum();
+            let proj: f64 = v.iter().zip(qk).map(|(a, b)| a * b).sum();
             r[k][j] = proj;
-            for i in 0..m { v[i] -= proj * qk[i]; }
+            for i in 0..m {
+                v[i] -= proj * qk[i];
+            }
         }
-        let norm = v.iter().map(|x| x*x).sum::<f64>().sqrt();
+        let norm = v.iter().map(|x| x * x).sum::<f64>().sqrt();
         if norm > 1e-12 {
-            let qj: Vec<f64> = v.iter().map(|x| x/norm).collect();
+            let qj: Vec<f64> = v.iter().map(|x| x / norm).collect();
             r[q_cols.len()][j] = norm;
             q_cols.push(qj);
         }
     }
-    let q: Matrix = (0..m).map(|i| q_cols.iter().map(|col| *col.get(i).unwrap_or(&0.0)).collect()).collect();
+    let q: Matrix = (0..m)
+        .map(|i| {
+            q_cols
+                .iter()
+                .map(|col| *col.get(i).unwrap_or(&0.0))
+                .collect()
+        })
+        .collect();
     (q, r)
 }
 
@@ -3490,7 +5087,11 @@ fn mat_svd_values(a: &Matrix) -> (Vec<f64>, Matrix) {
                 sigma_vals.push(sv);
                 v_vecs.push(v.clone());
                 // Deflate A^T A
-                for i in 0..n { for j in 0..n { a_copy[i][j] -= lam * v[i] * v[j]; } }
+                for i in 0..n {
+                    for j in 0..n {
+                        a_copy[i][j] -= lam * v[i] * v[j];
+                    }
+                }
             }
             None => break,
         }
@@ -3498,8 +5099,10 @@ fn mat_svd_values(a: &Matrix) -> (Vec<f64>, Matrix) {
     // Sort descending
     let mut pairs: Vec<(f64, Vec<f64>)> = sigma_vals.into_iter().zip(v_vecs).collect();
     pairs.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
-    let svs: Vec<f64>    = pairs.iter().map(|p| p.0).collect();
-    let v_mat: Matrix    = (0..n).map(|i| pairs.iter().map(|p| *p.1.get(i).unwrap_or(&0.0)).collect()).collect();
+    let svs: Vec<f64> = pairs.iter().map(|p| p.0).collect();
+    let v_mat: Matrix = (0..n)
+        .map(|i| pairs.iter().map(|p| *p.1.get(i).unwrap_or(&0.0)).collect())
+        .collect();
     (svs, v_mat)
 }
 
@@ -3509,13 +5112,17 @@ fn mat_cholesky(a: &Matrix) -> Result<Matrix, String> {
     let mut l: Matrix = vec![vec![0.0; n]; n];
     for i in 0..n {
         for j in 0..=i {
-            let mut sum: f64 = (0..j).map(|k| l[i][k] * l[j][k]).sum();
+            let sum: f64 = (0..j).map(|k| l[i][k] * l[j][k]).sum();
             if i == j {
                 let d = a[i][i] - sum;
-                if d < -1e-10 { return Err(format!("not positive definite (d[{}] = {:.4e})", i, d)); }
+                if d < -1e-10 {
+                    return Err(format!("not positive definite (d[{}] = {:.4e})", i, d));
+                }
                 l[i][j] = d.max(0.0).sqrt();
             } else {
-                if l[j][j].abs() < 1e-14 { return Err("zero pivot".into()); }
+                if l[j][j].abs() < 1e-14 {
+                    return Err("zero pivot".into());
+                }
                 l[i][j] = (a[i][j] - sum) / l[j][j];
             }
         }
@@ -3525,7 +5132,7 @@ fn mat_cholesky(a: &Matrix) -> Result<Matrix, String> {
 
 // Moore-Penrose pseudoinverse via normal equations (A⁺ = (AᵀA)⁻¹Aᵀ for full column rank)
 fn mat_pinv(a: &Matrix) -> Result<Matrix, String> {
-    let at  = mat_transpose(a);
+    let at = mat_transpose(a);
     let ata = mat_mul(&at, a)?;
     let ata_inv = mat_inv(&ata)?;
     mat_mul(&ata_inv, &at)
@@ -3540,19 +5147,19 @@ pub fn matrix_calc(query: &str) -> String {
         let m = words[0].to_lowercase();
         let rest = words.get(1).copied().unwrap_or("").trim();
         match m.as_str() {
-            "det"|"determinant" => ("det", rest.to_string()),
-            "inv"|"inverse"     => ("inv", rest.to_string()),
-            "solve"             => ("solve", rest.to_string()),
-            "mul"|"multiply"    => ("mul", rest.to_string()),
-            "transpose"|"trans" => ("transpose", rest.to_string()),
-            "eigen"|"eigenvalues"|"eig" => ("eigen", rest.to_string()),
-            "rank"              => ("rank", rest.to_string()),
-            "lu"                => ("lu", rest.to_string()),
-            "qr"                => ("qr", rest.to_string()),
-            "svd"               => ("svd", rest.to_string()),
-            "chol"|"cholesky"   => ("chol", rest.to_string()),
-            "pinv"|"pseudoinverse"|"pseudo" => ("pinv", rest.to_string()),
-            _                   => ("info", q.to_string()),
+            "det" | "determinant" => ("det", rest.to_string()),
+            "inv" | "inverse" => ("inv", rest.to_string()),
+            "solve" => ("solve", rest.to_string()),
+            "mul" | "multiply" => ("mul", rest.to_string()),
+            "transpose" | "trans" => ("transpose", rest.to_string()),
+            "eigen" | "eigenvalues" | "eig" => ("eigen", rest.to_string()),
+            "rank" => ("rank", rest.to_string()),
+            "lu" => ("lu", rest.to_string()),
+            "qr" => ("qr", rest.to_string()),
+            "svd" => ("svd", rest.to_string()),
+            "chol" | "cholesky" => ("chol", rest.to_string()),
+            "pinv" | "pseudoinverse" | "pseudo" => ("pinv", rest.to_string()),
+            _ => ("info", q.to_string()),
         }
     };
 
@@ -3574,17 +5181,43 @@ pub fn matrix_calc(query: &str) -> String {
         }
         let a_str = &parts[0];
         let b_str = &parts[1];
-        let a = match parse_matrix(a_str) { Ok(m) => m, Err(e) => { let _ = writeln!(out, "  Parse error (A): {}", e); let _ = writeln!(out, "{}", "=".repeat(w)); return out; } };
-        let b_mat = match parse_matrix(b_str) { Ok(m) => m, Err(e) => { let _ = writeln!(out, "  Parse error (b): {}", e); let _ = writeln!(out, "{}", "=".repeat(w)); return out; } };
+        let a = match parse_matrix(a_str) {
+            Ok(m) => m,
+            Err(e) => {
+                let _ = writeln!(out, "  Parse error (A): {}", e);
+                let _ = writeln!(out, "{}", "=".repeat(w));
+                return out;
+            }
+        };
+        let b_mat = match parse_matrix(b_str) {
+            Ok(m) => m,
+            Err(e) => {
+                let _ = writeln!(out, "  Parse error (b): {}", e);
+                let _ = writeln!(out, "{}", "=".repeat(w));
+                return out;
+            }
+        };
         let n = mat_rows(&a);
         let b_vec: Vec<f64> = if mat_cols(&b_mat) == 1 {
             b_mat.iter().map(|r| r[0]).collect()
         } else if mat_rows(&b_mat) == 1 {
             b_mat[0].clone()
         } else {
-            let _ = writeln!(out, "  Error: b must be a column or row vector"); let _ = writeln!(out, "{}", "=".repeat(w)); return out;
+            let _ = writeln!(out, "  Error: b must be a column or row vector");
+            let _ = writeln!(out, "{}", "=".repeat(w));
+            return out;
         };
-        if b_vec.len() != n { let _ = writeln!(out, "  Error: A is {}×{} but b has {} elements", n, mat_cols(&a), b_vec.len()); let _ = writeln!(out, "{}", "=".repeat(w)); return out; }
+        if b_vec.len() != n {
+            let _ = writeln!(
+                out,
+                "  Error: A is {}×{} but b has {} elements",
+                n,
+                mat_cols(&a),
+                b_vec.len()
+            );
+            let _ = writeln!(out, "{}", "=".repeat(w));
+            return out;
+        }
         let _ = writeln!(out, "  Matrix — Solve Ax = b");
         let _ = writeln!(out, "  A ({}×{}):", n, mat_cols(&a));
         out.push_str(&mat_fmt(&a));
@@ -3599,13 +5232,18 @@ pub fn matrix_calc(query: &str) -> String {
                     let _ = writeln!(out, "    x[{}] = {:.8}", i, xi);
                 }
                 // Verify: Ax - b residual
-                let residual: f64 = (0..n).map(|i| {
-                    let ax_i: f64 = (0..n).map(|j| a[i][j] * x[j]).sum();
-                    (ax_i - b_vec[i]).powi(2)
-                }).sum::<f64>().sqrt();
+                let residual: f64 = (0..n)
+                    .map(|i| {
+                        let ax_i: f64 = (0..n).map(|j| a[i][j] * x[j]).sum();
+                        (ax_i - b_vec[i]).powi(2)
+                    })
+                    .sum::<f64>()
+                    .sqrt();
                 let _ = writeln!(out, "  Residual |Ax - b| = {:.2e}", residual);
             }
-            Err(e) => { let _ = writeln!(out, "  Error: {}", e); }
+            Err(e) => {
+                let _ = writeln!(out, "  Error: {}", e);
+            }
         }
         let _ = writeln!(out, "{}", "=".repeat(w));
         return out;
@@ -3620,16 +5258,35 @@ pub fn matrix_calc(query: &str) -> String {
             let _ = writeln!(out, "{}", "=".repeat(w));
             return out;
         }
-        let a = match parse_matrix(&parts[0]) { Ok(m) => m, Err(e) => { let _ = writeln!(out, "  Parse error (A): {}", e); let _ = writeln!(out, "{}", "=".repeat(w)); return out; } };
-        let b = match parse_matrix(&parts[1]) { Ok(m) => m, Err(e) => { let _ = writeln!(out, "  Parse error (B): {}", e); let _ = writeln!(out, "{}", "=".repeat(w)); return out; } };
+        let a = match parse_matrix(&parts[0]) {
+            Ok(m) => m,
+            Err(e) => {
+                let _ = writeln!(out, "  Parse error (A): {}", e);
+                let _ = writeln!(out, "{}", "=".repeat(w));
+                return out;
+            }
+        };
+        let b = match parse_matrix(&parts[1]) {
+            Ok(m) => m,
+            Err(e) => {
+                let _ = writeln!(out, "  Parse error (B): {}", e);
+                let _ = writeln!(out, "{}", "=".repeat(w));
+                return out;
+            }
+        };
         let _ = writeln!(out, "  Matrix Multiply  A × B");
         let _ = writeln!(out, "  A ({}×{}):", mat_rows(&a), mat_cols(&a));
         out.push_str(&mat_fmt(&a));
         let _ = writeln!(out, "  B ({}×{}):", mat_rows(&b), mat_cols(&b));
         out.push_str(&mat_fmt(&b));
         match mat_mul(&a, &b) {
-            Ok(c) => { let _ = writeln!(out, "  A × B ({}×{}):", mat_rows(&c), mat_cols(&c)); out.push_str(&mat_fmt(&c)); }
-            Err(e) => { let _ = writeln!(out, "  Error: {}", e); }
+            Ok(c) => {
+                let _ = writeln!(out, "  A × B ({}×{}):", mat_rows(&c), mat_cols(&c));
+                out.push_str(&mat_fmt(&c));
+            }
+            Err(e) => {
+                let _ = writeln!(out, "  Error: {}", e);
+            }
         }
         let _ = writeln!(out, "{}", "=".repeat(w));
         return out;
@@ -3641,7 +5298,11 @@ pub fn matrix_calc(query: &str) -> String {
         Ok(m) => m,
         Err(e) => {
             let _ = writeln!(out, "  Parse error: {}", e);
-            let _ = writeln!(out, "  Input: {}", mat_str.chars().take(80).collect::<String>());
+            let _ = writeln!(
+                out,
+                "  Input: {}",
+                mat_str.chars().take(80).collect::<String>()
+            );
             let _ = writeln!(out, "  Formats: [[1,2],[3,4]]  or  1 2; 3 4");
             let _ = writeln!(out, "{}", "=".repeat(w));
             return out;
@@ -3654,20 +5315,31 @@ pub fn matrix_calc(query: &str) -> String {
 
     match mode {
         "det" => {
-            if rows != cols { let _ = writeln!(out, "  Error: det requires square matrix"); }
-            else {
+            if rows != cols {
+                let _ = writeln!(out, "  Error: det requires square matrix");
+            } else {
                 match mat_det(&a) {
-                    Ok(d) => { let _ = writeln!(out, "  det(A) = {:.8}", d); }
-                    Err(e) => { let _ = writeln!(out, "  Error: {}", e); }
+                    Ok(d) => {
+                        let _ = writeln!(out, "  det(A) = {:.8}", d);
+                    }
+                    Err(e) => {
+                        let _ = writeln!(out, "  Error: {}", e);
+                    }
                 }
             }
         }
         "inv" => {
-            if rows != cols { let _ = writeln!(out, "  Error: inv requires square matrix"); }
-            else {
+            if rows != cols {
+                let _ = writeln!(out, "  Error: inv requires square matrix");
+            } else {
                 match mat_inv(&a) {
-                    Ok(inv) => { let _ = writeln!(out, "  A⁻¹:"); out.push_str(&mat_fmt(&inv)); }
-                    Err(e)  => { let _ = writeln!(out, "  Error: {}", e); }
+                    Ok(inv) => {
+                        let _ = writeln!(out, "  A⁻¹:");
+                        out.push_str(&mat_fmt(&inv));
+                    }
+                    Err(e) => {
+                        let _ = writeln!(out, "  Error: {}", e);
+                    }
                 }
             }
         }
@@ -3680,45 +5352,85 @@ pub fn matrix_calc(query: &str) -> String {
             let r = mat_rank(&a);
             let _ = writeln!(out, "  rank(A) = {}", r);
             if rows == cols {
-                let _ = writeln!(out, "  {} ({}×{} square, rank {})", if r == rows { "Full rank" } else { "Rank-deficient" }, rows, cols, r);
+                let _ = writeln!(
+                    out,
+                    "  {} ({}×{} square, rank {})",
+                    if r == rows {
+                        "Full rank"
+                    } else {
+                        "Rank-deficient"
+                    },
+                    rows,
+                    cols,
+                    r
+                );
             }
         }
         "lu" => {
-            if rows != cols { let _ = writeln!(out, "  Error: LU requires square matrix"); }
-            else {
+            if rows != cols {
+                let _ = writeln!(out, "  Error: LU requires square matrix");
+            } else {
                 match lu_decompose(&a) {
                     Ok((l, u, perm, _)) => {
                         let _ = writeln!(out, "  L (lower triangular):");
                         out.push_str(&mat_fmt(&l));
                         let _ = writeln!(out, "  U (upper triangular):");
                         out.push_str(&mat_fmt(&u));
-                        let perm_str = perm.iter().map(|&p| p.to_string()).collect::<Vec<_>>().join(", ");
+                        let perm_str = perm
+                            .iter()
+                            .map(|&p| p.to_string())
+                            .collect::<Vec<_>>()
+                            .join(", ");
                         let _ = writeln!(out, "  Pivot permutation: [{}]", perm_str);
                     }
-                    Err(e) => { let _ = writeln!(out, "  Error: {}", e); }
+                    Err(e) => {
+                        let _ = writeln!(out, "  Error: {}", e);
+                    }
                 }
             }
         }
         "eigen" => {
-            if rows != cols { let _ = writeln!(out, "  Error: eigenvalues require square matrix"); }
-            else if rows > 8 { let _ = writeln!(out, "  Error: power iteration limited to 8×8 (matrix is {}×{})", rows, cols); }
-            else {
+            if rows != cols {
+                let _ = writeln!(out, "  Error: eigenvalues require square matrix");
+            } else if rows > 8 {
+                let _ = writeln!(
+                    out,
+                    "  Error: power iteration limited to 8×8 (matrix is {}×{})",
+                    rows, cols
+                );
+            } else {
                 let _ = writeln!(out, "  Eigenvalues (power iteration + deflation):");
                 let mut a_copy = mat_clone(&a);
                 for k in 0..rows {
                     match mat_eigen_power(&a_copy, 500) {
                         Some((lam, v)) => {
-                            let v_str = v.iter().map(|x| format!("{:.4}", x)).collect::<Vec<_>>().join(", ");
-                            let _ = writeln!(out, "  λ{} = {:.6}  eigenvector ≈ [{}]", k+1, lam, v_str);
+                            let v_str = v
+                                .iter()
+                                .map(|x| format!("{:.4}", x))
+                                .collect::<Vec<_>>()
+                                .join(", ");
+                            let _ = writeln!(
+                                out,
+                                "  λ{} = {:.6}  eigenvector ≈ [{}]",
+                                k + 1,
+                                lam,
+                                v_str
+                            );
                             // Deflate
-                            for i in 0..rows { for j in 0..rows { a_copy[i][j] -= lam * v[i] * v[j]; } }
+                            for i in 0..rows {
+                                for j in 0..rows {
+                                    a_copy[i][j] -= lam * v[i] * v[j];
+                                }
+                            }
                         }
                         None => break,
                     }
                 }
                 let trace: f64 = (0..rows).map(|i| a[i][i]).sum();
                 let _ = writeln!(out, "  Trace = {:.6}", trace);
-                if let Ok(d) = mat_det(&a) { let _ = writeln!(out, "  Det   = {:.6}", d); }
+                if let Ok(d) = mat_det(&a) {
+                    let _ = writeln!(out, "  Det   = {:.6}", d);
+                }
             }
         }
         "qr" => {
@@ -3734,33 +5446,53 @@ pub fn matrix_calc(query: &str) -> String {
             // SVD via Jacobi iterations (symmetric A^T A → eigendecomposition)
             // Returns singular values and V matrix; U approximated for small matrices
             if rows > 8 || cols > 8 {
-                let _ = writeln!(out, "  Error: SVD limited to 8×8 matrices ({}×{})", rows, cols);
+                let _ = writeln!(
+                    out,
+                    "  Error: SVD limited to 8×8 matrices ({}×{})",
+                    rows, cols
+                );
             } else {
                 let (s_vals, v_mat) = mat_svd_values(&a);
                 let _ = writeln!(out, "  SVD Singular Values:");
                 for (i, sv) in s_vals.iter().enumerate() {
-                    let bar_len = if s_vals[0].abs() > 1e-12 { (sv / s_vals[0] * 20.0) as usize } else { 0 };
-                    let _ = writeln!(out, "  σ{} = {:.6}  {}", i+1, sv, "#".repeat(bar_len));
+                    let bar_len = if s_vals[0].abs() > 1e-12 {
+                        (sv / s_vals[0] * 20.0) as usize
+                    } else {
+                        0
+                    };
+                    let _ = writeln!(out, "  σ{} = {:.6}  {}", i + 1, sv, "#".repeat(bar_len));
                 }
                 let rank: usize = s_vals.iter().filter(|&&v| v.abs() > 1e-9).count();
                 let cond = if s_vals.last().map(|v| v.abs()).unwrap_or(0.0) > 1e-12 {
-                    format!("{:.4}", s_vals[0] / s_vals.iter().cloned().fold(f64::INFINITY, f64::min))
-                } else { "∞ (singular)".to_string() };
+                    format!(
+                        "{:.4}",
+                        s_vals[0] / s_vals.iter().cloned().fold(f64::INFINITY, f64::min)
+                    )
+                } else {
+                    "∞ (singular)".to_string()
+                };
                 let _ = writeln!(out, "  Rank: {}  |  Condition number: {}", rank, cond);
                 let _ = writeln!(out, "  V (right singular vectors):");
                 out.push_str(&mat_fmt(&v_mat));
             }
         }
         "chol" => {
-            if rows != cols { let _ = writeln!(out, "  Error: Cholesky requires square matrix"); }
-            else {
+            if rows != cols {
+                let _ = writeln!(out, "  Error: Cholesky requires square matrix");
+            } else {
                 match mat_cholesky(&a) {
                     Ok(l) => {
                         let _ = writeln!(out, "  Cholesky Decomposition  (A = L · Lᵀ)");
                         let _ = writeln!(out, "  L (lower-triangular):");
                         out.push_str(&mat_fmt(&l));
                     }
-                    Err(e) => { let _ = writeln!(out, "  Error: {}  (matrix must be symmetric positive-definite)", e); }
+                    Err(e) => {
+                        let _ = writeln!(
+                            out,
+                            "  Error: {}  (matrix must be symmetric positive-definite)",
+                            e
+                        );
+                    }
                 }
             }
         }
@@ -3777,32 +5509,49 @@ pub fn matrix_calc(query: &str) -> String {
                             for i in 0..aapa.len() {
                                 for j in 0..aapa[i].len() {
                                     let d = (aapa[i][j] - a[i][j]).abs();
-                                    if d > err { err = d; }
+                                    if d > err {
+                                        err = d;
+                                    }
                                 }
                             }
                             let _ = writeln!(out, "  Verify ||A*A+*A - A||_inf = {:.2e}", err);
                         }
                     }
                 }
-                Err(e) => { let _ = writeln!(out, "  Error: {}", e); }
+                Err(e) => {
+                    let _ = writeln!(out, "  Error: {}", e);
+                }
             }
         }
         _ => {
             // "info" — show all applicable results
             let _ = writeln!(out, "  Rank: {}", mat_rank(&a));
             if rows == cols {
-                if let Ok(d) = mat_det(&a) { let _ = writeln!(out, "  Det:  {:.6}", d); }
+                if let Ok(d) = mat_det(&a) {
+                    let _ = writeln!(out, "  Det:  {:.6}", d);
+                }
                 match mat_inv(&a) {
-                    Ok(inv) => { let _ = writeln!(out, "  Inverse:"); out.push_str(&mat_fmt(&inv)); }
-                    Err(_)  => { let _ = writeln!(out, "  Inverse: N/A (singular)"); }
+                    Ok(inv) => {
+                        let _ = writeln!(out, "  Inverse:");
+                        out.push_str(&mat_fmt(&inv));
+                    }
+                    Err(_) => {
+                        let _ = writeln!(out, "  Inverse: N/A (singular)");
+                    }
                 }
                 let trace: f64 = (0..rows).map(|i| a[i][i]).sum();
                 let _ = writeln!(out, "  Trace: {:.6}", trace);
-                let frobenius: f64 = a.iter().flat_map(|r| r.iter()).map(|v| v*v).sum::<f64>().sqrt();
+                let frobenius: f64 = a
+                    .iter()
+                    .flat_map(|r| r.iter())
+                    .map(|v| v * v)
+                    .sum::<f64>()
+                    .sqrt();
                 let _ = writeln!(out, "  Frobenius norm: {:.6}", frobenius);
             }
             let t = mat_transpose(&a);
-            let _ = writeln!(out, "  Transpose:"); out.push_str(&mat_fmt(&t));
+            let _ = writeln!(out, "  Transpose:");
+            out.push_str(&mat_fmt(&t));
         }
     }
 
@@ -3818,18 +5567,29 @@ fn split_two_matrices(s: &str) -> Vec<String> {
         let mut depth = 0;
         let mut end = 0;
         for (i, c) in s.chars().enumerate() {
-            if c == '[' { depth += 1; }
-            else if c == ']' { depth -= 1; if depth == 0 { end = i+1; break; } }
+            if c == '[' {
+                depth += 1;
+            } else if c == ']' {
+                depth -= 1;
+                if depth == 0 {
+                    end = i + 1;
+                    break;
+                }
+            }
         }
-        if end == 0 || end >= s.len() { return vec![s.to_string()]; }
+        if end == 0 || end >= s.len() {
+            return vec![s.to_string()];
+        }
         let a_str = s[..end].trim().to_string();
-        let b_str = s[end..].trim().trim_start_matches(|c: char| c == ',' || c == ' ').to_string();
-        if b_str.is_empty() { return vec![a_str]; }
+        let b_str = s[end..].trim().trim_start_matches([',', ' ']).to_string();
+        if b_str.is_empty() {
+            return vec![a_str];
+        }
         return vec![a_str, b_str];
     }
     // For semicolon format: split on " / " or "| " or just try natural language split
     if let Some(pos) = s.find(" / ") {
-        return vec![s[..pos].trim().to_string(), s[pos+3..].trim().to_string()];
+        return vec![s[..pos].trim().to_string(), s[pos + 3..].trim().to_string()];
     }
     vec![s.to_string()]
 }
@@ -3849,7 +5609,9 @@ fn split_two_matrices(s: &str) -> Vec<String> {
 pub fn finance_calc(query: &str) -> String {
     let q = query.trim();
     let tokens: Vec<&str> = q.split_whitespace().collect();
-    if tokens.is_empty() { return finance_usage(); }
+    if tokens.is_empty() {
+        return finance_usage();
+    }
 
     let mut out = String::new();
     let w = 64usize;
@@ -3857,26 +5619,82 @@ pub fn finance_calc(query: &str) -> String {
 
     match tokens[0].to_lowercase().as_str() {
         "npv" => {
-            if tokens.len() < 3 { let _ = writeln!(out, "  Usage: npv RATE CF0 CF1 CF2 ..."); let _ = writeln!(out, "{}", "=".repeat(w)); return out; }
+            if tokens.len() < 3 {
+                let _ = writeln!(out, "  Usage: npv RATE CF0 CF1 CF2 ...");
+                let _ = writeln!(out, "{}", "=".repeat(w));
+                return out;
+            }
             let rate: f64 = match tokens[1].trim_end_matches('%').parse() {
-                Ok(v) => if tokens[1].contains('%') { v / 100.0 } else { v },
-                Err(_) => { let _ = writeln!(out, "  Error: bad rate '{}'", tokens[1]); let _ = writeln!(out, "{}", "=".repeat(w)); return out; }
+                Ok(v) => {
+                    if tokens[1].contains('%') {
+                        v / 100.0
+                    } else {
+                        v
+                    }
+                }
+                Err(_) => {
+                    let _ = writeln!(out, "  Error: bad rate '{}'", tokens[1]);
+                    let _ = writeln!(out, "{}", "=".repeat(w));
+                    return out;
+                }
             };
-            let cfs: Vec<f64> = tokens[2..].iter().filter_map(|s| s.replace(',', "").parse::<f64>().ok()).collect();
-            if cfs.is_empty() { let _ = writeln!(out, "  Error: no cash flows found"); let _ = writeln!(out, "{}", "=".repeat(w)); return out; }
-            let npv: f64 = cfs.iter().enumerate().map(|(t, &cf)| cf / (1.0 + rate).powi(t as i32)).sum();
+            let cfs: Vec<f64> = tokens[2..]
+                .iter()
+                .filter_map(|s| s.replace(',', "").parse::<f64>().ok())
+                .collect();
+            if cfs.is_empty() {
+                let _ = writeln!(out, "  Error: no cash flows found");
+                let _ = writeln!(out, "{}", "=".repeat(w));
+                return out;
+            }
+            let npv: f64 = cfs
+                .iter()
+                .enumerate()
+                .map(|(t, &cf)| cf / (1.0 + rate).powi(t as i32))
+                .sum();
             let _ = writeln!(out, "  NPV Analysis");
             let _ = writeln!(out, "  Discount rate : {:.4}%", rate * 100.0);
-            let _ = writeln!(out, "  Cash flows    : {}", cfs.iter().map(|cf| format!("{:.2}", cf)).collect::<Vec<_>>().join("  "));
+            let _ = writeln!(
+                out,
+                "  Cash flows    : {}",
+                cfs.iter()
+                    .map(|cf| format!("{:.2}", cf))
+                    .collect::<Vec<_>>()
+                    .join("  ")
+            );
             let _ = writeln!(out, "  NPV           : {:.4}", npv);
-            let _ = writeln!(out, "  Decision      : {}", if npv > 0.0 { "Accept (NPV > 0)" } else if npv < 0.0 { "Reject (NPV < 0)" } else { "Indifferent" });
+            let _ = writeln!(
+                out,
+                "  Decision      : {}",
+                if npv > 0.0 {
+                    "Accept (NPV > 0)"
+                } else if npv < 0.0 {
+                    "Reject (NPV < 0)"
+                } else {
+                    "Indifferent"
+                }
+            );
         }
         "irr" => {
-            if tokens.len() < 3 { let _ = writeln!(out, "  Usage: irr CF0 CF1 CF2 ..."); let _ = writeln!(out, "{}", "=".repeat(w)); return out; }
-            let cfs: Vec<f64> = tokens[1..].iter().filter_map(|s| s.replace(',', "").parse::<f64>().ok()).collect();
-            if cfs.is_empty() { let _ = writeln!(out, "  Error: no cash flows"); let _ = writeln!(out, "{}", "=".repeat(w)); return out; }
+            if tokens.len() < 3 {
+                let _ = writeln!(out, "  Usage: irr CF0 CF1 CF2 ...");
+                let _ = writeln!(out, "{}", "=".repeat(w));
+                return out;
+            }
+            let cfs: Vec<f64> = tokens[1..]
+                .iter()
+                .filter_map(|s| s.replace(',', "").parse::<f64>().ok())
+                .collect();
+            if cfs.is_empty() {
+                let _ = writeln!(out, "  Error: no cash flows");
+                let _ = writeln!(out, "{}", "=".repeat(w));
+                return out;
+            }
             fn npv_at(rate: f64, cfs: &[f64]) -> f64 {
-                cfs.iter().enumerate().map(|(t, &cf)| cf / (1.0 + rate).powi(t as i32)).sum()
+                cfs.iter()
+                    .enumerate()
+                    .map(|(t, &cf)| cf / (1.0 + rate).powi(t as i32))
+                    .sum()
             }
             // Bisection search for IRR in (-0.9999, 10.0)
             let mut lo = -0.9999f64;
@@ -3889,20 +5707,41 @@ pub fn finance_calc(query: &str) -> String {
             } else {
                 for _ in 0..200 {
                     let mid = (lo + hi) / 2.0;
-                    if npv_at(mid, &cfs) * npv_at(lo, &cfs) < 0.0 { hi = mid; } else { lo = mid; }
-                    if (hi - lo).abs() < 1e-10 { break; }
+                    if npv_at(mid, &cfs) * npv_at(lo, &cfs) < 0.0 {
+                        hi = mid;
+                    } else {
+                        lo = mid;
+                    }
+                    if (hi - lo).abs() < 1e-10 {
+                        break;
+                    }
                 }
                 let irr = (lo + hi) / 2.0;
-                let _ = writeln!(out, "  Cash flows : {}", cfs.iter().map(|cf| format!("{:.2}", cf)).collect::<Vec<_>>().join("  "));
+                let _ = writeln!(
+                    out,
+                    "  Cash flows : {}",
+                    cfs.iter()
+                        .map(|cf| format!("{:.2}", cf))
+                        .collect::<Vec<_>>()
+                        .join("  ")
+                );
                 let _ = writeln!(out, "  IRR        : {:.6}%", irr * 100.0);
                 let npv_check = npv_at(irr, &cfs);
                 let _ = writeln!(out, "  NPV @ IRR  : {:.8} (should be ~0)", npv_check);
             }
         }
         "loan" => {
-            if tokens.len() < 4 { let _ = writeln!(out, "  Usage: loan PRINCIPAL RATE_PCT YEARS"); let _ = writeln!(out, "{}", "=".repeat(w)); return out; }
+            if tokens.len() < 4 {
+                let _ = writeln!(out, "  Usage: loan PRINCIPAL RATE_PCT YEARS");
+                let _ = writeln!(out, "{}", "=".repeat(w));
+                return out;
+            }
             let principal: f64 = tokens[1].replace(',', "").parse().unwrap_or(0.0);
-            let annual_rate: f64 = tokens[2].trim_end_matches('%').parse::<f64>().unwrap_or(0.0) / 100.0;
+            let annual_rate: f64 = tokens[2]
+                .trim_end_matches('%')
+                .parse::<f64>()
+                .unwrap_or(0.0)
+                / 100.0;
             let years: f64 = tokens[3].parse().unwrap_or(0.0);
             let n = (years * 12.0).round() as u32;
             let r = annual_rate / 12.0;
@@ -3920,20 +5759,34 @@ pub fn finance_calc(query: &str) -> String {
             let _ = writeln!(out, "  Monthly payment: {:>12.2}", payment);
             let _ = writeln!(out, "  Total paid     : {:>12.2}", total_paid);
             let _ = writeln!(out, "  Total interest : {:>12.2}", total_interest);
-            let _ = writeln!(out, "  Interest ratio : {:>12.2}%", total_interest / total_paid * 100.0);
+            let _ = writeln!(
+                out,
+                "  Interest ratio : {:>12.2}%",
+                total_interest / total_paid * 100.0
+            );
             // Show amortization table for first/last few months if reasonable
             if n <= 60 || n <= 360 {
                 let show_rows = 6usize.min(n as usize);
-                let _ = writeln!(out, "\n  {:<6}  {:>12}  {:>12}  {:>12}  {:>12}", "Month", "Payment", "Principal", "Interest", "Balance");
+                let _ = writeln!(
+                    out,
+                    "\n  {:<6}  {:>12}  {:>12}  {:>12}  {:>12}",
+                    "Month", "Payment", "Principal", "Interest", "Balance"
+                );
                 let _ = writeln!(out, "  {}", "-".repeat(58));
                 let mut balance = principal;
                 for mo in 1..=n {
                     let interest_part = balance * r;
                     let principal_part = payment - interest_part;
                     balance -= principal_part;
-                    if balance < 0.0 { balance = 0.0; }
+                    if balance < 0.0 {
+                        balance = 0.0;
+                    }
                     if mo as usize <= show_rows || mo as usize > n as usize - show_rows {
-                        let _ = writeln!(out, "  {:<6}  {:>12.2}  {:>12.2}  {:>12.2}  {:>12.2}", mo, payment, principal_part, interest_part, balance);
+                        let _ = writeln!(
+                            out,
+                            "  {:<6}  {:>12.2}  {:>12.2}  {:>12.2}  {:>12.2}",
+                            mo, payment, principal_part, interest_part, balance
+                        );
                     } else if mo as usize == show_rows + 1 {
                         let _ = writeln!(out, "  {:^58}", "...");
                     }
@@ -3941,9 +5794,17 @@ pub fn finance_calc(query: &str) -> String {
             }
         }
         "compound" => {
-            if tokens.len() < 4 { let _ = writeln!(out, "  Usage: compound PRINCIPAL RATE_PCT YEARS [PERIODS]"); let _ = writeln!(out, "{}", "=".repeat(w)); return out; }
+            if tokens.len() < 4 {
+                let _ = writeln!(out, "  Usage: compound PRINCIPAL RATE_PCT YEARS [PERIODS]");
+                let _ = writeln!(out, "{}", "=".repeat(w));
+                return out;
+            }
             let p: f64 = tokens[1].replace(',', "").parse().unwrap_or(0.0);
-            let r: f64 = tokens[2].trim_end_matches('%').parse::<f64>().unwrap_or(0.0) / 100.0;
+            let r: f64 = tokens[2]
+                .trim_end_matches('%')
+                .parse::<f64>()
+                .unwrap_or(0.0)
+                / 100.0;
             let t: f64 = tokens[3].parse().unwrap_or(1.0);
             let n: f64 = tokens.get(4).and_then(|s| s.parse().ok()).unwrap_or(1.0);
             let fv = p * (1.0 + r / n).powf(n * t);
@@ -3960,25 +5821,51 @@ pub fn finance_calc(query: &str) -> String {
             let _ = writeln!(out, "  Effective rate: {:>12.4}%", eff_rate * 100.0);
         }
         "bond" => {
-            if tokens.len() < 6 { let _ = writeln!(out, "  Usage: bond FACE COUPON_PCT YIELD_PCT YEARS [PERIODS]"); let _ = writeln!(out, "{}", "=".repeat(w)); return out; }
+            if tokens.len() < 6 {
+                let _ = writeln!(
+                    out,
+                    "  Usage: bond FACE COUPON_PCT YIELD_PCT YEARS [PERIODS]"
+                );
+                let _ = writeln!(out, "{}", "=".repeat(w));
+                return out;
+            }
             let face: f64 = tokens[1].replace(',', "").parse().unwrap_or(1000.0);
-            let coupon_rate: f64 = tokens[2].trim_end_matches('%').parse::<f64>().unwrap_or(0.0) / 100.0;
-            let yield_rate: f64 = tokens[3].trim_end_matches('%').parse::<f64>().unwrap_or(0.0) / 100.0;
+            let coupon_rate: f64 = tokens[2]
+                .trim_end_matches('%')
+                .parse::<f64>()
+                .unwrap_or(0.0)
+                / 100.0;
+            let yield_rate: f64 = tokens[3]
+                .trim_end_matches('%')
+                .parse::<f64>()
+                .unwrap_or(0.0)
+                / 100.0;
             let years: f64 = tokens[4].parse().unwrap_or(1.0);
             let m: f64 = tokens.get(5).and_then(|s| s.parse().ok()).unwrap_or(2.0); // semi-annual default
             let n = (years * m).round() as i32;
             let r = yield_rate / m;
             let c = face * coupon_rate / m;
             // Price = PV of coupons + PV of face
-            let pv_coupons = if r.abs() < 1e-12 { c * n as f64 } else { c * (1.0 - (1.0 + r).powi(-n)) / r };
+            let pv_coupons = if r.abs() < 1e-12 {
+                c * n as f64
+            } else {
+                c * (1.0 - (1.0 + r).powi(-n)) / r
+            };
             let pv_face = face / (1.0 + r).powi(n);
             let price = pv_coupons + pv_face;
-            let duration_num: f64 = (1..=n).map(|t| t as f64 / m * c / (1.0 + r).powi(t)).sum::<f64>()
+            let duration_num: f64 = (1..=n)
+                .map(|t| t as f64 / m * c / (1.0 + r).powi(t))
+                .sum::<f64>()
                 + years * pv_face;
             let duration = duration_num / price;
             let _ = writeln!(out, "  Bond Pricing");
             let _ = writeln!(out, "  Face value     : {:>12.2}", face);
-            let _ = writeln!(out, "  Coupon rate    : {:>12.4}%  ({:.2} per period)", coupon_rate * 100.0, c);
+            let _ = writeln!(
+                out,
+                "  Coupon rate    : {:>12.4}%  ({:.2} per period)",
+                coupon_rate * 100.0,
+                c
+            );
             let _ = writeln!(out, "  Yield to mat.  : {:>12.4}%", yield_rate * 100.0);
             let _ = writeln!(out, "  Years to mat.  : {:>12}", years);
             let _ = writeln!(out, "  Periods/year   : {:>12}", m);
@@ -3986,16 +5873,42 @@ pub fn finance_calc(query: &str) -> String {
             let _ = writeln!(out, "  Bond price     : {:>12.4}", price);
             let _ = writeln!(out, "  PV of coupons  : {:>12.4}", pv_coupons);
             let _ = writeln!(out, "  PV of face     : {:>12.4}", pv_face);
-            let status = if price > face { "Premium" } else if price < face { "Discount" } else { "Par" };
-            let _ = writeln!(out, "  Bond trades at : {} ({:.2}% of face)", status, price / face * 100.0);
+            let status = if price > face {
+                "Premium"
+            } else if price < face {
+                "Discount"
+            } else {
+                "Par"
+            };
+            let _ = writeln!(
+                out,
+                "  Bond trades at : {} ({:.2}% of face)",
+                status,
+                price / face * 100.0
+            );
             let _ = writeln!(out, "  Macaulay dur.  : {:>12.4} years", duration);
         }
         "bs" | "black-scholes" | "blackscholes" | "option" => {
-            if tokens.len() < 6 { let _ = writeln!(out, "  Usage: bs SPOT STRIKE RATE_PCT SIGMA_PCT YEARS [call|put]"); let _ = writeln!(out, "{}", "=".repeat(w)); return out; }
+            if tokens.len() < 6 {
+                let _ = writeln!(
+                    out,
+                    "  Usage: bs SPOT STRIKE RATE_PCT SIGMA_PCT YEARS [call|put]"
+                );
+                let _ = writeln!(out, "{}", "=".repeat(w));
+                return out;
+            }
             let s: f64 = tokens[1].replace(',', "").parse().unwrap_or(0.0);
             let k: f64 = tokens[2].replace(',', "").parse().unwrap_or(0.0);
-            let r: f64 = tokens[3].trim_end_matches('%').parse::<f64>().unwrap_or(0.0) / 100.0;
-            let sigma: f64 = tokens[4].trim_end_matches('%').parse::<f64>().unwrap_or(0.0) / 100.0;
+            let r: f64 = tokens[3]
+                .trim_end_matches('%')
+                .parse::<f64>()
+                .unwrap_or(0.0)
+                / 100.0;
+            let sigma: f64 = tokens[4]
+                .trim_end_matches('%')
+                .parse::<f64>()
+                .unwrap_or(0.0)
+                / 100.0;
             let t: f64 = tokens[5].parse().unwrap_or(1.0);
             let opt_type = tokens.get(6).copied().unwrap_or("call");
             let d1 = ((s / k).ln() + (r + 0.5 * sigma * sigma) * t) / (sigma * t.sqrt());
@@ -4010,8 +5923,10 @@ pub fn finance_calc(query: &str) -> String {
                 (c, nd1)
             };
             let gamma = bs_npdf(d1) / (s * sigma * t.sqrt());
-            let vega  = s * bs_npdf(d1) * t.sqrt() / 100.0;
-            let theta_call = (-s * bs_npdf(d1) * sigma / (2.0 * t.sqrt()) - r * k * (-r * t).exp() * nd2) / 365.0;
+            let vega = s * bs_npdf(d1) * t.sqrt() / 100.0;
+            let theta_call = (-s * bs_npdf(d1) * sigma / (2.0 * t.sqrt())
+                - r * k * (-r * t).exp() * nd2)
+                / 365.0;
             let _ = writeln!(out, "  Black-Scholes Option Pricing");
             let _ = writeln!(out, "  Spot price     : {:>12.4}", s);
             let _ = writeln!(out, "  Strike price   : {:>12.4}", k);
@@ -4043,8 +5958,12 @@ pub fn finance_calc(query: &str) -> String {
 
 fn bs_ncdf(x: f64) -> f64 {
     // Abramowitz & Stegun approximation (max error 7.5e-8)
-    if x < -8.0 { return 0.0; }
-    if x >  8.0 { return 1.0; }
+    if x < -8.0 {
+        return 0.0;
+    }
+    if x > 8.0 {
+        return 1.0;
+    }
     if x >= 0.0 {
         0.5 * (1.0 + erf_approx(x / std::f64::consts::SQRT_2))
     } else {
@@ -4064,7 +5983,8 @@ fn finance_usage() -> String {
      hematite --finance 'compound 10000 7% 10 12'             compound interest\n\
      hematite --finance 'bond 1000 5% 4% 10 2'               bond pricing\n\
      hematite --finance 'bs 100 100 5% 20% 1 call'           Black-Scholes call\n\
-     hematite --finance 'bs 100 105 5% 20% 0.5 put'          Black-Scholes put".into()
+     hematite --finance 'bs 100 105 5% 20% 0.5 put'          Black-Scholes put"
+        .into()
 }
 
 // ── Graph theory ──────────────────────────────────────────────────────────────
@@ -4093,11 +6013,12 @@ pub fn graph_theory(query: &str) -> String {
     // But first try to strip a known mode keyword from the front.
 
     let (mode, rest) = {
-        let tokens: Vec<&str> = q.splitn(2, |c: char| c == '\n' || c == ';').collect();
+        let tokens: Vec<&str> = q.splitn(2, ['\n', ';']).collect();
         let first_line = tokens[0].trim();
         let _fl_lower = first_line.to_lowercase();
         // Check if the entire first line looks like a mode+args header (no edge separators)
-        let looks_like_mode = !first_line.contains("->") && !first_line.contains(" - ")
+        let looks_like_mode = !first_line.contains("->")
+            && !first_line.contains(" - ")
             && first_line.split_whitespace().count() <= 3;
         if looks_like_mode {
             let words: Vec<&str> = first_line.splitn(2, char::is_whitespace).collect();
@@ -4109,9 +6030,8 @@ pub fn graph_theory(query: &str) -> String {
                 after_mode.to_string()
             };
             match m.as_str() {
-                "bfs"|"dfs"|"shortest"|"path"|"components"|"topo"|"topological"|"info"|"degree" => {
-                    (m, rest_str)
-                }
+                "bfs" | "dfs" | "shortest" | "path" | "components" | "topo" | "topological"
+                | "info" | "degree" => (m, rest_str),
                 _ => {
                     // The first line might be part of an edge list; treat the whole thing as "info"
                     ("info".to_string(), q.to_string())
@@ -4124,7 +6044,8 @@ pub fn graph_theory(query: &str) -> String {
 
     // Parse edge list
     // Edges separated by newline or semicolon
-    let edge_strs: Vec<&str> = rest.split(|c: char| c == '\n' || c == ';')
+    let edge_strs: Vec<&str> = rest
+        .split(['\n', ';'])
         .map(str::trim)
         .filter(|s| !s.is_empty())
         .collect();
@@ -4144,12 +6065,14 @@ pub fn graph_theory(query: &str) -> String {
 
     for line in &edge_strs {
         let line = line.trim();
-        if line.is_empty() { continue; }
+        if line.is_empty() {
+            continue;
+        }
         // Detect directed
         let (a, b, w, dir) = if let Some(pos) = line.find("->") {
             directed = true;
             let a = line[..pos].trim().trim_matches(':');
-            let rest2 = line[pos+2..].trim();
+            let rest2 = line[pos + 2..].trim();
             let (b, w) = parse_node_weight(rest2);
             (a, b, w, true)
         } else if let Some(pos) = line.find(" - ").or_else(|| {
@@ -4161,16 +6084,12 @@ pub fn graph_theory(query: &str) -> String {
             } else {
                 // Check for single hyphen between non-numeric tokens
                 let hp = line.find('-');
-                if let Some(h) = hp {
-                    if h > 0 && !line[..h].trim().parse::<f64>().is_ok() {
-                        Some(h)
-                    } else { None }
-                } else { None }
+                hp.filter(|&h| h > 0 && line[..h].trim().parse::<f64>().is_err())
             }
         }) {
             let sep_len = if line[pos..].starts_with(" - ") { 3 } else { 1 };
             let a = line[..pos].trim();
-            let rest2 = line[pos+sep_len..].trim();
+            let rest2 = line[pos + sep_len..].trim();
             let (b, w) = parse_node_weight(rest2);
             (a, b, w, false)
         } else {
@@ -4184,16 +6103,21 @@ pub fn graph_theory(query: &str) -> String {
             let b_raw = parts[1].trim();
             // b_raw may be "NodeName:weight" or just "NodeName"; weight may be parts[2]
             let (b, w) = if let Some(cp) = b_raw.find(':') {
-                let wt = b_raw[cp+1..].parse::<f64>().unwrap_or(1.0);
+                let wt = b_raw[cp + 1..].parse::<f64>().unwrap_or(1.0);
                 (&b_raw[..cp], wt)
             } else {
-                let wt = parts.get(2).and_then(|s| s.trim().parse::<f64>().ok()).unwrap_or(1.0);
+                let wt = parts
+                    .get(2)
+                    .and_then(|s| s.trim().parse::<f64>().ok())
+                    .unwrap_or(1.0);
                 (b_raw, wt)
             };
             (a, b, w, false)
         };
 
-        if a.is_empty() || b.is_empty() { continue; }
+        if a.is_empty() || b.is_empty() {
+            continue;
+        }
         let ai = node_id(a, &mut nodes);
         let bi = node_id(b, &mut nodes);
         edges.push((nodes[ai].clone(), nodes[bi].clone(), w));
@@ -4220,9 +6144,13 @@ pub fn graph_theory(query: &str) -> String {
     let mut out = String::new();
     let w = 64usize;
     let _ = writeln!(out, "{}", "=".repeat(w));
-    let _ = writeln!(out, "  Graph Analysis  |  {} nodes  |  {} edges  |  {}",
-        n, edges.len(),
-        if directed { "directed" } else { "undirected" });
+    let _ = writeln!(
+        out,
+        "  Graph Analysis  |  {} nodes  |  {} edges  |  {}",
+        n,
+        edges.len(),
+        if directed { "directed" } else { "undirected" }
+    );
     let _ = writeln!(out, "{}", "=".repeat(w));
 
     match mode.as_str() {
@@ -4231,37 +6159,66 @@ pub fn graph_theory(query: &str) -> String {
             let start = nodes.iter().position(|x| x == start_name).unwrap_or(0);
             let order = bfs_order(&adj, start, n);
             let _ = writeln!(out, "  BFS from \"{}\":", nodes[start]);
-            let _ = writeln!(out, "  Visit order: {}", order.iter().map(|&i| nodes[i].as_str()).collect::<Vec<_>>().join(" → "));
+            let _ = writeln!(
+                out,
+                "  Visit order: {}",
+                order
+                    .iter()
+                    .map(|&i| nodes[i].as_str())
+                    .collect::<Vec<_>>()
+                    .join(" → ")
+            );
         }
         "dfs" => {
             let start_name = rest.split_whitespace().next().unwrap_or(&nodes[0]);
             let start = nodes.iter().position(|x| x == start_name).unwrap_or(0);
             let order = dfs_order(&adj, start, n);
             let _ = writeln!(out, "  DFS from \"{}\":", nodes[start]);
-            let _ = writeln!(out, "  Visit order: {}", order.iter().map(|&i| nodes[i].as_str()).collect::<Vec<_>>().join(" → "));
+            let _ = writeln!(
+                out,
+                "  Visit order: {}",
+                order
+                    .iter()
+                    .map(|&i| nodes[i].as_str())
+                    .collect::<Vec<_>>()
+                    .join(" → ")
+            );
         }
         "shortest" | "path" => {
             let parts: Vec<&str> = rest.split_whitespace().collect();
             let from_name = parts.first().copied().unwrap_or(&nodes[0]);
-            let to_name   = parts.get(1).copied().unwrap_or(&nodes[n-1]);
+            let to_name = parts.get(1).copied().unwrap_or(&nodes[n - 1]);
             let from = nodes.iter().position(|x| x == from_name).unwrap_or(0);
-            let to   = nodes.iter().position(|x| x == to_name).unwrap_or(n.saturating_sub(1));
+            let to = nodes
+                .iter()
+                .position(|x| x == to_name)
+                .unwrap_or(n.saturating_sub(1));
             match dijkstra(&adj, from, to, n) {
                 Some((dist, path)) => {
-                    let path_str = path.iter().map(|&i| nodes[i].as_str()).collect::<Vec<_>>().join(" → ");
+                    let path_str = path
+                        .iter()
+                        .map(|&i| nodes[i].as_str())
+                        .collect::<Vec<_>>()
+                        .join(" → ");
                     let _ = writeln!(out, "  Shortest path: {} → {}", nodes[from], nodes[to]);
                     let _ = writeln!(out, "  Distance: {:.4}", dist);
                     let _ = writeln!(out, "  Path: {}", path_str);
                 }
                 None => {
-                    let _ = writeln!(out, "  No path from \"{}\" to \"{}\"", nodes[from], nodes[to]);
+                    let _ = writeln!(
+                        out,
+                        "  No path from \"{}\" to \"{}\"",
+                        nodes[from], nodes[to]
+                    );
                 }
             }
             // Also show all-pairs distances from source
             let dists = dijkstra_all(&adj, from, n);
             let _ = writeln!(out, "\n  All distances from \"{}\":", nodes[from]);
             for (i, d) in dists.iter().enumerate() {
-                if i == from { continue; }
+                if i == from {
+                    continue;
+                }
                 if *d == f64::INFINITY {
                     let _ = writeln!(out, "    → {:<20}  unreachable", &nodes[i]);
                 } else {
@@ -4274,36 +6231,55 @@ pub fn graph_theory(query: &str) -> String {
             let _ = writeln!(out, "  Connected components: {}", comps.len());
             for (ci, comp) in comps.iter().enumerate() {
                 let names: Vec<&str> = comp.iter().map(|&i| nodes[i].as_str()).collect();
-                let _ = writeln!(out, "  [{}] {}", ci+1, names.join(", "));
+                let _ = writeln!(out, "  [{}] {}", ci + 1, names.join(", "));
             }
         }
-        "topo" | "topological" => {
-            match topo_sort(&adj, n) {
-                Ok(order) => {
-                    let _ = writeln!(out, "  Topological sort:");
-                    let _ = writeln!(out, "  {}", order.iter().map(|&i| nodes[i].as_str()).collect::<Vec<_>>().join(" → "));
-                }
-                Err(_) => {
-                    let _ = writeln!(out, "  Cycle detected — topological sort not possible.");
-                }
+        "topo" | "topological" => match topo_sort(&adj, n) {
+            Ok(order) => {
+                let _ = writeln!(out, "  Topological sort:");
+                let _ = writeln!(
+                    out,
+                    "  {}",
+                    order
+                        .iter()
+                        .map(|&i| nodes[i].as_str())
+                        .collect::<Vec<_>>()
+                        .join(" → ")
+                );
             }
-        }
+            Err(_) => {
+                let _ = writeln!(out, "  Cycle detected — topological sort not possible.");
+            }
+        },
         "centrality" | "betweenness" => {
             // Brandes algorithm for betweenness centrality (unweighted BFS)
             let bc = betweenness_centrality(&adj, n);
             let mut ranked: Vec<(usize, f64)> = bc.iter().copied().enumerate().collect();
             ranked.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
-            let _ = writeln!(out, "  Betweenness Centrality (fraction of shortest paths through node):");
+            let _ = writeln!(
+                out,
+                "  Betweenness Centrality (fraction of shortest paths through node):"
+            );
             let _ = writeln!(out, "  {:<22}  {:>12}  bar", "Node", "Centrality");
             let _ = writeln!(out, "  {}", "-".repeat(w - 2));
             let max_bc = ranked.first().map(|x| x.1).unwrap_or(1.0).max(1e-9);
             for &(i, val) in &ranked {
                 let bar_len = (val / max_bc * 30.0) as usize;
-                let _ = writeln!(out, "  {:<22}  {:>12.6}  {}", &nodes[i], val, "#".repeat(bar_len));
+                let _ = writeln!(
+                    out,
+                    "  {:<22}  {:>12.6}  {}",
+                    &nodes[i],
+                    val,
+                    "#".repeat(bar_len)
+                );
             }
         }
         "pagerank" | "pr" => {
-            let d: f64 = rest.split_whitespace().next().and_then(|s| s.parse().ok()).unwrap_or(0.85);
+            let d: f64 = rest
+                .split_whitespace()
+                .next()
+                .and_then(|s| s.parse().ok())
+                .unwrap_or(0.85);
             let pr = pagerank(&adj, n, d, 100);
             let mut ranked: Vec<(usize, f64)> = pr.iter().copied().enumerate().collect();
             ranked.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
@@ -4313,20 +6289,40 @@ pub fn graph_theory(query: &str) -> String {
             let max_pr = ranked.first().map(|x| x.1).unwrap_or(1e-9).max(1e-9);
             for &(i, val) in &ranked {
                 let bar_len = (val / max_pr * 30.0) as usize;
-                let _ = writeln!(out, "  {:<22}  {:>10.6}  {}", &nodes[i], val, "#".repeat(bar_len));
+                let _ = writeln!(
+                    out,
+                    "  {:<22}  {:>10.6}  {}",
+                    &nodes[i],
+                    val,
+                    "#".repeat(bar_len)
+                );
             }
         }
         "clustering" | "cluster" => {
             let cc = clustering_coefficients(&adj, n, directed);
-            let global_cc = if n > 0 { cc.iter().sum::<f64>() / n as f64 } else { 0.0 };
+            let global_cc = if n > 0 {
+                cc.iter().sum::<f64>() / n as f64
+            } else {
+                0.0
+            };
             let mut ranked: Vec<(usize, f64)> = cc.iter().copied().enumerate().collect();
             ranked.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
-            let _ = writeln!(out, "  Clustering Coefficients  (global avg: {:.4}):", global_cc);
+            let _ = writeln!(
+                out,
+                "  Clustering Coefficients  (global avg: {:.4}):",
+                global_cc
+            );
             let _ = writeln!(out, "  {:<22}  {:>12}  bar", "Node", "Coefficient");
             let _ = writeln!(out, "  {}", "-".repeat(w - 2));
             for &(i, val) in &ranked {
                 let bar_len = (val * 30.0) as usize;
-                let _ = writeln!(out, "  {:<22}  {:>12.6}  {}", &nodes[i], val, "#".repeat(bar_len));
+                let _ = writeln!(
+                    out,
+                    "  {:<22}  {:>12.6}  {}",
+                    &nodes[i],
+                    val,
+                    "#".repeat(bar_len)
+                );
             }
         }
         "diameter" | "stats" | "metrics" => {
@@ -4341,14 +6337,32 @@ pub fn graph_theory(query: &str) -> String {
                 let _ = writeln!(out, "  Avg path length : {:.4}", avg_path);
             }
             // Density
-            let max_edges = if directed { n * (n-1) } else { n * (n-1) / 2 };
-            let density = if max_edges > 0 { edges.len() as f64 / max_edges as f64 } else { 0.0 };
-            let _ = writeln!(out, "  Density         : {:.4}  ({} / {} possible edges)", density, edges.len(), max_edges);
+            let max_edges = if directed {
+                n * (n - 1)
+            } else {
+                n * (n - 1) / 2
+            };
+            let density = if max_edges > 0 {
+                edges.len() as f64 / max_edges as f64
+            } else {
+                0.0
+            };
+            let _ = writeln!(
+                out,
+                "  Density         : {:.4}  ({} / {} possible edges)",
+                density,
+                edges.len(),
+                max_edges
+            );
             // Eccentricity table
-            let _ = writeln!(out, "\n  Eccentricities (max distance from node to any other):");
+            let _ = writeln!(
+                out,
+                "\n  Eccentricities (max distance from node to any other):"
+            );
             let _ = writeln!(out, "  {:<22}  {:>12}", "Node", "Eccentricity");
             let _ = writeln!(out, "  {}", "-".repeat(36));
-            let mut ecc_sorted: Vec<(usize, f64)> = eccentricities.into_iter().enumerate().collect();
+            let mut ecc_sorted: Vec<(usize, f64)> =
+                eccentricities.into_iter().enumerate().collect();
             ecc_sorted.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal));
             for (i, ecc) in &ecc_sorted {
                 if *ecc == f64::INFINITY {
@@ -4358,9 +6372,14 @@ pub fn graph_theory(query: &str) -> String {
                 }
             }
             // Center nodes (minimum eccentricity)
-            let min_ecc = ecc_sorted.iter().map(|x| x.1).filter(|x| x.is_finite()).fold(f64::INFINITY, f64::min);
+            let min_ecc = ecc_sorted
+                .iter()
+                .map(|x| x.1)
+                .filter(|x| x.is_finite())
+                .fold(f64::INFINITY, f64::min);
             if min_ecc.is_finite() {
-                let centers: Vec<&str> = ecc_sorted.iter()
+                let centers: Vec<&str> = ecc_sorted
+                    .iter()
                     .filter(|&&(_, e)| (e - min_ecc).abs() < 1e-9)
                     .map(|&(i, _)| nodes[i].as_str())
                     .collect();
@@ -4369,7 +6388,7 @@ pub fn graph_theory(query: &str) -> String {
         }
         _ => {
             // Default: degree table + basic stats
-            let mut in_deg  = vec![0usize; n];
+            let mut in_deg = vec![0usize; n];
             let mut out_deg = vec![0usize; n];
             for (ai, nbrs) in adj.iter().enumerate() {
                 out_deg[ai] = nbrs.len();
@@ -4377,31 +6396,57 @@ pub fn graph_theory(query: &str) -> String {
                     in_deg[bi] += 1;
                 }
             }
-            let _ = writeln!(out, "  {:<20}  {:>8}  {:>8}", "Node", if directed {"Out-deg"} else {"Degree"}, if directed {"In-deg"} else {""});
+            let _ = writeln!(
+                out,
+                "  {:<20}  {:>8}  {:>8}",
+                "Node",
+                if directed { "Out-deg" } else { "Degree" },
+                if directed { "In-deg" } else { "" }
+            );
             let _ = writeln!(out, "  {}", "-".repeat(40));
             let mut sorted_nodes: Vec<usize> = (0..n).collect();
             sorted_nodes.sort_by(|&a, &b| out_deg[b].cmp(&out_deg[a]));
             for &i in &sorted_nodes {
                 if directed {
-                    let _ = writeln!(out, "  {:<20}  {:>8}  {:>8}", &nodes[i], out_deg[i], in_deg[i]);
+                    let _ = writeln!(
+                        out,
+                        "  {:<20}  {:>8}  {:>8}",
+                        &nodes[i], out_deg[i], in_deg[i]
+                    );
                 } else {
                     let _ = writeln!(out, "  {:<20}  {:>8}", &nodes[i], out_deg[i]);
                 }
             }
             // Connectivity
             let comps = connected_components(&adj, n, directed);
-            let _ = writeln!(out, "\n  Components: {}  |  {}",
+            let _ = writeln!(
+                out,
+                "\n  Components: {}  |  {}",
                 comps.len(),
-                if comps.len() == 1 { "connected".to_string() } else { "disconnected".to_string() });
+                if comps.len() == 1 {
+                    "connected".to_string()
+                } else {
+                    "disconnected".to_string()
+                }
+            );
             // Check for cycles via DFS
             let has_cycle = detect_cycle(&adj, n, directed);
-            let _ = writeln!(out, "  Cycles: {}", if has_cycle { "yes" } else { "none detected" });
+            let _ = writeln!(
+                out,
+                "  Cycles: {}",
+                if has_cycle { "yes" } else { "none detected" }
+            );
             if directed {
-                match topo_sort(&adj, n) {
-                    Ok(order) => {
-                        let _ = writeln!(out, "  Topo order: {}", order.iter().map(|&i| nodes[i].as_str()).collect::<Vec<_>>().join(" → "));
-                    }
-                    Err(_) => {}
+                if let Ok(order) = topo_sort(&adj, n) {
+                    let _ = writeln!(
+                        out,
+                        "  Topo order: {}",
+                        order
+                            .iter()
+                            .map(|&i| nodes[i].as_str())
+                            .collect::<Vec<_>>()
+                            .join(" → ")
+                    );
                 }
             }
         }
@@ -4415,12 +6460,15 @@ fn parse_node_weight(s: &str) -> (&str, f64) {
     // "NodeName:weight" or "NodeName weight"
     if let Some(pos) = s.find(':') {
         let name = &s[..pos];
-        let w = s[pos+1..].trim().parse::<f64>().unwrap_or(1.0);
+        let w = s[pos + 1..].trim().parse::<f64>().unwrap_or(1.0);
         (name.trim(), w)
     } else {
         let parts: Vec<&str> = s.splitn(2, char::is_whitespace).collect();
         let name = parts[0].trim();
-        let w = parts.get(1).and_then(|x| x.trim().parse::<f64>().ok()).unwrap_or(1.0);
+        let w = parts
+            .get(1)
+            .and_then(|x| x.trim().parse::<f64>().ok())
+            .unwrap_or(1.0);
         (name, w)
     }
 }
@@ -4433,10 +6481,13 @@ fn bfs_order(adj: &[Vec<(usize, f64)>], start: usize, n: usize) -> Vec<usize> {
     queue.push_back(start);
     while let Some(u) = queue.pop_front() {
         order.push(u);
-        let mut nbrs: Vec<usize> = adj[u].iter().map(|&(v,_)| v).collect();
+        let mut nbrs: Vec<usize> = adj[u].iter().map(|&(v, _)| v).collect();
         nbrs.sort();
         for v in nbrs {
-            if !visited[v] { visited[v] = true; queue.push_back(v); }
+            if !visited[v] {
+                visited[v] = true;
+                queue.push_back(v);
+            }
         }
     }
     order
@@ -4447,28 +6498,47 @@ fn dfs_order(adj: &[Vec<(usize, f64)>], start: usize, n: usize) -> Vec<usize> {
     let mut stack = vec![start];
     let mut order = Vec::new();
     while let Some(u) = stack.pop() {
-        if visited[u] { continue; }
+        if visited[u] {
+            continue;
+        }
         visited[u] = true;
         order.push(u);
-        let mut nbrs: Vec<usize> = adj[u].iter().map(|&(v,_)| v).collect();
+        let mut nbrs: Vec<usize> = adj[u].iter().map(|&(v, _)| v).collect();
         nbrs.sort_by(|a, b| b.cmp(a));
-        for v in nbrs { if !visited[v] { stack.push(v); } }
+        for v in nbrs {
+            if !visited[v] {
+                stack.push(v);
+            }
+        }
     }
     order
 }
 
-fn dijkstra(adj: &[Vec<(usize, f64)>], from: usize, to: usize, n: usize) -> Option<(f64, Vec<usize>)> {
-    use std::collections::BinaryHeap;
+fn dijkstra(
+    adj: &[Vec<(usize, f64)>],
+    from: usize,
+    to: usize,
+    n: usize,
+) -> Option<(f64, Vec<usize>)> {
     use std::cmp::Ordering;
+    use std::collections::BinaryHeap;
     #[derive(PartialEq)]
-    struct State { cost: f64, node: usize }
+    struct State {
+        cost: f64,
+        node: usize,
+    }
     impl Eq for State {}
     impl PartialOrd for State {
-        fn partial_cmp(&self, other: &Self) -> Option<Ordering> { Some(self.cmp(other)) }
+        fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+            Some(self.cmp(other))
+        }
     }
     impl Ord for State {
         fn cmp(&self, other: &Self) -> Ordering {
-            other.cost.partial_cmp(&self.cost).unwrap_or(Ordering::Equal)
+            other
+                .cost
+                .partial_cmp(&self.cost)
+                .unwrap_or(Ordering::Equal)
         }
     }
 
@@ -4476,22 +6546,34 @@ fn dijkstra(adj: &[Vec<(usize, f64)>], from: usize, to: usize, n: usize) -> Opti
     let mut prev = vec![usize::MAX; n];
     dist[from] = 0.0;
     let mut heap = BinaryHeap::new();
-    heap.push(State { cost: 0.0, node: from });
+    heap.push(State {
+        cost: 0.0,
+        node: from,
+    });
 
     while let Some(State { cost, node }) = heap.pop() {
-        if node == to { break; }
-        if cost > dist[node] { continue; }
+        if node == to {
+            break;
+        }
+        if cost > dist[node] {
+            continue;
+        }
         for &(v, w) in &adj[node] {
             let next_cost = dist[node] + w;
             if next_cost < dist[v] {
                 dist[v] = next_cost;
                 prev[v] = node;
-                heap.push(State { cost: next_cost, node: v });
+                heap.push(State {
+                    cost: next_cost,
+                    node: v,
+                });
             }
         }
     }
 
-    if dist[to] == f64::INFINITY { return None; }
+    if dist[to] == f64::INFINITY {
+        return None;
+    }
     let mut path = Vec::new();
     let mut cur = to;
     while cur != usize::MAX {
@@ -4503,28 +6585,44 @@ fn dijkstra(adj: &[Vec<(usize, f64)>], from: usize, to: usize, n: usize) -> Opti
 }
 
 fn dijkstra_all(adj: &[Vec<(usize, f64)>], from: usize, n: usize) -> Vec<f64> {
-    use std::collections::BinaryHeap;
     use std::cmp::Ordering;
+    use std::collections::BinaryHeap;
     #[derive(PartialEq)]
-    struct State { cost: f64, node: usize }
+    struct State {
+        cost: f64,
+        node: usize,
+    }
     impl Eq for State {}
     impl PartialOrd for State {
-        fn partial_cmp(&self, other: &Self) -> Option<Ordering> { Some(self.cmp(other)) }
+        fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+            Some(self.cmp(other))
+        }
     }
     impl Ord for State {
         fn cmp(&self, other: &Self) -> Ordering {
-            other.cost.partial_cmp(&self.cost).unwrap_or(Ordering::Equal)
+            other
+                .cost
+                .partial_cmp(&self.cost)
+                .unwrap_or(Ordering::Equal)
         }
     }
     let mut dist = vec![f64::INFINITY; n];
     dist[from] = 0.0;
     let mut heap = BinaryHeap::new();
-    heap.push(State { cost: 0.0, node: from });
+    heap.push(State {
+        cost: 0.0,
+        node: from,
+    });
     while let Some(State { cost, node }) = heap.pop() {
-        if cost > dist[node] { continue; }
+        if cost > dist[node] {
+            continue;
+        }
         for &(v, w) in &adj[node] {
             let nc = dist[node] + w;
-            if nc < dist[v] { dist[v] = nc; heap.push(State { cost: nc, node: v }); }
+            if nc < dist[v] {
+                dist[v] = nc;
+                heap.push(State { cost: nc, node: v });
+            }
         }
     }
     dist
@@ -4535,20 +6633,26 @@ fn connected_components(adj: &[Vec<(usize, f64)>], n: usize, directed: bool) -> 
     let mut visited = vec![false; n];
     let mut comps = Vec::new();
     for start in 0..n {
-        if visited[start] { continue; }
+        if visited[start] {
+            continue;
+        }
         let mut comp = Vec::new();
         let mut stack = vec![start];
         while let Some(u) = stack.pop() {
-            if visited[u] { continue; }
+            if visited[u] {
+                continue;
+            }
             visited[u] = true;
             comp.push(u);
             for &(v, _) in &adj[u] {
-                if !visited[v] { stack.push(v); }
+                if !visited[v] {
+                    stack.push(v);
+                }
             }
             if directed {
                 // Also traverse reverse edges for weak connectivity
                 for other in 0..n {
-                    if !visited[other] && adj[other].iter().any(|&(t,_)| t == u) {
+                    if !visited[other] && adj[other].iter().any(|&(t, _)| t == u) {
                         stack.push(other);
                     }
                 }
@@ -4563,31 +6667,45 @@ fn connected_components(adj: &[Vec<(usize, f64)>], n: usize, directed: bool) -> 
 fn topo_sort(adj: &[Vec<(usize, f64)>], n: usize) -> Result<Vec<usize>, ()> {
     let mut in_deg = vec![0usize; n];
     for u in 0..n {
-        for &(v,_) in &adj[u] { in_deg[v] += 1; }
+        for &(v, _) in &adj[u] {
+            in_deg[v] += 1;
+        }
     }
-    let mut queue: std::collections::VecDeque<usize> = (0..n).filter(|&i| in_deg[i]==0).collect();
+    let mut queue: std::collections::VecDeque<usize> = (0..n).filter(|&i| in_deg[i] == 0).collect();
     let mut order = Vec::new();
     while let Some(u) = queue.pop_front() {
         order.push(u);
-        for &(v,_) in &adj[u] {
+        for &(v, _) in &adj[u] {
             in_deg[v] -= 1;
-            if in_deg[v] == 0 { queue.push_back(v); }
+            if in_deg[v] == 0 {
+                queue.push_back(v);
+            }
         }
     }
-    if order.len() == n { Ok(order) } else { Err(()) }
+    if order.len() == n {
+        Ok(order)
+    } else {
+        Err(())
+    }
 }
 
 fn detect_cycle(adj: &[Vec<(usize, f64)>], n: usize, directed: bool) -> bool {
     // DFS-based cycle detection
     let mut color = vec![0u8; n]; // 0=white 1=gray 2=black
-    fn dfs_cycle(u: usize, adj: &[Vec<(usize, f64)>], color: &mut Vec<u8>, directed: bool, parent: usize) -> bool {
+    fn dfs_cycle(
+        u: usize,
+        adj: &[Vec<(usize, f64)>],
+        color: &mut Vec<u8>,
+        directed: bool,
+        parent: usize,
+    ) -> bool {
         color[u] = 1;
         for &(v, _) in &adj[u] {
             if color[v] == 0 {
-                if dfs_cycle(v, adj, color, directed, u) { return true; }
-            } else if directed && color[v] == 1 {
-                return true;
-            } else if !directed && v != parent {
+                if dfs_cycle(v, adj, color, directed, u) {
+                    return true;
+                }
+            } else if (directed && color[v] == 1) || (!directed && v != parent) {
                 return true;
             }
         }
@@ -4595,8 +6713,8 @@ fn detect_cycle(adj: &[Vec<(usize, f64)>], n: usize, directed: bool) -> bool {
         false
     }
     for start in 0..n {
-        if color[start] == 0 {
-            if dfs_cycle(start, adj, &mut color, directed, usize::MAX) { return true; }
+        if color[start] == 0 && dfs_cycle(start, adj, &mut color, directed, usize::MAX) {
+            return true;
         }
     }
     false
@@ -4608,8 +6726,10 @@ fn betweenness_centrality(adj: &[Vec<(usize, f64)>], n: usize) -> Vec<f64> {
     for s in 0..n {
         let mut stack = Vec::new();
         let mut pred: Vec<Vec<usize>> = vec![Vec::new(); n];
-        let mut sigma = vec![0.0f64; n]; sigma[s] = 1.0;
-        let mut dist  = vec![-1i64; n];  dist[s]  = 0;
+        let mut sigma = vec![0.0f64; n];
+        sigma[s] = 1.0;
+        let mut dist = vec![-1i64; n];
+        dist[s] = 0;
         let mut queue = std::collections::VecDeque::new();
         queue.push_back(s);
         while let Some(v) = queue.pop_front() {
@@ -4630,11 +6750,17 @@ fn betweenness_centrality(adj: &[Vec<(usize, f64)>], n: usize) -> Vec<f64> {
             for &v in &pred[w] {
                 delta[v] += (sigma[v] / sigma[w]) * (1.0 + delta[w]);
             }
-            if w != s { bc[w] += delta[w]; }
+            if w != s {
+                bc[w] += delta[w];
+            }
         }
     }
     // Normalize
-    let norm = if n > 2 { ((n-1)*(n-2)) as f64 } else { 1.0 };
+    let norm = if n > 2 {
+        ((n - 1) * (n - 2)) as f64
+    } else {
+        1.0
+    };
     bc.iter_mut().for_each(|x| *x /= norm);
     bc
 }
@@ -4666,45 +6792,70 @@ fn pagerank(adj: &[Vec<(usize, f64)>], n: usize, damping: f64, iters: usize) -> 
 fn clustering_coefficients(adj: &[Vec<(usize, f64)>], n: usize, directed: bool) -> Vec<f64> {
     let mut cc = vec![0.0f64; n];
     for u in 0..n {
-        let nbrs: Vec<usize> = adj[u].iter().map(|&(v,_)| v).collect();
+        let nbrs: Vec<usize> = adj[u].iter().map(|&(v, _)| v).collect();
         let k = nbrs.len();
-        if k < 2 { continue; }
+        if k < 2 {
+            continue;
+        }
         let mut triangles = 0usize;
         for i in 0..k {
-            for j in (i+1)..k {
-                let vi = nbrs[i]; let vj = nbrs[j];
-                if adj[vi].iter().any(|&(x,_)| x == vj) ||
-                   adj[vj].iter().any(|&(x,_)| x == vi) {
+            for j in (i + 1)..k {
+                let vi = nbrs[i];
+                let vj = nbrs[j];
+                if adj[vi].iter().any(|&(x, _)| x == vj) || adj[vj].iter().any(|&(x, _)| x == vi) {
                     triangles += 1;
                 }
             }
         }
-        let denom = if directed { k * (k-1) } else { k * (k-1) / 2 };
-        if denom > 0 { cc[u] = triangles as f64 / denom as f64; }
+        let denom = if directed {
+            k * (k - 1)
+        } else {
+            k * (k - 1) / 2
+        };
+        if denom > 0 {
+            cc[u] = triangles as f64 / denom as f64;
+        }
     }
     cc
 }
 
 // Graph diameter, average path length, eccentricities via all-pairs Dijkstra
 fn graph_diameter(adj: &[Vec<(usize, f64)>], n: usize) -> (f64, f64, Vec<f64>) {
-    let mut diameter  = 0.0f64;
-    let mut path_sum  = 0.0f64;
-    let mut path_cnt  = 0u64;
+    let mut diameter = 0.0f64;
+    let mut path_sum = 0.0f64;
+    let mut path_cnt = 0u64;
     let mut ecc = vec![0.0f64; n];
     for s in 0..n {
         let dists = dijkstra_all(adj, s, n);
-        let finite: Vec<f64> = dists.iter().copied().filter(|d| d.is_finite() && *d > 0.0).collect();
+        let finite: Vec<f64> = dists
+            .iter()
+            .copied()
+            .filter(|d| d.is_finite() && *d > 0.0)
+            .collect();
         let max_d = finite.iter().cloned().fold(0.0f64, f64::max);
         if finite.len() < n - 1 {
             ecc[s] = f64::INFINITY; // disconnected
         } else {
             ecc[s] = max_d;
         }
-        if max_d.is_finite() && max_d > diameter { diameter = max_d; }
-        for d in &finite { path_sum += d; path_cnt += 1; }
+        if max_d.is_finite() && max_d > diameter {
+            diameter = max_d;
+        }
+        for d in &finite {
+            path_sum += d;
+            path_cnt += 1;
+        }
     }
-    let avg = if path_cnt > 0 { path_sum / path_cnt as f64 } else { f64::INFINITY };
-    let diam = if ecc.iter().any(|x| x.is_infinite()) { f64::INFINITY } else { diameter };
+    let avg = if path_cnt > 0 {
+        path_sum / path_cnt as f64
+    } else {
+        f64::INFINITY
+    };
+    let diam = if ecc.iter().any(|x| x.is_infinite()) {
+        f64::INFINITY
+    } else {
+        diameter
+    };
     (diam, avg, ecc)
 }
 
@@ -4722,7 +6873,8 @@ fn graph_usage() -> String {
      hematite --graph 'diameter\\nA B 1\\nB C 2\\nA C 4'   diameter, avg path, eccentricity\n\
      \n\
      Edge formats: 'A B' 'A B 5' 'A->B' 'A->B:5' 'A-B:3'\n\
-     Weighted edges: add weight as third token or after colon".into()
+     Weighted edges: add weight as third token or after colon"
+        .into()
 }
 
 // ── Symbolic calculus ─────────────────────────────────────────────────────────
@@ -4763,9 +6915,13 @@ struct Parser<'a> {
 }
 
 impl<'a> Parser<'a> {
-    fn new(chars: &'a [char]) -> Self { Self { chars, pos: 0 } }
+    fn new(chars: &'a [char]) -> Self {
+        Self { chars, pos: 0 }
+    }
 
-    fn peek(&self) -> Option<char> { self.chars.get(self.pos).copied() }
+    fn peek(&self) -> Option<char> {
+        self.chars.get(self.pos).copied()
+    }
 
     fn consume(&mut self) -> Option<char> {
         let c = self.chars.get(self.pos).copied();
@@ -4774,18 +6930,30 @@ impl<'a> Parser<'a> {
     }
 
     fn skip_ws(&mut self) {
-        while matches!(self.peek(), Some(' ') | Some('\t')) { self.pos += 1; }
+        while matches!(self.peek(), Some(' ') | Some('\t')) {
+            self.pos += 1;
+        }
     }
 
-    fn parse_expr(&mut self) -> Result<Expr, String> { self.parse_add() }
+    fn parse_expr(&mut self) -> Result<Expr, String> {
+        self.parse_add()
+    }
 
     fn parse_add(&mut self) -> Result<Expr, String> {
         let mut left = self.parse_mul()?;
         loop {
             self.skip_ws();
             match self.peek() {
-                Some('+') => { self.consume(); let r = self.parse_mul()?; left = Expr::Add(Box::new(left), Box::new(r)); }
-                Some('-') => { self.consume(); let r = self.parse_mul()?; left = Expr::Sub(Box::new(left), Box::new(r)); }
+                Some('+') => {
+                    self.consume();
+                    let r = self.parse_mul()?;
+                    left = Expr::Add(Box::new(left), Box::new(r));
+                }
+                Some('-') => {
+                    self.consume();
+                    let r = self.parse_mul()?;
+                    left = Expr::Sub(Box::new(left), Box::new(r));
+                }
                 _ => break,
             }
         }
@@ -4797,8 +6965,16 @@ impl<'a> Parser<'a> {
         loop {
             self.skip_ws();
             match self.peek() {
-                Some('*') => { self.consume(); let r = self.parse_pow()?; left = Expr::Mul(Box::new(left), Box::new(r)); }
-                Some('/') => { self.consume(); let r = self.parse_pow()?; left = Expr::Div(Box::new(left), Box::new(r)); }
+                Some('*') => {
+                    self.consume();
+                    let r = self.parse_pow()?;
+                    left = Expr::Mul(Box::new(left), Box::new(r));
+                }
+                Some('/') => {
+                    self.consume();
+                    let r = self.parse_pow()?;
+                    left = Expr::Div(Box::new(left), Box::new(r));
+                }
                 // Implicit multiplication: if next token is a function or '(' or var
                 Some(c) if c.is_alphabetic() || c == '(' => {
                     let r = self.parse_pow()?;
@@ -4828,7 +7004,9 @@ impl<'a> Parser<'a> {
             let inner = self.parse_atom()?;
             return Ok(Expr::Neg(Box::new(inner)));
         }
-        if self.peek() == Some('+') { self.consume(); }
+        if self.peek() == Some('+') {
+            self.consume();
+        }
         self.parse_atom()
     }
 
@@ -4839,7 +7017,9 @@ impl<'a> Parser<'a> {
                 self.consume();
                 let inner = self.parse_expr()?;
                 self.skip_ws();
-                if self.peek() == Some(')') { self.consume(); }
+                if self.peek() == Some(')') {
+                    self.consume();
+                }
                 Ok(inner)
             }
             Some(c) if c.is_ascii_digit() || c == '.' => self.parse_number(),
@@ -4851,20 +7031,27 @@ impl<'a> Parser<'a> {
 
     fn parse_number(&mut self) -> Result<Expr, String> {
         let start = self.pos;
-        while matches!(self.peek(), Some(c) if c.is_ascii_digit() || c == '.' || c == 'e' || c == 'E') {
+        while matches!(self.peek(), Some(c) if c.is_ascii_digit() || c == '.' || c == 'e' || c == 'E')
+        {
             self.pos += 1;
             // handle e+/e-
-            if matches!(self.chars.get(self.pos-1), Some('e') | Some('E')) {
-                if matches!(self.peek(), Some('+') | Some('-')) { self.pos += 1; }
+            if matches!(self.chars.get(self.pos - 1), Some('e') | Some('E'))
+                && matches!(self.peek(), Some('+') | Some('-'))
+            {
+                self.pos += 1;
             }
         }
         let s: String = self.chars[start..self.pos].iter().collect();
-        s.parse::<f64>().map(Expr::Num).map_err(|_| format!("bad number: {}", s))
+        s.parse::<f64>()
+            .map(Expr::Num)
+            .map_err(|_| format!("bad number: {}", s))
     }
 
     fn parse_name(&mut self) -> Result<Expr, String> {
         let start = self.pos;
-        while matches!(self.peek(), Some(c) if c.is_alphanumeric() || c == '_') { self.pos += 1; }
+        while matches!(self.peek(), Some(c) if c.is_alphanumeric() || c == '_') {
+            self.pos += 1;
+        }
         let name: String = self.chars[start..self.pos].iter().collect();
         self.skip_ws();
         // Check if it's a function call
@@ -4872,24 +7059,26 @@ impl<'a> Parser<'a> {
             self.consume();
             let arg = self.parse_expr()?;
             self.skip_ws();
-            if self.peek() == Some(')') { self.consume(); }
+            if self.peek() == Some(')') {
+                self.consume();
+            }
             let e = Box::new(arg);
             return match name.to_lowercase().as_str() {
-                "sin"  => Ok(Expr::Sin(e)),
-                "cos"  => Ok(Expr::Cos(e)),
-                "tan"  => Ok(Expr::Tan(e)),
-                "ln"   => Ok(Expr::Ln(e)),
-                "log"  => Ok(Expr::Ln(e)),   // treat log as natural log
-                "exp"  => Ok(Expr::Exp(e)),
+                "sin" => Ok(Expr::Sin(e)),
+                "cos" => Ok(Expr::Cos(e)),
+                "tan" => Ok(Expr::Tan(e)),
+                "ln" => Ok(Expr::Ln(e)),
+                "log" => Ok(Expr::Ln(e)), // treat log as natural log
+                "exp" => Ok(Expr::Exp(e)),
                 "sqrt" => Ok(Expr::Sqrt(e)),
-                "abs"  => Ok(Expr::Abs(e)),
+                "abs" => Ok(Expr::Abs(e)),
                 _ => Err(format!("unknown function: {}", name)),
             };
         }
         // Constants
         match name.as_str() {
             "pi" | "PI" => return Ok(Expr::Num(std::f64::consts::PI)),
-            "e"  | "E"  => return Ok(Expr::Num(std::f64::consts::E)),
+            "e" | "E" => return Ok(Expr::Num(std::f64::consts::E)),
             _ => {}
         }
         Ok(Expr::Var(name))
@@ -4916,8 +7105,11 @@ fn parse_sym(s: &str) -> Result<Expr, String> {
 fn fmt_expr(e: &Expr) -> String {
     match e {
         Expr::Num(n) => {
-            if n.fract() == 0.0 && n.abs() < 1e12 { format!("{}", *n as i64) }
-            else { format!("{}", n) }
+            if n.fract() == 0.0 && n.abs() < 1e12 {
+                format!("{}", *n as i64)
+            } else {
+                format!("{}", n)
+            }
         }
         Expr::Var(v) => v.clone(),
         Expr::Add(a, b) => format!("({} + {})", fmt_expr(a), fmt_expr(b)),
@@ -4925,14 +7117,14 @@ fn fmt_expr(e: &Expr) -> String {
         Expr::Mul(a, b) => format!("({} * {})", fmt_expr(a), fmt_expr(b)),
         Expr::Div(a, b) => format!("({} / {})", fmt_expr(a), fmt_expr(b)),
         Expr::Pow(a, b) => format!("({}^{})", fmt_expr(a), fmt_expr(b)),
-        Expr::Neg(a)    => format!("(-{})", fmt_expr(a)),
-        Expr::Sin(a)    => format!("sin({})", fmt_expr(a)),
-        Expr::Cos(a)    => format!("cos({})", fmt_expr(a)),
-        Expr::Tan(a)    => format!("tan({})", fmt_expr(a)),
-        Expr::Ln(a)     => format!("ln({})", fmt_expr(a)),
-        Expr::Exp(a)    => format!("exp({})", fmt_expr(a)),
-        Expr::Sqrt(a)   => format!("sqrt({})", fmt_expr(a)),
-        Expr::Abs(a)    => format!("abs({})", fmt_expr(a)),
+        Expr::Neg(a) => format!("(-{})", fmt_expr(a)),
+        Expr::Sin(a) => format!("sin({})", fmt_expr(a)),
+        Expr::Cos(a) => format!("cos({})", fmt_expr(a)),
+        Expr::Tan(a) => format!("tan({})", fmt_expr(a)),
+        Expr::Ln(a) => format!("ln({})", fmt_expr(a)),
+        Expr::Exp(a) => format!("exp({})", fmt_expr(a)),
+        Expr::Sqrt(a) => format!("sqrt({})", fmt_expr(a)),
+        Expr::Abs(a) => format!("abs({})", fmt_expr(a)),
     }
 }
 
@@ -4942,7 +7134,8 @@ fn fmt_expr(e: &Expr) -> String {
 fn simplify(e: Expr) -> Expr {
     match e {
         Expr::Add(a, b) => {
-            let a = simplify(*a); let b = simplify(*b);
+            let a = simplify(*a);
+            let b = simplify(*b);
             match (&a, &b) {
                 (Expr::Num(x), Expr::Num(y)) => Expr::Num(x + y),
                 (Expr::Num(0.0), _) => b,
@@ -4951,7 +7144,8 @@ fn simplify(e: Expr) -> Expr {
             }
         }
         Expr::Sub(a, b) => {
-            let a = simplify(*a); let b = simplify(*b);
+            let a = simplify(*a);
+            let b = simplify(*b);
             match (&a, &b) {
                 (Expr::Num(x), Expr::Num(y)) => Expr::Num(x - y),
                 (_, Expr::Num(0.0)) => a,
@@ -4960,7 +7154,8 @@ fn simplify(e: Expr) -> Expr {
             }
         }
         Expr::Mul(a, b) => {
-            let a = simplify(*a); let b = simplify(*b);
+            let a = simplify(*a);
+            let b = simplify(*b);
             match (&a, &b) {
                 (Expr::Num(x), Expr::Num(y)) => Expr::Num(x * y),
                 (Expr::Num(0.0), _) | (_, Expr::Num(0.0)) => Expr::Num(0.0),
@@ -4971,7 +7166,8 @@ fn simplify(e: Expr) -> Expr {
             }
         }
         Expr::Div(a, b) => {
-            let a = simplify(*a); let b = simplify(*b);
+            let a = simplify(*a);
+            let b = simplify(*b);
             match (&a, &b) {
                 (_, Expr::Num(1.0)) => a,
                 (Expr::Num(x), Expr::Num(y)) if *y != 0.0 => Expr::Num(x / y),
@@ -4979,7 +7175,8 @@ fn simplify(e: Expr) -> Expr {
             }
         }
         Expr::Pow(a, b) => {
-            let a = simplify(*a); let b = simplify(*b);
+            let a = simplify(*a);
+            let b = simplify(*b);
             match (&a, &b) {
                 (_, Expr::Num(0.0)) => Expr::Num(1.0),
                 (_, Expr::Num(1.0)) => a,
@@ -4996,23 +7193,44 @@ fn simplify(e: Expr) -> Expr {
                 _ => Expr::Neg(Box::new(a)),
             }
         }
-        Expr::Sin(a) => { let a = simplify(*a); Expr::Sin(Box::new(a)) }
-        Expr::Cos(a) => { let a = simplify(*a); Expr::Cos(Box::new(a)) }
-        Expr::Tan(a) => { let a = simplify(*a); Expr::Tan(Box::new(a)) }
-        Expr::Ln(a)  => {
+        Expr::Sin(a) => {
             let a = simplify(*a);
-            if let Expr::Num(n) = &a { if (*n - std::f64::consts::E).abs() < 1e-12 { return Expr::Num(1.0); } }
+            Expr::Sin(Box::new(a))
+        }
+        Expr::Cos(a) => {
+            let a = simplify(*a);
+            Expr::Cos(Box::new(a))
+        }
+        Expr::Tan(a) => {
+            let a = simplify(*a);
+            Expr::Tan(Box::new(a))
+        }
+        Expr::Ln(a) => {
+            let a = simplify(*a);
+            if let Expr::Num(n) = &a {
+                if (*n - std::f64::consts::E).abs() < 1e-12 {
+                    return Expr::Num(1.0);
+                }
+            }
             Expr::Ln(Box::new(a))
         }
         Expr::Exp(a) => {
             let a = simplify(*a);
-            if let Expr::Num(n) = &a { return Expr::Num(n.exp()); }
-            if let Expr::Num(0.0) = &a { return Expr::Num(1.0); }
+            if let Expr::Num(n) = &a {
+                return Expr::Num(n.exp());
+            }
+            if let Expr::Num(0.0) = &a {
+                return Expr::Num(1.0);
+            }
             Expr::Exp(Box::new(a))
         }
         Expr::Sqrt(a) => {
             let a = simplify(*a);
-            if let Expr::Num(n) = &a { if *n >= 0.0 { return Expr::Num(n.sqrt()); } }
+            if let Expr::Num(n) = &a {
+                if *n >= 0.0 {
+                    return Expr::Num(n.sqrt());
+                }
+            }
             Expr::Sqrt(Box::new(a))
         }
         other => other,
@@ -5024,7 +7242,13 @@ fn simplify(e: Expr) -> Expr {
 fn diff(e: &Expr, var: &str) -> Expr {
     match e {
         Expr::Num(_) => Expr::Num(0.0),
-        Expr::Var(v) => if v == var { Expr::Num(1.0) } else { Expr::Num(0.0) },
+        Expr::Var(v) => {
+            if v == var {
+                Expr::Num(1.0)
+            } else {
+                Expr::Num(0.0)
+            }
+        }
         Expr::Add(a, b) => simplify(Expr::Add(Box::new(diff(a, var)), Box::new(diff(b, var)))),
         Expr::Sub(a, b) => simplify(Expr::Sub(Box::new(diff(a, var)), Box::new(diff(b, var)))),
         Expr::Mul(a, b) => {
@@ -5037,40 +7261,40 @@ fn diff(e: &Expr, var: &str) -> Expr {
             // quotient rule: (f'g - fg') / g^2
             let fp_g = Expr::Mul(Box::new(diff(a, var)), Box::new(*b.clone()));
             let f_gp = Expr::Mul(Box::new(*a.clone()), Box::new(diff(b, var)));
-            let num  = Expr::Sub(Box::new(fp_g), Box::new(f_gp));
-            let den  = Expr::Pow(Box::new(*b.clone()), Box::new(Expr::Num(2.0)));
+            let num = Expr::Sub(Box::new(fp_g), Box::new(f_gp));
+            let den = Expr::Pow(Box::new(*b.clone()), Box::new(Expr::Num(2.0)));
             simplify(Expr::Div(Box::new(num), Box::new(den)))
         }
         Expr::Pow(base, exp) => {
             // If exp is a constant: power rule n*x^(n-1) * base'
             if let Expr::Num(n) = exp.as_ref() {
                 let new_exp = Expr::Num(n - 1.0);
-                let power   = Expr::Pow(Box::new(*base.clone()), Box::new(new_exp));
-                let coeff   = Expr::Mul(Box::new(Expr::Num(*n)), Box::new(power));
-                let chain   = diff(base, var);
+                let power = Expr::Pow(Box::new(*base.clone()), Box::new(new_exp));
+                let coeff = Expr::Mul(Box::new(Expr::Num(*n)), Box::new(power));
+                let chain = diff(base, var);
                 return simplify(Expr::Mul(Box::new(coeff), Box::new(chain)));
             }
             // General: e^(exp * ln(base)) rule: f^g * (g' ln f + g f'/f)
             let ln_base = Expr::Ln(Box::new(*base.clone()));
-            let g_ln_f  = Expr::Mul(Box::new(*exp.clone()), Box::new(ln_base));
+            let g_ln_f = Expr::Mul(Box::new(*exp.clone()), Box::new(ln_base));
             let g_ln_f_d = diff(&g_ln_f, var);
-            let result  = Expr::Mul(Box::new(e.clone()), Box::new(g_ln_f_d));
+            let result = Expr::Mul(Box::new(e.clone()), Box::new(g_ln_f_d));
             simplify(result)
         }
         Expr::Neg(a) => simplify(Expr::Neg(Box::new(diff(a, var)))),
-        Expr::Sin(a)  => {
+        Expr::Sin(a) => {
             let cos_a = Expr::Cos(Box::new(*a.clone()));
             simplify(Expr::Mul(Box::new(cos_a), Box::new(diff(a, var))))
         }
-        Expr::Cos(a)  => {
+        Expr::Cos(a) => {
             let neg_sin = Expr::Neg(Box::new(Expr::Sin(Box::new(*a.clone()))));
             simplify(Expr::Mul(Box::new(neg_sin), Box::new(diff(a, var))))
         }
-        Expr::Tan(a)  => {
+        Expr::Tan(a) => {
             // sec^2(a) * a' = 1/cos^2(a) * a'
             let cos_a = Expr::Cos(Box::new(*a.clone()));
-            let cos2  = Expr::Pow(Box::new(cos_a), Box::new(Expr::Num(2.0)));
-            let sec2  = Expr::Div(Box::new(Expr::Num(1.0)), Box::new(cos2));
+            let cos2 = Expr::Pow(Box::new(cos_a), Box::new(Expr::Num(2.0)));
+            let sec2 = Expr::Div(Box::new(Expr::Num(1.0)), Box::new(cos2));
             simplify(Expr::Mul(Box::new(sec2), Box::new(diff(a, var))))
         }
         Expr::Ln(a) => {
@@ -5084,13 +7308,19 @@ fn diff(e: &Expr, var: &str) -> Expr {
         }
         Expr::Sqrt(a) => {
             // 1/(2*sqrt(a)) * a'
-            let two_sqrt = Expr::Mul(Box::new(Expr::Num(2.0)), Box::new(Expr::Sqrt(Box::new(*a.clone()))));
-            let inv      = Expr::Div(Box::new(Expr::Num(1.0)), Box::new(two_sqrt));
+            let two_sqrt = Expr::Mul(
+                Box::new(Expr::Num(2.0)),
+                Box::new(Expr::Sqrt(Box::new(*a.clone()))),
+            );
+            let inv = Expr::Div(Box::new(Expr::Num(1.0)), Box::new(two_sqrt));
             simplify(Expr::Mul(Box::new(inv), Box::new(diff(a, var))))
         }
-        Expr::Abs(a)  => {
+        Expr::Abs(a) => {
             // d/dx |a| = a/|a| * a'  (sign(a) * a')
-            let sign = Expr::Div(Box::new(*a.clone()), Box::new(Expr::Abs(Box::new(*a.clone()))));
+            let sign = Expr::Div(
+                Box::new(*a.clone()),
+                Box::new(Expr::Abs(Box::new(*a.clone()))),
+            );
             simplify(Expr::Mul(Box::new(sign), Box::new(diff(a, var))))
         }
     }
@@ -5104,18 +7334,27 @@ fn integrate(e: &Expr, var: &str) -> Option<Expr> {
     match e {
         Expr::Num(n) => {
             // ∫ n dx = n*x
-            Some(Expr::Mul(Box::new(Expr::Num(*n)), Box::new(Expr::Var(var.to_string()))))
+            Some(Expr::Mul(
+                Box::new(Expr::Num(*n)),
+                Box::new(Expr::Var(var.to_string())),
+            ))
         }
         Expr::Var(v) => {
             if v == var {
                 // ∫ x dx = x^2/2
                 Some(Expr::Div(
-                    Box::new(Expr::Pow(Box::new(Expr::Var(v.clone())), Box::new(Expr::Num(2.0)))),
+                    Box::new(Expr::Pow(
+                        Box::new(Expr::Var(v.clone())),
+                        Box::new(Expr::Num(2.0)),
+                    )),
                     Box::new(Expr::Num(2.0)),
                 ))
             } else {
                 // ∫ c dx where c is another variable treated as constant
-                Some(Expr::Mul(Box::new(Expr::Var(v.clone())), Box::new(Expr::Var(var.to_string()))))
+                Some(Expr::Mul(
+                    Box::new(Expr::Var(v.clone())),
+                    Box::new(Expr::Var(var.to_string())),
+                ))
             }
         }
         Expr::Add(a, b) => {
@@ -5150,11 +7389,14 @@ fn integrate(e: &Expr, var: &str) -> Option<Expr> {
                     if let Expr::Num(n) = exp.as_ref() {
                         if (*n + 1.0).abs() < 1e-12 {
                             // ∫ x^-1 = ln|x|
-                            return Some(Expr::Ln(Box::new(Expr::Abs(Box::new(Expr::Var(v.clone()))))));
+                            return Some(Expr::Ln(Box::new(Expr::Abs(Box::new(Expr::Var(
+                                v.clone(),
+                            ))))));
                         }
                         // ∫ x^n = x^(n+1)/(n+1)
                         let new_exp = Expr::Num(n + 1.0);
-                        let pow     = Expr::Pow(Box::new(Expr::Var(v.clone())), Box::new(new_exp.clone()));
+                        let pow =
+                            Expr::Pow(Box::new(Expr::Var(v.clone())), Box::new(new_exp.clone()));
                         return Some(simplify(Expr::Div(Box::new(pow), Box::new(new_exp))));
                     }
                 }
@@ -5170,8 +7412,11 @@ fn integrate(e: &Expr, var: &str) -> Option<Expr> {
             // ∫ sin(n*x) = -cos(n*x)/n
             if let Some((coeff, _inner_var)) = linear_coeff(a, var) {
                 let cos_part = Expr::Cos(Box::new(*a.clone()));
-                let neg_cos  = Expr::Neg(Box::new(cos_part));
-                return Some(simplify(Expr::Div(Box::new(neg_cos), Box::new(Expr::Num(coeff)))));
+                let neg_cos = Expr::Neg(Box::new(cos_part));
+                return Some(simplify(Expr::Div(
+                    Box::new(neg_cos),
+                    Box::new(Expr::Num(coeff)),
+                )));
             }
             None
         }
@@ -5183,7 +7428,10 @@ fn integrate(e: &Expr, var: &str) -> Option<Expr> {
             }
             if let Some((coeff, _)) = linear_coeff(a, var) {
                 let sin_part = Expr::Sin(Box::new(*a.clone()));
-                return Some(simplify(Expr::Div(Box::new(sin_part), Box::new(Expr::Num(coeff)))));
+                return Some(simplify(Expr::Div(
+                    Box::new(sin_part),
+                    Box::new(Expr::Num(coeff)),
+                )));
             }
             None
         }
@@ -5194,7 +7442,10 @@ fn integrate(e: &Expr, var: &str) -> Option<Expr> {
                 }
             }
             if let Some((coeff, _)) = linear_coeff(a, var) {
-                return Some(simplify(Expr::Div(Box::new(e.clone()), Box::new(Expr::Num(coeff)))));
+                return Some(simplify(Expr::Div(
+                    Box::new(e.clone()),
+                    Box::new(Expr::Num(coeff)),
+                )));
             }
             None
         }
@@ -5203,7 +7454,10 @@ fn integrate(e: &Expr, var: &str) -> Option<Expr> {
                 if v == var {
                     // ∫ ln(x) = x*ln(x) - x
                     let x_ln_x = Expr::Mul(Box::new(Expr::Var(v.clone())), Box::new(e.clone()));
-                    return Some(simplify(Expr::Sub(Box::new(x_ln_x), Box::new(Expr::Var(v.clone())))));
+                    return Some(simplify(Expr::Sub(
+                        Box::new(x_ln_x),
+                        Box::new(Expr::Var(v.clone())),
+                    )));
                 }
             }
             None
@@ -5212,7 +7466,9 @@ fn integrate(e: &Expr, var: &str) -> Option<Expr> {
             // ∫ 1/x = ln|x|
             if let (Expr::Num(1.0), Expr::Var(v)) = (a.as_ref(), b.as_ref()) {
                 if v == var {
-                    return Some(Expr::Ln(Box::new(Expr::Abs(Box::new(Expr::Var(v.clone()))))));
+                    return Some(Expr::Ln(Box::new(Expr::Abs(Box::new(Expr::Var(
+                        v.clone(),
+                    ))))));
                 }
             }
             // ∫ c/x = c*ln|x|
@@ -5233,10 +7489,14 @@ fn linear_coeff<'a>(e: &'a Expr, var: &'a str) -> Option<(f64, &'a str)> {
     match e {
         Expr::Mul(a, b) => {
             if let (Expr::Num(c), Expr::Var(v)) = (a.as_ref(), b.as_ref()) {
-                if v == var { return Some((*c, var)); }
+                if v == var {
+                    return Some((*c, var));
+                }
             }
             if let (Expr::Var(v), Expr::Num(c)) = (a.as_ref(), b.as_ref()) {
-                if v == var { return Some((*c, var)); }
+                if v == var {
+                    return Some((*c, var));
+                }
             }
             None
         }
@@ -5248,10 +7508,17 @@ fn contains_var(e: &Expr, var: &str) -> bool {
     match e {
         Expr::Var(v) => v == var,
         Expr::Num(_) => false,
-        Expr::Add(a,b)|Expr::Sub(a,b)|Expr::Mul(a,b)|Expr::Div(a,b)|Expr::Pow(a,b) =>
-            contains_var(a,var) || contains_var(b,var),
-        Expr::Neg(a)|Expr::Sin(a)|Expr::Cos(a)|Expr::Tan(a)|Expr::Ln(a)|Expr::Exp(a)|Expr::Sqrt(a)|Expr::Abs(a) =>
-            contains_var(a, var),
+        Expr::Add(a, b) | Expr::Sub(a, b) | Expr::Mul(a, b) | Expr::Div(a, b) | Expr::Pow(a, b) => {
+            contains_var(a, var) || contains_var(b, var)
+        }
+        Expr::Neg(a)
+        | Expr::Sin(a)
+        | Expr::Cos(a)
+        | Expr::Tan(a)
+        | Expr::Ln(a)
+        | Expr::Exp(a)
+        | Expr::Sqrt(a)
+        | Expr::Abs(a) => contains_var(a, var),
     }
 }
 
@@ -5260,24 +7527,32 @@ fn contains_var(e: &Expr, var: &str) -> bool {
 fn eval_expr(e: &Expr, var: &str, val: f64) -> Result<f64, String> {
     match e {
         Expr::Num(n) => Ok(*n),
-        Expr::Var(v) => if v == var { Ok(val) } else { Err(format!("unbound variable: {}", v)) },
-        Expr::Add(a,b) => Ok(eval_expr(a,var,val)? + eval_expr(b,var,val)?),
-        Expr::Sub(a,b) => Ok(eval_expr(a,var,val)? - eval_expr(b,var,val)?),
-        Expr::Mul(a,b) => Ok(eval_expr(a,var,val)? * eval_expr(b,var,val)?),
-        Expr::Div(a,b) => {
-            let d = eval_expr(b,var,val)?;
-            if d.abs() < 1e-300 { return Err("division by zero".into()); }
-            Ok(eval_expr(a,var,val)? / d)
+        Expr::Var(v) => {
+            if v == var {
+                Ok(val)
+            } else {
+                Err(format!("unbound variable: {}", v))
+            }
         }
-        Expr::Pow(a,b) => Ok(eval_expr(a,var,val)?.powf(eval_expr(b,var,val)?)),
-        Expr::Neg(a)   => Ok(-eval_expr(a,var,val)?),
-        Expr::Sin(a)   => Ok(eval_expr(a,var,val)?.sin()),
-        Expr::Cos(a)   => Ok(eval_expr(a,var,val)?.cos()),
-        Expr::Tan(a)   => Ok(eval_expr(a,var,val)?.tan()),
-        Expr::Ln(a)    => Ok(eval_expr(a,var,val)?.ln()),
-        Expr::Exp(a)   => Ok(eval_expr(a,var,val)?.exp()),
-        Expr::Sqrt(a)  => Ok(eval_expr(a,var,val)?.sqrt()),
-        Expr::Abs(a)   => Ok(eval_expr(a,var,val)?.abs()),
+        Expr::Add(a, b) => Ok(eval_expr(a, var, val)? + eval_expr(b, var, val)?),
+        Expr::Sub(a, b) => Ok(eval_expr(a, var, val)? - eval_expr(b, var, val)?),
+        Expr::Mul(a, b) => Ok(eval_expr(a, var, val)? * eval_expr(b, var, val)?),
+        Expr::Div(a, b) => {
+            let d = eval_expr(b, var, val)?;
+            if d.abs() < 1e-300 {
+                return Err("division by zero".into());
+            }
+            Ok(eval_expr(a, var, val)? / d)
+        }
+        Expr::Pow(a, b) => Ok(eval_expr(a, var, val)?.powf(eval_expr(b, var, val)?)),
+        Expr::Neg(a) => Ok(-eval_expr(a, var, val)?),
+        Expr::Sin(a) => Ok(eval_expr(a, var, val)?.sin()),
+        Expr::Cos(a) => Ok(eval_expr(a, var, val)?.cos()),
+        Expr::Tan(a) => Ok(eval_expr(a, var, val)?.tan()),
+        Expr::Ln(a) => Ok(eval_expr(a, var, val)?.ln()),
+        Expr::Exp(a) => Ok(eval_expr(a, var, val)?.exp()),
+        Expr::Sqrt(a) => Ok(eval_expr(a, var, val)?.sqrt()),
+        Expr::Abs(a) => Ok(eval_expr(a, var, val)?.abs()),
     }
 }
 
@@ -5288,7 +7563,7 @@ pub fn symbolic_calc(query: &str) -> String {
 
     // Parse optional "wrt VAR" suffix
     let (q_body, var) = if let Some(pos) = q.to_lowercase().rfind(" wrt ") {
-        let v = q[pos+5..].trim().to_string();
+        let v = q[pos + 5..].trim().to_string();
         (q[..pos].trim(), v)
     } else {
         (q, "x".to_string())
@@ -5297,7 +7572,11 @@ pub fn symbolic_calc(query: &str) -> String {
     // Parse mode
     let (mode, expr_str) = {
         let low = q_body.to_lowercase();
-        if low.starts_with("diff ") || low.starts_with("differentiate ") || low.starts_with("d/dx ") || low.starts_with("d/d") {
+        if low.starts_with("diff ")
+            || low.starts_with("differentiate ")
+            || low.starts_with("d/dx ")
+            || low.starts_with("d/d")
+        {
             // d/dy expr — extract var from d/dy if present
             let (m, rest, var_from_mode) = if low.starts_with("d/d") {
                 let after = &q_body[3..];
@@ -5306,16 +7585,29 @@ pub fn symbolic_calc(query: &str) -> String {
                 let rest = after[sp..].trim();
                 ("diff", rest, Some(v))
             } else {
-                let rest = q_body.splitn(2, char::is_whitespace).nth(1).unwrap_or("").trim();
+                let rest = q_body
+                    .split_once(char::is_whitespace)
+                    .map(|x| x.1)
+                    .unwrap_or("")
+                    .trim();
                 ("diff", rest, None)
             };
             let var2 = var_from_mode.unwrap_or_else(|| var.clone());
             (m, (rest.to_string(), var2))
-        } else if low.starts_with("int ") || low.starts_with("integrate ") || low.starts_with("∫") {
-            let rest = q_body.splitn(2, char::is_whitespace).nth(1).unwrap_or("").trim();
+        } else if low.starts_with("int ") || low.starts_with("integrate ") || low.starts_with("∫")
+        {
+            let rest = q_body
+                .split_once(char::is_whitespace)
+                .map(|x| x.1)
+                .unwrap_or("")
+                .trim();
             ("integrate", (rest.to_string(), var.clone()))
         } else if low.starts_with("simplify ") || low.starts_with("simplify") {
-            let rest = q_body.splitn(2, char::is_whitespace).nth(1).unwrap_or("").trim();
+            let rest = q_body
+                .split_once(char::is_whitespace)
+                .map(|x| x.1)
+                .unwrap_or("")
+                .trim();
             ("simplify", (rest.to_string(), var.clone()))
         } else if low.contains(" at ") {
             ("eval", (q_body.to_string(), var.clone()))
@@ -5327,7 +7619,11 @@ pub fn symbolic_calc(query: &str) -> String {
 
     let (expr_text, var_name) = expr_str;
     let var_name = var_name.trim().to_string();
-    let var_name = if var_name.is_empty() { "x".to_string() } else { var_name };
+    let var_name = if var_name.is_empty() {
+        "x".to_string()
+    } else {
+        var_name
+    };
 
     let mut out = String::new();
     let w = 64usize;
@@ -5344,22 +7640,32 @@ pub fn symbolic_calc(query: &str) -> String {
         let e_str = parts[0].trim();
         let at_str = parts[1].trim();
         let (av, val_str) = if let Some(eq) = at_str.find('=') {
-            (&at_str[..eq], &at_str[eq+1..])
+            (&at_str[..eq], &at_str[eq + 1..])
         } else {
             (&var_name[..], at_str)
         };
         let val: f64 = match val_str.trim().parse() {
-            Ok(v) => v, Err(_) => { let _ = writeln!(out, "  Error: bad value '{}'", val_str); return out; }
+            Ok(v) => v,
+            Err(_) => {
+                let _ = writeln!(out, "  Error: bad value '{}'", val_str);
+                return out;
+            }
         };
         match parse_sym(e_str) {
             Ok(expr) => {
                 let _ = writeln!(out, "  f({}) = {}", av, fmt_expr(&expr));
                 match eval_expr(&expr, av.trim(), val) {
-                    Ok(result) => { let _ = writeln!(out, "  f({} = {}) = {}", av.trim(), val, result); }
-                    Err(e) => { let _ = writeln!(out, "  Eval error: {}", e); }
+                    Ok(result) => {
+                        let _ = writeln!(out, "  f({} = {}) = {}", av.trim(), val, result);
+                    }
+                    Err(e) => {
+                        let _ = writeln!(out, "  Eval error: {}", e);
+                    }
                 }
             }
-            Err(e) => { let _ = writeln!(out, "  Parse error: {}", e); }
+            Err(e) => {
+                let _ = writeln!(out, "  Parse error: {}", e);
+            }
         }
         let _ = writeln!(out, "{}", "=".repeat(w));
         return out;
@@ -5384,7 +7690,10 @@ pub fn symbolic_calc(query: &str) -> String {
                     // Spot-check with numeric diff at x=1.5
                     let h = 1e-6f64;
                     let x0 = 1.5f64;
-                    if let (Ok(fp), Ok(fm)) = (eval_expr(&simplified, &var_name, x0+h), eval_expr(&simplified, &var_name, x0-h)) {
+                    if let (Ok(fp), Ok(fm)) = (
+                        eval_expr(&simplified, &var_name, x0 + h),
+                        eval_expr(&simplified, &var_name, x0 - h),
+                    ) {
                         let numeric = (fp - fm) / (2.0 * h);
                         if let Ok(symbolic_val) = eval_expr(&d_simp, &var_name, x0) {
                             let err = (symbolic_val - numeric).abs();
@@ -5403,24 +7712,36 @@ pub fn symbolic_calc(query: &str) -> String {
                             let _ = writeln!(out, "  ∫f d{} = {} + C", var_name, fmt_expr(&i_simp));
                             // Verify by differentiating the result
                             let check = simplify(diff(&i_simp, &var_name));
-                            let orig  = fmt_expr(&simplified);
-                            let back  = fmt_expr(&check);
+                            let orig = fmt_expr(&simplified);
+                            let back = fmt_expr(&check);
                             if orig == back {
-                                let _ = writeln!(out, "  ✓ Verified: d/d{} of integral = f", var_name);
+                                let _ =
+                                    writeln!(out, "  ✓ Verified: d/d{} of integral = f", var_name);
                             } else {
                                 // Numeric check at a sample point
                                 let x0 = 1.5f64;
-                                if let (Ok(v1), Ok(v2)) = (eval_expr(&simplified, &var_name, x0), eval_expr(&check, &var_name, x0)) {
+                                if let (Ok(v1), Ok(v2)) = (
+                                    eval_expr(&simplified, &var_name, x0),
+                                    eval_expr(&check, &var_name, x0),
+                                ) {
                                     if (v1 - v2).abs() < 1e-6 {
                                         let _ = writeln!(out, "  ✓ Numerically verified: d/d{}(integral) = f at {}={}", var_name, var_name, x0);
                                     } else {
-                                        let _ = writeln!(out, "  ⚠ Verification: d/d{}(integral) = {} (expected {})", var_name, back, orig);
+                                        let _ = writeln!(
+                                            out,
+                                            "  ⚠ Verification: d/d{}(integral) = {} (expected {})",
+                                            var_name, back, orig
+                                        );
                                     }
                                 }
                             }
                         }
                         None => {
-                            let _ = writeln!(out, "  ∫f d{} = (not in table — try --simulate or a CAS)", var_name);
+                            let _ = writeln!(
+                                out,
+                                "  ∫f d{} = (not in table — try --simulate or a CAS)",
+                                var_name
+                            );
                         }
                     }
                 }
@@ -5446,7 +7767,8 @@ fn symbolic_usage() -> String {
      hematite --symbolic 'integrate sin(x) + 3*x^2' linearity\n\
      hematite --symbolic 'simplify (x+1)*(x+1)'      simplify\n\
      hematite --symbolic 'x^2 + 2*x at x=3'          numeric eval\n\
-     Supported: + - * / ^ sin cos tan ln exp sqrt abs".into()
+     Supported: + - * / ^ sin cos tan ln exp sqrt abs"
+        .into()
 }
 
 // ── Signal processing (DSP) ───────────────────────────────────────────────────
@@ -5458,90 +7780,124 @@ use std::f64::consts::PI;
 
 fn dft(signal: &[f64]) -> Vec<(f64, f64)> {
     let n = signal.len();
-    (0..n).map(|k| {
-        let (mut re, mut im) = (0.0_f64, 0.0_f64);
-        for (t, &x) in signal.iter().enumerate() {
-            let angle = -2.0 * PI * (k * t) as f64 / n as f64;
-            re += x * angle.cos();
-            im += x * angle.sin();
-        }
-        (re, im)
-    }).collect()
+    (0..n)
+        .map(|k| {
+            let (mut re, mut im) = (0.0_f64, 0.0_f64);
+            for (t, &x) in signal.iter().enumerate() {
+                let angle = -2.0 * PI * (k * t) as f64 / n as f64;
+                re += x * angle.cos();
+                im += x * angle.sin();
+            }
+            (re, im)
+        })
+        .collect()
 }
 
 fn idft(spectrum: &[(f64, f64)]) -> Vec<f64> {
     let n = spectrum.len();
-    (0..n).map(|t| {
-        let mut val = 0.0_f64;
-        for (k, &(re, im)) in spectrum.iter().enumerate() {
-            let angle = 2.0 * PI * (k * t) as f64 / n as f64;
-            val += re * angle.cos() - im * angle.sin();
-        }
-        val / n as f64
-    }).collect()
+    (0..n)
+        .map(|t| {
+            let mut val = 0.0_f64;
+            for (k, &(re, im)) in spectrum.iter().enumerate() {
+                let angle = 2.0 * PI * (k * t) as f64 / n as f64;
+                val += re * angle.cos() - im * angle.sin();
+            }
+            val / n as f64
+        })
+        .collect()
 }
 
 fn convolve(x: &[f64], h: &[f64]) -> Vec<f64> {
     let n = x.len() + h.len() - 1;
-    (0..n).map(|i| {
-        let mut s = 0.0_f64;
-        for (j, &hv) in h.iter().enumerate() {
-            if i >= j && i - j < x.len() { s += x[i - j] * hv; }
-        }
-        s
-    }).collect()
+    (0..n)
+        .map(|i| {
+            let mut s = 0.0_f64;
+            for (j, &hv) in h.iter().enumerate() {
+                if i >= j && i - j < x.len() {
+                    s += x[i - j] * hv;
+                }
+            }
+            s
+        })
+        .collect()
 }
 
 fn xcorr(x: &[f64], y: &[f64]) -> Vec<f64> {
-    let n = x.len(); let m = y.len();
+    let n = x.len();
+    let m = y.len();
     let out_len = n + m - 1;
-    (0..out_len).map(|lag| {
-        let lag_i = lag as isize - (m as isize - 1);
-        let mut s = 0.0_f64;
-        for (i, &xv) in x.iter().enumerate() {
-            let j = i as isize - lag_i;
-            if j >= 0 && j < m as isize { s += xv * y[j as usize]; }
-        }
-        s
-    }).collect()
+    (0..out_len)
+        .map(|lag| {
+            let lag_i = lag as isize - (m as isize - 1);
+            let mut s = 0.0_f64;
+            for (i, &xv) in x.iter().enumerate() {
+                let j = i as isize - lag_i;
+                if j >= 0 && j < m as isize {
+                    s += xv * y[j as usize];
+                }
+            }
+            s
+        })
+        .collect()
 }
 
 fn moving_avg(signal: &[f64], window: usize) -> Vec<f64> {
     let w = window.max(1);
-    signal.windows(w).map(|s| s.iter().sum::<f64>() / w as f64).collect()
+    signal
+        .windows(w)
+        .map(|s| s.iter().sum::<f64>() / w as f64)
+        .collect()
 }
 
 fn hann_window(n: usize) -> Vec<f64> {
-    (0..n).map(|i| 0.5 * (1.0 - (2.0 * PI * i as f64 / (n - 1) as f64).cos())).collect()
+    (0..n)
+        .map(|i| 0.5 * (1.0 - (2.0 * PI * i as f64 / (n - 1) as f64).cos()))
+        .collect()
 }
 
 fn hamming_window(n: usize) -> Vec<f64> {
-    (0..n).map(|i| 0.54 - 0.46 * (2.0 * PI * i as f64 / (n - 1) as f64).cos()).collect()
+    (0..n)
+        .map(|i| 0.54 - 0.46 * (2.0 * PI * i as f64 / (n - 1) as f64).cos())
+        .collect()
 }
 
 fn blackman_window(n: usize) -> Vec<f64> {
-    (0..n).map(|i| {
-        let a = 2.0 * PI * i as f64 / (n - 1) as f64;
-        0.42 - 0.5 * a.cos() + 0.08 * (2.0 * a).cos()
-    }).collect()
+    (0..n)
+        .map(|i| {
+            let a = 2.0 * PI * i as f64 / (n - 1) as f64;
+            0.42 - 0.5 * a.cos() + 0.08 * (2.0 * a).cos()
+        })
+        .collect()
 }
 
-fn sinc(x: f64) -> f64 { if x == 0.0 { 1.0 } else { (PI * x).sin() / (PI * x) } }
+fn sinc(x: f64) -> f64 {
+    if x == 0.0 {
+        1.0
+    } else {
+        (PI * x).sin() / (PI * x)
+    }
+}
 
 fn fir_lowpass(n_taps: usize, cutoff_norm: f64, window: &str) -> Vec<f64> {
     let m = n_taps - 1;
     let wins: Vec<f64> = match window {
         "hann" | "hanning" => hann_window(n_taps),
-        "hamming"          => hamming_window(n_taps),
-        "blackman"         => blackman_window(n_taps),
-        _                  => vec![1.0; n_taps],
+        "hamming" => hamming_window(n_taps),
+        "blackman" => blackman_window(n_taps),
+        _ => vec![1.0; n_taps],
     };
-    let mut h: Vec<f64> = (0..n_taps).map(|i| {
-        let n = i as f64 - m as f64 / 2.0;
-        2.0 * cutoff_norm * sinc(2.0 * cutoff_norm * n) * wins[i]
-    }).collect();
+    let mut h: Vec<f64> = (0..n_taps)
+        .map(|i| {
+            let n = i as f64 - m as f64 / 2.0;
+            2.0 * cutoff_norm * sinc(2.0 * cutoff_norm * n) * wins[i]
+        })
+        .collect();
     let sum: f64 = h.iter().sum();
-    if sum.abs() > 1e-12 { for v in &mut h { *v /= sum; } }
+    if sum.abs() > 1e-12 {
+        for v in &mut h {
+            *v /= sum;
+        }
+    }
     h
 }
 
@@ -5554,10 +7910,15 @@ fn fir_highpass(n_taps: usize, cutoff_norm: f64, window: &str) -> Vec<f64> {
 }
 
 fn parse_signal(s: &str) -> Option<Vec<f64>> {
-    let v: Vec<f64> = s.split([',', ' ', '\t', ';'].as_ref())
+    let v: Vec<f64> = s
+        .split([',', ' ', '\t', ';'].as_ref())
         .filter_map(|t| t.trim().parse::<f64>().ok())
         .collect();
-    if v.is_empty() { None } else { Some(v) }
+    if v.is_empty() {
+        None
+    } else {
+        Some(v)
+    }
 }
 
 fn signal_stats(sig: &[f64]) -> (f64, f64, f64, f64) {
@@ -5570,22 +7931,29 @@ fn signal_stats(sig: &[f64]) -> (f64, f64, f64, f64) {
 }
 
 fn ascii_waveform(sig: &[f64], width: usize, height: usize) -> String {
-    if sig.is_empty() { return String::new(); }
+    if sig.is_empty() {
+        return String::new();
+    }
     let mn = sig.iter().cloned().fold(f64::INFINITY, f64::min);
     let mx = sig.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
     let range = (mx - mn).max(1e-12);
     let step = sig.len().max(1) as f64 / width as f64;
-    let samples: Vec<f64> = (0..width).map(|col| {
-        let idx = ((col as f64 * step) as usize).min(sig.len() - 1);
-        sig[idx]
-    }).collect();
+    let samples: Vec<f64> = (0..width)
+        .map(|col| {
+            let idx = ((col as f64 * step) as usize).min(sig.len() - 1);
+            sig[idx]
+        })
+        .collect();
     let mut rows = vec![vec![' '; width]; height];
     for (col, &val) in samples.iter().enumerate() {
         let row = height - 1 - ((val - mn) / range * (height - 1) as f64).round() as usize;
         let row = row.min(height - 1);
         rows[row][col] = '█';
     }
-    rows.iter().map(|r| r.iter().collect::<String>()).collect::<Vec<_>>().join("\n")
+    rows.iter()
+        .map(|r| r.iter().collect::<String>())
+        .collect::<Vec<_>>()
+        .join("\n")
 }
 
 pub fn signal_calc(query: &str) -> String {
@@ -5603,31 +7971,48 @@ pub fn signal_calc(query: &str) -> String {
     if lower.starts_with("dft ") || lower.starts_with("fft ") {
         let rest = q[4..].trim();
         match parse_signal(rest) {
-            None => { let _ = writeln!(out, "  ERROR: no numeric values found."); }
+            None => {
+                let _ = writeln!(out, "  ERROR: no numeric values found.");
+            }
             Some(sig) => {
                 let n = sig.len();
                 let spectrum = dft(&sig);
                 let (mean, rms, mn, mx) = signal_stats(&sig);
                 let _ = writeln!(out, "  DFT of {}-point signal", n);
-                let _ = writeln!(out, "  mean={:.4}  RMS={:.4}  min={:.4}  max={:.4}", mean, rms, mn, mx);
-                let _ = writeln!(out, "");
-                let _ = writeln!(out, "  {:>5}  {:>10}  {:>10}  {:>10}  {:>10}", "Bin", "Re", "Im", "Magnitude", "Phase°");
+                let _ = writeln!(
+                    out,
+                    "  mean={:.4}  RMS={:.4}  min={:.4}  max={:.4}",
+                    mean, rms, mn, mx
+                );
+                let _ = writeln!(out);
+                let _ = writeln!(
+                    out,
+                    "  {:>5}  {:>10}  {:>10}  {:>10}  {:>10}",
+                    "Bin", "Re", "Im", "Magnitude", "Phase°"
+                );
                 let _ = writeln!(out, "  {}", "-".repeat(52));
                 let show = (n / 2 + 1).min(20);
                 for k in 0..show {
                     let (re, im) = spectrum[k];
                     let mag = (re * re + im * im).sqrt();
                     let phase = im.atan2(re).to_degrees();
-                    let _ = writeln!(out, "  {:>5}  {:>10.4}  {:>10.4}  {:>10.4}  {:>10.2}", k, re, im, mag, phase);
+                    let _ = writeln!(
+                        out,
+                        "  {:>5}  {:>10.4}  {:>10.4}  {:>10.4}  {:>10.2}",
+                        k, re, im, mag, phase
+                    );
                 }
-                if show < n / 2 + 1 { let _ = writeln!(out, "  … ({} bins total)", n / 2 + 1); }
+                if show < n / 2 + 1 {
+                    let _ = writeln!(out, "  … ({} bins total)", n / 2 + 1);
+                }
                 let dc = spectrum[0].0 / n as f64;
-                let _ = writeln!(out, "");
+                let _ = writeln!(out);
                 let _ = writeln!(out, "  DC component: {:.6}", dc);
-                let dominant = spectrum[1..n/2+1].iter().enumerate()
-                    .map(|(i, &(r, im))| (i + 1, (r*r+im*im).sqrt()))
-                    .max_by(|a, b| a.1.partial_cmp(&b.1).unwrap())
-                    .map(|(k, mag)| (k, mag));
+                let dominant = spectrum[1..n / 2 + 1]
+                    .iter()
+                    .enumerate()
+                    .map(|(i, &(r, im))| (i + 1, (r * r + im * im).sqrt()))
+                    .max_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
                 if let Some((k, mag)) = dominant {
                     let _ = writeln!(out, "  Dominant frequency bin: {} (mag={:.4})", k, mag);
                 }
@@ -5638,15 +8023,27 @@ pub fn signal_calc(query: &str) -> String {
     else if lower.starts_with("idft ") {
         let rest = q[5..].trim();
         match parse_signal(rest) {
-            None => { let _ = writeln!(out, "  ERROR: no numeric values found."); }
+            None => {
+                let _ = writeln!(out, "  ERROR: no numeric values found.");
+            }
             Some(vals) => {
                 if vals.len() % 2 != 0 {
-                    let _ = writeln!(out, "  ERROR: IDFT needs even number of values (re,im pairs).");
+                    let _ = writeln!(
+                        out,
+                        "  ERROR: IDFT needs even number of values (re,im pairs)."
+                    );
                 } else {
                     let spectrum: Vec<(f64, f64)> = vals.chunks(2).map(|c| (c[0], c[1])).collect();
                     let sig = idft(&spectrum);
                     let _ = writeln!(out, "  IDFT result ({} samples):", sig.len());
-                    let _ = writeln!(out, "  {:?}", sig.iter().map(|v| format!("{:.6}", v)).collect::<Vec<_>>().join(", "));
+                    let _ = writeln!(
+                        out,
+                        "  {:?}",
+                        sig.iter()
+                            .map(|v| format!("{:.6}", v))
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    );
                 }
             }
         }
@@ -5654,23 +8051,69 @@ pub fn signal_calc(query: &str) -> String {
     // --- CONVOLVE -----------------------------------------------------------
     else if lower.starts_with("conv ") || lower.starts_with("convolve ") {
         let rest = q[q.find(' ').unwrap_or(0)..].trim();
-        if let Some(mid) = rest.find(" ; ").or_else(|| rest.find(" with ")).or_else(|| rest.find(" | ")) {
+        if let Some(mid) = rest
+            .find(" ; ")
+            .or_else(|| rest.find(" with "))
+            .or_else(|| rest.find(" | "))
+        {
             let (a_str, b_str) = rest.split_at(mid);
-            let b_str = b_str.trim_start_matches([' ', ';', '|'].as_ref()).trim_start_matches("with").trim();
+            let b_str = b_str
+                .trim_start_matches([' ', ';', '|'].as_ref())
+                .trim_start_matches("with")
+                .trim();
             match (parse_signal(a_str.trim()), parse_signal(b_str)) {
                 (Some(x), Some(h)) => {
                     let y = convolve(&x, &h);
-                    let _ = writeln!(out, "  Convolution  x[{}] * h[{}] = y[{}]", x.len(), h.len(), y.len());
-                    let _ = writeln!(out, "  x: {}", x.iter().map(|v| format!("{:.4}", v)).collect::<Vec<_>>().join(", "));
-                    let _ = writeln!(out, "  h: {}", h.iter().map(|v| format!("{:.4}", v)).collect::<Vec<_>>().join(", "));
-                    let _ = writeln!(out, "  y: {}", y.iter().map(|v| format!("{:.4}", v)).collect::<Vec<_>>().join(", "));
+                    let _ = writeln!(
+                        out,
+                        "  Convolution  x[{}] * h[{}] = y[{}]",
+                        x.len(),
+                        h.len(),
+                        y.len()
+                    );
+                    let _ = writeln!(
+                        out,
+                        "  x: {}",
+                        x.iter()
+                            .map(|v| format!("{:.4}", v))
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    );
+                    let _ = writeln!(
+                        out,
+                        "  h: {}",
+                        h.iter()
+                            .map(|v| format!("{:.4}", v))
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    );
+                    let _ = writeln!(
+                        out,
+                        "  y: {}",
+                        y.iter()
+                            .map(|v| format!("{:.4}", v))
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    );
                     let (mean, rms, mn, mx) = signal_stats(&y);
-                    let _ = writeln!(out, "  mean={:.4}  RMS={:.4}  min={:.4}  max={:.4}", mean, rms, mn, mx);
+                    let _ = writeln!(
+                        out,
+                        "  mean={:.4}  RMS={:.4}  min={:.4}  max={:.4}",
+                        mean, rms, mn, mx
+                    );
                 }
-                _ => { let _ = writeln!(out, "  ERROR: use  conv  A,B,C ; D,E,F  (separate signals with ;)"); }
+                _ => {
+                    let _ = writeln!(
+                        out,
+                        "  ERROR: use  conv  A,B,C ; D,E,F  (separate signals with ;)"
+                    );
+                }
             }
         } else {
-            let _ = writeln!(out, "  ERROR: use  conv  A,B,C ; D,E,F  (separate signals with ;)");
+            let _ = writeln!(
+                out,
+                "  ERROR: use  conv  A,B,C ; D,E,F  (separate signals with ;)"
+            );
         }
     }
     // --- XCORR --------------------------------------------------------------
@@ -5682,73 +8125,153 @@ pub fn signal_calc(query: &str) -> String {
             match (parse_signal(a_str.trim()), parse_signal(b_str)) {
                 (Some(x), Some(y)) => {
                     let r = xcorr(&x, &y);
-                    let peak_lag = r.iter().enumerate()
+                    let peak_lag = r
+                        .iter()
+                        .enumerate()
                         .max_by(|a, b| a.1.abs().partial_cmp(&b.1.abs()).unwrap())
                         .map(|(i, _)| i as isize - (y.len() as isize - 1));
-                    let _ = writeln!(out, "  Cross-correlation  x[{}] ⋆ y[{}] = r[{}]", x.len(), y.len(), r.len());
-                    let _ = writeln!(out, "  r: {}", r.iter().map(|v| format!("{:.4}", v)).collect::<Vec<_>>().join(", "));
+                    let _ = writeln!(
+                        out,
+                        "  Cross-correlation  x[{}] ⋆ y[{}] = r[{}]",
+                        x.len(),
+                        y.len(),
+                        r.len()
+                    );
+                    let _ = writeln!(
+                        out,
+                        "  r: {}",
+                        r.iter()
+                            .map(|v| format!("{:.4}", v))
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    );
                     if let Some(lag) = peak_lag {
                         let _ = writeln!(out, "  Peak lag: {} samples", lag);
                     }
                 }
-                _ => { let _ = writeln!(out, "  ERROR: use  xcorr  A,B,C ; D,E,F"); }
+                _ => {
+                    let _ = writeln!(out, "  ERROR: use  xcorr  A,B,C ; D,E,F");
+                }
             }
         } else {
             let _ = writeln!(out, "  ERROR: use  xcorr  A,B,C ; D,E,F");
         }
     }
     // --- MOVING AVERAGE -----------------------------------------------------
-    else if lower.starts_with("movavg ") || lower.starts_with("moving-avg ") || lower.starts_with("sma ") {
+    else if lower.starts_with("movavg ")
+        || lower.starts_with("moving-avg ")
+        || lower.starts_with("sma ")
+    {
         let rest = q[q.find(' ').unwrap_or(0)..].trim();
         let parts: Vec<&str> = rest.splitn(2, ' ').collect();
         let window = parts[0].parse::<usize>().unwrap_or(3);
         let data_str = if parts.len() > 1 { parts[1] } else { "" };
         match parse_signal(data_str) {
-            None => { let _ = writeln!(out, "  ERROR: use  movavg WINDOW v1,v2,..."); }
+            None => {
+                let _ = writeln!(out, "  ERROR: use  movavg WINDOW v1,v2,...");
+            }
             Some(sig) => {
                 let smoothed = moving_avg(&sig, window);
                 let _ = writeln!(out, "  Simple Moving Average  window={}", window);
-                let _ = writeln!(out, "  Input ({} pts): {}", sig.len(), sig.iter().take(8).map(|v| format!("{:.3}", v)).collect::<Vec<_>>().join(", "));
-                let _ = writeln!(out, "  Output ({} pts): {}", smoothed.len(), smoothed.iter().take(8).map(|v| format!("{:.4}", v)).collect::<Vec<_>>().join(", "));
-                if sig.len() > 8 { let _ = writeln!(out, "  (showing first 8 of {} values)", sig.len()); }
+                let _ = writeln!(
+                    out,
+                    "  Input ({} pts): {}",
+                    sig.len(),
+                    sig.iter()
+                        .take(8)
+                        .map(|v| format!("{:.3}", v))
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                );
+                let _ = writeln!(
+                    out,
+                    "  Output ({} pts): {}",
+                    smoothed.len(),
+                    smoothed
+                        .iter()
+                        .take(8)
+                        .map(|v| format!("{:.4}", v))
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                );
+                if sig.len() > 8 {
+                    let _ = writeln!(out, "  (showing first 8 of {} values)", sig.len());
+                }
             }
         }
     }
     // --- FIR LOW-PASS FILTER ------------------------------------------------
-    else if lower.starts_with("fir-lp ") || lower.starts_with("lowpass ") || lower.starts_with("lp ") {
+    else if lower.starts_with("fir-lp ")
+        || lower.starts_with("lowpass ")
+        || lower.starts_with("lp ")
+    {
         let rest = q[q.find(' ').unwrap_or(0)..].trim();
         let parts: Vec<&str> = rest.splitn(3, ' ').collect();
-        let cutoff = parts.get(0).and_then(|s| s.trim_end_matches('%').parse::<f64>().ok()).unwrap_or(0.25) / if rest.contains('%') { 100.0 } else { 1.0 };
-        let n_taps = parts.get(1).and_then(|s| s.parse::<usize>().ok()).unwrap_or(21);
+        let cutoff = parts
+            .first()
+            .and_then(|s| s.trim_end_matches('%').parse::<f64>().ok())
+            .unwrap_or(0.25)
+            / if rest.contains('%') { 100.0 } else { 1.0 };
+        let n_taps = parts
+            .get(1)
+            .and_then(|s| s.parse::<usize>().ok())
+            .unwrap_or(21);
         let window = parts.get(2).map(|s| s.trim()).unwrap_or("hamming");
         let h = fir_lowpass(n_taps, cutoff.min(0.5), window);
         let _ = writeln!(out, "  FIR Low-Pass Filter");
-        let _ = writeln!(out, "  Cutoff: {:.4} (normalized, 0.5 = Nyquist)  Taps: {}  Window: {}", cutoff, n_taps, window);
+        let _ = writeln!(
+            out,
+            "  Cutoff: {:.4} (normalized, 0.5 = Nyquist)  Taps: {}  Window: {}",
+            cutoff, n_taps, window
+        );
         let _ = writeln!(out, "  Coefficients:");
         for (i, c) in h.iter().enumerate() {
             let _ = write!(out, "  h[{:2}]={:>10.6}", i, c);
-            if (i + 1) % 4 == 0 { let _ = writeln!(out, ""); }
+            if (i + 1) % 4 == 0 {
+                let _ = writeln!(out);
+            }
         }
-        let _ = writeln!(out, "");
+        let _ = writeln!(out);
         let sum: f64 = h.iter().sum();
-        let _ = writeln!(out, "  Sum of taps: {:.6}  (DC gain = {:.4} dB)", sum, 20.0 * sum.abs().log10());
+        let _ = writeln!(
+            out,
+            "  Sum of taps: {:.6}  (DC gain = {:.4} dB)",
+            sum,
+            20.0 * sum.abs().log10()
+        );
     }
     // --- FIR HIGH-PASS FILTER -----------------------------------------------
-    else if lower.starts_with("fir-hp ") || lower.starts_with("highpass ") || lower.starts_with("hp ") {
+    else if lower.starts_with("fir-hp ")
+        || lower.starts_with("highpass ")
+        || lower.starts_with("hp ")
+    {
         let rest = q[q.find(' ').unwrap_or(0)..].trim();
         let parts: Vec<&str> = rest.splitn(3, ' ').collect();
-        let cutoff = parts.get(0).and_then(|s| s.trim_end_matches('%').parse::<f64>().ok()).unwrap_or(0.25) / if rest.contains('%') { 100.0 } else { 1.0 };
-        let n_taps = parts.get(1).and_then(|s| s.parse::<usize>().ok()).unwrap_or(21);
+        let cutoff = parts
+            .first()
+            .and_then(|s| s.trim_end_matches('%').parse::<f64>().ok())
+            .unwrap_or(0.25)
+            / if rest.contains('%') { 100.0 } else { 1.0 };
+        let n_taps = parts
+            .get(1)
+            .and_then(|s| s.parse::<usize>().ok())
+            .unwrap_or(21);
         let window = parts.get(2).map(|s| s.trim()).unwrap_or("hamming");
         let h = fir_highpass(n_taps, cutoff.min(0.49), window);
         let _ = writeln!(out, "  FIR High-Pass Filter");
-        let _ = writeln!(out, "  Cutoff: {:.4}  Taps: {}  Window: {}", cutoff, n_taps, window);
+        let _ = writeln!(
+            out,
+            "  Cutoff: {:.4}  Taps: {}  Window: {}",
+            cutoff, n_taps, window
+        );
         let _ = writeln!(out, "  Coefficients:");
         for (i, c) in h.iter().enumerate() {
             let _ = write!(out, "  h[{:2}]={:>10.6}", i, c);
-            if (i + 1) % 4 == 0 { let _ = writeln!(out, ""); }
+            if (i + 1) % 4 == 0 {
+                let _ = writeln!(out);
+            }
         }
-        let _ = writeln!(out, "");
+        let _ = writeln!(out);
     }
     // --- APPLY FILTER -------------------------------------------------------
     else if lower.starts_with("filter ") {
@@ -5759,24 +8282,42 @@ pub fn signal_calc(query: &str) -> String {
             match (parse_signal(a_str.trim()), parse_signal(b_str)) {
                 (Some(h), Some(x)) => {
                     let y = convolve(&x, &h);
-                    let _ = writeln!(out, "  Filter applied  h[{}] * x[{}] = y[{}]", h.len(), x.len(), y.len());
+                    let _ = writeln!(
+                        out,
+                        "  Filter applied  h[{}] * x[{}] = y[{}]",
+                        h.len(),
+                        x.len(),
+                        y.len()
+                    );
                     let (_, rms_x, _, _) = signal_stats(&x);
                     let (_, rms_y, _, _) = signal_stats(&y);
                     let _ = writeln!(out, "  Input  RMS: {:.4}", rms_x);
                     let _ = writeln!(out, "  Output RMS: {:.4}", rms_y);
-                    let _ = writeln!(out, "  y: {}", y.iter().map(|v| format!("{:.4}", v)).collect::<Vec<_>>().join(", "));
+                    let _ = writeln!(
+                        out,
+                        "  y: {}",
+                        y.iter()
+                            .map(|v| format!("{:.4}", v))
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    );
                 }
-                _ => { let _ = writeln!(out, "  ERROR: use  filter h1,h2,... ; x1,x2,..."); }
+                _ => {
+                    let _ = writeln!(out, "  ERROR: use  filter h1,h2,... ; x1,x2,...");
+                }
             }
         } else {
             let _ = writeln!(out, "  ERROR: use  filter h1,h2,... ; x1,x2,...");
         }
     }
     // --- STATS / INFO -------------------------------------------------------
-    else if lower.starts_with("stats ") || lower.starts_with("info ") || lower.starts_with("rms ") {
+    else if lower.starts_with("stats ") || lower.starts_with("info ") || lower.starts_with("rms ")
+    {
         let rest = q[q.find(' ').unwrap_or(0)..].trim();
         match parse_signal(rest) {
-            None => { let _ = writeln!(out, "  ERROR: no numeric values."); }
+            None => {
+                let _ = writeln!(out, "  ERROR: no numeric values.");
+            }
             Some(sig) => {
                 let n = sig.len();
                 let (mean, rms, mn, mx) = signal_stats(&sig);
@@ -5794,63 +8335,119 @@ pub fn signal_calc(query: &str) -> String {
                 let _ = writeln!(out, "  Power:    {:>12.6}", energy / n as f64);
                 if rms > 1e-12 {
                     let crest = mx.abs().max(mn.abs()) / rms;
-                    let _ = writeln!(out, "  Crest:    {:>12.6}  ({:.2} dB)", crest, 20.0 * crest.log10());
+                    let _ = writeln!(
+                        out,
+                        "  Crest:    {:>12.6}  ({:.2} dB)",
+                        crest,
+                        20.0 * crest.log10()
+                    );
                 }
-                let _ = writeln!(out, "");
+                let _ = writeln!(out);
                 let _ = writeln!(out, "  Waveform ({}×8):", sig.len().min(60));
                 let wave = ascii_waveform(&sig, sig.len().min(60), 8);
-                for line in wave.lines() { let _ = writeln!(out, "  |{}|", line); }
+                for line in wave.lines() {
+                    let _ = writeln!(out, "  |{}|", line);
+                }
             }
         }
     }
     // --- WAVEFORM GENERATE --------------------------------------------------
-    else if lower.starts_with("gen ") || lower.starts_with("wave ") || lower.starts_with("generate ") {
+    else if lower.starts_with("gen ")
+        || lower.starts_with("wave ")
+        || lower.starts_with("generate ")
+    {
         let rest = q[q.find(' ').unwrap_or(0)..].trim();
         let parts: Vec<&str> = rest.splitn(4, ' ').collect();
-        let shape = parts.get(0).map(|s| s.to_lowercase()).unwrap_or_else(|| "sine".into());
+        let shape = parts
+            .first()
+            .map(|s| s.to_lowercase())
+            .unwrap_or_else(|| "sine".into());
         let freq: f64 = parts.get(1).and_then(|s| s.parse().ok()).unwrap_or(1.0);
         let n: usize = parts.get(2).and_then(|s| s.parse().ok()).unwrap_or(64);
         let amp: f64 = parts.get(3).and_then(|s| s.parse().ok()).unwrap_or(1.0);
-        let sig: Vec<f64> = (0..n).map(|i| {
-            let t = i as f64 / n as f64;
-            let phase = 2.0 * PI * freq * t;
-            match shape.as_str() {
-                "cos" | "cosine"   => amp * phase.cos(),
-                "square"           => amp * if phase.sin() >= 0.0 { 1.0 } else { -1.0 },
-                "sawtooth" | "saw" => amp * (2.0 * (freq * t - (freq * t + 0.5).floor())),
-                "triangle" | "tri" => amp * 2.0 * (2.0 * (freq * t - (freq * t + 0.5).floor())).abs() - 1.0,
-                "noise" | "rand"   => amp * (((i * 6364136223846793005 + 1442695040888963407) >> 33) as f64 / u32::MAX as f64 * 2.0 - 1.0),
-                _                  => amp * phase.sin(),
-            }
-        }).collect();
+        let sig: Vec<f64> = (0..n)
+            .map(|i| {
+                let t = i as f64 / n as f64;
+                let phase = 2.0 * PI * freq * t;
+                match shape.as_str() {
+                    "cos" | "cosine" => amp * phase.cos(),
+                    "square" => amp * if phase.sin() >= 0.0 { 1.0 } else { -1.0 },
+                    "sawtooth" | "saw" => amp * (2.0 * (freq * t - (freq * t + 0.5).floor())),
+                    "triangle" | "tri" => {
+                        amp * 2.0 * (2.0 * (freq * t - (freq * t + 0.5).floor())).abs() - 1.0
+                    }
+                    "noise" | "rand" => {
+                        amp * (((i * 6364136223846793005 + 1442695040888963407) >> 33) as f64
+                            / u32::MAX as f64
+                            * 2.0
+                            - 1.0)
+                    }
+                    _ => amp * phase.sin(),
+                }
+            })
+            .collect();
         let (mean, rms, mn, mx) = signal_stats(&sig);
-        let _ = writeln!(out, "  Waveform: {}  freq={} cycles  n={}  amp={}", shape, freq, n, amp);
-        let _ = writeln!(out, "  mean={:.4}  RMS={:.4}  min={:.4}  max={:.4}", mean, rms, mn, mx);
-        let _ = writeln!(out, "");
+        let _ = writeln!(
+            out,
+            "  Waveform: {}  freq={} cycles  n={}  amp={}",
+            shape, freq, n, amp
+        );
+        let _ = writeln!(
+            out,
+            "  mean={:.4}  RMS={:.4}  min={:.4}  max={:.4}",
+            mean, rms, mn, mx
+        );
+        let _ = writeln!(out);
         let wave = ascii_waveform(&sig, sig.len().min(60), 8);
-        for line in wave.lines() { let _ = writeln!(out, "  |{}|", line); }
-        let _ = writeln!(out, "");
-        let first = sig.iter().take(16).map(|v| format!("{:.4}", v)).collect::<Vec<_>>().join(", ");
-        let _ = writeln!(out, "  First 16 samples: {}{}", first, if n > 16 { " …" } else { "" });
+        for line in wave.lines() {
+            let _ = writeln!(out, "  |{}|", line);
+        }
+        let _ = writeln!(out);
+        let first = sig
+            .iter()
+            .take(16)
+            .map(|v| format!("{:.4}", v))
+            .collect::<Vec<_>>()
+            .join(", ");
+        let _ = writeln!(
+            out,
+            "  First 16 samples: {}{}",
+            first,
+            if n > 16 { " …" } else { "" }
+        );
     }
     // --- WINDOW PREVIEW -----------------------------------------------------
     else if lower.starts_with("window ") {
         let parts: Vec<&str> = q.splitn(3, ' ').collect();
-        let win_type = parts.get(1).map(|s| s.to_lowercase()).unwrap_or_else(|| "hann".into());
+        let win_type = parts
+            .get(1)
+            .map(|s| s.to_lowercase())
+            .unwrap_or_else(|| "hann".into());
         let n: usize = parts.get(2).and_then(|s| s.parse().ok()).unwrap_or(32);
         let w = match win_type.as_str() {
-            "hamming"  => hamming_window(n),
+            "hamming" => hamming_window(n),
             "blackman" => blackman_window(n),
-            _          => hann_window(n),
+            _ => hann_window(n),
         };
         let (mean, rms, mn, mx) = signal_stats(&w);
         let _ = writeln!(out, "  {} window  n={}", win_type, n);
-        let _ = writeln!(out, "  mean={:.4}  RMS={:.4}  min={:.4}  max={:.4}", mean, rms, mn, mx);
-        let _ = writeln!(out, "");
+        let _ = writeln!(
+            out,
+            "  mean={:.4}  RMS={:.4}  min={:.4}  max={:.4}",
+            mean, rms, mn, mx
+        );
+        let _ = writeln!(out);
         let wave = ascii_waveform(&w, n.min(60), 6);
-        for line in wave.lines() { let _ = writeln!(out, "  |{}|", line); }
-        let _ = writeln!(out, "");
-        let first8 = w.iter().take(8).map(|v| format!("{:.4}", v)).collect::<Vec<_>>().join(", ");
+        for line in wave.lines() {
+            let _ = writeln!(out, "  |{}|", line);
+        }
+        let _ = writeln!(out);
+        let first8 = w
+            .iter()
+            .take(8)
+            .map(|v| format!("{:.4}", v))
+            .collect::<Vec<_>>()
+            .join(", ");
         let _ = writeln!(out, "  First 8 coeffs: {}", first8);
     }
     // --- HELP ---------------------------------------------------------------
@@ -5880,7 +8477,8 @@ fn signal_usage() -> String {
      hematite --signal 'window hann 64'                 Preview Hann window coefficients\n\
      \n\
      Window types: rectangular hann hamming blackman\n\
-     Wave shapes:  sine cosine square sawtooth triangle noise".into()
+     Wave shapes:  sine cosine square sawtooth triangle noise"
+        .into()
 }
 
 // ── Interpolation & curve fitting ─────────────────────────────────────────────
@@ -5889,36 +8487,49 @@ fn signal_usage() -> String {
 
 fn interp_parse_points(s: &str) -> Option<Vec<(f64, f64)>> {
     // Accept:  "x1,y1 x2,y2 ..."  or  "x1,y1; x2,y2; ..."  or  "(x,y),(x,y)"
-    let clean = s.replace('(', "").replace(')', "").replace(';', " ");
-    let tokens: Vec<f64> = clean.split([',', ' ', '\t'].as_ref())
+    let clean = s.replace(['(', ')'], "").replace(';', " ");
+    let tokens: Vec<f64> = clean
+        .split([',', ' ', '\t'].as_ref())
         .filter_map(|t| t.trim().parse::<f64>().ok())
         .collect();
-    if tokens.len() < 4 || tokens.len() % 2 != 0 { return None; }
+    if tokens.len() < 4 || tokens.len() % 2 != 0 {
+        return None;
+    }
     Some(tokens.chunks(2).map(|c| (c[0], c[1])).collect())
 }
 
 fn interp_linear(points: &[(f64, f64)], x: f64) -> f64 {
     let n = points.len();
-    if n == 0 { return f64::NAN; }
-    if n == 1 { return points[0].1; }
+    if n == 0 {
+        return f64::NAN;
+    }
+    if n == 1 {
+        return points[0].1;
+    }
     // extrapolate with end segments
     if x <= points[0].0 {
-        let (x0, y0) = points[0]; let (x1, y1) = points[1];
+        let (x0, y0) = points[0];
+        let (x1, y1) = points[1];
         return y0 + (x - x0) * (y1 - y0) / (x1 - x0);
     }
     if x >= points[n - 1].0 {
-        let (x0, y0) = points[n - 2]; let (x1, y1) = points[n - 1];
+        let (x0, y0) = points[n - 2];
+        let (x1, y1) = points[n - 1];
         return y0 + (x - x0) * (y1 - y0) / (x1 - x0);
     }
     for i in 0..n - 1 {
-        let (x0, y0) = points[i]; let (x1, y1) = points[i + 1];
-        if x >= x0 && x <= x1 { return y0 + (x - x0) * (y1 - y0) / (x1 - x0); }
+        let (x0, y0) = points[i];
+        let (x1, y1) = points[i + 1];
+        if x >= x0 && x <= x1 {
+            return y0 + (x - x0) * (y1 - y0) / (x1 - x0);
+        }
     }
     f64::NAN
 }
 
 fn interp_nearest(points: &[(f64, f64)], x: f64) -> f64 {
-    points.iter()
+    points
+        .iter()
         .min_by(|a, b| (a.0 - x).abs().partial_cmp(&(b.0 - x).abs()).unwrap())
         .map(|p| p.1)
         .unwrap_or(f64::NAN)
@@ -5926,23 +8537,28 @@ fn interp_nearest(points: &[(f64, f64)], x: f64) -> f64 {
 
 fn interp_lagrange(points: &[(f64, f64)], x: f64) -> f64 {
     let n = points.len();
-    (0..n).map(|i| {
-        let (xi, yi) = points[i];
-        let li = (0..n).filter(|&j| j != i)
-            .fold(1.0_f64, |acc, j| acc * (x - points[j].0) / (xi - points[j].0));
-        yi * li
-    }).sum()
+    (0..n)
+        .map(|i| {
+            let (xi, yi) = points[i];
+            let li = (0..n).filter(|&j| j != i).fold(1.0_f64, |acc, j| {
+                acc * (x - points[j].0) / (xi - points[j].0)
+            });
+            yi * li
+        })
+        .sum()
 }
 
 // Natural cubic spline via tridiagonal solve
 fn interp_spline_build(points: &[(f64, f64)]) -> Vec<(f64, f64, f64, f64)> {
     let n = points.len();
-    if n < 2 { return vec![]; }
+    if n < 2 {
+        return vec![];
+    }
     let h: Vec<f64> = (0..n - 1).map(|i| points[i + 1].0 - points[i].0).collect();
     let mut alpha = vec![0.0_f64; n];
     for i in 1..n - 1 {
         alpha[i] = (3.0 / h[i]) * (points[i + 1].1 - points[i].1)
-                 - (3.0 / h[i - 1]) * (points[i].1 - points[i - 1].1);
+            - (3.0 / h[i - 1]) * (points[i].1 - points[i - 1].1);
     }
     let mut l = vec![1.0_f64; n];
     let mut mu = vec![0.0_f64; n];
@@ -5960,36 +8576,61 @@ fn interp_spline_build(points: &[(f64, f64)]) -> Vec<(f64, f64, f64, f64)> {
         b[j] = (points[j + 1].1 - points[j].1) / h[j] - h[j] * (c[j + 1] + 2.0 * c[j]) / 3.0;
         d[j] = (c[j + 1] - c[j]) / (3.0 * h[j]);
     }
-    (0..n - 1).map(|i| (b[i], c[i], d[i], points[i].1)).collect()
+    (0..n - 1)
+        .map(|i| (b[i], c[i], d[i], points[i].1))
+        .collect()
 }
 
 fn interp_spline_eval(points: &[(f64, f64)], coeffs: &[(f64, f64, f64, f64)], x: f64) -> f64 {
     let n = points.len();
-    if n == 0 { return f64::NAN; }
-    let i = if x <= points[0].0 { 0 }
-            else if x >= points[n - 1].0 { n - 2 }
-            else {
-                points[..n - 1].iter().enumerate()
-                    .find(|(i, p)| x >= p.0 && x <= points[i + 1].0)
-                    .map(|(i, _)| i)
-                    .unwrap_or(n - 2)
-            };
+    if n == 0 {
+        return f64::NAN;
+    }
+    let i = if x <= points[0].0 {
+        0
+    } else if x >= points[n - 1].0 {
+        n - 2
+    } else {
+        points[..n - 1]
+            .iter()
+            .enumerate()
+            .find(|(i, p)| x >= p.0 && x <= points[i + 1].0)
+            .map(|(i, _)| i)
+            .unwrap_or(n - 2)
+    };
     let i = i.min(coeffs.len().saturating_sub(1));
     let dx = x - points[i].0;
     let (b, c, d, a) = coeffs[i];
     a + b * dx + c * dx * dx + d * dx * dx * dx
 }
 
-fn interp_ascii_curve(points: &[(f64, f64)], eval_fn: &dyn Fn(f64) -> f64, width: usize, height: usize) -> String {
-    if points.is_empty() { return String::new(); }
+fn interp_ascii_curve(
+    points: &[(f64, f64)],
+    eval_fn: &dyn Fn(f64) -> f64,
+    width: usize,
+    height: usize,
+) -> String {
+    if points.is_empty() {
+        return String::new();
+    }
     let xs: Vec<f64> = points.iter().map(|p| p.0).collect();
     let ys: Vec<f64> = points.iter().map(|p| p.1).collect();
     let xmin = xs.iter().cloned().fold(f64::INFINITY, f64::min);
     let xmax = xs.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
     let step = (xmax - xmin) / (width - 1) as f64;
-    let curve_y: Vec<f64> = (0..width).map(|i| eval_fn(xmin + i as f64 * step)).collect();
-    let ymin = curve_y.iter().cloned().chain(ys.iter().cloned()).fold(f64::INFINITY, f64::min);
-    let ymax = curve_y.iter().cloned().chain(ys.iter().cloned()).fold(f64::NEG_INFINITY, f64::max);
+    let curve_y: Vec<f64> = (0..width)
+        .map(|i| eval_fn(xmin + i as f64 * step))
+        .collect();
+    let ymin = curve_y
+        .iter()
+        .cloned()
+        .chain(ys.iter().cloned())
+        .fold(f64::INFINITY, f64::min);
+    let ymax = curve_y
+        .iter()
+        .cloned()
+        .chain(ys.iter().cloned())
+        .fold(f64::NEG_INFINITY, f64::max);
     let yrange = (ymax - ymin).max(1e-12);
     let mut grid = vec![vec![' '; width]; height];
     for (col, &y) in curve_y.iter().enumerate() {
@@ -6000,11 +8641,19 @@ fn interp_ascii_curve(points: &[(f64, f64)], eval_fn: &dyn Fn(f64) -> f64, width
     for &(xp, yp) in points {
         let col = ((xp - xmin) / (xmax - xmin) * (width - 1) as f64).round() as usize;
         let row = height - 1 - ((yp - ymin) / yrange * (height - 1) as f64).round() as usize;
-        let col = col.min(width - 1); let row = row.min(height - 1);
+        let col = col.min(width - 1);
+        let row = row.min(height - 1);
         grid[row][col] = '●';
     }
-    let result = grid.iter().map(|r| r.iter().collect::<String>()).collect::<Vec<_>>().join("\n");
-    format!("{}\n  y: [{:.4} .. {:.4}]\n  x: [{:.4} .. {:.4}]\n  ● = data point  · = curve", result, ymin, ymax, xmin, xmax)
+    let result = grid
+        .iter()
+        .map(|r| r.iter().collect::<String>())
+        .collect::<Vec<_>>()
+        .join("\n");
+    format!(
+        "{}\n  y: [{:.4} .. {:.4}]\n  x: [{:.4} .. {:.4}]\n  ● = data point  · = curve",
+        result, ymin, ymax, xmin, xmax
+    )
 }
 
 pub fn interpolate_calc(query: &str) -> String {
@@ -6018,11 +8667,17 @@ pub fn interpolate_calc(query: &str) -> String {
     let lower = q.to_lowercase();
 
     // parse method prefix: "linear POINTS at X", "spline POINTS at X", etc.
-    let (method, rest) = if lower.starts_with("linear ") { ("linear", &q[7..]) }
-        else if lower.starts_with("spline ") || lower.starts_with("cubic ") { ("spline", &q[7..]) }
-        else if lower.starts_with("lagrange ") || lower.starts_with("poly ") { ("lagrange", &q[lower.find(' ').unwrap_or(0)+1..]) }
-        else if lower.starts_with("nearest ") { ("nearest", &q[8..]) }
-        else { ("linear", q) };
+    let (method, rest) = if lower.starts_with("linear ") {
+        ("linear", &q[7..])
+    } else if lower.starts_with("spline ") || lower.starts_with("cubic ") {
+        ("spline", &q[7..])
+    } else if lower.starts_with("lagrange ") || lower.starts_with("poly ") {
+        ("lagrange", &q[lower.find(' ').unwrap_or(0) + 1..])
+    } else if lower.starts_with("nearest ") {
+        ("nearest", &q[8..])
+    } else {
+        ("linear", q)
+    };
 
     // split on "at" keyword for evaluation point(s)
     let (pts_str, query_str) = if let Some(pos) = rest.to_lowercase().rfind(" at ") {
@@ -6043,23 +8698,48 @@ pub fn interpolate_calc(query: &str) -> String {
     points.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
 
     let _ = writeln!(out, "  Method: {}  |  {} data points", method, points.len());
-    let _ = writeln!(out, "  Points: {}", points.iter().map(|(x, y)| format!("({:.4},{:.4})", x, y)).collect::<Vec<_>>().join("  "));
-    let _ = writeln!(out, "");
+    let _ = writeln!(
+        out,
+        "  Points: {}",
+        points
+            .iter()
+            .map(|(x, y)| format!("({:.4},{:.4})", x, y))
+            .collect::<Vec<_>>()
+            .join("  ")
+    );
+    let _ = writeln!(out);
 
     // Build spline coefficients once if needed
-    let spline_coeffs = if method == "spline" { interp_spline_build(&points) } else { vec![] };
+    let spline_coeffs = if method == "spline" {
+        interp_spline_build(&points)
+    } else {
+        vec![]
+    };
 
     let eval_fn: Box<dyn Fn(f64) -> f64> = match method {
-        "spline"   => { let pts = points.clone(); let sc = spline_coeffs.clone();
-                        Box::new(move |x| interp_spline_eval(&pts, &sc, x)) }
-        "lagrange" => { let pts = points.clone(); Box::new(move |x| interp_lagrange(&pts, x)) }
-        "nearest"  => { let pts = points.clone(); Box::new(move |x| interp_nearest(&pts, x)) }
-        _          => { let pts = points.clone(); Box::new(move |x| interp_linear(&pts, x)) }
+        "spline" => {
+            let pts = points.clone();
+            let sc = spline_coeffs.clone();
+            Box::new(move |x| interp_spline_eval(&pts, &sc, x))
+        }
+        "lagrange" => {
+            let pts = points.clone();
+            Box::new(move |x| interp_lagrange(&pts, x))
+        }
+        "nearest" => {
+            let pts = points.clone();
+            Box::new(move |x| interp_nearest(&pts, x))
+        }
+        _ => {
+            let pts = points.clone();
+            Box::new(move |x| interp_linear(&pts, x))
+        }
     };
 
     // Evaluate at requested x values
     if !query_str.is_empty() {
-        let xs: Vec<f64> = query_str.split([',', ' '].as_ref())
+        let xs: Vec<f64> = query_str
+            .split([',', ' '].as_ref())
             .filter_map(|s| s.trim().parse::<f64>().ok())
             .collect();
         if !xs.is_empty() {
@@ -6067,16 +8747,22 @@ pub fn interpolate_calc(query: &str) -> String {
             let _ = writeln!(out, "  {}", "-".repeat(28));
             for &x in &xs {
                 let y = eval_fn(x);
-                let xmin = points[0].0; let xmax = points[points.len()-1].0;
-                let tag = if x < xmin || x > xmax { "  [extrapolated]" } else { "" };
+                let xmin = points[0].0;
+                let xmax = points[points.len() - 1].0;
+                let tag = if x < xmin || x > xmax {
+                    "  [extrapolated]"
+                } else {
+                    ""
+                };
                 let _ = writeln!(out, "  {:>12.6}  {:>14.8}{}", x, y, tag);
             }
-            let _ = writeln!(out, "");
+            let _ = writeln!(out);
         }
     }
 
     // Always show a dense evaluation table and ASCII curve
-    let xmin = points[0].0; let xmax = points[points.len()-1].0;
+    let xmin = points[0].0;
+    let xmax = points[points.len() - 1].0;
     let steps = 9_usize;
     let _ = writeln!(out, "  Sampled curve ({} pts across range):", steps + 1);
     let _ = writeln!(out, "  {:>10}  {:>14}", "x", "y");
@@ -6086,11 +8772,13 @@ pub fn interpolate_calc(query: &str) -> String {
         let y = eval_fn(x);
         let _ = writeln!(out, "  {:>10.4}  {:>14.8}", x, y);
     }
-    let _ = writeln!(out, "");
+    let _ = writeln!(out);
 
     // ASCII curve
     let curve_str = interp_ascii_curve(&points, &eval_fn, 56, 10);
-    for line in curve_str.lines() { let _ = writeln!(out, "  {}", line); }
+    for line in curve_str.lines() {
+        let _ = writeln!(out, "  {}", line);
+    }
 
     let _ = writeln!(out, "{}", sep);
     out
@@ -6102,7 +8790,7 @@ pub fn interpolate_calc(query: &str) -> String {
 
 struct UnitDef {
     names: &'static [&'static str],
-    to_base: f64,   // multiply by this to reach SI base; NaN for temperature
+    to_base: f64, // multiply by this to reach SI base; NaN for temperature
 }
 
 struct UnitCat {
@@ -6112,175 +8800,654 @@ struct UnitCat {
 }
 
 static UNIT_TABLE: &[UnitCat] = &[
-    UnitCat { name: "Length", base: "m", units: &[
-        UnitDef { names: &["m","meter","metre","meters","metres"], to_base: 1.0 },
-        UnitDef { names: &["km","kilometer","kilometre","kilometers","kilometres"], to_base: 1e3 },
-        UnitDef { names: &["cm","centimeter","centimetre","centimeters","centimetres"], to_base: 0.01 },
-        UnitDef { names: &["mm","millimeter","millimetre","millimeters","millimetres"], to_base: 0.001 },
-        UnitDef { names: &["um","micrometer","micrometre","micron"], to_base: 1e-6 },
-        UnitDef { names: &["nm","nanometer","nanometre"], to_base: 1e-9 },
-        UnitDef { names: &["mi","mile","miles"], to_base: 1609.344 },
-        UnitDef { names: &["yd","yard","yards"], to_base: 0.9144 },
-        UnitDef { names: &["ft","foot","feet"], to_base: 0.3048 },
-        UnitDef { names: &["in","inch","inches"], to_base: 0.0254 },
-        UnitDef { names: &["nmi","nautical_mile","nm_sea"], to_base: 1852.0 },
-        UnitDef { names: &["ly","lightyear","light_year"], to_base: 9.461e15 },
-        UnitDef { names: &["au","astronomical_unit"], to_base: 1.496e11 },
-        UnitDef { names: &["pc","parsec"], to_base: 3.086e16 },
-        UnitDef { names: &["angstrom","ang"], to_base: 1e-10 },
-    ]},
-    UnitCat { name: "Area", base: "m2", units: &[
-        UnitDef { names: &["m2","sqm","square_meter","square_metre"], to_base: 1.0 },
-        UnitDef { names: &["km2","sqkm","square_kilometer"], to_base: 1e6 },
-        UnitDef { names: &["cm2","sqcm","square_centimeter"], to_base: 1e-4 },
-        UnitDef { names: &["mm2","sqmm","square_millimeter"], to_base: 1e-6 },
-        UnitDef { names: &["ha","hectare","hectares"], to_base: 1e4 },
-        UnitDef { names: &["acre","acres"], to_base: 4046.856 },
-        UnitDef { names: &["ft2","sqft","square_foot","square_feet"], to_base: 0.09290304 },
-        UnitDef { names: &["in2","sqin","square_inch"], to_base: 6.4516e-4 },
-        UnitDef { names: &["mi2","sqmi","square_mile"], to_base: 2.58999e6 },
-        UnitDef { names: &["yd2","sqyd","square_yard"], to_base: 0.83612736 },
-    ]},
-    UnitCat { name: "Volume", base: "m3", units: &[
-        UnitDef { names: &["m3","cbm","cubic_meter","cubic_metre"], to_base: 1.0 },
-        UnitDef { names: &["l","liter","litre","liters","litres"], to_base: 0.001 },
-        UnitDef { names: &["ml","milliliter","millilitre","milliliters","millilitres"], to_base: 1e-6 },
-        UnitDef { names: &["cl","centiliter","centilitre"], to_base: 1e-5 },
-        UnitDef { names: &["dl","deciliter","decilitre"], to_base: 1e-4 },
-        UnitDef { names: &["gal","gallon","gallons"], to_base: 0.00378541 },
-        UnitDef { names: &["qt","quart","quarts"], to_base: 9.46353e-4 },
-        UnitDef { names: &["pt","pint","pints"], to_base: 4.73176e-4 },
-        UnitDef { names: &["cup","cups"], to_base: 2.36588e-4 },
-        UnitDef { names: &["floz","fl_oz","fluid_ounce","fluid_ounces"], to_base: 2.95735e-5 },
-        UnitDef { names: &["tbsp","tablespoon","tablespoons"], to_base: 1.47868e-5 },
-        UnitDef { names: &["tsp","teaspoon","teaspoons"], to_base: 4.92892e-6 },
-        UnitDef { names: &["ft3","cbft","cubic_foot","cubic_feet"], to_base: 0.0283168 },
-        UnitDef { names: &["in3","cbin","cubic_inch"], to_base: 1.63871e-5 },
-        UnitDef { names: &["bbl","barrel","barrels"], to_base: 0.158987 },
-    ]},
-    UnitCat { name: "Mass", base: "kg", units: &[
-        UnitDef { names: &["kg","kilogram","kilograms","kilo"], to_base: 1.0 },
-        UnitDef { names: &["g","gram","grams"], to_base: 0.001 },
-        UnitDef { names: &["mg","milligram","milligrams"], to_base: 1e-6 },
-        UnitDef { names: &["ug","microgram","micrograms"], to_base: 1e-9 },
-        UnitDef { names: &["t","tonne","metric_ton","tonnes"], to_base: 1000.0 },
-        UnitDef { names: &["lb","pound","pounds","lbs"], to_base: 0.453592 },
-        UnitDef { names: &["oz","ounce","ounces"], to_base: 0.0283495 },
-        UnitDef { names: &["st","stone","stones"], to_base: 6.35029 },
-        UnitDef { names: &["ton","short_ton","tons"], to_base: 907.185 },
-        UnitDef { names: &["long_ton","long_tons"], to_base: 1016.05 },
-        UnitDef { names: &["ct","carat","carats"], to_base: 2e-4 },
-        UnitDef { names: &["gr","grain","grains"], to_base: 6.47989e-5 },
-        UnitDef { names: &["u","amu","dalton"], to_base: 1.66054e-27 },
-    ]},
-    UnitCat { name: "Time", base: "s", units: &[
-        UnitDef { names: &["s","sec","second","seconds"], to_base: 1.0 },
-        UnitDef { names: &["ms","millisecond","milliseconds"], to_base: 0.001 },
-        UnitDef { names: &["us","microsecond","microseconds"], to_base: 1e-6 },
-        UnitDef { names: &["ns","nanosecond","nanoseconds"], to_base: 1e-9 },
-        UnitDef { names: &["min","minute","minutes"], to_base: 60.0 },
-        UnitDef { names: &["h","hr","hour","hours"], to_base: 3600.0 },
-        UnitDef { names: &["d","day","days"], to_base: 86400.0 },
-        UnitDef { names: &["wk","week","weeks"], to_base: 604800.0 },
-        UnitDef { names: &["mo","month","months"], to_base: 2.628e6 },
-        UnitDef { names: &["yr","year","years"], to_base: 3.156e7 },
-        UnitDef { names: &["decade","decades"], to_base: 3.156e8 },
-        UnitDef { names: &["century","centuries"], to_base: 3.156e9 },
-    ]},
-    UnitCat { name: "Speed", base: "m/s", units: &[
-        UnitDef { names: &["mps","m/s","meter_per_second"], to_base: 1.0 },
-        UnitDef { names: &["kph","km/h","kmh","kilometer_per_hour"], to_base: 1.0/3.6 },
-        UnitDef { names: &["mph","mi/h","mile_per_hour"], to_base: 0.44704 },
-        UnitDef { names: &["kn","kt","knot","knots"], to_base: 0.514444 },
-        UnitDef { names: &["fps","ft/s","foot_per_second"], to_base: 0.3048 },
-        UnitDef { names: &["mach"], to_base: 343.0 },
-        UnitDef { names: &["c","speed_of_light"], to_base: 2.998e8 },
-    ]},
-    UnitCat { name: "Pressure", base: "Pa", units: &[
-        UnitDef { names: &["pa","pascal","pascals"], to_base: 1.0 },
-        UnitDef { names: &["kpa","kilopascal","kilopascals"], to_base: 1000.0 },
-        UnitDef { names: &["mpa","megapascal","megapascals"], to_base: 1e6 },
-        UnitDef { names: &["bar","bars"], to_base: 1e5 },
-        UnitDef { names: &["mbar","millibar","millibars"], to_base: 100.0 },
-        UnitDef { names: &["atm","atmosphere","atmospheres"], to_base: 101325.0 },
-        UnitDef { names: &["torr","mmhg"], to_base: 133.322 },
-        UnitDef { names: &["psi","pound_per_square_inch"], to_base: 6894.76 },
-        UnitDef { names: &["inhg","in_hg","inches_of_mercury"], to_base: 3386.39 },
-    ]},
-    UnitCat { name: "Energy", base: "J", units: &[
-        UnitDef { names: &["j","joule","joules"], to_base: 1.0 },
-        UnitDef { names: &["kj","kilojoule","kilojoules"], to_base: 1000.0 },
-        UnitDef { names: &["mj","megajoule","megajoules"], to_base: 1e6 },
-        UnitDef { names: &["gj","gigajoule","gigajoules"], to_base: 1e9 },
-        UnitDef { names: &["cal","calorie","calories"], to_base: 4.184 },
-        UnitDef { names: &["kcal","kilocalorie","kilocalories","food_calorie"], to_base: 4184.0 },
-        UnitDef { names: &["wh","watt_hour","watt_hours"], to_base: 3600.0 },
-        UnitDef { names: &["kwh","kilowatt_hour","kilowatt_hours"], to_base: 3.6e6 },
-        UnitDef { names: &["mwh","megawatt_hour"], to_base: 3.6e9 },
-        UnitDef { names: &["gwh","gigawatt_hour"], to_base: 3.6e12 },
-        UnitDef { names: &["btu","british_thermal_unit"], to_base: 1055.06 },
-        UnitDef { names: &["ev","electronvolt","electron_volt"], to_base: 1.602e-19 },
-        UnitDef { names: &["ftlb","ft_lb","foot_pound"], to_base: 1.35582 },
-        UnitDef { names: &["erg","ergs"], to_base: 1e-7 },
-    ]},
-    UnitCat { name: "Power", base: "W", units: &[
-        UnitDef { names: &["w","watt","watts"], to_base: 1.0 },
-        UnitDef { names: &["kw","kilowatt","kilowatts"], to_base: 1000.0 },
-        UnitDef { names: &["mw","megawatt","megawatts"], to_base: 1e6 },
-        UnitDef { names: &["gw","gigawatt","gigawatts"], to_base: 1e9 },
-        UnitDef { names: &["hp","horsepower"], to_base: 745.7 },
-        UnitDef { names: &["btu_h","btu_per_hour"], to_base: 0.29307 },
-        UnitDef { names: &["mw_th","milliwatt"], to_base: 1e-3 },
-    ]},
-    UnitCat { name: "Digital Storage", base: "bytes", units: &[
-        UnitDef { names: &["b","bit","bits"], to_base: 0.125 },
-        UnitDef { names: &["byte","bytes"], to_base: 1.0 },
-        UnitDef { names: &["kb","kilobyte","kilobytes"], to_base: 1000.0 },
-        UnitDef { names: &["mb","megabyte","megabytes"], to_base: 1e6 },
-        UnitDef { names: &["gb","gigabyte","gigabytes"], to_base: 1e9 },
-        UnitDef { names: &["tb","terabyte","terabytes"], to_base: 1e12 },
-        UnitDef { names: &["pb","petabyte","petabytes"], to_base: 1e15 },
-        UnitDef { names: &["kib","kibibyte","kibibytes"], to_base: 1024.0 },
-        UnitDef { names: &["mib","mebibyte","mebibytes"], to_base: 1048576.0 },
-        UnitDef { names: &["gib","gibibyte","gibibytes"], to_base: 1073741824.0 },
-        UnitDef { names: &["tib","tebibyte","tebibytes"], to_base: 1.0995e12 },
-        UnitDef { names: &["kbps","kilobit_per_second"], to_base: 125.0 },
-        UnitDef { names: &["mbps","megabit_per_second"], to_base: 125000.0 },
-        UnitDef { names: &["gbps","gigabit_per_second"], to_base: 125000000.0 },
-    ]},
-    UnitCat { name: "Angle", base: "rad", units: &[
-        UnitDef { names: &["rad","radian","radians"], to_base: 1.0 },
-        UnitDef { names: &["deg","degree","degrees"], to_base: std::f64::consts::PI / 180.0 },
-        UnitDef { names: &["grad","gradian","gradians","gon"], to_base: std::f64::consts::PI / 200.0 },
-        UnitDef { names: &["rev","revolution","turn","turns"], to_base: 2.0 * std::f64::consts::PI },
-        UnitDef { names: &["arcmin","arcminute","arcminutes"], to_base: std::f64::consts::PI / 10800.0 },
-        UnitDef { names: &["arcsec","arcsecond","arcseconds"], to_base: std::f64::consts::PI / 648000.0 },
-    ]},
-    UnitCat { name: "Force", base: "N", units: &[
-        UnitDef { names: &["n","newton","newtons"], to_base: 1.0 },
-        UnitDef { names: &["kn_f","kilonewton","kilonewtons"], to_base: 1000.0 },
-        UnitDef { names: &["lbf","pound_force","pounds_force"], to_base: 4.44822 },
-        UnitDef { names: &["kgf","kilogram_force"], to_base: 9.80665 },
-        UnitDef { names: &["dyn","dyne","dynes"], to_base: 1e-5 },
-        UnitDef { names: &["gf","gram_force"], to_base: 0.00980665 },
-    ]},
-    UnitCat { name: "Temperature", base: "K", units: &[
-        UnitDef { names: &["k","kelvin","kelvins"], to_base: f64::NAN },
-        UnitDef { names: &["c","celsius","degc"], to_base: f64::NAN },
-        UnitDef { names: &["f","fahrenheit","degf"], to_base: f64::NAN },
-        UnitDef { names: &["r","rankine","degr"], to_base: f64::NAN },
-    ]},
-    UnitCat { name: "Fuel Economy", base: "L/100km", units: &[
-        UnitDef { names: &["l/100km","lpkm","liter_per_100km"], to_base: 1.0 },
-        UnitDef { names: &["mpg","mile_per_gallon","miles_per_gallon"], to_base: f64::NAN },
-        UnitDef { names: &["km/l","kpl","kilometer_per_liter"], to_base: f64::NAN },
-    ]},
+    UnitCat {
+        name: "Length",
+        base: "m",
+        units: &[
+            UnitDef {
+                names: &["m", "meter", "metre", "meters", "metres"],
+                to_base: 1.0,
+            },
+            UnitDef {
+                names: &["km", "kilometer", "kilometre", "kilometers", "kilometres"],
+                to_base: 1e3,
+            },
+            UnitDef {
+                names: &[
+                    "cm",
+                    "centimeter",
+                    "centimetre",
+                    "centimeters",
+                    "centimetres",
+                ],
+                to_base: 0.01,
+            },
+            UnitDef {
+                names: &[
+                    "mm",
+                    "millimeter",
+                    "millimetre",
+                    "millimeters",
+                    "millimetres",
+                ],
+                to_base: 0.001,
+            },
+            UnitDef {
+                names: &["um", "micrometer", "micrometre", "micron"],
+                to_base: 1e-6,
+            },
+            UnitDef {
+                names: &["nm", "nanometer", "nanometre"],
+                to_base: 1e-9,
+            },
+            UnitDef {
+                names: &["mi", "mile", "miles"],
+                to_base: 1609.344,
+            },
+            UnitDef {
+                names: &["yd", "yard", "yards"],
+                to_base: 0.9144,
+            },
+            UnitDef {
+                names: &["ft", "foot", "feet"],
+                to_base: 0.3048,
+            },
+            UnitDef {
+                names: &["in", "inch", "inches"],
+                to_base: 0.0254,
+            },
+            UnitDef {
+                names: &["nmi", "nautical_mile", "nm_sea"],
+                to_base: 1852.0,
+            },
+            UnitDef {
+                names: &["ly", "lightyear", "light_year"],
+                to_base: 9.461e15,
+            },
+            UnitDef {
+                names: &["au", "astronomical_unit"],
+                to_base: 1.496e11,
+            },
+            UnitDef {
+                names: &["pc", "parsec"],
+                to_base: 3.086e16,
+            },
+            UnitDef {
+                names: &["angstrom", "ang"],
+                to_base: 1e-10,
+            },
+        ],
+    },
+    UnitCat {
+        name: "Area",
+        base: "m2",
+        units: &[
+            UnitDef {
+                names: &["m2", "sqm", "square_meter", "square_metre"],
+                to_base: 1.0,
+            },
+            UnitDef {
+                names: &["km2", "sqkm", "square_kilometer"],
+                to_base: 1e6,
+            },
+            UnitDef {
+                names: &["cm2", "sqcm", "square_centimeter"],
+                to_base: 1e-4,
+            },
+            UnitDef {
+                names: &["mm2", "sqmm", "square_millimeter"],
+                to_base: 1e-6,
+            },
+            UnitDef {
+                names: &["ha", "hectare", "hectares"],
+                to_base: 1e4,
+            },
+            UnitDef {
+                names: &["acre", "acres"],
+                to_base: 4046.856,
+            },
+            UnitDef {
+                names: &["ft2", "sqft", "square_foot", "square_feet"],
+                to_base: 0.09290304,
+            },
+            UnitDef {
+                names: &["in2", "sqin", "square_inch"],
+                to_base: 6.4516e-4,
+            },
+            UnitDef {
+                names: &["mi2", "sqmi", "square_mile"],
+                to_base: 2.58999e6,
+            },
+            UnitDef {
+                names: &["yd2", "sqyd", "square_yard"],
+                to_base: 0.83612736,
+            },
+        ],
+    },
+    UnitCat {
+        name: "Volume",
+        base: "m3",
+        units: &[
+            UnitDef {
+                names: &["m3", "cbm", "cubic_meter", "cubic_metre"],
+                to_base: 1.0,
+            },
+            UnitDef {
+                names: &["l", "liter", "litre", "liters", "litres"],
+                to_base: 0.001,
+            },
+            UnitDef {
+                names: &[
+                    "ml",
+                    "milliliter",
+                    "millilitre",
+                    "milliliters",
+                    "millilitres",
+                ],
+                to_base: 1e-6,
+            },
+            UnitDef {
+                names: &["cl", "centiliter", "centilitre"],
+                to_base: 1e-5,
+            },
+            UnitDef {
+                names: &["dl", "deciliter", "decilitre"],
+                to_base: 1e-4,
+            },
+            UnitDef {
+                names: &["gal", "gallon", "gallons"],
+                to_base: 0.00378541,
+            },
+            UnitDef {
+                names: &["qt", "quart", "quarts"],
+                to_base: 9.46353e-4,
+            },
+            UnitDef {
+                names: &["pt", "pint", "pints"],
+                to_base: 4.73176e-4,
+            },
+            UnitDef {
+                names: &["cup", "cups"],
+                to_base: 2.36588e-4,
+            },
+            UnitDef {
+                names: &["floz", "fl_oz", "fluid_ounce", "fluid_ounces"],
+                to_base: 2.95735e-5,
+            },
+            UnitDef {
+                names: &["tbsp", "tablespoon", "tablespoons"],
+                to_base: 1.47868e-5,
+            },
+            UnitDef {
+                names: &["tsp", "teaspoon", "teaspoons"],
+                to_base: 4.92892e-6,
+            },
+            UnitDef {
+                names: &["ft3", "cbft", "cubic_foot", "cubic_feet"],
+                to_base: 0.0283168,
+            },
+            UnitDef {
+                names: &["in3", "cbin", "cubic_inch"],
+                to_base: 1.63871e-5,
+            },
+            UnitDef {
+                names: &["bbl", "barrel", "barrels"],
+                to_base: 0.158987,
+            },
+        ],
+    },
+    UnitCat {
+        name: "Mass",
+        base: "kg",
+        units: &[
+            UnitDef {
+                names: &["kg", "kilogram", "kilograms", "kilo"],
+                to_base: 1.0,
+            },
+            UnitDef {
+                names: &["g", "gram", "grams"],
+                to_base: 0.001,
+            },
+            UnitDef {
+                names: &["mg", "milligram", "milligrams"],
+                to_base: 1e-6,
+            },
+            UnitDef {
+                names: &["ug", "microgram", "micrograms"],
+                to_base: 1e-9,
+            },
+            UnitDef {
+                names: &["t", "tonne", "metric_ton", "tonnes"],
+                to_base: 1000.0,
+            },
+            UnitDef {
+                names: &["lb", "pound", "pounds", "lbs"],
+                to_base: 0.453592,
+            },
+            UnitDef {
+                names: &["oz", "ounce", "ounces"],
+                to_base: 0.0283495,
+            },
+            UnitDef {
+                names: &["st", "stone", "stones"],
+                to_base: 6.35029,
+            },
+            UnitDef {
+                names: &["ton", "short_ton", "tons"],
+                to_base: 907.185,
+            },
+            UnitDef {
+                names: &["long_ton", "long_tons"],
+                to_base: 1016.05,
+            },
+            UnitDef {
+                names: &["ct", "carat", "carats"],
+                to_base: 2e-4,
+            },
+            UnitDef {
+                names: &["gr", "grain", "grains"],
+                to_base: 6.47989e-5,
+            },
+            UnitDef {
+                names: &["u", "amu", "dalton"],
+                to_base: 1.66054e-27,
+            },
+        ],
+    },
+    UnitCat {
+        name: "Time",
+        base: "s",
+        units: &[
+            UnitDef {
+                names: &["s", "sec", "second", "seconds"],
+                to_base: 1.0,
+            },
+            UnitDef {
+                names: &["ms", "millisecond", "milliseconds"],
+                to_base: 0.001,
+            },
+            UnitDef {
+                names: &["us", "microsecond", "microseconds"],
+                to_base: 1e-6,
+            },
+            UnitDef {
+                names: &["ns", "nanosecond", "nanoseconds"],
+                to_base: 1e-9,
+            },
+            UnitDef {
+                names: &["min", "minute", "minutes"],
+                to_base: 60.0,
+            },
+            UnitDef {
+                names: &["h", "hr", "hour", "hours"],
+                to_base: 3600.0,
+            },
+            UnitDef {
+                names: &["d", "day", "days"],
+                to_base: 86400.0,
+            },
+            UnitDef {
+                names: &["wk", "week", "weeks"],
+                to_base: 604800.0,
+            },
+            UnitDef {
+                names: &["mo", "month", "months"],
+                to_base: 2.628e6,
+            },
+            UnitDef {
+                names: &["yr", "year", "years"],
+                to_base: 3.156e7,
+            },
+            UnitDef {
+                names: &["decade", "decades"],
+                to_base: 3.156e8,
+            },
+            UnitDef {
+                names: &["century", "centuries"],
+                to_base: 3.156e9,
+            },
+        ],
+    },
+    UnitCat {
+        name: "Speed",
+        base: "m/s",
+        units: &[
+            UnitDef {
+                names: &["mps", "m/s", "meter_per_second"],
+                to_base: 1.0,
+            },
+            UnitDef {
+                names: &["kph", "km/h", "kmh", "kilometer_per_hour"],
+                to_base: 1.0 / 3.6,
+            },
+            UnitDef {
+                names: &["mph", "mi/h", "mile_per_hour"],
+                to_base: 0.44704,
+            },
+            UnitDef {
+                names: &["kn", "kt", "knot", "knots"],
+                to_base: 0.514444,
+            },
+            UnitDef {
+                names: &["fps", "ft/s", "foot_per_second"],
+                to_base: 0.3048,
+            },
+            UnitDef {
+                names: &["mach"],
+                to_base: 343.0,
+            },
+            UnitDef {
+                names: &["c", "speed_of_light"],
+                to_base: 2.998e8,
+            },
+        ],
+    },
+    UnitCat {
+        name: "Pressure",
+        base: "Pa",
+        units: &[
+            UnitDef {
+                names: &["pa", "pascal", "pascals"],
+                to_base: 1.0,
+            },
+            UnitDef {
+                names: &["kpa", "kilopascal", "kilopascals"],
+                to_base: 1000.0,
+            },
+            UnitDef {
+                names: &["mpa", "megapascal", "megapascals"],
+                to_base: 1e6,
+            },
+            UnitDef {
+                names: &["bar", "bars"],
+                to_base: 1e5,
+            },
+            UnitDef {
+                names: &["mbar", "millibar", "millibars"],
+                to_base: 100.0,
+            },
+            UnitDef {
+                names: &["atm", "atmosphere", "atmospheres"],
+                to_base: 101325.0,
+            },
+            UnitDef {
+                names: &["torr", "mmhg"],
+                to_base: 133.322,
+            },
+            UnitDef {
+                names: &["psi", "pound_per_square_inch"],
+                to_base: 6894.76,
+            },
+            UnitDef {
+                names: &["inhg", "in_hg", "inches_of_mercury"],
+                to_base: 3386.39,
+            },
+        ],
+    },
+    UnitCat {
+        name: "Energy",
+        base: "J",
+        units: &[
+            UnitDef {
+                names: &["j", "joule", "joules"],
+                to_base: 1.0,
+            },
+            UnitDef {
+                names: &["kj", "kilojoule", "kilojoules"],
+                to_base: 1000.0,
+            },
+            UnitDef {
+                names: &["mj", "megajoule", "megajoules"],
+                to_base: 1e6,
+            },
+            UnitDef {
+                names: &["gj", "gigajoule", "gigajoules"],
+                to_base: 1e9,
+            },
+            UnitDef {
+                names: &["cal", "calorie", "calories"],
+                to_base: 4.184,
+            },
+            UnitDef {
+                names: &["kcal", "kilocalorie", "kilocalories", "food_calorie"],
+                to_base: 4184.0,
+            },
+            UnitDef {
+                names: &["wh", "watt_hour", "watt_hours"],
+                to_base: 3600.0,
+            },
+            UnitDef {
+                names: &["kwh", "kilowatt_hour", "kilowatt_hours"],
+                to_base: 3.6e6,
+            },
+            UnitDef {
+                names: &["mwh", "megawatt_hour"],
+                to_base: 3.6e9,
+            },
+            UnitDef {
+                names: &["gwh", "gigawatt_hour"],
+                to_base: 3.6e12,
+            },
+            UnitDef {
+                names: &["btu", "british_thermal_unit"],
+                to_base: 1055.06,
+            },
+            UnitDef {
+                names: &["ev", "electronvolt", "electron_volt"],
+                to_base: 1.602e-19,
+            },
+            UnitDef {
+                names: &["ftlb", "ft_lb", "foot_pound"],
+                to_base: 1.35582,
+            },
+            UnitDef {
+                names: &["erg", "ergs"],
+                to_base: 1e-7,
+            },
+        ],
+    },
+    UnitCat {
+        name: "Power",
+        base: "W",
+        units: &[
+            UnitDef {
+                names: &["w", "watt", "watts"],
+                to_base: 1.0,
+            },
+            UnitDef {
+                names: &["kw", "kilowatt", "kilowatts"],
+                to_base: 1000.0,
+            },
+            UnitDef {
+                names: &["mw", "megawatt", "megawatts"],
+                to_base: 1e6,
+            },
+            UnitDef {
+                names: &["gw", "gigawatt", "gigawatts"],
+                to_base: 1e9,
+            },
+            UnitDef {
+                names: &["hp", "horsepower"],
+                to_base: 745.7,
+            },
+            UnitDef {
+                names: &["btu_h", "btu_per_hour"],
+                to_base: 0.29307,
+            },
+            UnitDef {
+                names: &["mw_th", "milliwatt"],
+                to_base: 1e-3,
+            },
+        ],
+    },
+    UnitCat {
+        name: "Digital Storage",
+        base: "bytes",
+        units: &[
+            UnitDef {
+                names: &["b", "bit", "bits"],
+                to_base: 0.125,
+            },
+            UnitDef {
+                names: &["byte", "bytes"],
+                to_base: 1.0,
+            },
+            UnitDef {
+                names: &["kb", "kilobyte", "kilobytes"],
+                to_base: 1000.0,
+            },
+            UnitDef {
+                names: &["mb", "megabyte", "megabytes"],
+                to_base: 1e6,
+            },
+            UnitDef {
+                names: &["gb", "gigabyte", "gigabytes"],
+                to_base: 1e9,
+            },
+            UnitDef {
+                names: &["tb", "terabyte", "terabytes"],
+                to_base: 1e12,
+            },
+            UnitDef {
+                names: &["pb", "petabyte", "petabytes"],
+                to_base: 1e15,
+            },
+            UnitDef {
+                names: &["kib", "kibibyte", "kibibytes"],
+                to_base: 1024.0,
+            },
+            UnitDef {
+                names: &["mib", "mebibyte", "mebibytes"],
+                to_base: 1048576.0,
+            },
+            UnitDef {
+                names: &["gib", "gibibyte", "gibibytes"],
+                to_base: 1073741824.0,
+            },
+            UnitDef {
+                names: &["tib", "tebibyte", "tebibytes"],
+                to_base: 1.0995e12,
+            },
+            UnitDef {
+                names: &["kbps", "kilobit_per_second"],
+                to_base: 125.0,
+            },
+            UnitDef {
+                names: &["mbps", "megabit_per_second"],
+                to_base: 125000.0,
+            },
+            UnitDef {
+                names: &["gbps", "gigabit_per_second"],
+                to_base: 125000000.0,
+            },
+        ],
+    },
+    UnitCat {
+        name: "Angle",
+        base: "rad",
+        units: &[
+            UnitDef {
+                names: &["rad", "radian", "radians"],
+                to_base: 1.0,
+            },
+            UnitDef {
+                names: &["deg", "degree", "degrees"],
+                to_base: std::f64::consts::PI / 180.0,
+            },
+            UnitDef {
+                names: &["grad", "gradian", "gradians", "gon"],
+                to_base: std::f64::consts::PI / 200.0,
+            },
+            UnitDef {
+                names: &["rev", "revolution", "turn", "turns"],
+                to_base: 2.0 * std::f64::consts::PI,
+            },
+            UnitDef {
+                names: &["arcmin", "arcminute", "arcminutes"],
+                to_base: std::f64::consts::PI / 10800.0,
+            },
+            UnitDef {
+                names: &["arcsec", "arcsecond", "arcseconds"],
+                to_base: std::f64::consts::PI / 648000.0,
+            },
+        ],
+    },
+    UnitCat {
+        name: "Force",
+        base: "N",
+        units: &[
+            UnitDef {
+                names: &["n", "newton", "newtons"],
+                to_base: 1.0,
+            },
+            UnitDef {
+                names: &["kn_f", "kilonewton", "kilonewtons"],
+                to_base: 1000.0,
+            },
+            UnitDef {
+                names: &["lbf", "pound_force", "pounds_force"],
+                to_base: 4.44822,
+            },
+            UnitDef {
+                names: &["kgf", "kilogram_force"],
+                to_base: 9.80665,
+            },
+            UnitDef {
+                names: &["dyn", "dyne", "dynes"],
+                to_base: 1e-5,
+            },
+            UnitDef {
+                names: &["gf", "gram_force"],
+                to_base: 0.00980665,
+            },
+        ],
+    },
+    UnitCat {
+        name: "Temperature",
+        base: "K",
+        units: &[
+            UnitDef {
+                names: &["k", "kelvin", "kelvins"],
+                to_base: f64::NAN,
+            },
+            UnitDef {
+                names: &["c", "celsius", "degc"],
+                to_base: f64::NAN,
+            },
+            UnitDef {
+                names: &["f", "fahrenheit", "degf"],
+                to_base: f64::NAN,
+            },
+            UnitDef {
+                names: &["r", "rankine", "degr"],
+                to_base: f64::NAN,
+            },
+        ],
+    },
+    UnitCat {
+        name: "Fuel Economy",
+        base: "L/100km",
+        units: &[
+            UnitDef {
+                names: &["l/100km", "lpkm", "liter_per_100km"],
+                to_base: 1.0,
+            },
+            UnitDef {
+                names: &["mpg", "mile_per_gallon", "miles_per_gallon"],
+                to_base: f64::NAN,
+            },
+            UnitDef {
+                names: &["km/l", "kpl", "kilometer_per_liter"],
+                to_base: f64::NAN,
+            },
+        ],
+    },
 ];
 
 fn units_to_base(val: f64, from_lower: &str) -> Option<(f64, usize)> {
     for (cat_idx, cat) in UNIT_TABLE.iter().enumerate() {
         for entry in cat.units {
-            if entry.names.iter().any(|n| *n == from_lower) {
+            if entry.names.contains(&from_lower) {
                 if cat.name == "Temperature" {
                     let k = temp_to_kelvin(val, from_lower)?;
                     return Some((k, cat_idx));
@@ -6299,9 +9466,13 @@ fn units_to_base(val: f64, from_lower: &str) -> Option<(f64, usize)> {
 fn units_from_base(base_val: f64, to_lower: &str, cat_idx: usize) -> Option<f64> {
     let cat = &UNIT_TABLE[cat_idx];
     for entry in cat.units {
-        if entry.names.iter().any(|n| *n == to_lower) {
-            if cat.name == "Temperature" { return kelvin_to_temp(base_val, to_lower); }
-            if cat.name == "Fuel Economy" { return l100_to_fuel(base_val, to_lower); }
+        if entry.names.contains(&to_lower) {
+            if cat.name == "Temperature" {
+                return kelvin_to_temp(base_val, to_lower);
+            }
+            if cat.name == "Fuel Economy" {
+                return l100_to_fuel(base_val, to_lower);
+            }
             return Some(base_val / entry.to_base);
         }
     }
@@ -6311,19 +9482,19 @@ fn units_from_base(base_val: f64, to_lower: &str, cat_idx: usize) -> Option<f64>
 fn temp_to_kelvin(val: f64, unit: &str) -> Option<f64> {
     match unit {
         "k" | "kelvin" | "kelvins" => Some(val),
-        "c" | "celsius" | "degc"   => Some(val + 273.15),
+        "c" | "celsius" | "degc" => Some(val + 273.15),
         "f" | "fahrenheit" | "degf" => Some((val + 459.67) * 5.0 / 9.0),
-        "r" | "rankine" | "degr"   => Some(val * 5.0 / 9.0),
+        "r" | "rankine" | "degr" => Some(val * 5.0 / 9.0),
         _ => None,
     }
 }
 
 fn kelvin_to_temp(k: f64, unit: &str) -> Option<f64> {
     match unit {
-        "k" | "kelvin" | "kelvins"  => Some(k),
-        "c" | "celsius" | "degc"    => Some(k - 273.15),
+        "k" | "kelvin" | "kelvins" => Some(k),
+        "c" | "celsius" | "degc" => Some(k - 273.15),
         "f" | "fahrenheit" | "degf" => Some(k * 9.0 / 5.0 - 459.67),
-        "r" | "rankine" | "degr"    => Some(k * 9.0 / 5.0),
+        "r" | "rankine" | "degr" => Some(k * 9.0 / 5.0),
         _ => None,
     }
 }
@@ -6349,18 +9520,26 @@ fn l100_to_fuel(l100: f64, unit: &str) -> Option<f64> {
 fn find_unit_category(unit_lower: &str) -> Option<usize> {
     for (i, cat) in UNIT_TABLE.iter().enumerate() {
         for entry in cat.units {
-            if entry.names.iter().any(|n| *n == unit_lower) { return Some(i); }
+            if entry.names.contains(&unit_lower) {
+                return Some(i);
+            }
         }
     }
     None
 }
 
 fn fmt_unit_val(v: f64) -> String {
-    if v == 0.0 { return "0".into(); }
+    if v == 0.0 {
+        return "0".into();
+    }
     let abs = v.abs();
-    if abs >= 1e9 || abs < 1e-4 { format!("{:.6e}", v) }
-    else if abs >= 1000.0        { format!("{:.4}", v) }
-    else                         { format!("{:.8}", v) }
+    if !(1e-4..1e9).contains(&abs) {
+        format!("{:.6e}", v)
+    } else if abs >= 1000.0 {
+        format!("{:.4}", v)
+    } else {
+        format!("{:.8}", v)
+    }
 }
 
 pub fn units_calc(query: &str) -> String {
@@ -6393,13 +9572,17 @@ pub fn units_calc(query: &str) -> String {
                         for entry in cat.units {
                             let _ = writeln!(out, "    {}", entry.names[0]);
                         }
-                        let _ = writeln!(out, "");
+                        let _ = writeln!(out);
                     }
                 }
                 let _ = writeln!(out, "{}", sep);
                 return out;
             }
-            let _ = writeln!(out, "  ERROR: first token must be a number. Got '{}'", tokens[0]);
+            let _ = writeln!(
+                out,
+                "  ERROR: first token must be a number. Got '{}'",
+                tokens[0]
+            );
             let _ = writeln!(out, "{}", units_usage());
             let _ = writeln!(out, "{}", sep);
             return out;
@@ -6416,7 +9599,8 @@ pub fn units_calc(query: &str) -> String {
 
     // Skip connector tokens: "to", "in", "->", "as"
     let connector_set = ["to", "in", "->", "as", "into"];
-    let to_raw: Option<String> = tokens[2..].iter()
+    let to_raw: Option<String> = tokens[2..]
+        .iter()
         .find(|t| !connector_set.contains(&t.to_lowercase().as_str()))
         .map(|t| t.to_lowercase());
 
@@ -6437,13 +9621,23 @@ pub fn units_calc(query: &str) -> String {
         // Single target conversion
         match units_from_base(base_val, &to_unit, cat_idx) {
             Some(result) => {
-                let _ = writeln!(out, "  {} {} = {} {}", val, tokens[1], fmt_unit_val(result), &to_unit);
+                let _ = writeln!(
+                    out,
+                    "  {} {} = {} {}",
+                    val,
+                    tokens[1],
+                    fmt_unit_val(result),
+                    &to_unit
+                );
             }
             None => {
                 // Check if to_unit exists in a different category
                 if let Some(other_idx) = find_unit_category(&to_unit) {
-                    let _ = writeln!(out, "  ERROR: '{}' is a {} unit, but '{}' is {}.",
-                        &to_unit, UNIT_TABLE[other_idx].name, tokens[1], cat.name);
+                    let _ = writeln!(
+                        out,
+                        "  ERROR: '{}' is a {} unit, but '{}' is {}.",
+                        &to_unit, UNIT_TABLE[other_idx].name, tokens[1], cat.name
+                    );
                 } else {
                     let _ = writeln!(out, "  ERROR: unknown target unit '{}'.", &to_unit);
                 }
@@ -6456,11 +9650,15 @@ pub fn units_calc(query: &str) -> String {
         let _ = writeln!(out, "  {}", "-".repeat(42));
         for entry in cat.units {
             let to_name = entry.names[0];
-            if to_name == from_raw { continue; }
+            if to_name == from_raw {
+                continue;
+            }
             if let Some(result) = units_from_base(base_val, to_name, cat_idx) {
                 let abs = result.abs();
                 // skip values that are so tiny or huge they're not useful
-                if abs > 0.0 && (abs < 1e-30 || abs > 1e30) { continue; }
+                if abs > 0.0 && !(1e-30..=1e30).contains(&abs) {
+                    continue;
+                }
                 let _ = writeln!(out, "  {:>30}  {}", fmt_unit_val(result), to_name);
             }
         }
@@ -6523,15 +9721,39 @@ fn euler_step(f: &dyn Fn(f64, f64) -> f64, t: f64, y: f64, h: f64) -> f64 {
 fn rk45_step(f: &dyn Fn(f64, f64) -> f64, t: f64, y: f64, h: f64) -> (f64, f64) {
     // Dormand-Prince coefficients
     let k1 = f(t, y);
-    let k2 = f(t + h/5.0,      y + h*(k1/5.0));
-    let k3 = f(t + 3.0*h/10.0, y + h*(3.0*k1/40.0 + 9.0*k2/40.0));
-    let k4 = f(t + 4.0*h/5.0,  y + h*(44.0*k1/45.0 - 56.0*k2/15.0 + 32.0*k3/9.0));
-    let k5 = f(t + 8.0*h/9.0,  y + h*(19372.0*k1/6561.0 - 25360.0*k2/2187.0 + 64448.0*k3/6561.0 - 212.0*k4/729.0));
-    let k6 = f(t + h,           y + h*(9017.0*k1/3168.0 - 355.0*k2/33.0 + 46732.0*k3/5247.0 + 49.0*k4/176.0 - 5103.0*k5/18656.0));
+    let k2 = f(t + h / 5.0, y + h * (k1 / 5.0));
+    let k3 = f(
+        t + 3.0 * h / 10.0,
+        y + h * (3.0 * k1 / 40.0 + 9.0 * k2 / 40.0),
+    );
+    let k4 = f(
+        t + 4.0 * h / 5.0,
+        y + h * (44.0 * k1 / 45.0 - 56.0 * k2 / 15.0 + 32.0 * k3 / 9.0),
+    );
+    let k5 = f(
+        t + 8.0 * h / 9.0,
+        y + h
+            * (19372.0 * k1 / 6561.0 - 25360.0 * k2 / 2187.0 + 64448.0 * k3 / 6561.0
+                - 212.0 * k4 / 729.0),
+    );
+    let k6 = f(
+        t + h,
+        y + h
+            * (9017.0 * k1 / 3168.0 - 355.0 * k2 / 33.0
+                + 46732.0 * k3 / 5247.0
+                + 49.0 * k4 / 176.0
+                - 5103.0 * k5 / 18656.0),
+    );
     // 5th order solution
-    let y5 = y + h*(35.0*k1/384.0 + 500.0*k3/1113.0 + 125.0*k4/192.0 - 2187.0*k5/6784.0 + 11.0*k6/84.0);
+    let y5 = y + h
+        * (35.0 * k1 / 384.0 + 500.0 * k3 / 1113.0 + 125.0 * k4 / 192.0 - 2187.0 * k5 / 6784.0
+            + 11.0 * k6 / 84.0);
     // 4th order for error estimate
-    let y4 = y + h*(5179.0*k1/57600.0 + 7571.0*k3/16695.0 + 393.0*k4/640.0 - 92097.0*k5/339200.0 + 187.0*k6/2100.0 + k6/40.0);
+    let y4 = y + h
+        * (5179.0 * k1 / 57600.0 + 7571.0 * k3 / 16695.0 + 393.0 * k4 / 640.0
+            - 92097.0 * k5 / 339200.0
+            + 187.0 * k6 / 2100.0
+            + k6 / 40.0);
     let err = (y5 - y4).abs();
     (y5, err)
 }
@@ -6540,36 +9762,53 @@ fn rk45_step(f: &dyn Fn(f64, f64) -> f64, t: f64, y: f64, h: f64) -> (f64, f64) 
 fn rk4_system_step(
     f1: &dyn Fn(f64, f64, f64) -> f64,
     f2: &dyn Fn(f64, f64, f64) -> f64,
-    t: f64, y1: f64, y2: f64, h: f64,
+    t: f64,
+    y1: f64,
+    y2: f64,
+    h: f64,
 ) -> (f64, f64) {
-    let k1a = f1(t, y1, y2);           let k1b = f2(t, y1, y2);
-    let k2a = f1(t+h/2.0, y1+h*k1a/2.0, y2+h*k1b/2.0);
-    let k2b = f2(t+h/2.0, y1+h*k1a/2.0, y2+h*k1b/2.0);
-    let k3a = f1(t+h/2.0, y1+h*k2a/2.0, y2+h*k2b/2.0);
-    let k3b = f2(t+h/2.0, y1+h*k2a/2.0, y2+h*k2b/2.0);
-    let k4a = f1(t+h, y1+h*k3a, y2+h*k3b);
-    let k4b = f2(t+h, y1+h*k3a, y2+h*k3b);
-    (y1 + h*(k1a+2.0*k2a+2.0*k3a+k4a)/6.0,
-     y2 + h*(k1b+2.0*k2b+2.0*k3b+k4b)/6.0)
+    let k1a = f1(t, y1, y2);
+    let k1b = f2(t, y1, y2);
+    let k2a = f1(t + h / 2.0, y1 + h * k1a / 2.0, y2 + h * k1b / 2.0);
+    let k2b = f2(t + h / 2.0, y1 + h * k1a / 2.0, y2 + h * k1b / 2.0);
+    let k3a = f1(t + h / 2.0, y1 + h * k2a / 2.0, y2 + h * k2b / 2.0);
+    let k3b = f2(t + h / 2.0, y1 + h * k2a / 2.0, y2 + h * k2b / 2.0);
+    let k4a = f1(t + h, y1 + h * k3a, y2 + h * k3b);
+    let k4b = f2(t + h, y1 + h * k3a, y2 + h * k3b);
+    (
+        y1 + h * (k1a + 2.0 * k2a + 2.0 * k3a + k4a) / 6.0,
+        y2 + h * (k1b + 2.0 * k2b + 2.0 * k3b + k4b) / 6.0,
+    )
 }
 
 fn ode_ascii_plot(ts: &[f64], ys: &[f64], width: usize, height: usize) -> String {
-    if ts.is_empty() || ys.is_empty() { return String::new(); }
+    if ts.is_empty() || ys.is_empty() {
+        return String::new();
+    }
     let mn = ys.iter().cloned().fold(f64::INFINITY, f64::min);
     let mx = ys.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
     let yrange = (mx - mn).max(1e-12);
-    let tmin = ts[0]; let tmax = ts[ts.len()-1];
+    let tmin = ts[0];
+    let tmax = ts[ts.len() - 1];
     let trange = (tmax - tmin).max(1e-12);
     let mut grid = vec![vec![' '; width]; height];
     for (i, (&t, &y)) in ts.iter().zip(ys.iter()).enumerate() {
         let _ = i;
         let col = ((t - tmin) / trange * (width - 1) as f64).round() as usize;
         let row = height - 1 - ((y - mn) / yrange * (height - 1) as f64).round() as usize;
-        let col = col.min(width - 1); let row = row.min(height - 1);
+        let col = col.min(width - 1);
+        let row = row.min(height - 1);
         grid[row][col] = '·';
     }
-    let result = grid.iter().map(|r| r.iter().collect::<String>()).collect::<Vec<_>>().join("\n");
-    format!("{}\n  y: [{:.4} .. {:.4}]\n  t: [{:.4} .. {:.4}]", result, mn, mx, tmin, tmax)
+    let result = grid
+        .iter()
+        .map(|r| r.iter().collect::<String>())
+        .collect::<Vec<_>>()
+        .join("\n");
+    format!(
+        "{}\n  y: [{:.4} .. {:.4}]\n  t: [{:.4} .. {:.4}]",
+        result, mn, mx, tmin, tmax
+    )
 }
 
 pub fn ode_solve(query: &str) -> String {
@@ -6584,137 +9823,267 @@ pub fn ode_solve(query: &str) -> String {
     // --- Preset models ---
     if q.starts_with("logistic") || q.contains("logistic growth") {
         // dy/dt = r*y*(1 - y/K)
-        let tokens: Vec<&str> = query.trim().split_whitespace().collect();
-        let r: f64 = tokens.iter().position(|&t| t.to_lowercase() == "r")
-            .and_then(|i| tokens.get(i+1)?.parse().ok()).unwrap_or(1.0);
-        let k: f64 = tokens.iter().position(|&t| t.to_lowercase() == "k")
-            .and_then(|i| tokens.get(i+1)?.parse().ok()).unwrap_or(100.0);
-        let y0: f64 = tokens.iter().position(|&t| t.to_lowercase() == "y0")
-            .and_then(|i| tokens.get(i+1)?.parse().ok()).unwrap_or(10.0);
-        let t_end: f64 = tokens.iter().position(|&t| t.to_lowercase() == "t")
-            .and_then(|i| tokens.get(i+1)?.parse().ok()).unwrap_or(10.0);
+        let tokens: Vec<&str> = query.split_whitespace().collect();
+        let r: f64 = tokens
+            .iter()
+            .position(|&t| t.to_lowercase() == "r")
+            .and_then(|i| tokens.get(i + 1)?.parse().ok())
+            .unwrap_or(1.0);
+        let k: f64 = tokens
+            .iter()
+            .position(|&t| t.to_lowercase() == "k")
+            .and_then(|i| tokens.get(i + 1)?.parse().ok())
+            .unwrap_or(100.0);
+        let y0: f64 = tokens
+            .iter()
+            .position(|&t| t.to_lowercase() == "y0")
+            .and_then(|i| tokens.get(i + 1)?.parse().ok())
+            .unwrap_or(10.0);
+        let t_end: f64 = tokens
+            .iter()
+            .position(|&t| t.to_lowercase() == "t")
+            .and_then(|i| tokens.get(i + 1)?.parse().ok())
+            .unwrap_or(10.0);
         let n = 200_usize;
         let h = t_end / n as f64;
         let _ = writeln!(out, "  Logistic Growth:  dy/dt = r·y·(1 - y/K)");
-        let _ = writeln!(out, "  r={:.4}  K={:.4}  y0={:.4}  t=[0,{:.4}]", r, k, y0, t_end);
-        let _ = writeln!(out, "");
+        let _ = writeln!(
+            out,
+            "  r={:.4}  K={:.4}  y0={:.4}  t=[0,{:.4}]",
+            r, k, y0, t_end
+        );
+        let _ = writeln!(out);
         let f = |_t: f64, y: f64| r * y * (1.0 - y / k);
-        let mut t = 0.0_f64; let mut y = y0;
-        let mut ts = vec![t]; let mut ys = vec![y];
-        for _ in 0..n { y = rk4_step(&f, t, y, h); t += h; ts.push(t); ys.push(y); }
-        let analytical_k = k / (1.0 + (k/y0 - 1.0) * (-r * t_end).exp());
-        let _ = writeln!(out, "  y(t_end) = {:.6}  [analytical: {:.6}]", ys[ys.len()-1], analytical_k);
+        let mut t = 0.0_f64;
+        let mut y = y0;
+        let mut ts = vec![t];
+        let mut ys = vec![y];
+        for _ in 0..n {
+            y = rk4_step(&f, t, y, h);
+            t += h;
+            ts.push(t);
+            ys.push(y);
+        }
+        let analytical_k = k / (1.0 + (k / y0 - 1.0) * (-r * t_end).exp());
+        let _ = writeln!(
+            out,
+            "  y(t_end) = {:.6}  [analytical: {:.6}]",
+            ys[ys.len() - 1],
+            analytical_k
+        );
         let plot = ode_ascii_plot(&ts, &ys, 56, 10);
-        let _ = writeln!(out, ""); for line in plot.lines() { let _ = writeln!(out, "  {}", line); }
+        let _ = writeln!(out);
+        for line in plot.lines() {
+            let _ = writeln!(out, "  {}", line);
+        }
         let _ = writeln!(out, "{}", sep);
         return out;
     }
 
     if q.starts_with("exponential") || q.starts_with("decay") || q.starts_with("growth") {
-        let tokens: Vec<&str> = query.trim().split_whitespace().collect();
-        let r: f64 = tokens.iter().position(|&t| t.to_lowercase() == "r")
-            .and_then(|i| tokens.get(i+1)?.parse().ok()).unwrap_or(1.0);
-        let y0: f64 = tokens.iter().position(|&t| t.to_lowercase() == "y0")
-            .and_then(|i| tokens.get(i+1)?.parse().ok()).unwrap_or(1.0);
-        let t_end: f64 = tokens.iter().position(|&t| t.to_lowercase() == "t")
-            .and_then(|i| tokens.get(i+1)?.parse().ok()).unwrap_or(5.0);
+        let tokens: Vec<&str> = query.split_whitespace().collect();
+        let r: f64 = tokens
+            .iter()
+            .position(|&t| t.to_lowercase() == "r")
+            .and_then(|i| tokens.get(i + 1)?.parse().ok())
+            .unwrap_or(1.0);
+        let y0: f64 = tokens
+            .iter()
+            .position(|&t| t.to_lowercase() == "y0")
+            .and_then(|i| tokens.get(i + 1)?.parse().ok())
+            .unwrap_or(1.0);
+        let t_end: f64 = tokens
+            .iter()
+            .position(|&t| t.to_lowercase() == "t")
+            .and_then(|i| tokens.get(i + 1)?.parse().ok())
+            .unwrap_or(5.0);
         let n = 200_usize;
         let h = t_end / n as f64;
         let _ = writeln!(out, "  Exponential:  dy/dt = r·y");
         let _ = writeln!(out, "  r={:.4}  y0={:.4}  t=[0,{:.4}]", r, y0, t_end);
         let f = |_t: f64, y: f64| r * y;
-        let mut t = 0.0_f64; let mut y = y0;
-        let mut ts = vec![t]; let mut ys = vec![y];
-        for _ in 0..n { y = rk4_step(&f, t, y, h); t += h; ts.push(t); ys.push(y); }
+        let mut t = 0.0_f64;
+        let mut y = y0;
+        let mut ts = vec![t];
+        let mut ys = vec![y];
+        for _ in 0..n {
+            y = rk4_step(&f, t, y, h);
+            t += h;
+            ts.push(t);
+            ys.push(y);
+        }
         let analytical = y0 * (r * t_end).exp();
-        let _ = writeln!(out, "  y(t_end) = {:.6}  [analytical: {:.6}]", ys[ys.len()-1], analytical);
+        let _ = writeln!(
+            out,
+            "  y(t_end) = {:.6}  [analytical: {:.6}]",
+            ys[ys.len() - 1],
+            analytical
+        );
         let plot = ode_ascii_plot(&ts, &ys, 56, 10);
-        let _ = writeln!(out, ""); for line in plot.lines() { let _ = writeln!(out, "  {}", line); }
+        let _ = writeln!(out);
+        for line in plot.lines() {
+            let _ = writeln!(out, "  {}", line);
+        }
         let _ = writeln!(out, "{}", sep);
         return out;
     }
 
     if q.starts_with("lotka") || q.contains("predator") || q.contains("prey") {
         // Lotka-Volterra: dx/dt = α*x - β*x*y,  dy/dt = δ*x*y - γ*y
-        let tokens: Vec<&str> = query.trim().split_whitespace().collect();
-        let alpha: f64 = tokens.iter().position(|&t| t.to_lowercase()=="alpha")
-            .and_then(|i| tokens.get(i+1)?.parse().ok()).unwrap_or(1.0);
-        let beta: f64  = tokens.iter().position(|&t| t.to_lowercase()=="beta")
-            .and_then(|i| tokens.get(i+1)?.parse().ok()).unwrap_or(0.1);
-        let delta: f64 = tokens.iter().position(|&t| t.to_lowercase()=="delta")
-            .and_then(|i| tokens.get(i+1)?.parse().ok()).unwrap_or(0.075);
-        let gamma: f64 = tokens.iter().position(|&t| t.to_lowercase()=="gamma")
-            .and_then(|i| tokens.get(i+1)?.parse().ok()).unwrap_or(1.5);
-        let x0: f64   = tokens.iter().position(|&t| t.to_lowercase()=="x0")
-            .and_then(|i| tokens.get(i+1)?.parse().ok()).unwrap_or(10.0);
-        let y0: f64   = tokens.iter().position(|&t| t.to_lowercase()=="y0")
-            .and_then(|i| tokens.get(i+1)?.parse().ok()).unwrap_or(5.0);
-        let t_end: f64 = tokens.iter().position(|&t| t.to_lowercase()=="t")
-            .and_then(|i| tokens.get(i+1)?.parse().ok()).unwrap_or(30.0);
-        let n = 2000_usize; let h = t_end / n as f64;
+        let tokens: Vec<&str> = query.split_whitespace().collect();
+        let alpha: f64 = tokens
+            .iter()
+            .position(|&t| t.to_lowercase() == "alpha")
+            .and_then(|i| tokens.get(i + 1)?.parse().ok())
+            .unwrap_or(1.0);
+        let beta: f64 = tokens
+            .iter()
+            .position(|&t| t.to_lowercase() == "beta")
+            .and_then(|i| tokens.get(i + 1)?.parse().ok())
+            .unwrap_or(0.1);
+        let delta: f64 = tokens
+            .iter()
+            .position(|&t| t.to_lowercase() == "delta")
+            .and_then(|i| tokens.get(i + 1)?.parse().ok())
+            .unwrap_or(0.075);
+        let gamma: f64 = tokens
+            .iter()
+            .position(|&t| t.to_lowercase() == "gamma")
+            .and_then(|i| tokens.get(i + 1)?.parse().ok())
+            .unwrap_or(1.5);
+        let x0: f64 = tokens
+            .iter()
+            .position(|&t| t.to_lowercase() == "x0")
+            .and_then(|i| tokens.get(i + 1)?.parse().ok())
+            .unwrap_or(10.0);
+        let y0: f64 = tokens
+            .iter()
+            .position(|&t| t.to_lowercase() == "y0")
+            .and_then(|i| tokens.get(i + 1)?.parse().ok())
+            .unwrap_or(5.0);
+        let t_end: f64 = tokens
+            .iter()
+            .position(|&t| t.to_lowercase() == "t")
+            .and_then(|i| tokens.get(i + 1)?.parse().ok())
+            .unwrap_or(30.0);
+        let n = 2000_usize;
+        let h = t_end / n as f64;
         let _ = writeln!(out, "  Lotka-Volterra (predator-prey)");
         let _ = writeln!(out, "  dx/dt = {:.3}x - {:.3}xy  (prey)", alpha, beta);
         let _ = writeln!(out, "  dy/dt = {:.3}xy - {:.3}y  (predator)", delta, gamma);
         let _ = writeln!(out, "  x0={:.2}  y0={:.2}  t=[0,{:.1}]", x0, y0, t_end);
-        let f1 = |_t: f64, x: f64, y: f64| alpha*x - beta*x*y;
-        let f2 = |_t: f64, x: f64, y: f64| delta*x*y - gamma*y;
-        let mut t = 0.0_f64; let mut x = x0; let mut y = y0;
-        let mut ts = vec![t]; let mut xs = vec![x]; let mut ys = vec![y];
+        let f1 = |_t: f64, x: f64, y: f64| alpha * x - beta * x * y;
+        let f2 = |_t: f64, x: f64, y: f64| delta * x * y - gamma * y;
+        let mut t = 0.0_f64;
+        let mut x = x0;
+        let mut y = y0;
+        let mut ts = vec![t];
+        let mut xs = vec![x];
+        let mut ys = vec![y];
         for _ in 0..n {
             let (nx, ny) = rk4_system_step(&f1, &f2, t, x, y, h);
-            x = nx; y = ny; t += h;
-            ts.push(t); xs.push(x); ys.push(y);
+            x = nx;
+            y = ny;
+            t += h;
+            ts.push(t);
+            xs.push(x);
+            ys.push(y);
         }
-        let _ = writeln!(out, "  x(t_end)={:.4}  y(t_end)={:.4}", xs[xs.len()-1], ys[ys.len()-1]);
+        let _ = writeln!(
+            out,
+            "  x(t_end)={:.4}  y(t_end)={:.4}",
+            xs[xs.len() - 1],
+            ys[ys.len() - 1]
+        );
         let _ = writeln!(out, "  Prey trajectory:");
         let plot = ode_ascii_plot(&ts, &xs, 56, 8);
-        for line in plot.lines() { let _ = writeln!(out, "  {}", line); }
+        for line in plot.lines() {
+            let _ = writeln!(out, "  {}", line);
+        }
         let _ = writeln!(out, "  Predator trajectory:");
         let plot2 = ode_ascii_plot(&ts, &ys, 56, 8);
-        for line in plot2.lines() { let _ = writeln!(out, "  {}", line); }
+        for line in plot2.lines() {
+            let _ = writeln!(out, "  {}", line);
+        }
         let _ = writeln!(out, "{}", sep);
         return out;
     }
 
     if q.starts_with("sir") || q.contains("susceptible") || q.contains("epidemic") {
         // SIR model: dS/dt=-β*S*I/N, dI/dt=β*S*I/N - γ*I, dR/dt=γ*I
-        let tokens: Vec<&str> = query.trim().split_whitespace().collect();
-        let n_pop: f64 = tokens.iter().position(|&t| t.to_lowercase()=="n")
-            .and_then(|i| tokens.get(i+1)?.parse().ok()).unwrap_or(1000.0);
-        let beta: f64  = tokens.iter().position(|&t| t.to_lowercase()=="beta")
-            .and_then(|i| tokens.get(i+1)?.parse().ok()).unwrap_or(0.3);
-        let gamma: f64 = tokens.iter().position(|&t| t.to_lowercase()=="gamma")
-            .and_then(|i| tokens.get(i+1)?.parse().ok()).unwrap_or(0.05);
-        let i0: f64    = tokens.iter().position(|&t| t.to_lowercase()=="i0")
-            .and_then(|i| tokens.get(i+1)?.parse().ok()).unwrap_or(1.0);
-        let t_end: f64 = tokens.iter().position(|&t| t.to_lowercase()=="t")
-            .and_then(|i| tokens.get(i+1)?.parse().ok()).unwrap_or(200.0);
-        let n_steps = 2000_usize; let h = t_end / n_steps as f64;
+        let tokens: Vec<&str> = query.split_whitespace().collect();
+        let n_pop: f64 = tokens
+            .iter()
+            .position(|&t| t.to_lowercase() == "n")
+            .and_then(|i| tokens.get(i + 1)?.parse().ok())
+            .unwrap_or(1000.0);
+        let beta: f64 = tokens
+            .iter()
+            .position(|&t| t.to_lowercase() == "beta")
+            .and_then(|i| tokens.get(i + 1)?.parse().ok())
+            .unwrap_or(0.3);
+        let gamma: f64 = tokens
+            .iter()
+            .position(|&t| t.to_lowercase() == "gamma")
+            .and_then(|i| tokens.get(i + 1)?.parse().ok())
+            .unwrap_or(0.05);
+        let i0: f64 = tokens
+            .iter()
+            .position(|&t| t.to_lowercase() == "i0")
+            .and_then(|i| tokens.get(i + 1)?.parse().ok())
+            .unwrap_or(1.0);
+        let t_end: f64 = tokens
+            .iter()
+            .position(|&t| t.to_lowercase() == "t")
+            .and_then(|i| tokens.get(i + 1)?.parse().ok())
+            .unwrap_or(200.0);
+        let n_steps = 2000_usize;
+        let h = t_end / n_steps as f64;
         let r0 = beta / gamma;
-        let _ = writeln!(out, "  SIR Epidemic Model  (N={}, β={:.4}, γ={:.4}, R₀={:.2})", n_pop, beta, gamma, r0);
-        let _ = writeln!(out, "  dS/dt = -β·S·I/N   dI/dt = β·S·I/N - γ·I   dR/dt = γ·I");
-        let mut s = n_pop - i0; let mut inf = i0; let mut r = 0.0_f64;
+        let _ = writeln!(
+            out,
+            "  SIR Epidemic Model  (N={}, β={:.4}, γ={:.4}, R₀={:.2})",
+            n_pop, beta, gamma, r0
+        );
+        let _ = writeln!(
+            out,
+            "  dS/dt = -β·S·I/N   dI/dt = β·S·I/N - γ·I   dR/dt = γ·I"
+        );
+        let mut s = n_pop - i0;
+        let mut inf = i0;
+        let mut r = 0.0_f64;
         let mut t = 0.0_f64;
-        let mut ts = vec![t]; let mut is = vec![inf];
-        let mut peak_i = i0; let mut peak_t = 0.0_f64;
+        let mut ts = vec![t];
+        let mut is = vec![inf];
+        let mut peak_i = i0;
+        let mut peak_t = 0.0_f64;
         for _ in 0..n_steps {
             let ds = -beta * s * inf / n_pop;
             let di = beta * s * inf / n_pop - gamma * inf;
             let dr = gamma * inf;
-            s += h*ds; inf += h*di; r += h*dr; t += h;
-            if inf > peak_i { peak_i = inf; peak_t = t; }
-            ts.push(t); is.push(inf);
+            s += h * ds;
+            inf += h * di;
+            r += h * dr;
+            t += h;
+            if inf > peak_i {
+                peak_i = inf;
+                peak_t = t;
+            }
+            ts.push(t);
+            is.push(inf);
         }
         let _ = writeln!(out, "  Peak infected: {:.1} at t={:.1}", peak_i, peak_t);
         let _ = writeln!(out, "  Final: S={:.1}  I={:.1}  R={:.1}", s, inf, r);
         let plot = ode_ascii_plot(&ts, &is, 56, 10);
-        for line in plot.lines() { let _ = writeln!(out, "  {}", line); }
+        for line in plot.lines() {
+            let _ = writeln!(out, "  {}", line);
+        }
         let _ = writeln!(out, "{}", sep);
         return out;
     }
 
     // --- Generic: dy/dt = EXPR  y0=VALUE  t=END  [n=STEPS] [method=euler|rk4|rk45] ---
-    let tokens: Vec<&str> = query.trim().split_whitespace().collect();
+    let tokens: Vec<&str> = query.split_whitespace().collect();
 
     // Parse: "dy/dt = EXPR" form or "EXPR y0=V t=END"
     let eq_str: String = if let Some(eq_pos) = query.find('=') {
@@ -6722,28 +10091,46 @@ pub fn ode_solve(query: &str) -> String {
         // But also y0= or t= have = so find the equation part
         let before = &query[..eq_pos].trim().to_lowercase();
         if before.ends_with("dy/dt") || before.ends_with("f") || before.ends_with("dydt") {
-            query[eq_pos+1..].split_whitespace()
-                .take_while(|t| !t.to_lowercase().starts_with("y0=")
-                             && !t.to_lowercase().starts_with("t=")
-                             && !t.to_lowercase().starts_with("n=")
-                             && !t.to_lowercase().starts_with("method="))
-                .collect::<Vec<_>>().join("")
-        } else { tokens[0].to_string() }
-    } else { tokens[0].to_string() };
+            query[eq_pos + 1..]
+                .split_whitespace()
+                .take_while(|t| {
+                    !t.to_lowercase().starts_with("y0=")
+                        && !t.to_lowercase().starts_with("t=")
+                        && !t.to_lowercase().starts_with("n=")
+                        && !t.to_lowercase().starts_with("method=")
+                })
+                .collect::<Vec<_>>()
+                .join("")
+        } else {
+            tokens[0].to_string()
+        }
+    } else {
+        tokens[0].to_string()
+    };
 
     // Extract named params
     let get_param = |key: &str| -> Option<f64> {
-        query.split_whitespace().find(|t| t.to_lowercase().starts_with(&format!("{}=", key)))
-            .and_then(|t| t.splitn(2, '=').nth(1)?.parse().ok())
+        query
+            .split_whitespace()
+            .find(|t| t.to_lowercase().starts_with(&format!("{}=", key)))
+            .and_then(|t| t.split_once('=')?.1.parse().ok())
     };
     let get_str_param = |key: &str| -> Option<String> {
-        query.split_whitespace().find(|t| t.to_lowercase().starts_with(&format!("{}=", key)))
-            .and_then(|t| t.splitn(2, '=').nth(1).map(|s| s.to_lowercase()))
+        query
+            .split_whitespace()
+            .find(|t| t.to_lowercase().starts_with(&format!("{}=", key)))
+            .and_then(|t| t.split_once('=').map(|x| x.1).map(|s| s.to_lowercase()))
     };
 
-    let y0     = get_param("y0").unwrap_or(1.0);
-    let t_end  = get_param("t").or_else(|| get_param("tend")).or_else(|| get_param("t_end")).unwrap_or(10.0);
-    let n      = get_param("n").map(|v| v as usize).unwrap_or(100).max(4).min(10000);
+    let y0 = get_param("y0").unwrap_or(1.0);
+    let t_end = get_param("t")
+        .or_else(|| get_param("tend"))
+        .or_else(|| get_param("t_end"))
+        .unwrap_or(10.0);
+    let n = get_param("n")
+        .map(|v| v as usize)
+        .unwrap_or(100)
+        .clamp(4, 10000);
     let method = get_str_param("method").unwrap_or_else(|| "rk4".into());
 
     if eq_str.is_empty() || eq_str == "0" {
@@ -6756,35 +10143,64 @@ pub fn ode_solve(query: &str) -> String {
     let f = move |t: f64, y: f64| ode_eval_expr(&eq, t, y);
     let h = t_end / n as f64;
 
-    let _ = writeln!(out, "  dy/dt = {}   y0={}   t=[0,{}]   n={}   method={}", eq_str, y0, t_end, n, method);
-    let _ = writeln!(out, "");
+    let _ = writeln!(
+        out,
+        "  dy/dt = {}   y0={}   t=[0,{}]   n={}   method={}",
+        eq_str, y0, t_end, n, method
+    );
+    let _ = writeln!(out);
 
     let (ts, ys): (Vec<f64>, Vec<f64>) = match method.as_str() {
         "euler" => {
-            let mut t = 0.0_f64; let mut y = y0;
-            let mut ts = vec![t]; let mut ys = vec![y];
-            for _ in 0..n { y = euler_step(&f, t, y, h); t += h; ts.push(t); ys.push(y); }
+            let mut t = 0.0_f64;
+            let mut y = y0;
+            let mut ts = vec![t];
+            let mut ys = vec![y];
+            for _ in 0..n {
+                y = euler_step(&f, t, y, h);
+                t += h;
+                ts.push(t);
+                ys.push(y);
+            }
             (ts, ys)
         }
         "rk45" | "adaptive" => {
-            let mut t = 0.0_f64; let mut y = y0;
-            let mut ts = vec![t]; let mut ys = vec![y];
-            let mut h_cur = h; let tol = 1e-6_f64;
+            let mut t = 0.0_f64;
+            let mut y = y0;
+            let mut ts = vec![t];
+            let mut ys = vec![y];
+            let mut h_cur = h;
+            let tol = 1e-6_f64;
             let mut steps = 0_usize;
             while t < t_end && steps < 100_000 {
                 let (y_new, err) = rk45_step(&f, t, y, h_cur);
                 if err < tol || h_cur < 1e-10 {
-                    t += h_cur; y = y_new; ts.push(t); ys.push(y); steps += 1;
+                    t += h_cur;
+                    y = y_new;
+                    ts.push(t);
+                    ys.push(y);
+                    steps += 1;
                 }
-                let scale = if err > 0.0 { 0.9 * (tol / err).powf(0.2) } else { 2.0 };
-                h_cur = (h_cur * scale.min(5.0).max(0.1)).min(t_end - t + 1e-15);
+                let scale = if err > 0.0 {
+                    0.9 * (tol / err).powf(0.2)
+                } else {
+                    2.0
+                };
+                h_cur = (h_cur * scale.clamp(0.1, 5.0)).min(t_end - t + 1e-15);
             }
             (ts, ys)
         }
         _ => {
-            let mut t = 0.0_f64; let mut y = y0;
-            let mut ts = vec![t]; let mut ys = vec![y];
-            for _ in 0..n { y = rk4_step(&f, t, y, h); t += h; ts.push(t); ys.push(y); }
+            let mut t = 0.0_f64;
+            let mut y = y0;
+            let mut ts = vec![t];
+            let mut ys = vec![y];
+            for _ in 0..n {
+                y = rk4_step(&f, t, y, h);
+                t += h;
+                ts.push(t);
+                ys.push(y);
+            }
             (ts, ys)
         }
     };
@@ -6794,13 +10210,17 @@ pub fn ode_solve(query: &str) -> String {
     let _ = writeln!(out, "  {:>10}  {:>16}", "t", "y");
     let _ = writeln!(out, "  {}", "-".repeat(28));
     for (i, (&t, &y)) in ts.iter().zip(ys.iter()).enumerate() {
-        if i % step == 0 || i == ts.len() - 1 { let _ = writeln!(out, "  {:>10.6}  {:>16.10}", t, y); }
+        if i % step == 0 || i == ts.len() - 1 {
+            let _ = writeln!(out, "  {:>10.6}  {:>16.10}", t, y);
+        }
     }
-    let _ = writeln!(out, "");
+    let _ = writeln!(out);
 
     // Plot
     let plot = ode_ascii_plot(&ts, &ys, 56, 10);
-    for line in plot.lines() { let _ = writeln!(out, "  {}", line); }
+    for line in plot.lines() {
+        let _ = writeln!(out, "  {}", line);
+    }
 
     let _ = writeln!(out, "{}", sep);
     out
@@ -6842,15 +10262,33 @@ fn opt_eval(expr_str: &str, x: f64, y: f64) -> f64 {
 }
 
 // Golden-section search: minimize f over [a, b]
-fn golden_section(f: &dyn Fn(f64) -> f64, mut a: f64, mut b: f64, tol: f64, max_iter: usize) -> (f64, f64, usize) {
+fn golden_section(
+    f: &dyn Fn(f64) -> f64,
+    mut a: f64,
+    mut b: f64,
+    tol: f64,
+    max_iter: usize,
+) -> (f64, f64, usize) {
     let phi = (5.0_f64.sqrt() - 1.0) / 2.0;
     let mut c = b - phi * (b - a);
     let mut d = a + phi * (b - a);
-    let mut fc = f(c); let mut fd = f(d);
+    let mut fc = f(c);
+    let mut fd = f(d);
     let mut iters = 0;
     while (b - a).abs() > tol && iters < max_iter {
-        if fc < fd { b = d; d = c; fd = fc; c = b - phi * (b - a); fc = f(c); }
-        else        { a = c; c = d; fc = fd; d = a + phi * (b - a); fd = f(d); }
+        if fc < fd {
+            b = d;
+            d = c;
+            fd = fc;
+            c = b - phi * (b - a);
+            fc = f(c);
+        } else {
+            a = c;
+            c = d;
+            fc = fd;
+            d = a + phi * (b - a);
+            fd = f(d);
+        }
         iters += 1;
     }
     let x_min = (a + b) / 2.0;
@@ -6859,17 +10297,24 @@ fn golden_section(f: &dyn Fn(f64) -> f64, mut a: f64, mut b: f64, tol: f64, max_
 
 // Finite-difference gradient
 fn grad(f: &dyn Fn(&[f64]) -> f64, x: &[f64], h: f64) -> Vec<f64> {
-    x.iter().enumerate().map(|(i, _)| {
-        let mut xp = x.to_vec(); xp[i] += h;
-        let mut xm = x.to_vec(); xm[i] -= h;
-        (f(&xp) - f(&xm)) / (2.0 * h)
-    }).collect()
+    x.iter()
+        .enumerate()
+        .map(|(i, _)| {
+            let mut xp = x.to_vec();
+            xp[i] += h;
+            let mut xm = x.to_vec();
+            xm[i] -= h;
+            (f(&xp) - f(&xm)) / (2.0 * h)
+        })
+        .collect()
 }
 
 // Gradient descent with backtracking line search
 fn gradient_descent(
     f: &dyn Fn(&[f64]) -> f64,
-    x0: &[f64], max_iter: usize, tol: f64,
+    x0: &[f64],
+    max_iter: usize,
+    tol: f64,
 ) -> (Vec<f64>, f64, usize) {
     let mut x = x0.to_vec();
     let mut iters = 0;
@@ -6877,15 +10322,26 @@ fn gradient_descent(
     for _ in 0..max_iter {
         let g = grad(f, &x, 1e-6);
         let gnorm = g.iter().map(|v| v * v).sum::<f64>().sqrt();
-        if gnorm < tol { break; }
+        if gnorm < tol {
+            break;
+        }
         // backtracking
         let fx = f(&x);
         let mut step = alpha;
-        let mut x_new = x.iter().zip(g.iter()).map(|(&xi, &gi)| xi - step * gi).collect::<Vec<_>>();
+        let mut x_new = x
+            .iter()
+            .zip(g.iter())
+            .map(|(&xi, &gi)| xi - step * gi)
+            .collect::<Vec<_>>();
         let mut tries = 0;
         while f(&x_new) > fx - 0.5 * step * gnorm * gnorm && tries < 30 {
-            step *= 0.5; tries += 1;
-            x_new = x.iter().zip(g.iter()).map(|(&xi, &gi)| xi - step * gi).collect();
+            step *= 0.5;
+            tries += 1;
+            x_new = x
+                .iter()
+                .zip(g.iter())
+                .map(|(&xi, &gi)| xi - step * gi)
+                .collect();
         }
         alpha = step;
         x = x_new;
@@ -6896,7 +10352,13 @@ fn gradient_descent(
 }
 
 // Nelder-Mead simplex for 2D
-fn nelder_mead(f: &dyn Fn(f64, f64) -> f64, x0: f64, y0: f64, max_iter: usize, tol: f64) -> (f64, f64, f64, usize) {
+fn nelder_mead(
+    f: &dyn Fn(f64, f64) -> f64,
+    x0: f64,
+    y0: f64,
+    max_iter: usize,
+    tol: f64,
+) -> (f64, f64, f64, usize) {
     let g = |p: &[f64; 2]| f(p[0], p[1]);
     let mut s = [[x0, y0], [x0 + 1.0, y0], [x0, y0 + 1.0]];
     let mut iters = 0;
@@ -6904,10 +10366,14 @@ fn nelder_mead(f: &dyn Fn(f64, f64) -> f64, x0: f64, y0: f64, max_iter: usize, t
         // sort by function value
         let mut fs: [(f64, usize); 3] = [(g(&s[0]), 0), (g(&s[1]), 1), (g(&s[2]), 2)];
         fs.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
-        let (_, i_best) = fs[0]; let (_, i_worst) = fs[2]; let (_, i_2nd) = fs[1];
+        let (_, i_best) = fs[0];
+        let (_, i_worst) = fs[2];
+        let (_, i_2nd) = fs[1];
         // convergence
         let spread = (fs[2].0 - fs[0].0).abs();
-        if spread < tol || iters >= max_iter { break; }
+        if spread < tol || iters >= max_iter {
+            break;
+        }
         // centroid of best two
         let cx = (s[i_best][0] + s[i_2nd][0]) / 2.0;
         let cy = (s[i_best][1] + s[i_2nd][1]) / 2.0;
@@ -6919,7 +10385,11 @@ fn nelder_mead(f: &dyn Fn(f64, f64) -> f64, x0: f64, y0: f64, max_iter: usize, t
             // expand
             let ex = 3.0 * cx - 2.0 * s[i_worst][0];
             let ey = 3.0 * cy - 2.0 * s[i_worst][1];
-            if g(&[ex, ey]) < fr { s[i_worst] = [ex, ey]; } else { s[i_worst] = [rx, ry]; }
+            if g(&[ex, ey]) < fr {
+                s[i_worst] = [ex, ey];
+            } else {
+                s[i_worst] = [rx, ry];
+            }
         } else if fr < fs[1].0 {
             s[i_worst] = [rx, ry];
         } else {
@@ -6932,7 +10402,10 @@ fn nelder_mead(f: &dyn Fn(f64, f64) -> f64, x0: f64, y0: f64, max_iter: usize, t
                 // shrink
                 for j in 1..3 {
                     let idx = fs[j].1;
-                    s[idx] = [(s[i_best][0]+s[idx][0])/2.0, (s[i_best][1]+s[idx][1])/2.0];
+                    s[idx] = [
+                        (s[i_best][0] + s[idx][0]) / 2.0,
+                        (s[i_best][1] + s[idx][1]) / 2.0,
+                    ];
                 }
             }
         }
@@ -6951,7 +10424,7 @@ pub fn optimize_calc(query: &str) -> String {
     let _ = writeln!(out, "  NUMERICAL OPTIMIZATION");
     let _ = writeln!(out, "{}", sep);
 
-    let tokens: Vec<&str> = query.trim().split_whitespace().collect();
+    let tokens: Vec<&str> = query.split_whitespace().collect();
     if tokens.is_empty() {
         let _ = writeln!(out, "{}", optimize_usage());
         let _ = writeln!(out, "{}", sep);
@@ -6959,9 +10432,10 @@ pub fn optimize_calc(query: &str) -> String {
     }
 
     let get_param = |key: &str| -> Option<f64> {
-        query.split_whitespace()
+        query
+            .split_whitespace()
             .find(|t| t.to_lowercase().starts_with(&format!("{}=", key)))
-            .and_then(|t| t.splitn(2, '=').nth(1)?.parse().ok())
+            .and_then(|t| t.split_once('=')?.1.parse().ok())
     };
     let mode = tokens[0].to_lowercase();
 
@@ -6970,7 +10444,9 @@ pub fn optimize_calc(query: &str) -> String {
         "min" | "minimize" | "max" | "maximize" | "find-min" | "find-max" => {
             let maximize = mode == "max" || mode == "maximize" || mode == "find-max";
             let f_str = tokens.get(1).copied().unwrap_or("x^2");
-            let a = get_param("a").or_else(|| get_param("from")).unwrap_or(-10.0);
+            let a = get_param("a")
+                .or_else(|| get_param("from"))
+                .unwrap_or(-10.0);
             let b = get_param("b").or_else(|| get_param("to")).unwrap_or(10.0);
             let tol = get_param("tol").unwrap_or(1e-8);
             let max_iter = get_param("iter").map(|v| v as usize).unwrap_or(500);
@@ -6978,21 +10454,33 @@ pub fn optimize_calc(query: &str) -> String {
             let sign = if maximize { -1.0_f64 } else { 1.0_f64 };
             let f = |x: f64| sign * opt_eval(f_str, x, 0.0);
             let (x_opt, f_opt_signed, iters) = golden_section(&f, a, b, tol, max_iter);
-            let f_opt = if maximize { -f_opt_signed } else { f_opt_signed };
+            let f_opt = if maximize {
+                -f_opt_signed
+            } else {
+                f_opt_signed
+            };
 
-            let _ = writeln!(out, "  {} f(x) = {}   x ∈ [{}, {}]",
-                if maximize { "Maximize" } else { "Minimize" }, f_str, a, b);
+            let _ = writeln!(
+                out,
+                "  {} f(x) = {}   x ∈ [{}, {}]",
+                if maximize { "Maximize" } else { "Minimize" },
+                f_str,
+                a,
+                b
+            );
             let _ = writeln!(out, "  Converged in {} iterations (tol={:.2e})", iters, tol);
-            let _ = writeln!(out, "");
+            let _ = writeln!(out);
             let _ = writeln!(out, "  x* = {:.10}  f(x*) = {:.10}", x_opt, f_opt);
-            let _ = writeln!(out, "");
+            let _ = writeln!(out);
 
             // ASCII plot
             let n_plot = 56_usize;
-            let ys: Vec<f64> = (0..n_plot).map(|i| {
-                let x = a + i as f64 * (b - a) / (n_plot - 1) as f64;
-                opt_eval(f_str, x, 0.0)
-            }).collect();
+            let ys: Vec<f64> = (0..n_plot)
+                .map(|i| {
+                    let x = a + i as f64 * (b - a) / (n_plot - 1) as f64;
+                    opt_eval(f_str, x, 0.0)
+                })
+                .collect();
             let ymin = ys.iter().cloned().fold(f64::INFINITY, f64::min);
             let ymax = ys.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
             let yrange = (ymax - ymin).max(1e-12);
@@ -7006,9 +10494,17 @@ pub fn optimize_calc(query: &str) -> String {
             // mark x*
             let opt_col = ((x_opt - a) / (b - a) * (n_plot - 1) as f64).round() as usize;
             let opt_row = h - 1 - ((f_opt - ymin) / yrange * (h - 1) as f64).round() as usize;
-            if opt_col < n_plot && opt_row < h { grid[opt_row][opt_col] = '★'; }
-            for row in &grid { let _ = writeln!(out, "  |{}|", row.iter().collect::<String>()); }
-            let _ = writeln!(out, "  f: [{:.4} .. {:.4}]   x: [{:.4} .. {:.4}]   ★=optimum", ymin, ymax, a, b);
+            if opt_col < n_plot && opt_row < h {
+                grid[opt_row][opt_col] = '★';
+            }
+            for row in &grid {
+                let _ = writeln!(out, "  |{}|", row.iter().collect::<String>());
+            }
+            let _ = writeln!(
+                out,
+                "  f: [{:.4} .. {:.4}]   x: [{:.4} .. {:.4}]   ★=optimum",
+                ymin, ymax, a, b
+            );
         }
 
         // --- 2D Nelder-Mead ---
@@ -7023,10 +10519,16 @@ pub fn optimize_calc(query: &str) -> String {
             let f = |x: f64, y: f64| sign * opt_eval(f_str, x, y);
             let (xopt, yopt, fval_s, iters) = nelder_mead(&f, x0, y0, max_iter, tol);
             let fval = if maximize { -fval_s } else { fval_s };
-            let _ = writeln!(out, "  {} f(x,y) = {}   start: ({}, {})",
-                if maximize { "Maximize" } else { "Minimize" }, f_str, x0, y0);
+            let _ = writeln!(
+                out,
+                "  {} f(x,y) = {}   start: ({}, {})",
+                if maximize { "Maximize" } else { "Minimize" },
+                f_str,
+                x0,
+                y0
+            );
             let _ = writeln!(out, "  Nelder-Mead simplex  iterations={}", iters);
-            let _ = writeln!(out, "");
+            let _ = writeln!(out);
             let _ = writeln!(out, "  x* = {:.10}", xopt);
             let _ = writeln!(out, "  y* = {:.10}", yopt);
             let _ = writeln!(out, "  f(x*,y*) = {:.10}", fval);
@@ -7044,41 +10546,61 @@ pub fn optimize_calc(query: &str) -> String {
             let (x_opt, f_opt, iters) = gradient_descent(&f, &x0, max_iter, tol);
             let _ = writeln!(out, "  Gradient Descent  f = {}   x0={:?}", f_str, x0);
             let _ = writeln!(out, "  Iterations: {}", iters);
-            let _ = writeln!(out, "");
-            let _ = writeln!(out, "  x* = {:?}", x_opt.iter().map(|v| format!("{:.10}", v)).collect::<Vec<_>>());
+            let _ = writeln!(out);
+            let _ = writeln!(
+                out,
+                "  x* = {:?}",
+                x_opt
+                    .iter()
+                    .map(|v| format!("{:.10}", v))
+                    .collect::<Vec<_>>()
+            );
             let _ = writeln!(out, "  f(x*) = {:.10}", f_opt);
         }
 
         // --- Root finding (bisection) ---
         "root" | "find-root" | "zero" => {
             let f_str = tokens.get(1).copied().unwrap_or("x^2-2");
-            let a = get_param("a").or_else(|| get_param("from")).unwrap_or(-10.0);
+            let a = get_param("a")
+                .or_else(|| get_param("from"))
+                .unwrap_or(-10.0);
             let b = get_param("b").or_else(|| get_param("to")).unwrap_or(10.0);
             let tol = get_param("tol").unwrap_or(1e-10);
             let max_iter = get_param("iter").map(|v| v as usize).unwrap_or(200);
             let f = |x: f64| opt_eval(f_str, x, 0.0);
-            let fa = f(a); let fb = f(b);
+            let fa = f(a);
+            let fb = f(b);
             if fa * fb > 0.0 {
                 let _ = writeln!(out, "  Root finding: f(x) = {}   [{}, {}]", f_str, a, b);
-                let _ = writeln!(out, "  ERROR: f(a) and f(b) must have opposite signs for bisection.");
+                let _ = writeln!(
+                    out,
+                    "  ERROR: f(a) and f(b) must have opposite signs for bisection."
+                );
                 let _ = writeln!(out, "  f({}) = {:.6}  f({}) = {:.6}", a, fa, b, fb);
             } else {
-                let mut lo = a; let mut hi = b;
+                let mut lo = a;
+                let mut hi = b;
                 let mut iters = 0;
                 while (hi - lo).abs() > tol && iters < max_iter {
                     let mid = (lo + hi) / 2.0;
-                    if f(lo) * f(mid) <= 0.0 { hi = mid; } else { lo = mid; }
+                    if f(lo) * f(mid) <= 0.0 {
+                        hi = mid;
+                    } else {
+                        lo = mid;
+                    }
                     iters += 1;
                 }
                 let root = (lo + hi) / 2.0;
                 let _ = writeln!(out, "  Root finding: f(x) = {}   [{}, {}]", f_str, a, b);
                 let _ = writeln!(out, "  Bisection: {} iterations (tol={:.2e})", iters, tol);
-                let _ = writeln!(out, "");
+                let _ = writeln!(out);
                 let _ = writeln!(out, "  x* = {:.12}  f(x*) = {:.3e}", root, f(root));
             }
         }
 
-        _ => { let _ = writeln!(out, "{}", optimize_usage()); }
+        _ => {
+            let _ = writeln!(out, "{}", optimize_usage());
+        }
     }
 
     let _ = writeln!(out, "{}", sep);
@@ -7115,7 +10637,9 @@ pub fn bitwise_calc(query: &str) -> String {
     // Parse a token that might be decimal, 0x hex, 0b binary, 0o octal, or a single char
     let parse_val = |s: &str| -> Option<u64> {
         let s = s.trim();
-        if s.is_empty() { return None; }
+        if s.is_empty() {
+            return None;
+        }
         if let Some(h) = s.strip_prefix("0x").or_else(|| s.strip_prefix("0X")) {
             return u64::from_str_radix(h, 16).ok();
         }
@@ -7126,13 +10650,16 @@ pub fn bitwise_calc(query: &str) -> String {
             return u64::from_str_radix(o, 8).ok();
         }
         if s.starts_with('\'') && s.ends_with('\'') && s.len() >= 3 {
-            let inner = &s[1..s.len()-1];
+            let inner = &s[1..s.len() - 1];
             let mut chars = inner.chars();
             if let Some(c) = chars.next() {
-                if chars.next().is_none() { return Some(c as u64); }
+                if chars.next().is_none() {
+                    return Some(c as u64);
+                }
             }
         }
-        s.parse::<u64>().ok()
+        s.parse::<u64>()
+            .ok()
             .or_else(|| s.parse::<i64>().ok().map(|v| v as u64))
     };
 
@@ -7143,19 +10670,23 @@ pub fn bitwise_calc(query: &str) -> String {
     let fmt_bin = |out: &mut String, label: &str, v: u64| {
         // Show as 4 groups of 16 bits
         let b = format!("{:064b}", v);
-        let groups: Vec<&str> = [
-            &b[0..16], &b[16..32], &b[32..48], &b[48..64],
-        ].iter().map(|s| *s).collect();
-        let _ = writeln!(out, "  {:<18} {}_{}_{}_{}", label,
-            groups[0], groups[1], groups[2], groups[3]);
+        let groups: Vec<&str> = [&b[0..16], &b[16..32], &b[32..48], &b[48..64]].to_vec();
+        let _ = writeln!(
+            out,
+            "  {:<18} {}_{}_{}_{}",
+            label, groups[0], groups[1], groups[2], groups[3]
+        );
     };
 
     // ─── ieee754: float bit pattern analysis ───
     if q.starts_with("ieee754 ") || q.starts_with("float ") {
-        let raw = q.splitn(2, ' ').nth(1).unwrap_or("").trim();
+        let raw = q.split_once(' ').map(|x| x.1).unwrap_or("").trim();
         let fval: f64 = match raw.parse::<f64>() {
             Ok(v) => v,
-            Err(_) => { let _ = writeln!(out, "  Cannot parse float: {}", raw); return out; }
+            Err(_) => {
+                let _ = writeln!(out, "  Cannot parse float: {}", raw);
+                return out;
+            }
         };
         let bits = fval.to_bits();
         let sign = (bits >> 63) & 1;
@@ -7166,15 +10697,42 @@ pub fn bitwise_calc(query: &str) -> String {
         let _ = writeln!(out, "  Value:    {}", fval);
         let _ = writeln!(out, "  Bits:     0x{:016X}", bits);
         let b = format!("{:064b}", bits);
-        let _ = writeln!(out, "  Binary:   {} {} {} {}",
-            &b[0..1], &b[1..12], &b[12..32], &b[32..64]);
-        let _ = writeln!(out, "  Sign:     {} ({})", sign, if sign == 0 { "positive" } else { "negative" });
-        let _ = writeln!(out, "  Exponent: {:011b} raw={} actual={}", exp_raw, exp_raw, exp_actual);
+        let _ = writeln!(
+            out,
+            "  Binary:   {} {} {} {}",
+            &b[0..1],
+            &b[1..12],
+            &b[12..32],
+            &b[32..64]
+        );
+        let _ = writeln!(
+            out,
+            "  Sign:     {} ({})",
+            sign,
+            if sign == 0 { "positive" } else { "negative" }
+        );
+        let _ = writeln!(
+            out,
+            "  Exponent: {:011b} raw={} actual={}",
+            exp_raw, exp_raw, exp_actual
+        );
         let _ = writeln!(out, "  Mantissa: {:052b}", mantissa);
         let category = if exp_raw == 0x7FF {
-            if mantissa == 0 { if sign == 0 { "+Infinity" } else { "-Infinity" } } else { "NaN" }
+            if mantissa == 0 {
+                if sign == 0 {
+                    "+Infinity"
+                } else {
+                    "-Infinity"
+                }
+            } else {
+                "NaN"
+            }
         } else if exp_raw == 0 {
-            if mantissa == 0 { "Zero" } else { "Subnormal" }
+            if mantissa == 0 {
+                "Zero"
+            } else {
+                "Subnormal"
+            }
         } else {
             "Normal"
         };
@@ -7186,14 +10744,23 @@ pub fn bitwise_calc(query: &str) -> String {
     // ─── single value inspection ───
     let words: Vec<&str> = q.split_whitespace().collect();
 
+    if words.is_empty() {
+        let _ = writeln!(out, "{}", bitwise_usage());
+        let _ = writeln!(out, "{}", sep);
+        return out;
+    }
+
     // Two-operand ops: A op B
     if words.len() >= 3 {
         let a_str = words[0];
-        let op    = words[1];
+        let op = words[1];
         let b_str = words[2];
         let a = match parse_val(a_str) {
             Some(v) => v,
-            None => { let _ = writeln!(out, "  Cannot parse operand: {}", a_str); return out; }
+            None => {
+                let _ = writeln!(out, "  Cannot parse operand: {}", a_str);
+                return out;
+            }
         };
         match op.to_lowercase().as_str() {
             "and" | "&" => {
@@ -7292,14 +10859,16 @@ pub fn bitwise_calc(query: &str) -> String {
     let label = if is_not { "NOT result" } else { "Value" };
 
     let popcount = display_val.count_ones();
-    let parity   = popcount % 2;
-    let leading  = display_val.leading_zeros();
+    let parity = popcount % 2;
+    let leading = display_val.leading_zeros();
     let trailing = display_val.trailing_zeros();
-    let msb_pos  = if display_val == 0 { 0u32 } else { 63 - leading };
+    let msb_pos = if display_val == 0 { 0u32 } else { 63 - leading };
 
     let _ = writeln!(out, "  {} (input): {}", label, val as i64);
-    if is_not { let _ = writeln!(out, "  NOT {:016X} = {:016X}", val, !val); }
-    let _ = writeln!(out, "");
+    if is_not {
+        let _ = writeln!(out, "  NOT {:016X} = {:016X}", val, !val);
+    }
+    let _ = writeln!(out);
     let _ = writeln!(out, "  ─── Representations ───");
     let _ = writeln!(out, "  Decimal (signed):    {}", display_val as i64);
     let _ = writeln!(out, "  Decimal (unsigned):  {}", display_val);
@@ -7316,23 +10885,40 @@ pub fn bitwise_calc(query: &str) -> String {
 
     // Two's complement (flip bits + 1)
     let twos = (!display_val).wrapping_add(1);
-    let _ = writeln!(out, "");
+    let _ = writeln!(out);
     let _ = writeln!(out, "  ─── Bit Properties ───");
     let _ = writeln!(out, "  Popcount (set bits): {}", popcount);
-    let _ = writeln!(out, "  Parity:              {} ({})", parity, if parity == 0 { "even" } else { "odd" });
+    let _ = writeln!(
+        out,
+        "  Parity:              {} ({})",
+        parity,
+        if parity == 0 { "even" } else { "odd" }
+    );
     let _ = writeln!(out, "  Leading zeros:       {}", leading);
     let _ = writeln!(out, "  Trailing zeros:      {}", trailing);
     let _ = writeln!(out, "  MSB position:        {}", msb_pos);
-    let _ = writeln!(out, "  Two's complement:    {} (0x{:016X})", twos as i64, twos);
+    let _ = writeln!(
+        out,
+        "  Two's complement:    {} (0x{:016X})",
+        twos as i64, twos
+    );
     let is_pow2 = display_val != 0 && (display_val & display_val.wrapping_sub(1)) == 0;
-    let _ = writeln!(out, "  Power of 2:          {}", if is_pow2 { "yes" } else { "no" });
+    let _ = writeln!(
+        out,
+        "  Power of 2:          {}",
+        if is_pow2 { "yes" } else { "no" }
+    );
 
     // Low byte / word / dword breakdown
-    let _ = writeln!(out, "");
+    let _ = writeln!(out);
     let _ = writeln!(out, "  ─── Byte Decomposition (little-endian) ───");
     for i in 0..8usize {
         let byte = ((display_val >> (i * 8)) & 0xFF) as u8;
-        let _ = writeln!(out, "  Byte {}: 0x{:02X}  {:08b}  dec={}", i, byte, byte, byte);
+        let _ = writeln!(
+            out,
+            "  Byte {}: 0x{:02X}  {:08b}  dec={}",
+            i, byte, byte, byte
+        );
     }
 
     let _ = writeln!(out, "{}", sep);
@@ -7373,25 +10959,38 @@ pub fn set_calc(query: &str) -> String {
     // Parse a set literal: {1,2,3} or [1,2,3] or bare comma list
     // Items are strings (so sets of anything work)
     let parse_set = |s: &str| -> Vec<String> {
-        let s = s.trim().trim_start_matches('{').trim_end_matches('}')
-                         .trim_start_matches('[').trim_end_matches(']');
-        let mut items: Vec<String> = s.split(',').map(|x| x.trim().to_string())
-            .filter(|x| !x.is_empty()).collect();
+        let s = s
+            .trim()
+            .trim_start_matches('{')
+            .trim_end_matches('}')
+            .trim_start_matches('[')
+            .trim_end_matches(']');
+        let mut items: Vec<String> = s
+            .split(',')
+            .map(|x| x.trim().to_string())
+            .filter(|x| !x.is_empty())
+            .collect();
         items.sort();
         items.dedup();
         items
     };
 
     let fmt_set = |v: &[String]| -> String {
-        if v.is_empty() { "{}".to_string() }
-        else { format!("{{{}}}", v.join(", ")) }
+        if v.is_empty() {
+            "{}".to_string()
+        } else {
+            format!("{{{}}}", v.join(", "))
+        }
     };
 
     let q_lower = q.to_lowercase();
 
     // ─── power set ───
-    if q_lower.starts_with("powerset ") || q_lower.starts_with("power_set ") || q_lower.starts_with("power set ") {
-        let raw = q.splitn(2, ' ').nth(1).unwrap_or("").trim();
+    if q_lower.starts_with("powerset ")
+        || q_lower.starts_with("power_set ")
+        || q_lower.starts_with("power set ")
+    {
+        let raw = q.split_once(' ').map(|x| x.1).unwrap_or("").trim();
         let set = parse_set(raw);
         if set.len() > 20 {
             let _ = writeln!(out, "  Set too large for power set (max 20 elements).");
@@ -7402,7 +11001,7 @@ pub fn set_calc(query: &str) -> String {
         let count = 1usize << n;
         let _ = writeln!(out, "  Set A = {}", fmt_set(&set));
         let _ = writeln!(out, "  |A| = {}   |P(A)| = {}", n, count);
-        let _ = writeln!(out, "");
+        let _ = writeln!(out);
         let _ = writeln!(out, "  Power set P(A):");
         let mut subsets: Vec<Vec<String>> = Vec::with_capacity(count);
         for mask in 0..count {
@@ -7422,12 +11021,19 @@ pub fn set_calc(query: &str) -> String {
     }
 
     // ─── cartesian product ───
-    if q_lower.starts_with("cartesian ") || q_lower.starts_with("product ") || q_lower.contains(" x ") {
+    if q_lower.starts_with("cartesian ")
+        || q_lower.starts_with("product ")
+        || q_lower.contains(" x ")
+    {
         // Split on " x " or keyword
         let parts: Vec<&str> = if q_lower.contains(" x ") {
             q.splitn(3, " x ").collect()
         } else {
-            let kw = if q_lower.starts_with("cartesian ") { "cartesian " } else { "product " };
+            let kw = if q_lower.starts_with("cartesian ") {
+                "cartesian "
+            } else {
+                "product "
+            };
             let rest = &q[kw.len()..];
             rest.splitn(2, " x ").collect()
         };
@@ -7441,7 +11047,7 @@ pub fn set_calc(query: &str) -> String {
         let _ = writeln!(out, "  A = {}  (|A|={})", fmt_set(&a), a.len());
         let _ = writeln!(out, "  B = {}  (|B|={})", fmt_set(&b), b.len());
         let _ = writeln!(out, "  |A × B| = {}", a.len() * b.len());
-        let _ = writeln!(out, "");
+        let _ = writeln!(out);
         let _ = writeln!(out, "  A × B:");
         for x in &a {
             for y in &b {
@@ -7454,8 +11060,19 @@ pub fn set_calc(query: &str) -> String {
 
     // ─── two-set operations — split on keyword ───
     // Supported: union, intersection, difference, symmetric_difference, subset, superset, disjoint
-    let ops = ["symmetric_difference", "sym_diff", "symdiff", "difference",
-               "intersection", "intersect", "union", "subset", "superset", "disjoint", "equal"];
+    let ops = [
+        "symmetric_difference",
+        "sym_diff",
+        "symdiff",
+        "difference",
+        "intersection",
+        "intersect",
+        "union",
+        "subset",
+        "superset",
+        "disjoint",
+        "equal",
+    ];
     let mut op_found: Option<(&str, Vec<String>, Vec<String>)> = None;
     for &op in &ops {
         let needle = format!(" {} ", op);
@@ -7470,11 +11087,15 @@ pub fn set_calc(query: &str) -> String {
     if let Some((op, a, b)) = op_found {
         let _ = writeln!(out, "  A = {}  (|A|={})", fmt_set(&a), a.len());
         let _ = writeln!(out, "  B = {}  (|B|={})", fmt_set(&b), b.len());
-        let _ = writeln!(out, "");
+        let _ = writeln!(out);
         match op {
             "union" => {
                 let mut result = a.clone();
-                for x in &b { if !result.contains(x) { result.push(x.clone()); } }
+                for x in &b {
+                    if !result.contains(x) {
+                        result.push(x.clone());
+                    }
+                }
                 result.sort();
                 let _ = writeln!(out, "  A ∪ B = {}", fmt_set(&result));
                 let _ = writeln!(out, "  |A ∪ B| = {}", result.len());
@@ -7492,8 +11113,10 @@ pub fn set_calc(query: &str) -> String {
                 let _ = writeln!(out, "  B \\ A = {}", fmt_set(&result2));
             }
             "symmetric_difference" | "sym_diff" | "symdiff" => {
-                let in_a_not_b: Vec<String> = a.iter().filter(|x| !b.contains(x)).cloned().collect();
-                let in_b_not_a: Vec<String> = b.iter().filter(|x| !a.contains(x)).cloned().collect();
+                let in_a_not_b: Vec<String> =
+                    a.iter().filter(|x| !b.contains(x)).cloned().collect();
+                let in_b_not_a: Vec<String> =
+                    b.iter().filter(|x| !a.contains(x)).cloned().collect();
                 let mut result = in_a_not_b.clone();
                 result.extend(in_b_not_a.clone());
                 result.sort();
@@ -7506,17 +11129,29 @@ pub fn set_calc(query: &str) -> String {
                 let is_sub = a.iter().all(|x| b.contains(x));
                 let is_proper = is_sub && a.len() < b.len();
                 let _ = writeln!(out, "  A ⊆ B: {}", if is_sub { "YES" } else { "NO" });
-                let _ = writeln!(out, "  A ⊂ B (proper): {}", if is_proper { "YES" } else { "NO" });
+                let _ = writeln!(
+                    out,
+                    "  A ⊂ B (proper): {}",
+                    if is_proper { "YES" } else { "NO" }
+                );
             }
             "superset" => {
                 let is_super = b.iter().all(|x| a.contains(x));
                 let is_proper = is_super && a.len() > b.len();
                 let _ = writeln!(out, "  A ⊇ B: {}", if is_super { "YES" } else { "NO" });
-                let _ = writeln!(out, "  A ⊃ B (proper): {}", if is_proper { "YES" } else { "NO" });
+                let _ = writeln!(
+                    out,
+                    "  A ⊃ B (proper): {}",
+                    if is_proper { "YES" } else { "NO" }
+                );
             }
             "disjoint" => {
                 let is_disj = !a.iter().any(|x| b.contains(x));
-                let _ = writeln!(out, "  A ∩ B = ∅ (disjoint): {}", if is_disj { "YES" } else { "NO" });
+                let _ = writeln!(
+                    out,
+                    "  A ∩ B = ∅ (disjoint): {}",
+                    if is_disj { "YES" } else { "NO" }
+                );
                 if !is_disj {
                     let common: Vec<String> = a.iter().filter(|x| b.contains(x)).cloned().collect();
                     let _ = writeln!(out, "  Common elements: {}", fmt_set(&common));
@@ -7537,7 +11172,12 @@ pub fn set_calc(query: &str) -> String {
     if !set.is_empty() {
         let _ = writeln!(out, "  Set = {}", fmt_set(&set));
         let _ = writeln!(out, "  Cardinality: {}", set.len());
-        let _ = writeln!(out, "  Min: {}   Max: {}", set.first().unwrap_or(&String::new()), set.last().unwrap_or(&String::new()));
+        let _ = writeln!(
+            out,
+            "  Min: {}   Max: {}",
+            set.first().unwrap_or(&String::new()),
+            set.last().unwrap_or(&String::new())
+        );
         // numeric stats if all parse as f64
         let nums: Vec<f64> = set.iter().filter_map(|x| x.parse::<f64>().ok()).collect();
         if nums.len() == set.len() && !nums.is_empty() {
@@ -7593,12 +11233,17 @@ pub fn cipher_calc(query: &str) -> String {
     // ─── ROT13 ───
     if cipher_name == "rot13" {
         let text = words[1..].join(" ");
-        let result: String = text.chars().map(|c| {
-            if c.is_ascii_alphabetic() {
-                let base = if c.is_ascii_uppercase() { b'A' } else { b'a' };
-                (((c as u8 - base + 13) % 26) + base) as char
-            } else { c }
-        }).collect();
+        let result: String = text
+            .chars()
+            .map(|c| {
+                if c.is_ascii_alphabetic() {
+                    let base = if c.is_ascii_uppercase() { b'A' } else { b'a' };
+                    (((c as u8 - base + 13) % 26) + base) as char
+                } else {
+                    c
+                }
+            })
+            .collect();
         let _ = writeln!(out, "  Cipher:  ROT13 (symmetric)");
         let _ = writeln!(out, "  Input:   {}", text);
         let _ = writeln!(out, "  Output:  {}", result);
@@ -7609,12 +11254,17 @@ pub fn cipher_calc(query: &str) -> String {
     // ─── Atbash ───
     if cipher_name == "atbash" {
         let text = words[1..].join(" ");
-        let result: String = text.chars().map(|c| {
-            if c.is_ascii_alphabetic() {
-                let base = if c.is_ascii_uppercase() { b'A' } else { b'a' };
-                (base + 25 - (c as u8 - base)) as char
-            } else { c }
-        }).collect();
+        let result: String = text
+            .chars()
+            .map(|c| {
+                if c.is_ascii_alphabetic() {
+                    let base = if c.is_ascii_uppercase() { b'A' } else { b'a' };
+                    (base + 25 - (c as u8 - base)) as char
+                } else {
+                    c
+                }
+            })
+            .collect();
         let _ = writeln!(out, "  Cipher:  Atbash (symmetric)");
         let _ = writeln!(out, "  Input:   {}", text);
         let _ = writeln!(out, "  Output:  {}", result);
@@ -7632,33 +11282,48 @@ pub fn cipher_calc(query: &str) -> String {
         let shift: i32 = words[1].parse().unwrap_or(13);
         let text = words[2];
         let shift_norm = ((shift % 26) + 26) as u8 % 26;
-        let result: String = text.chars().map(|c| {
-            if c.is_ascii_alphabetic() {
-                let base = if c.is_ascii_uppercase() { b'A' } else { b'a' };
-                ((c as u8 - base + shift_norm) % 26 + base) as char
-            } else { c }
-        }).collect();
-        let decode: String = text.chars().map(|c| {
-            if c.is_ascii_alphabetic() {
-                let base = if c.is_ascii_uppercase() { b'A' } else { b'a' };
-                let s = (26 - shift_norm) % 26;
-                ((c as u8 - base + s) % 26 + base) as char
-            } else { c }
-        }).collect();
+        let result: String = text
+            .chars()
+            .map(|c| {
+                if c.is_ascii_alphabetic() {
+                    let base = if c.is_ascii_uppercase() { b'A' } else { b'a' };
+                    ((c as u8 - base + shift_norm) % 26 + base) as char
+                } else {
+                    c
+                }
+            })
+            .collect();
+        let decode: String = text
+            .chars()
+            .map(|c| {
+                if c.is_ascii_alphabetic() {
+                    let base = if c.is_ascii_uppercase() { b'A' } else { b'a' };
+                    let s = (26 - shift_norm) % 26;
+                    ((c as u8 - base + s) % 26 + base) as char
+                } else {
+                    c
+                }
+            })
+            .collect();
         let _ = writeln!(out, "  Cipher:  Caesar / ROT-{}", shift);
         let _ = writeln!(out, "  Input:   {}", text);
         let _ = writeln!(out, "  Encoded: {}", result);
         let _ = writeln!(out, "  Decoded: {}", decode);
         // Show all 25 rotations in compact form
-        let _ = writeln!(out, "");
+        let _ = writeln!(out);
         let _ = writeln!(out, "  ─── Brute-force all rotations ───");
         for n in 0u8..26 {
-            let r: String = text.chars().map(|c| {
-                if c.is_ascii_alphabetic() {
-                    let base = if c.is_ascii_uppercase() { b'A' } else { b'a' };
-                    ((c as u8 - base + n) % 26 + base) as char
-                } else { c }
-            }).collect();
+            let r: String = text
+                .chars()
+                .map(|c| {
+                    if c.is_ascii_alphabetic() {
+                        let base = if c.is_ascii_uppercase() { b'A' } else { b'a' };
+                        ((c as u8 - base + n) % 26 + base) as char
+                    } else {
+                        c
+                    }
+                })
+                .collect();
             let _ = writeln!(out, "  ROT-{:2}:  {}", n, r);
         }
         let _ = writeln!(out, "{}", sep);
@@ -7675,12 +11340,13 @@ pub fn cipher_calc(query: &str) -> String {
             let _ = writeln!(out, "{}", sep);
             return out;
         }
-        let mode   = parts[1].to_lowercase();
-        let key    = parts[2];
-        let text   = parts[3];
+        let mode = parts[1].to_lowercase();
+        let key = parts[2];
+        let text = parts[3];
         let decode = mode == "decode" || mode == "dec" || mode == "d";
 
-        let key_clean: Vec<u8> = key.chars()
+        let key_clean: Vec<u8> = key
+            .chars()
             .filter(|c| c.is_ascii_alphabetic())
             .map(|c| c.to_ascii_uppercase() as u8 - b'A')
             .collect();
@@ -7690,20 +11356,29 @@ pub fn cipher_calc(query: &str) -> String {
             return out;
         }
         let mut ki = 0usize;
-        let result: String = text.chars().map(|c| {
-            if c.is_ascii_alphabetic() {
-                let base = if c.is_ascii_uppercase() { b'A' } else { b'a' };
-                let shift = key_clean[ki % key_clean.len()];
-                ki += 1;
-                if decode {
-                    ((c as u8 - base + 26 - shift) % 26 + base) as char
+        let result: String = text
+            .chars()
+            .map(|c| {
+                if c.is_ascii_alphabetic() {
+                    let base = if c.is_ascii_uppercase() { b'A' } else { b'a' };
+                    let shift = key_clean[ki % key_clean.len()];
+                    ki += 1;
+                    if decode {
+                        ((c as u8 - base + 26 - shift) % 26 + base) as char
+                    } else {
+                        ((c as u8 - base + shift) % 26 + base) as char
+                    }
                 } else {
-                    ((c as u8 - base + shift) % 26 + base) as char
+                    c
                 }
-            } else { c }
-        }).collect();
+            })
+            .collect();
         let _ = writeln!(out, "  Cipher:  Vigenère");
-        let _ = writeln!(out, "  Mode:    {}", if decode { "decode" } else { "encode" });
+        let _ = writeln!(
+            out,
+            "  Mode:    {}",
+            if decode { "decode" } else { "encode" }
+        );
         let _ = writeln!(out, "  Key:     {}", key);
         let _ = writeln!(out, "  Input:   {}", text);
         let _ = writeln!(out, "  Output:  {}", result);
@@ -7720,9 +11395,9 @@ pub fn cipher_calc(query: &str) -> String {
             let _ = writeln!(out, "{}", sep);
             return out;
         }
-        let mode   = parts[1].to_lowercase();
+        let mode = parts[1].to_lowercase();
         let rails: usize = parts[2].parse().unwrap_or(2).max(2);
-        let text   = parts[3];
+        let text = parts[3];
         let decode = mode == "decode" || mode == "dec" || mode == "d";
 
         let chars: Vec<char> = text.chars().collect();
@@ -7732,18 +11407,25 @@ pub fn cipher_calc(query: &str) -> String {
             // Reconstruct rail assignment pattern, fill, then read
             let mut pattern = vec![0usize; n];
             let mut rail = 0i32;
-            let mut dir  = 1i32;
+            let mut dir = 1i32;
             for i in 0..n {
                 pattern[i] = rail as usize;
-                if rail == 0 { dir = 1; }
-                else if rail == (rails as i32 - 1) { dir = -1; }
+                if rail == 0 {
+                    dir = 1;
+                } else if rail == (rails as i32 - 1) {
+                    dir = -1;
+                }
                 rail += dir;
             }
             let mut rail_len = vec![0usize; rails];
-            for &r in &pattern { rail_len[r] += 1; }
+            for &r in &pattern {
+                rail_len[r] += 1;
+            }
             let mut rail_start = vec![0usize; rails];
-            for r in 1..rails { rail_start[r] = rail_start[r-1] + rail_len[r-1]; }
-            let char_arr: Vec<char> = chars.iter().cloned().collect();
+            for r in 1..rails {
+                rail_start[r] = rail_start[r - 1] + rail_len[r - 1];
+            }
+            let char_arr: Vec<char> = chars.to_vec();
             let mut result = vec![' '; n];
             let mut rail_idx: Vec<usize> = rail_start.clone();
             for i in 0..n {
@@ -7758,11 +11440,14 @@ pub fn cipher_calc(query: &str) -> String {
         } else {
             let mut fence: Vec<Vec<char>> = vec![Vec::new(); rails];
             let mut rail = 0i32;
-            let mut dir  = 1i32;
+            let mut dir = 1i32;
             for &ch in &chars {
                 fence[rail as usize].push(ch);
-                if rail == 0 { dir = 1; }
-                else if rail == (rails as i32 - 1) { dir = -1; }
+                if rail == 0 {
+                    dir = 1;
+                } else if rail == (rails as i32 - 1) {
+                    dir = -1;
+                }
                 rail += dir;
             }
             let encoded: String = fence.iter().flat_map(|r| r.iter()).collect();
@@ -7770,7 +11455,7 @@ pub fn cipher_calc(query: &str) -> String {
             let _ = writeln!(out, "  Rails:   {}", rails);
             let _ = writeln!(out, "  Input:   {}", text);
             let _ = writeln!(out, "  Encoded: {}", encoded);
-            let _ = writeln!(out, "");
+            let _ = writeln!(out);
             let _ = writeln!(out, "  ─── Rail diagram ───");
             for (i, rail_row) in fence.iter().enumerate() {
                 let s: String = rail_row.iter().collect();
@@ -7790,9 +11475,9 @@ pub fn cipher_calc(query: &str) -> String {
             let _ = writeln!(out, "{}", sep);
             return out;
         }
-        let mode  = parts[1].to_lowercase();
-        let key   = parts[2];
-        let text  = parts[3];
+        let mode = parts[1].to_lowercase();
+        let key = parts[2];
+        let text = parts[3];
         let decode = mode == "decode" || mode == "dec" || mode == "d";
 
         let num_cols = key.len();
@@ -7800,8 +11485,12 @@ pub fn cipher_calc(query: &str) -> String {
         key_chars.sort_by_key(|&(_, c)| c);
         let col_order: Vec<usize> = key_chars.iter().map(|&(i, _)| i).collect();
 
-        let pad: usize = if text.len() % num_cols == 0 { 0 } else { num_cols - text.len() % num_cols };
-        let padded: Vec<char> = text.chars().chain(std::iter::repeat('_').take(pad)).collect();
+        let pad: usize = if text.len() % num_cols == 0 {
+            0
+        } else {
+            num_cols - text.len() % num_cols
+        };
+        let padded: Vec<char> = text.chars().chain(std::iter::repeat_n('_', pad)).collect();
         let num_rows = padded.len() / num_cols;
 
         if decode {
@@ -7820,7 +11509,9 @@ pub fn cipher_calc(query: &str) -> String {
             let mut decoded = String::new();
             for r in 0..num_rows {
                 for c in 0..num_cols {
-                    if r < cols[c].len() { decoded.push(cols[c][r]); }
+                    if r < cols[c].len() {
+                        decoded.push(cols[c][r]);
+                    }
                 }
             }
             let decoded = decoded.trim_end_matches('_');
@@ -7830,20 +11521,25 @@ pub fn cipher_calc(query: &str) -> String {
             let _ = writeln!(out, "  Decoded: {}", decoded);
         } else {
             // Read row by row, output column by column in sorted key order
-            let grid: Vec<Vec<char>> = padded.chunks(num_cols)
-                .map(|r| r.to_vec()).collect();
+            let grid: Vec<Vec<char>> = padded.chunks(num_cols).map(|r| r.to_vec()).collect();
             let mut encoded = String::new();
             for &ci in &col_order {
-                for row in &grid { encoded.push(row[ci]); }
+                for row in &grid {
+                    encoded.push(row[ci]);
+                }
             }
             let _ = writeln!(out, "  Cipher:  Columnar Transposition");
             let _ = writeln!(out, "  Key:     {} (sorted order: {:?})", key, col_order);
             let _ = writeln!(out, "  Input:   {}", text);
             let _ = writeln!(out, "  Encoded: {}", encoded);
-            let _ = writeln!(out, "");
+            let _ = writeln!(out);
             let _ = writeln!(out, "  ─── Grid ───");
             // Print key header
-            let _ = writeln!(out, "  Key:  {}", key.chars().map(|c| format!("{} ", c)).collect::<String>());
+            let _ = writeln!(
+                out,
+                "  Key:  {}",
+                key.chars().map(|c| format!("{} ", c)).collect::<String>()
+            );
             for row in &grid {
                 let row_str: String = row.iter().map(|c| format!("{} ", c)).collect();
                 let _ = writeln!(out, "        {}", row_str);
@@ -7862,28 +11558,61 @@ pub fn cipher_calc(query: &str) -> String {
             let _ = writeln!(out, "{}", sep);
             return out;
         }
-        let mode  = parts[1].to_lowercase();
-        let text  = parts[2];
+        let mode = parts[1].to_lowercase();
+        let text = parts[2];
         let decode = mode == "decode" || mode == "dec" || mode == "d";
 
         let morse_table: &[(&str, &str)] = &[
-            ("A",".-"),("B","-..."),("C","-.-."),("D","-.."),("E","."),
-            ("F","..-."),("G","--."),("H","...."),("I",".."),("J",".---"),
-            ("K","-.-"),("L",".-.."),("M","--"),("N","-."),("O","---"),
-            ("P",".--."),("Q","--.-"),("R",".-."),("S","..."),("T","-"),
-            ("U","..-"),("V","...-"),("W",".--"),("X","-..-"),("Y","-.--"),
-            ("Z","--.."),
-            ("0","-----"),("1",".----"),("2","..---"),("3","...--"),
-            ("4","....-"),("5","....."),("6","-...."),("7","--..."),
-            ("8","---.."),("9","----."),
-            (",","--..--"),(".",".-.-.-"),("?","..--.."),("!","-.-.--"),
-            ("/","-..-."),("@",".--.-."),("&",".-..."),
+            ("A", ".-"),
+            ("B", "-..."),
+            ("C", "-.-."),
+            ("D", "-.."),
+            ("E", "."),
+            ("F", "..-."),
+            ("G", "--."),
+            ("H", "...."),
+            ("I", ".."),
+            ("J", ".---"),
+            ("K", "-.-"),
+            ("L", ".-.."),
+            ("M", "--"),
+            ("N", "-."),
+            ("O", "---"),
+            ("P", ".--."),
+            ("Q", "--.-"),
+            ("R", ".-."),
+            ("S", "..."),
+            ("T", "-"),
+            ("U", "..-"),
+            ("V", "...-"),
+            ("W", ".--"),
+            ("X", "-..-"),
+            ("Y", "-.--"),
+            ("Z", "--.."),
+            ("0", "-----"),
+            ("1", ".----"),
+            ("2", "..---"),
+            ("3", "...--"),
+            ("4", "....-"),
+            ("5", "....."),
+            ("6", "-...."),
+            ("7", "--..."),
+            ("8", "---.."),
+            ("9", "----."),
+            (",", "--..--"),
+            (".", ".-.-.-"),
+            ("?", "..--.."),
+            ("!", "-.-.--"),
+            ("/", "-..-."),
+            ("@", ".--.-."),
+            ("&", ".-..."),
         ];
 
         if decode {
-            let code_to_char: std::collections::HashMap<&str,&str> =
+            let code_to_char: std::collections::HashMap<&str, &str> =
                 morse_table.iter().map(|&(c, m)| (m, c)).collect();
-            let decoded: String = text.split("   ") // triple space = word boundary
+            let decoded: String = text
+                .split("   ") // triple space = word boundary
                 .map(|word| {
                     word.split(' ')
                         .map(|sym| code_to_char.get(sym).copied().unwrap_or("?"))
@@ -7895,14 +11624,22 @@ pub fn cipher_calc(query: &str) -> String {
             let _ = writeln!(out, "  Input:   {}", text);
             let _ = writeln!(out, "  Decoded: {}", decoded);
         } else {
-            let char_to_morse: std::collections::HashMap<&str,&str> =
+            let char_to_morse: std::collections::HashMap<&str, &str> =
                 morse_table.iter().map(|&(c, m)| (c, m)).collect();
-            let encoded: String = text.to_uppercase().chars()
+            let encoded: String = text
+                .to_uppercase()
+                .chars()
                 .map(|c| {
-                    if c == ' ' { "   ".to_string() }
-                    else {
+                    if c == ' ' {
+                        "   ".to_string()
+                    } else {
                         let s = c.to_string();
-                        char_to_morse.get(s.as_str()).copied().unwrap_or("?").to_string() + " "
+                        char_to_morse
+                            .get(s.as_str())
+                            .copied()
+                            .unwrap_or("?")
+                            .to_string()
+                            + " "
                     }
                 })
                 .collect();
@@ -7948,23 +11685,39 @@ pub fn validate_calc(input: &str) -> String {
 
     let q = input.trim();
     let _ = writeln!(out, "  Input: \"{}\"", q);
-    let _ = writeln!(out, "");
+    let _ = writeln!(out);
 
     // Strip spaces/dashes for most checks
-    let clean: String = q.chars().filter(|c| !c.is_whitespace() && *c != '-' && *c != ' ').collect();
+    let clean: String = q
+        .chars()
+        .filter(|c| !c.is_whitespace() && *c != '-' && *c != ' ')
+        .collect();
 
     // ─── Luhn algorithm (credit card) ───
     let luhn_result = {
         let digits: Vec<u32> = clean.chars().filter_map(|c| c.to_digit(10)).collect();
         if digits.len() >= 2 {
-            let sum: u32 = digits.iter().rev().enumerate().map(|(i, &d)| {
-                if i % 2 == 1 {
-                    let doubled = d * 2;
-                    if doubled > 9 { doubled - 9 } else { doubled }
-                } else { d }
-            }).sum();
+            let sum: u32 = digits
+                .iter()
+                .rev()
+                .enumerate()
+                .map(|(i, &d)| {
+                    if i % 2 == 1 {
+                        let doubled = d * 2;
+                        if doubled > 9 {
+                            doubled - 9
+                        } else {
+                            doubled
+                        }
+                    } else {
+                        d
+                    }
+                })
+                .sum();
             Some(sum % 10 == 0)
-        } else { None }
+        } else {
+            None
+        }
     };
 
     // ─── Detect card network from prefix ───
@@ -7972,23 +11725,57 @@ pub fn validate_calc(input: &str) -> String {
         let digits_only: String = clean.chars().filter(|c| c.is_ascii_digit()).collect();
         let n = digits_only.len();
         if n >= 1 {
-            let d1: u32 = digits_only.chars().next().unwrap().to_digit(10).unwrap_or(0);
-            let d2: u32 = if n >= 2 { digits_only[..2].parse().unwrap_or(0) } else { 0 };
-            let d4: u32 = if n >= 4 { digits_only[..4].parse().unwrap_or(0) } else { 0 };
-            let d6: u32 = if n >= 6 { digits_only[..6].parse().unwrap_or(0) } else { 0 };
-            if d1 == 4 { Some("Visa (starts with 4)") }
-            else if d2 == 51 || d2 == 52 || d2 == 53 || d2 == 54 || d2 == 55 { Some("Mastercard (51-55)") }
-            else if (d6 >= 622126 && d6 <= 622925) || (d4 >= 6011 && d4 <= 6011) || d2 == 65 { Some("Discover") }
-            else if d4 == 3782 || d4 == 3714 || d4 == 3787 || d4 == 3728 || d2 == 34 || d2 == 37 { Some("American Express") }
-            else if d4 == 3528 || d4 == 3589 { Some("JCB") }
-            else { Some("Unknown network") }
-        } else { None }
+            let d1: u32 = digits_only
+                .chars()
+                .next()
+                .unwrap()
+                .to_digit(10)
+                .unwrap_or(0);
+            let d2: u32 = if n >= 2 {
+                digits_only[..2].parse().unwrap_or(0)
+            } else {
+                0
+            };
+            let d4: u32 = if n >= 4 {
+                digits_only[..4].parse().unwrap_or(0)
+            } else {
+                0
+            };
+            let d6: u32 = if n >= 6 {
+                digits_only[..6].parse().unwrap_or(0)
+            } else {
+                0
+            };
+            if d1 == 4 {
+                Some("Visa (starts with 4)")
+            } else if d2 == 51 || d2 == 52 || d2 == 53 || d2 == 54 || d2 == 55 {
+                Some("Mastercard (51-55)")
+            } else if (622126..=622925).contains(&d6) || d4 == 6011 || d2 == 65 {
+                Some("Discover")
+            } else if d4 == 3782 || d4 == 3714 || d4 == 3787 || d4 == 3728 || d2 == 34 || d2 == 37 {
+                Some("American Express")
+            } else if d4 == 3528 || d4 == 3589 {
+                Some("JCB")
+            } else {
+                Some("Unknown network")
+            }
+        } else {
+            None
+        }
     };
 
     if let Some(valid) = luhn_result {
         let _ = writeln!(out, "  ─── Luhn (Credit Card) ───");
-        let _ = writeln!(out, "  Valid: {}  {}", if valid { "YES ✓" } else { "NO ✗" },
-            if valid { "passes Luhn check" } else { "fails Luhn check" });
+        let _ = writeln!(
+            out,
+            "  Valid: {}  {}",
+            if valid { "YES ✓" } else { "NO ✗" },
+            if valid {
+                "passes Luhn check"
+            } else {
+                "fails Luhn check"
+            }
+        );
         if let Some(network) = card_network {
             let digits_only: String = clean.chars().filter(|c| c.is_ascii_digit()).collect();
             if digits_only.len() >= 12 {
@@ -8000,77 +11787,141 @@ pub fn validate_calc(input: &str) -> String {
         if !valid {
             let digits: Vec<u32> = clean.chars().filter_map(|c| c.to_digit(10)).collect();
             if digits.len() >= 2 {
-                let without_last: Vec<u32> = digits[..digits.len()-1].to_vec();
+                let without_last: Vec<u32> = digits[..digits.len() - 1].to_vec();
                 for check in 0u32..10 {
                     let mut test = without_last.clone();
                     test.push(check);
-                    let sum: u32 = test.iter().rev().enumerate().map(|(i, &d)| {
-                        if i % 2 == 1 { let x = d*2; if x > 9 { x-9 } else { x } } else { d }
-                    }).sum();
+                    let sum: u32 = test
+                        .iter()
+                        .rev()
+                        .enumerate()
+                        .map(|(i, &d)| {
+                            if i % 2 == 1 {
+                                let x = d * 2;
+                                if x > 9 {
+                                    x - 9
+                                } else {
+                                    x
+                                }
+                            } else {
+                                d
+                            }
+                        })
+                        .sum();
                     if sum % 10 == 0 {
-                        let _ = writeln!(out, "  Correct check digit: {} (replace last digit)", check);
+                        let _ =
+                            writeln!(out, "  Correct check digit: {} (replace last digit)", check);
                         break;
                     }
                 }
             }
         }
-        let _ = writeln!(out, "");
+        let _ = writeln!(out);
     }
 
     // ─── ISBN-10 ───
-    let isbn10_digits: Vec<u32> = clean.chars()
-        .filter_map(|c| if c == 'X' || c == 'x' { Some(10) } else { c.to_digit(10) })
+    let isbn10_digits: Vec<u32> = clean
+        .chars()
+        .filter_map(|c| {
+            if c == 'X' || c == 'x' {
+                Some(10)
+            } else {
+                c.to_digit(10)
+            }
+        })
         .collect();
     if isbn10_digits.len() == 10 {
-        let sum: u32 = isbn10_digits.iter().enumerate().map(|(i, &d)| (10 - i as u32) * d).sum();
+        let sum: u32 = isbn10_digits
+            .iter()
+            .enumerate()
+            .map(|(i, &d)| (10 - i as u32) * d)
+            .sum();
         let valid = sum % 11 == 0;
         let _ = writeln!(out, "  ─── ISBN-10 ───");
-        let _ = writeln!(out, "  Valid: {}  (sum mod 11 = {})", if valid { "YES ✓" } else { "NO ✗" }, sum % 11);
+        let _ = writeln!(
+            out,
+            "  Valid: {}  (sum mod 11 = {})",
+            if valid { "YES ✓" } else { "NO ✗" },
+            sum % 11
+        );
         if !valid {
             // Compute correct check digit
-            let sum9: u32 = isbn10_digits[..9].iter().enumerate().map(|(i, &d)| (10 - i as u32) * d).sum();
+            let sum9: u32 = isbn10_digits[..9]
+                .iter()
+                .enumerate()
+                .map(|(i, &d)| (10 - i as u32) * d)
+                .sum();
             let check = (11 - (sum9 % 11)) % 11;
-            let check_str = if check == 10 { "X".to_string() } else { check.to_string() };
+            let check_str = if check == 10 {
+                "X".to_string()
+            } else {
+                check.to_string()
+            };
             let _ = writeln!(out, "  Correct check digit: {}", check_str);
         }
-        let _ = writeln!(out, "");
+        let _ = writeln!(out);
     }
 
     // ─── ISBN-13 / EAN-13 ───
     let isbn13_digits: Vec<u32> = clean.chars().filter_map(|c| c.to_digit(10)).collect();
     if isbn13_digits.len() == 13 {
-        let sum: u32 = isbn13_digits.iter().enumerate()
+        let sum: u32 = isbn13_digits
+            .iter()
+            .enumerate()
             .map(|(i, &d)| if i % 2 == 0 { d } else { d * 3 })
             .sum();
         let valid = sum % 10 == 0;
         let prefix = &clean[..3];
-        let kind = if prefix == "978" || prefix == "979" { "ISBN-13" } else { "EAN-13" };
+        let kind = if prefix == "978" || prefix == "979" {
+            "ISBN-13"
+        } else {
+            "EAN-13"
+        };
         let _ = writeln!(out, "  ─── {} ───", kind);
-        let _ = writeln!(out, "  Valid: {}  (weighted sum mod 10 = {})", if valid { "YES ✓" } else { "NO ✗" }, sum % 10);
+        let _ = writeln!(
+            out,
+            "  Valid: {}  (weighted sum mod 10 = {})",
+            if valid { "YES ✓" } else { "NO ✗" },
+            sum % 10
+        );
         if kind == "ISBN-13" {
             let _ = writeln!(out, "  Prefix: {} (Bookland)", prefix);
         }
         if !valid {
-            let sum12: u32 = isbn13_digits[..12].iter().enumerate()
+            let sum12: u32 = isbn13_digits[..12]
+                .iter()
+                .enumerate()
                 .map(|(i, &d)| if i % 2 == 0 { d } else { d * 3 })
                 .sum();
             let check = (10 - (sum12 % 10)) % 10;
             let _ = writeln!(out, "  Correct check digit: {}", check);
         }
-        let _ = writeln!(out, "");
+        let _ = writeln!(out);
     }
 
     // ─── IBAN ───
     // IBAN: move first 4 chars to end, replace letters A=10..Z=35, check mod 97 == 1
     let iban_upper = clean.to_uppercase();
-    if iban_upper.len() >= 15 && iban_upper.len() <= 34 &&
-       iban_upper.chars().take(2).all(|c| c.is_ascii_uppercase()) &&
-       iban_upper.chars().skip(2).take(2).all(|c| c.is_ascii_digit()) {
+    if iban_upper.len() >= 15
+        && iban_upper.len() <= 34
+        && iban_upper.chars().take(2).all(|c| c.is_ascii_uppercase())
+        && iban_upper
+            .chars()
+            .skip(2)
+            .take(2)
+            .all(|c| c.is_ascii_digit())
+    {
         let rearranged = format!("{}{}", &iban_upper[4..], &iban_upper[..4]);
-        let numeric: String = rearranged.chars().map(|c| {
-            if c.is_ascii_uppercase() { format!("{}", c as u32 - 'A' as u32 + 10) }
-            else { c.to_string() }
-        }).collect();
+        let numeric: String = rearranged
+            .chars()
+            .map(|c| {
+                if c.is_ascii_uppercase() {
+                    format!("{}", c as u32 - 'A' as u32 + 10)
+                } else {
+                    c.to_string()
+                }
+            })
+            .collect();
         // Modular arithmetic on long number string
         let remainder = numeric.chars().fold(0u64, |acc, c| {
             let d = c.to_digit(10).unwrap_or(0) as u64;
@@ -8081,41 +11932,66 @@ pub fn validate_calc(input: &str) -> String {
         let _ = writeln!(out, "  ─── IBAN ───");
         let _ = writeln!(out, "  Country: {}", country);
         let _ = writeln!(out, "  Length:  {} characters", iban_upper.len());
-        let _ = writeln!(out, "  Valid:   {}  (mod 97 = {})", if valid { "YES ✓" } else { "NO ✗" }, remainder);
-        let _ = writeln!(out, "");
+        let _ = writeln!(
+            out,
+            "  Valid:   {}  (mod 97 = {})",
+            if valid { "YES ✓" } else { "NO ✗" },
+            remainder
+        );
+        let _ = writeln!(out);
     }
 
     // ─── UUID ───
     let uuid_clean: String = clean.to_lowercase();
     let uuid_nodash: String = uuid_clean.chars().filter(|c| *c != '-').collect();
     if uuid_nodash.len() == 32 && uuid_nodash.chars().all(|c| c.is_ascii_hexdigit()) {
-        let formatted = format!("{}-{}-{}-{}-{}",
-            &uuid_nodash[0..8], &uuid_nodash[8..12], &uuid_nodash[12..16],
-            &uuid_nodash[16..20], &uuid_nodash[20..32]);
+        let formatted = format!(
+            "{}-{}-{}-{}-{}",
+            &uuid_nodash[0..8],
+            &uuid_nodash[8..12],
+            &uuid_nodash[12..16],
+            &uuid_nodash[16..20],
+            &uuid_nodash[20..32]
+        );
         let version = u8::from_str_radix(&uuid_nodash[12..13], 16).unwrap_or(0);
         let variant_bits = u8::from_str_radix(&uuid_nodash[16..17], 16).unwrap_or(0);
-        let variant = if variant_bits & 0xC == 0xC { "Microsoft (variant 11)" }
-            else if variant_bits & 0x8 != 0 { "RFC 4122 (variant 10)" }
-            else { "NCS/backward compat (variant 0)" };
+        let variant = if variant_bits & 0xC == 0xC {
+            "Microsoft (variant 11)"
+        } else if variant_bits & 0x8 != 0 {
+            "RFC 4122 (variant 10)"
+        } else {
+            "NCS/backward compat (variant 0)"
+        };
         let _ = writeln!(out, "  ─── UUID ───");
         let _ = writeln!(out, "  Format:  {}", formatted);
         let _ = writeln!(out, "  Version: {}", version);
         let _ = writeln!(out, "  Variant: {}", variant);
-        let _ = writeln!(out, "");
+        let _ = writeln!(out);
     }
 
     // ─── If nothing matched, show usage ───
     let nothing = luhn_result.is_none()
         && isbn10_digits.len() != 10
         && isbn13_digits.len() != 13
-        && !clean.to_uppercase().starts_with(|c: char| c.is_ascii_uppercase());
+        && !clean
+            .to_uppercase()
+            .starts_with(|c: char| c.is_ascii_uppercase());
     if nothing {
         let _ = writeln!(out, "  No recognizable format detected. Examples:");
-        let _ = writeln!(out, "  hematite --validate '4532015112830366'    credit card (Luhn)");
+        let _ = writeln!(
+            out,
+            "  hematite --validate '4532015112830366'    credit card (Luhn)"
+        );
         let _ = writeln!(out, "  hematite --validate '0-306-40615-2'       ISBN-10");
-        let _ = writeln!(out, "  hematite --validate '978-0-306-40615-7'   ISBN-13 / EAN-13");
+        let _ = writeln!(
+            out,
+            "  hematite --validate '978-0-306-40615-7'   ISBN-13 / EAN-13"
+        );
         let _ = writeln!(out, "  hematite --validate 'GB82WEST12345698765432'  IBAN");
-        let _ = writeln!(out, "  hematite --validate '550e8400-e29b-41d4-a716-446655440000'  UUID");
+        let _ = writeln!(
+            out,
+            "  hematite --validate '550e8400-e29b-41d4-a716-446655440000'  UUID"
+        );
     }
 
     let _ = writeln!(out, "{}", sep);
@@ -8136,7 +12012,7 @@ pub fn checksum_calc(input: &str) -> String {
 
     let _ = writeln!(out, "  Input:   \"{}\"", input);
     let _ = writeln!(out, "  Length:  {} bytes", len);
-    let _ = writeln!(out, "");
+    let _ = writeln!(out);
 
     // ─── CRC-32 (IEEE 802.3 polynomial 0xEDB88320) ───
     let crc32 = {
@@ -8144,13 +12020,18 @@ pub fn checksum_calc(input: &str) -> String {
         for i in 0u32..256 {
             let mut c = i;
             for _ in 0..8 {
-                if c & 1 != 0 { c = 0xEDB8_8320 ^ (c >> 1); }
-                else { c >>= 1; }
+                if c & 1 != 0 {
+                    c = 0xEDB8_8320 ^ (c >> 1);
+                } else {
+                    c >>= 1;
+                }
             }
             table[i as usize] = c;
         }
         let mut crc: u32 = 0xFFFF_FFFF;
-        for &b in &bytes { crc = (crc >> 8) ^ table[((crc ^ b as u32) & 0xFF) as usize]; }
+        for &b in &bytes {
+            crc = (crc >> 8) ^ table[((crc ^ b as u32) & 0xFF) as usize];
+        }
         crc ^ 0xFFFF_FFFF
     };
 
@@ -8160,8 +12041,11 @@ pub fn checksum_calc(input: &str) -> String {
         for &b in &bytes {
             crc ^= (b as u16) << 8;
             for _ in 0..8 {
-                if crc & 0x8000 != 0 { crc = (crc << 1) ^ 0x1021; }
-                else { crc <<= 1; }
+                if crc & 0x8000 != 0 {
+                    crc = (crc << 1) ^ 0x1021;
+                } else {
+                    crc <<= 1;
+                }
             }
         }
         crc
@@ -8200,7 +12084,9 @@ pub fn checksum_calc(input: &str) -> String {
     // ─── DJB2 ───
     let djb2 = {
         let mut h: u64 = 5381;
-        for &b in &bytes { h = h.wrapping_mul(33).wrapping_add(b as u64); }
+        for &b in &bytes {
+            h = h.wrapping_mul(33).wrapping_add(b as u64);
+        }
         h
     };
 
@@ -8208,52 +12094,96 @@ pub fn checksum_calc(input: &str) -> String {
     let sdbm = {
         let mut h: u64 = 0;
         for &b in &bytes {
-            h = (b as u64).wrapping_add(h.wrapping_shl(6)).wrapping_add(h.wrapping_shl(16)).wrapping_sub(h);
+            h = (b as u64)
+                .wrapping_add(h.wrapping_shl(6))
+                .wrapping_add(h.wrapping_shl(16))
+                .wrapping_sub(h);
         }
         h
     };
 
     // ─── XOR checksum ───
-    let xor8: u8  = bytes.iter().fold(0u8,  |acc, &b| acc ^ b);
+    let xor8: u8 = bytes.iter().fold(0u8, |acc, &b| acc ^ b);
     let xor16: u16 = bytes.chunks(2).fold(0u16, |acc, chunk| {
-        let w = if chunk.len() == 2 { (chunk[0] as u16) << 8 | chunk[1] as u16 }
-                else { (chunk[0] as u16) << 8 };
+        let w = if chunk.len() == 2 {
+            (chunk[0] as u16) << 8 | chunk[1] as u16
+        } else {
+            (chunk[0] as u16) << 8
+        };
         acc ^ w
     });
 
     // ─── Sum checksums ───
-    let sum8:  u8  = bytes.iter().fold(0u8,  |acc, &b| acc.wrapping_add(b));
-    let sum16: u16 = bytes.iter().fold(0u16, |acc, &b| acc.wrapping_add(b as u16));
-    let sum32: u32 = bytes.iter().fold(0u32, |acc, &b| acc.wrapping_add(b as u32));
+    let sum8: u8 = bytes.iter().fold(0u8, |acc, &b| acc.wrapping_add(b));
+    let sum16: u16 = bytes
+        .iter()
+        .fold(0u16, |acc, &b| acc.wrapping_add(b as u16));
+    let sum32: u32 = bytes
+        .iter()
+        .fold(0u32, |acc, &b| acc.wrapping_add(b as u32));
 
     let _ = writeln!(out, "  ─── Cyclic Redundancy Checks ───");
     let _ = writeln!(out, "  CRC-32 (IEEE):     0x{:08X}  ({:10})", crc32, crc32);
-    let _ = writeln!(out, "  CRC-16 (CCITT):    0x{:04X}      ({:6})", crc16, crc16);
-    let _ = writeln!(out, "");
+    let _ = writeln!(
+        out,
+        "  CRC-16 (CCITT):    0x{:04X}      ({:6})",
+        crc16, crc16
+    );
+    let _ = writeln!(out);
     let _ = writeln!(out, "  ─── Hash Functions ───");
-    let _ = writeln!(out, "  Adler-32:          0x{:08X}  ({:10})", adler32, adler32);
-    let _ = writeln!(out, "  FNV-1a 32:         0x{:08X}  ({:10})", fnv1a_32, fnv1a_32);
+    let _ = writeln!(
+        out,
+        "  Adler-32:          0x{:08X}  ({:10})",
+        adler32, adler32
+    );
+    let _ = writeln!(
+        out,
+        "  FNV-1a 32:         0x{:08X}  ({:10})",
+        fnv1a_32, fnv1a_32
+    );
     let _ = writeln!(out, "  FNV-1a 64:         0x{:016X}", fnv1a_64);
     let _ = writeln!(out, "  DJB2:              0x{:016X}", djb2);
     let _ = writeln!(out, "  SDBM:              0x{:016X}", sdbm);
-    let _ = writeln!(out, "");
+    let _ = writeln!(out);
     let _ = writeln!(out, "  ─── Simple Checksums ───");
     let _ = writeln!(out, "  XOR-8:             0x{:02X}  ({})", xor8, xor8);
     let _ = writeln!(out, "  XOR-16:            0x{:04X}  ({})", xor16, xor16);
     let _ = writeln!(out, "  Sum-8 (mod 256):   0x{:02X}  ({})", sum8, sum8);
     let _ = writeln!(out, "  Sum-16:            0x{:04X}  ({})", sum16, sum16);
     let _ = writeln!(out, "  Sum-32:            0x{:08X}  ({})", sum32, sum32);
-    let _ = writeln!(out, "");
+    let _ = writeln!(out);
     let _ = writeln!(out, "  ─── Byte Analysis ───");
-    let _ = writeln!(out, "  Min byte:          0x{:02X}  ({})", bytes.iter().min().copied().unwrap_or(0), bytes.iter().min().copied().unwrap_or(0));
-    let _ = writeln!(out, "  Max byte:          0x{:02X}  ({})", bytes.iter().max().copied().unwrap_or(0), bytes.iter().max().copied().unwrap_or(0));
+    let _ = writeln!(
+        out,
+        "  Min byte:          0x{:02X}  ({})",
+        bytes.iter().min().copied().unwrap_or(0),
+        bytes.iter().min().copied().unwrap_or(0)
+    );
+    let _ = writeln!(
+        out,
+        "  Max byte:          0x{:02X}  ({})",
+        bytes.iter().max().copied().unwrap_or(0),
+        bytes.iter().max().copied().unwrap_or(0)
+    );
     let avg_byte = bytes.iter().map(|&b| b as f64).sum::<f64>() / len.max(1) as f64;
     let _ = writeln!(out, "  Avg byte value:    {:.2}", avg_byte);
     // Hex dump (first 32 bytes)
     if len <= 32 {
-        let _ = writeln!(out, "  Hex: {}", bytes.iter().map(|b| format!("{:02X}", b)).collect::<Vec<_>>().join(" "));
+        let _ = writeln!(
+            out,
+            "  Hex: {}",
+            bytes
+                .iter()
+                .map(|b| format!("{:02X}", b))
+                .collect::<Vec<_>>()
+                .join(" ")
+        );
     } else {
-        let preview: String = bytes[..32].iter().map(|b| format!("{:02X}", b)).collect::<Vec<_>>().join(" ");
+        let preview: String = bytes[..32]
+            .iter()
+            .map(|b| format!("{:02X}", b))
+            .collect::<Vec<_>>()
+            .join(" ");
         let _ = writeln!(out, "  Hex (first 32): {} ...", preview);
     }
 
@@ -8273,11 +12203,11 @@ pub fn sort_viz(query: &str) -> String {
     let q = query.trim();
     // Format: "<algorithm> <n1,n2,n3,...>"  or just "<n1,n2,...>" for all algorithms
     let words: Vec<&str> = q.splitn(2, ' ').collect();
-    let algos_all = ["bubble","insertion","selection","merge","quick","heap"];
+    let algos_all = ["bubble", "insertion", "selection", "merge", "quick", "heap"];
 
     let (algos, data_str) = if words.len() == 2 {
         let first_lower = words[0].to_lowercase();
-        if algos_all.iter().any(|&a| a == first_lower.as_str()) {
+        if algos_all.contains(&first_lower.as_str()) {
             (vec![first_lower], words[1])
         } else {
             (algos_all.iter().map(|s| s.to_string()).collect(), q)
@@ -8287,24 +12217,35 @@ pub fn sort_viz(query: &str) -> String {
     };
 
     // Parse data
-    let data: Vec<i64> = data_str.split(|c: char| !c.is_numeric() && c != '-')
+    let data: Vec<i64> = data_str
+        .split(|c: char| !c.is_numeric() && c != '-')
         .filter_map(|s| s.parse().ok())
         .collect();
 
     if data.is_empty() || data.len() < 2 {
-        let _ = writeln!(out, "  Provide at least 2 numbers: hematite --sort-viz '5,3,8,1,9,2'");
-        let _ = writeln!(out, "  Or specify an algorithm:    hematite --sort-viz 'bubble 5,3,8,1'");
+        let _ = writeln!(
+            out,
+            "  Provide at least 2 numbers: hematite --sort-viz '5,3,8,1,9,2'"
+        );
+        let _ = writeln!(
+            out,
+            "  Or specify an algorithm:    hematite --sort-viz 'bubble 5,3,8,1'"
+        );
         let _ = writeln!(out, "{}", sep);
         return out;
     }
     if data.len() > 20 {
-        let _ = writeln!(out, "  Max 20 elements for visualization (got {})", data.len());
+        let _ = writeln!(
+            out,
+            "  Max 20 elements for visualization (got {})",
+            data.len()
+        );
         let _ = writeln!(out, "{}", sep);
         return out;
     }
 
     let _ = writeln!(out, "  Input: {:?}", data);
-    let _ = writeln!(out, "");
+    let _ = writeln!(out);
 
     let max_val = *data.iter().max().unwrap_or(&1);
     let min_val = *data.iter().min().unwrap_or(&0);
@@ -8327,12 +12268,16 @@ pub fn sort_viz(query: &str) -> String {
             }
             lines[bar_height].push_str(&format!("{:<3}", v));
         }
-        lines.iter().map(|l| format!("  {}", l)).collect::<Vec<_>>().join("\n")
+        lines
+            .iter()
+            .map(|l| format!("  {}", l))
+            .collect::<Vec<_>>()
+            .join("\n")
     };
 
     for algo in &algos {
         let _ = writeln!(out, "  ═══ {} Sort ═══", algo.to_uppercase());
-        let _ = writeln!(out, "");
+        let _ = writeln!(out);
 
         let mut arr = data.clone();
         let mut steps: Vec<(Vec<i64>, String)> = Vec::new();
@@ -8344,16 +12289,21 @@ pub fn sort_viz(query: &str) -> String {
                 let n = arr.len();
                 for i in 0..n {
                     let mut swapped = false;
-                    for j in 0..n-1-i {
+                    for j in 0..n - 1 - i {
                         comparisons += 1;
-                        if arr[j] > arr[j+1] {
-                            arr.swap(j, j+1);
+                        if arr[j] > arr[j + 1] {
+                            arr.swap(j, j + 1);
                             swaps += 1;
                             swapped = true;
                         }
                     }
-                    steps.push((arr.clone(), format!("Pass {} (sorted tail: {})", i+1, i+1)));
-                    if !swapped { break; }
+                    steps.push((
+                        arr.clone(),
+                        format!("Pass {} (sorted tail: {})", i + 1, i + 1),
+                    ));
+                    if !swapped {
+                        break;
+                    }
                 }
             }
             "insertion" => {
@@ -8363,35 +12313,49 @@ pub fn sort_viz(query: &str) -> String {
                     while j >= 0 {
                         comparisons += 1;
                         if arr[j as usize] > key {
-                            arr[(j+1) as usize] = arr[j as usize];
+                            arr[(j + 1) as usize] = arr[j as usize];
                             swaps += 1;
                             j -= 1;
-                        } else { break; }
+                        } else {
+                            break;
+                        }
                     }
-                    arr[(j+1) as usize] = key;
-                    steps.push((arr.clone(), format!("Insert {} at position {}", key, j+1)));
+                    arr[(j + 1) as usize] = key;
+                    steps.push((arr.clone(), format!("Insert {} at position {}", key, j + 1)));
                 }
             }
             "selection" => {
                 let n = arr.len();
-                for i in 0..n-1 {
+                for i in 0..n - 1 {
                     let mut min_idx = i;
-                    for j in i+1..n {
+                    for j in i + 1..n {
                         comparisons += 1;
-                        if arr[j] < arr[min_idx] { min_idx = j; }
+                        if arr[j] < arr[min_idx] {
+                            min_idx = j;
+                        }
                     }
                     if min_idx != i {
                         arr.swap(i, min_idx);
                         swaps += 1;
                     }
-                    steps.push((arr.clone(), format!("Select min={} → position {}", arr[i], i)));
+                    steps.push((
+                        arr.clone(),
+                        format!("Select min={} → position {}", arr[i], i),
+                    ));
                 }
             }
             "merge" => {
-                fn merge_sort_steps(arr: &mut Vec<i64>, steps: &mut Vec<(Vec<i64>, String)>,
-                                     comparisons: &mut usize, swaps: &mut usize,
-                                     lo: usize, hi: usize) {
-                    if hi - lo <= 1 { return; }
+                fn merge_sort_steps(
+                    arr: &mut Vec<i64>,
+                    steps: &mut Vec<(Vec<i64>, String)>,
+                    comparisons: &mut usize,
+                    swaps: &mut usize,
+                    lo: usize,
+                    hi: usize,
+                ) {
+                    if hi - lo <= 1 {
+                        return;
+                    }
                     let mid = (lo + hi) / 2;
                     merge_sort_steps(arr, steps, comparisons, swaps, lo, mid);
                     merge_sort_steps(arr, steps, comparisons, swaps, mid, hi);
@@ -8401,33 +12365,62 @@ pub fn sort_viz(query: &str) -> String {
                     let mut idx = lo;
                     while li < left.len() && ri < right.len() {
                         *comparisons += 1;
-                        if left[li] <= right[ri] { arr[idx] = left[li]; li += 1; }
-                        else { arr[idx] = right[ri]; ri += 1; *swaps += 1; }
+                        if left[li] <= right[ri] {
+                            arr[idx] = left[li];
+                            li += 1;
+                        } else {
+                            arr[idx] = right[ri];
+                            ri += 1;
+                            *swaps += 1;
+                        }
                         idx += 1;
                     }
-                    while li < left.len() { arr[idx] = left[li]; li += 1; idx += 1; }
-                    while ri < right.len() { arr[idx] = right[ri]; ri += 1; idx += 1; }
+                    while li < left.len() {
+                        arr[idx] = left[li];
+                        li += 1;
+                        idx += 1;
+                    }
+                    while ri < right.len() {
+                        arr[idx] = right[ri];
+                        ri += 1;
+                        idx += 1;
+                    }
                     steps.push((arr.clone(), format!("Merge [{}, {})", lo, hi)));
                 }
                 let n = arr.len();
                 merge_sort_steps(&mut arr, &mut steps, &mut comparisons, &mut swaps, 0, n);
             }
             "quick" => {
-                fn quick_sort_steps(arr: &mut Vec<i64>, steps: &mut Vec<(Vec<i64>, String)>,
-                                     comparisons: &mut usize, swaps: &mut usize,
-                                     lo: usize, hi: usize) {
-                    if lo + 1 >= hi { return; }
+                fn quick_sort_steps(
+                    arr: &mut Vec<i64>,
+                    steps: &mut Vec<(Vec<i64>, String)>,
+                    comparisons: &mut usize,
+                    swaps: &mut usize,
+                    lo: usize,
+                    hi: usize,
+                ) {
+                    if lo + 1 >= hi {
+                        return;
+                    }
                     let pivot = arr[hi - 1];
                     let mut i = lo;
-                    for j in lo..hi-1 {
+                    for j in lo..hi - 1 {
                         *comparisons += 1;
-                        if arr[j] <= pivot { arr.swap(i, j); i += 1; *swaps += 1; }
+                        if arr[j] <= pivot {
+                            arr.swap(i, j);
+                            i += 1;
+                            *swaps += 1;
+                        }
                     }
                     arr.swap(i, hi - 1);
                     *swaps += 1;
                     steps.push((arr.clone(), format!("Pivot={} partitioned at {}", pivot, i)));
-                    if i > lo { quick_sort_steps(arr, steps, comparisons, swaps, lo, i); }
-                    if i + 1 < hi { quick_sort_steps(arr, steps, comparisons, swaps, i + 1, hi); }
+                    if i > lo {
+                        quick_sort_steps(arr, steps, comparisons, swaps, lo, i);
+                    }
+                    if i + 1 < hi {
+                        quick_sort_steps(arr, steps, comparisons, swaps, i + 1, hi);
+                    }
                 }
                 let n = arr.len();
                 quick_sort_steps(&mut arr, &mut steps, &mut comparisons, &mut swaps, 0, n);
@@ -8435,16 +12428,31 @@ pub fn sort_viz(query: &str) -> String {
             "heap" => {
                 let n = arr.len();
                 // Build max-heap
-                for i in (0..n/2).rev() {
+                for i in (0..n / 2).rev() {
                     let mut root = i;
                     loop {
-                        let left = 2*root+1;
-                        let right = 2*root+2;
+                        let left = 2 * root + 1;
+                        let right = 2 * root + 2;
                         let mut largest = root;
-                        if left < n { comparisons += 1; if arr[left] > arr[largest] { largest = left; } }
-                        if right < n { comparisons += 1; if arr[right] > arr[largest] { largest = right; } }
-                        if largest != root { arr.swap(root, largest); swaps += 1; root = largest; }
-                        else { break; }
+                        if left < n {
+                            comparisons += 1;
+                            if arr[left] > arr[largest] {
+                                largest = left;
+                            }
+                        }
+                        if right < n {
+                            comparisons += 1;
+                            if arr[right] > arr[largest] {
+                                largest = right;
+                            }
+                        }
+                        if largest != root {
+                            arr.swap(root, largest);
+                            swaps += 1;
+                            root = largest;
+                        } else {
+                            break;
+                        }
                     }
                 }
                 steps.push((arr.clone(), "Heap built".to_string()));
@@ -8454,15 +12462,33 @@ pub fn sort_viz(query: &str) -> String {
                     // Sift down
                     let mut root = 0;
                     loop {
-                        let left = 2*root+1;
-                        let right = 2*root+2;
+                        let left = 2 * root + 1;
+                        let right = 2 * root + 2;
                         let mut largest = root;
-                        if left < end { comparisons += 1; if arr[left] > arr[largest] { largest = left; } }
-                        if right < end { comparisons += 1; if arr[right] > arr[largest] { largest = right; } }
-                        if largest != root { arr.swap(root, largest); swaps += 1; root = largest; }
-                        else { break; }
+                        if left < end {
+                            comparisons += 1;
+                            if arr[left] > arr[largest] {
+                                largest = left;
+                            }
+                        }
+                        if right < end {
+                            comparisons += 1;
+                            if arr[right] > arr[largest] {
+                                largest = right;
+                            }
+                        }
+                        if largest != root {
+                            arr.swap(root, largest);
+                            swaps += 1;
+                            root = largest;
+                        } else {
+                            break;
+                        }
                     }
-                    steps.push((arr.clone(), format!("Extracted max, sorted: {} elements", n-end)));
+                    steps.push((
+                        arr.clone(),
+                        format!("Extracted max, sorted: {} elements", n - end),
+                    ));
                 }
             }
             _ => {}
@@ -8475,7 +12501,7 @@ pub fn sort_viz(query: &str) -> String {
             // Show first 4, last 4, mark ellipsis
             let mut s = steps[..4].to_vec();
             s.push((vec![], format!("... {} more steps ...", step_count - 8)));
-            s.extend_from_slice(&steps[step_count-4..]);
+            s.extend_from_slice(&steps[step_count - 4..]);
             s
         } else {
             steps.clone()
@@ -8488,13 +12514,17 @@ pub fn sort_viz(query: &str) -> String {
             }
             let _ = writeln!(out, "  → {}", label);
             let _ = write!(out, "{}", bar_render(step_arr));
-            let _ = writeln!(out, "");
+            let _ = writeln!(out);
         }
 
-        let _ = writeln!(out, "");
+        let _ = writeln!(out);
         let _ = writeln!(out, "  Final: {:?}", arr);
-        let _ = writeln!(out, "  Comparisons: {}  |  Swaps/moves: {}  |  Steps: {}", comparisons, swaps, step_count);
-        let _ = writeln!(out, "");
+        let _ = writeln!(
+            out,
+            "  Comparisons: {}  |  Swaps/moves: {}  |  Steps: {}",
+            comparisons, swaps, step_count
+        );
+        let _ = writeln!(out);
     }
 
     let _ = writeln!(out, "{}", sep);
@@ -8513,7 +12543,7 @@ pub fn number_format(query: &str) -> String {
     let q = query.trim();
 
     // Try parsing as integer first, then float
-    let val: f64 = match q.replace('_', "").replace(',', "").parse::<f64>() {
+    let val: f64 = match q.replace(['_', ','], "").parse::<f64>() {
         Ok(v) => v,
         Err(_) => {
             let _ = writeln!(out, "  Cannot parse: {}", q);
@@ -8525,49 +12555,76 @@ pub fn number_format(query: &str) -> String {
     };
 
     let _ = writeln!(out, "  Input: {}", q);
-    let _ = writeln!(out, "");
+    let _ = writeln!(out);
 
     // ─── Thousands-separated form ───
     let fmt_thousands = |v: f64| -> String {
         if v == v.floor() && v.abs() < 1e15 {
             let i = v as i64;
             let s = format!("{}", i.abs());
-            let with_sep: String = s.chars().rev().enumerate()
+            let with_sep: String = s
+                .chars()
+                .rev()
+                .enumerate()
                 .flat_map(|(i, c)| {
-                    if i > 0 && i % 3 == 0 { vec![',', c] } else { vec![c] }
+                    if i > 0 && i % 3 == 0 {
+                        vec![',', c]
+                    } else {
+                        vec![c]
+                    }
                 })
                 .collect::<String>()
-                .chars().rev().collect();
-            if i < 0 { format!("-{}", with_sep) } else { with_sep }
+                .chars()
+                .rev()
+                .collect();
+            if i < 0 {
+                format!("-{}", with_sep)
+            } else {
+                with_sep
+            }
         } else {
             // Show decimal with commas on integer part
             let int_part = v.abs().floor() as i64;
             let frac = (v.abs() - int_part as f64).to_string();
             let frac_str = if frac.len() > 2 { &frac[1..] } else { "" };
             let s = format!("{}", int_part);
-            let with_sep: String = s.chars().rev().enumerate()
+            let with_sep: String = s
+                .chars()
+                .rev()
+                .enumerate()
                 .flat_map(|(i, c)| {
-                    if i > 0 && i % 3 == 0 { vec![',', c] } else { vec![c] }
+                    if i > 0 && i % 3 == 0 {
+                        vec![',', c]
+                    } else {
+                        vec![c]
+                    }
                 })
                 .collect::<String>()
-                .chars().rev().collect();
-            let signed = if v < 0.0 { format!("-{}{}", with_sep, frac_str) }
-                         else { format!("{}{}", with_sep, frac_str) };
+                .chars()
+                .rev()
+                .collect();
+            let signed = if v < 0.0 {
+                format!("-{}{}", with_sep, frac_str)
+            } else {
+                format!("{}{}", with_sep, frac_str)
+            };
             signed
         }
     };
 
     // ─── Scientific notation ───
-    let sci = if val == 0.0 { "0.000000e0".to_string() }
-    else {
+    let sci = if val == 0.0 {
+        "0.000000e0".to_string()
+    } else {
         let exp = val.abs().log10().floor() as i32;
         let mantissa = val / 10f64.powi(exp);
         format!("{:.6}e{}", mantissa, exp)
     };
 
     // ─── Engineering notation (exponent multiple of 3) ───
-    let eng = if val == 0.0 { "0.000e0".to_string() }
-    else {
+    let eng = if val == 0.0 {
+        "0.000e0".to_string()
+    } else {
         let exp = val.abs().log10().floor() as i32;
         let eng_exp = (exp as f64 / 3.0).floor() as i32 * 3;
         let mantissa = val / 10f64.powi(eng_exp);
@@ -8577,18 +12634,18 @@ pub fn number_format(query: &str) -> String {
     // ─── SI prefix ───
     let si = {
         let si_prefixes: &[(f64, &str, &str)] = &[
-            (1e24,  "Y", "yotta"),
-            (1e21,  "Z", "zetta"),
-            (1e18,  "E", "exa"),
-            (1e15,  "P", "peta"),
-            (1e12,  "T", "tera"),
-            (1e9,   "G", "giga"),
-            (1e6,   "M", "mega"),
-            (1e3,   "k", "kilo"),
-            (1e0,   "",  ""),
-            (1e-3,  "m", "milli"),
-            (1e-6,  "μ", "micro"),
-            (1e-9,  "n", "nano"),
+            (1e24, "Y", "yotta"),
+            (1e21, "Z", "zetta"),
+            (1e18, "E", "exa"),
+            (1e15, "P", "peta"),
+            (1e12, "T", "tera"),
+            (1e9, "G", "giga"),
+            (1e6, "M", "mega"),
+            (1e3, "k", "kilo"),
+            (1e0, "", ""),
+            (1e-3, "m", "milli"),
+            (1e-6, "μ", "micro"),
+            (1e-9, "n", "nano"),
             (1e-12, "p", "pico"),
             (1e-15, "f", "femto"),
         ];
@@ -8597,8 +12654,11 @@ pub fn number_format(query: &str) -> String {
         for &(scale, sym, name) in si_prefixes {
             if abs_val >= scale * 0.999 || scale <= 1e-12 {
                 let scaled = val / scale;
-                if sym.is_empty() { result = format!("{:.4}", scaled); }
-                else { result = format!("{:.4} {} ({})", scaled, sym, name); }
+                if sym.is_empty() {
+                    result = format!("{:.4}", scaled);
+                } else {
+                    result = format!("{:.4} {} ({})", scaled, sym, name);
+                }
                 break;
             }
         }
@@ -8614,7 +12674,9 @@ pub fn number_format(query: &str) -> String {
             format!("0b{:b}", u),
             format!("0o{:o}", u),
         ))
-    } else { None };
+    } else {
+        None
+    };
 
     // ─── Word form (English) ───
     let word_form = number_to_words(val);
@@ -8634,7 +12696,7 @@ pub fn number_format(query: &str) -> String {
         let _ = writeln!(out, "  Reciprocal:           {:.6} (1/{})", 1.0 / val, q);
         let _ = writeln!(out, "  Percentage:           {:.4}%", val * 100.0);
         let log10 = val.abs().log10();
-        let ln_v  = val.abs().ln();
+        let ln_v = val.abs().ln();
         let _ = writeln!(out, "  log₁₀:               {:.6}", log10);
         let _ = writeln!(out, "  ln:                   {:.6}", ln_v);
         let _ = writeln!(out, "  √:                    {:.6}", val.abs().sqrt());
@@ -8647,45 +12709,77 @@ pub fn number_format(query: &str) -> String {
 }
 
 fn number_to_words(v: f64) -> String {
-    if v == 0.0 { return "zero".to_string(); }
+    if v == 0.0 {
+        return "zero".to_string();
+    }
     let is_neg = v < 0.0;
     let abs_v = v.abs();
 
     // Only handle integers up to ~999 trillion
     if abs_v != abs_v.floor() || abs_v >= 1e15 {
-        return format!("(too large or fractional for word form)");
+        return "(too large or fractional for word form)".to_string();
     }
     let n = abs_v as u64;
 
-    let ones = ["", "one","two","three","four","five","six","seven","eight","nine",
-                "ten","eleven","twelve","thirteen","fourteen","fifteen","sixteen",
-                "seventeen","eighteen","nineteen"];
-    let tens = ["","","twenty","thirty","forty","fifty","sixty","seventy","eighty","ninety"];
+    let ones = [
+        "",
+        "one",
+        "two",
+        "three",
+        "four",
+        "five",
+        "six",
+        "seven",
+        "eight",
+        "nine",
+        "ten",
+        "eleven",
+        "twelve",
+        "thirteen",
+        "fourteen",
+        "fifteen",
+        "sixteen",
+        "seventeen",
+        "eighteen",
+        "nineteen",
+    ];
+    let tens = [
+        "", "", "twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty", "ninety",
+    ];
 
     let under100 = |n: u64| -> String {
-        if n < 20 { ones[n as usize].to_string() }
-        else {
+        if n < 20 {
+            ones[n as usize].to_string()
+        } else {
             let t = tens[(n / 10) as usize];
             let o = ones[(n % 10) as usize];
-            if o.is_empty() { t.to_string() } else { format!("{}-{}", t, o) }
+            if o.is_empty() {
+                t.to_string()
+            } else {
+                format!("{}-{}", t, o)
+            }
         }
     };
 
     let under1000 = |n: u64| -> String {
-        if n < 100 { under100(n) }
-        else {
+        if n < 100 {
+            under100(n)
+        } else {
             let h = ones[(n / 100) as usize];
             let rem = n % 100;
-            if rem == 0 { format!("{} hundred", h) }
-            else { format!("{} hundred {}", h, under100(rem)) }
+            if rem == 0 {
+                format!("{} hundred", h)
+            } else {
+                format!("{} hundred {}", h, under100(rem))
+            }
         }
     };
 
     let scales: &[(u64, &str)] = &[
         (1_000_000_000_000, "trillion"),
-        (1_000_000_000,     "billion"),
-        (1_000_000,         "million"),
-        (1_000,             "thousand"),
+        (1_000_000_000, "billion"),
+        (1_000_000, "million"),
+        (1_000, "thousand"),
     ];
 
     let mut parts: Vec<String> = Vec::new();
@@ -8697,10 +12791,16 @@ fn number_to_words(v: f64) -> String {
             parts.push(format!("{} {}", under1000(chunk), name));
         }
     }
-    if remaining > 0 { parts.push(under1000(remaining)); }
+    if remaining > 0 {
+        parts.push(under1000(remaining));
+    }
 
     let result = parts.join(" ");
-    if is_neg { format!("negative {}", result) } else { result }
+    if is_neg {
+        format!("negative {}", result)
+    } else {
+        result
+    }
 }
 
 // ─── String distance metrics ──────────────────────────────────────────────────
@@ -8714,16 +12814,19 @@ pub fn string_dist(query: &str) -> String {
 
     // Split on " vs " or " | " to get two strings
     let (a, b) = if let Some(pos) = query.find(" vs ") {
-        (query[..pos].trim(), query[pos+4..].trim())
+        (query[..pos].trim(), query[pos + 4..].trim())
     } else if let Some(pos) = query.find(" | ") {
-        (query[..pos].trim(), query[pos+3..].trim())
+        (query[..pos].trim(), query[pos + 3..].trim())
     } else {
         // Try splitting on comma if no quoted form
         let parts: Vec<&str> = query.splitn(2, ',').collect();
         if parts.len() == 2 {
             (parts[0].trim(), parts[1].trim())
         } else {
-            let _ = writeln!(out, "  Usage: hematite --levenshtein '<string1> vs <string2>'");
+            let _ = writeln!(
+                out,
+                "  Usage: hematite --levenshtein '<string1> vs <string2>'"
+            );
             let _ = writeln!(out, "         hematite --levenshtein 'kitten vs sitting'");
             let _ = writeln!(out, "         hematite --levenshtein 'hello, helo'");
             let _ = writeln!(out, "{}", sep);
@@ -8733,7 +12836,7 @@ pub fn string_dist(query: &str) -> String {
 
     let _ = writeln!(out, "  String A: \"{}\"  (len={})", a, a.chars().count());
     let _ = writeln!(out, "  String B: \"{}\"  (len={})", b, b.chars().count());
-    let _ = writeln!(out, "");
+    let _ = writeln!(out);
 
     let ac: Vec<char> = a.chars().collect();
     let bc: Vec<char> = b.chars().collect();
@@ -8743,14 +12846,18 @@ pub fn string_dist(query: &str) -> String {
     // ─── Levenshtein edit distance ───
     let lev_dist = {
         let mut dp = vec![vec![0usize; n + 1]; m + 1];
-        for i in 0..=m { dp[i][0] = i; }
-        for j in 0..=n { dp[0][j] = j; }
+        for i in 0..=m {
+            dp[i][0] = i;
+        }
+        for j in 0..=n {
+            dp[0][j] = j;
+        }
         for i in 1..=m {
             for j in 1..=n {
-                if ac[i-1] == bc[j-1] {
-                    dp[i][j] = dp[i-1][j-1];
+                if ac[i - 1] == bc[j - 1] {
+                    dp[i][j] = dp[i - 1][j - 1];
                 } else {
-                    dp[i][j] = 1 + dp[i-1][j-1].min(dp[i-1][j]).min(dp[i][j-1]);
+                    dp[i][j] = 1 + dp[i - 1][j - 1].min(dp[i - 1][j]).min(dp[i][j - 1]);
                 }
             }
         }
@@ -8762,16 +12869,20 @@ pub fn string_dist(query: &str) -> String {
     // ─── Damerau-Levenshtein (transpositions allowed) ───
     let dl_dist = {
         let mut dp = vec![vec![0usize; n + 1]; m + 1];
-        for i in 0..=m { dp[i][0] = i; }
-        for j in 0..=n { dp[0][j] = j; }
+        for i in 0..=m {
+            dp[i][0] = i;
+        }
+        for j in 0..=n {
+            dp[0][j] = j;
+        }
         for i in 1..=m {
             for j in 1..=n {
-                let cost = if ac[i-1] == bc[j-1] { 0 } else { 1 };
-                dp[i][j] = (dp[i-1][j] + 1)
-                    .min(dp[i][j-1] + 1)
-                    .min(dp[i-1][j-1] + cost);
-                if i > 1 && j > 1 && ac[i-1] == bc[j-2] && ac[i-2] == bc[j-1] {
-                    dp[i][j] = dp[i][j].min(dp[i-2][j-2] + cost);
+                let cost = if ac[i - 1] == bc[j - 1] { 0 } else { 1 };
+                dp[i][j] = (dp[i - 1][j] + 1)
+                    .min(dp[i][j - 1] + 1)
+                    .min(dp[i - 1][j - 1] + cost);
+                if i > 1 && j > 1 && ac[i - 1] == bc[j - 2] && ac[i - 2] == bc[j - 1] {
+                    dp[i][j] = dp[i][j].min(dp[i - 2][j - 2] + cost);
                 }
             }
         }
@@ -8788,9 +12899,11 @@ pub fn string_dist(query: &str) -> String {
 
     // ─── Jaro similarity ───
     let jaro = {
-        if m == 0 && n == 0 { 1.0f64 }
-        else if m == 0 || n == 0 { 0.0f64 }
-        else {
+        if m == 0 && n == 0 {
+            1.0f64
+        } else if m == 0 || n == 0 {
+            0.0f64
+        } else {
             let match_dist = (m.max(n) / 2).saturating_sub(1);
             let mut s1_matches = vec![false; m];
             let mut s2_matches = vec![false; n];
@@ -8807,11 +12920,22 @@ pub fn string_dist(query: &str) -> String {
                     }
                 }
             }
-            if matches == 0 { 0.0 }
-            else {
-                let s1m: Vec<char> = ac.iter().enumerate().filter(|(i,_)| s1_matches[*i]).map(|(_,c)| *c).collect();
-                let s2m: Vec<char> = bc.iter().enumerate().filter(|(i,_)| s2_matches[*i]).map(|(_,c)| *c).collect();
-                let transpositions = s1m.iter().zip(s2m.iter()).filter(|(a,b)| a != b).count() / 2;
+            if matches == 0 {
+                0.0
+            } else {
+                let s1m: Vec<char> = ac
+                    .iter()
+                    .enumerate()
+                    .filter(|(i, _)| s1_matches[*i])
+                    .map(|(_, c)| *c)
+                    .collect();
+                let s2m: Vec<char> = bc
+                    .iter()
+                    .enumerate()
+                    .filter(|(i, _)| s2_matches[*i])
+                    .map(|(_, c)| *c)
+                    .collect();
+                let transpositions = s1m.iter().zip(s2m.iter()).filter(|(a, b)| a != b).count() / 2;
                 let mf = matches as f64;
                 (mf / m as f64 + mf / n as f64 + (mf - transpositions as f64) / mf) / 3.0
             }
@@ -8820,7 +12944,12 @@ pub fn string_dist(query: &str) -> String {
 
     // ─── Jaro-Winkler ───
     let jaro_winkler = {
-        let prefix_len = ac.iter().zip(bc.iter()).take(4).take_while(|(a,b)| a == b).count();
+        let prefix_len = ac
+            .iter()
+            .zip(bc.iter())
+            .take(4)
+            .take_while(|(a, b)| a == b)
+            .count();
         let p = 0.1f64;
         jaro + prefix_len as f64 * p * (1.0 - jaro)
     };
@@ -8831,13 +12960,20 @@ pub fn string_dist(query: &str) -> String {
         let mut dp = vec![vec![0usize; n + 1]; m + 1];
         for i in 1..=m {
             for j in 1..=n {
-                if ac[i-1] == bc[j-1] { dp[i][j] = dp[i-1][j-1] + 1; }
-                else { dp[i][j] = dp[i-1][j].max(dp[i][j-1]); }
+                if ac[i - 1] == bc[j - 1] {
+                    dp[i][j] = dp[i - 1][j - 1] + 1;
+                } else {
+                    dp[i][j] = dp[i - 1][j].max(dp[i][j - 1]);
+                }
             }
         }
         dp[m][n]
     };
-    let lcs_sim = if max_len > 0 { lcs_len as f64 / max_len as f64 } else { 0.0 };
+    let lcs_sim = if max_len > 0 {
+        lcs_len as f64 / max_len as f64
+    } else {
+        0.0
+    };
 
     // ─── Longest common substring ───
     let (lcsub_len, lcsub) = {
@@ -8846,8 +12982,8 @@ pub fn string_dist(query: &str) -> String {
         let mut dp = vec![vec![0usize; n + 1]; m + 1];
         for i in 1..=m {
             for j in 1..=n {
-                if ac[i-1] == bc[j-1] {
-                    dp[i][j] = dp[i-1][j-1] + 1;
+                if ac[i - 1] == bc[j - 1] {
+                    dp[i][j] = dp[i - 1][j - 1] + 1;
                     if dp[i][j] > best_len {
                         best_len = dp[i][j];
                         best_end = i;
@@ -8855,28 +12991,67 @@ pub fn string_dist(query: &str) -> String {
                 }
             }
         }
-        let substr: String = ac[best_end.saturating_sub(best_len)..best_end].iter().collect();
+        let substr: String = ac[best_end.saturating_sub(best_len)..best_end]
+            .iter()
+            .collect();
         (best_len, substr)
     };
 
     // ─── Output ───
     let _ = writeln!(out, "  ─── Edit Distance ───");
-    let _ = writeln!(out, "  Levenshtein:            {:>6}  (similarity: {:.1}%)", lev_dist, lev_sim * 100.0);
-    let _ = writeln!(out, "  Damerau-Levenshtein:    {:>6}  (allows transpositions)", dl_dist);
+    let _ = writeln!(
+        out,
+        "  Levenshtein:            {:>6}  (similarity: {:.1}%)",
+        lev_dist,
+        lev_sim * 100.0
+    );
+    let _ = writeln!(
+        out,
+        "  Damerau-Levenshtein:    {:>6}  (allows transpositions)",
+        dl_dist
+    );
     if let Some(h) = hamming {
-        let _ = writeln!(out, "  Hamming:                {:>6}  (substitutions only)", h);
+        let _ = writeln!(
+            out,
+            "  Hamming:                {:>6}  (substitutions only)",
+            h
+        );
     } else {
         let _ = writeln!(out, "  Hamming:          n/a (strings must be same length)");
     }
-    let _ = writeln!(out, "");
+    let _ = writeln!(out);
     let _ = writeln!(out, "  ─── Similarity Scores (0=no match, 1=identical) ───");
-    let _ = writeln!(out, "  Jaro:                 {:.6}  ({:.1}%)", jaro, jaro * 100.0);
-    let _ = writeln!(out, "  Jaro-Winkler:         {:.6}  ({:.1}%)", jaro_winkler, jaro_winkler * 100.0);
-    let _ = writeln!(out, "  LCS similarity:       {:.6}  ({:.1}%)", lcs_sim, lcs_sim * 100.0);
-    let _ = writeln!(out, "");
+    let _ = writeln!(
+        out,
+        "  Jaro:                 {:.6}  ({:.1}%)",
+        jaro,
+        jaro * 100.0
+    );
+    let _ = writeln!(
+        out,
+        "  Jaro-Winkler:         {:.6}  ({:.1}%)",
+        jaro_winkler,
+        jaro_winkler * 100.0
+    );
+    let _ = writeln!(
+        out,
+        "  LCS similarity:       {:.6}  ({:.1}%)",
+        lcs_sim,
+        lcs_sim * 100.0
+    );
+    let _ = writeln!(out);
     let _ = writeln!(out, "  ─── Common Subsequence / Substring ───");
-    let _ = writeln!(out, "  LCS length:           {}  ({:.1}% of max length)", lcs_len, lcs_sim * 100.0);
-    let _ = writeln!(out, "  Longest common sub:   \"{}\"  (length {})", lcsub, lcsub_len);
+    let _ = writeln!(
+        out,
+        "  LCS length:           {}  ({:.1}% of max length)",
+        lcs_len,
+        lcs_sim * 100.0
+    );
+    let _ = writeln!(
+        out,
+        "  Longest common sub:   \"{}\"  (length {})",
+        lcsub, lcsub_len
+    );
 
     let _ = writeln!(out, "{}", sep);
     out
@@ -8908,40 +13083,62 @@ pub fn text_stats(input: &str) -> String {
     let word_count = words.len();
 
     // Sentences: end with . ! ? (crude but accurate enough for readability)
-    let sentence_count = text.chars().filter(|&c| c == '.' || c == '!' || c == '?').count().max(1);
+    let sentence_count = text
+        .chars()
+        .filter(|&c| c == '.' || c == '!' || c == '?')
+        .count()
+        .max(1);
 
     // Paragraphs: blank lines
-    let paragraph_count = text.split("\n\n").filter(|p| !p.trim().is_empty()).count().max(1);
+    let paragraph_count = text
+        .split("\n\n")
+        .filter(|p| !p.trim().is_empty())
+        .count()
+        .max(1);
 
     // ─── Syllable counting (heuristic: vowel groups) ───
     let count_syllables = |word: &str| -> usize {
         let w = word.to_lowercase();
         let w: String = w.chars().filter(|c| c.is_alphabetic()).collect();
-        if w.is_empty() { return 0; }
+        if w.is_empty() {
+            return 0;
+        }
         let vowels = "aeiouy";
         let mut count = 0usize;
         let mut prev_vowel = false;
         let chars: Vec<char> = w.chars().collect();
         for &ch in &chars {
             let is_v = vowels.contains(ch);
-            if is_v && !prev_vowel { count += 1; }
+            if is_v && !prev_vowel {
+                count += 1;
+            }
             prev_vowel = is_v;
         }
         // Silent trailing 'e'
-        if w.ends_with('e') && count > 1 { count = count.saturating_sub(1); }
+        if w.ends_with('e') && count > 1 {
+            count = count.saturating_sub(1);
+        }
         count.max(1)
     };
 
     let total_syllables: usize = words.iter().map(|w| count_syllables(w)).sum();
-    let avg_syllables = if word_count > 0 { total_syllables as f64 / word_count as f64 } else { 0.0 };
+    let avg_syllables = if word_count > 0 {
+        total_syllables as f64 / word_count as f64
+    } else {
+        0.0
+    };
 
     // ─── Readability scores ───
-    let words_per_sentence = if sentence_count > 0 { word_count as f64 / sentence_count as f64 } else { 0.0 };
+    let words_per_sentence = if sentence_count > 0 {
+        word_count as f64 / sentence_count as f64
+    } else {
+        0.0
+    };
     let syllables_per_word = avg_syllables;
 
     // Flesch Reading Ease: 206.835 - 1.015*(words/sentences) - 84.6*(syllables/word)
     let flesch_ease = 206.835 - 1.015 * words_per_sentence - 84.6 * syllables_per_word;
-    let flesch_ease = flesch_ease.max(0.0).min(100.0);
+    let flesch_ease = flesch_ease.clamp(0.0, 100.0);
 
     // Flesch-Kincaid Grade Level: 0.39*(words/sentences) + 11.8*(syllables/word) - 15.59
     let fk_grade = 0.39 * words_per_sentence + 11.8 * syllables_per_word - 15.59;
@@ -8950,37 +13147,47 @@ pub fn text_stats(input: &str) -> String {
     // Gunning Fog Index: 0.4 * ((words/sentences) + 100*(complex_words/words))
     // Complex = 3+ syllables, not proper nouns (crude: just count syllables >= 3)
     let complex_words = words.iter().filter(|w| count_syllables(w) >= 3).count();
-    let fog_index = 0.4 * (words_per_sentence + 100.0 * complex_words as f64 / word_count.max(1) as f64);
+    let fog_index =
+        0.4 * (words_per_sentence + 100.0 * complex_words as f64 / word_count.max(1) as f64);
 
     // SMOG: sqrt(complex * (30 / sentences)) + 3
     let smog = (complex_words as f64 * 30.0 / sentence_count as f64).sqrt() + 3.0;
 
     // Coleman-Liau: 0.0588*L - 0.296*S - 15.8  (L=avg letters/100 words, S=avg sentences/100 words)
     let letters_per_100: f64 = char_no_space as f64 / word_count.max(1) as f64 * 100.0;
-    let sent_per_100:    f64 = sentence_count as f64 / word_count.max(1) as f64 * 100.0;
+    let sent_per_100: f64 = sentence_count as f64 / word_count.max(1) as f64 * 100.0;
     let coleman_liau = 0.0588 * letters_per_100 - 0.296 * sent_per_100 - 15.8;
 
     // Flesch ease → grade label
-    let ease_label = if flesch_ease >= 90.0 { "Very Easy (5th grade)" }
-        else if flesch_ease >= 80.0 { "Easy (6th grade)" }
-        else if flesch_ease >= 70.0 { "Fairly Easy (7th grade)" }
-        else if flesch_ease >= 60.0 { "Standard (8th–9th grade)" }
-        else if flesch_ease >= 50.0 { "Fairly Difficult (10th–12th grade)" }
-        else if flesch_ease >= 30.0 { "Difficult (College)" }
-        else { "Very Confusing (Professional)" };
+    let ease_label = if flesch_ease >= 90.0 {
+        "Very Easy (5th grade)"
+    } else if flesch_ease >= 80.0 {
+        "Easy (6th grade)"
+    } else if flesch_ease >= 70.0 {
+        "Fairly Easy (7th grade)"
+    } else if flesch_ease >= 60.0 {
+        "Standard (8th–9th grade)"
+    } else if flesch_ease >= 50.0 {
+        "Fairly Difficult (10th–12th grade)"
+    } else if flesch_ease >= 30.0 {
+        "Difficult (College)"
+    } else {
+        "Very Confusing (Professional)"
+    };
 
     // ─── Word frequency (top 20 excluding common stop words) ───
     let stop_words: &[&str] = &[
-        "the","a","an","and","or","but","in","on","at","to","for","of","with",
-        "is","it","its","was","are","were","be","been","being","have","has","had",
-        "do","does","did","will","would","could","should","may","might","shall",
-        "that","this","these","those","i","you","he","she","we","they","them",
-        "his","her","our","their","my","your","as","by","from","up","about",
-        "into","through","than","more","also","if","not","so","all","can",
+        "the", "a", "an", "and", "or", "but", "in", "on", "at", "to", "for", "of", "with", "is",
+        "it", "its", "was", "are", "were", "be", "been", "being", "have", "has", "had", "do",
+        "does", "did", "will", "would", "could", "should", "may", "might", "shall", "that", "this",
+        "these", "those", "i", "you", "he", "she", "we", "they", "them", "his", "her", "our",
+        "their", "my", "your", "as", "by", "from", "up", "about", "into", "through", "than",
+        "more", "also", "if", "not", "so", "all", "can",
     ];
     let mut freq: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
     for word in &words {
-        let clean: String = word.chars()
+        let clean: String = word
+            .chars()
             .filter(|c| c.is_alphanumeric())
             .collect::<String>()
             .to_lowercase();
@@ -8994,17 +13201,29 @@ pub fn text_stats(input: &str) -> String {
     // ─── Character frequency ───
     let mut char_freq: std::collections::HashMap<char, usize> = std::collections::HashMap::new();
     for ch in text.chars() {
-        if ch.is_alphabetic() { *char_freq.entry(ch.to_ascii_lowercase()).or_insert(0) += 1; }
+        if ch.is_alphabetic() {
+            *char_freq.entry(ch.to_ascii_lowercase()).or_insert(0) += 1;
+        }
     }
     let mut char_sorted: Vec<(char, usize)> = char_freq.into_iter().collect();
     char_sorted.sort_by(|a, b| b.1.cmp(&a.1));
 
     // ─── Average word length ───
-    let total_word_chars: usize = words.iter().map(|w| w.chars().filter(|c| c.is_alphabetic()).count()).sum();
-    let avg_word_len = if word_count > 0 { total_word_chars as f64 / word_count as f64 } else { 0.0 };
+    let total_word_chars: usize = words
+        .iter()
+        .map(|w| w.chars().filter(|c| c.is_alphabetic()).count())
+        .sum();
+    let avg_word_len = if word_count > 0 {
+        total_word_chars as f64 / word_count as f64
+    } else {
+        0.0
+    };
 
     // ─── Longest words ───
-    let mut word_lengths: Vec<(&&str, usize)> = words.iter().map(|w| (w, w.chars().filter(|c| c.is_alphabetic()).count())).collect();
+    let mut word_lengths: Vec<(&&str, usize)> = words
+        .iter()
+        .map(|w| (w, w.chars().filter(|c| c.is_alphabetic()).count()))
+        .collect();
     word_lengths.sort_by(|a, b| b.1.cmp(&a.1));
     word_lengths.dedup_by_key(|w| w.1);
 
@@ -9018,25 +13237,45 @@ pub fn text_stats(input: &str) -> String {
     let _ = writeln!(out, "  Paragraphs:             {:>8}", paragraph_count);
     let _ = writeln!(out, "  Syllables (est.):       {:>8}", total_syllables);
     let _ = writeln!(out, "  Complex words (3+ syl): {:>8}", complex_words);
-    let _ = writeln!(out, "");
+    let _ = writeln!(out);
     let _ = writeln!(out, "  ─── Averages ───");
     let _ = writeln!(out, "  Avg word length:        {:>8.2} chars", avg_word_len);
     let _ = writeln!(out, "  Avg syllables/word:     {:>8.2}", avg_syllables);
     let _ = writeln!(out, "  Avg words/sentence:     {:>8.2}", words_per_sentence);
-    let _ = writeln!(out, "");
+    let _ = writeln!(out);
     let _ = writeln!(out, "  ─── Readability Scores ───");
-    let _ = writeln!(out, "  Flesch Reading Ease:    {:>8.1}  ({})", flesch_ease, ease_label);
-    let _ = writeln!(out, "  Flesch-Kincaid Grade:   {:>8.1}  (Grade {:.0})", fk_grade, fk_grade);
-    let _ = writeln!(out, "  Gunning Fog Index:      {:>8.1}  (Grade {:.0})", fog_index, fog_index);
-    let _ = writeln!(out, "  SMOG Index:             {:>8.1}  (Grade {:.0})", smog, smog);
-    let _ = writeln!(out, "  Coleman-Liau Index:     {:>8.1}  (Grade {:.0})", coleman_liau, coleman_liau);
-    let _ = writeln!(out, "");
+    let _ = writeln!(
+        out,
+        "  Flesch Reading Ease:    {:>8.1}  ({})",
+        flesch_ease, ease_label
+    );
+    let _ = writeln!(
+        out,
+        "  Flesch-Kincaid Grade:   {:>8.1}  (Grade {:.0})",
+        fk_grade, fk_grade
+    );
+    let _ = writeln!(
+        out,
+        "  Gunning Fog Index:      {:>8.1}  (Grade {:.0})",
+        fog_index, fog_index
+    );
+    let _ = writeln!(
+        out,
+        "  SMOG Index:             {:>8.1}  (Grade {:.0})",
+        smog, smog
+    );
+    let _ = writeln!(
+        out,
+        "  Coleman-Liau Index:     {:>8.1}  (Grade {:.0})",
+        coleman_liau, coleman_liau
+    );
+    let _ = writeln!(out);
     let _ = writeln!(out, "  ─── Top Words (excluding stop words) ───");
     for (word, count) in freq_sorted.iter().take(20) {
         let bar: String = "█".repeat((count * 30 / freq_sorted[0].1.max(1)).min(30));
         let _ = writeln!(out, "  {:>4}x  {:<20}  {}", count, word, bar);
     }
-    let _ = writeln!(out, "");
+    let _ = writeln!(out);
     let _ = writeln!(out, "  ─── Letter Frequency ───");
     let total_letters: usize = char_sorted.iter().map(|&(_, c)| c).sum();
     for (ch, count) in char_sorted.iter().take(10) {
@@ -9045,7 +13284,7 @@ pub fn text_stats(input: &str) -> String {
         let _ = writeln!(out, "  '{}': {:>5} ({:5.2}%)  {}", ch, count, pct, bar);
     }
     if !word_lengths.is_empty() {
-        let _ = writeln!(out, "");
+        let _ = writeln!(out);
         let _ = writeln!(out, "  ─── Longest Words ───");
         for (w, len) in word_lengths.iter().take(5) {
             let clean: String = w.chars().filter(|c| c.is_alphanumeric()).collect();
