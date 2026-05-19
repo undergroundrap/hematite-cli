@@ -672,3 +672,278 @@ except ValueError as e:
     });
     crate::tools::code_sandbox::execute(&sandbox_args).await
 }
+
+// ── Equation solver ───────────────────────────────────────────────────────────
+
+pub async fn solve_equation(equation: &str, var: &str, x0: f64, x1: f64) -> Result<String, String> {
+    let hex_eq:  String = equation.bytes().map(|b| format!("{:02x}", b)).collect();
+    let hex_var: String = var.bytes().map(|b| format!("{:02x}", b)).collect();
+
+    let script = format!(r####"import math, sys
+from math import (sin,cos,tan,asin,acos,atan,atan2,sinh,cosh,tanh,
+                  sqrt,log,log2,log10,exp,floor,ceil,pi,e,inf,nan)
+
+_eq  = bytes.fromhex("{hex_eq}").decode().strip()
+_var = bytes.fromhex("{hex_var}").decode().strip() or "x"
+_x0  = {x0}
+_x1  = {x1}
+
+if '=' in _eq:
+    parts = _eq.split('=', 1)
+    _expr = "(%s) - (%s)" % (parts[0].strip(), parts[1].strip())
+else:
+    _expr = _eq
+_expr = _expr.replace('^', '**')
+
+_safe = dict(sin=sin,cos=cos,tan=tan,asin=asin,acos=acos,atan=atan,atan2=atan2,
+             sinh=sinh,cosh=cosh,tanh=tanh,sqrt=sqrt,log=log,log2=log2,log10=log10,
+             exp=exp,floor=floor,ceil=ceil,pi=pi,e=e,inf=inf,nan=nan,abs=abs)
+
+def _f(xv):
+    ns = dict(_safe); ns[_var] = xv
+    return eval(_expr, {{"__builtins__": {{}}}}, ns)
+
+def _bisect(lo, hi, tol=1e-12, iters=200):
+    try: flo = _f(lo); fhi = _f(hi)
+    except Exception as err: return None, str(err)
+    if flo * fhi > 0: return None, "no sign change"
+    for _ in range(iters):
+        mid = (lo+hi)/2
+        if (hi-lo) < tol: return mid, None
+        try: fm = _f(mid)
+        except: return None, "eval error"
+        if flo*fm <= 0: hi=mid; fhi=fm
+        else: lo=mid; flo=fm
+    return (lo+hi)/2, None
+
+def _newton(x, tol=1e-12, iters=100):
+    for _ in range(iters):
+        try: fx = _f(x)
+        except: break
+        if abs(fx) < tol: return x, None
+        h = max(abs(x)*1e-7, 1e-9)
+        try: fpx = (_f(x+h) - _f(x-h))/(2*h)
+        except: break
+        if abs(fpx) < 1e-30: break
+        x2 = x - fx/fpx
+        if abs(x2-x) < tol: return x2, None
+        x = x2
+    return None, "did not converge"
+
+print("Equation: %s = 0" % _expr)
+print("Variable: %s  |  Search: [%g, %g]" % (_var, _x0, _x1))
+print()
+
+candidates = []
+n_scan = 50; step = (_x1-_x0)/n_scan
+for i in range(n_scan):
+    lo = _x0+i*step; hi = lo+step
+    try:
+        if _f(lo)*_f(hi) <= 0:
+            root, _ = _bisect(lo, hi)
+            if root is not None:
+                nr, _ = _newton(root)
+                if nr is not None: root = nr
+                if not any(abs(root-c) < 1e-8 for c in candidates):
+                    candidates.append(root)
+    except: pass
+
+if not candidates:
+    nr, _ = _newton((_x0+_x1)/2)
+    if nr is not None: candidates.append(nr)
+
+if not candidates:
+    print("No roots found in [%g, %g]." % (_x0, _x1))
+    print("Try --solve-range to widen the search interval.")
+    sys.exit(0)
+
+print("Root(s) found:")
+for r in sorted(candidates):
+    try: chk = abs(_f(r))
+    except: chk = float('nan')
+    flag = "" if chk < 1e-8 else "  [residual: %.2e]" % chk
+    print("  %s = %.10g%s" % (_var, r, flag))
+"####,
+        hex_eq  = hex_eq,
+        hex_var = hex_var,
+        x0      = x0,
+        x1      = x1,
+    );
+
+    let sandbox_args = serde_json::json!({
+        "language": "python",
+        "code": script,
+        "timeout_seconds": 20
+    });
+    crate::tools::code_sandbox::execute(&sandbox_args).await
+}
+
+// ── Curve fitting ─────────────────────────────────────────────────────────────
+
+pub async fn curve_fit(
+    file_path: &str,
+    x_col: &str,
+    y_col: &str,
+    model: &str,
+) -> Result<String, String> {
+    let hex_path:  String = file_path.bytes().map(|b| format!("{:02x}", b)).collect();
+    let hex_xcol:  String = x_col.bytes().map(|b| format!("{:02x}", b)).collect();
+    let hex_ycol:  String = y_col.bytes().map(|b| format!("{:02x}", b)).collect();
+    let hex_model: String = model.bytes().map(|b| format!("{:02x}", b)).collect();
+
+    let script = format!(r####"import csv as _csv, json as _js, sqlite3 as _sq, os, sys, math
+
+_path  = bytes.fromhex("{hex_path}").decode().strip()
+_xcol  = bytes.fromhex("{hex_xcol}").decode().strip()
+_ycol  = bytes.fromhex("{hex_ycol}").decode().strip()
+_model = bytes.fromhex("{hex_model}").decode().strip().lower() or "auto"
+
+def _load(path):
+    ext = os.path.splitext(path)[1].lower().lstrip('.')
+    if ext in ('csv','tsv'):
+        with open(path, encoding='utf-8-sig', errors='replace', newline='') as fh:
+            r = _csv.DictReader(fh, delimiter='\t' if ext=='tsv' else ',')
+            return list(r)
+    elif ext == 'json':
+        with open(path, encoding='utf-8') as fh: d = _js.load(fh)
+        return d if isinstance(d, list) else next(iter(d.values()), [])
+    elif ext in ('db','sqlite','sqlite3'):
+        con = _sq.connect(path)
+        cur = con.cursor()
+        cur.execute("SELECT name FROM sqlite_master WHERE type='table' LIMIT 1")
+        t = cur.fetchone()
+        if not t: return []
+        cur.execute("SELECT * FROM [%s]" % t[0])
+        cols2 = [d[0] for d in cur.description]
+        rows2 = [dict(zip(cols2, r)) for r in cur.fetchall()]
+        con.close()
+        return rows2
+    print("Unsupported: "+ext, file=sys.stderr); sys.exit(1)
+
+def _tf(v):
+    try: return float(str(v).replace(',','').strip())
+    except: return None
+
+rows = _load(_path)
+if not rows:
+    print("No rows found."); sys.exit(0)
+
+all_cols = list(rows[0].keys())
+numeric  = [c for c in all_cols if sum(1 for r in rows if _tf(r.get(c,'')) is not None) > len(rows)*0.5]
+
+if not _xcol: _xcol = numeric[0] if numeric else all_cols[0]
+if not _ycol: _ycol = numeric[1] if len(numeric)>1 else all_cols[1]
+
+pairs = [(_tf(r.get(_xcol,'')), _tf(r.get(_ycol,''))) for r in rows]
+pairs = [(x,y) for x,y in pairs if x is not None and y is not None]
+if len(pairs) < 3:
+    print("Need at least 3 numeric rows. Found: %d" % len(pairs)); sys.exit(0)
+
+xs = [p[0] for p in pairs]; ys = [p[1] for p in pairs]; n = len(xs)
+
+def _dot(a,b): return sum(x*y for x,y in zip(a,b))
+def _mean(v):  return sum(v)/len(v)
+def _r2(pred):
+    ybar = _mean(ys)
+    ss_res = sum((y-p)**2 for y,p in zip(ys,pred))
+    ss_tot = sum((y-ybar)**2 for y in ys)
+    return 1.0 - ss_res/ss_tot if ss_tot else 0.0
+
+def _vfit(deg):
+    m = deg+1
+    X = [[xi**j for j in range(m)] for xi in xs]
+    Xt = [[X[i][j] for i in range(n)] for j in range(m)]
+    XtX = [[sum(Xt[r][k]*X[k][c] for k in range(n)) for c in range(m)] for r in range(m)]
+    Xty = [sum(Xt[r][k]*ys[k] for k in range(n)) for r in range(m)]
+    A = [row[:]+[Xty[i]] for i,row in enumerate(XtX)]
+    for col in range(m):
+        pv = max(range(col,m), key=lambda r: abs(A[r][col]))
+        A[col],A[pv] = A[pv],A[col]
+        if abs(A[col][col]) < 1e-30: raise ValueError("Singular")
+        f = A[col][col]; A[col] = [v/f for v in A[col]]
+        for r in range(m):
+            if r!=col:
+                mu = A[r][col]; A[r] = [A[r][k]-mu*A[col][k] for k in range(m+1)]
+    c = [A[i][m] for i in range(m)]
+    return c, _r2([sum(c[j]*xi**j for j in range(m)) for xi in xs])
+
+def _fp(c):
+    t = []
+    for j in range(len(c)-1,-1,-1):
+        v = c[j]
+        if abs(v)<1e-14: continue
+        if j==0: t.append("%.6g"%v)
+        elif j==1: t.append("%.6g*x"%v)
+        else: t.append("%.6g*x^%d"%(v,j))
+    return " + ".join(t) or "0"
+
+res = {{}}
+def _try(nm,fn):
+    try: eq,r2=fn(); res[nm]=(r2,eq)
+    except Exception as err: res[nm]=(None,str(err))
+
+def _lin():
+    c,r2=_vfit(1); return "y = %.6g + %.6g*x"%(c[0],c[1]),r2
+def _q2():
+    c,r2=_vfit(2); return "y = "+_fp(c),r2
+def _q3():
+    c,r2=_vfit(3); return "y = "+_fp(c),r2
+def _ef():
+    if any(y<=0 for y in ys): raise ValueError("y must be >0")
+    lny=[math.log(y) for y in ys]; xm=_mean(xs); lym=_mean(lny)
+    b=(_dot(xs,lny)-n*xm*lym)/(_dot(xs,xs)-n*xm**2); a=math.exp(lym-b*xm)
+    return "y = %.6g*e^(%.6g*x)"%(a,b),_r2([a*math.exp(b*xi) for xi in xs])
+def _pf():
+    if any(x<=0 for x in xs) or any(y<=0 for y in ys): raise ValueError("x,y must be >0")
+    lx=[math.log(x) for x in xs]; ly=[math.log(y) for y in ys]
+    lxm=_mean(lx); lym=_mean(ly)
+    b=(_dot(lx,ly)-n*lxm*lym)/(_dot(lx,lx)-n*lxm**2); a=math.exp(lym-b*lxm)
+    return "y = %.6g*x^%.6g"%(a,b),_r2([a*(xi**b) for xi in xs])
+def _lf():
+    if any(x<=0 for x in xs): raise ValueError("x must be >0")
+    lx=[math.log(x) for x in xs]; lxm=_mean(lx); ym=_mean(ys)
+    b=(_dot(lx,ys)-n*lxm*ym)/(_dot(lx,lx)-n*lxm**2); a=ym-b*lxm
+    return "y = %.6g + %.6g*ln(x)"%(a,b),_r2([a+b*lxi for lxi in lx])
+
+mm = dict(linear=_lin,lin=_lin,poly2=_q2,quadratic=_q2,quad=_q2,poly3=_q3,cubic=_q3,
+          exp=_ef,exponential=_ef,power=_pf,pow=_pf,log=_lf,logarithmic=_lf)
+
+if _model in ('auto','all'):
+    for nm,fn in [('linear',_lin),('poly2',_q2),('poly3',_q3),('exp',_ef),('power',_pf),('log',_lf)]:
+        _try(nm,fn)
+elif _model in mm:
+    _try(_model, mm[_model])
+else:
+    print("Unknown model '%s'. Available: linear  poly2  poly3  exp  power  log  auto" % _model); sys.exit(1)
+
+W=60
+print("="*W)
+print(" Curve Fit:  %s -> %s  (n=%d)" % (_xcol,_ycol,n))
+print("-"*W)
+valid=[(nm,(r2,eq)) for nm,(r2,eq) in res.items() if r2 is not None]
+invalid=[(nm,(r2,eq)) for nm,(r2,eq) in res.items() if r2 is None]
+valid.sort(key=lambda t:-t[1][0])
+best=valid[0][0] if valid else None
+for nm,(r2,eq) in valid:
+    star=" *" if nm==best else ""
+    print("  %-12s R2=%.4f%s"%(nm,r2,star))
+    print("    %s"%eq)
+if invalid:
+    print(); print("  Skipped (domain):")
+    for nm,(_,err) in invalid:
+        print("    %-12s %s"%(nm+":",err))
+print("="*W)
+"####,
+        hex_path  = hex_path,
+        hex_xcol  = hex_xcol,
+        hex_ycol  = hex_ycol,
+        hex_model = hex_model,
+    );
+
+    let sandbox_args = serde_json::json!({
+        "language": "python",
+        "code": script,
+        "timeout_seconds": 30
+    });
+    crate::tools::code_sandbox::execute(&sandbox_args).await
+}

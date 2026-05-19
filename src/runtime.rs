@@ -867,6 +867,13 @@ mod tests {
             matrix: None,
             matrix_a: None,
             matrix_b: None,
+            solve: None,
+            solve_var: None,
+            solve_range: None,
+            curve_fit: None,
+            fit_x: None,
+            fit_y: None,
+            fit_model: None,
             pdf_extract_helper: None,
             teleported_from: None,
         };

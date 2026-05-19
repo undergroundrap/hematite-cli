@@ -753,6 +753,49 @@ pub struct CliCockpit {
     )]
     pub matrix_b: Option<String>,
 
+    #[arg(
+        long,
+        help_heading = "Headless Reports",
+        value_name = "EQUATION",
+        help = "Solve an equation numerically — no model, no cloud. Format: 'LHS = RHS' or expression = 0. Variable defaults to x. Supports sin/cos/sqrt/log/exp/pi/e. Example: hematite --solve 'x^2 - 4 = 0'  or  --solve '2*x + 3 = 11'"
+    )]
+    pub solve: Option<String>,
+
+    #[arg(
+        long,
+        value_name = "VAR",
+        help = "Variable name for --solve. Default: x. Example: --solve 't^2 = 16' --solve-var t"
+    )]
+    pub solve_var: Option<String>,
+
+    #[arg(
+        long,
+        value_name = "LO,HI",
+        help = "Search range for --solve as 'lo,hi'. Default: -1000,1000. Example: --solve-range '-100,100'"
+    )]
+    pub solve_range: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Headless Reports",
+        value_name = "FILE",
+        help = "Fit a curve to two columns of data — no model, no cloud. Tries linear, polynomial, exponential, power, and log models and ranks by R². Pair with --fit-x, --fit-y, --fit-model. Example: hematite --curve-fit data.csv --fit-x time --fit-y temperature"
+    )]
+    pub curve_fit: Option<String>,
+
+    #[arg(long, value_name = "COL", help = "X column for --curve-fit. Defaults to first numeric column.")]
+    pub fit_x: Option<String>,
+
+    #[arg(long, value_name = "COL", help = "Y column for --curve-fit. Defaults to second numeric column.")]
+    pub fit_y: Option<String>,
+
+    #[arg(
+        long,
+        value_name = "MODEL",
+        help = "Model for --curve-fit: linear  poly2  poly3  exp  power  log  auto (default: auto, tries all)"
+    )]
+    pub fit_model: Option<String>,
+
     #[arg(long, hide = true)]
     pub pdf_extract_helper: Option<String>,
 

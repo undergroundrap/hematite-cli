@@ -2573,6 +2573,52 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
 
+    if let Some(ref eq) = cockpit.solve {
+        let var = cockpit.solve_var.as_deref().unwrap_or("x");
+        let (x0, x1) = cockpit.solve_range.as_deref()
+            .and_then(|s| {
+                let mut it = s.splitn(2, ',');
+                let lo = it.next()?.trim().parse::<f64>().ok()?;
+                let hi = it.next()?.trim().parse::<f64>().ok()?;
+                Some((lo, hi))
+            })
+            .unwrap_or((-1000.0, 1000.0));
+        match hematite::tools::scientific_ext::solve_equation(eq.trim(), var, x0, x1).await {
+            Ok(result) => {
+                println!("{}", result.trim());
+                if cockpit.clipboard {
+                    copy_to_clipboard(&result);
+                    println!("Copied to clipboard.");
+                }
+            }
+            Err(e) => {
+                eprintln!("Error: {}", e);
+                std::process::exit(1);
+            }
+        }
+        return Ok(());
+    }
+
+    if let Some(ref file_path) = cockpit.curve_fit {
+        let x_col  = cockpit.fit_x.as_deref().unwrap_or("");
+        let y_col  = cockpit.fit_y.as_deref().unwrap_or("");
+        let model  = cockpit.fit_model.as_deref().unwrap_or("auto");
+        match hematite::tools::scientific_ext::curve_fit(file_path.trim(), x_col, y_col, model).await {
+            Ok(result) => {
+                println!("{}", result.trim());
+                if cockpit.clipboard {
+                    copy_to_clipboard(&result);
+                    println!("Copied to clipboard.");
+                }
+            }
+            Err(e) => {
+                eprintln!("Error: {}", e);
+                std::process::exit(1);
+            }
+        }
+        return Ok(());
+    }
+
     if let Some(ref file_path) = cockpit.query_data {
         let file_path = file_path.trim();
         let sql = cockpit.sql.as_deref().unwrap_or("").trim().to_string();
