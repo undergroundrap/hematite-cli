@@ -2470,6 +2470,65 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
 
+    if let Some(ref query) = cockpit.formula {
+        println!("{}", hematite::tools::scientific_ext::search_formulas(query.trim()));
+        return Ok(());
+    }
+
+    if let Some(ref kind) = cockpit.random {
+        let length     = cockpit.length.unwrap_or(match kind.trim() {
+            "password" | "pwd" | "pass" => 20,
+            "pin"                       => 6,
+            "bytes"                     => 16,
+            _                           => 32,
+        });
+        let count      = cockpit.count.unwrap_or(1) as usize;
+        let extra      = cockpit.random_args.as_deref().unwrap_or("");
+        match hematite::tools::scientific_ext::generate_random(kind.trim(), length, count, extra).await {
+            Ok(result) => {
+                println!("{}", result.trim());
+                if cockpit.clipboard {
+                    copy_to_clipboard(&result);
+                    println!("Copied to clipboard.");
+                }
+            }
+            Err(e) => {
+                eprintln!("Error: {}", e);
+                std::process::exit(1);
+            }
+        }
+        return Ok(());
+    }
+
+    if let Some(ref pair) = cockpit.diff_data {
+        let parts: Vec<&str> = pair.splitn(2, ',').collect();
+        if parts.len() < 2 {
+            eprintln!(
+                "Error: --diff-data requires two comma-separated file paths.\n\
+                 Example: hematite --diff-data before.csv,after.csv"
+            );
+            std::process::exit(1);
+        }
+        let path_a  = parts[0].trim();
+        let path_b  = parts[1].trim();
+        let key_col = cockpit.diff_key.as_deref().unwrap_or("");
+        eprintln!("Comparing {} → {}...", path_a, path_b);
+        match hematite::tools::scientific_ext::diff_data(path_a, path_b, key_col).await {
+            Ok(result) => {
+                println!("{}", result.trim());
+                if cockpit.clipboard {
+                    copy_to_clipboard(&result);
+                    println!("Copied to clipboard.");
+                }
+            }
+            Err(e) => {
+                eprintln!("Error: {}", e);
+                std::process::exit(1);
+            }
+        }
+        return Ok(());
+    }
+
     if let Some(ref file_path) = cockpit.query_data {
         let file_path = file_path.trim();
         let sql = cockpit.sql.as_deref().unwrap_or("").trim().to_string();

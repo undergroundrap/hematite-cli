@@ -856,6 +856,12 @@ mod tests {
             encode: None,
             decode: None,
             codec: None,
+            formula: None,
+            random: None,
+            length: None,
+            random_args: None,
+            diff_data: None,
+            diff_key: None,
             pdf_extract_helper: None,
             teleported_from: None,
         };

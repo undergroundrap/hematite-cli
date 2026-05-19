@@ -667,6 +667,54 @@ pub struct CliCockpit {
     )]
     pub codec: Option<String>,
 
+    #[arg(
+        long,
+        help_heading = "Headless Reports",
+        value_name = "QUERY",
+        help = "Search the built-in formula library — no model, no cloud. Pass a name, category, or keyword. Run --formula list to browse all entries. Examples: hematite --formula \"kinetic energy\", hematite --formula ohms, hematite --formula mechanics"
+    )]
+    pub formula: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Headless Reports",
+        value_name = "TYPE",
+        help = "Generate cryptographically secure random values — no model, no cloud. Types: uuid  password  token  hex  urlsafe  pin  bytes  int  dice. Examples: hematite --random uuid, hematite --random password --length 24, hematite --random dice --random-args 2d6"
+    )]
+    pub random: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Headless Reports",
+        value_name = "N",
+        help = "Length for --random password/token/pin/bytes generation. Default: 20 for passwords, 32 for tokens, 6 for PINs."
+    )]
+    pub length: Option<usize>,
+
+    #[arg(
+        long,
+        help_heading = "Headless Reports",
+        value_name = "ARGS",
+        help = "Extra arguments for --random: dice notation (2d6, d20), int range (1 100), or custom charset for passwords."
+    )]
+    pub random_args: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Headless Reports",
+        value_name = "FILES",
+        help = "Row-level diff of two data files — no model, no cloud. Pass comma-separated paths: file_a.csv,file_b.csv. Supports CSV, TSV, JSON, and SQLite. Pair with --diff-key to set the key column. Example: hematite --diff-data before.csv,after.csv"
+    )]
+    pub diff_data: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Headless Reports",
+        value_name = "COLUMN",
+        help = "Key column for --diff-data row matching. Defaults to the first column. Example: --diff-key id"
+    )]
+    pub diff_key: Option<String>,
+
     #[arg(long, hide = true)]
     pub pdf_extract_helper: Option<String>,
 

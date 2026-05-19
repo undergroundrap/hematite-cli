@@ -18,6 +18,7 @@ pub mod research;
 pub mod risk_evaluator;
 pub mod runtime_trace;
 pub mod scientific;
+pub mod scientific_ext;
 pub mod scoping_tools;
 pub mod search;
 pub mod shell;
