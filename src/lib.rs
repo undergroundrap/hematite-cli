@@ -715,6 +715,44 @@ pub struct CliCockpit {
     )]
     pub diff_key: Option<String>,
 
+    #[arg(
+        long,
+        help_heading = "Headless Reports",
+        value_name = "FILE",
+        help = "Descriptive statistics for numeric columns in a data file — no model, no cloud. Supports CSV, TSV, JSON, SQLite. Pair with --column to focus on one column. Example: hematite --describe sales.csv --column revenue"
+    )]
+    pub describe: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Headless Reports",
+        value_name = "NAME",
+        help = "Column name to analyze with --stats. If omitted, all numeric columns are summarized."
+    )]
+    pub column: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Headless Reports",
+        value_name = "OP",
+        help = "Matrix operation — no model, no cloud. OP: det  inv  transpose  multiply  solve  eigenvalues  rank  trace. Pass matrix as JSON: --matrix det --matrix-a '[[1,2],[3,4]]'. Example: hematite --matrix det --matrix-a '[[1,2],[3,4]]'"
+    )]
+    pub matrix: Option<String>,
+
+    #[arg(
+        long,
+        value_name = "JSON",
+        help = "Matrix A for --matrix, as a JSON array of rows: '[[1,2],[3,4]]'"
+    )]
+    pub matrix_a: Option<String>,
+
+    #[arg(
+        long,
+        value_name = "JSON",
+        help = "Matrix B for --matrix multiply or solve: '[[5],[6]]'"
+    )]
+    pub matrix_b: Option<String>,
+
     #[arg(long, hide = true)]
     pub pdf_extract_helper: Option<String>,
 

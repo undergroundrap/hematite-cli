@@ -862,6 +862,11 @@ mod tests {
             random_args: None,
             diff_data: None,
             diff_key: None,
+            describe: None,
+            column: None,
+            matrix: None,
+            matrix_a: None,
+            matrix_b: None,
             pdf_extract_helper: None,
             teleported_from: None,
         };

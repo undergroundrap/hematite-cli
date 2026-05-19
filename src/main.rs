@@ -2529,6 +2529,50 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
 
+    if let Some(ref file_path) = cockpit.describe {
+        let col = cockpit.column.as_deref().unwrap_or("");
+        match hematite::tools::scientific_ext::column_stats(file_path.trim(), col).await {
+            Ok(result) => {
+                println!("{}", result.trim());
+                if cockpit.clipboard {
+                    copy_to_clipboard(&result);
+                    println!("Copied to clipboard.");
+                }
+            }
+            Err(e) => {
+                eprintln!("Error: {}", e);
+                std::process::exit(1);
+            }
+        }
+        return Ok(());
+    }
+
+    if let Some(ref op) = cockpit.matrix {
+        let mat_a = cockpit.matrix_a.as_deref().unwrap_or("").trim().to_string();
+        if mat_a.is_empty() {
+            eprintln!(
+                "Error: --matrix requires --matrix-a '[[...]]'\n\
+                 Example: hematite --matrix det --matrix-a '[[1,2],[3,4]]'"
+            );
+            std::process::exit(1);
+        }
+        let mat_b = cockpit.matrix_b.as_deref().unwrap_or("").trim().to_string();
+        match hematite::tools::scientific_ext::matrix_op(op.trim(), &mat_a, &mat_b).await {
+            Ok(result) => {
+                println!("{}", result.trim());
+                if cockpit.clipboard {
+                    copy_to_clipboard(&result);
+                    println!("Copied to clipboard.");
+                }
+            }
+            Err(e) => {
+                eprintln!("Error: {}", e);
+                std::process::exit(1);
+            }
+        }
+        return Ok(());
+    }
+
     if let Some(ref file_path) = cockpit.query_data {
         let file_path = file_path.trim();
         let sql = cockpit.sql.as_deref().unwrap_or("").trim().to_string();

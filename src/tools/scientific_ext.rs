@@ -326,3 +326,349 @@ print("Summary:  +%d added  -%d removed  ~%d modified" % (len(_added), len(_remo
     });
     crate::tools::code_sandbox::execute(&sandbox_args).await
 }
+
+// ── Column statistics ─────────────────────────────────────────────────────────
+
+pub async fn column_stats(file_path: &str, column: &str) -> Result<String, String> {
+    let hex_path: String = file_path.bytes().map(|b| format!("{:02x}", b)).collect();
+    let hex_col:  String = column.bytes().map(|b| format!("{:02x}", b)).collect();
+
+    let script = format!(r####"import csv as _csv, json as _js, sqlite3 as _sq, os, sys, math
+
+_path = bytes.fromhex("{hex_path}").decode()
+_col  = bytes.fromhex("{hex_col}").decode().strip()
+
+def _load(path):
+    ext = os.path.splitext(path)[1].lower().lstrip('.')
+    if ext in ('csv','tsv'):
+        with open(path, encoding='utf-8-sig', errors='replace', newline='') as _fh:
+            _r = _csv.DictReader(_fh, delimiter='\t' if ext=='tsv' else ',')
+            return list(_r), None
+    elif ext == 'json':
+        with open(path, encoding='utf-8') as _fh: _d = _js.load(_fh)
+        rows = _d if isinstance(_d, list) else next(iter(_d.values()), [])
+        return rows, None
+    elif ext in ('db','sqlite','sqlite3'):
+        _con = _sq.connect(path)
+        _cur = _con.cursor()
+        _cur.execute("SELECT name FROM sqlite_master WHERE type='table' LIMIT 1")
+        _t = _cur.fetchone()
+        if not _t: return [], None
+        _cur.execute("SELECT * FROM [%s]" % _t[0])
+        _cols2 = [_d[0] for _d in _cur.description]
+        _rows2 = [dict(zip(_cols2, _r)) for _r in _cur.fetchall()]
+        _con.close()
+        return _rows2, None
+    else:
+        return None, "Unsupported format: " + ext
+
+def _try_float(v):
+    try: return float(str(v).replace(',','').strip())
+    except: return None
+
+def _stats_for(nums, label):
+    n = len(nums)
+    if n == 0:
+        print("  %s: no numeric values found" % label); return
+    nums_s = sorted(nums)
+    mean   = sum(nums_s) / n
+    def _pct(p):
+        idx = p * (n - 1) / 100
+        lo = int(idx); hi = min(lo+1, n-1)
+        return nums_s[lo] + (idx - lo) * (nums_s[hi] - nums_s[lo])
+    median = _pct(50)
+    q1     = _pct(25)
+    q3     = _pct(75)
+    iqr    = q3 - q1
+    var    = sum((x - mean)**2 for x in nums_s) / n
+    std    = math.sqrt(var)
+    # Population skewness
+    if std > 0:
+        skew = (sum((x-mean)**3 for x in nums_s)/n) / (std**3)
+    else:
+        skew = 0.0
+    # Mode (most common value, rounded to 4 sig figs)
+    from collections import Counter
+    rounded = [round(x, 4) for x in nums_s]
+    mode_val, mode_cnt = Counter(rounded).most_common(1)[0]
+
+    W = 52
+    print("=" * W)
+    print(" Statistics: %s  (n=%d)" % (label, n))
+    print("-" * W)
+    print("  Min       %g" % nums_s[0])
+    print("  Max       %g" % nums_s[-1])
+    print("  Range     %g" % (nums_s[-1] - nums_s[0]))
+    print("  Mean      %g" % mean)
+    print("  Median    %g" % median)
+    print("  Mode      %g  (count: %d)" % (mode_val, mode_cnt))
+    print("  Std Dev   %g" % std)
+    print("  Variance  %g" % var)
+    print("  Q1        %g" % q1)
+    print("  Q3        %g" % q3)
+    print("  IQR       %g" % iqr)
+    print("  Skewness  %.4f" % skew)
+    # ASCII histogram (10 bins)
+    bins = 10
+    lo = nums_s[0]; hi_v = nums_s[-1]
+    if lo == hi_v: hi_v = lo + 1
+    step = (hi_v - lo) / bins
+    counts = [0]*bins
+    for x in nums_s:
+        idx = min(int((x-lo)/step), bins-1)
+        counts[idx] += 1
+    max_c = max(counts) if max(counts) > 0 else 1
+    bar_w = 30
+    print("-" * W)
+    print("  Histogram (%d bins):" % bins)
+    for i in range(bins):
+        lo_b = lo + i*step; hi_b = lo_b + step
+        bar = "#" * int(counts[i] / max_c * bar_w)
+        print("  [%8.3g,%8.3g)  %-30s %d" % (lo_b, hi_b, bar, counts[i]))
+    print("=" * W)
+
+rows, err = _load(_path)
+if err:
+    print("Error:", err, file=sys.stderr); sys.exit(1)
+if not rows:
+    print("No rows found in %s" % _path); sys.exit(0)
+
+all_cols = list(rows[0].keys())
+if _col:
+    if _col not in all_cols:
+        print("Column '%s' not found. Available: %s" % (_col, ', '.join(all_cols)))
+        sys.exit(1)
+    nums = [v for v in (_try_float(r.get(_col,'')) for r in rows) if v is not None]
+    _stats_for(nums, _col)
+else:
+    numeric_cols = [c for c in all_cols if sum(1 for r in rows if _try_float(r.get(c,'')) is not None) > len(rows)*0.5]
+    if not numeric_cols:
+        print("No numeric columns detected. Columns: %s" % ', '.join(all_cols))
+        sys.exit(0)
+    print("Numeric columns: %s" % ', '.join(numeric_cols))
+    print("Pass --column NAME to focus on one, or showing all:\n")
+    for c in numeric_cols:
+        nums = [v for v in (_try_float(r.get(c,'')) for r in rows) if v is not None]
+        _stats_for(nums, c)
+        print()
+"####,
+        hex_path = hex_path,
+        hex_col  = hex_col,
+    );
+
+    let sandbox_args = serde_json::json!({
+        "language": "python",
+        "code": script,
+        "timeout_seconds": 30
+    });
+    crate::tools::code_sandbox::execute(&sandbox_args).await
+}
+
+// ── Matrix operations ─────────────────────────────────────────────────────────
+// Supports: det, inv, solve, multiply, transpose, eigenvalues
+// Matrix input format: "[[1,2],[3,4]]" (JSON array of rows)
+
+pub async fn matrix_op(op: &str, matrix_a: &str, matrix_b: &str) -> Result<String, String> {
+    let hex_op: String = op.bytes().map(|b| format!("{:02x}", b)).collect();
+    let hex_a:  String = matrix_a.bytes().map(|b| format!("{:02x}", b)).collect();
+    let hex_b:  String = matrix_b.bytes().map(|b| format!("{:02x}", b)).collect();
+
+    let script = format!(r####"import json as _js, math, sys
+
+_op = bytes.fromhex("{hex_op}").decode().strip().lower()
+_sa = bytes.fromhex("{hex_a}").decode().strip()
+_sb = bytes.fromhex("{hex_b}").decode().strip()
+
+def _parse(s):
+    if not s: return None
+    try:
+        d = _js.loads(s)
+        if isinstance(d, list):
+            if isinstance(d[0], list): return [list(map(float,r)) for r in d]
+            return [[float(x)] for x in d]  # column vector
+        return None
+    except Exception as e:
+        print("Parse error:", e, file=sys.stderr); sys.exit(1)
+
+A = _parse(_sa)
+B = _parse(_sb)
+
+def _rows(M): return len(M)
+def _cols(M): return len(M[0]) if M else 0
+def _shape(M): return "(%d×%d)" % (_rows(M), _cols(M))
+
+def _mul(A, B):
+    r,k,c = _rows(A), _cols(A), _cols(B)
+    if k != _rows(B): raise ValueError("Shape mismatch: A%s B%s" % (_shape(A), _shape(B)))
+    return [[sum(A[i][p]*B[p][j] for p in range(k)) for j in range(c)] for i in range(r)]
+
+def _T(M):
+    return [[M[i][j] for i in range(_rows(M))] for j in range(_cols(M))]
+
+def _LU(M):
+    n = _rows(M)
+    if n != _cols(M): raise ValueError("Square matrix required")
+    U = [row[:] for row in M]
+    L = [[1.0 if i==j else 0.0 for j in range(n)] for i in range(n)]
+    P = list(range(n)); sign = 1
+    for col in range(n):
+        pivot = max(range(col, n), key=lambda r: abs(U[r][col]))
+        if abs(U[pivot][col]) < 1e-14: raise ValueError("Matrix is singular")
+        if pivot != col:
+            U[col], U[pivot] = U[pivot], U[col]
+            P[col], P[pivot] = P[pivot], P[col]
+            if col > 0:
+                for k in range(col): L[col][k], L[pivot][k] = L[pivot][k], L[col][k]
+            sign *= -1
+        for row in range(col+1, n):
+            f = U[row][col] / U[col][col]
+            L[row][col] = f
+            for k in range(col, n): U[row][k] -= f * U[col][k]
+    return L, U, P, sign
+
+def _det(M):
+    L, U, P, sign = _LU(M)
+    d = sign
+    for i in range(_rows(M)): d *= U[i][i]
+    return d
+
+def _inv(M):
+    n = _rows(M)
+    L, U, P, _ = _LU(M)
+    inv = [[0.0]*n for _ in range(n)]
+    for col in range(n):
+        e = [1.0 if P[i]==col else 0.0 for i in range(n)]
+        y = [0.0]*n
+        for i in range(n):
+            y[i] = e[i] - sum(L[i][k]*y[k] for k in range(i))
+        x = [0.0]*n
+        for i in range(n-1, -1, -1):
+            x[i] = (y[i] - sum(U[i][k]*x[k] for k in range(i+1,n))) / U[i][i]
+        for i in range(n): inv[i][col] = x[i]
+    return inv
+
+def _solve(M, b):
+    n = _rows(M)
+    bv = [row[0] for row in b]
+    L, U, P, _ = _LU(M)
+    pb = [bv[P[i]] for i in range(n)]
+    y = [0.0]*n
+    for i in range(n):
+        y[i] = pb[i] - sum(L[i][k]*y[k] for k in range(i))
+    x = [0.0]*n
+    for i in range(n-1,-1,-1):
+        x[i] = (y[i] - sum(U[i][k]*x[k] for k in range(i+1,n))) / U[i][i]
+    return x
+
+def _fmt_num(v):
+    if abs(v) < 1e-10: return "0"
+    return ("%.6g" % v)
+
+def _print_matrix(M, label=""):
+    if label: print(label)
+    for row in M:
+        print("  [ " + "  ".join("%10s" % _fmt_num(v) for v in row) + " ]")
+
+def _qr_eigenvalues(M, iters=200):
+    # QR iteration (Gram-Schmidt) — real eigenvalues only for symmetric matrices
+    n = _rows(M)
+    Ak = [row[:] for row in M]
+    for _ in range(iters):
+        # Gram-Schmidt QR
+        Q = [[0.0]*n for _ in range(n)]
+        R = [[0.0]*n for _ in range(n)]
+        for j in range(n):
+            v = [Ak[i][j] for i in range(n)]
+            for k in range(j):
+                R[k][j] = sum(Q[i][k]*v[i] for i in range(n))
+                for i in range(n): v[i] -= R[k][j]*Q[i][k]
+            norm = math.sqrt(sum(x*x for x in v))
+            if norm < 1e-14: norm = 1.0
+            R[j][j] = norm
+            for i in range(n): Q[i][j] = v[i]/norm
+        Ak = _mul(R, Q)
+    return sorted([Ak[i][i] for i in range(n)], reverse=True)
+
+if not A:
+    print("Error: no matrix provided. Use JSON format: [[1,2],[3,4]]")
+    sys.exit(1)
+
+try:
+    if _op in ('det', 'determinant'):
+        d = _det(A)
+        print("Determinant of %s matrix:" % _shape(A))
+        print("  det(A) = %s" % _fmt_num(d))
+    elif _op in ('inv', 'inverse', 'invert'):
+        Ai = _inv(A)
+        _print_matrix(A, "A %s:" % _shape(A))
+        print()
+        _print_matrix(Ai, "A⁻¹:")
+    elif _op in ('T', 'transpose'):
+        At = _T(A)
+        _print_matrix(A, "A %s:" % _shape(A))
+        print()
+        _print_matrix(At, "Aᵀ %s:" % _shape(At))
+    elif _op in ('mul', 'multiply', 'matmul'):
+        if not B:
+            print("Error: --matrix-b required for multiply"); sys.exit(1)
+        C = _mul(A, B)
+        _print_matrix(A, "A %s:" % _shape(A))
+        print()
+        _print_matrix(B, "B %s:" % _shape(B))
+        print()
+        _print_matrix(C, "A × B = %s:" % _shape(C))
+    elif _op in ('solve',):
+        if not B:
+            print("Error: --matrix-b required for solve (the b vector/matrix)"); sys.exit(1)
+        x = _solve(A, B)
+        _print_matrix(A, "A %s (coefficient matrix):" % _shape(A))
+        print()
+        _print_matrix(B, "b %s (right-hand side):" % _shape(B))
+        print()
+        print("Solution x (Ax = b):")
+        print("  [ " + "  ".join("%10s" % _fmt_num(v) for v in x) + " ]")
+    elif _op in ('eig', 'eigen', 'eigenvalues'):
+        eigs = _qr_eigenvalues(A)
+        print("Eigenvalues of %s matrix (real, via QR iteration):" % _shape(A))
+        for i, e in enumerate(eigs):
+            print("  λ%d = %s" % (i+1, _fmt_num(e)))
+        print()
+        print("Note: QR iteration gives real eigenvalues for symmetric matrices.")
+        print("Complex eigenvalues are shown only as real parts for non-symmetric matrices.")
+    elif _op in ('rank',):
+        # Gaussian elimination row rank
+        M2 = [row[:] for row in A]
+        r = 0
+        for col in range(_cols(M2)):
+            pivot = next((i for i in range(r, _rows(M2)) if abs(M2[i][col]) > 1e-10), None)
+            if pivot is None: continue
+            M2[r], M2[pivot] = M2[pivot], M2[r]
+            for i in range(_rows(M2)):
+                if i != r and abs(M2[i][col]) > 1e-10:
+                    f = M2[i][col] / M2[r][col]
+                    for k in range(_cols(M2)): M2[i][k] -= f * M2[r][k]
+            r += 1
+        print("Rank of %s matrix: %d" % (_shape(A), r))
+    elif _op in ('trace',):
+        if _rows(A) != _cols(A): print("Warning: trace of non-square matrix (using diagonal)")
+        t = sum(A[i][i] for i in range(min(_rows(A),_cols(A))))
+        print("Trace of %s matrix: %s" % (_shape(A), _fmt_num(t)))
+    else:
+        print("Unknown operation: '%s'" % _op)
+        print("Available: det  inv  transpose  multiply  solve  eigenvalues  rank  trace")
+        sys.exit(1)
+except ValueError as e:
+    print("Error:", e, file=sys.stderr); sys.exit(1)
+"####,
+        hex_op = hex_op,
+        hex_a  = hex_a,
+        hex_b  = hex_b,
+    );
+
+    let sandbox_args = serde_json::json!({
+        "language": "python",
+        "code": script,
+        "timeout_seconds": 30
+    });
+    crate::tools::code_sandbox::execute(&sandbox_args).await
+}
