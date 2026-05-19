@@ -5,6 +5,7 @@
 // numeric algorithms. Iterator rewrites hurt readability in math code.
 #![allow(clippy::needless_range_loop)]
 
+use md5::Digest as Md5DigestTrait;
 use std::fmt::Write;
 
 // ── Primality and factorization ───────────────────────────────────────────────
@@ -13289,6 +13290,1370 @@ pub fn text_stats(input: &str) -> String {
         for (w, len) in word_lengths.iter().take(5) {
             let clean: String = w.chars().filter(|c| c.is_alphanumeric()).collect();
             let _ = writeln!(out, "  {} ({} chars)", clean, len);
+        }
+    }
+
+    let _ = writeln!(out, "{}", sep);
+    out
+}
+
+// ── Descriptive statistics ────────────────────────────────────────────────────
+
+pub fn stats_calc(input: &str) -> String {
+    let sep = "─".repeat(60);
+    let mut out = String::new();
+    let _ = writeln!(
+        out,
+        "\n  ┌─ Descriptive Statistics ─────────────────────────┐"
+    );
+
+    // Parse numbers — accept space/comma/newline separated, ignore non-numeric tokens
+    let numbers: Vec<f64> = input
+        .split(|c: char| c == ',' || c == ' ' || c == '\n' || c == '\t')
+        .filter_map(|tok| {
+            let t = tok.trim();
+            if t.is_empty() {
+                None
+            } else {
+                t.parse::<f64>().ok()
+            }
+        })
+        .collect();
+
+    if numbers.is_empty() {
+        let _ = writeln!(out, "  No numeric values found in input.");
+        let _ = writeln!(out, "  Usage: hematite --stats '1,2,3,4,5'");
+        let _ = writeln!(out, "         hematite --stats '10 20 30 40 50'");
+        let _ = writeln!(out, "{}", sep);
+        return out;
+    }
+
+    let n = numbers.len();
+    let mut sorted = numbers.clone();
+    sorted.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+
+    let sum: f64 = numbers.iter().sum();
+    let mean = sum / n as f64;
+    let min = sorted[0];
+    let max = sorted[n - 1];
+    let range = max - min;
+
+    // Median
+    let median = if n % 2 == 0 {
+        (sorted[n / 2 - 1] + sorted[n / 2]) / 2.0
+    } else {
+        sorted[n / 2]
+    };
+
+    // Mode (most frequent value)
+    let mut freq_map: std::collections::HashMap<i64, usize> = std::collections::HashMap::new();
+    for &v in &numbers {
+        *freq_map.entry((v * 1e9) as i64).or_insert(0) += 1;
+    }
+    let max_freq = *freq_map.values().max().unwrap_or(&0);
+    let mut modes: Vec<f64> = freq_map
+        .iter()
+        .filter(|(_, &c)| c == max_freq)
+        .map(|(&k, _)| k as f64 * 1e-9)
+        .collect();
+    modes.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+    let mode_str = if modes.len() == n {
+        "none (all unique)".to_string()
+    } else {
+        modes
+            .iter()
+            .map(|v| {
+                let s = format!("{:.4}", v);
+                s.trim_end_matches('0').trim_end_matches('.').to_string()
+            })
+            .collect::<Vec<_>>()
+            .join(", ")
+    };
+
+    // Variance and std dev
+    let pop_variance: f64 = numbers.iter().map(|v| (v - mean).powi(2)).sum::<f64>() / n as f64;
+    let samp_variance: f64 = if n > 1 {
+        numbers.iter().map(|v| (v - mean).powi(2)).sum::<f64>() / (n - 1) as f64
+    } else {
+        0.0
+    };
+    let pop_std = pop_variance.sqrt();
+    let samp_std = samp_variance.sqrt();
+
+    // Percentile helper
+    let percentile = |p: f64| -> f64 {
+        let idx = p / 100.0 * (n - 1) as f64;
+        let lo = idx.floor() as usize;
+        let hi = (lo + 1).min(n - 1);
+        let frac = idx - lo as f64;
+        sorted[lo] + frac * (sorted[hi] - sorted[lo])
+    };
+
+    let q1 = percentile(25.0);
+    let q3 = percentile(75.0);
+    let iqr = q3 - q1;
+
+    // Skewness (Fisher)
+    let skewness = if pop_std > 0.0 {
+        numbers
+            .iter()
+            .map(|v| ((v - mean) / pop_std).powi(3))
+            .sum::<f64>()
+            / n as f64
+    } else {
+        0.0
+    };
+
+    // Excess kurtosis
+    let kurtosis = if pop_std > 0.0 {
+        numbers
+            .iter()
+            .map(|v| ((v - mean) / pop_std).powi(4))
+            .sum::<f64>()
+            / n as f64
+            - 3.0
+    } else {
+        0.0
+    };
+
+    // Tukey outliers (beyond 1.5 * IQR)
+    let lower_fence = q1 - 1.5 * iqr;
+    let upper_fence = q3 + 1.5 * iqr;
+    let outliers: Vec<f64> = sorted
+        .iter()
+        .copied()
+        .filter(|&v| v < lower_fence || v > upper_fence)
+        .collect();
+
+    let _ = writeln!(out, "{}", sep);
+    let _ = writeln!(out, "  ─── Sample Overview ───");
+    let _ = writeln!(out, "  Count:     {:>12}", n);
+    let _ = writeln!(out, "  Sum:       {:>12.4}", sum);
+    let _ = writeln!(out, "  Min:       {:>12.4}", min);
+    let _ = writeln!(out, "  Max:       {:>12.4}", max);
+    let _ = writeln!(out, "  Range:     {:>12.4}", range);
+    let _ = writeln!(out);
+    let _ = writeln!(out, "  ─── Central Tendency ───");
+    let _ = writeln!(out, "  Mean:      {:>12.6}", mean);
+    let _ = writeln!(out, "  Median:    {:>12.6}", median);
+    let _ = writeln!(out, "  Mode:      {}", mode_str);
+    let _ = writeln!(out);
+    let _ = writeln!(out, "  ─── Dispersion ───");
+    let _ = writeln!(out, "  Pop Var:   {:>12.6}", pop_variance);
+    let _ = writeln!(out, "  Samp Var:  {:>12.6}", samp_variance);
+    let _ = writeln!(out, "  Pop SD:    {:>12.6}", pop_std);
+    let _ = writeln!(out, "  Samp SD:   {:>12.6}", samp_std);
+    let _ = writeln!(
+        out,
+        "  CV (%):    {:>12.4}",
+        if mean.abs() > 1e-12 {
+            samp_std / mean.abs() * 100.0
+        } else {
+            0.0
+        }
+    );
+    let _ = writeln!(out);
+    let _ = writeln!(out, "  ─── Percentiles ───");
+    let _ = writeln!(out, "  P5:        {:>12.4}", percentile(5.0));
+    let _ = writeln!(out, "  P10:       {:>12.4}", percentile(10.0));
+    let _ = writeln!(out, "  Q1 (P25):  {:>12.4}", q1);
+    let _ = writeln!(out, "  Q2 (P50):  {:>12.4}", median);
+    let _ = writeln!(out, "  Q3 (P75):  {:>12.4}", q3);
+    let _ = writeln!(out, "  P90:       {:>12.4}", percentile(90.0));
+    let _ = writeln!(out, "  P95:       {:>12.4}", percentile(95.0));
+    let _ = writeln!(out, "  P99:       {:>12.4}", percentile(99.0));
+    let _ = writeln!(out, "  IQR:       {:>12.4}", iqr);
+    let _ = writeln!(out);
+    let _ = writeln!(out, "  ─── Shape ───");
+    let _ = writeln!(
+        out,
+        "  Skewness:  {:>12.6}  ({})",
+        skewness,
+        if skewness.abs() < 0.5 {
+            "symmetric"
+        } else if skewness > 0.0 {
+            "right-skewed"
+        } else {
+            "left-skewed"
+        }
+    );
+    let _ = writeln!(
+        out,
+        "  Kurtosis:  {:>12.6}  (excess; {} tails)",
+        kurtosis,
+        if kurtosis.abs() < 0.5 {
+            "normal"
+        } else if kurtosis > 0.0 {
+            "heavy"
+        } else {
+            "light"
+        }
+    );
+    let _ = writeln!(out);
+    let _ = writeln!(out, "  ─── Outlier Detection (Tukey 1.5×IQR) ───");
+    let _ = writeln!(out, "  Fences:    [{:.4}, {:.4}]", lower_fence, upper_fence);
+    if outliers.is_empty() {
+        let _ = writeln!(out, "  Outliers:  none");
+    } else {
+        let outlier_strs: Vec<String> = outliers.iter().map(|v| format!("{:.4}", v)).collect();
+        let _ = writeln!(out, "  Outliers:  {}", outlier_strs.join(", "));
+    }
+
+    // ASCII histogram (10 bins)
+    let _ = writeln!(out);
+    let _ = writeln!(out, "  ─── Histogram (10 bins) ───");
+    let bins = 10usize;
+    let bin_width = if range > 0.0 {
+        range / bins as f64
+    } else {
+        1.0
+    };
+    let mut counts = vec![0usize; bins];
+    for &v in &numbers {
+        let idx = ((v - min) / bin_width).floor() as usize;
+        let idx = idx.min(bins - 1);
+        counts[idx] += 1;
+    }
+    let max_count = *counts.iter().max().unwrap_or(&1);
+    for (i, &c) in counts.iter().enumerate() {
+        let lo = min + i as f64 * bin_width;
+        let hi = lo + bin_width;
+        let bar_len = if max_count > 0 { c * 30 / max_count } else { 0 };
+        let bar: String = "█".repeat(bar_len);
+        let _ = writeln!(out, "  [{:>8.2}, {:>8.2})  {:>4}  {}", lo, hi, c, bar);
+    }
+
+    let _ = writeln!(out, "{}", sep);
+    out
+}
+
+// ── Hash / checksum ───────────────────────────────────────────────────────────
+
+fn sha1_digest(data: &[u8]) -> [u8; 20] {
+    // Pure-Rust SHA-1 (RFC 3174) — avoids an extra crate dependency
+    const K: [u32; 4] = [0x5A827999, 0x6ED9EBA1, 0x8F1BBCDC, 0xCA62C1D6];
+    let mut h: [u32; 5] = [0x67452301, 0xEFCDAB89, 0x98BADCFE, 0x10325476, 0xC3D2E1F0];
+    let bit_len = (data.len() as u64).wrapping_mul(8);
+    let mut msg = data.to_vec();
+    msg.push(0x80);
+    while msg.len() % 64 != 56 {
+        msg.push(0);
+    }
+    msg.extend_from_slice(&bit_len.to_be_bytes());
+    for chunk in msg.chunks_exact(64) {
+        let mut w = [0u32; 80];
+        for i in 0..16 {
+            w[i] = u32::from_be_bytes([
+                chunk[i * 4],
+                chunk[i * 4 + 1],
+                chunk[i * 4 + 2],
+                chunk[i * 4 + 3],
+            ]);
+        }
+        for i in 16..80 {
+            w[i] = (w[i - 3] ^ w[i - 8] ^ w[i - 14] ^ w[i - 16]).rotate_left(1);
+        }
+        let (mut a, mut b, mut c, mut d, mut e) = (h[0], h[1], h[2], h[3], h[4]);
+        for i in 0..80 {
+            let (f, k) = match i {
+                0..=19 => ((b & c) | ((!b) & d), K[0]),
+                20..=39 => (b ^ c ^ d, K[1]),
+                40..=59 => ((b & c) | (b & d) | (c & d), K[2]),
+                _ => (b ^ c ^ d, K[3]),
+            };
+            let temp = a
+                .rotate_left(5)
+                .wrapping_add(f)
+                .wrapping_add(e)
+                .wrapping_add(k)
+                .wrapping_add(w[i]);
+            e = d;
+            d = c;
+            c = b.rotate_left(30);
+            b = a;
+            a = temp;
+        }
+        h[0] = h[0].wrapping_add(a);
+        h[1] = h[1].wrapping_add(b);
+        h[2] = h[2].wrapping_add(c);
+        h[3] = h[3].wrapping_add(d);
+        h[4] = h[4].wrapping_add(e);
+    }
+    let mut out = [0u8; 20];
+    for i in 0..5 {
+        out[i * 4..(i + 1) * 4].copy_from_slice(&h[i].to_be_bytes());
+    }
+    out
+}
+
+pub fn hash_calc(input: &str) -> String {
+    use md5::Md5;
+    use sha2::{Sha256, Sha512};
+
+    let sep = "─".repeat(60);
+    let mut out = String::new();
+    let _ = writeln!(
+        out,
+        "\n  ┌─ Hash / Digest Calculator ───────────────────────┐"
+    );
+    let _ = writeln!(out, "{}", sep);
+
+    // Check if input looks like a file path that exists
+    let trimmed = input.trim();
+    let (label, bytes) = {
+        let path = std::path::Path::new(trimmed);
+        if path.exists() && path.is_file() {
+            match std::fs::read(path) {
+                Ok(b) => (format!("file: {}", trimmed), b),
+                Err(e) => {
+                    let _ = writeln!(out, "  Error reading file: {}", e);
+                    let _ = writeln!(out, "{}", sep);
+                    return out;
+                }
+            }
+        } else {
+            (
+                format!("string: {:?}", trimmed),
+                trimmed.as_bytes().to_vec(),
+            )
+        }
+    };
+
+    let _ = writeln!(out, "  Input: {}", label);
+    let _ = writeln!(out, "  Size:  {} bytes", bytes.len());
+    let _ = writeln!(out);
+
+    // MD5
+    let mut md5h = Md5::new();
+    md5h.update(&bytes);
+    let md5_result = md5h.finalize();
+    let md5_hex: String = md5_result.iter().map(|b| format!("{:02x}", b)).collect();
+
+    // SHA-1 (inline)
+    let sha1_bytes = sha1_digest(&bytes);
+    let sha1_hex: String = sha1_bytes.iter().map(|b| format!("{:02x}", b)).collect();
+
+    // SHA-256
+    let mut sha256h = Sha256::new();
+    sha256h.update(&bytes);
+    let sha256_result = sha256h.finalize();
+    let sha256_hex: String = sha256_result.iter().map(|b| format!("{:02x}", b)).collect();
+
+    // SHA-512
+    let mut sha512h = Sha512::new();
+    sha512h.update(&bytes);
+    let sha512_result = sha512h.finalize();
+    let sha512_hex: String = sha512_result.iter().map(|b| format!("{:02x}", b)).collect();
+
+    let _ = writeln!(out, "  ─── Cryptographic Hashes ───");
+    let _ = writeln!(out, "  MD5     ({:>3} bits):  {}", 128, md5_hex);
+    let _ = writeln!(out, "  SHA-1   ({:>3} bits):  {}", 160, sha1_hex);
+    let _ = writeln!(out, "  SHA-256 ({:>3} bits):  {}", 256, sha256_hex);
+    let _ = writeln!(out, "  SHA-512 ({:>3} bits):  {}", 512, sha512_hex);
+    let _ = writeln!(out);
+
+    // Non-cryptographic checksums
+    let crc32_val = {
+        let mut crc: u32 = 0xFFFF_FFFF;
+        for &b in &bytes {
+            crc ^= b as u32;
+            for _ in 0..8 {
+                if crc & 1 != 0 {
+                    crc = (crc >> 1) ^ 0xEDB8_8320;
+                } else {
+                    crc >>= 1;
+                }
+            }
+        }
+        !crc
+    };
+    let adler32_val = {
+        let (mut a, mut b) = (1u32, 0u32);
+        for &byte in &bytes {
+            a = (a + byte as u32) % 65521;
+            b = (b + a) % 65521;
+        }
+        (b << 16) | a
+    };
+    let fnv1a_val: u32 = bytes
+        .iter()
+        .fold(2166136261u32, |h, &b| h.wrapping_mul(16777619) ^ b as u32);
+
+    let _ = writeln!(out, "  ─── Non-Cryptographic Checksums ───");
+    let _ = writeln!(out, "  CRC-32:    {:08X}  ({})", crc32_val, crc32_val);
+    let _ = writeln!(out, "  Adler-32:  {:08X}  ({})", adler32_val, adler32_val);
+    let _ = writeln!(out, "  FNV-1a:    {:08X}  ({})", fnv1a_val, fnv1a_val);
+
+    let _ = writeln!(out, "{}", sep);
+    out
+}
+
+// ── Encoding / decoding ───────────────────────────────────────────────────────
+
+fn encode_usage() -> String {
+    let mut s = String::new();
+    let _ = writeln!(s, "  Usage: hematite --encode '<text>'");
+    let _ = writeln!(s, "         hematite --encode 'base64 encode Hello World'");
+    let _ = writeln!(
+        s,
+        "         hematite --encode 'base64 decode SGVsbG8gV29ybGQ='"
+    );
+    let _ = writeln!(s, "         hematite --encode 'hex encode Hello'");
+    let _ = writeln!(s, "         hematite --encode 'hex decode 48656c6c6f'");
+    let _ = writeln!(
+        s,
+        "         hematite --encode 'url encode https://example.com/foo bar'"
+    );
+    let _ = writeln!(
+        s,
+        "         hematite --encode 'url decode https%3A%2F%2Fexample.com'"
+    );
+    let _ = writeln!(s, "         hematite --encode 'html encode <b>bold</b>'");
+    let _ = writeln!(s, "         hematite --encode 'binary Hello'");
+    let _ = writeln!(s, "         hematite --encode 'rot13 Hello World'");
+    s
+}
+
+pub fn encode_calc(query: &str) -> String {
+    use base64::{engine::general_purpose::STANDARD as B64, Engine as _};
+    use percent_encoding::{percent_decode_str, utf8_percent_encode, NON_ALPHANUMERIC};
+
+    let sep = "─".repeat(60);
+    let mut out = String::new();
+    let _ = writeln!(
+        out,
+        "\n  ┌─ Encoding / Decoding ────────────────────────────┐"
+    );
+    let _ = writeln!(out, "{}", sep);
+
+    let q = query.trim();
+    let lower = q.to_lowercase();
+
+    // Detect mode keyword
+    let (mode, payload) = if lower.starts_with("base64 encode ") {
+        ("base64-enc", &q["base64 encode ".len()..])
+    } else if lower.starts_with("base64 decode ") {
+        ("base64-dec", &q["base64 decode ".len()..])
+    } else if lower.starts_with("hex encode ") {
+        ("hex-enc", &q["hex encode ".len()..])
+    } else if lower.starts_with("hex decode ") {
+        ("hex-dec", &q["hex decode ".len()..])
+    } else if lower.starts_with("url encode ") {
+        ("url-enc", &q["url encode ".len()..])
+    } else if lower.starts_with("url decode ") {
+        ("url-dec", &q["url decode ".len()..])
+    } else if lower.starts_with("html encode ") {
+        ("html-enc", &q["html encode ".len()..])
+    } else if lower.starts_with("html decode ") {
+        ("html-dec", &q["html decode ".len()..])
+    } else if lower.starts_with("binary ") {
+        ("binary", &q["binary ".len()..])
+    } else if lower.starts_with("rot13 ") {
+        ("rot13", &q["rot13 ".len()..])
+    } else {
+        ("all", q)
+    };
+
+    match mode {
+        "base64-enc" => {
+            let encoded = B64.encode(payload.as_bytes());
+            let _ = writeln!(out, "  Base64 Encode");
+            let _ = writeln!(out, "  Input:   {}", payload);
+            let _ = writeln!(out, "  Output:  {}", encoded);
+        }
+        "base64-dec" => {
+            let _ = writeln!(out, "  Base64 Decode");
+            let _ = writeln!(out, "  Input:   {}", payload);
+            match B64.decode(payload.trim()) {
+                Ok(b) => match std::str::from_utf8(&b) {
+                    Ok(s) => {
+                        let _ = writeln!(out, "  Output:  {}", s);
+                    }
+                    Err(_) => {
+                        let _ = writeln!(out, "  Output:  {} bytes (binary)", b.len());
+                    }
+                },
+                Err(e) => {
+                    let _ = writeln!(out, "  Error:   {}", e);
+                }
+            }
+        }
+        "hex-enc" => {
+            let hex: String = payload.bytes().map(|b| format!("{:02x}", b)).collect();
+            let _ = writeln!(out, "  Hex Encode");
+            let _ = writeln!(out, "  Input:   {}", payload);
+            let _ = writeln!(out, "  Output:  {}", hex);
+        }
+        "hex-dec" => {
+            let _ = writeln!(out, "  Hex Decode");
+            let _ = writeln!(out, "  Input:   {}", payload);
+            let cleaned: String = payload.chars().filter(|c| c.is_ascii_hexdigit()).collect();
+            if cleaned.len() % 2 != 0 {
+                let _ = writeln!(out, "  Error:   odd number of hex digits");
+            } else {
+                let bytes: Result<Vec<u8>, _> = (0..cleaned.len())
+                    .step_by(2)
+                    .map(|i| u8::from_str_radix(&cleaned[i..i + 2], 16))
+                    .collect();
+                match bytes {
+                    Ok(b) => match std::str::from_utf8(&b) {
+                        Ok(s) => {
+                            let _ = writeln!(out, "  Output:  {}", s);
+                        }
+                        Err(_) => {
+                            let _ = writeln!(out, "  Output:  {} bytes (binary)", b.len());
+                        }
+                    },
+                    Err(e) => {
+                        let _ = writeln!(out, "  Error:   {}", e);
+                    }
+                }
+            }
+        }
+        "url-enc" => {
+            let encoded = utf8_percent_encode(payload, NON_ALPHANUMERIC).to_string();
+            let _ = writeln!(out, "  URL Encode");
+            let _ = writeln!(out, "  Input:   {}", payload);
+            let _ = writeln!(out, "  Output:  {}", encoded);
+        }
+        "url-dec" => {
+            let _ = writeln!(out, "  URL Decode");
+            let _ = writeln!(out, "  Input:   {}", payload);
+            match percent_decode_str(payload).decode_utf8() {
+                Ok(s) => {
+                    let _ = writeln!(out, "  Output:  {}", s);
+                }
+                Err(e) => {
+                    let _ = writeln!(out, "  Error:   {}", e);
+                }
+            }
+        }
+        "html-enc" => {
+            let encoded = payload
+                .replace('&', "&amp;")
+                .replace('<', "&lt;")
+                .replace('>', "&gt;")
+                .replace('"', "&quot;")
+                .replace('\'', "&#39;");
+            let _ = writeln!(out, "  HTML Encode");
+            let _ = writeln!(out, "  Input:   {}", payload);
+            let _ = writeln!(out, "  Output:  {}", encoded);
+        }
+        "html-dec" => {
+            let decoded = payload
+                .replace("&amp;", "&")
+                .replace("&lt;", "<")
+                .replace("&gt;", ">")
+                .replace("&quot;", "\"")
+                .replace("&#39;", "'")
+                .replace("&apos;", "'")
+                .replace("&nbsp;", " ");
+            let _ = writeln!(out, "  HTML Decode");
+            let _ = writeln!(out, "  Input:   {}", payload);
+            let _ = writeln!(out, "  Output:  {}", decoded);
+        }
+        "binary" => {
+            let bin: String = payload
+                .bytes()
+                .map(|b| format!("{:08b}", b))
+                .collect::<Vec<_>>()
+                .join(" ");
+            let _ = writeln!(out, "  Binary Representation");
+            let _ = writeln!(out, "  Input:   {}", payload);
+            let _ = writeln!(out, "  Output:  {}", bin);
+        }
+        "rot13" => {
+            let rotated: String = payload
+                .chars()
+                .map(|c| match c {
+                    'a'..='m' | 'A'..='M' => (c as u8 + 13) as char,
+                    'n'..='z' | 'N'..='Z' => (c as u8 - 13) as char,
+                    _ => c,
+                })
+                .collect();
+            let _ = writeln!(out, "  ROT13");
+            let _ = writeln!(out, "  Input:   {}", payload);
+            let _ = writeln!(out, "  Output:  {}", rotated);
+        }
+        _ => {
+            // All-formats mode
+            if q.is_empty() {
+                let _ = writeln!(out, "{}", encode_usage());
+                let _ = writeln!(out, "{}", sep);
+                return out;
+            }
+            let b64 = B64.encode(q.as_bytes());
+            let hex: String = q.bytes().map(|b| format!("{:02x}", b)).collect();
+            let url = utf8_percent_encode(q, NON_ALPHANUMERIC).to_string();
+            let html = q
+                .replace('&', "&amp;")
+                .replace('<', "&lt;")
+                .replace('>', "&gt;")
+                .replace('"', "&quot;");
+            let bin: String = q
+                .bytes()
+                .map(|b| format!("{:08b}", b))
+                .collect::<Vec<_>>()
+                .join(" ");
+            let rot: String = q
+                .chars()
+                .map(|c| match c {
+                    'a'..='m' | 'A'..='M' => (c as u8 + 13) as char,
+                    'n'..='z' | 'N'..='Z' => (c as u8 - 13) as char,
+                    _ => c,
+                })
+                .collect();
+            let _ = writeln!(out, "  Input:     {}", q);
+            let _ = writeln!(
+                out,
+                "  Length:    {} chars / {} bytes",
+                q.chars().count(),
+                q.len()
+            );
+            let _ = writeln!(out);
+            let _ = writeln!(out, "  Base64:    {}", b64);
+            let _ = writeln!(out, "  Hex:       {}", hex);
+            let _ = writeln!(out, "  URL:       {}", url);
+            let _ = writeln!(out, "  HTML:      {}", html);
+            let _ = writeln!(out, "  Binary:    {}", bin);
+            let _ = writeln!(out, "  ROT13:     {}", rot);
+        }
+    }
+
+    let _ = writeln!(out, "{}", sep);
+    out
+}
+
+// ── Geometry ──────────────────────────────────────────────────────────────────
+
+pub fn geometry_calc(query: &str) -> String {
+    let sep = "─".repeat(60);
+    let mut out = String::new();
+    let _ = writeln!(
+        out,
+        "\n  ┌─ Geometry Calculator ────────────────────────────┐"
+    );
+    let _ = writeln!(out, "{}", sep);
+
+    let q = query.trim().to_lowercase();
+    let words: Vec<&str> = q.split_whitespace().collect();
+
+    if words.is_empty() {
+        let _ = writeln!(out, "  Usage examples:");
+        let _ = writeln!(out, "    hematite --geometry 'circle r=5'");
+        let _ = writeln!(out, "    hematite --geometry 'triangle a=3 b=4 c=5'");
+        let _ = writeln!(out, "    hematite --geometry 'rectangle w=6 h=4'");
+        let _ = writeln!(out, "    hematite --geometry 'sphere r=3'");
+        let _ = writeln!(out, "    hematite --geometry 'cylinder r=2 h=10'");
+        let _ = writeln!(out, "    hematite --geometry 'cone r=3 h=4'");
+        let _ = writeln!(out, "    hematite --geometry 'box l=3 w=4 h=5'");
+        let _ = writeln!(out, "    hematite --geometry 'ellipse a=5 b=3'");
+        let _ = writeln!(out, "    hematite --geometry 'polygon n=6 s=4'");
+        let _ = writeln!(
+            out,
+            "    hematite --geometry 'distance x1=0 y1=0 x2=3 y2=4'"
+        );
+        let _ = writeln!(out, "    hematite --geometry 'pythagorean a=3 b=4'");
+        let _ = writeln!(out, "    hematite --geometry 'degrees 1.5708'");
+        let _ = writeln!(out, "    hematite --geometry 'radians 90'");
+        let _ = writeln!(out, "{}", sep);
+        return out;
+    }
+
+    // Parse key=value pairs
+    let parse_kv = |key: &str| -> Option<f64> {
+        for w in &words {
+            if w.starts_with(&format!("{}=", key)) {
+                return w[key.len() + 1..].parse().ok();
+            }
+        }
+        None
+    };
+
+    let pi = std::f64::consts::PI;
+    let keyword = words[0];
+
+    match keyword {
+        "circle" => {
+            if let Some(r) = parse_kv("r") {
+                let area = pi * r * r;
+                let circumference = 2.0 * pi * r;
+                let _ = writeln!(out, "  Circle  r = {}", r);
+                let _ = writeln!(out, "  Area:         {:>14.6}", area);
+                let _ = writeln!(out, "  Circumference:{:>14.6}", circumference);
+                let _ = writeln!(out, "  Diameter:     {:>14.6}", 2.0 * r);
+            } else if let Some(d) = parse_kv("d") {
+                let r = d / 2.0;
+                let area = pi * r * r;
+                let _ = writeln!(out, "  Circle  d = {}", d);
+                let _ = writeln!(out, "  Radius:       {:>14.6}", r);
+                let _ = writeln!(out, "  Area:         {:>14.6}", area);
+                let _ = writeln!(out, "  Circumference:{:>14.6}", 2.0 * pi * r);
+            } else {
+                let _ = writeln!(out, "  Provide r=<radius> or d=<diameter>");
+            }
+        }
+        "triangle" => {
+            let a = parse_kv("a");
+            let b = parse_kv("b");
+            let c = parse_kv("c");
+            let base = parse_kv("base");
+            let height = parse_kv("h").or(parse_kv("height"));
+
+            if let (Some(b_val), Some(h_val)) = (base, height) {
+                let area = 0.5 * b_val * h_val;
+                let _ = writeln!(out, "  Triangle  base = {}, height = {}", b_val, h_val);
+                let _ = writeln!(out, "  Area:         {:>14.6}", area);
+            } else if let (Some(a), Some(b), Some(c)) = (a, b, c) {
+                let s = (a + b + c) / 2.0;
+                let area_sq = s * (s - a) * (s - b) * (s - c);
+                let _ = writeln!(out, "  Triangle  a={}, b={}, c={}", a, b, c);
+                if area_sq >= 0.0 {
+                    let area = area_sq.sqrt();
+                    let _ = writeln!(out, "  Area (Heron):  {:>13.6}", area);
+                    let _ = writeln!(out, "  Perimeter:     {:>13.6}", a + b + c);
+                    let cos_a = (b * b + c * c - a * a) / (2.0 * b * c);
+                    let cos_b = (a * a + c * c - b * b) / (2.0 * a * c);
+                    let cos_c = (a * a + b * b - c * c) / (2.0 * a * b);
+                    let ang_a = cos_a.clamp(-1.0, 1.0).acos().to_degrees();
+                    let ang_b = cos_b.clamp(-1.0, 1.0).acos().to_degrees();
+                    let ang_c = cos_c.clamp(-1.0, 1.0).acos().to_degrees();
+                    let _ = writeln!(out, "  Angle A:       {:>13.4}°", ang_a);
+                    let _ = writeln!(out, "  Angle B:       {:>13.4}°", ang_b);
+                    let _ = writeln!(out, "  Angle C:       {:>13.4}°", ang_c);
+                    let tri_type = if (ang_a - 90.0).abs() < 0.001
+                        || (ang_b - 90.0).abs() < 0.001
+                        || (ang_c - 90.0).abs() < 0.001
+                    {
+                        "right"
+                    } else if ang_a > 90.0 || ang_b > 90.0 || ang_c > 90.0 {
+                        "obtuse"
+                    } else {
+                        "acute"
+                    };
+                    let eq_type = if (a - b).abs() < 1e-9 && (b - c).abs() < 1e-9 {
+                        "equilateral"
+                    } else if (a - b).abs() < 1e-9 || (b - c).abs() < 1e-9 || (a - c).abs() < 1e-9 {
+                        "isosceles"
+                    } else {
+                        "scalene"
+                    };
+                    let _ = writeln!(out, "  Type:          {} {}", tri_type, eq_type);
+                } else {
+                    let _ = writeln!(
+                        out,
+                        "  Invalid triangle (sides violate triangle inequality)"
+                    );
+                }
+            } else {
+                let _ = writeln!(out, "  Provide a=, b=, c= (SSS) or base= h= (base-height)");
+            }
+        }
+        "rectangle" | "rect" => {
+            let w = parse_kv("w").or(parse_kv("width"));
+            let h = parse_kv("h").or(parse_kv("height"));
+            if let (Some(w), Some(h)) = (w, h) {
+                let _ = writeln!(out, "  Rectangle  w={}, h={}", w, h);
+                let _ = writeln!(out, "  Area:         {:>14.6}", w * h);
+                let _ = writeln!(out, "  Perimeter:    {:>14.6}", 2.0 * (w + h));
+                let _ = writeln!(out, "  Diagonal:     {:>14.6}", (w * w + h * h).sqrt());
+            } else {
+                let _ = writeln!(out, "  Provide w=<width> h=<height>");
+            }
+        }
+        "square" => {
+            if let Some(s) = parse_kv("s").or(parse_kv("side")) {
+                let _ = writeln!(out, "  Square  s={}", s);
+                let _ = writeln!(out, "  Area:         {:>14.6}", s * s);
+                let _ = writeln!(out, "  Perimeter:    {:>14.6}", 4.0 * s);
+                let _ = writeln!(out, "  Diagonal:     {:>14.6}", s * 2.0_f64.sqrt());
+            } else {
+                let _ = writeln!(out, "  Provide s=<side>");
+            }
+        }
+        "ellipse" => {
+            let a = parse_kv("a");
+            let b = parse_kv("b");
+            if let (Some(a), Some(b)) = (a, b) {
+                let h = ((a - b) / (a + b)).powi(2);
+                let circumference =
+                    pi * (a + b) * (1.0 + 3.0 * h / (10.0 + (4.0 - 3.0 * h).sqrt()));
+                let _ = writeln!(out, "  Ellipse  a={}, b={}", a, b);
+                let _ = writeln!(out, "  Area:         {:>14.6}", pi * a * b);
+                let _ = writeln!(
+                    out,
+                    "  Circumference:{:>14.6}  (Ramanujan approx)",
+                    circumference
+                );
+                let _ = writeln!(
+                    out,
+                    "  Eccentricity: {:>14.6}",
+                    (1.0 - (b / a).powi(2)).sqrt()
+                );
+            } else {
+                let _ = writeln!(out, "  Provide a=<semi-major> b=<semi-minor>");
+            }
+        }
+        "polygon" => {
+            let n_val = parse_kv("n").map(|v| v as u32);
+            let s = parse_kv("s").or(parse_kv("side"));
+            if let (Some(n), Some(s)) = (n_val, s) {
+                let interior_angle = (n - 2) as f64 * 180.0 / n as f64;
+                let area = (n as f64 * s * s) / (4.0 * (pi / n as f64).tan());
+                let _ = writeln!(out, "  Regular Polygon  n={}, side={}", n, s);
+                let _ = writeln!(out, "  Perimeter:     {:>13.6}", n as f64 * s);
+                let _ = writeln!(out, "  Area:          {:>13.6}", area);
+                let _ = writeln!(out, "  Interior angle:{:>13.4}°", interior_angle);
+                let _ = writeln!(out, "  Exterior angle:{:>13.4}°", 360.0 / n as f64);
+                let _ = writeln!(
+                    out,
+                    "  Circumradius:  {:>13.6}",
+                    s / (2.0 * (pi / n as f64).sin())
+                );
+                let _ = writeln!(
+                    out,
+                    "  Inradius:      {:>13.6}",
+                    s / (2.0 * (pi / n as f64).tan())
+                );
+            } else {
+                let _ = writeln!(out, "  Provide n=<sides> s=<side_length>");
+            }
+        }
+        "sphere" => {
+            if let Some(r) = parse_kv("r") {
+                let _ = writeln!(out, "  Sphere  r={}", r);
+                let _ = writeln!(
+                    out,
+                    "  Volume:       {:>14.6}",
+                    (4.0 / 3.0) * pi * r.powi(3)
+                );
+                let _ = writeln!(out, "  Surface area: {:>14.6}", 4.0 * pi * r * r);
+                let _ = writeln!(out, "  Diameter:     {:>14.6}", 2.0 * r);
+            } else {
+                let _ = writeln!(out, "  Provide r=<radius>");
+            }
+        }
+        "cylinder" => {
+            let r = parse_kv("r");
+            let h = parse_kv("h");
+            if let (Some(r), Some(h)) = (r, h) {
+                let _ = writeln!(out, "  Cylinder  r={}, h={}", r, h);
+                let _ = writeln!(out, "  Volume:       {:>14.6}", pi * r * r * h);
+                let _ = writeln!(out, "  Lateral area: {:>14.6}", 2.0 * pi * r * h);
+                let _ = writeln!(out, "  Total area:   {:>14.6}", 2.0 * pi * r * (r + h));
+            } else {
+                let _ = writeln!(out, "  Provide r=<radius> h=<height>");
+            }
+        }
+        "cone" => {
+            let r = parse_kv("r");
+            let h = parse_kv("h");
+            if let (Some(r), Some(h)) = (r, h) {
+                let slant = (r * r + h * h).sqrt();
+                let _ = writeln!(out, "  Cone  r={}, h={}", r, h);
+                let _ = writeln!(
+                    out,
+                    "  Volume:       {:>14.6}",
+                    (1.0 / 3.0) * pi * r * r * h
+                );
+                let _ = writeln!(out, "  Slant height: {:>14.6}", slant);
+                let _ = writeln!(out, "  Lateral area: {:>14.6}", pi * r * slant);
+                let _ = writeln!(out, "  Total area:   {:>14.6}", pi * r * (r + slant));
+            } else {
+                let _ = writeln!(out, "  Provide r=<radius> h=<height>");
+            }
+        }
+        "box" | "cuboid" | "rectangular" => {
+            let l = parse_kv("l").or(parse_kv("length"));
+            let w = parse_kv("w").or(parse_kv("width"));
+            let h = parse_kv("h").or(parse_kv("height"));
+            if let (Some(l), Some(w), Some(h)) = (l, w, h) {
+                let _ = writeln!(out, "  Box  l={}, w={}, h={}", l, w, h);
+                let _ = writeln!(out, "  Volume:       {:>14.6}", l * w * h);
+                let _ = writeln!(
+                    out,
+                    "  Surface area: {:>14.6}",
+                    2.0 * (l * w + w * h + l * h)
+                );
+                let _ = writeln!(
+                    out,
+                    "  Space diag:   {:>14.6}",
+                    (l * l + w * w + h * h).sqrt()
+                );
+            } else {
+                let _ = writeln!(out, "  Provide l=<length> w=<width> h=<height>");
+            }
+        }
+        "pythagorean" | "pythagoras" | "pyth" => {
+            let a = parse_kv("a");
+            let b = parse_kv("b");
+            let c = parse_kv("c");
+            match (a, b, c) {
+                (Some(a), Some(b), None) => {
+                    let c = (a * a + b * b).sqrt();
+                    let _ = writeln!(out, "  Pythagorean  a={}, b={}", a, b);
+                    let _ = writeln!(out, "  c = √(a²+b²) = {:>10.6}", c);
+                }
+                (Some(a), None, Some(c)) => {
+                    if c > a {
+                        let b = (c * c - a * a).sqrt();
+                        let _ = writeln!(out, "  Pythagorean  a={}, c={}", a, c);
+                        let _ = writeln!(out, "  b = √(c²-a²) = {:>10.6}", b);
+                    } else {
+                        let _ = writeln!(out, "  Error: hypotenuse c must be greater than leg a");
+                    }
+                }
+                (None, Some(b), Some(c)) => {
+                    if c > b {
+                        let a = (c * c - b * b).sqrt();
+                        let _ = writeln!(out, "  Pythagorean  b={}, c={}", b, c);
+                        let _ = writeln!(out, "  a = √(c²-b²) = {:>10.6}", a);
+                    } else {
+                        let _ = writeln!(out, "  Error: hypotenuse c must be greater than leg b");
+                    }
+                }
+                _ => {
+                    let _ = writeln!(out, "  Provide two of: a=, b= (legs), c= (hypotenuse)");
+                }
+            }
+        }
+        "distance" | "dist" => {
+            let x1 = parse_kv("x1");
+            let y1 = parse_kv("y1");
+            let x2 = parse_kv("x2");
+            let y2 = parse_kv("y2");
+            if let (Some(x1), Some(y1), Some(x2), Some(y2)) = (x1, y1, x2, y2) {
+                let d = ((x2 - x1).powi(2) + (y2 - y1).powi(2)).sqrt();
+                let mid_x = (x1 + x2) / 2.0;
+                let mid_y = (y1 + y2) / 2.0;
+                let slope = if (x2 - x1).abs() > 1e-12 {
+                    (y2 - y1) / (x2 - x1)
+                } else {
+                    f64::INFINITY
+                };
+                let _ = writeln!(out, "  Point Distance  ({}, {}) → ({}, {})", x1, y1, x2, y2);
+                let _ = writeln!(out, "  Distance:     {:>14.6}", d);
+                let _ = writeln!(out, "  Midpoint:     ({:.4}, {:.4})", mid_x, mid_y);
+                let _ = writeln!(out, "  Slope:        {:>14.6}", slope);
+            } else {
+                let _ = writeln!(out, "  Provide x1=, y1=, x2=, y2=");
+            }
+        }
+        "degrees" | "deg" => {
+            if let Ok(rad) = words.get(1).unwrap_or(&"").parse::<f64>() {
+                let _ = writeln!(out, "  {} radians = {:.6}°", rad, rad.to_degrees());
+            } else {
+                let _ = writeln!(
+                    out,
+                    "  Provide angle in radians: hematite --geometry 'degrees 1.5708'"
+                );
+            }
+        }
+        "radians" | "rad" => {
+            if let Ok(deg) = words.get(1).unwrap_or(&"").parse::<f64>() {
+                let _ = writeln!(out, "  {}° = {:.6} radians", deg, deg.to_radians());
+            } else {
+                let _ = writeln!(
+                    out,
+                    "  Provide angle in degrees: hematite --geometry 'radians 90'"
+                );
+            }
+        }
+        _ => {
+            let _ = writeln!(out, "  Unknown shape or operation: '{}'", keyword);
+            let _ = writeln!(
+                out,
+                "  Supported: circle, triangle, rectangle, square, ellipse,"
+            );
+            let _ = writeln!(
+                out,
+                "             polygon, sphere, cylinder, cone, box, pythagorean,"
+            );
+            let _ = writeln!(out, "             distance, degrees, radians");
+        }
+    }
+
+    let _ = writeln!(out, "{}", sep);
+    out
+}
+
+// ── Electrical engineering ────────────────────────────────────────────────────
+
+fn parse_si_value(s: &str) -> Option<f64> {
+    let s = s.trim();
+    if s.is_empty() {
+        return None;
+    }
+    if let Ok(v) = s.parse::<f64>() {
+        return Some(v);
+    }
+    // Strip trailing unit letters then check SI prefix
+    let (num_part, suffix) = {
+        let last = s.chars().last()?;
+        if last.is_alphabetic() || last == 'Ω' {
+            let num_end = s
+                .rfind(|c: char| c.is_ascii_digit() || c == '.' || c == '-')
+                .unwrap_or(0)
+                + 1;
+            (&s[..num_end], &s[num_end..])
+        } else {
+            (s, "")
+        }
+    };
+    let base: f64 = num_part.parse().ok()?;
+    let multiplier = match suffix.chars().next().unwrap_or(' ') {
+        'T' => 1e12,
+        'G' => 1e9,
+        'M' => 1e6,
+        'k' | 'K' => 1e3,
+        'm' => 1e-3,
+        'u' | 'µ' => 1e-6,
+        'n' => 1e-9,
+        'p' => 1e-12,
+        _ => 1.0,
+    };
+    Some(base * multiplier)
+}
+
+fn fmt_si(v: f64, unit: &str) -> String {
+    let abs = v.abs();
+    let (scaled, prefix) = if abs >= 1e12 {
+        (v / 1e12, "T")
+    } else if abs >= 1e9 {
+        (v / 1e9, "G")
+    } else if abs >= 1e6 {
+        (v / 1e6, "M")
+    } else if abs >= 1e3 {
+        (v / 1e3, "k")
+    } else if abs >= 1.0 {
+        (v, "")
+    } else if abs >= 1e-3 {
+        (v * 1e3, "m")
+    } else if abs >= 1e-6 {
+        (v * 1e6, "µ")
+    } else if abs >= 1e-9 {
+        (v * 1e9, "n")
+    } else {
+        (v * 1e12, "p")
+    };
+    format!("{:.4} {}{}", scaled, prefix, unit)
+}
+
+pub fn electrical_calc(query: &str) -> String {
+    let sep = "─".repeat(60);
+    let mut out = String::new();
+    let _ = writeln!(
+        out,
+        "\n  ┌─ Electrical Engineering Calculator ──────────────┐"
+    );
+    let _ = writeln!(out, "{}", sep);
+
+    let q = query.trim().to_lowercase();
+    let words: Vec<&str> = q.split_whitespace().collect();
+
+    if words.is_empty() {
+        let _ = writeln!(out, "  Usage examples:");
+        let _ = writeln!(out, "    hematite --electrical 'ohm V=12 R=100'");
+        let _ = writeln!(out, "    hematite --electrical 'ohm V=5 I=0.02'");
+        let _ = writeln!(out, "    hematite --electrical 'ohm I=2 R=50'");
+        let _ = writeln!(out, "    hematite --electrical 'rc R=10k C=100u'");
+        let _ = writeln!(out, "    hematite --electrical 'rl R=100 L=10m'");
+        let _ = writeln!(out, "    hematite --electrical 'lc L=10m C=100u'");
+        let _ = writeln!(out, "    hematite --electrical 'db 0.5'");
+        let _ = writeln!(out, "    hematite --electrical 'db2linear -20'");
+        let _ = writeln!(out, "    hematite --electrical 'freq f=2.4G'");
+        let _ = writeln!(
+            out,
+            "    hematite --electrical 'divider Vin=12 R1=10k R2=4.7k'"
+        );
+        let _ = writeln!(out, "    hematite --electrical 'energy C=100u V=5'");
+        let _ = writeln!(out, "    hematite --electrical 'energy L=10m I=2'");
+        let _ = writeln!(out, "{}", sep);
+        return out;
+    }
+
+    // Parse key=value pairs — preserve case in original query for SI prefix detection
+    let parse_kv = |key: &str| -> Option<f64> {
+        let key_lower = key.to_lowercase();
+        for w in query.trim().split_whitespace() {
+            let wl = w.to_lowercase();
+            if wl.starts_with(&format!("{}=", key_lower)) {
+                return parse_si_value(&w[key.len() + 1..]);
+            }
+        }
+        None
+    };
+
+    let keyword = words[0].as_ref();
+
+    match keyword {
+        "ohm" | "ohms" => {
+            let v_opt = parse_kv("V").or_else(|| parse_kv("v"));
+            let i_opt = parse_kv("I").or_else(|| parse_kv("i"));
+            let r_opt = parse_kv("R").or_else(|| parse_kv("r"));
+
+            let _ = writeln!(out, "  ─── Ohm's Law  (V = I × R, P = V × I) ───");
+            match (v_opt, i_opt, r_opt) {
+                (None, Some(i), Some(r)) => {
+                    let v = i * r;
+                    let p = v * i;
+                    let _ = writeln!(out, "  I = {}  R = {}", fmt_si(i, "A"), fmt_si(r, "Ω"));
+                    let _ = writeln!(out, "  V = I × R = {}", fmt_si(v, "V"));
+                    let _ = writeln!(out, "  P = V × I = {}", fmt_si(p, "W"));
+                }
+                (Some(v), None, Some(r)) => {
+                    let i = v / r;
+                    let p = v * i;
+                    let _ = writeln!(out, "  V = {}  R = {}", fmt_si(v, "V"), fmt_si(r, "Ω"));
+                    let _ = writeln!(out, "  I = V / R = {}", fmt_si(i, "A"));
+                    let _ = writeln!(out, "  P = V² / R = {}", fmt_si(p, "W"));
+                }
+                (Some(v), Some(i), None) => {
+                    let r = v / i;
+                    let p = v * i;
+                    let _ = writeln!(out, "  V = {}  I = {}", fmt_si(v, "V"), fmt_si(i, "A"));
+                    let _ = writeln!(out, "  R = V / I = {}", fmt_si(r, "Ω"));
+                    let _ = writeln!(out, "  P = V × I = {}", fmt_si(p, "W"));
+                }
+                (Some(v), Some(i), Some(r)) => {
+                    let v_calc = i * r;
+                    let p = v * i;
+                    let _ = writeln!(
+                        out,
+                        "  V = {}  I = {}  R = {}",
+                        fmt_si(v, "V"),
+                        fmt_si(i, "A"),
+                        fmt_si(r, "Ω")
+                    );
+                    let _ = writeln!(
+                        out,
+                        "  Verify V = I×R = {}  (given {})",
+                        fmt_si(v_calc, "V"),
+                        fmt_si(v, "V")
+                    );
+                    let _ = writeln!(out, "  P = V × I = {}", fmt_si(p, "W"));
+                    let diff = (v - v_calc).abs() / v.abs().max(1e-12) * 100.0;
+                    if diff > 0.1 {
+                        let _ = writeln!(out, "  Inconsistent: {:.2}% deviation", diff);
+                    } else {
+                        let _ = writeln!(out, "  Consistent");
+                    }
+                }
+                _ => {
+                    let _ = writeln!(out, "  Provide at least 2 of: V=, I=, R=");
+                }
+            }
+        }
+        "rc" => {
+            let r_opt = parse_kv("R").or_else(|| parse_kv("r"));
+            let c_opt = parse_kv("C").or_else(|| parse_kv("c"));
+            if let (Some(r), Some(c)) = (r_opt, c_opt) {
+                let tau = r * c;
+                let f_cutoff = 1.0 / (2.0 * std::f64::consts::PI * r * c);
+                let _ = writeln!(
+                    out,
+                    "  ─── RC Circuit  R={}, C={} ───",
+                    fmt_si(r, "Ω"),
+                    fmt_si(c, "F")
+                );
+                let _ = writeln!(out, "  Time constant τ = RC = {}", fmt_si(tau, "s"));
+                let _ = writeln!(
+                    out,
+                    "  Cutoff freq fc = 1/(2πRC) = {}",
+                    fmt_si(f_cutoff, "Hz")
+                );
+                let _ = writeln!(out, "  Charge curve  V(t) = V₀(1 - e^(-t/τ)):");
+                for (label, t_frac) in &[("1τ", 1.0f64), ("2τ", 2.0), ("3τ", 3.0), ("5τ", 5.0)]
+                {
+                    let pct = (1.0 - (-t_frac).exp()) * 100.0;
+                    let _ = writeln!(out, "    t={}: {:>6.2}% charged", label, pct);
+                }
+            } else {
+                let _ = writeln!(
+                    out,
+                    "  Provide R=<resistance> C=<capacitance>  (e.g. R=10k C=100u)"
+                );
+            }
+        }
+        "rl" => {
+            let r_opt = parse_kv("R").or_else(|| parse_kv("r"));
+            let l_opt = parse_kv("L").or_else(|| parse_kv("l"));
+            if let (Some(r), Some(l)) = (r_opt, l_opt) {
+                let tau = l / r;
+                let f_cutoff = r / (2.0 * std::f64::consts::PI * l);
+                let _ = writeln!(
+                    out,
+                    "  ─── RL Circuit  R={}, L={} ───",
+                    fmt_si(r, "Ω"),
+                    fmt_si(l, "H")
+                );
+                let _ = writeln!(out, "  Time constant τ = L/R = {}", fmt_si(tau, "s"));
+                let _ = writeln!(
+                    out,
+                    "  Cutoff freq fc = R/(2πL) = {}",
+                    fmt_si(f_cutoff, "Hz")
+                );
+            } else {
+                let _ = writeln!(
+                    out,
+                    "  Provide R=<resistance> L=<inductance>  (e.g. R=100 L=10m)"
+                );
+            }
+        }
+        "lc" => {
+            let l_opt = parse_kv("L").or_else(|| parse_kv("l"));
+            let c_opt = parse_kv("C").or_else(|| parse_kv("c"));
+            if let (Some(l), Some(c)) = (l_opt, c_opt) {
+                let f_res = 1.0 / (2.0 * std::f64::consts::PI * (l * c).sqrt());
+                let omega = 2.0 * std::f64::consts::PI * f_res;
+                let _ = writeln!(
+                    out,
+                    "  ─── LC Resonance  L={}, C={} ───",
+                    fmt_si(l, "H"),
+                    fmt_si(c, "F")
+                );
+                let _ = writeln!(
+                    out,
+                    "  Resonant freq f₀ = 1/(2π√LC) = {}",
+                    fmt_si(f_res, "Hz")
+                );
+                let _ = writeln!(
+                    out,
+                    "  Angular freq  ω₀ = 1/√LC      = {} rad/s",
+                    fmt_si(omega, "")
+                );
+            } else {
+                let _ = writeln!(
+                    out,
+                    "  Provide L=<inductance> C=<capacitance>  (e.g. L=10m C=100u)"
+                );
+            }
+        }
+        "db" | "decibel" | "decibels" => {
+            if let Some(ratio_str) = words.get(1) {
+                if let Ok(ratio) = ratio_str.parse::<f64>() {
+                    let db_voltage = 20.0 * ratio.abs().log10();
+                    let db_power = 10.0 * ratio.abs().log10();
+                    let _ = writeln!(out, "  dB Conversion  linear ratio = {}", ratio);
+                    let _ = writeln!(
+                        out,
+                        "  Voltage/Current dB:  {:>10.4} dB  (20·log₁₀)",
+                        db_voltage
+                    );
+                    let _ = writeln!(
+                        out,
+                        "  Power dB:            {:>10.4} dB  (10·log₁₀)",
+                        db_power
+                    );
+                } else {
+                    let _ = writeln!(out, "  Provide ratio: hematite --electrical 'db 0.5'");
+                }
+            } else {
+                let _ = writeln!(out, "  Provide ratio: hematite --electrical 'db 0.5'");
+            }
+        }
+        "db2linear" | "db-linear" => {
+            if let Some(db_str) = words.get(1) {
+                if let Ok(db) = db_str.parse::<f64>() {
+                    let linear_v = 10.0_f64.powf(db / 20.0);
+                    let linear_p = 10.0_f64.powf(db / 10.0);
+                    let _ = writeln!(out, "  dB to Linear  {} dB", db);
+                    let _ = writeln!(out, "  Voltage ratio: {:>12.6}  (10^(dB/20))", linear_v);
+                    let _ = writeln!(out, "  Power ratio:   {:>12.6}  (10^(dB/10))", linear_p);
+                } else {
+                    let _ = writeln!(
+                        out,
+                        "  Provide dB value: hematite --electrical 'db2linear -20'"
+                    );
+                }
+            } else {
+                let _ = writeln!(
+                    out,
+                    "  Provide dB value: hematite --electrical 'db2linear -20'"
+                );
+            }
+        }
+        "freq" | "frequency" | "wavelength" => {
+            let f_opt = parse_kv("f").or_else(|| parse_kv("F"));
+            let wl_opt = parse_kv("wl").or_else(|| parse_kv("lambda"));
+            let c_light = 299_792_458.0f64;
+            if let Some(f) = f_opt {
+                let wl = c_light / f;
+                let _ = writeln!(out, "  Frequency ↔ Wavelength  (c = 299,792,458 m/s)");
+                let _ = writeln!(out, "  f = {}  →  λ = {}", fmt_si(f, "Hz"), fmt_si(wl, "m"));
+            } else if let Some(wl) = wl_opt {
+                let f = c_light / wl;
+                let _ = writeln!(out, "  Frequency ↔ Wavelength  (c = 299,792,458 m/s)");
+                let _ = writeln!(out, "  λ = {}  →  f = {}", fmt_si(wl, "m"), fmt_si(f, "Hz"));
+            } else {
+                let _ = writeln!(
+                    out,
+                    "  Provide f=<frequency_Hz> or wl=<wavelength_m>  (SI prefixes OK)"
+                );
+            }
+        }
+        "divider" | "voltage-divider" => {
+            let vin = parse_kv("Vin")
+                .or_else(|| parse_kv("vin"))
+                .or_else(|| parse_kv("V"))
+                .or_else(|| parse_kv("v"));
+            let r1 = parse_kv("R1").or_else(|| parse_kv("r1"));
+            let r2 = parse_kv("R2").or_else(|| parse_kv("r2"));
+            if let (Some(vin), Some(r1), Some(r2)) = (vin, r1, r2) {
+                let vout = vin * r2 / (r1 + r2);
+                let ratio = r2 / (r1 + r2);
+                let current = vin / (r1 + r2);
+                let _ = writeln!(
+                    out,
+                    "  ─── Voltage Divider  Vin={}, R1={}, R2={} ───",
+                    fmt_si(vin, "V"),
+                    fmt_si(r1, "Ω"),
+                    fmt_si(r2, "Ω")
+                );
+                let _ = writeln!(out, "  Vout = Vin × R2/(R1+R2) = {}", fmt_si(vout, "V"));
+                let _ = writeln!(out, "  Ratio: {:.4}  ({:.2}%)", ratio, ratio * 100.0);
+                let _ = writeln!(out, "  Current: {}", fmt_si(current, "A"));
+                let _ = writeln!(out, "  Power dissipated: {}", fmt_si(vin * current, "W"));
+            } else {
+                let _ = writeln!(
+                    out,
+                    "  Provide Vin=, R1=, R2=  (e.g. Vin=12 R1=10k R2=4.7k)"
+                );
+            }
+        }
+        "energy" => {
+            let c_opt = parse_kv("C").or_else(|| parse_kv("c"));
+            let l_opt = parse_kv("L").or_else(|| parse_kv("l"));
+            let v_opt = parse_kv("V").or_else(|| parse_kv("v"));
+            let i_opt = parse_kv("I").or_else(|| parse_kv("i"));
+            if let (Some(c), Some(v)) = (c_opt, v_opt) {
+                let e = 0.5 * c * v * v;
+                let _ = writeln!(
+                    out,
+                    "  Capacitor Energy  C={}, V={}",
+                    fmt_si(c, "F"),
+                    fmt_si(v, "V")
+                );
+                let _ = writeln!(out, "  E = ½CV² = {}", fmt_si(e, "J"));
+            } else if let (Some(l), Some(i)) = (l_opt, i_opt) {
+                let e = 0.5 * l * i * i;
+                let _ = writeln!(
+                    out,
+                    "  Inductor Energy  L={}, I={}",
+                    fmt_si(l, "H"),
+                    fmt_si(i, "A")
+                );
+                let _ = writeln!(out, "  E = ½LI² = {}", fmt_si(e, "J"));
+            } else {
+                let _ = writeln!(out, "  Provide C= V= (capacitor) or L= I= (inductor)");
+            }
+        }
+        _ => {
+            let _ = writeln!(out, "  Unknown command: '{}'", keyword);
+            let _ = writeln!(
+                out,
+                "  Supported: ohm, rc, rl, lc, db, db2linear, freq, divider, energy"
+            );
         }
     }
 

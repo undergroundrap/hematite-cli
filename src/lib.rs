@@ -1034,6 +1034,30 @@ pub struct CliCockpit {
 
     #[arg(
         long,
+        help_heading = "Math & Science",
+        value_name = "NUMBERS",
+        help = "Descriptive statistics — instant, no model, no cloud. Computes count, sum, min/max/range, mean, median, mode, population and sample variance/SD, CV, percentiles (P5–P99), IQR, skewness, excess kurtosis, Tukey outlier detection, and ASCII histogram. Examples: hematite --dstats '1,2,3,4,5' | hematite --dstats '10 20 30 40 50'"
+    )]
+    pub dstats: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Math & Science",
+        value_name = "QUERY",
+        help = "Geometry calculator — instant, no model, no cloud. Shapes: circle, triangle, rectangle, square, ellipse, polygon, sphere, cylinder, cone, box/cuboid. Also: distance/midpoint/slope, pythagorean, angle conversion (degrees/radians). Examples: hematite --geometry 'circle r=5' | hematite --geometry 'triangle a=3 b=4 c=5' | hematite --geometry 'sphere r=3' | hematite --geometry 'distance x1=0 y1=0 x2=3 y2=4'"
+    )]
+    pub geometry: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Math & Science",
+        value_name = "QUERY",
+        help = "Electrical engineering calculator — instant, no model, no cloud. Supports SI prefixes (k/M/m/u/n/p). Commands: ohm (Ohm's law, solves for V/I/R/P), rc (time constant, cutoff freq, charge curve), rl (time constant, cutoff), lc (resonance), db (linear→dB), db2linear (dB→linear), freq (frequency↔wavelength), divider (voltage divider), energy (capacitor E=½CV², inductor E=½LI²). Examples: hematite --electrical 'ohm V=12 R=100' | hematite --electrical 'rc R=10k C=100u' | hematite --electrical 'divider Vin=12 R1=10k R2=4.7k'"
+    )]
+    pub electrical: Option<String>,
+
+    #[arg(
+        long,
         help_heading = "Headless Reports",
         value_name = "ELEMENT",
         help = "Look up a periodic table element — instant, no model, no cloud. Accepts symbol (H, Au), full name (Gold, Hydrogen), or atomic number (79). Shows atomic mass, category, period/group, electronegativity, and state at STP. Example: hematite --periodic Au"

@@ -982,6 +982,9 @@ mod tests {
             sort_viz: None,
             checksum: None,
             validate: None,
+            dstats: None,
+            geometry: None,
+            electrical: None,
             pdf_extract_helper: None,
             teleported_from: None,
         };

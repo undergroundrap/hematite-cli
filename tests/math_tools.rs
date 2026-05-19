@@ -3,8 +3,9 @@
 /// Covers known-value correctness, edge-case non-panics, and the newer
 /// matrix decomposition modes (QR, SVD, Cholesky).
 use hematite::tools::math_util::{
-    bitwise_calc, checksum_calc, cipher_calc, matrix_calc, number_format, prob_calc, set_calc,
-    sort_viz, string_dist, text_stats, validate_calc,
+    bitwise_calc, checksum_calc, cipher_calc, electrical_calc, encode_calc, geometry_calc,
+    hash_calc, matrix_calc, number_format, prob_calc, set_calc, sort_viz, stats_calc, string_dist,
+    text_stats, validate_calc,
 };
 
 // ─── Cipher tests ────────────────────────────────────────────────────────────
@@ -554,6 +555,259 @@ fn matrix_cholesky_non_spd_does_not_panic() {
         out.contains("Error") || out.contains("not") || out.contains("L (lower"),
         "Non-SPD cholesky: {out}"
     );
+}
+
+// ─── Stats tests ─────────────────────────────────────────────────────────────
+
+#[test]
+fn stats_mean_of_1_to_5() {
+    let out = stats_calc("1,2,3,4,5");
+    assert!(out.contains("Mean:"), "missing Mean: {out}");
+    assert!(
+        out.contains("3.000000"),
+        "mean of 1..5 should be 3.0: {out}"
+    );
+}
+
+#[test]
+fn stats_median_even_count() {
+    // 1,2,3,4 => median = 2.5
+    let out = stats_calc("1,2,3,4");
+    assert!(out.contains("2.500000"), "median of 1,2,3,4 = 2.5: {out}");
+}
+
+#[test]
+fn stats_outlier_detected() {
+    // 1,2,3,4,5,100 — 100 should be an outlier
+    let out = stats_calc("1,2,3,4,5,100");
+    assert!(out.contains("Outliers:"), "should list outliers: {out}");
+    assert!(
+        out.contains("100"),
+        "100 should be detected as outlier: {out}"
+    );
+}
+
+#[test]
+fn stats_empty_input_no_panic() {
+    let out = stats_calc("");
+    assert!(
+        out.contains("No numeric") || out.contains("Usage"),
+        "empty input message: {out}"
+    );
+}
+
+#[test]
+fn stats_histogram_present() {
+    let out = stats_calc("1,2,3,4,5,6,7,8,9,10");
+    assert!(
+        out.contains("Histogram"),
+        "histogram section missing: {out}"
+    );
+}
+
+// ─── Hash tests ───────────────────────────────────────────────────────────────
+
+#[test]
+fn hash_md5_known_value() {
+    // MD5("") = d41d8cd98f00b204e9800998ecf8427e
+    let out = hash_calc("");
+    assert!(
+        out.contains("d41d8cd98f00b204e9800998ecf8427e"),
+        "MD5 of empty string: {out}"
+    );
+}
+
+#[test]
+fn hash_sha256_known_value() {
+    // SHA-256("abc") = ba7816bf8f01cfea414140de5dae2ec73b00361bbef0469...
+    let out = hash_calc("abc");
+    assert!(
+        out.contains("ba7816bf"),
+        "SHA-256 of 'abc' should start with ba7816bf: {out}"
+    );
+}
+
+#[test]
+fn hash_sha1_known_value() {
+    // SHA-1("abc") = a9993e364706816aba3e25717850c26c9cd0d89d
+    let out = hash_calc("abc");
+    assert!(
+        out.contains("a9993e36"),
+        "SHA-1 of 'abc' should start with a9993e36: {out}"
+    );
+}
+
+#[test]
+fn hash_shows_all_algorithms() {
+    let out = hash_calc("hello");
+    assert!(out.contains("MD5"), "should show MD5: {out}");
+    assert!(out.contains("SHA-1"), "should show SHA-1: {out}");
+    assert!(out.contains("SHA-256"), "should show SHA-256: {out}");
+    assert!(out.contains("SHA-512"), "should show SHA-512: {out}");
+}
+
+// ─── Encode tests ─────────────────────────────────────────────────────────────
+
+#[test]
+fn encode_base64_hello_world() {
+    let out = encode_calc("base64 encode Hello World");
+    assert!(
+        out.contains("SGVsbG8gV29ybGQ="),
+        "base64 of 'Hello World': {out}"
+    );
+}
+
+#[test]
+fn encode_base64_decode_roundtrip() {
+    let out = encode_calc("base64 decode SGVsbG8gV29ybGQ=");
+    assert!(out.contains("Hello World"), "base64 decode: {out}");
+}
+
+#[test]
+fn encode_hex_hello() {
+    let out = encode_calc("hex encode Hello");
+    assert!(out.contains("48656c6c6f"), "hex of 'Hello': {out}");
+}
+
+#[test]
+fn encode_hex_decode_roundtrip() {
+    let out = encode_calc("hex decode 48656c6c6f");
+    assert!(out.contains("Hello"), "hex decode: {out}");
+}
+
+#[test]
+fn encode_rot13_is_involution() {
+    let out1 = encode_calc("rot13 Hello");
+    assert!(out1.contains("Uryyb"), "ROT13 Hello->Uryyb: {out1}");
+    let out2 = encode_calc("rot13 Uryyb");
+    assert!(out2.contains("Hello"), "ROT13 Uryyb->Hello: {out2}");
+}
+
+#[test]
+fn encode_all_formats_shows_all() {
+    let out = encode_calc("Hello");
+    assert!(out.contains("Base64:"), "all-formats missing Base64: {out}");
+    assert!(out.contains("Hex:"), "all-formats missing Hex: {out}");
+    assert!(out.contains("URL:"), "all-formats missing URL: {out}");
+    assert!(out.contains("Binary:"), "all-formats missing Binary: {out}");
+    assert!(out.contains("ROT13:"), "all-formats missing ROT13: {out}");
+}
+
+// ─── Geometry tests ───────────────────────────────────────────────────────────
+
+#[test]
+fn geometry_circle_area_and_circumference() {
+    let out = geometry_calc("circle r=5");
+    // Area = pi*25 ≈ 78.5398
+    assert!(out.contains("78.539"), "circle area r=5: {out}");
+    // Circumference = 2*pi*5 ≈ 31.4159
+    assert!(out.contains("31.415"), "circle circumference r=5: {out}");
+}
+
+#[test]
+fn geometry_pythagorean_3_4_5() {
+    let out = geometry_calc("pythagorean a=3 b=4");
+    assert!(
+        out.contains("5.000000"),
+        "3-4-5 right triangle hypotenuse: {out}"
+    );
+}
+
+#[test]
+fn geometry_triangle_345_heron() {
+    // 3-4-5 right triangle area = 6
+    let out = geometry_calc("triangle a=3 b=4 c=5");
+    assert!(out.contains("6.000000"), "Heron area of 3-4-5: {out}");
+}
+
+#[test]
+fn geometry_sphere_volume() {
+    // r=3 => V = 4/3 * pi * 27 ≈ 113.097
+    let out = geometry_calc("sphere r=3");
+    assert!(out.contains("113.09"), "sphere volume r=3: {out}");
+}
+
+#[test]
+fn geometry_rectangle_area() {
+    let out = geometry_calc("rectangle w=6 h=4");
+    assert!(out.contains("24.000000"), "rectangle area 6×4=24: {out}");
+}
+
+#[test]
+fn geometry_distance_3_4() {
+    // (0,0) to (3,4) = 5
+    let out = geometry_calc("distance x1=0 y1=0 x2=3 y2=4");
+    assert!(
+        out.contains("5.000000"),
+        "distance from origin to (3,4)=5: {out}"
+    );
+}
+
+#[test]
+fn geometry_radians_90_degrees() {
+    let out = geometry_calc("radians 90");
+    assert!(out.contains("1.570796"), "90° in radians: {out}");
+}
+
+#[test]
+fn geometry_unknown_shape_no_panic() {
+    let out = geometry_calc("hexahedron r=5");
+    assert!(
+        !out.is_empty(),
+        "should return non-empty output for unknown shape"
+    );
+}
+
+// ─── Electrical tests ─────────────────────────────────────────────────────────
+
+#[test]
+fn electrical_ohms_law_solve_current() {
+    // V=12, R=100 => I=120mA (SI formatter shows mA)
+    let out = electrical_calc("ohm V=12 R=100");
+    assert!(
+        out.contains("120.0000 mA") || out.contains("0.1200"),
+        "I=V/R=120mA: {out}"
+    );
+}
+
+#[test]
+fn electrical_ohms_law_solve_voltage() {
+    // I=2, R=50 => V=100
+    let out = electrical_calc("ohm I=2 R=50");
+    assert!(out.contains("100.0000"), "V=I*R=100: {out}");
+}
+
+#[test]
+fn electrical_rc_time_constant() {
+    // R=10k=10000, C=100u=0.0001 => tau=1s (displayed as 1000ms by SI formatter)
+    let out = electrical_calc("rc R=10k C=100u");
+    assert!(
+        out.contains("1000.0000 ms") || out.contains("1.0000 s"),
+        "RC tau=1s: {out}"
+    );
+}
+
+#[test]
+fn electrical_db_half_power() {
+    // linear ratio 0.5 => ~-6.02 dB (voltage)
+    let out = electrical_calc("db 0.5");
+    assert!(out.contains("-6.02"), "0.5 linear = -6.02 dB: {out}");
+}
+
+#[test]
+fn electrical_voltage_divider() {
+    // Vin=10, R1=10k, R2=10k => Vout=5
+    let out = electrical_calc("divider Vin=10 R1=10k R2=10k");
+    assert!(
+        out.contains("5.0000"),
+        "equal resistor divider Vout=5: {out}"
+    );
+}
+
+#[test]
+fn electrical_empty_no_panic() {
+    let out = electrical_calc("");
+    assert!(!out.is_empty(), "empty input should return usage");
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
