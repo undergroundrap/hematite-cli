@@ -618,6 +618,55 @@ pub struct CliCockpit {
     )]
     pub plot_y: Option<String>,
 
+    #[arg(
+        long,
+        help_heading = "Headless Reports",
+        value_name = "ELEMENT",
+        help = "Look up a periodic table element — instant, no model, no cloud. Accepts symbol (H, Au), full name (Gold, Hydrogen), or atomic number (79). Shows atomic mass, category, period/group, electronegativity, and state at STP. Example: hematite --periodic Au"
+    )]
+    pub periodic: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Headless Reports",
+        value_name = "TARGET",
+        help = "Compute MD5/SHA1/SHA256/SHA512 checksums of a file or text string. If TARGET is an existing file path, the file is hashed; otherwise the literal text is hashed. Pair with --hash-algo to select a single algorithm. Examples: hematite --hash installer.exe, hematite --hash \"hello world\""
+    )]
+    pub hash: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Headless Reports",
+        value_name = "ALGO",
+        default_value = "all",
+        help = "Hash algorithm for --hash: md5, sha1, sha256, sha512, or 'all' (default). Example: hematite --hash file.zip --hash-algo sha256"
+    )]
+    pub hash_algo: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Headless Reports",
+        value_name = "TEXT",
+        help = "Encode text to a specified format. Pair with --codec (default: base64). Supported codecs: base64, hex, url, rot13, html, binary. Examples: hematite --encode \"hello world\", hematite --encode \"hello\" --codec hex"
+    )]
+    pub encode: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Headless Reports",
+        value_name = "TEXT",
+        help = "Decode text from a specified format. Pair with --codec (default: base64). Supported codecs: base64, hex, url, rot13, html, binary. Examples: hematite --decode \"aGVsbG8gd29ybGQ=\", hematite --decode \"68656c6c6f\" --codec hex"
+    )]
+    pub decode: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Headless Reports",
+        value_name = "FORMAT",
+        help = "Encoding format for --encode and --decode: base64 (default), hex, url, rot13, html, binary."
+    )]
+    pub codec: Option<String>,
+
     #[arg(long, hide = true)]
     pub pdf_extract_helper: Option<String>,
 

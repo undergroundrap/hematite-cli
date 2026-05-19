@@ -850,6 +850,12 @@ mod tests {
             plot_type: None,
             plot_x: None,
             plot_y: None,
+            periodic: None,
+            hash: None,
+            hash_algo: None,
+            encode: None,
+            decode: None,
+            codec: None,
             pdf_extract_helper: None,
             teleported_from: None,
         };

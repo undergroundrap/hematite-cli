@@ -2417,6 +2417,59 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
 
+    if let Some(ref query) = cockpit.periodic {
+        match hematite::tools::scientific::lookup_element(query.trim()) {
+            Ok(result) => println!("{}", result),
+            Err(e) => {
+                eprintln!("{}", e);
+                std::process::exit(1);
+            }
+        }
+        return Ok(());
+    }
+
+    if let Some(ref target) = cockpit.hash {
+        let algo = cockpit.hash_algo.as_deref().unwrap_or("all");
+        match hematite::tools::scientific::hash_input(target.trim(), algo).await {
+            Ok(result) => {
+                println!("{}", result.trim());
+                if cockpit.clipboard {
+                    copy_to_clipboard(&result);
+                    println!("Copied to clipboard.");
+                }
+            }
+            Err(e) => {
+                eprintln!("Error: {}", e);
+                std::process::exit(1);
+            }
+        }
+        return Ok(());
+    }
+
+    if let Some(ref text) = cockpit.encode {
+        let codec = cockpit.codec.as_deref().unwrap_or("base64");
+        match hematite::tools::scientific::encode_decode(text, codec, false).await {
+            Ok(result) => println!("{}", result.trim()),
+            Err(e) => {
+                eprintln!("Error: {}", e);
+                std::process::exit(1);
+            }
+        }
+        return Ok(());
+    }
+
+    if let Some(ref text) = cockpit.decode {
+        let codec = cockpit.codec.as_deref().unwrap_or("base64");
+        match hematite::tools::scientific::encode_decode(text, codec, true).await {
+            Ok(result) => println!("{}", result.trim()),
+            Err(e) => {
+                eprintln!("Error: {}", e);
+                std::process::exit(1);
+            }
+        }
+        return Ok(());
+    }
+
     if let Some(ref file_path) = cockpit.query_data {
         let file_path = file_path.trim();
         let sql = cockpit.sql.as_deref().unwrap_or("").trim().to_string();

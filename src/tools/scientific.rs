@@ -1857,3 +1857,317 @@ print('(' + _label + ')')
     });
     crate::tools::code_sandbox::execute(&sandbox_args).await
 }
+
+// ─── Periodic table ───────────────────────────────────────────────────────────
+// Data columns: Z|symbol|name|mass|category|period|group|electronegativity|state
+// category: nonmetal/halogen/noble/alkali/alkaline/transition/post-trans/metalloid/lanthanide/actinide
+// state: S=solid  L=liquid  G=gas
+// en: 0 = not applicable / unknown on Pauling scale
+
+const ELEMENTS_DATA: &str = r#"1|H|Hydrogen|1.008|nonmetal|1|1|2.20|G
+2|He|Helium|4.003|noble|1|18|0|G
+3|Li|Lithium|6.941|alkali|2|1|0.98|S
+4|Be|Beryllium|9.012|alkaline|2|2|1.57|S
+5|B|Boron|10.811|metalloid|2|13|2.04|S
+6|C|Carbon|12.011|nonmetal|2|14|2.55|S
+7|N|Nitrogen|14.007|nonmetal|2|15|3.04|G
+8|O|Oxygen|15.999|nonmetal|2|16|3.44|G
+9|F|Fluorine|18.998|halogen|2|17|3.98|G
+10|Ne|Neon|20.180|noble|2|18|0|G
+11|Na|Sodium|22.990|alkali|3|1|0.93|S
+12|Mg|Magnesium|24.305|alkaline|3|2|1.31|S
+13|Al|Aluminium|26.982|post-trans|3|13|1.61|S
+14|Si|Silicon|28.085|metalloid|3|14|1.90|S
+15|P|Phosphorus|30.974|nonmetal|3|15|2.19|S
+16|S|Sulfur|32.06|nonmetal|3|16|2.58|S
+17|Cl|Chlorine|35.45|halogen|3|17|3.16|G
+18|Ar|Argon|39.948|noble|3|18|0|G
+19|K|Potassium|39.098|alkali|4|1|0.82|S
+20|Ca|Calcium|40.078|alkaline|4|2|1.00|S
+21|Sc|Scandium|44.956|transition|4|3|1.36|S
+22|Ti|Titanium|47.867|transition|4|4|1.54|S
+23|V|Vanadium|50.942|transition|4|5|1.63|S
+24|Cr|Chromium|51.996|transition|4|6|1.66|S
+25|Mn|Manganese|54.938|transition|4|7|1.55|S
+26|Fe|Iron|55.845|transition|4|8|1.83|S
+27|Co|Cobalt|58.933|transition|4|9|1.88|S
+28|Ni|Nickel|58.693|transition|4|10|1.91|S
+29|Cu|Copper|63.546|transition|4|11|1.90|S
+30|Zn|Zinc|65.38|transition|4|12|1.65|S
+31|Ga|Gallium|69.723|post-trans|4|13|1.81|S
+32|Ge|Germanium|72.630|metalloid|4|14|2.01|S
+33|As|Arsenic|74.922|metalloid|4|15|2.18|S
+34|Se|Selenium|78.971|nonmetal|4|16|2.55|S
+35|Br|Bromine|79.904|halogen|4|17|2.96|L
+36|Kr|Krypton|83.798|noble|4|18|3.00|G
+37|Rb|Rubidium|85.468|alkali|5|1|0.82|S
+38|Sr|Strontium|87.62|alkaline|5|2|0.95|S
+39|Y|Yttrium|88.906|transition|5|3|1.22|S
+40|Zr|Zirconium|91.224|transition|5|4|1.33|S
+41|Nb|Niobium|92.906|transition|5|5|1.60|S
+42|Mo|Molybdenum|95.96|transition|5|6|2.16|S
+43|Tc|Technetium|98|transition|5|7|1.90|S
+44|Ru|Ruthenium|101.07|transition|5|8|2.20|S
+45|Rh|Rhodium|102.906|transition|5|9|2.28|S
+46|Pd|Palladium|106.42|transition|5|10|2.20|S
+47|Ag|Silver|107.868|transition|5|11|1.93|S
+48|Cd|Cadmium|112.414|transition|5|12|1.69|S
+49|In|Indium|114.818|post-trans|5|13|1.78|S
+50|Sn|Tin|118.710|post-trans|5|14|1.96|S
+51|Sb|Antimony|121.760|metalloid|5|15|2.05|S
+52|Te|Tellurium|127.60|metalloid|5|16|2.10|S
+53|I|Iodine|126.904|halogen|5|17|2.66|S
+54|Xe|Xenon|131.293|noble|5|18|2.60|G
+55|Cs|Caesium|132.905|alkali|6|1|0.79|S
+56|Ba|Barium|137.327|alkaline|6|2|0.89|S
+57|La|Lanthanum|138.905|lanthanide|6|0|1.10|S
+58|Ce|Cerium|140.116|lanthanide|6|0|1.12|S
+59|Pr|Praseodymium|140.908|lanthanide|6|0|1.13|S
+60|Nd|Neodymium|144.242|lanthanide|6|0|1.14|S
+61|Pm|Promethium|145|lanthanide|6|0|0|S
+62|Sm|Samarium|150.36|lanthanide|6|0|1.17|S
+63|Eu|Europium|151.964|lanthanide|6|0|0|S
+64|Gd|Gadolinium|157.25|lanthanide|6|0|1.20|S
+65|Tb|Terbium|158.925|lanthanide|6|0|0|S
+66|Dy|Dysprosium|162.500|lanthanide|6|0|1.22|S
+67|Ho|Holmium|164.930|lanthanide|6|0|1.23|S
+68|Er|Erbium|167.259|lanthanide|6|0|1.24|S
+69|Tm|Thulium|168.934|lanthanide|6|0|1.25|S
+70|Yb|Ytterbium|173.054|lanthanide|6|0|0|S
+71|Lu|Lutetium|174.967|lanthanide|6|0|1.27|S
+72|Hf|Hafnium|178.49|transition|6|4|1.30|S
+73|Ta|Tantalum|180.948|transition|6|5|1.50|S
+74|W|Tungsten|183.84|transition|6|6|2.36|S
+75|Re|Rhenium|186.207|transition|6|7|1.90|S
+76|Os|Osmium|190.23|transition|6|8|2.20|S
+77|Ir|Iridium|192.217|transition|6|9|2.20|S
+78|Pt|Platinum|195.084|transition|6|10|2.28|S
+79|Au|Gold|196.967|transition|6|11|2.54|S
+80|Hg|Mercury|200.592|transition|6|12|2.00|L
+81|Tl|Thallium|204.38|post-trans|6|13|1.62|S
+82|Pb|Lead|207.2|post-trans|6|14|2.33|S
+83|Bi|Bismuth|208.980|post-trans|6|15|2.02|S
+84|Po|Polonium|209|metalloid|6|16|2.00|S
+85|At|Astatine|210|halogen|6|17|2.20|S
+86|Rn|Radon|222|noble|6|18|0|G
+87|Fr|Francium|223|alkali|7|1|0.70|S
+88|Ra|Radium|226|alkaline|7|2|0.90|S
+89|Ac|Actinium|227|actinide|7|0|1.10|S
+90|Th|Thorium|232.038|actinide|7|0|1.30|S
+91|Pa|Protactinium|231.036|actinide|7|0|1.50|S
+92|U|Uranium|238.029|actinide|7|0|1.38|S
+93|Np|Neptunium|237|actinide|7|0|1.36|S
+94|Pu|Plutonium|244|actinide|7|0|1.28|S
+95|Am|Americium|243|actinide|7|0|1.30|S
+96|Cm|Curium|247|actinide|7|0|1.30|S
+97|Bk|Berkelium|247|actinide|7|0|1.30|S
+98|Cf|Californium|251|actinide|7|0|1.30|S
+99|Es|Einsteinium|252|actinide|7|0|1.30|S
+100|Fm|Fermium|257|actinide|7|0|1.30|S
+101|Md|Mendelevium|258|actinide|7|0|1.30|S
+102|No|Nobelium|259|actinide|7|0|1.30|S
+103|Lr|Lawrencium|266|actinide|7|0|0|S
+104|Rf|Rutherfordium|267|transition|7|4|0|S
+105|Db|Dubnium|268|transition|7|5|0|S
+106|Sg|Seaborgium|271|transition|7|6|0|S
+107|Bh|Bohrium|272|transition|7|7|0|S
+108|Hs|Hassium|270|transition|7|8|0|S
+109|Mt|Meitnerium|276|transition|7|9|0|S
+110|Ds|Darmstadtium|281|transition|7|10|0|S
+111|Rg|Roentgenium|280|transition|7|11|0|S
+112|Cn|Copernicium|285|transition|7|12|0|S
+113|Nh|Nihonium|284|post-trans|7|13|0|S
+114|Fl|Flerovium|289|post-trans|7|14|0|S
+115|Mc|Moscovium|288|post-trans|7|15|0|S
+116|Lv|Livermorium|293|post-trans|7|16|0|S
+117|Ts|Tennessine|294|halogen|7|17|0|S
+118|Og|Oganesson|294|noble|7|18|0|G"#;
+
+pub fn lookup_element(query: &str) -> Result<String, String> {
+    let q = query.trim();
+    if q.is_empty() {
+        return Err("No element specified. Try a symbol (H, Au), name (Gold), or atomic number (79).".into());
+    }
+    let q_lower = q.to_ascii_lowercase();
+    let q_num: Option<u32> = q.parse().ok();
+
+    for line in ELEMENTS_DATA.lines() {
+        let f: Vec<&str> = line.splitn(9, '|').collect();
+        if f.len() < 9 { continue; }
+        let z: u32 = f[0].parse().unwrap_or(0);
+        let sym  = f[1];
+        let name = f[2];
+
+        let matched = q_num.map_or(false, |n| n == z)
+            || sym.eq_ignore_ascii_case(q)
+            || name.to_ascii_lowercase().starts_with(&q_lower);
+        if !matched { continue; }
+
+        let mass_raw  = f[3];
+        let cat_raw   = f[4];
+        let period    = f[5];
+        let group     = f[6];
+        let en_raw    = f[7];
+        let state_raw = f[8];
+
+        let category = match cat_raw {
+            "alkali"     => "Alkali Metal",
+            "alkaline"   => "Alkaline Earth Metal",
+            "transition" => "Transition Metal",
+            "post-trans" => "Post-Transition Metal",
+            "metalloid"  => "Metalloid",
+            "nonmetal"   => "Nonmetal",
+            "halogen"    => "Halogen",
+            "noble"      => "Noble Gas",
+            "lanthanide" => "Lanthanide",
+            "actinide"   => "Actinide",
+            other        => other,
+        };
+        let group_disp = if group == "0" {
+            match cat_raw { "lanthanide" => "La series", "actinide" => "Ac series", _ => "\u{2014}" }
+        } else {
+            group
+        };
+        let en_disp = if en_raw == "0" {
+            "N/A".to_string()
+        } else {
+            format!("{} (Pauling)", en_raw)
+        };
+        let state_disp = match state_raw {
+            "S" => "Solid", "L" => "Liquid", "G" => "Gas", _ => "Unknown",
+        };
+        let mass_disp = if mass_raw.contains('.') {
+            format!("{} u", mass_raw)
+        } else {
+            format!("{} u  (most stable isotope)", mass_raw)
+        };
+
+        return Ok(format!(
+            "{sym}  {name}  (Z = {z})\n\
+             {sep}\n\
+             Atomic Mass:         {mass_disp}\n\
+             Category:            {category}\n\
+             Period / Group:      {period} / {group_disp}\n\
+             Electronegativity:   {en_disp}\n\
+             State at STP:        {state_disp}",
+            sep = "\u{2500}".repeat(42),
+        ));
+    }
+
+    Err(format!(
+        "Element '{}' not found.\nTry: symbol (H, Au, Fe), name (Gold, Iron), or atomic number (79, 26).",
+        q
+    ))
+}
+
+// ─── File / text hash ─────────────────────────────────────────────────────────
+
+pub async fn hash_input(input: &str, algo: &str) -> Result<String, String> {
+    let safe_input = input.replace('\\', "\\\\").replace('"', "\\\"");
+    let safe_algo  = algo.trim().to_ascii_lowercase().replace('"', "");
+
+    let script = format!(
+        r####"import hashlib, os, sys
+
+_target = "{safe_input}"
+_algo   = "{safe_algo}"
+
+_is_file = os.path.isfile(_target)
+if _is_file:
+    with open(_target, 'rb') as _fh:
+        _data = _fh.read()
+    _sz = len(_data)
+    if _sz >= 1_048_576:   _szlbl = "%.2f MB" % (_sz / 1_048_576)
+    elif _sz >= 1024:      _szlbl = "%.1f KB" % (_sz / 1024)
+    else:                  _szlbl = str(_sz) + " bytes"
+    _label = "File: " + _target + "  (" + _szlbl + ")"
+else:
+    _data  = _target.encode('utf-8')
+    _label = 'Text: "' + _target + '"'
+
+_algos = ['md5', 'sha1', 'sha256', 'sha512'] if _algo in ('all', '') else [_algo]
+print(_label)
+print()
+for _a in _algos:
+    try:
+        _h = hashlib.new(_a)
+        _h.update(_data)
+        print(_a.upper().ljust(10) + _h.hexdigest())
+    except ValueError as _e:
+        print(_a + ": " + str(_e), file=sys.stderr); sys.exit(1)
+"####,
+        safe_input = safe_input,
+        safe_algo  = safe_algo,
+    );
+
+    let sandbox_args = serde_json::json!({
+        "language": "python",
+        "code": script,
+        "timeout_seconds": 30
+    });
+    crate::tools::code_sandbox::execute(&sandbox_args).await
+}
+
+// ─── Encoding utilities ───────────────────────────────────────────────────────
+
+pub async fn encode_decode(text: &str, codec: &str, is_decode: bool) -> Result<String, String> {
+    let text_hex: String = text.bytes().map(|b| format!("{:02x}", b)).collect();
+    let safe_codec = codec.trim().to_ascii_lowercase().replace('"', "");
+    let mode = if is_decode { "decode" } else { "encode" };
+
+    let script = format!(
+        r####"import base64 as _b64, binascii as _ba, sys
+import urllib.parse as _up
+
+_text  = bytes.fromhex("{text_hex}").decode('utf-8', errors='replace')
+_codec = "{safe_codec}"
+_mode  = "{mode}"
+_CODECS = "base64  hex  url  rot13  html  binary"
+
+try:
+    if _mode == "encode":
+        if _codec in ("base64", "b64", ""):
+            print(_b64.b64encode(_text.encode('utf-8')).decode())
+        elif _codec in ("hex", "hexadecimal"):
+            print(_ba.hexlify(_text.encode('utf-8')).decode())
+        elif _codec in ("url", "urlencode", "percent"):
+            print(_up.quote(_text, safe=''))
+        elif _codec == "rot13":
+            import codecs as _cd; print(_cd.encode(_text, 'rot_13'))
+        elif _codec in ("html", "htmlentities"):
+            import html as _ht; print(_ht.escape(_text))
+        elif _codec in ("binary", "bin"):
+            print(' '.join(bin(b)[2:].zfill(8) for b in _text.encode('utf-8')))
+        else:
+            print("Unknown codec: " + _codec + ".  Supported: " + _CODECS, file=sys.stderr); sys.exit(1)
+    else:
+        if _codec in ("base64", "b64", ""):
+            print(_b64.b64decode(_text.strip() + "==").decode('utf-8', errors='replace'))
+        elif _codec in ("hex", "hexadecimal"):
+            print(_ba.unhexlify(_text.replace(' ', '')).decode('utf-8', errors='replace'))
+        elif _codec in ("url", "urlencode", "percent"):
+            print(_up.unquote(_text))
+        elif _codec == "rot13":
+            import codecs as _cd; print(_cd.decode(_text, 'rot_13'))
+        elif _codec in ("html", "htmlentities"):
+            import html as _ht; print(_ht.unescape(_text))
+        elif _codec in ("binary", "bin"):
+            _bytes = bytes(int(b, 2) for b in _text.split() if b)
+            print(_bytes.decode('utf-8', errors='replace'))
+        else:
+            print("Unknown codec: " + _codec + ".  Supported: " + _CODECS, file=sys.stderr); sys.exit(1)
+except Exception as _e:
+    print("Error: " + str(_e), file=sys.stderr); sys.exit(1)
+"####,
+        text_hex   = text_hex,
+        safe_codec = safe_codec,
+        mode       = mode,
+    );
+
+    let sandbox_args = serde_json::json!({
+        "language": "python",
+        "code": script,
+        "timeout_seconds": 10
+    });
+    crate::tools::code_sandbox::execute(&sandbox_args).await
+}
