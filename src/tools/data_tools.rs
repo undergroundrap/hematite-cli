@@ -636,3 +636,288 @@ for rk in row_keys:
     });
     crate::tools::code_sandbox::execute(&sandbox_args).await
 }
+
+// ── Multivariate linear regression ───────────────────────────────────────────
+// OLS via normal equations: β = (XᵀX)⁻¹Xᵀy
+// Supports one or more predictor columns. Reports coefficients, R², RMSE,
+// and predicted vs actual for first 10 rows.
+
+pub async fn linear_regression(
+    file_path: &str,
+    predictors: &[&str],
+    target: &str,
+) -> Result<String, String> {
+    let hex_path:   String = file_path.bytes().map(|b| format!("{:02x}", b)).collect();
+    let hex_target: String = target.bytes().map(|b| format!("{:02x}", b)).collect();
+    let preds_joined = predictors.join("\n");
+    let hex_preds:  String = preds_joined.bytes().map(|b| format!("{:02x}", b)).collect();
+
+    let script = format!(r####"import csv as _csv, json as _js, sqlite3 as _sq, os, sys, math
+
+_path   = bytes.fromhex("{hex_path}").decode().strip()
+_target = bytes.fromhex("{hex_target}").decode().strip()
+_preds_raw = bytes.fromhex("{hex_preds}").decode().strip()
+_preds  = [p.strip() for p in _preds_raw.split('\n') if p.strip()] if _preds_raw else []
+
+def _load(path):
+    ext = os.path.splitext(path)[1].lower().lstrip('.')
+    if ext in ('csv','tsv'):
+        with open(path, encoding='utf-8-sig', errors='replace', newline='') as fh:
+            r = _csv.DictReader(fh, delimiter='\t' if ext=='tsv' else ',')
+            return list(r)
+    elif ext == 'json':
+        with open(path, encoding='utf-8') as fh: d = _js.load(fh)
+        return d if isinstance(d, list) else next(iter(d.values()), [])
+    elif ext in ('db','sqlite','sqlite3'):
+        con = _sq.connect(path)
+        cur = con.cursor()
+        cur.execute("SELECT name FROM sqlite_master WHERE type='table' LIMIT 1")
+        t = cur.fetchone()
+        if not t: return []
+        cur.execute("SELECT * FROM [%s]" % t[0])
+        cols2 = [d[0] for d in cur.description]
+        rows2 = [dict(zip(cols2, r)) for r in cur.fetchall()]
+        con.close()
+        return rows2
+    print("Unsupported: "+ext, file=sys.stderr); sys.exit(1)
+
+def _tf(v):
+    try: return float(str(v).replace(',','').strip())
+    except: return None
+
+rows = _load(_path)
+if not rows:
+    print("No rows found."); sys.exit(0)
+
+all_cols = list(rows[0].keys())
+num_cols = [c for c in all_cols if sum(1 for r in rows if _tf(r.get(c,'')) is not None) >= len(rows)*0.5]
+
+if not _target:
+    _target = num_cols[-1] if num_cols else ''
+if not _preds:
+    _preds = [c for c in num_cols if c != _target]
+
+if not _target:
+    print("No target column. Use --regression-target COL"); sys.exit(1)
+if not _preds:
+    print("No predictor columns. Use --regression-predictors COL1,COL2,..."); sys.exit(1)
+
+valid = []
+for r in rows:
+    y = _tf(r.get(_target,''))
+    xs = [_tf(r.get(pp,'')) for pp in _preds]
+    if y is not None and all(x is not None for x in xs):
+        valid.append((xs, y))
+
+n = len(valid)
+pp = len(_preds)
+if n < pp + 2:
+    print("Not enough valid rows (%d) for %d predictors." % (n, pp)); sys.exit(1)
+
+X = [[1.0] + row[0] for row in valid]
+y = [row[1] for row in valid]
+
+def _mat_mul_sq(A, B):
+    ra,ca = len(A),len(A[0]); cb = len(B[0])
+    return [[sum(A[i][k]*B[k][j] for k in range(ca)) for j in range(cb)] for i in range(ra)]
+
+def _mat_T(A):
+    return [[A[i][j] for i in range(len(A))] for j in range(len(A[0]))]
+
+def _lu_solve(A, b):
+    n2 = len(A)
+    M = [row[:] + [b[i]] for i,row in enumerate(A)]
+    for col in range(n2):
+        pivot = max(range(col,n2), key=lambda r2: abs(M[r2][col]))
+        M[col],M[pivot] = M[pivot],M[col]
+        if abs(M[col][col]) < 1e-12: return None
+        for row in range(col+1,n2):
+            f = M[row][col]/M[col][col]
+            for j in range(col,n2+1): M[row][j] -= f*M[col][j]
+    x2 = [0.0]*n2
+    for i in range(n2-1,-1,-1):
+        x2[i] = (M[i][n2] - sum(M[i][j]*x2[j] for j in range(i+1,n2))) / M[i][i]
+    return x2
+
+Xt = _mat_T(X)
+XtX_sq = _mat_mul_sq(Xt, X)
+Xty = [sum(Xt[i][k]*y[k] for k in range(n)) for i in range(pp+1)]
+beta = _lu_solve(XtX_sq, Xty)
+if beta is None:
+    print("Matrix is singular — check for collinear predictors."); sys.exit(1)
+
+preds_vals = [sum(beta[j]*X[i][j] for j in range(pp+1)) for i in range(n)]
+residuals  = [y[i]-preds_vals[i] for i in range(n)]
+ss_res = sum(r**2 for r in residuals)
+ym = sum(y)/n
+ss_tot = sum((v-ym)**2 for v in y)
+r2 = 1 - ss_res/ss_tot if ss_tot else 0
+rmse = math.sqrt(ss_res/n)
+adj_r2 = 1 - (1-r2)*(n-1)/(n-pp-1) if n > pp+1 else float('nan')
+
+W = 64
+print("="*W)
+print(" Linear Regression — %s" % os.path.basename(_path))
+print(" Target: %-20s   N=%d   Predictors=%d" % (_target, n, pp))
+print("-"*W)
+print("  Coefficients:")
+print("    %-20s  %12.6f" % ("(intercept)", beta[0]))
+for i2,c2 in enumerate(_preds):
+    print("    %-20s  %12.6f" % (c2[:20], beta[i2+1]))
+print("-"*W)
+print("  R²         = %.6f" % r2)
+print("  Adj. R²    = %.6f" % adj_r2)
+print("  RMSE       = %.6f" % rmse)
+print("  Residuals  min=%.4g  max=%.4g  mean=%.4g" % (min(residuals), max(residuals), sum(residuals)/n))
+print("-"*W)
+terms = ["%.4g" % beta[0]]
+for i2,c2 in enumerate(_preds):
+    sign = "+" if beta[i2+1] >= 0 else "-"
+    terms.append("%s %.4g*%s" % (sign, abs(beta[i2+1]), c2))
+print("  Equation: %s = %s" % (_target, " ".join(terms)))
+print("="*W)
+print()
+print("  First 10 predictions vs actual:")
+print("  %-10s  %-10s  %-10s" % ("Actual", "Predicted", "Residual"))
+for i3 in range(min(10,n)):
+    print("  %-10.4g  %-10.4g  %-10.4g" % (y[i3], preds_vals[i3], residuals[i3]))
+"####,
+        hex_path   = hex_path,
+        hex_target = hex_target,
+        hex_preds  = hex_preds,
+    );
+
+    let sandbox_args = serde_json::json!({
+        "language": "python",
+        "code": script,
+        "timeout_seconds": 30
+    });
+    crate::tools::code_sandbox::execute(&sandbox_args).await
+}
+
+// ── Outlier detection ─────────────────────────────────────────────────────────
+// IQR (1.5× fence) and Z-score (|z|>3) detection.
+// Optional: output clean CSV with outliers removed.
+
+pub async fn detect_outliers(
+    file_path: &str,
+    col: &str,
+    output: &str,
+) -> Result<String, String> {
+    let hex_path:   String = file_path.bytes().map(|b| format!("{:02x}", b)).collect();
+    let hex_col:    String = col.bytes().map(|b| format!("{:02x}", b)).collect();
+    let hex_output: String = output.bytes().map(|b| format!("{:02x}", b)).collect();
+
+    let script = format!(r####"import csv as _csv, json as _js, sqlite3 as _sq, os, sys, math
+
+_path   = bytes.fromhex("{hex_path}").decode().strip()
+_col    = bytes.fromhex("{hex_col}").decode().strip()
+_output = bytes.fromhex("{hex_output}").decode().strip()
+
+def _load(path):
+    ext = os.path.splitext(path)[1].lower().lstrip('.')
+    if ext in ('csv','tsv'):
+        with open(path, encoding='utf-8-sig', errors='replace', newline='') as fh:
+            rd = _csv.DictReader(fh, delimiter='\t' if ext=='tsv' else ',')
+            data = list(rd)
+            fns = list(rd.fieldnames or [])
+            return data, fns
+    elif ext == 'json':
+        with open(path, encoding='utf-8') as fh: d = _js.load(fh)
+        rows2 = d if isinstance(d, list) else next(iter(d.values()), [])
+        fns2 = list(rows2[0].keys()) if rows2 else []
+        return rows2, fns2
+    elif ext in ('db','sqlite','sqlite3'):
+        con = _sq.connect(path)
+        cur = con.cursor()
+        cur.execute("SELECT name FROM sqlite_master WHERE type='table' LIMIT 1")
+        t = cur.fetchone()
+        if not t: return [], []
+        cur.execute("SELECT * FROM [%s]" % t[0])
+        cols2 = [d2[0] for d2 in cur.description]
+        rows3 = [dict(zip(cols2, r)) for r in cur.fetchall()]
+        con.close()
+        return rows3, cols2
+    print("Unsupported: "+ext, file=sys.stderr); sys.exit(1)
+
+def _tf(v):
+    try: return float(str(v).replace(',','').strip())
+    except: return None
+
+def _pct(data, p):
+    s = sorted(data); n = len(s)
+    idx = (p/100.0)*(n-1); lo = int(idx); hi = lo+1; frac = idx-lo
+    return s[-1] if hi >= n else s[lo]+frac*(s[hi]-s[lo])
+
+rows, fieldnames = _load(_path)
+if not rows:
+    print("No rows found."); sys.exit(0)
+
+all_cols = list(rows[0].keys())
+if _col:
+    target_cols = [c for c in all_cols if c.lower() == _col.lower()]
+    if not target_cols:
+        print("Column '%s' not found. Available: %s" % (_col, ', '.join(all_cols))); sys.exit(1)
+else:
+    target_cols = [c for c in all_cols
+                   if sum(1 for r in rows if _tf(r.get(c,'')) is not None) >= len(rows)*0.5]
+
+W = 68
+print("="*W)
+print(" Outlier Detection — %s  (%d rows)" % (os.path.basename(_path), len(rows)))
+print("-"*W)
+
+outlier_row_indices = set()
+for c in target_cols:
+    valid = [(i, _tf(r.get(c,''))) for i,r in enumerate(rows)]
+    valid = [(i,v) for i,v in valid if v is not None]
+    if len(valid) < 4: continue
+    vs = [v for _,v in valid]
+    mean = sum(vs)/len(vs)
+    std  = math.sqrt(sum((x-mean)**2 for x in vs)/len(vs))
+    q1 = _pct(vs,25); q3 = _pct(vs,75); iqr = q3-q1
+    lo_fence = q1 - 1.5*iqr; hi_fence = q3 + 1.5*iqr
+    iqr_out = [(i,v) for i,v in valid if v < lo_fence or v > hi_fence]
+    z_out   = [(i,v) for i,v in valid if std > 0 and abs((v-mean)/std) > 3]
+    print()
+    print("  Column: %s  (n=%d  mean=%.4g  std=%.4g)" % (c, len(vs), mean, std))
+    print("  IQR fence: [%.4g, %.4g]    IQR outliers: %d" % (lo_fence, hi_fence, len(iqr_out)))
+    print("  Z-score |z|>3:  Z outliers: %d" % len(z_out))
+    if iqr_out:
+        print("  IQR outliers (row, value):")
+        for i,v in iqr_out[:10]:
+            z = (v-mean)/std if std > 0 else float('nan')
+            print("    row %-5d  value=%-12g  z=%.3f" % (i+1, v, z))
+            outlier_row_indices.add(i)
+        if len(iqr_out) > 10:
+            print("    ... and %d more" % (len(iqr_out)-10))
+    else:
+        print("  No IQR outliers found.")
+
+print()
+print("="*W)
+print("  Total outlier rows (IQR): %d / %d  (%.1f%%)" % (
+    len(outlier_row_indices), len(rows), 100*len(outlier_row_indices)/max(1,len(rows))))
+
+if _output and outlier_row_indices:
+    clean = [r for i,r in enumerate(rows) if i not in outlier_row_indices]
+    fns2 = fieldnames if fieldnames else (list(clean[0].keys()) if clean else [])
+    with open(_output, 'w', newline='', encoding='utf-8') as fh:
+        w = _csv.DictWriter(fh, fieldnames=fns2)
+        w.writeheader(); w.writerows(clean)
+    print("  Clean data (%d rows) saved to: %s" % (len(clean), _output))
+elif _output:
+    print("  No outliers to remove — output file not written.")
+"####,
+        hex_path   = hex_path,
+        hex_col    = hex_col,
+        hex_output = hex_output,
+    );
+
+    let sandbox_args = serde_json::json!({
+        "language": "python",
+        "code": script,
+        "timeout_seconds": 30
+    });
+    crate::tools::code_sandbox::execute(&sandbox_args).await
+}

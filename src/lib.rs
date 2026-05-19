@@ -1000,6 +1000,34 @@ pub struct CliCockpit {
         long,
         help_heading = "Data Analysis",
         value_name = "FILE",
+        help = "Multivariate OLS linear regression from a CSV/TSV/JSON/SQLite file. Use --regression-target to specify the dependent variable and --regression-predictors for a comma-separated list of independent variables. Example: hematite --regression data.csv --regression-target price --regression-predictors sqft,bedrooms,bathrooms"
+    )]
+    pub regression: Option<String>,
+
+    #[arg(long, help_heading = "Data Analysis", value_name = "COL", help = "Target (dependent) column for --regression (auto-detected if omitted).")]
+    pub regression_target: Option<String>,
+
+    #[arg(long, help_heading = "Data Analysis", value_name = "COL1,COL2,...", help = "Predictor (independent) columns for --regression, comma-separated (auto-detected if omitted).")]
+    pub regression_predictors: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Data Analysis",
+        value_name = "FILE",
+        help = "Detect outliers using IQR (1.5× fence) and Z-score (|z|>3) in all numeric columns or a specific column. Use --outlier-col COL and --outlier-output FILE to save clean data. Example: hematite --outliers data.csv --outlier-col salary --outlier-output clean.csv"
+    )]
+    pub outliers: Option<String>,
+
+    #[arg(long, help_heading = "Data Analysis", value_name = "COL", help = "Column to analyze for --outliers (default: all numeric columns).")]
+    pub outlier_col: Option<String>,
+
+    #[arg(long, help_heading = "Data Analysis", value_name = "FILE", help = "Save clean data (outliers removed) to this CSV path.")]
+    pub outlier_output: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Data Analysis",
+        value_name = "FILE",
         help = "Random-sample rows from a CSV/TSV/JSON/SQLite file. Use --sample-n or --sample-frac for size; --split for train/test; --sample-output DIR to save files. Example: hematite --sample data.csv --sample-n 200 --split 0.8 --sample-output out/"
     )]
     pub sample: Option<String>,

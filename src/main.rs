@@ -2814,6 +2814,37 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
 
+    if let Some(ref file_path) = cockpit.regression {
+        let target = cockpit.regression_target.as_deref().unwrap_or("");
+        let preds_str = cockpit.regression_predictors.as_deref().unwrap_or("");
+        let preds: Vec<&str> = if preds_str.is_empty() {
+            vec![]
+        } else {
+            preds_str.split(',').map(str::trim).collect()
+        };
+        match hematite::tools::data_tools::linear_regression(file_path.trim(), &preds, target).await {
+            Ok(result) => {
+                println!("{}", result.trim());
+                if cockpit.clipboard { copy_to_clipboard(&result); println!("Copied to clipboard."); }
+            }
+            Err(e) => eprintln!("Error: {}", e),
+        }
+        return Ok(());
+    }
+
+    if let Some(ref file_path) = cockpit.outliers {
+        let col    = cockpit.outlier_col.as_deref().unwrap_or("");
+        let output = cockpit.outlier_output.as_deref().unwrap_or("");
+        match hematite::tools::data_tools::detect_outliers(file_path.trim(), col, output).await {
+            Ok(result) => {
+                println!("{}", result.trim());
+                if cockpit.clipboard { copy_to_clipboard(&result); println!("Copied to clipboard."); }
+            }
+            Err(e) => eprintln!("Error: {}", e),
+        }
+        return Ok(());
+    }
+
     if let Some(ref file_path) = cockpit.sample {
         let n       = cockpit.sample_n.unwrap_or(0);
         let frac    = cockpit.sample_frac.unwrap_or(0.0);
