@@ -707,6 +707,21 @@ pub struct CliCockpit {
     #[arg(long, help_heading = "Math & Science", value_name = "QUERY", help = "Propositional logic — truth table, SAT, tautology, CNF/DNF, equivalence, simplify. Example: hematite --logic 'A and (B or not C)'  or  'equiv A->B ; not A or B'")]
     pub logic: Option<String>,
 
+    #[arg(long, help_heading = "Data Analysis", value_name = "DATA", help = "Statistical hypothesis test — t-tests, chi-square, ANOVA, Mann-Whitney, Pearson, proportion z-test, confidence intervals. Provide comma-separated numbers or 'successes,n' for proportions. Example: hematite --hypothesis '2.1,2.8,3.2,2.5' --hypothesis-test one-t --hypothesis-mu 2.0")]
+    pub hypothesis: Option<String>,
+
+    #[arg(long, help_heading = "Data Analysis", value_name = "TYPE", help = "Test type for --hypothesis. Options: one-t two-t paired chi2 anova mannwhitney pearson proportion prop2 ci. Default: one-t.")]
+    pub hypothesis_test: Option<String>,
+
+    #[arg(long, help_heading = "Data Analysis", value_name = "DATA", help = "Second group data for --hypothesis (two-t, paired, mannwhitney, pearson, prop2). Comma-separated numbers or 'successes,n'.")]
+    pub hypothesis_group2: Option<String>,
+
+    #[arg(long, help_heading = "Data Analysis", value_name = "ALPHA", help = "Significance level for --hypothesis (default: 0.05).")]
+    pub hypothesis_alpha: Option<f64>,
+
+    #[arg(long, help_heading = "Data Analysis", value_name = "MU", help = "Null hypothesis mean or proportion for --hypothesis one-t or proportion tests (default: 0.0).")]
+    pub hypothesis_mu: Option<f64>,
+
     #[arg(
         long,
         help_heading = "Headless Reports",

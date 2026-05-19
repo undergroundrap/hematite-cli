@@ -1684,3 +1684,319 @@ else:
     });
     crate::tools::code_sandbox::execute(&sandbox_args).await
 }
+
+// ── Statistical hypothesis testing ───────────────────────────────────────────
+// t-tests, chi-square, ANOVA, Mann-Whitney, Pearson, proportion z-test,
+// confidence intervals — all via Python stdlib (statistics, math only).
+pub async fn hypothesis_test(
+    test_type: &str,
+    group1_str: &str,
+    group2_str: &str,
+    alpha: f64,
+    mu: f64,
+) -> Result<String, String> {
+    let hex_test:   String = test_type.bytes().map(|b| format!("{:02x}", b)).collect();
+    let hex_g1:     String = group1_str.bytes().map(|b| format!("{:02x}", b)).collect();
+    let hex_g2:     String = group2_str.bytes().map(|b| format!("{:02x}", b)).collect();
+
+    let script = format!(r####"import math, statistics as _st, sys
+
+_test  = bytes.fromhex("{hex_test}").decode().strip().lower()
+_g1s   = bytes.fromhex("{hex_g1}").decode().strip()
+_g2s   = bytes.fromhex("{hex_g2}").decode().strip()
+_alpha = {alpha}
+_mu0   = {mu}
+W = 60
+
+def parse_nums(s):
+    if not s: return []
+    try:
+        return [float(x.strip()) for x in s.replace(';',',').split(',') if x.strip()]
+    except:
+        return []
+
+def fmt_p(p):
+    if p < 0.001: return "< 0.001"
+    return "%.4f" % p
+
+def decision(p, alpha):
+    if p < alpha:
+        return "REJECT H0  (p %s < a=%.2f)" % (fmt_p(p), alpha)
+    return "FAIL TO REJECT H0  (p %s >= a=%.2f)" % (fmt_p(p), alpha)
+
+def t_cdf(t, df):
+    x = df / (df + t*t)
+    def betainc(a, b, xv):
+        if xv<=0: return 0.0
+        if xv>=1: return 1.0
+        tiny=1e-300; fp_min=tiny
+        qab=a+b; qap=a+1; qam=a-1
+        c=1.0; d=1.0-qab*xv/qap
+        if abs(d)<fp_min: d=fp_min
+        d=1.0/d; h=d
+        for m in range(1,201):
+            m2=2*m; aa=m*(b-m)*xv/((qam+m2)*(a+m2))
+            d=1.0+aa*d
+            if abs(d)<fp_min: d=fp_min
+            c=1.0+aa/c
+            if abs(c)<fp_min: c=fp_min
+            d=1.0/d; h*=d*c
+            aa=-(a+m)*(qab+m)*xv/((a+m2)*(qap+m2))
+            d=1.0+aa*d
+            if abs(d)<fp_min: d=fp_min
+            c=1.0+aa/c
+            if abs(c)<fp_min: c=fp_min
+            d=1.0/d; delta=d*c; h*=delta
+            if abs(delta-1.0)<3e-7: break
+        return math.exp(math.lgamma(a+b)-math.lgamma(a)-math.lgamma(b)+
+                        a*math.log(xv)+b*math.log(1-xv))*h/a
+    a=df/2; b=0.5
+    ibeta=betainc(b,a,x)
+    return ibeta
+
+def normal_cdf_h(z):
+    return 0.5*(1+math.erf(z/math.sqrt(2)))
+
+def chi2_pval(chi2, df):
+    a=df/2.0; x2=chi2/2.0
+    if x2<=0: return 1.0
+    if x2<a+1:
+        ap=a; delta=s=1.0/a
+        for _ in range(300):
+            ap+=1; delta*=x2/ap; s+=delta
+            if abs(delta)<abs(s)*1e-9: break
+        p=s*math.exp(-x2+a*math.log(x2)-math.lgamma(a))
+        return max(0.0,min(1.0,1.0-p))
+    else:
+        b=x2+1-a; c=1e300; d=1.0/b; h=d
+        for i in range(1,301):
+            an=-i*(i-a); b+=2
+            d=an*d+b
+            if abs(d)<1e-300: d=1e-300
+            c=b+an/c
+            if abs(c)<1e-300: c=1e-300
+            d=1.0/d; delta=d*c; h*=delta
+            if abs(delta-1.0)<1e-9: break
+        q=math.exp(-x2+a*math.log(x2)-math.lgamma(a))*h
+        return max(0.0,min(1.0,q))
+
+def f_pval(f, df1, df2):
+    x=df2/(df2+df1*f)
+    def betainc(a, b, xv):
+        if xv<=0: return 0.0
+        if xv>=1: return 1.0
+        tiny=1e-300; fp_min=tiny
+        qab=a+b; qap=a+1; qam=a-1
+        c=1.0; d=1.0-qab*xv/qap
+        if abs(d)<fp_min: d=fp_min
+        d=1.0/d; h=d
+        for m in range(1,201):
+            m2=2*m; aa=m*(b-m)*xv/((qam+m2)*(a+m2))
+            d=1.0+aa*d
+            if abs(d)<fp_min: d=fp_min
+            c=1.0+aa/c
+            if abs(c)<fp_min: c=fp_min
+            d=1.0/d; h*=d*c
+            aa=-(a+m)*(qab+m)*xv/((a+m2)*(qap+m2))
+            d=1.0+aa*d
+            if abs(d)<fp_min: d=fp_min
+            c=1.0+aa/c
+            if abs(c)<fp_min: c=fp_min
+            d=1.0/d; delta=d*c; h*=delta
+            if abs(delta-1.0)<3e-7: break
+        return math.exp(math.lgamma(a+b)-math.lgamma(a)-math.lgamma(b)+
+                        a*math.log(xv)+b*math.log(1-xv))*h/a
+    return betainc(df2/2,df1/2,x)
+
+print("="*W)
+print("  HYPOTHESIS TEST")
+print("="*W)
+
+if _test in ("one-t","one_t","onesample","one-sample","t1","t-one"):
+    g1=parse_nums(_g1s)
+    if len(g1)<2: print("  ERROR: need >=2 values for one-sample t-test"); sys.exit(0)
+    n=len(g1); xbar=_st.mean(g1); s=_st.stdev(g1)
+    se=s/math.sqrt(n); t=(xbar-_mu0)/se; df=n-1
+    p=t_cdf(abs(t),df)
+    print("  One-Sample t-Test  (H0: mu = %.4g)" % _mu0)
+    print("  n=%-5d  xbar=%.4f  s=%.4f  SE=%.4f" % (n,xbar,s,se))
+    print("  t=%.4f  df=%d  p=%s" % (t,df,fmt_p(p)))
+    from_t=1.96 if df>30 else (2.093 if df>19 else (2.262 if df>9 else 2.776))
+    lo=xbar-from_t*se; hi=xbar+from_t*se
+    print("  %.0f%% CI: [%.4f, %.4f]" % ((1-_alpha)*100,lo,hi))
+    print(); print("  "+decision(p,_alpha))
+
+elif _test in ("two-t","two_t","twosample","two-sample","welch","t2","t-two"):
+    g1=parse_nums(_g1s); g2=parse_nums(_g2s)
+    if len(g1)<2 or len(g2)<2: print("  ERROR: need >=2 values in each group"); sys.exit(0)
+    n1=len(g1); n2=len(g2)
+    x1=_st.mean(g1); x2=_st.mean(g2)
+    s1=_st.stdev(g1); s2=_st.stdev(g2)
+    se=math.sqrt(s1**2/n1+s2**2/n2)
+    t=(x1-x2)/se
+    df=(s1**2/n1+s2**2/n2)**2/((s1**2/n1)**2/(n1-1)+(s2**2/n2)**2/(n2-1))
+    p=t_cdf(abs(t),df)
+    print("  Two-Sample (Welch) t-Test  (H0: mu1 = mu2)")
+    print("  G1: n=%d  xbar=%.4f  s=%.4f" % (n1,x1,s1))
+    print("  G2: n=%d  xbar=%.4f  s=%.4f" % (n2,x2,s2))
+    print("  delta_xbar=%.4f  SE=%.4f  t=%.4f  df=%.1f  p=%s" % (x1-x2,se,t,df,fmt_p(p)))
+    print(); print("  "+decision(p,_alpha))
+
+elif _test in ("paired","paired-t","pairedt","t-paired"):
+    g1=parse_nums(_g1s); g2=parse_nums(_g2s)
+    if len(g1)!=len(g2) or len(g1)<2: print("  ERROR: groups must match in length (>=2)"); sys.exit(0)
+    diffs=[a-b for a,b in zip(g1,g2)]
+    n=len(diffs); dbar=_st.mean(diffs); sd=_st.stdev(diffs)
+    se=sd/math.sqrt(n); t=dbar/se; df=n-1
+    p=t_cdf(abs(t),df)
+    print("  Paired t-Test  (H0: mu_diff = 0)")
+    print("  n=%d  dbar=%.4f  sd=%.4f  SE=%.4f" % (n,dbar,sd,se))
+    print("  t=%.4f  df=%d  p=%s" % (t,df,fmt_p(p)))
+    print(); print("  "+decision(p,_alpha))
+
+elif _test in ("chi2","chi-square","chisquare","chi-sq","goodness"):
+    observed=parse_nums(_g1s)
+    if len(observed)<2: print("  ERROR: need >=2 observed counts"); sys.exit(0)
+    expected_s=_g2s.strip()
+    if expected_s:
+        expected=parse_nums(expected_s)
+        if len(expected)!=len(observed): print("  ERROR: observed/expected length mismatch"); sys.exit(0)
+    else:
+        e=sum(observed)/len(observed); expected=[e]*len(observed)
+    chi2=sum((o-e)**2/e for o,e in zip(observed,expected) if e>0)
+    df=len(observed)-1; p=chi2_pval(chi2,df)
+    print("  Chi-Square Goodness-of-Fit  (H0: observed ~ expected)")
+    print("  %-12s  %-10s  %-10s  %-8s" % ("Category","Observed","Expected","(O-E)^2/E"))
+    for i,(o,e) in enumerate(zip(observed,expected)):
+        print("  %-12s  %-10.2f  %-10.2f  %.4f" % ("cat%d"%(i+1),o,e,(o-e)**2/e if e>0 else 0))
+    print("  chi2=%.4f  df=%d  p=%s" % (chi2,df,fmt_p(p)))
+    print(); print("  "+decision(p,_alpha))
+
+elif _test in ("anova","one-way","oneway","f-test"):
+    raw_groups=[g.strip() for g in _g1s.split('|')]
+    groups=[parse_nums(g) for g in raw_groups if g]
+    groups=[g for g in groups if len(g)>=2]
+    if len(groups)<2: print("  ERROR: need >=2 groups separated by | for ANOVA"); sys.exit(0)
+    k=len(groups); N=sum(len(g) for g in groups)
+    grand=sum(sum(g) for g in groups)/N
+    SSB=sum(len(g)*(_st.mean(g)-grand)**2 for g in groups)
+    SSW=sum(sum((x-_st.mean(g))**2 for x in g) for g in groups)
+    dfB=k-1; dfW=N-k
+    F=(SSB/dfB)/(SSW/dfW) if dfW>0 and SSW>0 else float('inf')
+    p=f_pval(F,dfB,dfW)
+    print("  One-Way ANOVA  (H0: all group means equal)")
+    for i,g in enumerate(groups):
+        print("  G%d: n=%d  xbar=%.4f  s=%.4f" % (i+1,len(g),_st.mean(g),_st.stdev(g)))
+    print("  SSB=%.4f (df=%d)  SSW=%.4f (df=%d)" % (SSB,dfB,SSW,dfW))
+    print("  F=%.4f  p=%s" % (F,fmt_p(p)))
+    print(); print("  "+decision(p,_alpha))
+
+elif _test in ("mannwhitney","mann-whitney","mwu","wilcoxon-rank","ranksum"):
+    g1=parse_nums(_g1s); g2=parse_nums(_g2s)
+    if len(g1)<1 or len(g2)<1: print("  ERROR: need values in both groups"); sys.exit(0)
+    n1=len(g1); n2=len(g2)
+    combined=sorted([(v,'a',i) for i,v in enumerate(g1)]+[(v,'b',i) for i,v in enumerate(g2)])
+    ranks={{}}
+    i=0
+    while i<len(combined):
+        j=i
+        while j<len(combined)-1 and combined[j][0]==combined[j+1][0]: j+=1
+        avg_rank=(i+1+j+1)/2
+        for kk in range(i,j+1): ranks[(combined[kk][1],combined[kk][2])]=avg_rank
+        i=j+1
+    R1=sum(ranks[('a',i)] for i in range(n1))
+    U1=R1-n1*(n1+1)/2; U2=n1*n2-U1; U=min(U1,U2)
+    mu_U=n1*n2/2; sigma_U=math.sqrt(n1*n2*(n1+n2+1)/12)
+    z=(U-mu_U)/sigma_U if sigma_U>0 else 0
+    p=2*(1-normal_cdf_h(abs(z)))
+    print("  Mann-Whitney U Test  (H0: distributions equal)")
+    print("  n1=%d  n2=%d  U=%.1f  z=%.4f  p=%s" % (n1,n2,U,z,fmt_p(p)))
+    print(); print("  "+decision(p,_alpha))
+
+elif _test in ("pearson","correlation","corr"):
+    g1=parse_nums(_g1s); g2=parse_nums(_g2s)
+    if len(g1)!=len(g2) or len(g1)<3: print("  ERROR: need matching vectors of length >=3"); sys.exit(0)
+    n=len(g1); x1=_st.mean(g1); x2=_st.mean(g2)
+    num=sum((a-x1)*(b-x2) for a,b in zip(g1,g2))
+    d1=math.sqrt(sum((a-x1)**2 for a in g1)); d2=math.sqrt(sum((b-x2)**2 for b in g2))
+    r=num/(d1*d2) if d1*d2>0 else 0
+    t=r*math.sqrt(n-2)/math.sqrt(1-r**2) if abs(r)<1 else float('inf')
+    df=n-2; p=t_cdf(abs(t),df)
+    print("  Pearson Correlation Test  (H0: rho = 0)")
+    print("  n=%d  r=%.4f  t=%.4f  df=%d  p=%s" % (n,r,t,df,fmt_p(p)))
+    strength="negligible" if abs(r)<0.1 else "weak" if abs(r)<0.3 else "moderate" if abs(r)<0.5 else "strong"
+    print("  Strength: %s (%s)" % (strength,"positive" if r>=0 else "negative"))
+    print(); print("  "+decision(p,_alpha))
+
+elif _test in ("proportion","prop","z-prop","zprop","prop1","one-prop"):
+    parts=parse_nums(_g1s)
+    if len(parts)<2: print("  ERROR: provide 'successes,n' as group1"); sys.exit(0)
+    k=int(parts[0]); n=int(parts[1]); p_hat=k/n; p0=_mu0 if _mu0>0 else 0.5
+    se=math.sqrt(p0*(1-p0)/n)
+    z=(p_hat-p0)/se if se>0 else 0
+    p=2*(1-normal_cdf_h(abs(z)))
+    ci_se=math.sqrt(p_hat*(1-p_hat)/n); z_crit=1.96
+    lo=p_hat-z_crit*ci_se; hi=p_hat+z_crit*ci_se
+    print("  One-Proportion z-Test  (H0: p = %.4g)" % p0)
+    print("  k=%d  n=%d  p_hat=%.4f  SE=%.4f  z=%.4f  p=%s" % (k,n,p_hat,se,z,fmt_p(p)))
+    print("  95%% CI: [%.4f, %.4f]" % (lo,hi))
+    print(); print("  "+decision(p,_alpha))
+
+elif _test in ("prop2","two-prop","twoprop","two-proportion"):
+    p1=parse_nums(_g1s); p2=parse_nums(_g2s)
+    if len(p1)<2 or len(p2)<2: print("  ERROR: each group needs 'successes,n'"); sys.exit(0)
+    k1=int(p1[0]); n1=int(p1[1]); k2=int(p2[0]); n2=int(p2[1])
+    ph1=k1/n1; ph2=k2/n2; pp=(k1+k2)/(n1+n2)
+    se=math.sqrt(pp*(1-pp)*(1/n1+1/n2))
+    z=(ph1-ph2)/se if se>0 else 0
+    p=2*(1-normal_cdf_h(abs(z)))
+    print("  Two-Proportion z-Test  (H0: p1 = p2)")
+    print("  G1: %d/%d (p_hat=%.4f)  G2: %d/%d (p_hat=%.4f)" % (k1,n1,ph1,k2,n2,ph2))
+    print("  Pooled p_hat=%.4f  SE=%.4f  z=%.4f  p=%s" % (pp,se,z,fmt_p(p)))
+    print(); print("  "+decision(p,_alpha))
+
+elif _test in ("ci","confidence","conf-interval","interval"):
+    g1=parse_nums(_g1s)
+    if len(g1)<2: print("  ERROR: need >=2 values for confidence interval"); sys.exit(0)
+    n=len(g1); xbar=_st.mean(g1); s=_st.stdev(g1); se=s/math.sqrt(n)
+    z_crit=1.96 if n>30 else (2.093 if n>19 else (2.262 if n>9 else 2.776))
+    lo=xbar-z_crit*se; hi=xbar+z_crit*se
+    print("  Confidence Interval for Mean")
+    print("  n=%d  xbar=%.4f  s=%.4f  SE=%.4f" % (n,xbar,s,se))
+    print("  %.0f%% CI: [%.4f, %.4f]  (+-%.4f)" % ((1-_alpha)*100,lo,hi,z_crit*se))
+    if _mu0!=0:
+        inside=lo<=_mu0<=hi
+        print("  H0 value (mu=%.4g) is %s the interval" % (_mu0,"INSIDE" if inside else "OUTSIDE"))
+
+else:
+    print("  Available tests:")
+    print("  one-t       One-sample t-test:  --hypothesis-mu H0_MEAN")
+    print("  two-t       Two-sample (Welch) t-test (--hypothesis-group2 DATA)")
+    print("  paired      Paired t-test (--hypothesis-group2 DATA)")
+    print("  chi2        Chi-square goodness-of-fit (--hypothesis-group2 EXPECTED)")
+    print("  anova       One-way ANOVA (groups separated by | in group1)")
+    print("  mannwhitney Mann-Whitney U (--hypothesis-group2 DATA)")
+    print("  pearson     Pearson correlation test (--hypothesis-group2 DATA)")
+    print("  proportion  One-proportion z-test: 'successes,n' --hypothesis-mu P0")
+    print("  prop2       Two-proportion z-test (--hypothesis-group2 'k2,n2')")
+    print("  ci          Confidence interval for mean")
+    print()
+    print("  Data format: comma-separated numbers, e.g.  3.1,2.8,4.0,3.5")
+    print("  For ANOVA: groups separated by |  e.g.  2.1,2.3|3.4,3.6|1.9,2.0")
+
+print("="*W)
+"####,
+        hex_test   = hex_test,
+        hex_g1     = hex_g1,
+        hex_g2     = hex_g2,
+        alpha      = alpha,
+        mu         = mu,
+    );
+
+    let sandbox_args = serde_json::json!({
+        "language": "python",
+        "code": script,
+        "timeout_seconds": 30
+    });
+    crate::tools::code_sandbox::execute(&sandbox_args).await
+}

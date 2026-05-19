@@ -951,6 +951,11 @@ mod tests {
             symbolic: None,
             finance: None,
             logic: None,
+            hypothesis: None,
+            hypothesis_test: None,
+            hypothesis_group2: None,
+            hypothesis_alpha: None,
+            hypothesis_mu: None,
             pdf_extract_helper: None,
             teleported_from: None,
         };

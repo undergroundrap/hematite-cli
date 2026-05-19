@@ -2823,6 +2823,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
 
+    if let Some(ref group1) = cockpit.hypothesis {
+        let test_type = cockpit.hypothesis_test.as_deref().unwrap_or("one-t");
+        let group2    = cockpit.hypothesis_group2.as_deref().unwrap_or("");
+        let alpha     = cockpit.hypothesis_alpha.unwrap_or(0.05);
+        let mu        = cockpit.hypothesis_mu.unwrap_or(0.0);
+        match hematite::tools::data_tools::hypothesis_test(test_type, group1.trim(), group2.trim(), alpha, mu).await {
+            Ok(result) => {
+                println!("{}", result.trim());
+                if cockpit.clipboard { copy_to_clipboard(&result); println!("Copied to clipboard."); }
+            }
+            Err(e) => eprintln!("hypothesis-test error: {}", e),
+        }
+        return Ok(());
+    }
+
     if let Some(ref file_path) = cockpit.fourier {
         let col         = cockpit.fourier_col.as_deref().unwrap_or("");
         let top_n       = cockpit.fourier_top.unwrap_or(10);
