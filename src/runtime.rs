@@ -981,6 +981,7 @@ mod tests {
             number_format: None,
             sort_viz: None,
             checksum: None,
+            validate: None,
             pdf_extract_helper: None,
             teleported_from: None,
         };

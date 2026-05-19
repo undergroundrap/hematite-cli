@@ -835,6 +835,14 @@ pub struct CliCockpit {
 
     #[arg(
         long,
+        help_heading = "Math & Science",
+        value_name = "VALUE",
+        help = "Validation toolkit — instant, no model, no cloud. Validates: Luhn algorithm (credit card numbers + card network detection), ISBN-10, ISBN-13/EAN-13, IBAN (all countries), UUID format and version. Shows check digit corrections for invalid values. Examples: hematite --validate '4532015112830366' | hematite --validate '978-0-306-40615-7' | hematite --validate 'GB82WEST12345698765432'"
+    )]
+    pub validate: Option<String>,
+
+    #[arg(
+        long,
         help_heading = "Headless Reports",
         value_name = "ELEMENT",
         help = "Look up a periodic table element — instant, no model, no cloud. Accepts symbol (H, Au), full name (Gold, Hydrogen), or atomic number (79). Shows atomic mass, category, period/group, electronegativity, and state at STP. Example: hematite --periodic Au"

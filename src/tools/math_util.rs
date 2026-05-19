@@ -7937,6 +7937,191 @@ fn cipher_usage() -> &'static str {
      Ciphers: rot13, atbash, caesar, vigenere, railfence, columnar, morse"
 }
 
+// ─── Validation toolkit (Luhn, ISBN, EAN, IBAN, UUID) ────────────────────────
+
+pub fn validate_calc(input: &str) -> String {
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+    let _ = writeln!(out, "{}", sep);
+    let _ = writeln!(out, "  VALIDATION TOOLKIT");
+    let _ = writeln!(out, "{}", sep);
+
+    let q = input.trim();
+    let _ = writeln!(out, "  Input: \"{}\"", q);
+    let _ = writeln!(out, "");
+
+    // Strip spaces/dashes for most checks
+    let clean: String = q.chars().filter(|c| !c.is_whitespace() && *c != '-' && *c != ' ').collect();
+
+    // ─── Luhn algorithm (credit card) ───
+    let luhn_result = {
+        let digits: Vec<u32> = clean.chars().filter_map(|c| c.to_digit(10)).collect();
+        if digits.len() >= 2 {
+            let sum: u32 = digits.iter().rev().enumerate().map(|(i, &d)| {
+                if i % 2 == 1 {
+                    let doubled = d * 2;
+                    if doubled > 9 { doubled - 9 } else { doubled }
+                } else { d }
+            }).sum();
+            Some(sum % 10 == 0)
+        } else { None }
+    };
+
+    // ─── Detect card network from prefix ───
+    let card_network = {
+        let digits_only: String = clean.chars().filter(|c| c.is_ascii_digit()).collect();
+        let n = digits_only.len();
+        if n >= 1 {
+            let d1: u32 = digits_only.chars().next().unwrap().to_digit(10).unwrap_or(0);
+            let d2: u32 = if n >= 2 { digits_only[..2].parse().unwrap_or(0) } else { 0 };
+            let d4: u32 = if n >= 4 { digits_only[..4].parse().unwrap_or(0) } else { 0 };
+            let d6: u32 = if n >= 6 { digits_only[..6].parse().unwrap_or(0) } else { 0 };
+            if d1 == 4 { Some("Visa (starts with 4)") }
+            else if d2 == 51 || d2 == 52 || d2 == 53 || d2 == 54 || d2 == 55 { Some("Mastercard (51-55)") }
+            else if (d6 >= 622126 && d6 <= 622925) || (d4 >= 6011 && d4 <= 6011) || d2 == 65 { Some("Discover") }
+            else if d4 == 3782 || d4 == 3714 || d4 == 3787 || d4 == 3728 || d2 == 34 || d2 == 37 { Some("American Express") }
+            else if d4 == 3528 || d4 == 3589 { Some("JCB") }
+            else { Some("Unknown network") }
+        } else { None }
+    };
+
+    if let Some(valid) = luhn_result {
+        let _ = writeln!(out, "  ─── Luhn (Credit Card) ───");
+        let _ = writeln!(out, "  Valid: {}  {}", if valid { "YES ✓" } else { "NO ✗" },
+            if valid { "passes Luhn check" } else { "fails Luhn check" });
+        if let Some(network) = card_network {
+            let digits_only: String = clean.chars().filter(|c| c.is_ascii_digit()).collect();
+            if digits_only.len() >= 12 {
+                let _ = writeln!(out, "  Network: {}", network);
+                let _ = writeln!(out, "  Length:  {} digits", digits_only.len());
+            }
+        }
+        // Compute check digit needed to make it valid
+        if !valid {
+            let digits: Vec<u32> = clean.chars().filter_map(|c| c.to_digit(10)).collect();
+            if digits.len() >= 2 {
+                let without_last: Vec<u32> = digits[..digits.len()-1].to_vec();
+                for check in 0u32..10 {
+                    let mut test = without_last.clone();
+                    test.push(check);
+                    let sum: u32 = test.iter().rev().enumerate().map(|(i, &d)| {
+                        if i % 2 == 1 { let x = d*2; if x > 9 { x-9 } else { x } } else { d }
+                    }).sum();
+                    if sum % 10 == 0 {
+                        let _ = writeln!(out, "  Correct check digit: {} (replace last digit)", check);
+                        break;
+                    }
+                }
+            }
+        }
+        let _ = writeln!(out, "");
+    }
+
+    // ─── ISBN-10 ───
+    let isbn10_digits: Vec<u32> = clean.chars()
+        .filter_map(|c| if c == 'X' || c == 'x' { Some(10) } else { c.to_digit(10) })
+        .collect();
+    if isbn10_digits.len() == 10 {
+        let sum: u32 = isbn10_digits.iter().enumerate().map(|(i, &d)| (10 - i as u32) * d).sum();
+        let valid = sum % 11 == 0;
+        let _ = writeln!(out, "  ─── ISBN-10 ───");
+        let _ = writeln!(out, "  Valid: {}  (sum mod 11 = {})", if valid { "YES ✓" } else { "NO ✗" }, sum % 11);
+        if !valid {
+            // Compute correct check digit
+            let sum9: u32 = isbn10_digits[..9].iter().enumerate().map(|(i, &d)| (10 - i as u32) * d).sum();
+            let check = (11 - (sum9 % 11)) % 11;
+            let check_str = if check == 10 { "X".to_string() } else { check.to_string() };
+            let _ = writeln!(out, "  Correct check digit: {}", check_str);
+        }
+        let _ = writeln!(out, "");
+    }
+
+    // ─── ISBN-13 / EAN-13 ───
+    let isbn13_digits: Vec<u32> = clean.chars().filter_map(|c| c.to_digit(10)).collect();
+    if isbn13_digits.len() == 13 {
+        let sum: u32 = isbn13_digits.iter().enumerate()
+            .map(|(i, &d)| if i % 2 == 0 { d } else { d * 3 })
+            .sum();
+        let valid = sum % 10 == 0;
+        let prefix = &clean[..3];
+        let kind = if prefix == "978" || prefix == "979" { "ISBN-13" } else { "EAN-13" };
+        let _ = writeln!(out, "  ─── {} ───", kind);
+        let _ = writeln!(out, "  Valid: {}  (weighted sum mod 10 = {})", if valid { "YES ✓" } else { "NO ✗" }, sum % 10);
+        if kind == "ISBN-13" {
+            let _ = writeln!(out, "  Prefix: {} (Bookland)", prefix);
+        }
+        if !valid {
+            let sum12: u32 = isbn13_digits[..12].iter().enumerate()
+                .map(|(i, &d)| if i % 2 == 0 { d } else { d * 3 })
+                .sum();
+            let check = (10 - (sum12 % 10)) % 10;
+            let _ = writeln!(out, "  Correct check digit: {}", check);
+        }
+        let _ = writeln!(out, "");
+    }
+
+    // ─── IBAN ───
+    // IBAN: move first 4 chars to end, replace letters A=10..Z=35, check mod 97 == 1
+    let iban_upper = clean.to_uppercase();
+    if iban_upper.len() >= 15 && iban_upper.len() <= 34 &&
+       iban_upper.chars().take(2).all(|c| c.is_ascii_uppercase()) &&
+       iban_upper.chars().skip(2).take(2).all(|c| c.is_ascii_digit()) {
+        let rearranged = format!("{}{}", &iban_upper[4..], &iban_upper[..4]);
+        let numeric: String = rearranged.chars().map(|c| {
+            if c.is_ascii_uppercase() { format!("{}", c as u32 - 'A' as u32 + 10) }
+            else { c.to_string() }
+        }).collect();
+        // Modular arithmetic on long number string
+        let remainder = numeric.chars().fold(0u64, |acc, c| {
+            let d = c.to_digit(10).unwrap_or(0) as u64;
+            (acc * 10 + d) % 97
+        });
+        let valid = remainder == 1;
+        let country = &iban_upper[..2];
+        let _ = writeln!(out, "  ─── IBAN ───");
+        let _ = writeln!(out, "  Country: {}", country);
+        let _ = writeln!(out, "  Length:  {} characters", iban_upper.len());
+        let _ = writeln!(out, "  Valid:   {}  (mod 97 = {})", if valid { "YES ✓" } else { "NO ✗" }, remainder);
+        let _ = writeln!(out, "");
+    }
+
+    // ─── UUID ───
+    let uuid_clean: String = clean.to_lowercase();
+    let uuid_nodash: String = uuid_clean.chars().filter(|c| *c != '-').collect();
+    if uuid_nodash.len() == 32 && uuid_nodash.chars().all(|c| c.is_ascii_hexdigit()) {
+        let formatted = format!("{}-{}-{}-{}-{}",
+            &uuid_nodash[0..8], &uuid_nodash[8..12], &uuid_nodash[12..16],
+            &uuid_nodash[16..20], &uuid_nodash[20..32]);
+        let version = u8::from_str_radix(&uuid_nodash[12..13], 16).unwrap_or(0);
+        let variant_bits = u8::from_str_radix(&uuid_nodash[16..17], 16).unwrap_or(0);
+        let variant = if variant_bits & 0xC == 0xC { "Microsoft (variant 11)" }
+            else if variant_bits & 0x8 != 0 { "RFC 4122 (variant 10)" }
+            else { "NCS/backward compat (variant 0)" };
+        let _ = writeln!(out, "  ─── UUID ───");
+        let _ = writeln!(out, "  Format:  {}", formatted);
+        let _ = writeln!(out, "  Version: {}", version);
+        let _ = writeln!(out, "  Variant: {}", variant);
+        let _ = writeln!(out, "");
+    }
+
+    // ─── If nothing matched, show usage ───
+    let nothing = luhn_result.is_none()
+        && isbn10_digits.len() != 10
+        && isbn13_digits.len() != 13
+        && !clean.to_uppercase().starts_with(|c: char| c.is_ascii_uppercase());
+    if nothing {
+        let _ = writeln!(out, "  No recognizable format detected. Examples:");
+        let _ = writeln!(out, "  hematite --validate '4532015112830366'    credit card (Luhn)");
+        let _ = writeln!(out, "  hematite --validate '0-306-40615-2'       ISBN-10");
+        let _ = writeln!(out, "  hematite --validate '978-0-306-40615-7'   ISBN-13 / EAN-13");
+        let _ = writeln!(out, "  hematite --validate 'GB82WEST12345698765432'  IBAN");
+        let _ = writeln!(out, "  hematite --validate '550e8400-e29b-41d4-a716-446655440000'  UUID");
+    }
+
+    let _ = writeln!(out, "{}", sep);
+    out
+}
+
 // ─── Checksum calculator ──────────────────────────────────────────────────────
 
 pub fn checksum_calc(input: &str) -> String {
