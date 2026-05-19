@@ -20,6 +20,7 @@ pub mod runtime_trace;
 pub mod scientific;
 pub mod scientific_ext;
 pub mod math_util;
+pub mod data_tools;
 pub mod scoping_tools;
 pub mod search;
 pub mod shell;

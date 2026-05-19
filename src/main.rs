@@ -2784,6 +2784,48 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
 
+    if let Some(ref file_path) = cockpit.sample {
+        let n       = cockpit.sample_n.unwrap_or(0);
+        let frac    = cockpit.sample_frac.unwrap_or(0.0);
+        let seed    = cockpit.sample_seed.unwrap_or(42);
+        let split   = cockpit.split.unwrap_or(0.0);
+        let out_dir = cockpit.sample_output.as_deref().unwrap_or("");
+        match hematite::tools::data_tools::sample_data(file_path.trim(), n, frac, seed, split, out_dir).await {
+            Ok(result) => {
+                println!("{}", result.trim());
+                if cockpit.clipboard { copy_to_clipboard(&result); println!("Copied to clipboard."); }
+            }
+            Err(e) => eprintln!("Error: {}", e),
+        }
+        return Ok(());
+    }
+
+    if let Some(ref file_path) = cockpit.correlation {
+        let method = cockpit.corr_method.as_deref().unwrap_or("pearson");
+        match hematite::tools::data_tools::correlation_matrix(file_path.trim(), method).await {
+            Ok(result) => {
+                println!("{}", result.trim());
+                if cockpit.clipboard { copy_to_clipboard(&result); println!("Copied to clipboard."); }
+            }
+            Err(e) => eprintln!("Error: {}", e),
+        }
+        return Ok(());
+    }
+
+    if let Some(ref file_path) = cockpit.timeseries {
+        let date_col = cockpit.ts_date.as_deref().unwrap_or("");
+        let val_col  = cockpit.ts_value.as_deref().unwrap_or("");
+        let window   = cockpit.ts_window.unwrap_or(7);
+        match hematite::tools::data_tools::timeseries_analyze(file_path.trim(), date_col, val_col, window).await {
+            Ok(result) => {
+                println!("{}", result.trim());
+                if cockpit.clipboard { copy_to_clipboard(&result); println!("Copied to clipboard."); }
+            }
+            Err(e) => eprintln!("Error: {}", e),
+        }
+        return Ok(());
+    }
+
     if let Some(ref file_path) = cockpit.query_data {
         let file_path = file_path.trim();
         let sql = cockpit.sql.as_deref().unwrap_or("").trim().to_string();

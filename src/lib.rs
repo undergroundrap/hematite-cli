@@ -957,6 +957,57 @@ pub struct CliCockpit {
     )]
     pub normal: Option<String>,
 
+    #[arg(
+        long,
+        help_heading = "Data Analysis",
+        value_name = "FILE",
+        help = "Random-sample rows from a CSV/TSV/JSON/SQLite file. Use --sample-n or --sample-frac for size; --split for train/test; --sample-output DIR to save files. Example: hematite --sample data.csv --sample-n 200 --split 0.8 --sample-output out/"
+    )]
+    pub sample: Option<String>,
+
+    #[arg(long, help_heading = "Data Analysis", value_name = "N", help = "Number of rows to sample (default 100).")]
+    pub sample_n: Option<usize>,
+
+    #[arg(long, help_heading = "Data Analysis", value_name = "FRAC", help = "Fraction of rows to sample, e.g. 0.1 for 10%.")]
+    pub sample_frac: Option<f64>,
+
+    #[arg(long, help_heading = "Data Analysis", value_name = "SEED", help = "Random seed for reproducible sampling (default 42).")]
+    pub sample_seed: Option<u64>,
+
+    #[arg(long, help_heading = "Data Analysis", value_name = "FRAC", help = "Train/test split fraction, e.g. 0.8 saves 80% to train and 20% to test. Requires --sample-output.")]
+    pub split: Option<f64>,
+
+    #[arg(long, help_heading = "Data Analysis", value_name = "DIR", help = "Output directory for sampled files. If omitted, prints sample to stdout.")]
+    pub sample_output: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Data Analysis",
+        value_name = "FILE",
+        help = "Compute correlation matrix for all numeric columns in a file. Use --corr-method pearson|spearman. Example: hematite --correlation data.csv --corr-method spearman"
+    )]
+    pub correlation: Option<String>,
+
+    #[arg(long, help_heading = "Data Analysis", value_name = "METHOD", help = "Correlation method: pearson (default) or spearman.")]
+    pub corr_method: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Data Analysis",
+        value_name = "FILE",
+        help = "Time-series analysis: rolling mean, trend, peaks/valleys, sparkline. Example: hematite --timeseries sales.csv --ts-date date --ts-value revenue --ts-window 7"
+    )]
+    pub timeseries: Option<String>,
+
+    #[arg(long, help_heading = "Data Analysis", value_name = "COL", help = "Date column name for --timeseries (auto-detected if omitted).")]
+    pub ts_date: Option<String>,
+
+    #[arg(long, help_heading = "Data Analysis", value_name = "COL", help = "Value column name for --timeseries (auto-detected if omitted).")]
+    pub ts_value: Option<String>,
+
+    #[arg(long, help_heading = "Data Analysis", value_name = "N", help = "Rolling window size for --timeseries (default 7).")]
+    pub ts_window: Option<usize>,
+
     #[arg(long, hide = true)]
     pub pdf_extract_helper: Option<String>,
 
