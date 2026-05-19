@@ -737,6 +737,7 @@ pub struct CliCockpit {
     #[arg(long, help_heading = "Data Analysis", value_name = "MU", help = "Null hypothesis mean or proportion for --hypothesis one-t or proportion tests (default: 0.0).")]
     pub hypothesis_mu: Option<f64>,
 
+
     #[arg(
         long,
         help_heading = "Headless Reports",

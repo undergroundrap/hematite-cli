@@ -2526,14 +2526,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     if let Some(ref file_path) = cockpit.describe {
-        let col = cockpit.column.as_deref().unwrap_or("");
-        match hematite::tools::scientific_ext::column_stats(file_path.trim(), col).await {
+        let cols   = cockpit.column.as_deref().unwrap_or("");
+        let output = "";
+        match hematite::tools::data_tools::describe_stats(file_path.trim(), cols, output).await {
             Ok(result) => {
                 println!("{}", result.trim());
-                if cockpit.clipboard {
-                    copy_to_clipboard(&result);
-                    println!("Copied to clipboard.");
-                }
+                if cockpit.clipboard { copy_to_clipboard(&result); println!("Copied to clipboard."); }
             }
             Err(e) => {
                 eprintln!("Error: {}", e);

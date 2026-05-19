@@ -2000,3 +2000,184 @@ print("="*W)
     });
     crate::tools::code_sandbox::execute(&sandbox_args).await
 }
+
+// ── Descriptive statistics ─────────────────────────────────────────────────────
+// Full per-column stats: mean, median, mode, std, variance, skewness, kurtosis,
+// percentiles (P5/P25/P50/P75/P95), IQR, outliers, ASCII histogram.
+pub async fn describe_stats(
+    file_path: &str,
+    cols_str: &str,
+    output: &str,
+) -> Result<String, String> {
+    let hex_path:   String = file_path.bytes().map(|b| format!("{:02x}", b)).collect();
+    let hex_cols:   String = cols_str.bytes().map(|b| format!("{:02x}", b)).collect();
+    let hex_output: String = output.bytes().map(|b| format!("{:02x}", b)).collect();
+
+    let script = format!(r####"import csv as _csv, json as _js, sqlite3 as _sq, os, math
+
+_path   = bytes.fromhex("{hex_path}").decode().strip()
+_cols_s = bytes.fromhex("{hex_cols}").decode().strip()
+_output = bytes.fromhex("{hex_output}").decode().strip()
+W = 68
+
+def _load(path):
+    ext = os.path.splitext(path)[1].lower().lstrip('.')
+    if ext in ('csv','tsv'):
+        with open(path, encoding='utf-8-sig', errors='replace', newline='') as fh:
+            r = _csv.DictReader(fh, delimiter='\t' if ext=='tsv' else ',')
+            rows = list(r)
+        return rows
+    elif ext == 'json':
+        with open(path, encoding='utf-8') as fh: d = _js.load(fh)
+        return d if isinstance(d, list) else next(iter(d.values()), [])
+    elif ext in ('db','sqlite','sqlite3'):
+        con = _sq.connect(path)
+        cur = con.cursor()
+        cur.execute("SELECT name FROM sqlite_master WHERE type='table' LIMIT 1")
+        t = cur.fetchone()
+        if not t: return []
+        cur.execute("SELECT * FROM [%s]" % t[0])
+        cols2 = [d[0] for d in cur.description]
+        rows2 = [dict(zip(cols2, r)) for r in cur.fetchall()]
+        con.close()
+        return rows2
+    return []
+
+rows = _load(_path)
+if not rows:
+    print("  ERROR: no rows loaded from", _path)
+    raise SystemExit(0)
+
+all_cols = list(rows[0].keys())
+if _cols_s:
+    req = [c.strip() for c in _cols_s.split(',')]
+    cols = [c for c in req if c in all_cols]
+    if not cols:
+        print("  WARNING: none of the specified columns found. Available:", ', '.join(all_cols))
+        cols = all_cols
+else:
+    cols = all_cols
+
+def parse_nums(rows, col):
+    vals = []
+    for r in rows:
+        v = r.get(col, '')
+        if v is None: continue
+        v = str(v).strip()
+        if not v: continue
+        try: vals.append(float(v))
+        except: pass
+    return vals
+
+def percentile(sorted_v, p):
+    if not sorted_v: return float('nan')
+    n = len(sorted_v)
+    idx = (n - 1) * p / 100.0
+    lo = int(idx); hi = lo + 1
+    if hi >= n: return sorted_v[lo]
+    frac = idx - lo
+    return sorted_v[lo] * (1 - frac) + sorted_v[hi] * frac
+
+def skewness(vals, mean, std):
+    if std == 0 or len(vals) < 3: return float('nan')
+    n = len(vals)
+    s3 = sum((x - mean)**3 for x in vals)
+    return (n / ((n-1)*(n-2))) * s3 / std**3
+
+def kurtosis(vals, mean, std):
+    if std == 0 or len(vals) < 4: return float('nan')
+    n = len(vals)
+    s4 = sum((x - mean)**4 for x in vals)
+    k = (n*(n+1)/((n-1)*(n-2)*(n-3))) * s4 / std**4 - 3*(n-1)**2/((n-2)*(n-3))
+    return k
+
+def ascii_hist(vals, bins=16, width=36):
+    if not vals: return []
+    mn = min(vals); mx = max(vals)
+    rng = mx - mn
+    if rng == 0: return ["  (all values identical: %.4g)" % mn]
+    bw = rng / bins
+    counts = [0]*bins
+    for v in vals:
+        idx = min(int((v - mn) / bw), bins - 1)
+        counts[idx] += 1
+    max_c = max(counts) or 1
+    lines = []
+    for i, c in enumerate(counts):
+        lo = mn + i*bw; hi = lo+bw
+        bar = int(c / max_c * width)
+        lines.append("  [%8.3g, %8.3g)  %s %d" % (lo, hi, '█'*bar, c))
+    return lines
+
+print("=" * W)
+print("  DESCRIPTIVE STATISTICS")
+print("  File:   %s" % os.path.basename(_path))
+print("  Rows:   %d    Cols examined: %d" % (len(rows), len(cols)))
+print("=" * W)
+
+results = []
+for col in cols:
+    vals = parse_nums(rows, col)
+    if len(vals) < 2:
+        print("\n  %s: too few numeric values (%d)" % (col, len(vals)))
+        continue
+    s = sorted(vals)
+    n = len(vals)
+    mean = sum(vals) / n
+    var = sum((x-mean)**2 for x in vals) / (n-1) if n > 1 else 0
+    std = math.sqrt(var)
+    med = percentile(s, 50)
+    # mode (simple: most frequent rounded value)
+    from collections import Counter
+    mode_ctr = Counter(round(v, 4) for v in vals)
+    mode_val, mode_cnt = mode_ctr.most_common(1)[0]
+    p5  = percentile(s, 5)
+    p25 = percentile(s, 25)
+    p75 = percentile(s, 75)
+    p95 = percentile(s, 95)
+    iqr = p75 - p25
+    skew = skewness(vals, mean, std)
+    kurt = kurtosis(vals, mean, std)
+    # Outliers via IQR method
+    lo_fence = p25 - 1.5*iqr; hi_fence = p75 + 1.5*iqr
+    outliers = [v for v in vals if v < lo_fence or v > hi_fence]
+    missing = len(rows) - sum(1 for r in rows if str(r.get(col,'')).strip())
+
+    print("\n  %s" % col)
+    print("  " + "-"*50)
+    print("  n=%-8d  missing=%-6d  unique=%d" % (n, missing, len(set(round(v,6) for v in vals))))
+    print("  mean=%11.6g  std=%11.6g  var=%11.6g" % (mean, std, var))
+    print("  min=%12.6g  max=%12.6g  range=%10.6g" % (s[0], s[-1], s[-1]-s[0]))
+    print("  P5=%12.6g  P25=%11.6g  median=%9.6g" % (p5, p25, med))
+    print("  P75=%11.6g  P95=%11.6g  IQR=%11.6g" % (p75, p95, iqr))
+    print("  mode=%11.6g (count=%d)" % (mode_val, mode_cnt))
+    if not math.isnan(skew): print("  skewness=%8.4f  kurtosis=%8.4f" % (skew, kurt))
+    if outliers: print("  outliers (IQR): %d value(s)  min=%.4g  max=%.4g" % (len(outliers), min(outliers), max(outliers)))
+    print()
+    for line in ascii_hist(vals): print(line)
+    results.append((col, n, mean, std, s[0], s[-1], med))
+
+if _output and results:
+    with open(_output, 'w', newline='', encoding='utf-8') as fh:
+        w2 = _csv.writer(fh)
+        w2.writerow(['column','n','mean','std','min','max','median'])
+        for row in results:
+            w2.writerow(['%.8g'%v if isinstance(v,float) else v for v in row])
+    print("\n  Summary saved to: %s" % _output)
+elif _output == '' and results:
+    print("\n  (Use --stats-output FILE to save summary CSV)")
+
+print("\n" + "=" * W)
+"####,
+        hex_path   = hex_path,
+        hex_cols   = hex_cols,
+        hex_output = hex_output,
+    );
+
+    let sandbox_args = serde_json::json!({
+        "language": "python",
+        "code": script,
+        "timeout_seconds": 30
+    });
+    crate::tools::code_sandbox::execute(&sandbox_args).await
+}
