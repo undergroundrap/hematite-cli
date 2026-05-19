@@ -3717,6 +3717,85 @@ pub fn graph_theory(query: &str) -> String {
                 }
             }
         }
+        "centrality" | "betweenness" => {
+            // Brandes algorithm for betweenness centrality (unweighted BFS)
+            let bc = betweenness_centrality(&adj, n);
+            let mut ranked: Vec<(usize, f64)> = bc.iter().copied().enumerate().collect();
+            ranked.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+            let _ = writeln!(out, "  Betweenness Centrality (fraction of shortest paths through node):");
+            let _ = writeln!(out, "  {:<22}  {:>12}  bar", "Node", "Centrality");
+            let _ = writeln!(out, "  {}", "-".repeat(w - 2));
+            let max_bc = ranked.first().map(|x| x.1).unwrap_or(1.0).max(1e-9);
+            for &(i, val) in &ranked {
+                let bar_len = (val / max_bc * 30.0) as usize;
+                let _ = writeln!(out, "  {:<22}  {:>12.6}  {}", &nodes[i], val, "#".repeat(bar_len));
+            }
+        }
+        "pagerank" | "pr" => {
+            let d: f64 = rest.split_whitespace().next().and_then(|s| s.parse().ok()).unwrap_or(0.85);
+            let pr = pagerank(&adj, n, d, 100);
+            let mut ranked: Vec<(usize, f64)> = pr.iter().copied().enumerate().collect();
+            ranked.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+            let _ = writeln!(out, "  PageRank  (damping={:.2}, 100 iterations):", d);
+            let _ = writeln!(out, "  {:<22}  {:>10}  bar", "Node", "Score");
+            let _ = writeln!(out, "  {}", "-".repeat(w - 2));
+            let max_pr = ranked.first().map(|x| x.1).unwrap_or(1e-9).max(1e-9);
+            for &(i, val) in &ranked {
+                let bar_len = (val / max_pr * 30.0) as usize;
+                let _ = writeln!(out, "  {:<22}  {:>10.6}  {}", &nodes[i], val, "#".repeat(bar_len));
+            }
+        }
+        "clustering" | "cluster" => {
+            let cc = clustering_coefficients(&adj, n, directed);
+            let global_cc = if n > 0 { cc.iter().sum::<f64>() / n as f64 } else { 0.0 };
+            let mut ranked: Vec<(usize, f64)> = cc.iter().copied().enumerate().collect();
+            ranked.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+            let _ = writeln!(out, "  Clustering Coefficients  (global avg: {:.4}):", global_cc);
+            let _ = writeln!(out, "  {:<22}  {:>12}  bar", "Node", "Coefficient");
+            let _ = writeln!(out, "  {}", "-".repeat(w - 2));
+            for &(i, val) in &ranked {
+                let bar_len = (val * 30.0) as usize;
+                let _ = writeln!(out, "  {:<22}  {:>12.6}  {}", &nodes[i], val, "#".repeat(bar_len));
+            }
+        }
+        "diameter" | "stats" | "metrics" => {
+            // All-pairs shortest paths via repeated Dijkstra
+            let (diameter, avg_path, eccentricities) = graph_diameter(&adj, n);
+            let _ = writeln!(out, "  Network Metrics:");
+            if diameter == f64::INFINITY {
+                let _ = writeln!(out, "  Diameter        : ∞ (disconnected graph)");
+                let _ = writeln!(out, "  Avg path length : N/A");
+            } else {
+                let _ = writeln!(out, "  Diameter        : {:.4}", diameter);
+                let _ = writeln!(out, "  Avg path length : {:.4}", avg_path);
+            }
+            // Density
+            let max_edges = if directed { n * (n-1) } else { n * (n-1) / 2 };
+            let density = if max_edges > 0 { edges.len() as f64 / max_edges as f64 } else { 0.0 };
+            let _ = writeln!(out, "  Density         : {:.4}  ({} / {} possible edges)", density, edges.len(), max_edges);
+            // Eccentricity table
+            let _ = writeln!(out, "\n  Eccentricities (max distance from node to any other):");
+            let _ = writeln!(out, "  {:<22}  {:>12}", "Node", "Eccentricity");
+            let _ = writeln!(out, "  {}", "-".repeat(36));
+            let mut ecc_sorted: Vec<(usize, f64)> = eccentricities.into_iter().enumerate().collect();
+            ecc_sorted.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal));
+            for (i, ecc) in &ecc_sorted {
+                if *ecc == f64::INFINITY {
+                    let _ = writeln!(out, "  {:<22}  {:>12}", &nodes[*i], "∞");
+                } else {
+                    let _ = writeln!(out, "  {:<22}  {:>12.4}", &nodes[*i], ecc);
+                }
+            }
+            // Center nodes (minimum eccentricity)
+            let min_ecc = ecc_sorted.iter().map(|x| x.1).filter(|x| x.is_finite()).fold(f64::INFINITY, f64::min);
+            if min_ecc.is_finite() {
+                let centers: Vec<&str> = ecc_sorted.iter()
+                    .filter(|&&(_, e)| (e - min_ecc).abs() < 1e-9)
+                    .map(|&(i, _)| nodes[i].as_str())
+                    .collect();
+                let _ = writeln!(out, "\n  Center node(s): {}", centers.join(", "));
+            }
+        }
         _ => {
             // Default: degree table + basic stats
             let mut in_deg  = vec![0usize; n];
@@ -3952,6 +4031,112 @@ fn detect_cycle(adj: &[Vec<(usize, f64)>], n: usize, directed: bool) -> bool {
     false
 }
 
+// Brandes betweenness centrality (unweighted, normalized)
+fn betweenness_centrality(adj: &[Vec<(usize, f64)>], n: usize) -> Vec<f64> {
+    let mut bc = vec![0.0f64; n];
+    for s in 0..n {
+        let mut stack = Vec::new();
+        let mut pred: Vec<Vec<usize>> = vec![Vec::new(); n];
+        let mut sigma = vec![0.0f64; n]; sigma[s] = 1.0;
+        let mut dist  = vec![-1i64; n];  dist[s]  = 0;
+        let mut queue = std::collections::VecDeque::new();
+        queue.push_back(s);
+        while let Some(v) = queue.pop_front() {
+            stack.push(v);
+            for &(w, _) in &adj[v] {
+                if dist[w] < 0 {
+                    queue.push_back(w);
+                    dist[w] = dist[v] + 1;
+                }
+                if dist[w] == dist[v] + 1 {
+                    sigma[w] += sigma[v];
+                    pred[w].push(v);
+                }
+            }
+        }
+        let mut delta = vec![0.0f64; n];
+        while let Some(w) = stack.pop() {
+            for &v in &pred[w] {
+                delta[v] += (sigma[v] / sigma[w]) * (1.0 + delta[w]);
+            }
+            if w != s { bc[w] += delta[w]; }
+        }
+    }
+    // Normalize
+    let norm = if n > 2 { ((n-1)*(n-2)) as f64 } else { 1.0 };
+    bc.iter_mut().for_each(|x| *x /= norm);
+    bc
+}
+
+// PageRank (power iteration)
+fn pagerank(adj: &[Vec<(usize, f64)>], n: usize, damping: f64, iters: usize) -> Vec<f64> {
+    let mut pr = vec![1.0 / n as f64; n];
+    let out_deg: Vec<usize> = adj.iter().map(|nbrs| nbrs.len()).collect();
+    for _ in 0..iters {
+        let mut new_pr = vec![(1.0 - damping) / n as f64; n];
+        for v in 0..n {
+            if out_deg[v] == 0 {
+                // dangling node: distribute evenly
+                let share = damping * pr[v] / n as f64;
+                new_pr.iter_mut().for_each(|x| *x += share);
+            } else {
+                let share = damping * pr[v] / out_deg[v] as f64;
+                for &(u, _) in &adj[v] {
+                    new_pr[u] += share;
+                }
+            }
+        }
+        pr = new_pr;
+    }
+    pr
+}
+
+// Local clustering coefficient
+fn clustering_coefficients(adj: &[Vec<(usize, f64)>], n: usize, directed: bool) -> Vec<f64> {
+    let mut cc = vec![0.0f64; n];
+    for u in 0..n {
+        let nbrs: Vec<usize> = adj[u].iter().map(|&(v,_)| v).collect();
+        let k = nbrs.len();
+        if k < 2 { continue; }
+        let mut triangles = 0usize;
+        for i in 0..k {
+            for j in (i+1)..k {
+                let vi = nbrs[i]; let vj = nbrs[j];
+                if adj[vi].iter().any(|&(x,_)| x == vj) ||
+                   adj[vj].iter().any(|&(x,_)| x == vi) {
+                    triangles += 1;
+                }
+            }
+        }
+        let denom = if directed { k * (k-1) } else { k * (k-1) / 2 };
+        if denom > 0 { cc[u] = triangles as f64 / denom as f64; }
+    }
+    cc
+}
+
+// Graph diameter, average path length, eccentricities via all-pairs Dijkstra
+fn graph_diameter(adj: &[Vec<(usize, f64)>], n: usize) -> (f64, f64, Vec<f64>) {
+    let mut diameter  = 0.0f64;
+    let mut path_sum  = 0.0f64;
+    let mut path_cnt  = 0u64;
+    let mut ecc = vec![0.0f64; n];
+    for s in 0..n {
+        let dists = dijkstra_all(adj, s, n);
+        let finite: Vec<f64> = dists.iter().copied().filter(|d| d.is_finite() && *d > 0.0).collect();
+        let max_d = finite.iter().cloned().fold(0.0f64, f64::max);
+        if finite.len() < n - 1 {
+            ecc[s] = f64::INFINITY; // disconnected
+        } else {
+            ecc[s] = max_d;
+        }
+        if max_d.is_finite() && max_d > diameter { diameter = max_d; }
+        for d in &finite { path_sum += d; path_cnt += 1; }
+    }
+    let avg = if path_cnt > 0 { path_sum / path_cnt as f64 } else { f64::INFINITY };
+    let diam = if ecc.iter().any(|x| x.is_infinite()) { f64::INFINITY } else { diameter };
+    (diam, avg, ecc)
+}
+
 fn graph_usage() -> String {
     "Graph theory — edge list input:\n\
      hematite --graph 'A B\\nB C\\nC D'                  info (degree table, components)\n\
@@ -3960,6 +4145,10 @@ fn graph_usage() -> String {
      hematite --graph 'shortest A D\\nA B 2\\nB D 3\\nA D 10'  Dijkstra shortest path\n\
      hematite --graph 'components\\nA B\\nC D'            connected components\n\
      hematite --graph 'topo\\nA->B\\nA->C\\nB->D'          topological sort\n\
+     hematite --graph 'centrality\\nA B\\nB C\\nA C'       betweenness centrality\n\
+     hematite --graph 'pagerank\\nA->B\\nB->C\\nC->A'      PageRank scores\n\
+     hematite --graph 'clustering\\nA B\\nB C\\nA C'       local clustering coefficients\n\
+     hematite --graph 'diameter\\nA B 1\\nB C 2\\nA C 4'   diameter, avg path, eccentricity\n\
      \n\
      Edge formats: 'A B' 'A B 5' 'A->B' 'A->B:5' 'A-B:3'\n\
      Weighted edges: add weight as third token or after colon".into()
