@@ -14660,3 +14660,1280 @@ pub fn electrical_calc(query: &str) -> String {
     let _ = writeln!(out, "{}", sep);
     out
 }
+
+// ── Physics ───────────────────────────────────────────────────────────────────
+
+pub fn physics_calc(query: &str) -> String {
+    let sep = "─".repeat(60);
+    let mut out = String::new();
+    let _ = writeln!(
+        out,
+        "\n  ┌─ Physics Calculator ─────────────────────────────┐"
+    );
+    let _ = writeln!(out, "{}", sep);
+
+    let q = query.trim().to_lowercase();
+    let words: Vec<&str> = q.split_whitespace().collect();
+
+    if words.is_empty() {
+        let _ = writeln!(out, "  Usage examples:");
+        let _ = writeln!(out, "    hematite --physics 'kinematic v0=0 a=9.8 t=3'");
+        let _ = writeln!(out, "    hematite --physics 'projectile v0=20 angle=45'");
+        let _ = writeln!(out, "    hematite --physics 'force m=5 a=3'");
+        let _ = writeln!(out, "    hematite --physics 'energy m=10 v=5'");
+        let _ = writeln!(out, "    hematite --physics 'momentum m=2 v=10'");
+        let _ = writeln!(out, "    hematite --physics 'wave f=440'");
+        let _ = writeln!(out, "    hematite --physics 'snell n1=1 n2=1.5 angle=30'");
+        let _ = writeln!(out, "    hematite --physics 'lens f=0.2 do=0.5'");
+        let _ = writeln!(out, "    hematite --physics 'gas P=101325 V=0.001 T=300'");
+        let _ = writeln!(
+            out,
+            "    hematite --physics 'gravity m1=5.97e24 m2=1 r=6.37e6'"
+        );
+        let _ = writeln!(out, "    hematite --physics 'pendulum L=1'");
+        let _ = writeln!(out, "    hematite --physics 'circular r=2 v=5'");
+        let _ = writeln!(out, "{}", sep);
+        return out;
+    }
+
+    let parse_kv = |key: &str| -> Option<f64> {
+        for w in query.trim().split_whitespace() {
+            let wl = w.to_lowercase();
+            if wl.starts_with(&format!("{}=", key.to_lowercase())) {
+                return w[key.len() + 1..].parse().ok();
+            }
+        }
+        None
+    };
+
+    let pi = std::f64::consts::PI;
+    let g = 9.80665_f64; // standard gravity m/s²
+    let keyword = words[0];
+
+    match keyword {
+        "kinematic" | "kinematics" | "1d" => {
+            // SUVAT: s=v0*t + 0.5*a*t², v=v0+a*t, v²=v0²+2*a*s
+            let v0 = parse_kv("v0").unwrap_or(0.0);
+            let v = parse_kv("v");
+            let a = parse_kv("a");
+            let t = parse_kv("t");
+            let s = parse_kv("s");
+            let _ = writeln!(out, "  ─── 1D Kinematics (SUVAT) ───");
+            let _ = writeln!(out, "  Given: v0={}", v0);
+            if let Some(a) = a {
+                if let Some(t) = t {
+                    let vf = v0 + a * t;
+                    let dist = v0 * t + 0.5 * a * t * t;
+                    let _ = writeln!(out, "  a={} m/s², t={} s", a, t);
+                    let _ = writeln!(out, "  v  = v0 + a·t      = {:.6} m/s", vf);
+                    let _ = writeln!(out, "  s  = v0·t + ½a·t²  = {:.6} m", dist);
+                    let _ = writeln!(out, "  v² = v0² + 2·a·s   = {:.6} m²/s²", vf * vf);
+                } else if let Some(s) = s {
+                    let vf_sq = v0 * v0 + 2.0 * a * s;
+                    let _ = writeln!(out, "  a={} m/s², s={} m", a, s);
+                    if vf_sq >= 0.0 {
+                        let vf = vf_sq.sqrt();
+                        let _ = writeln!(out, "  v  = √(v0²+2as)    = {:.6} m/s", vf);
+                        let t_val = (vf - v0) / a;
+                        let _ = writeln!(out, "  t  = (v-v0)/a      = {:.6} s", t_val);
+                    } else {
+                        let _ = writeln!(out, "  Object does not reach that displacement (v² < 0)");
+                    }
+                }
+            } else if let Some(v) = v {
+                if let Some(t) = t {
+                    let a_calc = (v - v0) / t;
+                    let s_calc = (v0 + v) / 2.0 * t;
+                    let _ = writeln!(out, "  v={} m/s, t={} s", v, t);
+                    let _ = writeln!(out, "  a  = (v-v0)/t      = {:.6} m/s²", a_calc);
+                    let _ = writeln!(out, "  s  = (v0+v)/2 · t  = {:.6} m", s_calc);
+                }
+            } else {
+                let _ = writeln!(out, "  Provide at least 2 of: v0=, v=, a=, t=, s=");
+            }
+        }
+        "projectile" => {
+            let v0 = parse_kv("v0").unwrap_or(10.0);
+            let angle_deg = parse_kv("angle").unwrap_or(45.0);
+            let h0 = parse_kv("h").unwrap_or(0.0);
+            let angle_rad = angle_deg.to_radians();
+            let vx = v0 * angle_rad.cos();
+            let vy0 = v0 * angle_rad.sin();
+            // Time of flight (quadratic: h0 + vy0*t - 0.5*g*t² = 0)
+            let disc = vy0 * vy0 + 2.0 * g * h0;
+            let _ = writeln!(out, "  ─── Projectile Motion ───");
+            let _ = writeln!(out, "  v0={} m/s, angle={}°, h0={} m", v0, angle_deg, h0);
+            let _ = writeln!(out, "  vx = v0·cos(θ) = {:.6} m/s", vx);
+            let _ = writeln!(out, "  vy0= v0·sin(θ) = {:.6} m/s", vy0);
+            if disc >= 0.0 {
+                let t_flight = (vy0 + disc.sqrt()) / g;
+                let range = vx * t_flight;
+                let t_peak = vy0 / g;
+                let h_max = h0 + vy0 * t_peak - 0.5 * g * t_peak * t_peak;
+                let _ = writeln!(out, "  Time of flight = {:.6} s", t_flight);
+                let _ = writeln!(out, "  Range          = {:.6} m", range);
+                let _ = writeln!(
+                    out,
+                    "  Max height     = {:.6} m  (at t={:.4} s)",
+                    h_max, t_peak
+                );
+                let vx_land = vx;
+                let vy_land = vy0 - g * t_flight;
+                let v_land = (vx_land * vx_land + vy_land * vy_land).sqrt();
+                let _ = writeln!(out, "  Landing speed  = {:.6} m/s", v_land);
+            }
+        }
+        "force" | "newton" => {
+            let m = parse_kv("m");
+            let a = parse_kv("a");
+            let f = parse_kv("F").or_else(|| parse_kv("f"));
+            let _ = writeln!(out, "  ─── Newton's Second Law  F = m·a ───");
+            match (f, m, a) {
+                (None, Some(m), Some(a)) => {
+                    let _ = writeln!(out, "  m={} kg, a={} m/s²", m, a);
+                    let _ = writeln!(out, "  F = m·a = {:.6} N", m * a);
+                    let _ = writeln!(out, "  Weight on Earth = {:.6} N", m * g);
+                }
+                (Some(f), None, Some(a)) => {
+                    let _ = writeln!(out, "  F={} N, a={} m/s²", f, a);
+                    let _ = writeln!(out, "  m = F/a = {:.6} kg", f / a);
+                }
+                (Some(f), Some(m), None) => {
+                    let _ = writeln!(out, "  F={} N, m={} kg", f, m);
+                    let _ = writeln!(out, "  a = F/m = {:.6} m/s²", f / m);
+                }
+                _ => {
+                    let _ = writeln!(out, "  Provide 2 of: F=, m=, a=");
+                }
+            }
+        }
+        "energy" | "ke" | "pe" => {
+            let m = parse_kv("m");
+            let v = parse_kv("v");
+            let h = parse_kv("h");
+            let _ = writeln!(out, "  ─── Mechanical Energy ───");
+            if let Some(m) = m {
+                if let Some(v) = v {
+                    let ke = 0.5 * m * v * v;
+                    let _ = writeln!(out, "  KE = ½mv²  m={} kg, v={} m/s  →  {:.6} J", m, v, ke);
+                }
+                if let Some(h) = h {
+                    let pe = m * g * h;
+                    let _ = writeln!(out, "  PE = mgh   m={} kg, h={} m   →  {:.6} J", m, h, pe);
+                }
+                if let (Some(v), Some(h)) = (v, h) {
+                    let ke = 0.5 * m * v * v;
+                    let pe = m * g * h;
+                    let _ = writeln!(out, "  Total ME = KE + PE = {:.6} J", ke + pe);
+                }
+            } else {
+                let _ = writeln!(out, "  Provide m=<mass> with v= (KE) and/or h= (PE)");
+            }
+        }
+        "momentum" | "impulse" => {
+            let m = parse_kv("m");
+            let v = parse_kv("v");
+            let f = parse_kv("F").or_else(|| parse_kv("f"));
+            let t = parse_kv("t");
+            let _ = writeln!(out, "  ─── Momentum & Impulse ───");
+            if let (Some(m), Some(v)) = (m, v) {
+                let p = m * v;
+                let _ = writeln!(out, "  p = mv  m={} kg, v={} m/s  →  {:.6} kg·m/s", m, v, p);
+            }
+            if let (Some(f), Some(t)) = (f, t) {
+                let j = f * t;
+                let _ = writeln!(out, "  J = Ft  F={} N, t={} s    →  {:.6} N·s", f, t, j);
+            }
+            if m.is_none() && f.is_none() {
+                let _ = writeln!(out, "  Provide m= v= for momentum, or F= t= for impulse");
+            }
+        }
+        "work" | "power" => {
+            let f = parse_kv("F").or_else(|| parse_kv("f"));
+            let d = parse_kv("d");
+            let t = parse_kv("t");
+            let theta_deg = parse_kv("angle").unwrap_or(0.0);
+            let _ = writeln!(out, "  ─── Work & Power ───");
+            if let (Some(f), Some(d)) = (f, d) {
+                let w = f * d * theta_deg.to_radians().cos();
+                let _ = writeln!(
+                    out,
+                    "  W = F·d·cos(θ)  F={} N, d={} m, θ={}°  →  {:.6} J",
+                    f, d, theta_deg, w
+                );
+                if let Some(t) = t {
+                    let _ = writeln!(
+                        out,
+                        "  P = W/t                              →  {:.6} W",
+                        w / t
+                    );
+                }
+            } else {
+                let _ = writeln!(out, "  Provide F= d= and optionally angle= t=");
+            }
+        }
+        "wave" | "waves" => {
+            let f = parse_kv("f").or_else(|| parse_kv("freq"));
+            let lam = parse_kv("lambda")
+                .or_else(|| parse_kv("wl"))
+                .or_else(|| parse_kv("l"));
+            let v_wave = parse_kv("v").unwrap_or(343.0); // default speed of sound in air
+            let _ = writeln!(out, "  ─── Wave Properties ───");
+            match (f, lam) {
+                (Some(f), None) => {
+                    let lambda = v_wave / f;
+                    let period = 1.0 / f;
+                    let omega = 2.0 * pi * f;
+                    let _ = writeln!(out, "  f={} Hz, v={} m/s", f, v_wave);
+                    let _ = writeln!(out, "  λ = v/f       = {:.6} m", lambda);
+                    let _ = writeln!(out, "  T = 1/f       = {:.6} s", period);
+                    let _ = writeln!(out, "  ω = 2πf       = {:.6} rad/s", omega);
+                }
+                (None, Some(lam)) => {
+                    let freq = v_wave / lam;
+                    let period = 1.0 / freq;
+                    let _ = writeln!(out, "  λ={} m, v={} m/s", lam, v_wave);
+                    let _ = writeln!(out, "  f = v/λ       = {:.6} Hz", freq);
+                    let _ = writeln!(out, "  T = λ/v       = {:.6} s", period);
+                }
+                (Some(f), Some(lam)) => {
+                    let v_calc = f * lam;
+                    let _ = writeln!(out, "  f={} Hz, λ={} m", f, lam);
+                    let _ = writeln!(out, "  v = f·λ       = {:.6} m/s", v_calc);
+                }
+                _ => {
+                    let _ = writeln!(
+                        out,
+                        "  Provide f= (frequency Hz) and/or lambda= (wavelength m)"
+                    );
+                }
+            }
+        }
+        "snell" | "refraction" => {
+            let n1 = parse_kv("n1").unwrap_or(1.0);
+            let n2 = parse_kv("n2").unwrap_or(1.5);
+            let angle1_deg = parse_kv("angle").or_else(|| parse_kv("a1")).unwrap_or(30.0);
+            let angle1_rad = angle1_deg.to_radians();
+            let sin2 = n1 * angle1_rad.sin() / n2;
+            let _ = writeln!(out, "  ─── Snell's Law  n₁·sin(θ₁) = n₂·sin(θ₂) ───");
+            let _ = writeln!(out, "  n1={}, n2={}, θ1={}°", n1, n2, angle1_deg);
+            if sin2.abs() <= 1.0 {
+                let angle2_deg = sin2.asin().to_degrees();
+                let _ = writeln!(out, "  θ2 = arcsin(n1/n2 · sin(θ1)) = {:.6}°", angle2_deg);
+            } else {
+                let _ = writeln!(out, "  Total internal reflection (no refracted ray)");
+            }
+            // Critical angle
+            if n1 > n2 {
+                let _ = writeln!(out, "  Note: n1>n2, going from denser to less dense");
+            } else if n2 > 0.0 {
+                let crit = (n1 / n2).asin().to_degrees();
+                if n1 < n2 {
+                    let _ = writeln!(
+                        out,
+                        "  Critical angle (n1→n2) = {:.4}°  (TIR from other side)",
+                        crit
+                    );
+                }
+            }
+        }
+        "lens" | "mirror" => {
+            let f_len = parse_kv("f");
+            let d_o = parse_kv("do").or_else(|| parse_kv("u"));
+            let d_i = parse_kv("di").or_else(|| parse_kv("v"));
+            let _ = writeln!(
+                out,
+                "  ─── Thin Lens / Mirror Equation  1/f = 1/do + 1/di ───"
+            );
+            match (f_len, d_o, d_i) {
+                (Some(f), Some(do_), None) => {
+                    let di = 1.0 / (1.0 / f - 1.0 / do_);
+                    let m = -di / do_;
+                    let _ = writeln!(out, "  f={} m, do={} m", f, do_);
+                    let _ = writeln!(
+                        out,
+                        "  di = 1/(1/f - 1/do) = {:.6} m  ({})",
+                        di,
+                        if di > 0.0 {
+                            "real image"
+                        } else {
+                            "virtual image"
+                        }
+                    );
+                    let _ = writeln!(
+                        out,
+                        "  m  = -di/do         = {:.6}  ({})",
+                        m,
+                        if m.abs() > 1.0 {
+                            "magnified"
+                        } else {
+                            "diminished"
+                        }
+                    );
+                }
+                (None, Some(do_), Some(di)) => {
+                    let f = 1.0 / (1.0 / do_ + 1.0 / di);
+                    let _ = writeln!(out, "  do={} m, di={} m", do_, di);
+                    let _ = writeln!(out, "  f  = 1/(1/do + 1/di) = {:.6} m", f);
+                    let _ = writeln!(out, "  P  = 1/f             = {:.6} diopters", 1.0 / f);
+                }
+                _ => {
+                    let _ = writeln!(out, "  Provide 2 of: f=, do=, di=  (all in meters)");
+                }
+            }
+        }
+        "gas" | "ideal-gas" | "idealgas" => {
+            // PV = nRT, R = 8.314 J/(mol·K)
+            let r_gas = 8.314_f64;
+            let p = parse_kv("P");
+            let v_vol = parse_kv("V");
+            let n = parse_kv("n");
+            let temp = parse_kv("T");
+            let _ = writeln!(
+                out,
+                "  ─── Ideal Gas Law  PV = nRT  (R = 8.314 J/mol·K) ───"
+            );
+            match (p, v_vol, n, temp) {
+                (None, Some(v), Some(n), Some(t)) => {
+                    let p_calc = n * r_gas * t / v;
+                    let _ = writeln!(out, "  V={} m³, n={} mol, T={} K", v, n, t);
+                    let _ = writeln!(
+                        out,
+                        "  P = nRT/V = {:.4} Pa  ({:.4} atm)",
+                        p_calc,
+                        p_calc / 101325.0
+                    );
+                }
+                (Some(p), None, Some(n), Some(t)) => {
+                    let v_calc = n * r_gas * t / p;
+                    let _ = writeln!(out, "  P={} Pa, n={} mol, T={} K", p, n, t);
+                    let _ = writeln!(
+                        out,
+                        "  V = nRT/P = {:.6} m³  ({:.4} L)",
+                        v_calc,
+                        v_calc * 1000.0
+                    );
+                }
+                (Some(p), Some(v), None, Some(t)) => {
+                    let n_calc = p * v / (r_gas * t);
+                    let _ = writeln!(out, "  P={} Pa, V={} m³, T={} K", p, v, t);
+                    let _ = writeln!(out, "  n = PV/RT = {:.6} mol", n_calc);
+                }
+                (Some(p), Some(v), Some(n), None) => {
+                    let t_calc = p * v / (n * r_gas);
+                    let _ = writeln!(out, "  P={} Pa, V={} m³, n={} mol", p, v, n);
+                    let _ = writeln!(
+                        out,
+                        "  T = PV/nR = {:.4} K  ({:.2} °C)",
+                        t_calc,
+                        t_calc - 273.15
+                    );
+                }
+                (Some(p), Some(v), Some(n), Some(t)) => {
+                    let pv = p * v;
+                    let nrt = n * r_gas * t;
+                    let _ = writeln!(out, "  P={} Pa, V={} m³, n={} mol, T={} K", p, v, n, t);
+                    let _ = writeln!(out, "  PV   = {:.4} J", pv);
+                    let _ = writeln!(out, "  nRT  = {:.4} J", nrt);
+                    let _ = writeln!(out, "  Z    = PV/nRT = {:.6}  (1.0 = ideal)", pv / nrt);
+                }
+                _ => {
+                    let _ = writeln!(
+                        out,
+                        "  Provide 3 of: P=, V=, n=, T=  (SI units: Pa, m³, mol, K)"
+                    );
+                }
+            }
+        }
+        "gravity" | "gravitation" => {
+            let big_g = 6.674e-11_f64;
+            let m1 = parse_kv("m1").unwrap_or(5.972e24);
+            let m2 = parse_kv("m2").unwrap_or(1.0);
+            let r = parse_kv("r").unwrap_or(6.371e6);
+            let f_grav = big_g * m1 * m2 / (r * r);
+            let _ = writeln!(out, "  ─── Universal Gravitation  F = G·m1·m2/r² ───");
+            let _ = writeln!(out, "  G  = 6.674×10⁻¹¹ N·m²/kg²");
+            let _ = writeln!(out, "  m1 = {:.4e} kg", m1);
+            let _ = writeln!(out, "  m2 = {:.4e} kg", m2);
+            let _ = writeln!(out, "  r  = {:.4e} m", r);
+            let _ = writeln!(out, "  F  = {:.6e} N", f_grav);
+            let g_surface = big_g * m1 / (r * r);
+            let _ = writeln!(
+                out,
+                "  g  = G·m1/r² = {:.6} m/s²  (surface gravity)",
+                g_surface
+            );
+        }
+        "pendulum" => {
+            let l = parse_kv("L").or_else(|| parse_kv("l")).unwrap_or(1.0);
+            let t_period = 2.0 * pi * (l / g).sqrt();
+            let freq = 1.0 / t_period;
+            let _ = writeln!(out, "  ─── Simple Pendulum ───");
+            let _ = writeln!(out, "  L = {} m  (g = {:.5} m/s²)", l, g);
+            let _ = writeln!(out, "  T = 2π√(L/g) = {:.6} s", t_period);
+            let _ = writeln!(out, "  f = 1/T      = {:.6} Hz", freq);
+        }
+        "circular" | "centripetal" => {
+            let r = parse_kv("r");
+            let v = parse_kv("v");
+            let m = parse_kv("m");
+            if let (Some(r), Some(v)) = (r, v) {
+                let a_c = v * v / r;
+                let omega = v / r;
+                let period = 2.0 * pi * r / v;
+                let _ = writeln!(out, "  ─── Circular Motion ───");
+                let _ = writeln!(out, "  r={} m, v={} m/s", r, v);
+                let _ = writeln!(out, "  a_c = v²/r = {:.6} m/s²  (centripetal)", a_c);
+                let _ = writeln!(out, "  ω   = v/r  = {:.6} rad/s", omega);
+                let _ = writeln!(out, "  T   = 2πr/v= {:.6} s", period);
+                if let Some(m) = m {
+                    let _ = writeln!(out, "  F_c = ma_c = {:.6} N  (centripetal force)", m * a_c);
+                }
+            } else {
+                let _ = writeln!(
+                    out,
+                    "  Provide r=<radius_m> v=<speed_m/s> and optionally m=<mass_kg>"
+                );
+            }
+        }
+        _ => {
+            let _ = writeln!(out, "  Unknown command: '{}'", keyword);
+            let _ = writeln!(
+                out,
+                "  Supported: kinematic, projectile, force, energy, momentum,"
+            );
+            let _ = writeln!(
+                out,
+                "             work, wave, snell, lens, gas, gravity, pendulum, circular"
+            );
+        }
+    }
+
+    let _ = writeln!(out, "{}", sep);
+    out
+}
+
+// ── Chemistry ─────────────────────────────────────────────────────────────────
+
+// Atomic masses in g/mol for the 118 elements (IUPAC 2021)
+fn atomic_mass(symbol: &str) -> Option<f64> {
+    // Lowercase symbol for matching
+    let s = symbol;
+    Some(match s {
+        "H" => 1.008,
+        "He" => 4.0026,
+        "Li" => 6.941,
+        "Be" => 9.0122,
+        "B" => 10.811,
+        "C" => 12.011,
+        "N" => 14.007,
+        "O" => 15.999,
+        "F" => 18.998,
+        "Ne" => 20.180,
+        "Na" => 22.990,
+        "Mg" => 24.305,
+        "Al" => 26.982,
+        "Si" => 28.086,
+        "P" => 30.974,
+        "S" => 32.065,
+        "Cl" => 35.453,
+        "Ar" => 39.948,
+        "K" => 39.098,
+        "Ca" => 40.078,
+        "Sc" => 44.956,
+        "Ti" => 47.867,
+        "V" => 50.942,
+        "Cr" => 51.996,
+        "Mn" => 54.938,
+        "Fe" => 55.845,
+        "Co" => 58.933,
+        "Ni" => 58.693,
+        "Cu" => 63.546,
+        "Zn" => 65.38,
+        "Ga" => 69.723,
+        "Ge" => 72.630,
+        "As" => 74.922,
+        "Se" => 78.971,
+        "Br" => 79.904,
+        "Kr" => 83.798,
+        "Rb" => 85.468,
+        "Sr" => 87.62,
+        "Y" => 88.906,
+        "Zr" => 91.224,
+        "Nb" => 92.906,
+        "Mo" => 95.96,
+        "Tc" => 98.0,
+        "Ru" => 101.07,
+        "Rh" => 102.91,
+        "Pd" => 106.42,
+        "Ag" => 107.87,
+        "Cd" => 112.41,
+        "In" => 114.82,
+        "Sn" => 118.71,
+        "Sb" => 121.76,
+        "Te" => 127.60,
+        "I" => 126.90,
+        "Xe" => 131.29,
+        "Cs" => 132.91,
+        "Ba" => 137.33,
+        "La" => 138.91,
+        "Ce" => 140.12,
+        "Pr" => 140.91,
+        "Nd" => 144.24,
+        "Pm" => 145.0,
+        "Sm" => 150.36,
+        "Eu" => 151.96,
+        "Gd" => 157.25,
+        "Tb" => 158.93,
+        "Dy" => 162.50,
+        "Ho" => 164.93,
+        "Er" => 167.26,
+        "Tm" => 168.93,
+        "Yb" => 173.05,
+        "Lu" => 174.97,
+        "Hf" => 178.49,
+        "Ta" => 180.95,
+        "W" => 183.84,
+        "Re" => 186.21,
+        "Os" => 190.23,
+        "Ir" => 192.22,
+        "Pt" => 195.08,
+        "Au" => 196.97,
+        "Hg" => 200.59,
+        "Tl" => 204.38,
+        "Pb" => 207.2,
+        "Bi" => 208.98,
+        "Po" => 209.0,
+        "At" => 210.0,
+        "Rn" => 222.0,
+        "Fr" => 223.0,
+        "Ra" => 226.0,
+        "Ac" => 227.0,
+        "Th" => 232.04,
+        "Pa" => 231.04,
+        "U" => 238.03,
+        "Np" => 237.0,
+        "Pu" => 244.0,
+        "Am" => 243.0,
+        "Cm" => 247.0,
+        "Bk" => 247.0,
+        "Cf" => 251.0,
+        "Es" => 252.0,
+        "Fm" => 257.0,
+        "Md" => 258.0,
+        "No" => 259.0,
+        "Lr" => 262.0,
+        "Rf" => 267.0,
+        "Db" => 268.0,
+        "Sg" => 271.0,
+        "Bh" => 272.0,
+        "Hs" => 270.0,
+        "Mt" => 278.0,
+        "Ds" => 281.0,
+        "Rg" => 282.0,
+        "Cn" => 285.0,
+        "Nh" => 286.0,
+        "Fl" => 289.0,
+        "Mc" => 290.0,
+        "Lv" => 293.0,
+        "Ts" => 294.0,
+        "Og" => 294.0,
+        _ => return None,
+    })
+}
+
+/// Parse a molecular formula like "H2O", "C6H12O6", "NaCl", "Ca(OH)2"
+/// Returns a map of element symbol → count, or an error string.
+fn parse_chem_formula(formula: &str) -> Result<std::collections::HashMap<String, u32>, String> {
+    let mut stack: Vec<std::collections::HashMap<String, u32>> =
+        vec![std::collections::HashMap::new()];
+    let chars: Vec<char> = formula.chars().collect();
+    let mut i = 0;
+    while i < chars.len() {
+        if chars[i] == '(' {
+            stack.push(std::collections::HashMap::new());
+            i += 1;
+        } else if chars[i] == ')' {
+            i += 1;
+            let mut num_str = String::new();
+            while i < chars.len() && chars[i].is_ascii_digit() {
+                num_str.push(chars[i]);
+                i += 1;
+            }
+            let multiplier: u32 = if num_str.is_empty() {
+                1
+            } else {
+                num_str.parse().unwrap_or(1)
+            };
+            let top = stack.pop().ok_or("Unmatched ')'")?;
+            let parent = stack.last_mut().ok_or("Empty stack")?;
+            for (el, count) in top {
+                *parent.entry(el).or_insert(0) += count * multiplier;
+            }
+        } else if chars[i].is_uppercase() {
+            let mut sym = String::new();
+            sym.push(chars[i]);
+            i += 1;
+            while i < chars.len() && chars[i].is_lowercase() {
+                sym.push(chars[i]);
+                i += 1;
+            }
+            let mut num_str = String::new();
+            while i < chars.len() && chars[i].is_ascii_digit() {
+                num_str.push(chars[i]);
+                i += 1;
+            }
+            let count: u32 = if num_str.is_empty() {
+                1
+            } else {
+                num_str.parse().unwrap_or(1)
+            };
+            let current = stack.last_mut().ok_or("Empty stack")?;
+            *current.entry(sym).or_insert(0) += count;
+        } else if chars[i] == '·' || chars[i] == '.' {
+            i += 1;
+        } else {
+            return Err(format!("Unexpected character '{}'", chars[i]));
+        }
+    }
+    if stack.len() != 1 {
+        return Err("Unmatched '('".to_string());
+    }
+    Ok(stack.pop().unwrap())
+}
+
+pub fn chemistry_calc(query: &str) -> String {
+    let sep = "─".repeat(60);
+    let mut out = String::new();
+    let _ = writeln!(
+        out,
+        "\n  ┌─ Chemistry Calculator ───────────────────────────┐"
+    );
+    let _ = writeln!(out, "{}", sep);
+
+    let q = query.trim();
+    let lower = q.to_lowercase();
+    let words: Vec<&str> = q.split_whitespace().collect();
+
+    if q.is_empty() {
+        let _ = writeln!(out, "  Usage examples:");
+        let _ = writeln!(
+            out,
+            "    hematite --chemistry 'H2O'               — molar mass"
+        );
+        let _ = writeln!(
+            out,
+            "    hematite --chemistry 'C6H12O6'           — molar mass"
+        );
+        let _ = writeln!(
+            out,
+            "    hematite --chemistry 'Ca(OH)2'           — molar mass"
+        );
+        let _ = writeln!(
+            out,
+            "    hematite --chemistry 'molarity m=5 V=2'  — molarity (mol/L)"
+        );
+        let _ = writeln!(out, "    hematite --chemistry 'dilution C1=1 V1=0.5 V2=2'");
+        let _ = writeln!(
+            out,
+            "    hematite --chemistry 'gas P=101325 V=0.001 T=300 n=?'"
+        );
+        let _ = writeln!(
+            out,
+            "    hematite --chemistry 'ph 0.001'          — H⁺ conc → pH"
+        );
+        let _ = writeln!(
+            out,
+            "    hematite --chemistry 'ph pH=3.5'         — pH → [H⁺]"
+        );
+        let _ = writeln!(
+            out,
+            "    hematite --chemistry 'buffer pKa=4.75 A=0.1 HA=0.1'"
+        );
+        let _ = writeln!(
+            out,
+            "    hematite --chemistry 'percent C6H12O6 C' — mass percent"
+        );
+        let _ = writeln!(out, "{}", sep);
+        return out;
+    }
+
+    // Helper to parse key=value from the original query
+    let parse_kv = |key: &str| -> Option<f64> {
+        for w in words.iter() {
+            let wl = w.to_lowercase();
+            if wl.starts_with(&format!("{}=", key.to_lowercase())) {
+                return w[key.len() + 1..].parse().ok();
+            }
+        }
+        None
+    };
+
+    let keyword = lower.split_whitespace().next().unwrap_or("");
+
+    // Detect if first token is a molecular formula (starts with uppercase letter)
+    let looks_like_formula = q.chars().next().map(|c| c.is_uppercase()).unwrap_or(false)
+        && !matches!(
+            keyword,
+            "molarity" | "dilution" | "gas" | "ph" | "buffer" | "percent" | "convert"
+        );
+
+    if looks_like_formula {
+        // Molar mass mode — the whole input is treated as formula
+        let formula = words[0]; // first whitespace-separated token
+        let _ = writeln!(out, "  ─── Molar Mass: {} ───", formula);
+        match parse_chem_formula(formula) {
+            Ok(elements) => {
+                let mut total_mass = 0.0;
+                let mut entries: Vec<(String, u32, f64)> = Vec::new();
+                let mut unknown = Vec::new();
+                for (el, count) in &elements {
+                    match atomic_mass(el.as_str()) {
+                        Some(mass) => {
+                            let contrib = mass * *count as f64;
+                            total_mass += contrib;
+                            entries.push((el.clone(), *count, contrib));
+                        }
+                        None => unknown.push(el.clone()),
+                    }
+                }
+                if !unknown.is_empty() {
+                    let _ = writeln!(out, "  Unknown elements: {}", unknown.join(", "));
+                } else {
+                    entries.sort_by(|a, b| a.0.cmp(&b.0));
+                    let _ = writeln!(
+                        out,
+                        "  {:>4}  {:>6}  {:>10}  {:>8}",
+                        "El", "Count", "Mass (g/mol)", "Percent"
+                    );
+                    for (el, count, contrib) in &entries {
+                        let pct = contrib / total_mass * 100.0;
+                        let _ = writeln!(
+                            out,
+                            "  {:>4}  {:>6}  {:>10.4}  {:>7.2}%",
+                            el, count, contrib, pct
+                        );
+                    }
+                    let _ = writeln!(out, "  {}", "─".repeat(38));
+                    let total_atoms: u32 = elements.values().sum();
+                    let _ = writeln!(out, "  Molar mass:   {:.4} g/mol", total_mass);
+                    let _ = writeln!(out, "  Total atoms:  {}", total_atoms);
+                    let _ = writeln!(
+                        out,
+                        "  1 mole =      {:.4e} molecules (Avogadro)",
+                        6.02214076e23
+                    );
+                    let _ = writeln!(
+                        out,
+                        "  Molecule mass:{:.4e} g / molecule",
+                        total_mass / 6.02214076e23
+                    );
+                }
+            }
+            Err(e) => {
+                let _ = writeln!(out, "  Error parsing formula: {}", e);
+            }
+        }
+    } else {
+        match keyword {
+            "molarity" => {
+                // C = n/V  where V is in litres
+                let n = parse_kv("n").or_else(|| parse_kv("m"));
+                let v = parse_kv("V").or_else(|| parse_kv("v"));
+                let c = parse_kv("C").or_else(|| parse_kv("c"));
+                let _ = writeln!(out, "  ─── Molarity  C = n/V ───");
+                match (c, n, v) {
+                    (None, Some(n), Some(v)) => {
+                        let _ = writeln!(out, "  n={} mol, V={} L", n, v);
+                        let _ = writeln!(out, "  C = n/V = {:.6} mol/L (M)", n / v);
+                    }
+                    (Some(c), None, Some(v)) => {
+                        let _ = writeln!(out, "  C={} M, V={} L", c, v);
+                        let _ = writeln!(out, "  n = C·V = {:.6} mol", c * v);
+                    }
+                    (Some(c), Some(n), None) => {
+                        let _ = writeln!(out, "  C={} M, n={} mol", c, n);
+                        let _ = writeln!(out, "  V = n/C = {:.6} L", n / c);
+                    }
+                    _ => {
+                        let _ = writeln!(out, "  Provide 2 of: C= (mol/L), n= (mol), V= (L)");
+                    }
+                }
+            }
+            "dilution" => {
+                // C1V1 = C2V2
+                let c1 = parse_kv("C1").or_else(|| parse_kv("c1"));
+                let v1 = parse_kv("V1").or_else(|| parse_kv("v1"));
+                let c2 = parse_kv("C2").or_else(|| parse_kv("c2"));
+                let v2 = parse_kv("V2").or_else(|| parse_kv("v2"));
+                let _ = writeln!(out, "  ─── Dilution  C₁V₁ = C₂V₂ ───");
+                match (c1, v1, c2, v2) {
+                    (Some(c1), Some(v1), None, Some(v2)) => {
+                        let c2 = c1 * v1 / v2;
+                        let _ = writeln!(out, "  C1={} M, V1={} L, V2={} L", c1, v1, v2);
+                        let _ = writeln!(out, "  C2 = C1·V1/V2 = {:.6} M", c2);
+                        let _ = writeln!(out, "  Dilution factor = {:.2}×", v2 / v1);
+                    }
+                    (Some(c1), Some(v1), Some(c2), None) => {
+                        let v2 = c1 * v1 / c2;
+                        let _ = writeln!(out, "  C1={} M, V1={} L, C2={} M", c1, v1, c2);
+                        let _ = writeln!(out, "  V2 = C1·V1/C2 = {:.6} L", v2);
+                    }
+                    _ => {
+                        let _ = writeln!(out, "  Provide C1= V1= and one of C2= or V2=");
+                    }
+                }
+            }
+            "ph" => {
+                let conc = parse_kv("H").or_else(|| parse_kv("h"));
+                let ph_given = parse_kv("pH").or_else(|| parse_kv("ph"));
+                let _ = writeln!(out, "  ─── pH / [H⁺] Interconversion ───");
+                if let Some(ph) = ph_given {
+                    let h_conc = 10.0_f64.powf(-ph);
+                    let oh_conc = 10.0_f64.powf(-(14.0 - ph));
+                    let _ = writeln!(out, "  pH = {}", ph);
+                    let _ = writeln!(out, "  [H⁺]  = 10^(-pH)     = {:.4e} mol/L", h_conc);
+                    let _ = writeln!(out, "  [OH⁻] = 10^(pH-14)   = {:.4e} mol/L", oh_conc);
+                    let _ = writeln!(out, "  pOH   = 14 - pH       = {:.4}", 14.0 - ph);
+                    let nature = if (ph - 7.0).abs() < 0.01 {
+                        "neutral"
+                    } else if ph < 7.0 {
+                        "acidic"
+                    } else {
+                        "basic"
+                    };
+                    let _ = writeln!(out, "  Nature: {}", nature);
+                } else if let Some(h) = conc {
+                    let ph = -h.log10();
+                    let _ = writeln!(out, "  [H⁺] = {:.4e} mol/L", h);
+                    let _ = writeln!(out, "  pH    = -log[H⁺] = {:.4}", ph);
+                    let _ = writeln!(out, "  pOH   = 14 - pH   = {:.4}", 14.0 - ph);
+                } else {
+                    // Try bare float as [H+]
+                    if let Ok(h) = q.split_whitespace().nth(1).unwrap_or("").parse::<f64>() {
+                        let ph = -h.log10();
+                        let _ = writeln!(out, "  [H⁺] = {:.4e} mol/L", h);
+                        let _ = writeln!(out, "  pH    = -log[H⁺] = {:.4}", ph);
+                        let _ = writeln!(out, "  pOH   = 14 - pH   = {:.4}", 14.0 - ph);
+                    } else {
+                        let _ = writeln!(out, "  Provide [H⁺] as 'ph 0.001' or pH as 'ph pH=3.5'");
+                    }
+                }
+            }
+            "buffer" | "henderson" => {
+                // Henderson-Hasselbalch: pH = pKa + log([A-]/[HA])
+                let pka = parse_kv("pKa").or_else(|| parse_kv("pka"));
+                let a = parse_kv("A").or_else(|| parse_kv("a"));
+                let ha = parse_kv("HA").or_else(|| parse_kv("ha"));
+                let _ = writeln!(
+                    out,
+                    "  ─── Henderson-Hasselbalch  pH = pKa + log([A⁻]/[HA]) ───"
+                );
+                if let (Some(pka), Some(a), Some(ha)) = (pka, a, ha) {
+                    let ph = pka + (a / ha).log10();
+                    let _ = writeln!(out, "  pKa={}, [A⁻]={} M, [HA]={} M", pka, a, ha);
+                    let _ = writeln!(out, "  pH = pKa + log([A⁻]/[HA]) = {:.4}", ph);
+                    let _ = writeln!(out, "  Buffer ratio [A⁻]/[HA] = {:.4}", a / ha);
+                    let max_buffer_ph = pka;
+                    let _ = writeln!(
+                        out,
+                        "  Max buffer capacity at pH ≈ pKa = {:.2}",
+                        max_buffer_ph
+                    );
+                } else {
+                    let _ = writeln!(out, "  Provide pKa=, A=<[conjugate base]>, HA=<[acid]>");
+                }
+            }
+            "percent" | "mass-percent" => {
+                // Mass percent of an element in a compound
+                if words.len() >= 2 {
+                    let formula = words[1];
+                    let target_el = words.get(2).copied().unwrap_or("");
+                    match parse_chem_formula(formula) {
+                        Ok(elements) => {
+                            let mut total_mass = 0.0;
+                            for (el, count) in &elements {
+                                if let Some(mass) = atomic_mass(el.as_str()) {
+                                    total_mass += mass * *count as f64;
+                                }
+                            }
+                            let _ = writeln!(out, "  ─── Mass Percent in {} ───", formula);
+                            if target_el.is_empty() {
+                                let mut entries: Vec<(String, f64)> = elements
+                                    .iter()
+                                    .filter_map(|(el, count)| {
+                                        atomic_mass(el.as_str()).map(|m| {
+                                            (el.clone(), m * *count as f64 / total_mass * 100.0)
+                                        })
+                                    })
+                                    .collect();
+                                entries.sort_by(|a, b| {
+                                    b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal)
+                                });
+                                for (el, pct) in entries {
+                                    let _ = writeln!(out, "  {:>4}: {:>7.3}%", el, pct);
+                                }
+                            } else if let Some(count) = elements.get(target_el) {
+                                if let Some(mass) = atomic_mass(target_el) {
+                                    let pct = mass * *count as f64 / total_mass * 100.0;
+                                    let _ = writeln!(
+                                        out,
+                                        "  {} in {}: {:.4}%",
+                                        target_el, formula, pct
+                                    );
+                                }
+                            } else {
+                                let _ =
+                                    writeln!(out, "  Element '{}' not found in formula", target_el);
+                            }
+                            let _ = writeln!(out, "  Molar mass: {:.4} g/mol", total_mass);
+                        }
+                        Err(e) => {
+                            let _ = writeln!(out, "  Error: {}", e);
+                        }
+                    }
+                } else {
+                    let _ = writeln!(out, "  Usage: hematite --chemistry 'percent H2O H'");
+                }
+            }
+            _ => {
+                let _ = writeln!(out, "  Unknown command: '{}'", keyword);
+                let _ = writeln!(out, "  Try a molecular formula (H2O, C6H12O6, Ca(OH)2) or:");
+                let _ = writeln!(out, "  molarity, dilution, ph, buffer, percent");
+            }
+        }
+    }
+
+    let _ = writeln!(out, "{}", sep);
+    out
+}
+
+// ── Combinatorics ─────────────────────────────────────────────────────────────
+
+fn factorial_big(n: u64) -> u128 {
+    (1..=n).map(|x| x as u128).product()
+}
+
+fn comb(n: u64, k: u64) -> u128 {
+    if k > n {
+        return 0;
+    }
+    let k = k.min(n - k);
+    let mut result: u128 = 1;
+    for i in 0..k {
+        result = result * (n - i) as u128 / (i + 1) as u128;
+    }
+    result
+}
+
+fn perm(n: u64, k: u64) -> u128 {
+    if k > n {
+        return 0;
+    }
+    (n - k + 1..=n).map(|x| x as u128).product()
+}
+
+pub fn combinatorics_calc(query: &str) -> String {
+    let sep = "─".repeat(60);
+    let mut out = String::new();
+    let _ = writeln!(
+        out,
+        "\n  ┌─ Combinatorics Calculator ───────────────────────┐"
+    );
+    let _ = writeln!(out, "{}", sep);
+
+    let q = query.trim().to_lowercase();
+    let words: Vec<&str> = q.split_whitespace().collect();
+
+    if words.is_empty() {
+        let _ = writeln!(out, "  Usage examples:");
+        let _ = writeln!(
+            out,
+            "    hematite --combinatorics 'C 10 3'        — combinations C(10,3)"
+        );
+        let _ = writeln!(
+            out,
+            "    hematite --combinatorics 'P 10 3'        — permutations P(10,3)"
+        );
+        let _ = writeln!(out, "    hematite --combinatorics 'factorial 12'  — 12!");
+        let _ = writeln!(out, "    hematite --combinatorics 'derangement 5' — D(5)");
+        let _ = writeln!(out, "    hematite --combinatorics 'catalan 7'     — C_7");
+        let _ = writeln!(
+            out,
+            "    hematite --combinatorics 'pascal 8'      — row 8 of Pascal's triangle"
+        );
+        let _ = writeln!(out, "    hematite --combinatorics 'bell 6'        — B_6");
+        let _ = writeln!(
+            out,
+            "    hematite --combinatorics 'stirling 5 2'  — Stirling S(5,2)"
+        );
+        let _ = writeln!(
+            out,
+            "    hematite --combinatorics 'multinomial 12 3,4,5' — 12!/(3!4!5!)"
+        );
+        let _ = writeln!(
+            out,
+            "    hematite --combinatorics 'partition 6'   — number of integer partitions"
+        );
+        let _ = writeln!(out, "{}", sep);
+        return out;
+    }
+
+    let parse_n = |idx: usize| -> Option<u64> { words.get(idx)?.parse().ok() };
+
+    let keyword = words[0];
+
+    match keyword {
+        "c" | "choose" | "combination" | "combinations" => {
+            if let (Some(n), Some(k)) = (parse_n(1), parse_n(2)) {
+                let c = comb(n, k);
+                let _ = writeln!(out, "  C({}, {}) = n! / (k!(n-k)!)", n, k);
+                let _ = writeln!(out, "  = {}", c);
+                let _ = writeln!(out, "  (choosing {} items from {} without order)", k, n);
+            } else {
+                let _ = writeln!(out, "  Usage: hematite --combinatorics 'C n k'");
+            }
+        }
+        "p" | "permutation" | "permutations" => {
+            if let (Some(n), Some(k)) = (parse_n(1), parse_n(2)) {
+                let p = perm(n, k);
+                let _ = writeln!(out, "  P({}, {}) = n! / (n-k)!", n, k);
+                let _ = writeln!(out, "  = {}", p);
+                let _ = writeln!(out, "  (arranging {} items from {} with order)", k, n);
+            } else {
+                let _ = writeln!(out, "  Usage: hematite --combinatorics 'P n k'");
+            }
+        }
+        "factorial" | "fact" => {
+            if let Some(n) = parse_n(1) {
+                if n > 34 {
+                    let _ = writeln!(out, "  {}! = {}", n, factorial_big(n));
+                    let _ = writeln!(
+                        out,
+                        "  ≈ {:.6e}",
+                        (0..=n).map(|x| (x as f64).max(1.0).ln()).sum::<f64>().exp()
+                    );
+                } else {
+                    let _ = writeln!(out, "  {}! = {}", n, factorial_big(n));
+                }
+                // Stirling's approximation for n >= 10
+                if n >= 10 {
+                    let n_f = n as f64;
+                    let stirling = (2.0 * std::f64::consts::PI * n_f).sqrt()
+                        * (n_f / std::f64::consts::E).powf(n_f);
+                    let _ = writeln!(
+                        out,
+                        "  Stirling approx: {:.6e}  (error < 1/(12n))",
+                        stirling
+                    );
+                }
+            } else {
+                let _ = writeln!(out, "  Usage: hematite --combinatorics 'factorial n'");
+            }
+        }
+        "derangement" | "derangements" | "d" => {
+            if let Some(n) = parse_n(1) {
+                // D(n) = n! * sum_{k=0}^{n} (-1)^k / k!
+                let mut d: i128 = 0;
+                let n_fact = factorial_big(n) as i128;
+                let mut kfact: i128 = 1;
+                for k in 0..=n {
+                    if k > 0 {
+                        kfact *= k as i128;
+                    }
+                    if k % 2 == 0 {
+                        d += n_fact / kfact;
+                    } else {
+                        d -= n_fact / kfact;
+                    }
+                }
+                let prob = d as f64 / factorial_big(n) as f64;
+                let _ = writeln!(out, "  D({}) = {}", n, d);
+                let _ = writeln!(
+                    out,
+                    "  Probability of a random derangement ≈ {:.6}  (→ 1/e)",
+                    prob
+                );
+                let _ = writeln!(out, "  1/e ≈ {:.6}", 1.0 / std::f64::consts::E);
+            } else {
+                let _ = writeln!(out, "  Usage: hematite --combinatorics 'derangement n'");
+            }
+        }
+        "catalan" => {
+            if let Some(n) = parse_n(1) {
+                let c = comb(2 * n, n) / (n as u128 + 1);
+                let _ = writeln!(out, "  Catalan number C({}) = C(2n,n)/(n+1)", n);
+                let _ = writeln!(out, "  = {}", c);
+                let _ = writeln!(
+                    out,
+                    "  (balanced parentheses, full binary trees, polygon triangulations)"
+                );
+            } else {
+                let _ = writeln!(out, "  Usage: hematite --combinatorics 'catalan n'");
+            }
+        }
+        "pascal" => {
+            if let Some(n) = parse_n(1) {
+                let n = n.min(20); // cap for display
+                let _ = writeln!(out, "  Pascal's Triangle — row {} (0-indexed):", n);
+                let row: Vec<u128> = (0..=n).map(|k| comb(n, k)).collect();
+                let row_str: Vec<String> = row.iter().map(|x| x.to_string()).collect();
+                let _ = writeln!(out, "  {}", row_str.join("  "));
+                let _ = writeln!(out, "  Sum of row {} = 2^{} = {}", n, n, 1u128 << n);
+            } else {
+                let _ = writeln!(
+                    out,
+                    "  Usage: hematite --combinatorics 'pascal n'  (shows row n)"
+                );
+            }
+        }
+        "bell" => {
+            if let Some(n) = parse_n(1) {
+                // Bell triangle
+                let n = n.min(15) as usize;
+                let mut prev_row = vec![1u128];
+                let _ = writeln!(out, "  Bell numbers B(0)..B({}):", n);
+                let mut bells = vec![1u128]; // B(0)=1
+                for _ in 1..=n {
+                    let mut next_row = vec![*prev_row.last().unwrap()];
+                    for j in 0..prev_row.len() {
+                        next_row.push(next_row[j] + prev_row[j]);
+                    }
+                    bells.push(next_row[0]);
+                    prev_row = next_row;
+                }
+                let b_strs: Vec<String> = bells
+                    .iter()
+                    .enumerate()
+                    .map(|(i, b)| format!("B({})={}", i, b))
+                    .collect();
+                for chunk in b_strs.chunks(4) {
+                    let _ = writeln!(out, "  {}", chunk.join("  "));
+                }
+                let _ = writeln!(out, "  B({}) = {}", n, bells[n]);
+            } else {
+                let _ = writeln!(out, "  Usage: hematite --combinatorics 'bell n'");
+            }
+        }
+        "stirling" => {
+            if let (Some(n), Some(k)) = (parse_n(1), parse_n(2)) {
+                let n = n as usize;
+                let k = k as usize;
+                if k > n {
+                    let _ = writeln!(out, "  S({},{}) = 0  (k > n)", n, k);
+                } else {
+                    // Stirling numbers of the second kind via DP
+                    let mut s = vec![vec![0u128; k + 1]; n + 1];
+                    s[0][0] = 1;
+                    for i in 1..=n {
+                        for j in 1..=i.min(k) {
+                            s[i][j] = j as u128 * s[i - 1][j] + s[i - 1][j - 1];
+                        }
+                    }
+                    let _ = writeln!(out, "  Stirling number of the 2nd kind S({}, {})", n, k);
+                    let _ = writeln!(
+                        out,
+                        "  = {} ways to partition {} elements into {} non-empty subsets",
+                        s[n][k], n, k
+                    );
+                }
+            } else {
+                let _ = writeln!(out, "  Usage: hematite --combinatorics 'stirling n k'");
+            }
+        }
+        "multinomial" => {
+            // multinomial n k1,k2,k3,...  — n!/(k1!k2!k3!...)
+            if let Some(n) = parse_n(1) {
+                if let Some(parts_str) = words.get(2) {
+                    let parts: Vec<u64> = parts_str
+                        .split(',')
+                        .filter_map(|s| s.parse().ok())
+                        .collect();
+                    let parts_sum: u64 = parts.iter().sum();
+                    if parts_sum != n {
+                        let _ = writeln!(
+                            out,
+                            "  Error: parts sum ({}) must equal n ({})",
+                            parts_sum, n
+                        );
+                    } else {
+                        let num = factorial_big(n);
+                        let den: u128 = parts.iter().map(|&k| factorial_big(k)).product();
+                        let result = num / den;
+                        let parts_str: Vec<String> = parts.iter().map(|x| x.to_string()).collect();
+                        let _ = writeln!(
+                            out,
+                            "  Multinomial({} ; {}) = {}!/({}!)",
+                            n,
+                            parts_str.join(","),
+                            n,
+                            parts_str.join("!")
+                        );
+                        let _ = writeln!(out, "  = {}", result);
+                    }
+                } else {
+                    let _ = writeln!(
+                        out,
+                        "  Usage: hematite --combinatorics 'multinomial 12 3,4,5'"
+                    );
+                }
+            } else {
+                let _ = writeln!(
+                    out,
+                    "  Usage: hematite --combinatorics 'multinomial n k1,k2,...'"
+                );
+            }
+        }
+        "partition" | "partitions" => {
+            if let Some(n) = parse_n(1) {
+                let n = n.min(100) as usize;
+                // Partition function p(n) via Euler's pentagonal recurrence
+                let mut p = vec![0u128; n + 1];
+                p[0] = 1;
+                for i in 1..=n {
+                    let mut k: i64 = 1;
+                    loop {
+                        let pent1 = (k * (3 * k - 1) / 2) as usize;
+                        let pent2 = (k * (3 * k + 1) / 2) as usize;
+                        if pent1 > i {
+                            break;
+                        }
+                        let sign = if k % 2 == 1 { 1i128 } else { -1i128 };
+                        p[i] = (p[i] as i128 + sign * p[i - pent1] as i128) as u128;
+                        if pent2 <= i {
+                            p[i] = (p[i] as i128 + sign * p[i - pent2] as i128) as u128;
+                        }
+                        k += 1;
+                    }
+                }
+                let _ = writeln!(out, "  Integer partitions of {}:", n);
+                let _ = writeln!(out, "  p({}) = {}", n, p[n]);
+                let _ = writeln!(
+                    out,
+                    "  (number of ways to write {} as an ordered sum of positive integers)",
+                    n
+                );
+                if n <= 10 {
+                    let _ = writeln!(out, "  First {} values:", n + 1);
+                    let vals: Vec<String> = (0..=n).map(|i| format!("p({})={}", i, p[i])).collect();
+                    for chunk in vals.chunks(5) {
+                        let _ = writeln!(out, "  {}", chunk.join("  "));
+                    }
+                }
+            } else {
+                let _ = writeln!(out, "  Usage: hematite --combinatorics 'partition n'");
+            }
+        }
+        _ => {
+            let _ = writeln!(out, "  Unknown command: '{}'", keyword);
+            let _ = writeln!(
+                out,
+                "  Supported: C, P, factorial, derangement, catalan, pascal,"
+            );
+            let _ = writeln!(out, "             bell, stirling, multinomial, partition");
+        }
+    }
+
+    let _ = writeln!(out, "{}", sep);
+    out
+}

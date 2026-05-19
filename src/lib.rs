@@ -1044,6 +1044,30 @@ pub struct CliCockpit {
         long,
         help_heading = "Math & Science",
         value_name = "QUERY",
+        help = "Physics calculator — instant, no model, no cloud. Commands: kinematic (SUVAT 1D), projectile (2D range/height/time), force (F=ma), energy (KE+PE), momentum, work/power, wave (f↔λ, T, ω), snell (refraction), lens (thin lens/mirror), gas (ideal gas law PV=nRT), gravity (universal gravitation), pendulum (T=2π√L/g), circular (centripetal). All SI units. Examples: hematite --physics 'kinematic v0=0 a=9.8 t=3' | hematite --physics 'projectile v0=20 angle=45' | hematite --physics 'gas P=101325 n=1 T=273'"
+    )]
+    pub physics: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Math & Science",
+        value_name = "QUERY",
+        help = "Chemistry calculator — instant, no model, no cloud. Pass a molecular formula for molar mass (H2O, C6H12O6, Ca(OH)2) or use commands: molarity (C=n/V), dilution (C1V1=C2V2), ph ([H⁺]↔pH↔pOH), buffer (Henderson-Hasselbalch), percent (mass percent of element in compound). Parses nested parentheses in formulas. Examples: hematite --chemistry 'H2O' | hematite --chemistry 'Ca(OH)2' | hematite --chemistry 'ph pH=3.5' | hematite --chemistry 'buffer pKa=4.75 A=0.1 HA=0.1'"
+    )]
+    pub chemistry: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Math & Science",
+        value_name = "QUERY",
+        help = "Combinatorics calculator — instant, no model, no cloud. Commands: C n k (combinations), P n k (permutations), factorial n, derangement n (D(n)), catalan n (Catalan numbers), pascal n (row of Pascal's triangle), bell n (Bell numbers), stirling n k (Stirling 2nd kind), multinomial n k1,k2,... and partition n (integer partitions via Euler pentagonal recurrence). Examples: hematite --combinatorics 'C 10 3' | hematite --combinatorics 'catalan 7' | hematite --combinatorics 'bell 6'"
+    )]
+    pub combinatorics: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Math & Science",
+        value_name = "QUERY",
         help = "Geometry calculator — instant, no model, no cloud. Shapes: circle, triangle, rectangle, square, ellipse, polygon, sphere, cylinder, cone, box/cuboid. Also: distance/midpoint/slope, pythagorean, angle conversion (degrees/radians). Examples: hematite --geometry 'circle r=5' | hematite --geometry 'triangle a=3 b=4 c=5' | hematite --geometry 'sphere r=3' | hematite --geometry 'distance x1=0 y1=0 x2=3 y2=4'"
     )]
     pub geometry: Option<String>,

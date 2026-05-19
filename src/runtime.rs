@@ -985,6 +985,9 @@ mod tests {
             dstats: None,
             geometry: None,
             electrical: None,
+            physics: None,
+            chemistry: None,
+            combinatorics: None,
             pdf_extract_helper: None,
             teleported_from: None,
         };

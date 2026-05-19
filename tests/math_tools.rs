@@ -3,9 +3,9 @@
 /// Covers known-value correctness, edge-case non-panics, and the newer
 /// matrix decomposition modes (QR, SVD, Cholesky).
 use hematite::tools::math_util::{
-    bitwise_calc, checksum_calc, cipher_calc, electrical_calc, encode_calc, geometry_calc,
-    hash_calc, matrix_calc, number_format, prob_calc, set_calc, sort_viz, stats_calc, string_dist,
-    text_stats, validate_calc,
+    bitwise_calc, checksum_calc, chemistry_calc, cipher_calc, combinatorics_calc, electrical_calc,
+    encode_calc, geometry_calc, hash_calc, matrix_calc, number_format, physics_calc, prob_calc,
+    set_calc, sort_viz, stats_calc, string_dist, text_stats, validate_calc,
 };
 
 // ─── Cipher tests ────────────────────────────────────────────────────────────
@@ -808,6 +808,210 @@ fn electrical_voltage_divider() {
 fn electrical_empty_no_panic() {
     let out = electrical_calc("");
     assert!(!out.is_empty(), "empty input should return usage");
+}
+
+// ─── Physics tests ────────────────────────────────────────────────────────────
+
+#[test]
+fn physics_kinematic_freefall_3s() {
+    // v0=0, a=9.8, t=3 → v=29.4, s=44.1
+    let out = physics_calc("kinematic v0=0 a=9.8 t=3");
+    assert!(out.contains("29.4"), "v=a*t=29.4: {out}");
+    assert!(out.contains("44.1"), "s=0.5*a*t²=44.1: {out}");
+}
+
+#[test]
+fn physics_projectile_45_degree_range() {
+    // v0=20, angle=45 → max range (symmetric) ≈ 40.77 m at g=9.80665
+    let out = physics_calc("projectile v0=20 angle=45");
+    assert!(out.contains("Range"), "should show Range: {out}");
+    // Range ≈ 40.7 m
+    assert!(out.contains("40."), "45° range ≈ 40.7 m: {out}");
+}
+
+#[test]
+fn physics_force_f_equals_ma() {
+    // m=5, a=3 → F=15 N
+    let out = physics_calc("force m=5 a=3");
+    assert!(out.contains("15.000000"), "F=ma=15: {out}");
+}
+
+#[test]
+fn physics_kinetic_energy() {
+    // m=10, v=5 → KE=125
+    let out = physics_calc("energy m=10 v=5");
+    assert!(out.contains("125.000000"), "KE=0.5*10*25=125: {out}");
+}
+
+#[test]
+fn physics_pendulum_1m() {
+    // L=1 → T=2π√(1/9.80665) ≈ 2.006s
+    let out = physics_calc("pendulum L=1");
+    assert!(
+        out.contains("2.006") || out.contains("2.00"),
+        "T≈2.006s for L=1m: {out}"
+    );
+}
+
+#[test]
+fn physics_ideal_gas_solve_pressure() {
+    // n=1, T=273.15, V=0.02241 (1 mol at STP) → P≈101325 Pa
+    let out = physics_calc("gas n=1 T=273.15 V=0.02241");
+    assert!(out.contains("Pa"), "should show pressure in Pa: {out}");
+}
+
+#[test]
+fn physics_snell_glass_30_degrees() {
+    // n1=1, n2=1.5, angle=30 → θ2=arcsin(0.5/1.5)≈19.47°
+    let out = physics_calc("snell n1=1 n2=1.5 angle=30");
+    assert!(out.contains("19."), "refracted angle ≈19.47°: {out}");
+}
+
+#[test]
+fn physics_empty_no_panic() {
+    let out = physics_calc("");
+    assert!(!out.is_empty());
+}
+
+// ─── Chemistry tests ──────────────────────────────────────────────────────────
+
+#[test]
+fn chemistry_molar_mass_water() {
+    // H2O = 2*1.008 + 15.999 = 18.015
+    let out = chemistry_calc("H2O");
+    assert!(
+        out.contains("18.015") || out.contains("18.01"),
+        "H2O molar mass ≈18.015: {out}"
+    );
+}
+
+#[test]
+fn chemistry_molar_mass_glucose() {
+    // C6H12O6 = 6*12.011 + 12*1.008 + 6*15.999 = 180.156
+    let out = chemistry_calc("C6H12O6");
+    assert!(out.contains("180.1"), "C6H12O6 molar mass ≈180.156: {out}");
+}
+
+#[test]
+fn chemistry_molar_mass_calcium_hydroxide() {
+    // Ca(OH)2 = 40.078 + 2*(15.999+1.008) = 74.092
+    let out = chemistry_calc("Ca(OH)2");
+    assert!(
+        out.contains("74.09") || out.contains("74.08"),
+        "Ca(OH)2 ≈74.09: {out}"
+    );
+}
+
+#[test]
+fn chemistry_ph_from_concentration() {
+    // [H+]=0.001 → pH=3
+    let out = chemistry_calc("ph 0.001");
+    assert!(
+        out.contains("3.000") || out.contains("3.0000"),
+        "pH=3 for [H+]=0.001: {out}"
+    );
+}
+
+#[test]
+fn chemistry_ph_from_ph_value() {
+    let out = chemistry_calc("ph pH=7");
+    assert!(
+        out.contains("neutral") || out.contains("1.0000e-7"),
+        "pH=7 neutral: {out}"
+    );
+}
+
+#[test]
+fn chemistry_molarity_calculation() {
+    // n=2 mol, V=0.5 L → C=4 M
+    let out = chemistry_calc("molarity n=2 V=0.5");
+    assert!(out.contains("4.000000"), "C=n/V=4M: {out}");
+}
+
+#[test]
+fn chemistry_buffer_henderson_hasselbalch() {
+    // pKa=4.75, equal concentrations → pH=pKa=4.75
+    let out = chemistry_calc("buffer pKa=4.75 A=0.1 HA=0.1");
+    assert!(
+        out.contains("4.750") || out.contains("4.75"),
+        "equal conc buffer pH=pKa: {out}"
+    );
+}
+
+#[test]
+fn chemistry_empty_no_panic() {
+    let out = chemistry_calc("");
+    assert!(!out.is_empty());
+}
+
+// ─── Combinatorics tests ──────────────────────────────────────────────────────
+
+#[test]
+fn combinatorics_c_10_3_is_120() {
+    let out = combinatorics_calc("C 10 3");
+    assert!(out.contains("120"), "C(10,3)=120: {out}");
+}
+
+#[test]
+fn combinatorics_p_5_2_is_20() {
+    let out = combinatorics_calc("P 5 2");
+    assert!(out.contains("20"), "P(5,2)=20: {out}");
+}
+
+#[test]
+fn combinatorics_factorial_10_is_3628800() {
+    let out = combinatorics_calc("factorial 10");
+    assert!(out.contains("3628800"), "10!=3628800: {out}");
+}
+
+#[test]
+fn combinatorics_derangement_5_is_44() {
+    let out = combinatorics_calc("derangement 5");
+    assert!(out.contains("44"), "D(5)=44: {out}");
+}
+
+#[test]
+fn combinatorics_catalan_7_is_429() {
+    let out = combinatorics_calc("catalan 7");
+    assert!(out.contains("429"), "C_7=429: {out}");
+}
+
+#[test]
+fn combinatorics_pascal_row_4() {
+    // Row 4: 1 4 6 4 1
+    let out = combinatorics_calc("pascal 4");
+    assert!(out.contains('6'), "C(4,2)=6 in pascal row 4: {out}");
+}
+
+#[test]
+fn combinatorics_bell_4_is_15() {
+    let out = combinatorics_calc("bell 4");
+    assert!(out.contains("15"), "B(4)=15: {out}");
+}
+
+#[test]
+fn combinatorics_stirling_5_2_is_15() {
+    let out = combinatorics_calc("stirling 5 2");
+    assert!(out.contains("15"), "S(5,2)=15: {out}");
+}
+
+#[test]
+fn combinatorics_partition_5_is_7() {
+    let out = combinatorics_calc("partition 5");
+    assert!(out.contains('7'), "p(5)=7: {out}");
+}
+
+#[test]
+fn combinatorics_multinomial_12_3_4_5() {
+    // 12!/(3!4!5!) = 27720
+    let out = combinatorics_calc("multinomial 12 3,4,5");
+    assert!(out.contains("27720"), "multinomial(12;3,4,5)=27720: {out}");
+}
+
+#[test]
+fn combinatorics_empty_no_panic() {
+    let out = combinatorics_calc("");
+    assert!(!out.is_empty());
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
