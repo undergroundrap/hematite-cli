@@ -2815,6 +2815,36 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
 
+    if let Some(ref file_path) = cockpit.cluster {
+        let k        = cockpit.cluster_k.unwrap_or(3);
+        let cols_str = cockpit.cluster_cols.as_deref().unwrap_or("");
+        let cols: Vec<&str> = if cols_str.is_empty() { vec![] } else { cols_str.split(',').map(str::trim).collect() };
+        let output   = cockpit.cluster_output.as_deref().unwrap_or("");
+        match hematite::tools::data_tools::cluster_kmeans(file_path.trim(), k, &cols, 300, output).await {
+            Ok(result) => {
+                println!("{}", result.trim());
+                if cockpit.clipboard { copy_to_clipboard(&result); println!("Copied to clipboard."); }
+            }
+            Err(e) => eprintln!("Error: {}", e),
+        }
+        return Ok(());
+    }
+
+    if let Some(ref file_path) = cockpit.normalize {
+        let method   = cockpit.normalize_method.as_deref().unwrap_or("minmax");
+        let cols_str = cockpit.normalize_cols.as_deref().unwrap_or("");
+        let cols: Vec<&str> = if cols_str.is_empty() { vec![] } else { cols_str.split(',').map(str::trim).collect() };
+        let output   = cockpit.normalize_output.as_deref().unwrap_or("");
+        match hematite::tools::data_tools::normalize_dataset(file_path.trim(), method, &cols, output).await {
+            Ok(result) => {
+                println!("{}", result.trim());
+                if cockpit.clipboard { copy_to_clipboard(&result); println!("Copied to clipboard."); }
+            }
+            Err(e) => eprintln!("Error: {}", e),
+        }
+        return Ok(());
+    }
+
     if let Some(ref file_path) = cockpit.percentile {
         let col = cockpit.percentile_col.as_deref().unwrap_or("");
         match hematite::tools::data_tools::percentile_report(file_path.trim(), col).await {

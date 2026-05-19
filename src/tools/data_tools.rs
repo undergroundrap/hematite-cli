@@ -1267,3 +1267,264 @@ print("="*W)
     });
     crate::tools::code_sandbox::execute(&sandbox_args).await
 }
+
+// ── k-means clustering ────────────────────────────────────────────────────────
+// Lloyd's algorithm, pure Python, no sklearn.
+// Reports cluster centroids, sizes, inertia, and per-row assignments.
+
+pub async fn cluster_kmeans(
+    file_path: &str,
+    k: usize,
+    cols: &[&str],
+    max_iter: usize,
+    output: &str,
+) -> Result<String, String> {
+    let hex_path:   String = file_path.bytes().map(|b| format!("{:02x}", b)).collect();
+    let cols_joined = cols.join("\n");
+    let hex_cols:   String = cols_joined.bytes().map(|b| format!("{:02x}", b)).collect();
+    let hex_output: String = output.bytes().map(|b| format!("{:02x}", b)).collect();
+
+    let script = format!(r####"import csv as _csv, json as _js, sqlite3 as _sq, os, sys, math, random
+
+_path    = bytes.fromhex("{hex_path}").decode().strip()
+_cols_raw = bytes.fromhex("{hex_cols}").decode().strip()
+_cols    = [c.strip() for c in _cols_raw.split('\n') if c.strip()] if _cols_raw else []
+_k       = {k}
+_max_iter = {max_iter}
+_output  = bytes.fromhex("{hex_output}").decode().strip()
+
+def _load(path):
+    ext = os.path.splitext(path)[1].lower().lstrip('.')
+    if ext in ('csv','tsv'):
+        with open(path, encoding='utf-8-sig', errors='replace', newline='') as fh:
+            r = _csv.DictReader(fh, delimiter='\t' if ext=='tsv' else ',')
+            return list(r)
+    elif ext == 'json':
+        with open(path, encoding='utf-8') as fh: d = _js.load(fh)
+        return d if isinstance(d, list) else next(iter(d.values()), [])
+    elif ext in ('db','sqlite','sqlite3'):
+        con = _sq.connect(path)
+        cur = con.cursor()
+        cur.execute("SELECT name FROM sqlite_master WHERE type='table' LIMIT 1")
+        t = cur.fetchone()
+        if not t: return []
+        cur.execute("SELECT * FROM [%s]" % t[0])
+        cols2 = [d2[0] for d2 in cur.description]
+        rows2 = [dict(zip(cols2, r)) for r in cur.fetchall()]
+        con.close()
+        return rows2
+    print("Unsupported: "+ext, file=sys.stderr); sys.exit(1)
+
+def _tf(v):
+    try: return float(str(v).replace(',','').strip())
+    except: return None
+
+rows = _load(_path)
+if not rows:
+    print("No rows found."); sys.exit(0)
+
+all_cols = list(rows[0].keys())
+if _cols:
+    feature_cols = [c for c in all_cols if c in _cols]
+else:
+    feature_cols = [c for c in all_cols if sum(1 for r in rows if _tf(r.get(c,'')) is not None) >= len(rows)*0.5]
+
+if len(feature_cols) < 1:
+    print("No numeric feature columns found."); sys.exit(1)
+
+valid_rows = [r for r in rows if all(_tf(r.get(c,'')) is not None for c in feature_cols)]
+if len(valid_rows) < _k:
+    print("Fewer valid rows (%d) than clusters (%d)." % (len(valid_rows), _k)); sys.exit(1)
+
+X = [[_tf(r[c]) for c in feature_cols] for r in valid_rows]
+n = len(X); d = len(feature_cols)
+
+def _dist(a, b): return math.sqrt(sum((ai-bi)**2 for ai,bi in zip(a,b)))
+def _centroid(pts): return [sum(p[j] for p in pts)/len(pts) for j in range(d)] if pts else [0.0]*d
+
+# k-means++ init
+random.seed(42)
+centroids = [X[random.randint(0,n-1)]]
+for _ in range(_k-1):
+    dists = [min(_dist(x, c)**2 for c in centroids) for x in X]
+    total = sum(dists)
+    r = random.random() * total
+    cum = 0
+    for i,dd in enumerate(dists):
+        cum += dd
+        if cum >= r: centroids.append(X[i]); break
+    else: centroids.append(X[-1])
+
+labels = [0]*n
+for _ in range(_max_iter):
+    new_labels = [min(range(_k), key=lambda c: _dist(x, centroids[c])) for x in X]
+    if new_labels == labels: break
+    labels = new_labels
+    for c in range(_k):
+        pts = [X[i] for i in range(n) if labels[i]==c]
+        if pts: centroids[c] = _centroid(pts)
+
+inertia = sum(_dist(X[i], centroids[labels[i]])**2 for i in range(n))
+cluster_sizes = [labels.count(c) for c in range(_k)]
+
+W = 64
+print("="*W)
+print(" k-Means Clustering: %s  (k=%d)" % (os.path.basename(_path), _k))
+print(" Features: %s" % ', '.join(feature_cols))
+print(" Rows: %d   Inertia: %.4f" % (n, inertia))
+print("-"*W)
+for c in range(_k):
+    centroid_str = '  '.join("%.4g" % v for v in centroids[c])
+    print("  Cluster %d  (%d rows): centroid = [%s]" % (c, cluster_sizes[c], centroid_str))
+print("="*W)
+
+if _output:
+    with open(_output, 'w', newline='', encoding='utf-8') as fh:
+        fns2 = list(valid_rows[0].keys()) + ['cluster']
+        w = _csv.DictWriter(fh, fieldnames=fns2)
+        w.writeheader()
+        for i,r in enumerate(valid_rows):
+            r2 = dict(r); r2['cluster'] = labels[i]
+            w.writerow(r2)
+    print("Labeled data saved to: %s" % _output)
+"####,
+        hex_path   = hex_path,
+        hex_cols   = hex_cols,
+        hex_output = hex_output,
+        k          = k,
+        max_iter   = max_iter,
+    );
+
+    let sandbox_args = serde_json::json!({
+        "language": "python",
+        "code": script,
+        "timeout_seconds": 60
+    });
+    crate::tools::code_sandbox::execute(&sandbox_args).await
+}
+
+// ── Normalize / standardize dataset ──────────────────────────────────────────
+// Applies min-max scaling or z-score standardization to numeric columns.
+// Outputs a new CSV with scaled values and reports the scaling parameters.
+
+pub async fn normalize_dataset(
+    file_path: &str,
+    method: &str,
+    cols: &[&str],
+    output: &str,
+) -> Result<String, String> {
+    let hex_path:   String = file_path.bytes().map(|b| format!("{:02x}", b)).collect();
+    let cols_joined = cols.join("\n");
+    let hex_cols:   String = cols_joined.bytes().map(|b| format!("{:02x}", b)).collect();
+    let hex_method: String = method.bytes().map(|b| format!("{:02x}", b)).collect();
+    let hex_output: String = output.bytes().map(|b| format!("{:02x}", b)).collect();
+
+    let script = format!(r####"import csv as _csv, json as _js, sqlite3 as _sq, os, sys, math
+
+_path    = bytes.fromhex("{hex_path}").decode().strip()
+_cols_raw = bytes.fromhex("{hex_cols}").decode().strip()
+_cols    = [c.strip() for c in _cols_raw.split('\n') if c.strip()] if _cols_raw else []
+_method  = bytes.fromhex("{hex_method}").decode().strip().lower() or "minmax"
+_output  = bytes.fromhex("{hex_output}").decode().strip()
+
+def _load(path):
+    ext = os.path.splitext(path)[1].lower().lstrip('.')
+    if ext in ('csv','tsv'):
+        with open(path, encoding='utf-8-sig', errors='replace', newline='') as fh:
+            r = _csv.DictReader(fh, delimiter='\t' if ext=='tsv' else ',')
+            return list(r), list(r.fieldnames or [])
+    elif ext == 'json':
+        with open(path, encoding='utf-8') as fh: d = _js.load(fh)
+        rows2 = d if isinstance(d, list) else next(iter(d.values()), [])
+        return rows2, list(rows2[0].keys()) if rows2 else []
+    elif ext in ('db','sqlite','sqlite3'):
+        con = _sq.connect(path)
+        cur = con.cursor()
+        cur.execute("SELECT name FROM sqlite_master WHERE type='table' LIMIT 1")
+        t = cur.fetchone()
+        if not t: return [], []
+        cur.execute("SELECT * FROM [%s]" % t[0])
+        cols2 = [d2[0] for d2 in cur.description]
+        rows2 = [dict(zip(cols2, r)) for r in cur.fetchall()]
+        con.close()
+        return rows2, cols2
+    print("Unsupported: "+ext, file=sys.stderr); sys.exit(1)
+
+def _tf(v):
+    try: return float(str(v).replace(',','').strip())
+    except: return None
+
+rows, fieldnames = _load(_path)
+if not rows:
+    print("No rows found."); sys.exit(0)
+
+all_cols = list(rows[0].keys())
+if _cols:
+    target_cols = [c for c in all_cols if c in _cols]
+else:
+    target_cols = [c for c in all_cols if sum(1 for r in rows if _tf(r.get(c,'')) is not None) >= len(rows)*0.5]
+
+params = {{}}
+for c in target_cols:
+    vals = [_tf(r.get(c,'')) for r in rows if _tf(r.get(c,'')) is not None]
+    if not vals: continue
+    mean = sum(vals)/len(vals)
+    std  = math.sqrt(sum((v-mean)**2 for v in vals)/len(vals))
+    mn   = min(vals); mx = max(vals)
+    params[c] = (mean, std, mn, mx)
+
+W = 64
+print("="*W)
+print(" Dataset Normalization: %s  (method=%s)" % (os.path.basename(_path), _method))
+print("-"*W)
+print("  %-20s  %-10s  %-10s  %-10s  %-10s" % ("Column", "Min", "Max", "Mean", "Std"))
+print("  " + "-"*56)
+for c,( mean,std,mn,mx) in params.items():
+    print("  %-20s  %-10.4g  %-10.4g  %-10.4g  %-10.4g" % (c[:20], mn, mx, mean, std))
+print("="*W)
+
+if _output:
+    out_rows = []
+    for r in rows:
+        out_r = dict(r)
+        for c,(mean,std,mn,mx) in params.items():
+            v = _tf(r.get(c,''))
+            if v is None:
+                out_r[c] = ''
+                continue
+            if _method in ('minmax','min-max','min_max'):
+                rng = mx-mn
+                out_r[c] = "%.8f" % ((v-mn)/rng if rng else 0.0)
+            elif _method in ('zscore','z-score','z_score','standard','standardize'):
+                out_r[c] = "%.8f" % ((v-mean)/std if std else 0.0)
+            elif _method in ('robust',):
+                from functools import reduce
+                # Use median and IQR
+                vals2 = sorted(_tf(rr.get(c,'')) for rr in rows if _tf(rr.get(c,'')) is not None)
+                n2 = len(vals2)
+                q1 = vals2[n2//4]; q3 = vals2[3*n2//4]
+                iqr = q3-q1
+                med = vals2[n2//2]
+                out_r[c] = "%.8f" % ((v-med)/iqr if iqr else 0.0)
+        out_rows.append(out_r)
+    with open(_output, 'w', newline='', encoding='utf-8') as fh:
+        fns2 = fieldnames if fieldnames else list(out_rows[0].keys()) if out_rows else []
+        w = _csv.DictWriter(fh, fieldnames=fns2)
+        w.writeheader(); w.writerows(out_rows)
+    print("Normalized data (%d rows) saved to: %s" % (len(out_rows), _output))
+else:
+    print("  (No --normalize-output specified — use --normalize-output FILE to save scaled CSV)")
+"####,
+        hex_path   = hex_path,
+        hex_cols   = hex_cols,
+        hex_method = hex_method,
+        hex_output = hex_output,
+    );
+
+    let sandbox_args = serde_json::json!({
+        "language": "python",
+        "code": script,
+        "timeout_seconds": 30
+    });
+    crate::tools::code_sandbox::execute(&sandbox_args).await
+}

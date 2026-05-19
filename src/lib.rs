@@ -651,6 +651,40 @@ pub struct CliCockpit {
 
     #[arg(
         long,
+        help_heading = "Data Analysis",
+        value_name = "FILE",
+        help = "k-Means clustering on numeric columns. Use --cluster-k N (default 3), --cluster-cols COL1,COL2,..., --cluster-output FILE. Example: hematite --cluster data.csv --cluster-k 4 --cluster-cols height,weight --cluster-output labeled.csv"
+    )]
+    pub cluster: Option<String>,
+
+    #[arg(long, help_heading = "Data Analysis", value_name = "N", help = "Number of clusters for --cluster (default 3).")]
+    pub cluster_k: Option<usize>,
+
+    #[arg(long, help_heading = "Data Analysis", value_name = "COL1,COL2,...", help = "Feature columns for --cluster, comma-separated (default: all numeric).")]
+    pub cluster_cols: Option<String>,
+
+    #[arg(long, help_heading = "Data Analysis", value_name = "FILE", help = "Output CSV with cluster labels appended for --cluster.")]
+    pub cluster_output: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Data Analysis",
+        value_name = "FILE",
+        help = "Normalize/standardize numeric columns. Use --normalize-method minmax|zscore|robust, --normalize-cols COL1,COL2,..., --normalize-output FILE. Example: hematite --normalize data.csv --normalize-method zscore --normalize-output scaled.csv"
+    )]
+    pub normalize: Option<String>,
+
+    #[arg(long, help_heading = "Data Analysis", value_name = "METHOD", help = "Normalization method: minmax (default), zscore, robust.")]
+    pub normalize_method: Option<String>,
+
+    #[arg(long, help_heading = "Data Analysis", value_name = "COL1,COL2,...", help = "Columns to normalize for --normalize, comma-separated (default: all numeric).")]
+    pub normalize_cols: Option<String>,
+
+    #[arg(long, help_heading = "Data Analysis", value_name = "FILE", help = "Output CSV with normalized values for --normalize.")]
+    pub normalize_output: Option<String>,
+
+    #[arg(
+        long,
         help_heading = "Headless Reports",
         value_name = "ELEMENT",
         help = "Look up a periodic table element — instant, no model, no cloud. Accepts symbol (H, Au), full name (Gold, Hydrogen), or atomic number (79). Shows atomic mass, category, period/group, electronegativity, and state at STP. Example: hematite --periodic Au"
