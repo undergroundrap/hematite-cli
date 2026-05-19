@@ -2718,3 +2718,727 @@ fn graph_usage() -> String {
      Edge formats: 'A B' 'A B 5' 'A->B' 'A->B:5' 'A-B:3'\n\
      Weighted edges: add weight as third token or after colon".into()
 }
+
+// ── Symbolic calculus ─────────────────────────────────────────────────────────
+// Recursive-descent parser → AST → symbolic diff/integrate → pretty-printer.
+// Supported: +  -  *  /  ^  unary-  sin  cos  tan  ln  log  exp  sqrt  abs
+// Variable: default x, overridable with "wrt y" suffix.
+//
+// Modes:
+//   diff EXPR [wrt VAR]      symbolic derivative
+//   integrate EXPR [wrt VAR] symbolic integral (table lookup + linearity)
+//   simplify EXPR            simplify/reduce
+//   eval EXPR at VAR=VALUE   numeric evaluation
+
+#[derive(Clone, Debug)]
+enum Expr {
+    Num(f64),
+    Var(String),
+    Add(Box<Expr>, Box<Expr>),
+    Sub(Box<Expr>, Box<Expr>),
+    Mul(Box<Expr>, Box<Expr>),
+    Div(Box<Expr>, Box<Expr>),
+    Pow(Box<Expr>, Box<Expr>),
+    Neg(Box<Expr>),
+    Sin(Box<Expr>),
+    Cos(Box<Expr>),
+    Tan(Box<Expr>),
+    Ln(Box<Expr>),
+    Exp(Box<Expr>),
+    Sqrt(Box<Expr>),
+    Abs(Box<Expr>),
+}
+
+// ── Parser ─────────────────────────────────────────────────────────────────
+
+struct Parser<'a> {
+    chars: &'a [char],
+    pos: usize,
+}
+
+impl<'a> Parser<'a> {
+    fn new(chars: &'a [char]) -> Self { Self { chars, pos: 0 } }
+
+    fn peek(&self) -> Option<char> { self.chars.get(self.pos).copied() }
+
+    fn consume(&mut self) -> Option<char> {
+        let c = self.chars.get(self.pos).copied();
+        self.pos += 1;
+        c
+    }
+
+    fn skip_ws(&mut self) {
+        while matches!(self.peek(), Some(' ') | Some('\t')) { self.pos += 1; }
+    }
+
+    fn parse_expr(&mut self) -> Result<Expr, String> { self.parse_add() }
+
+    fn parse_add(&mut self) -> Result<Expr, String> {
+        let mut left = self.parse_mul()?;
+        loop {
+            self.skip_ws();
+            match self.peek() {
+                Some('+') => { self.consume(); let r = self.parse_mul()?; left = Expr::Add(Box::new(left), Box::new(r)); }
+                Some('-') => { self.consume(); let r = self.parse_mul()?; left = Expr::Sub(Box::new(left), Box::new(r)); }
+                _ => break,
+            }
+        }
+        Ok(left)
+    }
+
+    fn parse_mul(&mut self) -> Result<Expr, String> {
+        let mut left = self.parse_pow()?;
+        loop {
+            self.skip_ws();
+            match self.peek() {
+                Some('*') => { self.consume(); let r = self.parse_pow()?; left = Expr::Mul(Box::new(left), Box::new(r)); }
+                Some('/') => { self.consume(); let r = self.parse_pow()?; left = Expr::Div(Box::new(left), Box::new(r)); }
+                // Implicit multiplication: if next token is a function or '(' or var
+                Some(c) if c.is_alphabetic() || c == '(' => {
+                    let r = self.parse_pow()?;
+                    left = Expr::Mul(Box::new(left), Box::new(r));
+                }
+                _ => break,
+            }
+        }
+        Ok(left)
+    }
+
+    fn parse_pow(&mut self) -> Result<Expr, String> {
+        let base = self.parse_unary()?;
+        self.skip_ws();
+        if self.peek() == Some('^') {
+            self.consume();
+            let exp = self.parse_unary()?;
+            return Ok(Expr::Pow(Box::new(base), Box::new(exp)));
+        }
+        Ok(base)
+    }
+
+    fn parse_unary(&mut self) -> Result<Expr, String> {
+        self.skip_ws();
+        if self.peek() == Some('-') {
+            self.consume();
+            let inner = self.parse_atom()?;
+            return Ok(Expr::Neg(Box::new(inner)));
+        }
+        if self.peek() == Some('+') { self.consume(); }
+        self.parse_atom()
+    }
+
+    fn parse_atom(&mut self) -> Result<Expr, String> {
+        self.skip_ws();
+        match self.peek() {
+            Some('(') => {
+                self.consume();
+                let inner = self.parse_expr()?;
+                self.skip_ws();
+                if self.peek() == Some(')') { self.consume(); }
+                Ok(inner)
+            }
+            Some(c) if c.is_ascii_digit() || c == '.' => self.parse_number(),
+            Some(c) if c.is_alphabetic() || c == '_' => self.parse_name(),
+            Some(c) => Err(format!("unexpected char '{}'", c)),
+            None => Err("unexpected end".into()),
+        }
+    }
+
+    fn parse_number(&mut self) -> Result<Expr, String> {
+        let start = self.pos;
+        while matches!(self.peek(), Some(c) if c.is_ascii_digit() || c == '.' || c == 'e' || c == 'E') {
+            self.pos += 1;
+            // handle e+/e-
+            if matches!(self.chars.get(self.pos-1), Some('e') | Some('E')) {
+                if matches!(self.peek(), Some('+') | Some('-')) { self.pos += 1; }
+            }
+        }
+        let s: String = self.chars[start..self.pos].iter().collect();
+        s.parse::<f64>().map(Expr::Num).map_err(|_| format!("bad number: {}", s))
+    }
+
+    fn parse_name(&mut self) -> Result<Expr, String> {
+        let start = self.pos;
+        while matches!(self.peek(), Some(c) if c.is_alphanumeric() || c == '_') { self.pos += 1; }
+        let name: String = self.chars[start..self.pos].iter().collect();
+        self.skip_ws();
+        // Check if it's a function call
+        if self.peek() == Some('(') {
+            self.consume();
+            let arg = self.parse_expr()?;
+            self.skip_ws();
+            if self.peek() == Some(')') { self.consume(); }
+            let e = Box::new(arg);
+            return match name.to_lowercase().as_str() {
+                "sin"  => Ok(Expr::Sin(e)),
+                "cos"  => Ok(Expr::Cos(e)),
+                "tan"  => Ok(Expr::Tan(e)),
+                "ln"   => Ok(Expr::Ln(e)),
+                "log"  => Ok(Expr::Ln(e)),   // treat log as natural log
+                "exp"  => Ok(Expr::Exp(e)),
+                "sqrt" => Ok(Expr::Sqrt(e)),
+                "abs"  => Ok(Expr::Abs(e)),
+                _ => Err(format!("unknown function: {}", name)),
+            };
+        }
+        // Constants
+        match name.as_str() {
+            "pi" | "PI" => return Ok(Expr::Num(std::f64::consts::PI)),
+            "e"  | "E"  => return Ok(Expr::Num(std::f64::consts::E)),
+            _ => {}
+        }
+        Ok(Expr::Var(name))
+    }
+}
+
+fn parse_sym(s: &str) -> Result<Expr, String> {
+    let chars: Vec<char> = s.chars().collect();
+    let mut p = Parser::new(&chars);
+    let e = p.parse_expr()?;
+    p.skip_ws();
+    if p.pos < p.chars.len() {
+        // Tolerate trailing whitespace/comments
+        let rest: String = p.chars[p.pos..].iter().collect();
+        if !rest.trim().is_empty() {
+            return Err(format!("unexpected trailing: '{}'", rest.trim()));
+        }
+    }
+    Ok(e)
+}
+
+// ── Pretty-printer ──────────────────────────────────────────────────────────
+
+fn fmt_expr(e: &Expr) -> String {
+    match e {
+        Expr::Num(n) => {
+            if n.fract() == 0.0 && n.abs() < 1e12 { format!("{}", *n as i64) }
+            else { format!("{}", n) }
+        }
+        Expr::Var(v) => v.clone(),
+        Expr::Add(a, b) => format!("({} + {})", fmt_expr(a), fmt_expr(b)),
+        Expr::Sub(a, b) => format!("({} - {})", fmt_expr(a), fmt_expr(b)),
+        Expr::Mul(a, b) => format!("({} * {})", fmt_expr(a), fmt_expr(b)),
+        Expr::Div(a, b) => format!("({} / {})", fmt_expr(a), fmt_expr(b)),
+        Expr::Pow(a, b) => format!("({}^{})", fmt_expr(a), fmt_expr(b)),
+        Expr::Neg(a)    => format!("(-{})", fmt_expr(a)),
+        Expr::Sin(a)    => format!("sin({})", fmt_expr(a)),
+        Expr::Cos(a)    => format!("cos({})", fmt_expr(a)),
+        Expr::Tan(a)    => format!("tan({})", fmt_expr(a)),
+        Expr::Ln(a)     => format!("ln({})", fmt_expr(a)),
+        Expr::Exp(a)    => format!("exp({})", fmt_expr(a)),
+        Expr::Sqrt(a)   => format!("sqrt({})", fmt_expr(a)),
+        Expr::Abs(a)    => format!("abs({})", fmt_expr(a)),
+    }
+}
+
+// ── Simplification ─────────────────────────────────────────────────────────
+// Single-pass algebraic simplification: fold constants, remove identity ops.
+
+fn simplify(e: Expr) -> Expr {
+    match e {
+        Expr::Add(a, b) => {
+            let a = simplify(*a); let b = simplify(*b);
+            match (&a, &b) {
+                (Expr::Num(x), Expr::Num(y)) => Expr::Num(x + y),
+                (Expr::Num(0.0), _) => b,
+                (_, Expr::Num(0.0)) => a,
+                _ => Expr::Add(Box::new(a), Box::new(b)),
+            }
+        }
+        Expr::Sub(a, b) => {
+            let a = simplify(*a); let b = simplify(*b);
+            match (&a, &b) {
+                (Expr::Num(x), Expr::Num(y)) => Expr::Num(x - y),
+                (_, Expr::Num(0.0)) => a,
+                _ if fmt_expr(&a) == fmt_expr(&b) => Expr::Num(0.0),
+                _ => Expr::Sub(Box::new(a), Box::new(b)),
+            }
+        }
+        Expr::Mul(a, b) => {
+            let a = simplify(*a); let b = simplify(*b);
+            match (&a, &b) {
+                (Expr::Num(x), Expr::Num(y)) => Expr::Num(x * y),
+                (Expr::Num(0.0), _) | (_, Expr::Num(0.0)) => Expr::Num(0.0),
+                (Expr::Num(1.0), _) => b,
+                (_, Expr::Num(1.0)) => a,
+                (Expr::Num(-1.0), _) => Expr::Neg(Box::new(b)),
+                _ => Expr::Mul(Box::new(a), Box::new(b)),
+            }
+        }
+        Expr::Div(a, b) => {
+            let a = simplify(*a); let b = simplify(*b);
+            match (&a, &b) {
+                (_, Expr::Num(1.0)) => a,
+                (Expr::Num(x), Expr::Num(y)) if *y != 0.0 => Expr::Num(x / y),
+                _ => Expr::Div(Box::new(a), Box::new(b)),
+            }
+        }
+        Expr::Pow(a, b) => {
+            let a = simplify(*a); let b = simplify(*b);
+            match (&a, &b) {
+                (_, Expr::Num(0.0)) => Expr::Num(1.0),
+                (_, Expr::Num(1.0)) => a,
+                (Expr::Num(1.0), _) => Expr::Num(1.0),
+                (Expr::Num(x), Expr::Num(y)) => Expr::Num(x.powf(*y)),
+                _ => Expr::Pow(Box::new(a), Box::new(b)),
+            }
+        }
+        Expr::Neg(a) => {
+            let a = simplify(*a);
+            match a {
+                Expr::Num(n) => Expr::Num(-n),
+                Expr::Neg(inner) => *inner,
+                _ => Expr::Neg(Box::new(a)),
+            }
+        }
+        Expr::Sin(a) => { let a = simplify(*a); Expr::Sin(Box::new(a)) }
+        Expr::Cos(a) => { let a = simplify(*a); Expr::Cos(Box::new(a)) }
+        Expr::Tan(a) => { let a = simplify(*a); Expr::Tan(Box::new(a)) }
+        Expr::Ln(a)  => {
+            let a = simplify(*a);
+            if let Expr::Num(n) = &a { if (*n - std::f64::consts::E).abs() < 1e-12 { return Expr::Num(1.0); } }
+            Expr::Ln(Box::new(a))
+        }
+        Expr::Exp(a) => {
+            let a = simplify(*a);
+            if let Expr::Num(n) = &a { return Expr::Num(n.exp()); }
+            if let Expr::Num(0.0) = &a { return Expr::Num(1.0); }
+            Expr::Exp(Box::new(a))
+        }
+        Expr::Sqrt(a) => {
+            let a = simplify(*a);
+            if let Expr::Num(n) = &a { if *n >= 0.0 { return Expr::Num(n.sqrt()); } }
+            Expr::Sqrt(Box::new(a))
+        }
+        other => other,
+    }
+}
+
+// ── Differentiation ────────────────────────────────────────────────────────
+
+fn diff(e: &Expr, var: &str) -> Expr {
+    match e {
+        Expr::Num(_) => Expr::Num(0.0),
+        Expr::Var(v) => if v == var { Expr::Num(1.0) } else { Expr::Num(0.0) },
+        Expr::Add(a, b) => simplify(Expr::Add(Box::new(diff(a, var)), Box::new(diff(b, var)))),
+        Expr::Sub(a, b) => simplify(Expr::Sub(Box::new(diff(a, var)), Box::new(diff(b, var)))),
+        Expr::Mul(a, b) => {
+            // product rule: f'g + fg'
+            let fp_g = Expr::Mul(Box::new(diff(a, var)), Box::new(*b.clone()));
+            let f_gp = Expr::Mul(Box::new(*a.clone()), Box::new(diff(b, var)));
+            simplify(Expr::Add(Box::new(fp_g), Box::new(f_gp)))
+        }
+        Expr::Div(a, b) => {
+            // quotient rule: (f'g - fg') / g^2
+            let fp_g = Expr::Mul(Box::new(diff(a, var)), Box::new(*b.clone()));
+            let f_gp = Expr::Mul(Box::new(*a.clone()), Box::new(diff(b, var)));
+            let num  = Expr::Sub(Box::new(fp_g), Box::new(f_gp));
+            let den  = Expr::Pow(Box::new(*b.clone()), Box::new(Expr::Num(2.0)));
+            simplify(Expr::Div(Box::new(num), Box::new(den)))
+        }
+        Expr::Pow(base, exp) => {
+            // If exp is a constant: power rule n*x^(n-1) * base'
+            if let Expr::Num(n) = exp.as_ref() {
+                let new_exp = Expr::Num(n - 1.0);
+                let power   = Expr::Pow(Box::new(*base.clone()), Box::new(new_exp));
+                let coeff   = Expr::Mul(Box::new(Expr::Num(*n)), Box::new(power));
+                let chain   = diff(base, var);
+                return simplify(Expr::Mul(Box::new(coeff), Box::new(chain)));
+            }
+            // General: e^(exp * ln(base)) rule: f^g * (g' ln f + g f'/f)
+            let ln_base = Expr::Ln(Box::new(*base.clone()));
+            let g_ln_f  = Expr::Mul(Box::new(*exp.clone()), Box::new(ln_base));
+            let g_ln_f_d = diff(&g_ln_f, var);
+            let result  = Expr::Mul(Box::new(e.clone()), Box::new(g_ln_f_d));
+            simplify(result)
+        }
+        Expr::Neg(a) => simplify(Expr::Neg(Box::new(diff(a, var)))),
+        Expr::Sin(a)  => {
+            let cos_a = Expr::Cos(Box::new(*a.clone()));
+            simplify(Expr::Mul(Box::new(cos_a), Box::new(diff(a, var))))
+        }
+        Expr::Cos(a)  => {
+            let neg_sin = Expr::Neg(Box::new(Expr::Sin(Box::new(*a.clone()))));
+            simplify(Expr::Mul(Box::new(neg_sin), Box::new(diff(a, var))))
+        }
+        Expr::Tan(a)  => {
+            // sec^2(a) * a' = 1/cos^2(a) * a'
+            let cos_a = Expr::Cos(Box::new(*a.clone()));
+            let cos2  = Expr::Pow(Box::new(cos_a), Box::new(Expr::Num(2.0)));
+            let sec2  = Expr::Div(Box::new(Expr::Num(1.0)), Box::new(cos2));
+            simplify(Expr::Mul(Box::new(sec2), Box::new(diff(a, var))))
+        }
+        Expr::Ln(a) => {
+            // 1/a * a'
+            let inv_a = Expr::Div(Box::new(Expr::Num(1.0)), Box::new(*a.clone()));
+            simplify(Expr::Mul(Box::new(inv_a), Box::new(diff(a, var))))
+        }
+        Expr::Exp(a) => {
+            // exp(a) * a'
+            simplify(Expr::Mul(Box::new(e.clone()), Box::new(diff(a, var))))
+        }
+        Expr::Sqrt(a) => {
+            // 1/(2*sqrt(a)) * a'
+            let two_sqrt = Expr::Mul(Box::new(Expr::Num(2.0)), Box::new(Expr::Sqrt(Box::new(*a.clone()))));
+            let inv      = Expr::Div(Box::new(Expr::Num(1.0)), Box::new(two_sqrt));
+            simplify(Expr::Mul(Box::new(inv), Box::new(diff(a, var))))
+        }
+        Expr::Abs(a)  => {
+            // d/dx |a| = a/|a| * a'  (sign(a) * a')
+            let sign = Expr::Div(Box::new(*a.clone()), Box::new(Expr::Abs(Box::new(*a.clone()))));
+            simplify(Expr::Mul(Box::new(sign), Box::new(diff(a, var))))
+        }
+    }
+}
+
+// ── Integration (table lookup + linearity) ──────────────────────────────────
+// Returns Some(integral) for forms in the table, None for unknowns.
+// Adds no "+ C" — the caller adds it.
+
+fn integrate(e: &Expr, var: &str) -> Option<Expr> {
+    match e {
+        Expr::Num(n) => {
+            // ∫ n dx = n*x
+            Some(Expr::Mul(Box::new(Expr::Num(*n)), Box::new(Expr::Var(var.to_string()))))
+        }
+        Expr::Var(v) => {
+            if v == var {
+                // ∫ x dx = x^2/2
+                Some(Expr::Div(
+                    Box::new(Expr::Pow(Box::new(Expr::Var(v.clone())), Box::new(Expr::Num(2.0)))),
+                    Box::new(Expr::Num(2.0)),
+                ))
+            } else {
+                // ∫ c dx where c is another variable treated as constant
+                Some(Expr::Mul(Box::new(Expr::Var(v.clone())), Box::new(Expr::Var(var.to_string()))))
+            }
+        }
+        Expr::Add(a, b) => {
+            let ia = integrate(a, var)?;
+            let ib = integrate(b, var)?;
+            Some(simplify(Expr::Add(Box::new(ia), Box::new(ib))))
+        }
+        Expr::Sub(a, b) => {
+            let ia = integrate(a, var)?;
+            let ib = integrate(b, var)?;
+            Some(simplify(Expr::Sub(Box::new(ia), Box::new(ib))))
+        }
+        Expr::Neg(a) => {
+            let ia = integrate(a, var)?;
+            Some(simplify(Expr::Neg(Box::new(ia))))
+        }
+        Expr::Mul(a, b) => {
+            // c * f(x) where c is constant
+            if !contains_var(a, var) {
+                let ib = integrate(b, var)?;
+                return Some(simplify(Expr::Mul(Box::new(*a.clone()), Box::new(ib))));
+            }
+            if !contains_var(b, var) {
+                let ia = integrate(a, var)?;
+                return Some(simplify(Expr::Mul(Box::new(*b.clone()), Box::new(ia))));
+            }
+            None // general product — no IBP
+        }
+        Expr::Pow(base, exp) => {
+            if let Expr::Var(v) = base.as_ref() {
+                if v == var {
+                    if let Expr::Num(n) = exp.as_ref() {
+                        if (*n + 1.0).abs() < 1e-12 {
+                            // ∫ x^-1 = ln|x|
+                            return Some(Expr::Ln(Box::new(Expr::Abs(Box::new(Expr::Var(v.clone()))))));
+                        }
+                        // ∫ x^n = x^(n+1)/(n+1)
+                        let new_exp = Expr::Num(n + 1.0);
+                        let pow     = Expr::Pow(Box::new(Expr::Var(v.clone())), Box::new(new_exp.clone()));
+                        return Some(simplify(Expr::Div(Box::new(pow), Box::new(new_exp))));
+                    }
+                }
+            }
+            None
+        }
+        Expr::Sin(a) => {
+            if let Expr::Var(v) = a.as_ref() {
+                if v == var {
+                    return Some(Expr::Neg(Box::new(Expr::Cos(Box::new(*a.clone())))));
+                }
+            }
+            // ∫ sin(n*x) = -cos(n*x)/n
+            if let Some((coeff, _inner_var)) = linear_coeff(a, var) {
+                let cos_part = Expr::Cos(Box::new(*a.clone()));
+                let neg_cos  = Expr::Neg(Box::new(cos_part));
+                return Some(simplify(Expr::Div(Box::new(neg_cos), Box::new(Expr::Num(coeff)))));
+            }
+            None
+        }
+        Expr::Cos(a) => {
+            if let Expr::Var(v) = a.as_ref() {
+                if v == var {
+                    return Some(Expr::Sin(Box::new(*a.clone())));
+                }
+            }
+            if let Some((coeff, _)) = linear_coeff(a, var) {
+                let sin_part = Expr::Sin(Box::new(*a.clone()));
+                return Some(simplify(Expr::Div(Box::new(sin_part), Box::new(Expr::Num(coeff)))));
+            }
+            None
+        }
+        Expr::Exp(a) => {
+            if let Expr::Var(v) = a.as_ref() {
+                if v == var {
+                    return Some(e.clone()); // ∫ e^x = e^x
+                }
+            }
+            if let Some((coeff, _)) = linear_coeff(a, var) {
+                return Some(simplify(Expr::Div(Box::new(e.clone()), Box::new(Expr::Num(coeff)))));
+            }
+            None
+        }
+        Expr::Ln(a) => {
+            if let Expr::Var(v) = a.as_ref() {
+                if v == var {
+                    // ∫ ln(x) = x*ln(x) - x
+                    let x_ln_x = Expr::Mul(Box::new(Expr::Var(v.clone())), Box::new(e.clone()));
+                    return Some(simplify(Expr::Sub(Box::new(x_ln_x), Box::new(Expr::Var(v.clone())))));
+                }
+            }
+            None
+        }
+        Expr::Div(a, b) => {
+            // ∫ 1/x = ln|x|
+            if let (Expr::Num(1.0), Expr::Var(v)) = (a.as_ref(), b.as_ref()) {
+                if v == var {
+                    return Some(Expr::Ln(Box::new(Expr::Abs(Box::new(Expr::Var(v.clone()))))));
+                }
+            }
+            // ∫ c/x = c*ln|x|
+            if let Expr::Var(v) = b.as_ref() {
+                if v == var && !contains_var(a, var) {
+                    let ln_abs = Expr::Ln(Box::new(Expr::Abs(Box::new(Expr::Var(v.clone())))));
+                    return Some(simplify(Expr::Mul(Box::new(*a.clone()), Box::new(ln_abs))));
+                }
+            }
+            None
+        }
+        _ => None,
+    }
+}
+
+// Returns Some((coeff, var)) if expr = coeff * var + constant (linear in var)
+fn linear_coeff<'a>(e: &'a Expr, var: &'a str) -> Option<(f64, &'a str)> {
+    match e {
+        Expr::Mul(a, b) => {
+            if let (Expr::Num(c), Expr::Var(v)) = (a.as_ref(), b.as_ref()) {
+                if v == var { return Some((*c, var)); }
+            }
+            if let (Expr::Var(v), Expr::Num(c)) = (a.as_ref(), b.as_ref()) {
+                if v == var { return Some((*c, var)); }
+            }
+            None
+        }
+        _ => None,
+    }
+}
+
+fn contains_var(e: &Expr, var: &str) -> bool {
+    match e {
+        Expr::Var(v) => v == var,
+        Expr::Num(_) => false,
+        Expr::Add(a,b)|Expr::Sub(a,b)|Expr::Mul(a,b)|Expr::Div(a,b)|Expr::Pow(a,b) =>
+            contains_var(a,var) || contains_var(b,var),
+        Expr::Neg(a)|Expr::Sin(a)|Expr::Cos(a)|Expr::Tan(a)|Expr::Ln(a)|Expr::Exp(a)|Expr::Sqrt(a)|Expr::Abs(a) =>
+            contains_var(a, var),
+    }
+}
+
+// ── Numeric eval ──────────────────────────────────────────────────────────
+
+fn eval_expr(e: &Expr, var: &str, val: f64) -> Result<f64, String> {
+    match e {
+        Expr::Num(n) => Ok(*n),
+        Expr::Var(v) => if v == var { Ok(val) } else { Err(format!("unbound variable: {}", v)) },
+        Expr::Add(a,b) => Ok(eval_expr(a,var,val)? + eval_expr(b,var,val)?),
+        Expr::Sub(a,b) => Ok(eval_expr(a,var,val)? - eval_expr(b,var,val)?),
+        Expr::Mul(a,b) => Ok(eval_expr(a,var,val)? * eval_expr(b,var,val)?),
+        Expr::Div(a,b) => {
+            let d = eval_expr(b,var,val)?;
+            if d.abs() < 1e-300 { return Err("division by zero".into()); }
+            Ok(eval_expr(a,var,val)? / d)
+        }
+        Expr::Pow(a,b) => Ok(eval_expr(a,var,val)?.powf(eval_expr(b,var,val)?)),
+        Expr::Neg(a)   => Ok(-eval_expr(a,var,val)?),
+        Expr::Sin(a)   => Ok(eval_expr(a,var,val)?.sin()),
+        Expr::Cos(a)   => Ok(eval_expr(a,var,val)?.cos()),
+        Expr::Tan(a)   => Ok(eval_expr(a,var,val)?.tan()),
+        Expr::Ln(a)    => Ok(eval_expr(a,var,val)?.ln()),
+        Expr::Exp(a)   => Ok(eval_expr(a,var,val)?.exp()),
+        Expr::Sqrt(a)  => Ok(eval_expr(a,var,val)?.sqrt()),
+        Expr::Abs(a)   => Ok(eval_expr(a,var,val)?.abs()),
+    }
+}
+
+// ── Public entry point ────────────────────────────────────────────────────
+
+pub fn symbolic_calc(query: &str) -> String {
+    let q = query.trim();
+
+    // Parse optional "wrt VAR" suffix
+    let (q_body, var) = if let Some(pos) = q.to_lowercase().rfind(" wrt ") {
+        let v = q[pos+5..].trim().to_string();
+        (q[..pos].trim(), v)
+    } else {
+        (q, "x".to_string())
+    };
+
+    // Parse mode
+    let (mode, expr_str) = {
+        let low = q_body.to_lowercase();
+        if low.starts_with("diff ") || low.starts_with("differentiate ") || low.starts_with("d/dx ") || low.starts_with("d/d") {
+            // d/dy expr — extract var from d/dy if present
+            let (m, rest, var_from_mode) = if low.starts_with("d/d") {
+                let after = &q_body[3..];
+                let sp = after.find(char::is_whitespace).unwrap_or(after.len());
+                let v = after[..sp].to_string();
+                let rest = after[sp..].trim();
+                ("diff", rest, Some(v))
+            } else {
+                let rest = q_body.splitn(2, char::is_whitespace).nth(1).unwrap_or("").trim();
+                ("diff", rest, None)
+            };
+            let var2 = var_from_mode.unwrap_or_else(|| var.clone());
+            (m, (rest.to_string(), var2))
+        } else if low.starts_with("int ") || low.starts_with("integrate ") || low.starts_with("∫") {
+            let rest = q_body.splitn(2, char::is_whitespace).nth(1).unwrap_or("").trim();
+            ("integrate", (rest.to_string(), var.clone()))
+        } else if low.starts_with("simplify ") || low.starts_with("simplify") {
+            let rest = q_body.splitn(2, char::is_whitespace).nth(1).unwrap_or("").trim();
+            ("simplify", (rest.to_string(), var.clone()))
+        } else if low.contains(" at ") {
+            ("eval", (q_body.to_string(), var.clone()))
+        } else {
+            // Default: try to detect if expr contains d/dx or integral sign
+            ("diff", (q_body.to_string(), var.clone()))
+        }
+    };
+
+    let (expr_text, var_name) = expr_str;
+    let var_name = var_name.trim().to_string();
+    let var_name = if var_name.is_empty() { "x".to_string() } else { var_name };
+
+    let mut out = String::new();
+    let w = 64usize;
+    let _ = writeln!(out, "{}", "=".repeat(w));
+    let _ = writeln!(out, "  Symbolic Calculus");
+
+    if mode == "eval" {
+        // "expr at var=value"
+        let parts: Vec<&str> = expr_text.splitn(2, " at ").collect();
+        if parts.len() != 2 {
+            let _ = writeln!(out, "  Error: use 'EXPR at VAR=VALUE'");
+            return out;
+        }
+        let e_str = parts[0].trim();
+        let at_str = parts[1].trim();
+        let (av, val_str) = if let Some(eq) = at_str.find('=') {
+            (&at_str[..eq], &at_str[eq+1..])
+        } else {
+            (&var_name[..], at_str)
+        };
+        let val: f64 = match val_str.trim().parse() {
+            Ok(v) => v, Err(_) => { let _ = writeln!(out, "  Error: bad value '{}'", val_str); return out; }
+        };
+        match parse_sym(e_str) {
+            Ok(expr) => {
+                let _ = writeln!(out, "  f({}) = {}", av, fmt_expr(&expr));
+                match eval_expr(&expr, av.trim(), val) {
+                    Ok(result) => { let _ = writeln!(out, "  f({} = {}) = {}", av.trim(), val, result); }
+                    Err(e) => { let _ = writeln!(out, "  Eval error: {}", e); }
+                }
+            }
+            Err(e) => { let _ = writeln!(out, "  Parse error: {}", e); }
+        }
+        let _ = writeln!(out, "{}", "=".repeat(w));
+        return out;
+    }
+
+    let expr_text = expr_text.trim();
+    match parse_sym(expr_text) {
+        Err(e) => {
+            let _ = writeln!(out, "  Parse error: {}", e);
+            let _ = writeln!(out, "  Input: {}", expr_text);
+            let _ = writeln!(out, "{}", "=".repeat(w));
+            return out;
+        }
+        Ok(expr) => {
+            let simplified = simplify(expr.clone());
+            let _ = writeln!(out, "  f({}) = {}", var_name, fmt_expr(&simplified));
+            match mode {
+                "diff" => {
+                    let d = diff(&simplified, &var_name);
+                    let d_simp = simplify(d);
+                    let _ = writeln!(out, "  d/d{} = {}", var_name, fmt_expr(&d_simp));
+                    // Spot-check with numeric diff at x=1.5
+                    let h = 1e-6f64;
+                    let x0 = 1.5f64;
+                    if let (Ok(fp), Ok(fm)) = (eval_expr(&simplified, &var_name, x0+h), eval_expr(&simplified, &var_name, x0-h)) {
+                        let numeric = (fp - fm) / (2.0 * h);
+                        if let Ok(symbolic_val) = eval_expr(&d_simp, &var_name, x0) {
+                            let err = (symbolic_val - numeric).abs();
+                            if err < 1e-4 {
+                                let _ = writeln!(out, "  ✓ Verified: numeric check at {}={} → diff={:.6}, numeric={:.6}", var_name, x0, symbolic_val, numeric);
+                            } else {
+                                let _ = writeln!(out, "  ⚠ Numeric check mismatch at {}={}: symbolic={:.6}, numeric={:.6}", var_name, x0, symbolic_val, numeric);
+                            }
+                        }
+                    }
+                }
+                "integrate" => {
+                    match integrate(&simplified, &var_name) {
+                        Some(integral) => {
+                            let i_simp = simplify(integral);
+                            let _ = writeln!(out, "  ∫f d{} = {} + C", var_name, fmt_expr(&i_simp));
+                            // Verify by differentiating the result
+                            let check = simplify(diff(&i_simp, &var_name));
+                            let orig  = fmt_expr(&simplified);
+                            let back  = fmt_expr(&check);
+                            if orig == back {
+                                let _ = writeln!(out, "  ✓ Verified: d/d{} of integral = f", var_name);
+                            } else {
+                                // Numeric check at a sample point
+                                let x0 = 1.5f64;
+                                if let (Ok(v1), Ok(v2)) = (eval_expr(&simplified, &var_name, x0), eval_expr(&check, &var_name, x0)) {
+                                    if (v1 - v2).abs() < 1e-6 {
+                                        let _ = writeln!(out, "  ✓ Numerically verified: d/d{}(integral) = f at {}={}", var_name, var_name, x0);
+                                    } else {
+                                        let _ = writeln!(out, "  ⚠ Verification: d/d{}(integral) = {} (expected {})", var_name, back, orig);
+                                    }
+                                }
+                            }
+                        }
+                        None => {
+                            let _ = writeln!(out, "  ∫f d{} = (not in table — try --simulate or a CAS)", var_name);
+                        }
+                    }
+                }
+                "simplify" => {
+                    let _ = writeln!(out, "  simplified: {}", fmt_expr(&simplified));
+                }
+                _ => {}
+            }
+        }
+    }
+
+    let _ = writeln!(out, "{}", "=".repeat(w));
+    out
+}
+
+#[allow(dead_code)]
+fn symbolic_usage() -> String {
+    "Symbolic calculus:\n\
+     hematite --symbolic 'diff x^3 + 2*x'          differentiate (wrt x)\n\
+     hematite --symbolic 'diff sin(x)*cos(x)'        product rule\n\
+     hematite --symbolic 'diff x^2 + y wrt y'        differentiate wrt y\n\
+     hematite --symbolic 'integrate x^3'             antiderivative\n\
+     hematite --symbolic 'integrate sin(x) + 3*x^2' linearity\n\
+     hematite --symbolic 'simplify (x+1)*(x+1)'      simplify\n\
+     hematite --symbolic 'x^2 + 2*x at x=3'          numeric eval\n\
+     Supported: + - * / ^ sin cos tan ln exp sqrt abs".into()
+}
