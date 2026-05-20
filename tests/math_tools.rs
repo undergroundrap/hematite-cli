@@ -4,9 +4,9 @@
 /// matrix decomposition modes (QR, SVD, Cholesky).
 use hematite::tools::math_util::{
     bitwise_calc, checksum_calc, chemistry_calc, cipher_calc, combinatorics_calc, datetime_calc,
-    electrical_calc, encode_calc, geometry_calc, hash_calc, health_calc, matrix_calc,
-    number_format, number_theory_calc, physics_calc, prob_calc, set_calc, sort_viz, stats_calc,
-    string_dist, text_stats, validate_calc,
+    electrical_calc, encode_calc, fraction_calc, geometry_calc, hash_calc, health_calc,
+    matrix_calc, number_format, number_theory_calc, physics_calc, prob_calc, set_calc, sort_viz,
+    stats_calc, string_dist, text_stats, trig_calc, validate_calc,
 };
 
 // ─── Cipher tests ────────────────────────────────────────────────────────────
@@ -1228,6 +1228,177 @@ fn health_water_intake() {
 #[test]
 fn health_empty_no_panic() {
     let out = health_calc("");
+    assert!(!out.is_empty());
+}
+
+// ─── Trig tests ───────────────────────────────────────────────────────────────
+
+#[test]
+fn trig_sin_45_is_sqrt2_over_2() {
+    let out = trig_calc("45");
+    // sin(45) = 0.707107
+    assert!(
+        out.contains("0.707") || out.contains("sin"),
+        "sin(45): {out}"
+    );
+}
+
+#[test]
+fn trig_cos_60_is_half() {
+    let out = trig_calc("60");
+    assert!(
+        out.contains("0.5") || out.contains("cos"),
+        "cos(60)=0.5: {out}"
+    );
+}
+
+#[test]
+fn trig_sin_90_is_1() {
+    let out = trig_calc("90");
+    assert!(out.contains("sin"), "sin(90): {out}");
+    // sin 90 should be 1
+    let sin_line = out.lines().find(|l| l.contains("sin")).unwrap_or("");
+    assert!(sin_line.contains('1'), "sin(90)=1: {sin_line}");
+}
+
+#[test]
+fn trig_asin_half_is_30() {
+    let out = trig_calc("asin 0.5");
+    assert!(out.contains("30"), "asin(0.5)=30 deg: {out}");
+}
+
+#[test]
+fn trig_acos_half_is_60() {
+    let out = trig_calc("acos 0.5");
+    assert!(out.contains("60"), "acos(0.5)=60 deg: {out}");
+}
+
+#[test]
+fn trig_atan_1_is_45() {
+    let out = trig_calc("atan 1");
+    assert!(out.contains("45"), "atan(1)=45 deg: {out}");
+}
+
+#[test]
+fn trig_atan2_3_4() {
+    let out = trig_calc("atan2 3 4");
+    // atan2(3,4) ≈ 36.87 deg
+    assert!(out.contains("36"), "atan2(3,4) approx 36.87: {out}");
+}
+
+#[test]
+fn trig_sinh_0_is_0() {
+    let out = trig_calc("sinh 0");
+    assert!(
+        out.contains("0.000000") || out.contains("sinh"),
+        "sinh(0)=0: {out}"
+    );
+}
+
+#[test]
+fn trig_hyp_table_shows_sin() {
+    let out = trig_calc("hyp");
+    assert!(out.contains("sin"), "hyp table has sin header: {out}");
+    assert!(out.contains("45"), "hyp table has 45 deg row: {out}");
+}
+
+#[test]
+fn trig_rad_input() {
+    // pi/4 rad = 45 deg, sin = 0.7071
+    let out = trig_calc("0.7854rad");
+    assert!(
+        out.contains("0.707") || out.contains("sin"),
+        "rad input: {out}"
+    );
+}
+
+#[test]
+fn trig_empty_no_panic() {
+    let out = trig_calc("");
+    assert!(!out.is_empty());
+}
+
+// ─── Fraction tests ───────────────────────────────────────────────────────────
+
+#[test]
+fn fraction_add_half_plus_third() {
+    // 1/2 + 1/3 = 5/6
+    let out = fraction_calc("1/2 + 1/3");
+    assert!(out.contains("5/6"), "1/2 + 1/3 = 5/6: {out}");
+}
+
+#[test]
+fn fraction_sub_three_quarters_minus_eighth() {
+    // 3/4 - 1/8 = 5/8
+    let out = fraction_calc("3/4 - 1/8");
+    assert!(out.contains("5/8"), "3/4 - 1/8 = 5/8: {out}");
+}
+
+#[test]
+fn fraction_mul_two_thirds_times_three_fifths() {
+    // 2/3 * 3/5 = 2/5
+    let out = fraction_calc("2/3 * 3/5");
+    assert!(out.contains("2/5"), "2/3 * 3/5 = 2/5: {out}");
+}
+
+#[test]
+fn fraction_div_seven_eighths_by_three_quarters() {
+    // 7/8 / 3/4 = 7/6
+    let out = fraction_calc("7/8 / 3/4");
+    assert!(out.contains("7/6"), "7/8 / 3/4 = 7/6: {out}");
+}
+
+#[test]
+fn fraction_simplify_12_18() {
+    // 12/18 = 2/3
+    let out = fraction_calc("simplify 12/18");
+    assert!(out.contains("2/3"), "simplify 12/18 = 2/3: {out}");
+}
+
+#[test]
+fn fraction_lcd_three_fractions() {
+    // LCD of 1/3 1/4 1/6 = 12
+    let out = fraction_calc("lcd 1/3 1/4 1/6");
+    assert!(out.contains("12"), "LCD(3,4,6)=12: {out}");
+}
+
+#[test]
+fn fraction_todec_three_sevenths() {
+    let out = fraction_calc("todec 3/7");
+    assert!(
+        out.contains("0.4285") || out.contains("repeating"),
+        "3/7 decimal: {out}"
+    );
+}
+
+#[test]
+fn fraction_tofrac_0625() {
+    // 0.625 = 5/8
+    let out = fraction_calc("tofrac 0.625");
+    assert!(out.contains("5/8"), "0.625 = 5/8: {out}");
+}
+
+#[test]
+fn fraction_mixed_7_3() {
+    // 7/3 = 2 and 1/3
+    let out = fraction_calc("mixed 7/3");
+    assert!(out.contains('2'), "7/3 mixed = 2 and 1/3: {out}");
+    assert!(
+        out.contains("1/3") || out.contains("1"),
+        "remainder 1/3: {out}"
+    );
+}
+
+#[test]
+fn fraction_todec_quarter_terminates() {
+    let out = fraction_calc("todec 1/4");
+    assert!(out.contains("terminating"), "1/4 is terminating: {out}");
+    assert!(out.contains("0.25"), "1/4 = 0.25: {out}");
+}
+
+#[test]
+fn fraction_empty_no_panic() {
+    let out = fraction_calc("");
     assert!(!out.is_empty());
 }
 

@@ -16835,3 +16835,543 @@ pub fn health_calc(query: &str) -> String {
     let _ = writeln!(out, "{}", sep);
     out
 }
+
+// ── Trigonometry ──────────────────────────────────────────────────────────────
+
+pub fn trig_calc(query: &str) -> String {
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+    let _ = writeln!(out, "\n  TRIGONOMETRY");
+    let _ = writeln!(out, "{}", sep);
+
+    let q = query.trim().to_lowercase();
+    let parts: Vec<&str> = q.split_whitespace().collect();
+
+    if parts.is_empty() {
+        let _ = writeln!(out, "  Usage examples:");
+        let _ = writeln!(
+            out,
+            "    hematite --trig '45'           (full table for 45 deg)"
+        );
+        let _ = writeln!(out, "    hematite --trig '45deg'        (explicit degrees)");
+        let _ = writeln!(out, "    hematite --trig '0.785rad'     (radians)");
+        let _ = writeln!(
+            out,
+            "    hematite --trig 'asin 0.5'     (inverse: returns degrees)"
+        );
+        let _ = writeln!(out, "    hematite --trig 'acos 0.866'");
+        let _ = writeln!(out, "    hematite --trig 'atan 1'");
+        let _ = writeln!(out, "    hematite --trig 'atan2 3 4'    (atan2(y,x))");
+        let _ = writeln!(
+            out,
+            "    hematite --trig 'hyp'          (all reference angles)"
+        );
+        let _ = writeln!(out, "    hematite --trig 'sinh 1.5'     (hyperbolic)");
+        let _ = writeln!(out, "{}", sep);
+        return out;
+    }
+
+    fn parse_angle_rad(s: &str) -> Option<f64> {
+        if s.ends_with("rad") {
+            s[..s.len() - 3].parse::<f64>().ok()
+        } else if s.ends_with("deg") {
+            s[..s.len() - 3].parse::<f64>().ok().map(|d| d.to_radians())
+        } else {
+            s.parse::<f64>().ok().map(|d| d.to_radians())
+        }
+    }
+
+    fn fmt_trig_val(v: f64) -> String {
+        if v.abs() < 1e-10 {
+            "0".to_string()
+        } else if (v - 1.0).abs() < 1e-10 {
+            "1".to_string()
+        } else if (v + 1.0).abs() < 1e-10 {
+            "-1".to_string()
+        } else {
+            format!("{:.6}", v)
+        }
+    }
+
+    let keyword = parts[0];
+
+    match keyword {
+        "asin" | "arcsin" => {
+            if let Some(v) = parts.get(1).and_then(|s| s.parse::<f64>().ok()) {
+                if v < -1.0 || v > 1.0 {
+                    let _ = writeln!(out, "  Domain error: asin input must be in [-1, 1]");
+                } else {
+                    let deg = v.asin().to_degrees();
+                    let _ = writeln!(out, "  asin({})  =  {:.6} deg", v, deg);
+                    let _ = writeln!(out, "              =  {:.6} rad", deg.to_radians());
+                }
+            } else {
+                let _ = writeln!(out, "  Usage: hematite --trig 'asin 0.5'");
+            }
+            let _ = writeln!(out, "{}", sep);
+            return out;
+        }
+        "acos" | "arccos" => {
+            if let Some(v) = parts.get(1).and_then(|s| s.parse::<f64>().ok()) {
+                if v < -1.0 || v > 1.0 {
+                    let _ = writeln!(out, "  Domain error: acos input must be in [-1, 1]");
+                } else {
+                    let deg = v.acos().to_degrees();
+                    let _ = writeln!(out, "  acos({})  =  {:.6} deg", v, deg);
+                    let _ = writeln!(out, "              =  {:.6} rad", deg.to_radians());
+                }
+            } else {
+                let _ = writeln!(out, "  Usage: hematite --trig 'acos 0.866'");
+            }
+            let _ = writeln!(out, "{}", sep);
+            return out;
+        }
+        "atan" | "arctan" => {
+            if let Some(v) = parts.get(1).and_then(|s| s.parse::<f64>().ok()) {
+                let deg = v.atan().to_degrees();
+                let _ = writeln!(out, "  atan({})  =  {:.6} deg", v, deg);
+                let _ = writeln!(out, "              =  {:.6} rad", deg.to_radians());
+            } else {
+                let _ = writeln!(out, "  Usage: hematite --trig 'atan 1'");
+            }
+            let _ = writeln!(out, "{}", sep);
+            return out;
+        }
+        "atan2" => {
+            if let (Some(y), Some(x)) = (
+                parts.get(1).and_then(|s| s.parse::<f64>().ok()),
+                parts.get(2).and_then(|s| s.parse::<f64>().ok()),
+            ) {
+                let deg = y.atan2(x).to_degrees();
+                let _ = writeln!(out, "  atan2({}, {})  =  {:.6} deg", y, x, deg);
+                let _ = writeln!(out, "                   =  {:.6} rad", deg.to_radians());
+            } else {
+                let _ = writeln!(out, "  Usage: hematite --trig 'atan2 3 4'  (y x)");
+            }
+            let _ = writeln!(out, "{}", sep);
+            return out;
+        }
+        "sinh" => {
+            if let Some(v) = parts.get(1).and_then(|s| s.parse::<f64>().ok()) {
+                let _ = writeln!(out, "  sinh({})  =  {:.6}", v, v.sinh());
+                let _ = writeln!(out, "  cosh({})  =  {:.6}", v, v.cosh());
+                let _ = writeln!(out, "  tanh({})  =  {:.6}", v, v.tanh());
+            } else {
+                let _ = writeln!(out, "  Usage: hematite --trig 'sinh 1.5'");
+            }
+            let _ = writeln!(out, "{}", sep);
+            return out;
+        }
+        "cosh" => {
+            if let Some(v) = parts.get(1).and_then(|s| s.parse::<f64>().ok()) {
+                let _ = writeln!(out, "  cosh({})  =  {:.6}", v, v.cosh());
+            } else {
+                let _ = writeln!(out, "  Usage: hematite --trig 'cosh 1.5'");
+            }
+            let _ = writeln!(out, "{}", sep);
+            return out;
+        }
+        "tanh" => {
+            if let Some(v) = parts.get(1).and_then(|s| s.parse::<f64>().ok()) {
+                let _ = writeln!(out, "  tanh({})  =  {:.6}", v, v.tanh());
+            } else {
+                let _ = writeln!(out, "  Usage: hematite --trig 'tanh 0.5'");
+            }
+            let _ = writeln!(out, "{}", sep);
+            return out;
+        }
+        "hyp" | "table" | "reference" => {
+            let angles: &[(f64, &str)] = &[
+                (0.0, "0"),
+                (30.0, "30"),
+                (45.0, "45"),
+                (60.0, "60"),
+                (90.0, "90"),
+                (120.0, "120"),
+                (135.0, "135"),
+                (150.0, "150"),
+                (180.0, "180"),
+                (270.0, "270"),
+                (360.0, "360"),
+            ];
+            let _ = writeln!(
+                out,
+                "  {:>6}  {:>10}  {:>10}  {:>10}",
+                "deg", "sin", "cos", "tan"
+            );
+            let _ = writeln!(out, "  {}", "─".repeat(46));
+            for (deg, label) in angles {
+                let r = deg.to_radians();
+                let s = fmt_trig_val(r.sin());
+                let c = fmt_trig_val(r.cos());
+                let t = if r.cos().abs() < 1e-10 {
+                    "undef".to_string()
+                } else {
+                    fmt_trig_val(r.tan())
+                };
+                let _ = writeln!(out, "  {:>6}  {:>10}  {:>10}  {:>10}", label, s, c, t);
+            }
+            let _ = writeln!(out, "{}", sep);
+            return out;
+        }
+        _ => {}
+    }
+
+    // single angle — full table
+    if let Some(rad) = parse_angle_rad(keyword) {
+        let deg = rad.to_degrees();
+        let sin_v = rad.sin();
+        let cos_v = rad.cos();
+        let tan_v = rad.tan();
+        let _ = writeln!(out, "  Angle          : {:.6} deg  =  {:.6} rad", deg, rad);
+        let _ = writeln!(out, "  {}", "─".repeat(50));
+        let _ = writeln!(out, "  sin            : {}", fmt_trig_val(sin_v));
+        let _ = writeln!(out, "  cos            : {}", fmt_trig_val(cos_v));
+        if cos_v.abs() < 1e-10 {
+            let _ = writeln!(out, "  tan            : undefined");
+            let _ = writeln!(out, "  cot            : 0");
+            let _ = writeln!(out, "  sec            : undefined");
+        } else {
+            let _ = writeln!(out, "  tan            : {}", fmt_trig_val(tan_v));
+            let _ = writeln!(out, "  cot            : {}", fmt_trig_val(1.0 / tan_v));
+            let _ = writeln!(out, "  sec            : {}", fmt_trig_val(1.0 / cos_v));
+        }
+        if sin_v.abs() < 1e-10 {
+            let _ = writeln!(out, "  csc            : undefined");
+        } else {
+            let _ = writeln!(out, "  csc            : {}", fmt_trig_val(1.0 / sin_v));
+        }
+        let _ = writeln!(out, "  {}", "─".repeat(50));
+        let _ = writeln!(out, "  sinh           : {:.6}", rad.sinh());
+        let _ = writeln!(out, "  cosh           : {:.6}", rad.cosh());
+        let _ = writeln!(out, "  tanh           : {:.6}", rad.tanh());
+    } else {
+        let _ = writeln!(out, "  Could not parse angle: '{}'", query.trim());
+        let _ = writeln!(out, "  Examples: 45  45deg  0.785rad  asin 0.5  hyp");
+    }
+
+    let _ = writeln!(out, "{}", sep);
+    out
+}
+
+// ── Fraction arithmetic ───────────────────────────────────────────────────────
+
+pub fn fraction_calc(query: &str) -> String {
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+    let _ = writeln!(out, "\n  FRACTION CALCULATOR");
+    let _ = writeln!(out, "{}", sep);
+
+    let q = query.trim();
+
+    if q.is_empty() {
+        let _ = writeln!(out, "  Usage examples:");
+        let _ = writeln!(out, "    hematite --fraction '1/2 + 1/3'");
+        let _ = writeln!(out, "    hematite --fraction '3/4 - 1/8'");
+        let _ = writeln!(out, "    hematite --fraction '2/3 * 3/5'");
+        let _ = writeln!(out, "    hematite --fraction '7/8 / 3/4'");
+        let _ = writeln!(out, "    hematite --fraction 'simplify 12/18'");
+        let _ = writeln!(out, "    hematite --fraction 'lcd 1/3 1/4 1/6'");
+        let _ = writeln!(out, "    hematite --fraction 'todec 3/7'");
+        let _ = writeln!(out, "    hematite --fraction 'tofrac 0.625'");
+        let _ = writeln!(out, "    hematite --fraction 'mixed 7/3'");
+        let _ = writeln!(out, "{}", sep);
+        return out;
+    }
+
+    fn gcd_frac(a: i64, b: i64) -> i64 {
+        if b == 0 {
+            a.abs()
+        } else {
+            gcd_frac(b, a % b)
+        }
+    }
+
+    fn simplify_frac(n: i64, d: i64) -> (i64, i64) {
+        if d == 0 {
+            return (n, d);
+        }
+        let sign = if d < 0 { -1 } else { 1 };
+        let g = gcd_frac(n.abs(), d.abs());
+        (sign * n / g, sign * d / g)
+    }
+
+    fn fmt_frac(n: i64, d: i64) -> String {
+        if d == 1 || d == -1 {
+            format!("{}", n * d.signum())
+        } else {
+            format!("{}/{}", n, d)
+        }
+    }
+
+    fn parse_frac(s: &str) -> Option<(i64, i64)> {
+        let s = s.trim();
+        if let Some(idx) = s.find('/') {
+            let n: i64 = s[..idx].trim().parse().ok()?;
+            let d: i64 = s[idx + 1..].trim().parse().ok()?;
+            Some((n, d))
+        } else {
+            let n: i64 = s.parse().ok()?;
+            Some((n, 1))
+        }
+    }
+
+    let ql = q.to_lowercase();
+
+    if ql.strip_prefix("simplify ").is_some() {
+        let rest = &q[9..].trim();
+        if let Some((n, d)) = parse_frac(rest) {
+            if d == 0 {
+                let _ = writeln!(out, "  Division by zero");
+            } else {
+                let (sn, sd) = simplify_frac(n, d);
+                let g = gcd_frac(n.abs(), d.abs());
+                let _ = writeln!(out, "  Input          : {}", fmt_frac(n, d));
+                let _ = writeln!(out, "  GCD            : {}", g);
+                let _ = writeln!(out, "  Simplified     : {}", fmt_frac(sn, sd));
+                let _ = writeln!(out, "  Decimal        : {:.8}", sn as f64 / sd as f64);
+            }
+        } else {
+            let _ = writeln!(out, "  Usage: hematite --fraction 'simplify 12/18'");
+        }
+        let _ = writeln!(out, "{}", sep);
+        return out;
+    }
+
+    if ql.starts_with("lcd ") || ql.starts_with("lcm ") {
+        let fracs_str = &q[4..];
+        let fracs: Vec<(i64, i64)> = fracs_str
+            .split_whitespace()
+            .filter_map(parse_frac)
+            .collect();
+        if fracs.is_empty() {
+            let _ = writeln!(out, "  Usage: hematite --fraction 'lcd 1/3 1/4 1/6'");
+        } else {
+            fn lcm_frac(a: i64, b: i64) -> i64 {
+                let g = if b == 0 {
+                    a.abs()
+                } else {
+                    {
+                        let mut x = a.abs();
+                        let mut y = b.abs();
+                        while y != 0 {
+                            let t = y;
+                            y = x % y;
+                            x = t;
+                        }
+                        x
+                    }
+                };
+                if g == 0 {
+                    0
+                } else {
+                    a / g * b
+                }
+            }
+            let lcd = fracs.iter().fold(1i64, |acc, (_, d)| lcm_frac(acc, *d));
+            let frac_strs: Vec<String> = fracs.iter().map(|(n, d)| fmt_frac(*n, *d)).collect();
+            let _ = writeln!(out, "  Fractions      : {}", frac_strs.join("  "));
+            let _ = writeln!(out, "  LCD            : {}", lcd);
+            for (n, d) in &fracs {
+                let mult = lcd / d;
+                let _ = writeln!(out, "    {}/{}  =  {}/{}", n, d, n * mult, lcd);
+            }
+        }
+        let _ = writeln!(out, "{}", sep);
+        return out;
+    }
+
+    if ql.strip_prefix("todec ").is_some() {
+        let rest = &q[6..].trim();
+        if let Some((n, d)) = parse_frac(rest) {
+            if d == 0 {
+                let _ = writeln!(out, "  Division by zero");
+            } else {
+                let dec = n as f64 / d as f64;
+                let _ = writeln!(out, "  Fraction       : {}", fmt_frac(n, d));
+                let _ = writeln!(out, "  Decimal        : {:.10}", dec);
+                let (_, sd) = simplify_frac(n, d);
+                let mut rem = sd.abs();
+                while rem % 2 == 0 {
+                    rem /= 2;
+                }
+                while rem % 5 == 0 {
+                    rem /= 5;
+                }
+                let terminates = rem == 1;
+                let _ = writeln!(
+                    out,
+                    "  Decimal type   : {}",
+                    if terminates {
+                        "terminating"
+                    } else {
+                        "repeating"
+                    }
+                );
+            }
+        } else {
+            let _ = writeln!(out, "  Usage: hematite --fraction 'todec 3/7'");
+        }
+        let _ = writeln!(out, "{}", sep);
+        return out;
+    }
+
+    if ql.strip_prefix("tofrac ").is_some() {
+        let rest = &q[7..].trim();
+        if let Ok(v) = rest.parse::<f64>() {
+            let sign = if v < 0.0 { -1i64 } else { 1i64 };
+            let v_abs = v.abs();
+            let int_part = v_abs.floor() as i64;
+            let frac_part = v_abs - int_part as f64;
+            let mut best_n = 0i64;
+            let mut best_d = 1i64;
+            let mut best_err = f64::MAX;
+            for d in 1i64..=10000 {
+                let n = (frac_part * d as f64).round() as i64;
+                let err = (frac_part - n as f64 / d as f64).abs();
+                if err < best_err {
+                    best_err = err;
+                    best_n = n;
+                    best_d = d;
+                }
+                if err < 1e-10 {
+                    break;
+                }
+            }
+            let total_n = sign * (int_part * best_d + best_n);
+            let (sn, sd) = simplify_frac(total_n, best_d);
+            let _ = writeln!(out, "  Decimal        : {}", v);
+            let _ = writeln!(
+                out,
+                "  Fraction       : {}  (approx error: {:.2e})",
+                fmt_frac(sn, sd),
+                best_err
+            );
+            if sd != 1 {
+                let _ = writeln!(out, "  Decimal check  : {:.10}", sn as f64 / sd as f64);
+            }
+        } else {
+            let _ = writeln!(out, "  Usage: hematite --fraction 'tofrac 0.625'");
+        }
+        let _ = writeln!(out, "{}", sep);
+        return out;
+    }
+
+    if ql.strip_prefix("mixed ").is_some() {
+        let rest = &q[6..].trim();
+        if let Some((n, d)) = parse_frac(rest) {
+            if d == 0 {
+                let _ = writeln!(out, "  Division by zero");
+            } else {
+                let (sn, sd) = simplify_frac(n, d);
+                let whole = sn / sd;
+                let rem = sn % sd;
+                let _ = writeln!(out, "  Improper       : {}", fmt_frac(sn, sd));
+                if rem == 0 {
+                    let _ = writeln!(out, "  Mixed number   : {} (whole number)", whole);
+                } else if whole == 0 {
+                    let _ = writeln!(out, "  Mixed number   : {}/{} (proper fraction)", rem, sd);
+                } else {
+                    let _ = writeln!(
+                        out,
+                        "  Mixed number   : {} and {}/{}",
+                        whole,
+                        rem.abs(),
+                        sd.abs()
+                    );
+                }
+                let _ = writeln!(out, "  Decimal        : {:.8}", sn as f64 / sd as f64);
+            }
+        } else {
+            let _ = writeln!(out, "  Usage: hematite --fraction 'mixed 7/3'");
+        }
+        let _ = writeln!(out, "{}", sep);
+        return out;
+    }
+
+    // arithmetic: detect operator between two fractions
+    let tokens: Vec<&str> = q.split_whitespace().collect();
+    let op_idx = tokens
+        .iter()
+        .position(|&t| matches!(t, "+" | "-" | "*" | "/" | "x"));
+    if let Some(op_i) = op_idx {
+        let a_str = tokens[..op_i].join("");
+        let b_str = tokens[op_i + 1..].join("");
+        let op = tokens[op_i];
+        if let (Some((an, ad)), Some((bn, bd))) = (parse_frac(&a_str), parse_frac(&b_str)) {
+            let (rn, rd) = match op {
+                "+" => (an * bd + bn * ad, ad * bd),
+                "-" => (an * bd - bn * ad, ad * bd),
+                "*" | "x" => (an * bn, ad * bd),
+                "/" => {
+                    if bn == 0 {
+                        let _ = writeln!(out, "  Division by zero");
+                        let _ = writeln!(out, "{}", sep);
+                        return out;
+                    }
+                    (an * bd, ad * bn)
+                }
+                _ => {
+                    let _ = writeln!(out, "  Unknown operator: '{}'", op);
+                    let _ = writeln!(out, "{}", sep);
+                    return out;
+                }
+            };
+            let (sn, sd) = simplify_frac(rn, rd);
+            let op_label = match op {
+                "*" | "x" => "x",
+                "/" => "/",
+                other => other,
+            };
+            let _ = writeln!(
+                out,
+                "  {}  {}  {}  =  {}",
+                fmt_frac(an, ad),
+                op_label,
+                fmt_frac(bn, bd),
+                fmt_frac(sn, sd)
+            );
+            if sd != 1 {
+                let _ = writeln!(out, "  Decimal        : {:.8}", sn as f64 / sd as f64);
+                let whole = sn / sd;
+                let rem = sn % sd;
+                if whole.abs() >= 1 && rem != 0 {
+                    let _ = writeln!(
+                        out,
+                        "  Mixed number   : {} and {}/{}",
+                        whole,
+                        rem.abs(),
+                        sd.abs()
+                    );
+                }
+            }
+        } else {
+            let _ = writeln!(out, "  Could not parse: '{}' and '{}'", a_str, b_str);
+        }
+    } else if let Some((n, d)) = parse_frac(q) {
+        let (sn, sd) = simplify_frac(n, d);
+        let _ = writeln!(out, "  Input          : {}", fmt_frac(n, d));
+        let _ = writeln!(out, "  Simplified     : {}", fmt_frac(sn, sd));
+        let _ = writeln!(out, "  Decimal        : {:.8}", sn as f64 / sd as f64);
+        let whole = sn / sd;
+        let rem = sn % sd;
+        if whole.abs() >= 1 && rem != 0 {
+            let _ = writeln!(
+                out,
+                "  Mixed number   : {} and {}/{}",
+                whole,
+                rem.abs(),
+                sd.abs()
+            );
+        }
+    } else {
+        let _ = writeln!(out, "  Could not parse: '{}'", q);
+        let _ = writeln!(
+            out,
+            "  Examples: '1/2 + 1/3'  'simplify 12/18'  'tofrac 0.75'"
+        );
+    }
+
+    let _ = writeln!(out, "{}", sep);
+    out
+}

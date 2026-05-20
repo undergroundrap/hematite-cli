@@ -1084,6 +1084,30 @@ pub struct CliCockpit {
         long,
         help_heading = "Math & Science",
         value_name = "QUERY",
+        help = "Trigonometry calculator — instant, no model, no cloud. Pass an angle (bare number = degrees, add 'deg' or 'rad' suffix) for a full table: sin/cos/tan/cot/sec/csc + hyperbolic sinh/cosh/tanh. Inverse trig: 'asin 0.5', 'acos 0.866', 'atan 1', 'atan2 y x'. Hyperbolic: 'sinh 1.5'. Reference table: 'hyp' (all standard angles 0–360°). Examples: hematite --trig '45' | hematite --trig 'asin 0.5' | hematite --trig '0.785rad' | hematite --trig 'hyp'"
+    )]
+    pub trig: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Math & Science",
+        value_name = "QUERY",
+        help = "Vector math — instant, no model, no cloud. 2D and 3D vectors in [x,y,z] format. Commands: dot (dot product + angle between), cross (cross product, works in 3D and 2D scalar), mag/magnitude (|v|), norm/normalize (unit vector), angle (angle between two vectors in degrees), add, sub (vector addition/subtraction), scale [v] s (scalar multiplication), proj [a] [b] (scalar + vector projection of a onto b). Examples: hematite --vector 'dot [1,2,3] [4,5,6]' | hematite --vector 'cross [1,0,0] [0,1,0]' | hematite --vector 'norm [3,4,0]'"
+    )]
+    pub vector: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Math & Science",
+        value_name = "QUERY",
+        help = "Fraction arithmetic — instant, no model, no cloud. Operations: '1/2 + 1/3', '3/4 - 1/8', '2/3 * 3/5', '7/8 / 3/4' — results auto-simplified with decimal and mixed-number forms. Commands: simplify 12/18, lcd 1/3 1/4 1/6 (least common denominator), todec 3/7 (fraction → decimal, shows terminating/repeating), tofrac 0.625 (decimal → fraction via continued-fraction approximation), mixed 7/3 (improper → mixed number). Examples: hematite --fraction '1/2 + 1/3' | hematite --fraction 'tofrac 0.333' | hematite --fraction 'lcd 1/2 1/3 1/4'"
+    )]
+    pub fraction: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Math & Science",
+        value_name = "QUERY",
         help = "Date / time math — instant, no model, no cloud. Commands: date difference ('2025-01-15 to 2025-06-30' → days/weeks/months/business days), relative dates ('today + 90', '30 days from today', '90 days ago'), Unix timestamp conversion ('unix 1748000000' ↔ human date, 'toUnix 2025-06-30'), day-of-week info, and single-date profile. Examples: hematite --datetime '2025-01-15 to 2025-06-30' | hematite --datetime 'today + 90' | hematite --datetime 'unix 1748000000'"
     )]
     pub datetime: Option<String>,
