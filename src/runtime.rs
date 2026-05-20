@@ -1009,6 +1009,9 @@ mod tests {
             timestamp: None,
             lorem: None,
             case: None,
+            yaml: None,
+            table: None,
+            sql_fmt: None,
             pdf_extract_helper: None,
             teleported_from: None,
         };

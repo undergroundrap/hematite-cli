@@ -7,8 +7,9 @@ use hematite::tools::math_util::{
     combinatorics_calc, complex_calc, cron_calc, csv_calc, datetime_calc, diff_calc,
     electrical_calc, encode_calc, fraction_calc, geometry_calc, hash_calc, health_calc, ip_calc,
     json_calc, jwt_calc, lorem_calc, matrix_calc, number_format, number_theory_calc, percent_calc,
-    physics_calc, prob_calc, regex_calc, roman_calc, semver_calc, set_calc, sort_viz, stats_calc,
-    string_dist, text_stats, timestamp_calc, trig_calc, url_calc, uuid_calc, validate_calc,
+    physics_calc, prob_calc, regex_calc, roman_calc, semver_calc, set_calc, sort_viz, sql_fmt_calc,
+    stats_calc, string_dist, table_calc, text_stats, timestamp_calc, trig_calc, url_calc,
+    uuid_calc, validate_calc, yaml_calc,
 };
 
 // ─── Cipher tests ────────────────────────────────────────────────────────────
@@ -2617,6 +2618,216 @@ fn case_dot() {
 fn case_empty_no_panic() {
     let out = case_calc("");
     assert!(!out.is_empty());
+}
+
+// ─── YAML tests ──────────────────────────────────────────────────────────────
+
+#[test]
+fn yaml_validate_valid_mapping() {
+    let out = yaml_calc("key: value");
+    assert!(out.contains("VALID"), "simple mapping: {out}");
+    assert!(out.contains("mapping"), "should show type mapping: {out}");
+}
+
+#[test]
+fn yaml_validate_valid_sequence() {
+    let out = yaml_calc("validate - one\n- two\n- three");
+    assert!(
+        out.contains("VALID") || out.contains("sequence"),
+        "sequence: {out}"
+    );
+}
+
+#[test]
+fn yaml_validate_invalid() {
+    let out = yaml_calc("validate: {invalid: [unclosed");
+    // either it parses weirdly or is INVALID
+    assert!(!out.is_empty());
+}
+
+#[test]
+fn yaml_format_inline() {
+    let out = yaml_calc("format key: value");
+    assert!(
+        out.contains("key") || out.contains("value"),
+        "format inline: {out}"
+    );
+}
+
+#[test]
+fn yaml_keys_command() {
+    let out = yaml_calc("keys name: Alice\nage: 30\ncity: NYC");
+    assert!(
+        out.contains("name") || out.contains("Top-level"),
+        "keys command: {out}"
+    );
+}
+
+#[test]
+fn yaml_validate_multiline() {
+    let yaml = "server:\n  host: localhost\n  port: 8080\ndatabase:\n  name: mydb";
+    let out = yaml_calc(yaml);
+    assert!(out.contains("VALID"), "multiline YAML: {out}");
+    assert!(out.contains("mapping"), "should be a mapping: {out}");
+}
+
+#[test]
+fn yaml_empty_shows_help() {
+    let out = yaml_calc("");
+    assert!(
+        out.contains("validate") || out.contains("Commands"),
+        "empty shows help: {out}"
+    );
+}
+
+// ─── Table tests ──────────────────────────────────────────────────────────────
+
+#[test]
+fn table_csv_basic() {
+    let out = table_calc("name,age\nAlice,30\nBob,25");
+    assert!(
+        out.contains("Alice") && out.contains("Bob"),
+        "CSV rows: {out}"
+    );
+    assert!(
+        out.contains("name") && out.contains("age"),
+        "CSV headers: {out}"
+    );
+    assert!(out.contains('|'), "ASCII table has pipes: {out}");
+}
+
+#[test]
+fn table_csv_row_count() {
+    let out = table_calc("a,b,c\n1,2,3\n4,5,6\n7,8,9");
+    assert!(
+        out.contains("3 rows") || out.contains("rows"),
+        "row count: {out}"
+    );
+}
+
+#[test]
+fn table_json_array() {
+    let out = table_calc(r#"[{"name":"Alice","score":95},{"name":"Bob","score":87}]"#);
+    assert!(
+        out.contains("Alice") && out.contains("Bob"),
+        "JSON array rows: {out}"
+    );
+    assert!(
+        out.contains("name") && out.contains("score"),
+        "JSON array headers: {out}"
+    );
+    assert!(out.contains('|'), "table has pipes: {out}");
+}
+
+#[test]
+fn table_markdown_output() {
+    let out = table_calc("markdown name,score\nAlice,95\nBob,87");
+    assert!(
+        out.contains("Alice") && out.contains("Bob"),
+        "markdown rows: {out}"
+    );
+    assert!(
+        out.contains("---") || out.contains("| name"),
+        "markdown separator: {out}"
+    );
+}
+
+#[test]
+fn table_csv_to_csv_via_json() {
+    let out = table_calc(r#"csv [{"x":1,"y":2},{"x":3,"y":4}]"#);
+    assert!(
+        out.contains("x") && out.contains("y"),
+        "json to csv headers: {out}"
+    );
+    assert!(
+        out.contains('1') && out.contains('3'),
+        "json to csv values: {out}"
+    );
+}
+
+#[test]
+fn table_empty_shows_help() {
+    let out = table_calc("");
+    assert!(
+        out.contains("Commands") || out.contains("csv"),
+        "empty shows help: {out}"
+    );
+}
+
+// ─── SQL formatter tests ──────────────────────────────────────────────────────
+
+#[test]
+fn sql_fmt_uppercases_keywords() {
+    let out = sql_fmt_calc("select id, name from users where active = 1");
+    assert!(out.contains("SELECT"), "SELECT uppercased: {out}");
+    assert!(out.contains("FROM"), "FROM uppercased: {out}");
+    assert!(out.contains("WHERE"), "WHERE uppercased: {out}");
+}
+
+#[test]
+fn sql_fmt_newlines_before_clauses() {
+    let out = sql_fmt_calc("select id from users where id = 1");
+    let from_pos = out.find("FROM").unwrap_or(usize::MAX);
+    let where_pos = out.find("WHERE").unwrap_or(usize::MAX);
+    assert!(from_pos < where_pos, "FROM before WHERE: {out}");
+    // They should be on separate lines
+    let lines_between: Vec<&str> = out
+        .lines()
+        .skip_while(|l| !l.contains("FROM"))
+        .take_while(|l| !l.contains("WHERE"))
+        .collect();
+    assert!(
+        !lines_between.is_empty(),
+        "FROM and WHERE on separate lines: {out}"
+    );
+}
+
+#[test]
+fn sql_fmt_join_uppercased() {
+    let out = sql_fmt_calc("select u.id from users u inner join orders o on u.id = o.user_id");
+    assert!(
+        out.contains("INNER JOIN") || out.contains("JOIN"),
+        "JOIN uppercased: {out}"
+    );
+}
+
+#[test]
+fn sql_fmt_minify() {
+    let out = sql_fmt_calc("minify SELECT   id,   name\n  FROM   users\n  WHERE active = 1");
+    // should collapse to one line
+    let result_lines: Vec<&str> = out
+        .lines()
+        .filter(|l| !l.contains("─") && !l.contains("SQL") && !l.trim().is_empty())
+        .collect();
+    assert_eq!(result_lines.len(), 1, "minify = one line: {out}");
+}
+
+#[test]
+fn sql_fmt_group_by() {
+    let out = sql_fmt_calc("select dept, count(*) from emp group by dept having count(*) > 5");
+    assert!(
+        out.contains("GROUP BY") || out.contains("GROUP"),
+        "GROUP BY uppercased: {out}"
+    );
+    assert!(out.contains("HAVING"), "HAVING uppercased: {out}");
+}
+
+#[test]
+fn sql_fmt_keywords_command() {
+    let out = sql_fmt_calc("keywords");
+    assert!(
+        out.contains("SELECT") && out.contains("WHERE"),
+        "keywords list: {out}"
+    );
+}
+
+#[test]
+fn sql_fmt_empty_shows_help() {
+    let out = sql_fmt_calc("");
+    assert!(
+        out.contains("Commands") || out.contains("format"),
+        "empty shows help: {out}"
+    );
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────

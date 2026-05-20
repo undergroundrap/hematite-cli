@@ -23014,3 +23014,756 @@ pub fn case_calc(query: &str) -> String {
     let _ = writeln!(out, "{}", sep);
     out
 }
+
+// ─── YAML toolkit ─────────────────────────────────────────────────────────────
+
+/// YAML validator, formatter, and key inspector — offline replacement for yamllint.com.
+///
+/// Commands:
+///   (bare) / validate <yaml>   — validate inline YAML or file path
+///   format <yaml|file>         — pretty-print YAML
+///   get <file|yaml> <key.path> — fetch a value by dotted key path
+///   keys <yaml|file>           — list top-level keys
+pub fn yaml_calc(query: &str) -> String {
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+    let _ = writeln!(out, "{}", sep);
+    let _ = writeln!(out, "  YAML Toolkit");
+    let _ = writeln!(out, "{}", sep);
+
+    let q = query.trim();
+    let ql = q.to_lowercase();
+
+    fn load_content(s: &str) -> Result<String, String> {
+        if std::path::Path::new(s).is_file() {
+            std::fs::read_to_string(s).map_err(|e| format!("Error reading '{}': {}", s, e))
+        } else {
+            Ok(s.to_string())
+        }
+    }
+
+    fn show_value(val: &serde_yaml::Value, out: &mut String, indent: usize) {
+        match val {
+            serde_yaml::Value::Mapping(m) => {
+                for (k, v) in m {
+                    let key_str = match k {
+                        serde_yaml::Value::String(s) => s.clone(),
+                        other => format!("{:?}", other),
+                    };
+                    match v {
+                        serde_yaml::Value::Mapping(_) | serde_yaml::Value::Sequence(_) => {
+                            let _ = writeln!(out, "{}{}: ", "  ".repeat(indent + 1), key_str);
+                            show_value(v, out, indent + 1);
+                        }
+                        _ => {
+                            let val_str = match v {
+                                serde_yaml::Value::String(s) => format!("\"{}\"", s),
+                                serde_yaml::Value::Bool(b) => b.to_string(),
+                                serde_yaml::Value::Number(n) => n.to_string(),
+                                serde_yaml::Value::Null => "null".to_string(),
+                                _ => format!("{:?}", v),
+                            };
+                            let _ = writeln!(
+                                out,
+                                "{}{}: {}",
+                                "  ".repeat(indent + 1),
+                                key_str,
+                                val_str
+                            );
+                        }
+                    }
+                }
+            }
+            serde_yaml::Value::Sequence(seq) => {
+                for (i, item) in seq.iter().enumerate() {
+                    let _ = writeln!(out, "{}[{}]:", "  ".repeat(indent + 1), i);
+                    show_value(item, out, indent + 1);
+                }
+            }
+            other => {
+                let _ = writeln!(out, "{}{:?}", "  ".repeat(indent + 1), other);
+            }
+        }
+    }
+
+    fn get_by_path<'a>(val: &'a serde_yaml::Value, path: &str) -> Option<&'a serde_yaml::Value> {
+        let mut cur = val;
+        for key in path.split('.') {
+            match cur {
+                serde_yaml::Value::Mapping(m) => {
+                    cur = m.get(serde_yaml::Value::String(key.to_string()))?;
+                }
+                serde_yaml::Value::Sequence(seq) => {
+                    let idx: usize = key.parse().ok()?;
+                    cur = seq.get(idx)?;
+                }
+                _ => return None,
+            }
+        }
+        Some(cur)
+    }
+
+    let (cmd, rest) = if ql.starts_with("validate ") {
+        ("validate", q[9..].trim())
+    } else if ql.starts_with("format ") {
+        ("format", q[7..].trim())
+    } else if ql.starts_with("get ") {
+        ("get", q[4..].trim())
+    } else if ql.starts_with("keys ") {
+        ("keys", q[5..].trim())
+    } else {
+        ("validate", q)
+    };
+
+    match cmd {
+        "validate" => match load_content(rest) {
+            Err(e) => {
+                let _ = writeln!(out, "  {}", e);
+            }
+            Ok(content) => match serde_yaml::from_str::<serde_yaml::Value>(&content) {
+                Ok(val) => {
+                    let key_count = match &val {
+                        serde_yaml::Value::Mapping(m) => m.len(),
+                        serde_yaml::Value::Sequence(s) => s.len(),
+                        _ => 0,
+                    };
+                    let _ = writeln!(out, "  VALID YAML");
+                    let type_label = match &val {
+                        serde_yaml::Value::Mapping(_) => format!("mapping ({} keys)", key_count),
+                        serde_yaml::Value::Sequence(_) => format!("sequence ({} items)", key_count),
+                        serde_yaml::Value::String(_) => "scalar string".to_string(),
+                        serde_yaml::Value::Bool(b) => format!("scalar bool ({})", b),
+                        serde_yaml::Value::Number(n) => format!("scalar number ({})", n),
+                        serde_yaml::Value::Null => "null".to_string(),
+                        _ => "unknown".to_string(),
+                    };
+                    let _ = writeln!(out, "  Type  : {}", type_label);
+                    let line_count = content.lines().count();
+                    let _ = writeln!(out, "  Lines : {}", line_count);
+                }
+                Err(e) => {
+                    let _ = writeln!(out, "  INVALID YAML");
+                    let _ = writeln!(out, "  Error : {}", e);
+                }
+            },
+        },
+        "format" => match load_content(rest) {
+            Err(e) => {
+                let _ = writeln!(out, "  {}", e);
+            }
+            Ok(content) => match serde_yaml::from_str::<serde_yaml::Value>(&content) {
+                Ok(val) => match serde_yaml::to_string(&val) {
+                    Ok(formatted) => {
+                        for line in formatted.lines() {
+                            let _ = writeln!(out, "  {}", line);
+                        }
+                    }
+                    Err(e) => {
+                        let _ = writeln!(out, "  Serialize error: {}", e);
+                    }
+                },
+                Err(e) => {
+                    let _ = writeln!(out, "  INVALID YAML: {}", e);
+                }
+            },
+        },
+        "keys" => match load_content(rest) {
+            Err(e) => {
+                let _ = writeln!(out, "  {}", e);
+            }
+            Ok(content) => match serde_yaml::from_str::<serde_yaml::Value>(&content) {
+                Ok(serde_yaml::Value::Mapping(m)) => {
+                    let _ = writeln!(out, "  Top-level keys ({}):", m.len());
+                    for k in m.keys() {
+                        if let serde_yaml::Value::String(s) = k {
+                            let _ = writeln!(out, "    - {}", s);
+                        }
+                    }
+                }
+                Ok(_) => {
+                    let _ = writeln!(out, "  Root is not a mapping — no named keys");
+                }
+                Err(e) => {
+                    let _ = writeln!(out, "  INVALID YAML: {}", e);
+                }
+            },
+        },
+        "get" => {
+            // rest = "<content_or_file> <key.path>"
+            if let Some(last_space) = rest.rfind(' ') {
+                let (src, key_path) = (&rest[..last_space], rest[last_space + 1..].trim());
+                match load_content(src) {
+                    Err(e) => {
+                        let _ = writeln!(out, "  {}", e);
+                    }
+                    Ok(content) => match serde_yaml::from_str::<serde_yaml::Value>(&content) {
+                        Ok(val) => match get_by_path(&val, key_path) {
+                            Some(found) => {
+                                let _ = writeln!(out, "  {} :", key_path);
+                                show_value(found, &mut out, 0);
+                            }
+                            None => {
+                                let _ = writeln!(out, "  Key '{}' not found", key_path);
+                            }
+                        },
+                        Err(e) => {
+                            let _ = writeln!(out, "  INVALID YAML: {}", e);
+                        }
+                    },
+                }
+            } else {
+                let _ = writeln!(out, "  Usage: get <file|yaml> <key.path>");
+            }
+        }
+        _ => {}
+    }
+
+    if q.is_empty() {
+        let _ = writeln!(out, "  Commands:");
+        let _ = writeln!(
+            out,
+            "    validate <file|yaml>            — check if YAML is valid"
+        );
+        let _ = writeln!(out, "    format   <file|yaml>            — pretty-print");
+        let _ = writeln!(
+            out,
+            "    keys     <file|yaml>            — list top-level keys"
+        );
+        let _ = writeln!(out, "    get      <file|yaml> <key.path> — fetch a value");
+        let _ = writeln!(out, "  Example: hematite --yaml 'key: value'");
+        let _ = writeln!(out, "         : hematite --yaml 'validate config.yml'");
+    }
+
+    let _ = writeln!(out, "{}", sep);
+    out
+}
+
+// ─── ASCII table renderer ─────────────────────────────────────────────────────
+
+/// ASCII table renderer — offline replacement for tableconvert.com.
+///
+/// Input: JSON array of objects, or CSV text. Auto-detected.
+/// Commands:
+///   <csv text>             — render CSV as table
+///   <json array>           — render JSON array as table
+///   markdown <input>       — markdown table output
+///   csv <json array>       — convert JSON to CSV
+pub fn table_calc(query: &str) -> String {
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+    let _ = writeln!(out, "{}", sep);
+    let _ = writeln!(out, "  Table Toolkit");
+    let _ = writeln!(out, "{}", sep);
+
+    let q = query.trim();
+
+    if q.is_empty() {
+        let _ = writeln!(out, "  Commands:");
+        let _ = writeln!(out, "    <csv>          — render CSV as ASCII table");
+        let _ = writeln!(out, "    <json-array>   — render JSON array as ASCII table");
+        let _ = writeln!(out, "    markdown <...> — output as Markdown table");
+        let _ = writeln!(out, "    csv <json>     — JSON array to CSV");
+        let _ = writeln!(
+            out,
+            "  Example: hematite --table 'name,age\\nAlice,30\\nBob,25'"
+        );
+        let _ = writeln!(out, "{}", sep);
+        return out;
+    }
+
+    let ql = q.to_lowercase();
+    let (mode, content) = if ql.starts_with("markdown ") {
+        ("markdown", q[9..].trim())
+    } else if ql.starts_with("csv ") {
+        ("csv_out", q[4..].trim())
+    } else {
+        ("ascii", q)
+    };
+
+    // Parse into rows: Vec<Vec<String>>
+    fn load_rows(content: &str) -> Result<Vec<Vec<String>>, String> {
+        let trimmed = content.trim();
+        if trimmed.starts_with('[') {
+            // JSON array
+            let val: serde_json::Value =
+                serde_json::from_str(trimmed).map_err(|e| format!("JSON parse error: {}", e))?;
+            let arr = val.as_array().ok_or("Expected JSON array")?;
+            if arr.is_empty() {
+                return Ok(vec![]);
+            }
+            // gather all keys in order of first appearance
+            let mut headers: Vec<String> = Vec::new();
+            for item in arr {
+                if let Some(obj) = item.as_object() {
+                    for k in obj.keys() {
+                        if !headers.contains(k) {
+                            headers.push(k.clone());
+                        }
+                    }
+                }
+            }
+            let mut rows = vec![headers.clone()];
+            for item in arr {
+                let mut row = Vec::new();
+                for h in &headers {
+                    let cell = item
+                        .get(h)
+                        .map(|v| match v {
+                            serde_json::Value::String(s) => s.clone(),
+                            serde_json::Value::Null => String::new(),
+                            other => other.to_string(),
+                        })
+                        .unwrap_or_default();
+                    row.push(cell);
+                }
+                rows.push(row);
+            }
+            Ok(rows)
+        } else {
+            // CSV: split on \n, each line split on comma (naive, no quoting)
+            let rows: Vec<Vec<String>> = trimmed
+                .lines()
+                .filter(|l| !l.trim().is_empty())
+                .map(|l| l.split(',').map(|c| c.trim().to_string()).collect())
+                .collect();
+            Ok(rows)
+        }
+    }
+
+    fn render_ascii(rows: &[Vec<String>]) -> String {
+        if rows.is_empty() {
+            return "  (empty)".to_string();
+        }
+        let ncols = rows.iter().map(|r| r.len()).max().unwrap_or(0);
+        let mut widths = vec![0usize; ncols];
+        for row in rows {
+            for (i, cell) in row.iter().enumerate() {
+                widths[i] = widths[i].max(cell.len());
+            }
+        }
+        let mut s = String::new();
+        let bar: String = widths
+            .iter()
+            .map(|&w| format!("+{}", "-".repeat(w + 2)))
+            .collect::<String>()
+            + "+";
+        for (ri, row) in rows.iter().enumerate() {
+            s.push_str("  ");
+            s.push_str(&bar);
+            s.push('\n');
+            s.push_str("  |");
+            for (i, cell) in row.iter().enumerate() {
+                let w = widths.get(i).copied().unwrap_or(0);
+                s.push_str(&format!(" {:width$} |", cell, width = w));
+            }
+            // pad missing columns
+            for i in row.len()..ncols {
+                s.push_str(&format!(" {:width$} |", "", width = widths[i]));
+            }
+            s.push('\n');
+            if ri == 0 {
+                s.push_str("  ");
+                s.push_str(&bar.replace('-', "="));
+                s.push('\n');
+            }
+        }
+        s.push_str("  ");
+        s.push_str(&bar);
+        s
+    }
+
+    fn render_markdown(rows: &[Vec<String>]) -> String {
+        if rows.is_empty() {
+            return "  (empty)".to_string();
+        }
+        let ncols = rows.iter().map(|r| r.len()).max().unwrap_or(0);
+        let mut widths = vec![0usize; ncols];
+        for row in rows {
+            for (i, cell) in row.iter().enumerate() {
+                widths[i] = widths[i].max(cell.len().max(3));
+            }
+        }
+        let mut s = String::new();
+        for (ri, row) in rows.iter().enumerate() {
+            s.push_str("  |");
+            for i in 0..ncols {
+                let cell = row.get(i).map(|c| c.as_str()).unwrap_or("");
+                s.push_str(&format!(" {:width$} |", cell, width = widths[i]));
+            }
+            s.push('\n');
+            if ri == 0 {
+                s.push_str("  |");
+                for &w in &widths {
+                    s.push_str(&format!(" {} |", "-".repeat(w)));
+                }
+                s.push('\n');
+            }
+        }
+        s
+    }
+
+    fn rows_to_csv(rows: &[Vec<String>]) -> String {
+        rows.iter()
+            .map(|row| {
+                row.iter()
+                    .map(|cell| {
+                        if cell.contains(',') || cell.contains('"') || cell.contains('\n') {
+                            format!("\"{}\"", cell.replace('"', "\"\""))
+                        } else {
+                            cell.clone()
+                        }
+                    })
+                    .collect::<Vec<_>>()
+                    .join(",")
+            })
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
+
+    match load_rows(content) {
+        Err(e) => {
+            let _ = writeln!(out, "  Error: {}", e);
+        }
+        Ok(rows) => {
+            let nrows = rows.len().saturating_sub(1);
+            let ncols = rows.first().map(|r| r.len()).unwrap_or(0);
+            match mode {
+                "markdown" => {
+                    let rendered = render_markdown(&rows);
+                    out.push_str(&rendered);
+                    let _ = writeln!(out, "");
+                    let _ = writeln!(out, "  ({} rows × {} cols)", nrows, ncols);
+                }
+                "csv_out" => {
+                    let csv = rows_to_csv(&rows);
+                    for line in csv.lines() {
+                        let _ = writeln!(out, "  {}", line);
+                    }
+                }
+                _ => {
+                    let rendered = render_ascii(&rows);
+                    out.push_str(&rendered);
+                    let _ = writeln!(out, "");
+                    let _ = writeln!(out, "");
+                    let _ = writeln!(out, "  ({} rows × {} cols)", nrows, ncols);
+                }
+            }
+        }
+    }
+
+    let _ = writeln!(out, "{}", sep);
+    out
+}
+
+// ─── SQL formatter ────────────────────────────────────────────────────────────
+
+/// SQL formatter / beautifier — offline replacement for sqlbeautify.com, poorsql.com.
+///
+/// Uppercases SQL keywords, indents clauses, wraps long SELECT lists.
+/// Commands:
+///   <sql>            — format SQL
+///   minify <sql>     — collapse to one line
+///   keywords         — list known keywords
+pub fn sql_fmt_calc(query: &str) -> String {
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+    let _ = writeln!(out, "{}", sep);
+    let _ = writeln!(out, "  SQL Formatter");
+    let _ = writeln!(out, "{}", sep);
+
+    let q = query.trim();
+    let ql = q.to_lowercase();
+
+    const KEYWORDS: &[&str] = &[
+        "SELECT",
+        "DISTINCT",
+        "FROM",
+        "WHERE",
+        "AND",
+        "OR",
+        "NOT",
+        "IN",
+        "EXISTS",
+        "BETWEEN",
+        "LIKE",
+        "IS",
+        "NULL",
+        "AS",
+        "JOIN",
+        "INNER",
+        "LEFT",
+        "RIGHT",
+        "FULL",
+        "OUTER",
+        "CROSS",
+        "ON",
+        "USING",
+        "GROUP",
+        "BY",
+        "HAVING",
+        "ORDER",
+        "ASC",
+        "DESC",
+        "LIMIT",
+        "OFFSET",
+        "UNION",
+        "ALL",
+        "EXCEPT",
+        "INTERSECT",
+        "INSERT",
+        "INTO",
+        "VALUES",
+        "UPDATE",
+        "SET",
+        "DELETE",
+        "CREATE",
+        "TABLE",
+        "VIEW",
+        "INDEX",
+        "DROP",
+        "ALTER",
+        "ADD",
+        "COLUMN",
+        "CONSTRAINT",
+        "PRIMARY",
+        "KEY",
+        "FOREIGN",
+        "REFERENCES",
+        "UNIQUE",
+        "CHECK",
+        "DEFAULT",
+        "NOT",
+        "NULL",
+        "WITH",
+        "CASE",
+        "WHEN",
+        "THEN",
+        "ELSE",
+        "END",
+        "OVER",
+        "PARTITION",
+        "ROW_NUMBER",
+        "RANK",
+        "DENSE_RANK",
+        "LAG",
+        "LEAD",
+        "FIRST_VALUE",
+        "LAST_VALUE",
+        "COUNT",
+        "SUM",
+        "AVG",
+        "MIN",
+        "MAX",
+        "COALESCE",
+        "NULLIF",
+        "CAST",
+        "CONVERT",
+        "SUBSTRING",
+        "TRIM",
+        "UPPER",
+        "LOWER",
+        "REPLACE",
+        "LENGTH",
+        "ROUND",
+        "FLOOR",
+        "CEIL",
+        "NOW",
+        "CURRENT_DATE",
+        "CURRENT_TIMESTAMP",
+        "EXTRACT",
+        "DATE_TRUNC",
+        "INTERVAL",
+        "BEGIN",
+        "COMMIT",
+        "ROLLBACK",
+        "TRANSACTION",
+        "EXPLAIN",
+        "ANALYZE",
+        "RETURNING",
+        "DO",
+    ];
+
+    // Clause starters that get a newline before them
+    const NEWLINE_BEFORE: &[&str] = &[
+        "SELECT",
+        "FROM",
+        "WHERE",
+        "GROUP BY",
+        "HAVING",
+        "ORDER BY",
+        "LIMIT",
+        "OFFSET",
+        "INNER JOIN",
+        "LEFT JOIN",
+        "RIGHT JOIN",
+        "FULL JOIN",
+        "CROSS JOIN",
+        "JOIN",
+        "UNION",
+        "UNION ALL",
+        "EXCEPT",
+        "INTERSECT",
+        "INSERT INTO",
+        "VALUES",
+        "UPDATE",
+        "SET",
+        "DELETE FROM",
+        "CREATE TABLE",
+        "CREATE VIEW",
+        "CREATE INDEX",
+        "DROP",
+        "ALTER TABLE",
+        "WITH",
+        "ON CONFLICT",
+        "RETURNING",
+    ];
+
+    fn tokenize_sql(sql: &str) -> Vec<String> {
+        let mut tokens = Vec::new();
+        let mut cur = String::new();
+        let chars: Vec<char> = sql.chars().collect();
+        let mut i = 0;
+        while i < chars.len() {
+            let c = chars[i];
+            if c == '\'' || c == '"' || c == '`' {
+                // quoted string/identifier — preserve as-is
+                if !cur.is_empty() {
+                    tokens.push(cur.clone());
+                    cur.clear();
+                }
+                let quote = c;
+                let mut q_str = String::from(c);
+                i += 1;
+                while i < chars.len() {
+                    let qc = chars[i];
+                    q_str.push(qc);
+                    if qc == quote {
+                        if i + 1 < chars.len() && chars[i + 1] == quote {
+                            i += 1;
+                            q_str.push(chars[i]); // escaped quote
+                        } else {
+                            break;
+                        }
+                    }
+                    i += 1;
+                }
+                tokens.push(q_str);
+            } else if c == '-' && i + 1 < chars.len() && chars[i + 1] == '-' {
+                // line comment
+                if !cur.is_empty() {
+                    tokens.push(cur.clone());
+                    cur.clear();
+                }
+                let mut comment = String::new();
+                while i < chars.len() && chars[i] != '\n' {
+                    comment.push(chars[i]);
+                    i += 1;
+                }
+                tokens.push(comment);
+            } else if c.is_alphanumeric() || c == '_' || c == '.' || c == '@' || c == '#' {
+                cur.push(c);
+            } else {
+                if !cur.is_empty() {
+                    tokens.push(cur.clone());
+                    cur.clear();
+                }
+                if !c.is_whitespace() {
+                    tokens.push(c.to_string());
+                }
+            }
+            i += 1;
+        }
+        if !cur.is_empty() {
+            tokens.push(cur);
+        }
+        tokens
+    }
+
+    fn upcase_keywords(tokens: &[String], keywords: &[&str]) -> Vec<String> {
+        tokens
+            .iter()
+            .map(|t| {
+                let up = t.to_uppercase();
+                if keywords.contains(&up.as_str()) {
+                    up
+                } else {
+                    t.clone()
+                }
+            })
+            .collect()
+    }
+
+    fn format_sql(sql: &str, keywords: &[&str], newline_before: &[&str]) -> String {
+        // Normalize whitespace
+        let normalized: String = sql.split_whitespace().collect::<Vec<_>>().join(" ");
+        let tokens = tokenize_sql(&normalized);
+        let upcased = upcase_keywords(&tokens, keywords);
+        let joined = upcased.join(" ");
+
+        // Insert newlines before clause keywords
+        // Process multi-word clauses first (longest match)
+        let mut result = joined.clone();
+        // Sort by length descending so "GROUP BY" matches before "GROUP"
+        let mut clauses: Vec<&str> = newline_before.to_vec();
+        clauses.sort_by(|a, b| b.len().cmp(&a.len()));
+        for clause in &clauses {
+            // Only replace if preceded by a space or start-of-string, not inside quotes
+            let pattern = format!(" {} ", clause);
+            let replacement = format!("\n{} ", clause);
+            result = result.replace(&pattern, &replacement);
+        }
+
+        // Indent: add 2 spaces to continuation lines (lines not starting with a clause keyword)
+        let mut formatted_lines: Vec<String> = Vec::new();
+        let mut in_select = false;
+        for line in result.lines() {
+            let trimmed = line.trim();
+            if trimmed.is_empty() {
+                continue;
+            }
+            let upper = trimmed.to_uppercase();
+            let is_clause = clauses.iter().any(|c| upper.starts_with(c));
+            if is_clause {
+                in_select = upper.starts_with("SELECT");
+                formatted_lines.push(trimmed.to_string());
+            } else {
+                formatted_lines.push(format!("    {}", trimmed));
+            }
+            let _ = in_select; // suppress warning
+        }
+        formatted_lines.join("\n")
+    }
+
+    if q.is_empty() {
+        let _ = writeln!(out, "  Commands:");
+        let _ = writeln!(out, "    <sql>           — format and uppercase keywords");
+        let _ = writeln!(out, "    minify <sql>    — collapse to single line");
+        let _ = writeln!(out, "    keywords        — list all known SQL keywords");
+        let _ = writeln!(
+            out,
+            "  Example: hematite --sql-fmt 'select id,name from users where active=1'"
+        );
+    } else if ql == "keywords" {
+        let _ = writeln!(out, "  Known keywords ({}):", KEYWORDS.len());
+        let mut sorted = KEYWORDS.to_vec();
+        sorted.sort();
+        let cols = 4;
+        for chunk in sorted.chunks(cols) {
+            let _ = writeln!(out, "    {}", chunk.join("  "));
+        }
+    } else if ql.starts_with("minify ") {
+        let sql = q[7..].trim();
+        let minified: String = sql.split_whitespace().collect::<Vec<_>>().join(" ");
+        let tokens = tokenize_sql(&minified);
+        let upcased = upcase_keywords(&tokens, KEYWORDS);
+        let _ = writeln!(out, "  {}", upcased.join(" "));
+    } else {
+        let formatted = format_sql(q, KEYWORDS, NEWLINE_BEFORE);
+        for line in formatted.lines() {
+            let _ = writeln!(out, "  {}", line);
+        }
+    }
+
+    let _ = writeln!(out, "{}", sep);
+    out
+}

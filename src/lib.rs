@@ -1236,6 +1236,30 @@ pub struct CliCockpit {
         long,
         help_heading = "Math & Science",
         value_name = "QUERY",
+        help = "YAML validator, formatter, and key inspector — offline replacement for yamllint.com. Commands: (bare) / validate <yaml|file> (check validity + type + line count), format <yaml|file> (pretty-print), keys <yaml|file> (list top-level keys), get <yaml|file> <key.path> (fetch a value by dotted path). Examples: hematite --yaml 'key: value' | hematite --yaml 'validate config.yml' | hematite --yaml 'keys docker-compose.yml' | hematite --yaml 'get config.yml server.port'"
+    )]
+    pub yaml: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Math & Science",
+        value_name = "QUERY",
+        help = "ASCII table renderer — offline replacement for tableconvert.com. Auto-detects JSON arrays and CSV. Commands: <csv> (render CSV as ASCII table), <json-array> (render JSON array), markdown <input> (output as Markdown table), csv <json-array> (convert JSON to CSV). Examples: hematite --table 'name,age\\nAlice,30\\nBob,25' | hematite --table '[{\"name\":\"Alice\",\"age\":30}]' | hematite --table 'markdown name,score\\nA,95'"
+    )]
+    pub table: Option<String>,
+
+    #[arg(
+        long = "sql-fmt",
+        help_heading = "Math & Science",
+        value_name = "QUERY",
+        help = "SQL formatter and keyword uppercaser — offline replacement for sqlbeautify.com / poorsql.com. Uppercases keywords, inserts newlines before clause starters (SELECT, FROM, WHERE, JOIN, GROUP BY, etc.), and indents continuation lines. Commands: <sql> (format), minify <sql> (collapse to one line), keywords (list all known keywords). Examples: hematite --sql-fmt 'select id,name from users where active=1' | hematite --sql-fmt 'minify SELECT id FROM t WHERE x=1'"
+    )]
+    pub sql_fmt: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Math & Science",
+        value_name = "QUERY",
         help = "Lorem ipsum generator — offline replacement for lipsum.com. Commands: (bare) or <N> = N paragraphs (default 1); words <N> = N words; sentences <N> = N sentences. Examples: hematite --lorem | hematite --lorem 3 | hematite --lorem 'words 50' | hematite --lorem 'sentences 5'"
     )]
     pub lorem: Option<String>,
