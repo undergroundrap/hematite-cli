@@ -6,12 +6,12 @@ use hematite::tools::math_util::{
     ascii_calc, bitwise_calc, case_calc, chars_calc, checksum_calc, chemistry_calc, cipher_calc,
     color_calc, combinatorics_calc, complex_calc, cron_calc, csv_calc, datetime_calc, diff_calc,
     duration_calc, electrical_calc, encode_calc, escape_calc, fraction_calc, geometry_calc,
-    hash_calc, headers_calc, health_calc, http_calc, ip_calc, json_calc, jwt_calc, kbd_calc,
-    lorem_calc, matrix_calc, mime_calc, net_calc, number_format, number_theory_calc, percent_calc,
-    physics_calc, port_calc, prob_calc, regex_calc, roman_calc, semver_calc, set_calc, sort_viz,
-    spark_calc, sql_fmt_calc, stats_calc, string_dist, table_calc, template_calc, text_stats,
-    timestamp_calc, toml_calc, trig_calc, tz_calc, url_calc, uuid_calc, validate_calc, xml_calc,
-    yaml_calc,
+    gitignore_calc, hash_calc, headers_calc, health_calc, http_calc, ip_calc, json_calc,
+    json_path_calc, jwt_calc, kbd_calc, license_calc, lorem_calc, markdown_calc, matrix_calc,
+    mime_calc, net_calc, number_format, number_theory_calc, percent_calc, physics_calc, port_calc,
+    prob_calc, regex_calc, roman_calc, semver_calc, set_calc, sort_viz, spark_calc, sql_fmt_calc,
+    stats_calc, string_dist, table_calc, template_calc, text_stats, timestamp_calc, toml_calc,
+    trig_calc, tz_calc, url_calc, uuid_calc, validate_calc, xml_calc, yaml_calc,
 };
 
 // ─── Cipher tests ────────────────────────────────────────────────────────────
@@ -4051,4 +4051,342 @@ fn test_headers_unknown_shows_no_match() {
         out.to_lowercase().contains("no headers found") || out.to_lowercase().contains("not found"),
         "{out}"
     );
+}
+
+// ── gitignore_calc tests ──────────────────────────────────────────────────────
+
+#[test]
+fn test_gitignore_rust() {
+    let out = gitignore_calc("rust");
+    assert!(out.contains("/target/"), "{out}");
+    assert!(out.contains("Cargo.lock"), "{out}");
+}
+
+#[test]
+fn test_gitignore_node() {
+    let out = gitignore_calc("node");
+    assert!(out.contains("node_modules/"), "{out}");
+    assert!(out.contains(".env"), "{out}");
+}
+
+#[test]
+fn test_gitignore_python() {
+    let out = gitignore_calc("python");
+    assert!(out.contains("__pycache__/"), "{out}");
+    assert!(out.contains(".venv"), "{out}");
+}
+
+#[test]
+fn test_gitignore_alias_ts() {
+    // "ts" is an alias for node template
+    let out = gitignore_calc("ts");
+    assert!(out.contains("node_modules/"), "{out}");
+}
+
+#[test]
+fn test_gitignore_combined() {
+    let out = gitignore_calc("rust macos vscode");
+    assert!(out.contains("/target/"), "should have rust section\n{out}");
+    assert!(
+        out.contains(".DS_Store"),
+        "should have macos section\n{out}"
+    );
+    assert!(
+        out.contains(".vscode/"),
+        "should have vscode section\n{out}"
+    );
+    assert!(
+        out.contains("Combined:"),
+        "should show combined header\n{out}"
+    );
+}
+
+#[test]
+fn test_gitignore_list() {
+    let out = gitignore_calc("list");
+    assert!(out.contains("rust"), "{out}");
+    assert!(out.contains("node"), "{out}");
+    assert!(out.contains("python"), "{out}");
+    assert!(out.contains("terraform"), "{out}");
+}
+
+#[test]
+fn test_gitignore_empty_shows_list() {
+    let out = gitignore_calc("");
+    assert!(out.to_lowercase().contains("available"), "{out}");
+}
+
+#[test]
+fn test_gitignore_unknown() {
+    let out = gitignore_calc("notarealstack");
+    assert!(out.to_lowercase().contains("unknown"), "{out}");
+}
+
+#[test]
+fn test_gitignore_vscode_alias() {
+    let out = gitignore_calc("vscode");
+    assert!(out.contains(".vscode/"), "{out}");
+    assert!(out.contains("*.vsix"), "{out}");
+}
+
+// ── license_calc tests ────────────────────────────────────────────────────────
+
+#[test]
+fn test_license_list() {
+    let out = license_calc("list");
+    assert!(out.contains("MIT"), "{out}");
+    assert!(out.contains("Apache-2.0"), "{out}");
+    assert!(out.contains("GPL-3.0"), "{out}");
+    assert!(out.contains("Unlicense"), "{out}");
+}
+
+#[test]
+fn test_license_mit_full_text() {
+    let out = license_calc("mit");
+    assert!(out.contains("MIT License"), "{out}");
+    assert!(out.contains("[year]"), "should have placeholders\n{out}");
+    assert!(out.contains("[author]"), "{out}");
+    assert!(out.contains("Permission is hereby granted"), "{out}");
+}
+
+#[test]
+fn test_license_bsd2_full_text() {
+    let out = license_calc("bsd2");
+    assert!(out.contains("BSD 2-Clause"), "{out}");
+    assert!(out.contains("Redistribution"), "{out}");
+}
+
+#[test]
+fn test_license_bsd3_full_text() {
+    let out = license_calc("bsd3");
+    assert!(out.contains("BSD 3-Clause"), "{out}");
+    assert!(out.contains("endorse or promote"), "{out}");
+}
+
+#[test]
+fn test_license_isc_full_text() {
+    let out = license_calc("isc");
+    assert!(out.contains("ISC License"), "{out}");
+    assert!(out.contains("Permission to use"), "{out}");
+}
+
+#[test]
+fn test_license_unlicense_full_text() {
+    let out = license_calc("unlicense");
+    assert!(out.contains("public domain"), "{out}");
+}
+
+#[test]
+fn test_license_apache_summary() {
+    let out = license_calc("apache");
+    assert!(out.contains("Apache-2.0"), "{out}");
+    assert!(out.contains("Patent use"), "{out}");
+    // No full text — should show spdx link
+    assert!(
+        out.contains("spdx.org") || out.contains("https://"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_license_gpl3_summary() {
+    let out = license_calc("gpl3");
+    assert!(out.contains("GPL-3.0"), "{out}");
+    assert!(out.contains("Disclose source"), "{out}");
+}
+
+#[test]
+fn test_license_agpl3_network_clause() {
+    let out = license_calc("agpl3");
+    assert!(out.contains("Network use"), "{out}");
+}
+
+#[test]
+fn test_license_wtfpl() {
+    let out = license_calc("wtfpl");
+    assert!(out.contains("WANT TO"), "{out}");
+}
+
+#[test]
+fn test_license_unknown() {
+    let out = license_calc("notarealelicense");
+    assert!(out.to_lowercase().contains("unknown"), "{out}");
+}
+
+#[test]
+fn test_license_permissions_shown() {
+    let out = license_calc("mit");
+    assert!(out.contains("Permissions:"), "{out}");
+    assert!(out.contains("+ Commercial use"), "{out}");
+}
+
+// ── json_path_calc tests ──────────────────────────────────────────────────────
+
+#[test]
+fn test_json_path_simple_field() {
+    let out = json_path_calc(r#".name ||| {"name":"Alice","age":30}"#);
+    assert!(out.contains("Alice"), "{out}");
+}
+
+#[test]
+fn test_json_path_number_field() {
+    let out = json_path_calc(r#".age ||| {"name":"Alice","age":30}"#);
+    assert!(out.contains("30"), "{out}");
+}
+
+#[test]
+fn test_json_path_array_index() {
+    let out = json_path_calc(r#".[0] ||| [10,20,30]"#);
+    assert!(out.contains("10"), "{out}");
+}
+
+#[test]
+fn test_json_path_nested() {
+    let out = json_path_calc(r#".user.email ||| {"user":{"email":"a@b.com"}}"#);
+    assert!(out.contains("a@b.com"), "{out}");
+}
+
+#[test]
+fn test_json_path_array_field() {
+    let out = json_path_calc(r#".users[0].name ||| {"users":[{"name":"Bob"}]}"#);
+    assert!(out.contains("Bob"), "{out}");
+}
+
+#[test]
+fn test_json_path_keys_command() {
+    let out = json_path_calc(r#"keys ||| {"a":1,"b":2,"c":3}"#);
+    assert!(out.contains("a"), "{out}");
+    assert!(out.contains("b"), "{out}");
+    assert!(out.contains("c"), "{out}");
+    assert!(out.contains("Keys"), "{out}");
+}
+
+#[test]
+fn test_json_path_type_command() {
+    let out = json_path_calc(r#"type ||| {"name":"Alice","age":30}"#);
+    assert!(out.contains("object"), "{out}");
+    assert!(out.contains("string"), "{out}");
+    assert!(out.contains("number"), "{out}");
+}
+
+#[test]
+fn test_json_path_length_array() {
+    let out = json_path_calc(r#"length ||| [1,2,3,4,5]"#);
+    assert!(out.contains("5"), "{out}");
+}
+
+#[test]
+fn test_json_path_pretty_print() {
+    let out = json_path_calc(r#". ||| {"a":1,"b":2}"#);
+    assert!(out.contains("\"a\""), "{out}");
+    assert!(out.contains("\"b\""), "{out}");
+}
+
+#[test]
+fn test_json_path_bare_json_pretty() {
+    let out = json_path_calc(r#"{"x":1,"y":2}"#);
+    assert!(out.contains("pretty"), "{out}");
+    assert!(out.contains("\"x\""), "{out}");
+}
+
+#[test]
+fn test_json_path_missing_field_error() {
+    let out = json_path_calc(r#".missing ||| {"name":"Alice"}"#);
+    assert!(
+        out.to_lowercase().contains("error") || out.to_lowercase().contains("not found"),
+        "{out}"
+    );
+    assert!(out.contains("name"), "should hint available keys\n{out}");
+}
+
+#[test]
+fn test_json_path_invalid_json() {
+    let out = json_path_calc(r#".name ||| {not valid json}"#);
+    assert!(
+        out.to_lowercase().contains("parse error") || out.to_lowercase().contains("error"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_json_path_empty_shows_help() {
+    let out = json_path_calc("");
+    assert!(out.to_lowercase().contains("usage"), "{out}");
+}
+
+// ── markdown_calc tests ───────────────────────────────────────────────────────
+
+#[test]
+fn test_markdown_all_sections() {
+    let out = markdown_calc("");
+    assert!(out.contains("headings"), "{out}");
+    assert!(out.contains("tables"), "{out}");
+    assert!(out.contains("mermaid"), "{out}");
+    assert!(out.contains("# H1"), "{out}");
+}
+
+#[test]
+fn test_markdown_tables_section() {
+    let out = markdown_calc("tables");
+    assert!(out.contains("| Column"), "{out}");
+    assert!(out.contains("|:"), "should show alignment syntax\n{out}");
+}
+
+#[test]
+fn test_markdown_links_section() {
+    let out = markdown_calc("links");
+    assert!(out.contains("[Link text]"), "{out}");
+    assert!(out.contains("https://example.com"), "{out}");
+    assert!(out.contains("anchor"), "{out}");
+}
+
+#[test]
+fn test_markdown_code_section() {
+    let out = markdown_calc("code");
+    assert!(out.contains("Fenced block:"), "{out}");
+    assert!(out.contains("Language IDs:"), "{out}");
+    assert!(out.contains("Inline:"), "{out}");
+}
+
+#[test]
+fn test_markdown_mermaid_section() {
+    let out = markdown_calc("mermaid");
+    assert!(out.contains("graph TD"), "{out}");
+    assert!(out.contains("sequenceDiagram"), "{out}");
+}
+
+#[test]
+fn test_markdown_emphasis_section() {
+    let out = markdown_calc("bold");
+    assert!(out.contains("**bold**"), "{out}");
+    assert!(out.contains("*italic*"), "{out}");
+}
+
+#[test]
+fn test_markdown_lists_section() {
+    let out = markdown_calc("lists");
+    assert!(out.contains("- Item"), "{out}");
+    assert!(out.contains("[x]"), "{out}");
+}
+
+#[test]
+fn test_markdown_unknown_section() {
+    let out = markdown_calc("notasectionxyz");
+    assert!(
+        out.to_lowercase().contains("no section found") || out.to_lowercase().contains("available"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_markdown_frontmatter_section() {
+    let out = markdown_calc("frontmatter");
+    assert!(out.contains("---"), "{out}");
+    assert!(out.contains("title:"), "{out}");
+}
+
+#[test]
+fn test_markdown_blockquote_section() {
+    let out = markdown_calc("blockquote");
+    assert!(out.contains("> "), "{out}");
 }

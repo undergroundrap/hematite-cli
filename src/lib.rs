@@ -1380,6 +1380,38 @@ pub struct CliCockpit {
         long,
         help_heading = "Math & Science",
         value_name = "QUERY",
+        help = ".gitignore template generator — offline replacement for gitignore.io. Generates .gitignore content for 20+ stacks. Combine multiple: 'node macos vscode'. Commands: list (all templates), or any stack name/alias. Examples: hematite --gitignore rust | hematite --gitignore 'python macos vscode' | hematite --gitignore node > .gitignore"
+    )]
+    pub gitignore: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Math & Science",
+        value_name = "QUERY",
+        help = "Software license reference — offline replacement for choosealicense.com. Full text for MIT, BSD-2, BSD-3, ISC, Unlicense, WTFPL; summaries for Apache-2.0, GPL-2.0/3.0, LGPL, AGPL, MPL-2.0, CC0. Commands: list (comparison table) or a license name. Examples: hematite --license mit | hematite --license list | hematite --license apache | hematite --license gpl3"
+    )]
+    pub license: Option<String>,
+
+    #[arg(
+        long = "json-path",
+        help_heading = "Math & Science",
+        value_name = "QUERY",
+        help = "JSON field extractor — offline jq replacement for simple lookups. Format: '<path> ||| <json>' or bare JSON to pretty-print. Path syntax: .field .arr[0] .a.b.c .users[0].name; commands: keys, type, length, pretty. Examples: hematite --json-path '.name ||| {\"name\":\"Alice\"}' | hematite --json-path 'keys ||| {\"a\":1,\"b\":2}'"
+    )]
+    pub json_path: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Math & Science",
+        value_name = "QUERY",
+        help = "Markdown / CommonMark syntax reference — offline replacement for markdownguide.org. Sections: headings, emphasis, lists, links, images, code, tables, blockquotes, escape, footnotes, frontmatter, html, mermaid. Bare query shows all. Examples: hematite --markdown tables | hematite --markdown links | hematite --markdown mermaid"
+    )]
+    pub markdown: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Math & Science",
+        value_name = "QUERY",
         help = "Lorem ipsum generator — offline replacement for lipsum.com. Commands: (bare) or <N> = N paragraphs (default 1); words <N> = N words; sentences <N> = N sentences. Examples: hematite --lorem | hematite --lorem 3 | hematite --lorem 'words 50' | hematite --lorem 'sentences 5'"
     )]
     pub lorem: Option<String>,

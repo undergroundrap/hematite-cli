@@ -27591,3 +27591,1294 @@ pub fn headers_calc(query: &str) -> String {
     let _ = writeln!(out, "{sep}");
     out
 }
+
+// ── .gitignore template generator ────────────────────────────────────────────
+
+pub fn gitignore_calc(query: &str) -> String {
+    let sep = "─".repeat(60);
+    let mut out = String::new();
+
+    const TEMPLATES: &[(&str, &[&str], &str)] = &[
+        (
+            "rust",
+            &["rust", "cargo"],
+            "\
+# Rust / Cargo
+/target/
+Cargo.lock
+**/*.rs.bk
+*.pdb
+",
+        ),
+        (
+            "node",
+            &["node", "npm", "javascript", "js", "typescript", "ts"],
+            "\
+# Node.js / npm / yarn
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.yarn/cache
+.pnp.*
+dist/
+build/
+.env
+.env.local
+.env.*.local
+*.tsbuildinfo
+",
+        ),
+        (
+            "python",
+            &["python", "py", "pip", "venv"],
+            "\
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+build/
+dist/
+*.egg-info/
+.installed.cfg
+*.egg
+htmlcov/
+.tox/
+.coverage
+.coverage.*
+.cache
+.pytest_cache/
+.venv
+env/
+venv/
+.mypy_cache/
+.dmypy.json
+",
+        ),
+        (
+            "java",
+            &["java", "gradle", "maven", "mvn"],
+            "\
+# Java / Gradle / Maven
+*.class
+*.log
+*.jar
+*.war
+*.ear
+hs_err_pid*
+.gradle/
+build/
+target/
+pom.xml.tag
+pom.xml.releaseBackup
+dependency-reduced-pom.xml
+",
+        ),
+        (
+            "go",
+            &["go", "golang"],
+            "\
+# Go
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+vendor/
+",
+        ),
+        (
+            "swift",
+            &["swift", "xcode", "ios"],
+            "\
+# Swift / Xcode
+.DS_Store
+/.build
+/Packages
+xcuserdata/
+DerivedData/
+*.xcodeproj/project.xcworkspace/
+",
+        ),
+        (
+            "cpp",
+            &["cpp", "c++", "cmake", "c"],
+            "\
+# C / C++ / CMake
+*.d
+*.o
+*.obj
+*.so
+*.dylib
+*.dll
+*.exe
+*.out
+*.a
+*.lib
+CMakeCache.txt
+CMakeFiles/
+build/
+compile_commands.json
+_deps/
+",
+        ),
+        (
+            "csharp",
+            &["csharp", "dotnet", "unity"],
+            "\
+# C# / .NET / Unity
+[Dd]ebug/
+[Rr]elease/
+[Bb]in/
+[Oo]bj/
+.vs/
+*.user
+*.suo
+*.pdb
+artifacts/
+",
+        ),
+        (
+            "ruby",
+            &["ruby", "rails", "gem"],
+            "\
+# Ruby / Rails / Bundler
+*.gem
+*.rbc
+/coverage/
+/tmp/
+/.bundle/
+/vendor/bundle
+",
+        ),
+        (
+            "php",
+            &["php", "laravel", "composer"],
+            "\
+# PHP / Laravel / Composer
+/vendor/
+.env
+.phpunit.result.cache
+",
+        ),
+        (
+            "react",
+            &["react", "nextjs", "vite"],
+            "\
+# React / Next.js / Vite
+node_modules/
+.next/
+out/
+build/
+dist/
+.env*.local
+.vercel
+*.tsbuildinfo
+",
+        ),
+        (
+            "vue",
+            &["vue", "nuxt"],
+            "\
+# Vue / Nuxt
+node_modules/
+.output
+.nuxt
+.nitro
+.cache
+dist/
+.env
+",
+        ),
+        (
+            "terraform",
+            &["terraform", "tf", "hcl"],
+            "\
+# Terraform
+.terraform/
+.terraform.lock.hcl
+*.tfstate
+*.tfstate.*
+crash.log
+*.tfvars
+*.tfvars.json
+override.tf
+",
+        ),
+        (
+            "docker",
+            &["docker", "dockerfile", "compose"],
+            "\
+# Docker
+.dockerignore
+docker-compose.override.yml
+.env
+",
+        ),
+        (
+            "android",
+            &["android", "kotlin-android"],
+            "\
+# Android / Kotlin
+*.iml
+.gradle/
+/local.properties
+/.idea/caches
+/build
+/captures
+.externalNativeBuild
+.cxx
+",
+        ),
+        (
+            "macos",
+            &["macos", "osx", "mac"],
+            "\
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+.Spotlight-V100
+.Trashes
+.com.apple.timemachine.donotpresent
+",
+        ),
+        (
+            "windows",
+            &["windows", "win"],
+            "\
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+[Dd]esktop.ini
+$RECYCLE.BIN/
+*.lnk
+",
+        ),
+        (
+            "linux",
+            &["linux"],
+            "\
+# Linux
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+.nfs*
+",
+        ),
+        (
+            "vim",
+            &["vim", "neovim", "nvim"],
+            "\
+# Vim / Neovim
+[._]*.s[a-v][a-z]
+[._]*.sw[a-p]
+Session.vim
+.netrwhist
+*~
+tags
+[._]*.un~
+",
+        ),
+        (
+            "vscode",
+            &["vscode", "vs-code"],
+            "\
+# VS Code
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.history/
+*.vsix
+",
+        ),
+        (
+            "jetbrains",
+            &[
+                "jetbrains",
+                "idea",
+                "intellij",
+                "pycharm",
+                "webstorm",
+                "goland",
+            ],
+            "\
+# JetBrains IDEs
+.idea/
+*.iws
+out/
+.idea_modules/
+",
+        ),
+    ];
+
+    let q = query.trim().to_lowercase();
+
+    if q.is_empty() || q == "list" {
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  GITIGNORE TEMPLATE GENERATOR");
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  Available templates:");
+        let _ = writeln!(out, "");
+        for &(name, aliases, _) in TEMPLATES {
+            let _ = writeln!(out, "  {:<14}  aliases: {}", name, aliases.join(", "));
+        }
+        let _ = writeln!(out, "");
+        let _ = writeln!(out, "  Usage:   hematite --gitignore rust");
+        let _ = writeln!(out, "  Combine: hematite --gitignore 'node macos vscode'");
+        let _ = writeln!(out, "  Pipe:    hematite --gitignore rust > .gitignore");
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    let requested: Vec<&str> = q.split_whitespace().collect();
+    let mut matched_names: Vec<&str> = Vec::new();
+    let mut combined = String::new();
+    let mut not_found: Vec<&str> = Vec::new();
+
+    for req in &requested {
+        let found = TEMPLATES
+            .iter()
+            .find(|&&(name, aliases, _)| name == *req || aliases.iter().any(|&a| a == *req));
+        if let Some(&(name, _, content)) = found {
+            if !matched_names.contains(&name) {
+                matched_names.push(name);
+                combined.push_str(content);
+            }
+        } else {
+            not_found.push(req);
+        }
+    }
+
+    if combined.is_empty() {
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  GITIGNORE TEMPLATE GENERATOR");
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  Unknown: {}", not_found.join(", "));
+        let _ = writeln!(
+            out,
+            "  Run 'hematite --gitignore list' to see all templates"
+        );
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    if !not_found.is_empty() {
+        let _ = writeln!(
+            out,
+            "# Warning: unknown templates skipped: {}",
+            not_found.join(", ")
+        );
+    }
+    if matched_names.len() > 1 {
+        let _ = writeln!(out, "# Combined: {}", matched_names.join(" + "));
+    }
+    out.push_str(&combined);
+    out
+}
+
+// ── Software license reference ────────────────────────────────────────────────
+
+pub fn license_calc(query: &str) -> String {
+    let sep = "─".repeat(60);
+    let mut out = String::new();
+    let _ = writeln!(out, "{sep}");
+    let _ = writeln!(out, "  SOFTWARE LICENSE REFERENCE");
+    let _ = writeln!(out, "{sep}");
+
+    struct LicenseInfo {
+        name: &'static str,
+        spdx: &'static str,
+        aliases: &'static [&'static str],
+        summary: &'static str,
+        permissions: &'static [&'static str],
+        conditions: &'static [&'static str],
+        limitations: &'static [&'static str],
+        full_text: &'static str,
+    }
+
+    const LICENSES: &[LicenseInfo] = &[
+        LicenseInfo {
+            name: "MIT",
+            spdx: "MIT",
+            aliases: &["mit"],
+            summary: "Short, permissive. Allows almost anything with attribution.",
+            permissions: &[
+                "Commercial use",
+                "Modification",
+                "Distribution",
+                "Private use",
+            ],
+            conditions: &["License and copyright notice required"],
+            limitations: &["No liability", "No warranty"],
+            full_text: "\
+MIT License
+
+Copyright (c) [year] [author]
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the \"Software\"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.",
+        },
+        LicenseInfo {
+            name: "Apache-2.0",
+            spdx: "Apache-2.0",
+            aliases: &["apache", "apache2", "apachev2"],
+            summary: "Permissive + explicit patent grant. Requires NOTICE file and change docs.",
+            permissions: &[
+                "Commercial use",
+                "Modification",
+                "Distribution",
+                "Patent use",
+                "Private use",
+            ],
+            conditions: &[
+                "License + copyright notice",
+                "State changes",
+                "Include NOTICE file",
+            ],
+            limitations: &["No liability", "No warranty", "No trademark use"],
+            full_text: "",
+        },
+        LicenseInfo {
+            name: "GPL-2.0",
+            spdx: "GPL-2.0-only",
+            aliases: &["gpl2", "gplv2"],
+            summary: "Copyleft: derivative works must use GPL-2.0. Source must be available.",
+            permissions: &[
+                "Commercial use",
+                "Modification",
+                "Distribution",
+                "Private use",
+            ],
+            conditions: &[
+                "Disclose source",
+                "License + copyright notice",
+                "Same license",
+                "State changes",
+            ],
+            limitations: &["No liability", "No warranty"],
+            full_text: "",
+        },
+        LicenseInfo {
+            name: "GPL-3.0",
+            spdx: "GPL-3.0-only",
+            aliases: &["gpl3", "gplv3"],
+            summary: "Copyleft + anti-tivoization + patent protection. Strong copyleft.",
+            permissions: &[
+                "Commercial use",
+                "Modification",
+                "Distribution",
+                "Patent use",
+                "Private use",
+            ],
+            conditions: &[
+                "Disclose source",
+                "License + copyright notice",
+                "Same license",
+                "State changes",
+            ],
+            limitations: &["No liability", "No warranty"],
+            full_text: "",
+        },
+        LicenseInfo {
+            name: "LGPL-2.1",
+            spdx: "LGPL-2.1-only",
+            aliases: &["lgpl2", "lgplv2", "lgpl21"],
+            summary: "Library GPL. Linking from non-GPL software OK. Share LGPL parts' source.",
+            permissions: &[
+                "Commercial use",
+                "Modification",
+                "Distribution",
+                "Private use",
+            ],
+            conditions: &[
+                "Disclose source",
+                "License + copyright notice",
+                "Same license (library)",
+                "State changes",
+            ],
+            limitations: &["No liability", "No warranty"],
+            full_text: "",
+        },
+        LicenseInfo {
+            name: "LGPL-3.0",
+            spdx: "LGPL-3.0-only",
+            aliases: &["lgpl3", "lgplv3"],
+            summary: "LGPL-2.1 + GPL-3.0 additions (patent protection, anti-tivoization).",
+            permissions: &[
+                "Commercial use",
+                "Modification",
+                "Distribution",
+                "Patent use",
+                "Private use",
+            ],
+            conditions: &[
+                "Disclose source",
+                "License + copyright notice",
+                "Same license (library)",
+                "State changes",
+            ],
+            limitations: &["No liability", "No warranty"],
+            full_text: "",
+        },
+        LicenseInfo {
+            name: "AGPL-3.0",
+            spdx: "AGPL-3.0-only",
+            aliases: &["agpl3", "agplv3"],
+            summary: "GPL-3.0 + network clause. Using as SaaS counts as distribution.",
+            permissions: &[
+                "Commercial use",
+                "Modification",
+                "Distribution",
+                "Patent use",
+                "Private use",
+            ],
+            conditions: &[
+                "Disclose source",
+                "License + copyright notice",
+                "Same license",
+                "State changes",
+                "Network use = distribution",
+            ],
+            limitations: &["No liability", "No warranty"],
+            full_text: "",
+        },
+        LicenseInfo {
+            name: "MPL-2.0",
+            spdx: "MPL-2.0",
+            aliases: &["mpl2", "mozilla"],
+            summary:
+                "File-level copyleft. Modified files stay MPL-2.0; can combine with proprietary.",
+            permissions: &[
+                "Commercial use",
+                "Modification",
+                "Distribution",
+                "Patent use",
+                "Private use",
+            ],
+            conditions: &[
+                "Disclose source (modified files)",
+                "License + copyright notice",
+                "Same license (modified files)",
+            ],
+            limitations: &["No liability", "No warranty", "No trademark use"],
+            full_text: "",
+        },
+        LicenseInfo {
+            name: "BSD-2-Clause",
+            spdx: "BSD-2-Clause",
+            aliases: &["bsd2", "bsd2clause"],
+            summary: "Permissive. Two conditions: attribution + no endorsement using author name.",
+            permissions: &[
+                "Commercial use",
+                "Modification",
+                "Distribution",
+                "Private use",
+            ],
+            conditions: &["License + copyright notice in source and binary"],
+            limitations: &["No liability", "No warranty"],
+            full_text: "\
+BSD 2-Clause License
+
+Copyright (c) [year], [author]
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain the above copyright notice, this
+   list of conditions and the following disclaimer.
+
+2. Redistributions in binary form must reproduce the above copyright notice,
+   this list of conditions and the following disclaimer in the documentation
+   and/or other materials provided with the distribution.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS \"AS IS\"
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.",
+        },
+        LicenseInfo {
+            name: "BSD-3-Clause",
+            spdx: "BSD-3-Clause",
+            aliases: &["bsd3", "bsd3clause"],
+            summary: "BSD-2 + clause 3: no endorsement using contributor names.",
+            permissions: &[
+                "Commercial use",
+                "Modification",
+                "Distribution",
+                "Private use",
+            ],
+            conditions: &[
+                "License + copyright notice in source and binary",
+                "No endorsement clause",
+            ],
+            limitations: &["No liability", "No warranty"],
+            full_text: "\
+BSD 3-Clause License
+
+Copyright (c) [year], [author]
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain the above copyright notice, this
+   list of conditions and the following disclaimer.
+
+2. Redistributions in binary form must reproduce the above copyright notice,
+   this list of conditions and the following disclaimer in the documentation
+   and/or other materials provided with the distribution.
+
+3. Neither the name of the copyright holder nor the names of its contributors
+   may be used to endorse or promote products derived from this software
+   without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS \"AS IS\"
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.",
+        },
+        LicenseInfo {
+            name: "ISC",
+            spdx: "ISC",
+            aliases: &["isc"],
+            summary: "Functionally MIT/BSD-2 but shorter. Common in the Node.js ecosystem.",
+            permissions: &[
+                "Commercial use",
+                "Modification",
+                "Distribution",
+                "Private use",
+            ],
+            conditions: &["License + copyright notice required"],
+            limitations: &["No liability", "No warranty"],
+            full_text: "\
+ISC License
+
+Copyright (c) [year], [author]
+
+Permission to use, copy, modify, and/or distribute this software for any
+purpose with or without fee is hereby granted, provided that the above
+copyright notice and this permission notice appear in all copies.
+
+THE SOFTWARE IS PROVIDED \"AS IS\" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH
+REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND
+FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT,
+INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
+LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
+OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+PERFORMANCE OF THIS SOFTWARE.",
+        },
+        LicenseInfo {
+            name: "Unlicense",
+            spdx: "Unlicense",
+            aliases: &["unlicense"],
+            summary: "Public domain dedication. No conditions, no restrictions.",
+            permissions: &[
+                "Commercial use",
+                "Modification",
+                "Distribution",
+                "Private use",
+            ],
+            conditions: &[],
+            limitations: &["No liability", "No warranty"],
+            full_text: "\
+This is free and unencumbered software released into the public domain.
+
+Anyone is free to copy, modify, publish, use, compile, sell, or distribute
+this software, either in source code form or as a compiled binary, for any
+purpose, commercial or non-commercial, and by any means.
+
+In jurisdictions that recognize copyright laws, the author or authors of this
+software dedicate any and all copyright interest in the software to the public
+domain. We make this dedication for the benefit of the public at large and to
+the detriment of our heirs and successors. We intend this dedication to be an
+overt act of relinquishment in perpetuity of all present and future rights to
+this software under copyright law.
+
+THE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+For more information, please refer to <https://unlicense.org>",
+        },
+        LicenseInfo {
+            name: "CC0-1.0",
+            spdx: "CC0-1.0",
+            aliases: &["cc0"],
+            summary: "Creative Commons Zero: waive all rights worldwide where permitted by law.",
+            permissions: &[
+                "Commercial use",
+                "Modification",
+                "Distribution",
+                "Private use",
+            ],
+            conditions: &[],
+            limitations: &["No liability", "No warranty", "No patent/trademark rights"],
+            full_text: "",
+        },
+        LicenseInfo {
+            name: "WTFPL",
+            spdx: "WTFPL",
+            aliases: &["wtfpl", "wtf"],
+            summary: "Do What The F*** You Want To Public License. Maximally permissive.",
+            permissions: &[
+                "Commercial use",
+                "Modification",
+                "Distribution",
+                "Private use",
+            ],
+            conditions: &[],
+            limitations: &[],
+            full_text: "\
+            DO WHAT THE FUCK YOU WANT TO PUBLIC LICENSE
+                    Version 2, December 2004
+
+ Copyright (C) 2004 Sam Hocevar <sam@hocevar.net>
+
+ Everyone is permitted to copy and distribute verbatim or modified
+ copies of this license document, and changing it is allowed as long
+ as the name is changed.
+
+            DO WHAT THE FUCK YOU WANT TO PUBLIC LICENSE
+   TERMS AND CONDITIONS FOR COPYING, DISTRIBUTION AND MODIFICATION
+
+  0. You just DO WHAT THE FUCK YOU WANT TO.",
+        },
+    ];
+
+    let q_norm = query.trim().to_lowercase().replace(['-', '_', ' '], "");
+
+    if q_norm.is_empty() || q_norm == "list" || q_norm == "compare" || q_norm == "all" {
+        let _ = writeln!(out, "  {:<14}  {:<10}  {}", "LICENSE", "SPDX ID", "SUMMARY");
+        let _ = writeln!(out, "  {}", "─".repeat(56));
+        for lic in LICENSES {
+            let _ = writeln!(out, "  {:<14}  {:<10}  {}", lic.name, lic.spdx, lic.summary);
+        }
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  Usage: hematite --license mit");
+        let _ = writeln!(
+            out,
+            "  Full text available: mit, bsd2, bsd3, isc, unlicense, wtfpl"
+        );
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    let found = LICENSES.iter().find(|lic| {
+        lic.aliases
+            .iter()
+            .any(|&a| a.replace(['-', '_'], "") == q_norm)
+    });
+
+    if let Some(lic) = found {
+        let _ = writeln!(out, "  {} — {}", lic.name, lic.spdx);
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  {}", lic.summary);
+        let _ = writeln!(out, "");
+        if !lic.permissions.is_empty() {
+            let _ = writeln!(out, "  Permissions:");
+            for p in lic.permissions {
+                let _ = writeln!(out, "    + {p}");
+            }
+        }
+        if !lic.conditions.is_empty() {
+            let _ = writeln!(out, "  Conditions:");
+            for c in lic.conditions {
+                let _ = writeln!(out, "    ! {c}");
+            }
+        }
+        if !lic.limitations.is_empty() {
+            let _ = writeln!(out, "  Limitations:");
+            for l in lic.limitations {
+                let _ = writeln!(out, "    x {l}");
+            }
+        }
+        if !lic.full_text.is_empty() {
+            let _ = writeln!(out, "{sep}");
+            let _ = writeln!(out, "  Full text (replace [year] and [author]):");
+            let _ = writeln!(out, "{sep}");
+            let _ = writeln!(out, "{}", lic.full_text);
+        } else {
+            let _ = writeln!(out, "{sep}");
+            let _ = writeln!(
+                out,
+                "  Full text: https://spdx.org/licenses/{}.html",
+                lic.spdx
+            );
+        }
+    } else {
+        let _ = writeln!(out, "  Unknown license: '{}'", query.trim());
+        let _ = writeln!(out, "  Run 'hematite --license list' to see all licenses");
+    }
+
+    let _ = writeln!(out, "{sep}");
+    out
+}
+
+// ── JSON path extractor ───────────────────────────────────────────────────────
+
+pub fn json_path_calc(query: &str) -> String {
+    let sep = "─".repeat(60);
+    let mut out = String::new();
+    let _ = writeln!(out, "{sep}");
+    let _ = writeln!(out, "  JSON PATH EXTRACTOR");
+    let _ = writeln!(out, "{sep}");
+
+    let q = query.trim();
+    const SEP: &str = " ||| ";
+
+    fn walk_path(val: &serde_json::Value, path: &str) -> Result<serde_json::Value, String> {
+        if path == "." || path.is_empty() {
+            return Ok(val.clone());
+        }
+        let path = path.strip_prefix('.').unwrap_or(path);
+        let mut current = val.clone();
+        for segment in path.split('.') {
+            if segment.is_empty() {
+                continue;
+            }
+            if let Some(bracket) = segment.find('[') {
+                let field = &segment[..bracket];
+                let idx_str = segment[bracket + 1..].trim_end_matches(']');
+                let idx: usize = idx_str
+                    .parse()
+                    .map_err(|_| format!("invalid index: {idx_str}"))?;
+                if !field.is_empty() {
+                    current = current
+                        .get(field)
+                        .ok_or_else(|| format!("field '{field}' not found"))?
+                        .clone();
+                }
+                current = current
+                    .get(idx)
+                    .ok_or_else(|| format!("index [{idx}] out of bounds"))?
+                    .clone();
+            } else if let Ok(idx) = segment.parse::<usize>() {
+                current = current
+                    .get(idx)
+                    .ok_or_else(|| format!("index [{idx}] out of bounds"))?
+                    .clone();
+            } else {
+                current = current
+                    .get(segment)
+                    .ok_or_else(|| format!("field '{segment}' not found"))?
+                    .clone();
+            }
+        }
+        Ok(current)
+    }
+
+    fn show_value(out: &mut String, val: &serde_json::Value, sep: &str) {
+        match val {
+            serde_json::Value::String(s) => {
+                let _ = writeln!(out, "  {s}");
+                let _ = writeln!(out, "  (type: string, length: {})", s.len());
+            }
+            serde_json::Value::Number(n) => {
+                let _ = writeln!(out, "  {n}  (type: number)");
+            }
+            serde_json::Value::Bool(b) => {
+                let _ = writeln!(out, "  {b}  (type: boolean)");
+            }
+            serde_json::Value::Null => {
+                let _ = writeln!(out, "  null");
+            }
+            _ => {
+                let _ = writeln!(out, "{sep}");
+                if let Ok(pretty) = serde_json::to_string_pretty(val) {
+                    let _ = writeln!(out, "{pretty}");
+                }
+            }
+        }
+    }
+
+    if let Some(sep_idx) = q.find(SEP) {
+        let path = q[..sep_idx].trim();
+        let json_str = q[sep_idx + SEP.len()..].trim();
+
+        match serde_json::from_str::<serde_json::Value>(json_str) {
+            Err(e) => {
+                let _ = writeln!(out, "  JSON parse error: {e}");
+                let _ = writeln!(out, "  Input: {}", &json_str[..json_str.len().min(80)]);
+            }
+            Ok(val) => match path {
+                "keys" | ".keys" => {
+                    if let Some(obj) = val.as_object() {
+                        let _ = writeln!(out, "  Keys ({}):", obj.len());
+                        for k in obj.keys() {
+                            let _ = writeln!(out, "    {k}");
+                        }
+                    } else if let Some(arr) = val.as_array() {
+                        let _ = writeln!(out, "  Indices: 0..{}", arr.len().saturating_sub(1));
+                    } else {
+                        let _ = writeln!(out, "  Not an object or array");
+                    }
+                }
+                "type" | ".type" => {
+                    let tname = match &val {
+                        serde_json::Value::Null => "null",
+                        serde_json::Value::Bool(_) => "boolean",
+                        serde_json::Value::Number(_) => "number",
+                        serde_json::Value::String(_) => "string",
+                        serde_json::Value::Array(_) => "array",
+                        serde_json::Value::Object(_) => "object",
+                    };
+                    let _ = writeln!(out, "  Root type: {tname}");
+                    if let Some(obj) = val.as_object() {
+                        for (k, v) in obj {
+                            let vt = match v {
+                                serde_json::Value::Null => "null",
+                                serde_json::Value::Bool(_) => "boolean",
+                                serde_json::Value::Number(_) => "number",
+                                serde_json::Value::String(_) => "string",
+                                serde_json::Value::Array(_) => "array",
+                                serde_json::Value::Object(_) => "object",
+                            };
+                            let _ = writeln!(out, "    {k}: {vt}");
+                        }
+                    }
+                }
+                "length" | ".length" | "len" | ".len" => {
+                    if let Some(arr) = val.as_array() {
+                        let _ = writeln!(out, "  Length: {}", arr.len());
+                    } else if let Some(obj) = val.as_object() {
+                        let _ = writeln!(out, "  Keys: {}", obj.len());
+                    } else if let Some(s) = val.as_str() {
+                        let _ = writeln!(out, "  Length: {}", s.len());
+                    }
+                }
+                "pretty" | ".pretty" | "." | "" => {
+                    if let Ok(pretty) = serde_json::to_string_pretty(&val) {
+                        let _ = writeln!(out, "{pretty}");
+                    }
+                }
+                path => match walk_path(&val, path) {
+                    Ok(result) => show_value(&mut out, &result, &sep),
+                    Err(e) => {
+                        let _ = writeln!(out, "  Error: {e}");
+                        if let Some(obj) = val.as_object() {
+                            let keys: Vec<_> = obj.keys().map(|k| k.as_str()).collect();
+                            let _ = writeln!(out, "  Available keys: {}", keys.join(", "));
+                        }
+                    }
+                },
+            },
+        }
+    } else if let Ok(val) = serde_json::from_str::<serde_json::Value>(q) {
+        if let Ok(pretty) = serde_json::to_string_pretty(&val) {
+            let _ = writeln!(out, "  (pretty-printed)");
+            let _ = writeln!(out, "{sep}");
+            let _ = writeln!(out, "{pretty}");
+        }
+    } else {
+        let _ = writeln!(out, "  Usage: hematite --json-path '<path> ||| <json>'");
+        let _ = writeln!(out, "");
+        let _ = writeln!(out, "  Path commands:");
+        let _ = writeln!(out, "    .               — pretty-print root");
+        let _ = writeln!(out, "    .field          — object field");
+        let _ = writeln!(out, "    .arr[0]         — array index");
+        let _ = writeln!(out, "    .a.b.c          — nested path");
+        let _ = writeln!(out, "    .users[0].name  — combined");
+        let _ = writeln!(out, "    keys            — list top-level keys");
+        let _ = writeln!(out, "    type            — show type of each field");
+        let _ = writeln!(out, "    length          — array/object/string length");
+        let _ = writeln!(out, "");
+        let _ = writeln!(out, "  Also: pass bare JSON to pretty-print it.");
+    }
+
+    let _ = writeln!(out, "{sep}");
+    out
+}
+
+// ── Markdown syntax reference ─────────────────────────────────────────────────
+
+pub fn markdown_calc(query: &str) -> String {
+    let sep = "─".repeat(60);
+    let mut out = String::new();
+    let _ = writeln!(out, "{sep}");
+    let _ = writeln!(out, "  MARKDOWN / COMMONMARK REFERENCE");
+    let _ = writeln!(out, "{sep}");
+
+    let q = query.trim().to_lowercase();
+
+    const SECTIONS: &[(&str, &[&str], &str)] = &[
+        (
+            "headings",
+            &["heading", "headings", "h1", "h2", "h3", "title"],
+            "  # H1 — top-level heading
+  ## H2 — section
+  ### H3 — subsection  #### H4  ##### H5  ###### H6
+
+  Setext (alt):    Title          Subtitle
+                   =====          --------
+                   (becomes H1)   (becomes H2)
+",
+        ),
+        (
+            "emphasis",
+            &["emphasis", "bold", "italic", "strike", "format", "inline"],
+            "  *italic*  or  _italic_
+  **bold**  or  __bold__
+  ***bold italic***
+  ~~strikethrough~~        (GFM)
+  `inline code`
+",
+        ),
+        (
+            "lists",
+            &["list", "lists", "bullet", "ordered", "unordered", "task"],
+            "  Unordered (* - or +):
+  - Item one
+  - Item two
+    - Nested (2+ space indent)
+
+  Ordered:
+  1. First
+  2. Second
+     1. Nested ordered
+
+  Task list (GFM):
+  - [x] Done
+  - [ ] Not done
+",
+        ),
+        (
+            "links",
+            &["link", "links", "url", "href", "anchor"],
+            r#"  [Link text](https://example.com)
+  [With title](https://example.com "Title")
+  [Reference][ref-id]
+  [ref-id]: https://example.com
+
+  Bare URL (GFM):   https://example.com
+  Email:            <user@example.com>
+  Anchor:           [Go to section](#heading-id)
+  (headings auto-generate anchors: spaces → hyphens, lowercase)
+"#,
+        ),
+        (
+            "images",
+            &["image", "images", "img", "figure"],
+            r#"  ![Alt text](image.png)
+  ![Alt with title](image.png "Title")
+  ![Reference][img-ref]
+  [img-ref]: image.png
+
+  With link:   [![Alt](thumb.png)](https://example.com)
+"#,
+        ),
+        (
+            "code",
+            &["code", "codeblock", "fenced", "snippet", "pre"],
+            "  Inline:  `code here`
+
+  Fenced block:
+  ```language
+  code goes here
+  ```
+
+  Language IDs: rust python javascript typescript go java
+                c cpp csharp bash sql json yaml toml html
+                css markdown dockerfile terraform diff
+
+  Indented block (4 spaces):
+      code here
+",
+        ),
+        (
+            "tables",
+            &["table", "tables", "grid", "column"],
+            "  | Column 1 | Column 2 | Column 3 |
+  |----------|----------|----------|
+  | Cell     | Cell     | Cell     |
+
+  Alignment:
+  | Left     | Center    |  Right |
+  |:---------|:---------:|-------:|
+
+  Notes: outer pipes optional; separator row required;
+         no multi-line cells — use HTML <table> for complex layouts.
+",
+        ),
+        (
+            "blockquotes",
+            &["blockquote", "quote", "callout"],
+            "  > Single-level quote
+  > Continues next line
+
+  >> Nested quote
+
+  GitHub callouts:
+  > [!NOTE]   > [!WARNING]   > [!TIP]   > [!IMPORTANT]
+",
+        ),
+        (
+            "escape",
+            &["escape", "special", "backslash", "literal"],
+            r#"  Prefix with \:  \* \_ \# \[ \] \( \) \` \\
+
+  HTML entities:  &amp; &lt; &gt; &quot; &apos;
+                  &copy; &mdash; &ndash; &hellip; &nbsp;
+"#,
+        ),
+        (
+            "footnotes",
+            &["footnote", "footnotes", "endnote"],
+            "  Here is a claim.[^1]
+
+  [^1]: This is the footnote text.
+        Indent continuation 4 spaces.
+
+  (GitHub supports this; not in CommonMark core spec)
+",
+        ),
+        (
+            "frontmatter",
+            &["frontmatter", "front-matter", "yaml", "metadata"],
+            "  Must be first in file, between --- fences:
+
+  ---
+  title: My Document
+  author: Jane Doe
+  date: 2025-01-01
+  tags: [rust, cli, tools]
+  draft: false
+  ---
+
+  Parsed as YAML. Some tools use +++ for TOML front matter.
+",
+        ),
+        (
+            "html",
+            &["html", "raw", "inline-html", "tag"],
+            "  <details>
+    <summary>Click to expand</summary>
+    Hidden content here.
+  </details>
+
+  <kbd>Ctrl</kbd>+<kbd>C</kbd>       keyboard styling
+  <mark>highlighted</mark>
+  <sub>sub</sub>  <sup>super</sup>
+  <br>                               explicit line break
+",
+        ),
+        (
+            "mermaid",
+            &["mermaid", "diagram", "flowchart", "graph"],
+            "  ```mermaid
+  graph TD
+    A[Start] --> B{Decision}
+    B -->|Yes| C[Do this]
+    B -->|No|  D[Do that]
+  ```
+
+  ```mermaid
+  sequenceDiagram
+    Client->>Server: GET /api
+    Server-->>Client: 200 OK
+  ```
+
+  ```mermaid
+  pie
+    title Languages
+    \"Rust\" : 60
+    \"Python\" : 25
+  ```
+",
+        ),
+    ];
+
+    if q.is_empty() || q == "list" || q == "all" {
+        let _ = writeln!(
+            out,
+            "  Sections: headings | emphasis | lists | links | images | code |"
+        );
+        let _ = writeln!(
+            out,
+            "            tables | blockquotes | escape | footnotes |"
+        );
+        let _ = writeln!(out, "            frontmatter | html | mermaid");
+        let _ = writeln!(out, "  Usage: hematite --markdown tables");
+        let _ = writeln!(out, "{sep}");
+        for &(name, _, content) in SECTIONS {
+            let _ = writeln!(
+                out,
+                "  ── {name} {}",
+                "─".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{content}");
+        }
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    let found: Vec<_> = SECTIONS
+        .iter()
+        .filter(|&&(name, aliases, _)| {
+            name.contains(q.as_str())
+                || aliases
+                    .iter()
+                    .any(|&a| a.contains(q.as_str()) || q.contains(a))
+        })
+        .collect();
+
+    if found.is_empty() {
+        let _ = writeln!(out, "  No section found for '{}'", query.trim());
+        let _ = writeln!(
+            out,
+            "  Available: headings, emphasis, lists, links, images, code,"
+        );
+        let _ = writeln!(out, "             tables, blockquotes, escape, footnotes,");
+        let _ = writeln!(out, "             frontmatter, html, mermaid");
+    } else {
+        for &&(name, _, content) in &found {
+            let _ = writeln!(
+                out,
+                "  ── {name} {}",
+                "─".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{content}");
+        }
+    }
+
+    let _ = writeln!(out, "{sep}");
+    out
+}

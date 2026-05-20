@@ -1027,6 +1027,10 @@ mod tests {
             chars: None,
             tz: None,
             headers: None,
+            gitignore: None,
+            license: None,
+            json_path: None,
+            markdown: None,
             pdf_extract_helper: None,
             teleported_from: None,
         };
