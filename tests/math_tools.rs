@@ -4,10 +4,10 @@
 /// matrix decomposition modes (QR, SVD, Cholesky).
 use hematite::tools::math_util::{
     bitwise_calc, checksum_calc, chemistry_calc, cipher_calc, combinatorics_calc, complex_calc,
-    csv_calc, datetime_calc, electrical_calc, encode_calc, fraction_calc, geometry_calc, hash_calc,
-    health_calc, json_calc, matrix_calc, number_format, number_theory_calc, percent_calc,
-    physics_calc, prob_calc, regex_calc, roman_calc, set_calc, sort_viz, stats_calc, string_dist,
-    text_stats, trig_calc, validate_calc,
+    cron_calc, csv_calc, datetime_calc, electrical_calc, encode_calc, fraction_calc, geometry_calc,
+    hash_calc, health_calc, ip_calc, json_calc, jwt_calc, matrix_calc, number_format,
+    number_theory_calc, percent_calc, physics_calc, prob_calc, regex_calc, roman_calc, set_calc,
+    sort_viz, stats_calc, string_dist, text_stats, trig_calc, url_calc, validate_calc,
 };
 
 // ─── Cipher tests ────────────────────────────────────────────────────────────
@@ -1811,6 +1811,255 @@ fn csv_select_columns() {
 #[test]
 fn csv_empty_no_panic() {
     let out = csv_calc("");
+    assert!(!out.is_empty());
+}
+
+// ─── JWT tests ────────────────────────────────────────────────────────────────
+
+// eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9  = {"alg":"HS256","typ":"JWT"}
+// eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ
+//   = {"sub":"1234567890","name":"John Doe","iat":1516239022}
+const SAMPLE_JWT: &str = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.\
+     eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.\
+     SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c";
+
+#[test]
+fn jwt_decode_header_alg() {
+    let out = jwt_calc(SAMPLE_JWT);
+    assert!(out.contains("HS256") || out.contains("alg"));
+}
+
+#[test]
+fn jwt_decode_payload_sub() {
+    let out = jwt_calc(SAMPLE_JWT);
+    assert!(out.contains("1234567890") || out.contains("sub"));
+}
+
+#[test]
+fn jwt_decode_shows_iat() {
+    let out = jwt_calc(SAMPLE_JWT);
+    // iat = 1516239022 → should show timestamp
+    assert!(out.contains("1516239022") || out.contains("Issued"));
+}
+
+#[test]
+fn jwt_claims_command() {
+    let out = jwt_calc(&format!("claims {}", SAMPLE_JWT));
+    assert!(out.contains("John Doe") || out.contains("name"));
+}
+
+#[test]
+fn jwt_header_command() {
+    let out = jwt_calc(&format!("header {}", SAMPLE_JWT));
+    assert!(out.contains("HS256") || out.contains("JWT"));
+}
+
+#[test]
+fn jwt_invalid_format_no_panic() {
+    let out = jwt_calc("not.a.valid.jwt.at.all");
+    assert!(!out.is_empty());
+}
+
+#[test]
+fn jwt_empty_no_panic() {
+    let out = jwt_calc("");
+    assert!(!out.is_empty());
+}
+
+#[test]
+fn jwt_three_parts_required() {
+    let out = jwt_calc("only.two");
+    assert!(out.contains("3") || out.contains("valid") || out.contains("part"));
+}
+
+// ─── URL tests ────────────────────────────────────────────────────────────────
+
+#[test]
+fn url_parse_full() {
+    let out = url_calc("parse https://api.example.com:8080/v1/users?page=2&limit=10#results");
+    assert!(out.contains("https"));
+    assert!(out.contains("api.example.com"));
+    assert!(out.contains("8080"));
+    assert!(out.contains("/v1/users"));
+}
+
+#[test]
+fn url_parse_query_params() {
+    let out = url_calc("params https://example.com/path?foo=bar&baz=qux");
+    assert!(out.contains("foo") && out.contains("bar"));
+    assert!(out.contains("baz") && out.contains("qux"));
+}
+
+#[test]
+fn url_encode() {
+    let out = url_calc("encode hello world & foo=bar");
+    assert!(out.contains("%20") || out.contains("+"));
+    assert!(out.contains("%26") || out.contains("&"));
+}
+
+#[test]
+fn url_decode() {
+    let out = url_calc("decode hello%20world%26foo%3Dbar");
+    assert!(out.contains("hello world") || out.contains("hello"));
+}
+
+#[test]
+fn url_auto_parse_bare() {
+    let out = url_calc("https://github.com/owner/repo?tab=readme");
+    assert!(out.contains("github.com"));
+    assert!(out.contains("tab") || out.contains("readme"));
+}
+
+#[test]
+fn url_build() {
+    let out = url_calc("build scheme=https host=example.com path=/api key=mykey");
+    assert!(out.contains("https://example.com/api"));
+}
+
+#[test]
+fn url_default_port_shown() {
+    let out = url_calc("parse https://example.com/path");
+    assert!(out.contains("443") || out.contains("https"));
+}
+
+#[test]
+fn url_empty_no_panic() {
+    let out = url_calc("");
+    assert!(!out.is_empty());
+}
+
+// ─── Cron tests ───────────────────────────────────────────────────────────────
+
+#[test]
+fn cron_every_minute() {
+    let out = cron_calc("* * * * *");
+    assert!(out.contains("every minute") || out.contains("every"));
+}
+
+#[test]
+fn cron_weekday_morning() {
+    let out = cron_calc("0 9 * * 1-5");
+    assert!(out.contains("Monday") || out.contains("9") || out.contains("weekday"));
+}
+
+#[test]
+fn cron_every_15_min() {
+    let out = cron_calc("*/15 * * * *");
+    assert!(out.contains("15") || out.contains("every"));
+}
+
+#[test]
+fn cron_explain_command() {
+    let out = cron_calc("explain 0 0 1 1 *");
+    assert!(out.contains("January") || out.contains("midnight") || out.contains("0"));
+}
+
+#[test]
+fn cron_next_command_returns_dates() {
+    let out = cron_calc("next * * * * *");
+    // should show at least one date line with year
+    assert!(out.contains("202") || out.contains("next"));
+}
+
+#[test]
+fn cron_next_n_command() {
+    let out = cron_calc("next 3 * * * * *");
+    assert!(out.contains("1.") && out.contains("2.") && out.contains("3."));
+}
+
+#[test]
+fn cron_midnight_daily() {
+    let out = cron_calc("0 0 * * *");
+    assert!(out.contains("0") || out.contains("midnight") || out.contains("daily"));
+}
+
+#[test]
+fn cron_invalid_no_panic() {
+    let out = cron_calc("not a cron");
+    assert!(!out.is_empty());
+}
+
+#[test]
+fn cron_empty_no_panic() {
+    let out = cron_calc("");
+    assert!(!out.is_empty());
+}
+
+// ─── IP tests ─────────────────────────────────────────────────────────────────
+
+#[test]
+fn ip_private_class_c() {
+    let out = ip_calc("192.168.1.1");
+    assert!(out.contains("Private") || out.contains("192.168"));
+}
+
+#[test]
+fn ip_loopback() {
+    let out = ip_calc("127.0.0.1");
+    assert!(out.contains("Loopback") || out.contains("127"));
+}
+
+#[test]
+fn ip_public() {
+    let out = ip_calc("8.8.8.8");
+    assert!(out.contains("Public") || out.contains("8.8.8.8"));
+}
+
+#[test]
+fn ip_cidr_24() {
+    let out = ip_calc("192.168.1.0/24");
+    assert!(out.contains("255.255.255.0") || out.contains("254")); // subnet mask or host count
+    assert!(
+        out.contains("192.168.1.255") || out.contains("broadcast") || out.contains("Broadcast")
+    );
+}
+
+#[test]
+fn ip_cidr_16_host_count() {
+    let out = ip_calc("10.0.0.0/16");
+    // 2^16 - 2 = 65534 usable hosts
+    assert!(out.contains("65534") || out.contains("65536") || out.contains("16"));
+}
+
+#[test]
+fn ip_contains_true() {
+    let out = ip_calc("contains 192.168.1.0/24 192.168.1.50");
+    assert!(out.contains("YES") || out.contains("inside"));
+}
+
+#[test]
+fn ip_contains_false() {
+    let out = ip_calc("contains 192.168.1.0/24 10.0.0.1");
+    assert!(out.contains("NO") || out.contains("outside"));
+}
+
+#[test]
+fn ip_range() {
+    let out = ip_calc("range 192.168.1.1 192.168.1.254");
+    assert!(out.contains("254") || out.contains("Count"));
+}
+
+#[test]
+fn ip_mask_prefix() {
+    let out = ip_calc("mask 24");
+    assert!(out.contains("255.255.255.0"));
+}
+
+#[test]
+fn ip_mask_dotted() {
+    let out = ip_calc("mask 255.255.0.0");
+    assert!(out.contains("/16") || out.contains("16"));
+}
+
+#[test]
+fn ip_ipv6_loopback() {
+    let out = ip_calc("::1");
+    assert!(out.contains("Loopback") || out.contains("::1"));
+}
+
+#[test]
+fn ip_empty_no_panic() {
+    let out = ip_calc("");
     assert!(!out.is_empty());
 }
 

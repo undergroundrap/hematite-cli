@@ -20059,3 +20059,1272 @@ pub fn csv_calc(query: &str) -> String {
     let _ = writeln!(out, "{}", sep);
     out
 }
+
+// ─── JWT utility ──────────────────────────────────────────────────────────────
+
+/// Decode, inspect, and validate JWT tokens — offline, instant, no cloud.
+///
+/// Commands:
+///   `<token>`        — auto-decode: show header, claims, expiry status
+///   `decode <token>` — explicit decode
+///   `claims <token>` — show only the payload claims
+///   `header <token>` — show only the header
+pub fn jwt_calc(query: &str) -> String {
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+    let _ = writeln!(out, "{}", sep);
+    let _ = writeln!(out, "  JWT Decoder");
+    let _ = writeln!(out, "{}", sep);
+
+    let q = query.trim();
+    let ql = q.to_lowercase();
+
+    // ── base64url decoder ────────────────────────────────────────────────
+    fn b64url_decode(s: &str) -> Result<Vec<u8>, String> {
+        let pad = (4 - s.len() % 4) % 4;
+        let mut padded = s.replace('-', "+").replace('_', "/");
+        for _ in 0..pad {
+            padded.push('=');
+        }
+        b64_decode(&padded)
+    }
+
+    fn b64_decode(s: &str) -> Result<Vec<u8>, String> {
+        const T: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+        let mut tbl = [255u8; 256];
+        for (i, &c) in T.iter().enumerate() {
+            tbl[c as usize] = i as u8;
+        }
+        let bytes: Vec<u8> = s.bytes().filter(|&b| b != b'=').collect();
+        let mut result = Vec::new();
+        let mut i = 0;
+        while i + 1 < bytes.len() {
+            let a = tbl[bytes[i] as usize];
+            let b = tbl[bytes[i + 1] as usize];
+            if a == 255 || b == 255 {
+                i += 1;
+                continue;
+            }
+            result.push((a << 2) | (b >> 4));
+            if i + 2 < bytes.len() {
+                let c = tbl[bytes[i + 2] as usize];
+                if c != 255 {
+                    result.push((b << 4) | (c >> 2));
+                }
+                if i + 3 < bytes.len() {
+                    let d = tbl[bytes[i + 3] as usize];
+                    if d != 255 {
+                        result.push((c << 6) | d);
+                    }
+                }
+            }
+            i += 4;
+        }
+        Ok(result)
+    }
+
+    // ── minimal JSON pretty-printer for JWT payloads ─────────────────────
+    fn fmt_jwt_json(s: &str) -> String {
+        let mut result = String::new();
+        let mut indent = 0usize;
+        let mut in_str = false;
+        let mut prev = ' ';
+        for c in s.chars() {
+            if c == '"' && prev != '\\' {
+                in_str = !in_str;
+            }
+            if in_str {
+                result.push(c);
+                prev = c;
+                continue;
+            }
+            match c {
+                '{' | '[' => {
+                    result.push(c);
+                    result.push('\n');
+                    indent += 1;
+                    result.push_str(&"  ".repeat(indent));
+                }
+                '}' | ']' => {
+                    result.push('\n');
+                    if indent > 0 {
+                        indent -= 1;
+                    }
+                    result.push_str(&"  ".repeat(indent));
+                    result.push(c);
+                }
+                ',' => {
+                    result.push(',');
+                    result.push('\n');
+                    result.push_str(&"  ".repeat(indent));
+                }
+                ':' => {
+                    result.push_str(": ");
+                }
+                ' ' | '\n' | '\t' | '\r' => {}
+                _ => {
+                    result.push(c);
+                }
+            }
+            prev = c;
+        }
+        result
+    }
+
+    // ── extract a JSON string value by key ───────────────────────────────
+    fn json_str_val(json: &str, key: &str) -> Option<String> {
+        let pat = format!("\"{}\"", key);
+        let pos = json.find(&pat)?;
+        let after = &json[pos + pat.len()..];
+        let colon = after.find(':')?;
+        let val_start = after[colon + 1..].trim_start();
+        if val_start.starts_with('"') {
+            let inner = &val_start[1..];
+            let end = inner.find('"')?;
+            Some(inner[..end].to_string())
+        } else {
+            // number or keyword
+            let end = val_start
+                .find(|c: char| c == ',' || c == '}' || c == ']')
+                .unwrap_or(val_start.len());
+            Some(val_start[..end].trim().to_string())
+        }
+    }
+
+    // ── timestamp formatting ─────────────────────────────────────────────
+    fn fmt_ts(ts_str: &str) -> String {
+        use chrono::TimeZone;
+        if let Ok(ts) = ts_str.trim().parse::<i64>() {
+            if let chrono::LocalResult::Single(dt) = chrono::Utc.timestamp_opt(ts, 0) {
+                return dt.format("%Y-%m-%d %H:%M:%S UTC").to_string();
+            }
+        }
+        ts_str.to_string()
+    }
+
+    fn ts_status(exp_str: &str) -> &'static str {
+        if let Ok(ts) = exp_str.trim().parse::<i64>() {
+            let now = chrono::Utc::now().timestamp();
+            if ts < now {
+                return "EXPIRED";
+            }
+            return "valid";
+        }
+        "unknown"
+    }
+
+    // ── decode a JWT token ───────────────────────────────────────────────
+    fn decode_token(token: &str, out: &mut String, mode: &str) {
+        let sep = "─".repeat(60);
+        let parts: Vec<&str> = token.split('.').collect();
+        if parts.len() != 3 {
+            let _ = writeln!(
+                out,
+                "  Not a valid JWT (expected 3 dot-separated parts, got {})",
+                parts.len()
+            );
+            return;
+        }
+        let header_bytes = match b64url_decode(parts[0]) {
+            Ok(b) => b,
+            Err(e) => {
+                let _ = writeln!(out, "  Failed to decode header: {}", e);
+                return;
+            }
+        };
+        let payload_bytes = match b64url_decode(parts[1]) {
+            Ok(b) => b,
+            Err(e) => {
+                let _ = writeln!(out, "  Failed to decode payload: {}", e);
+                return;
+            }
+        };
+        let header_json = String::from_utf8_lossy(&header_bytes).to_string();
+        let payload_json = String::from_utf8_lossy(&payload_bytes).to_string();
+
+        if mode == "header" || mode == "all" {
+            let _ = writeln!(out, "  Header:");
+            for line in fmt_jwt_json(&header_json).lines() {
+                let _ = writeln!(out, "    {}", line);
+            }
+        }
+
+        if mode == "claims" || mode == "all" {
+            let _ = writeln!(out, "  Payload / Claims:");
+            for line in fmt_jwt_json(&payload_json).lines() {
+                let _ = writeln!(out, "    {}", line);
+            }
+        }
+
+        if mode == "all" {
+            let _ = writeln!(out, "");
+            let _ = writeln!(out, "  Key claims:");
+            let fields = [
+                ("iss", "Issuer    "),
+                ("sub", "Subject   "),
+                ("aud", "Audience  "),
+                ("iat", "Issued At "),
+                ("exp", "Expires   "),
+                ("nbf", "Not Before"),
+                ("jti", "JWT ID    "),
+            ];
+            for (key, label) in &fields {
+                if let Some(val) = json_str_val(&payload_json, key) {
+                    if *key == "exp" || *key == "iat" || *key == "nbf" {
+                        let human = fmt_ts(&val);
+                        let status = if *key == "exp" {
+                            format!(" [{}]", ts_status(&val))
+                        } else {
+                            String::new()
+                        };
+                        let _ = writeln!(out, "    {} : {} ({}){}", label, val, human, status);
+                    } else {
+                        let _ = writeln!(out, "    {} : {}", label, val);
+                    }
+                }
+            }
+            let sig_len = parts[2].len();
+            let _ = writeln!(out, "");
+            let _ = writeln!(
+                out,
+                "  Signature  : {} chars (not verified — key required)",
+                sig_len
+            );
+        }
+        let _ = writeln!(out, "{}", sep);
+    }
+
+    // ── dispatch ─────────────────────────────────────────────────────────
+    let token = if ql.starts_with("decode ") {
+        let mode = "all";
+        decode_token(&q[7..].trim(), &mut out, mode);
+        let _ = writeln!(out, "{}", sep);
+        return out;
+    } else if ql.starts_with("claims ") {
+        decode_token(&q[7..].trim(), &mut out, "claims");
+        let _ = writeln!(out, "{}", sep);
+        return out;
+    } else if ql.starts_with("header ") {
+        decode_token(&q[7..].trim(), &mut out, "header");
+        let _ = writeln!(out, "{}", sep);
+        return out;
+    } else {
+        q
+    };
+
+    if token.contains('.') {
+        decode_token(token, &mut out, "all");
+    } else {
+        let _ = writeln!(out, "  Commands:");
+        let _ = writeln!(
+            out,
+            "    <token>          — decode JWT (header + claims + expiry)"
+        );
+        let _ = writeln!(out, "    decode <token>   — same as bare token");
+        let _ = writeln!(out, "    claims <token>   — payload only");
+        let _ = writeln!(out, "    header <token>   — header only");
+        let _ = writeln!(out, "  Example: hematite --jwt 'eyJ...'");
+        let _ = writeln!(out, "{}", sep);
+    }
+
+    out
+}
+
+// ─── URL utility ──────────────────────────────────────────────────────────────
+
+/// Parse, encode, decode, and build URLs — offline, instant, no cloud.
+///
+/// Commands:
+///   `parse <url>`          — decompose into scheme, host, port, path, query params, fragment
+///   `encode <text>`        — percent-encode (application/x-www-form-urlencoded)
+///   `decode <text>`        — percent-decode
+///   `params <url>`         — show query string key=value pairs
+///   `build <parts>`        — build URL from space-separated key=value parts
+///   bare `<url>`           — auto-parse
+pub fn url_calc(query: &str) -> String {
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+    let _ = writeln!(out, "{}", sep);
+    let _ = writeln!(out, "  URL Toolkit");
+    let _ = writeln!(out, "{}", sep);
+
+    let q = query.trim();
+    let ql = q.to_lowercase();
+
+    // ── percent encoding ─────────────────────────────────────────────────
+    fn pct_encode(s: &str) -> String {
+        let mut result = String::new();
+        for b in s.bytes() {
+            match b {
+                b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => {
+                    result.push(b as char)
+                }
+                _ => {
+                    result.push('%');
+                    result.push_str(&format!("{:02X}", b));
+                }
+            }
+        }
+        result
+    }
+
+    fn pct_decode(s: &str) -> String {
+        let mut result = String::new();
+        let bytes = s.as_bytes();
+        let mut i = 0;
+        while i < bytes.len() {
+            if bytes[i] == b'%' && i + 2 < bytes.len() {
+                if let Ok(hex) = std::str::from_utf8(&bytes[i + 1..i + 3]) {
+                    if let Ok(byte) = u8::from_str_radix(hex, 16) {
+                        result.push(byte as char);
+                        i += 3;
+                        continue;
+                    }
+                }
+            } else if bytes[i] == b'+' {
+                result.push(' ');
+                i += 1;
+                continue;
+            }
+            result.push(bytes[i] as char);
+            i += 1;
+        }
+        result
+    }
+
+    // ── URL parser ───────────────────────────────────────────────────────
+    struct ParsedUrl {
+        scheme: String,
+        userinfo: String,
+        host: String,
+        port: String,
+        path: String,
+        query: String,
+        fragment: String,
+    }
+
+    fn parse_url(url: &str) -> ParsedUrl {
+        let mut rest = url;
+        let mut scheme = String::new();
+        let mut userinfo = String::new();
+        let mut host = String::new();
+        let mut port = String::new();
+        let mut query = String::new();
+        let mut fragment = String::new();
+
+        // scheme
+        if let Some(cs) = rest.find("://") {
+            scheme = rest[..cs].to_string();
+            rest = &rest[cs + 3..];
+        } else if let Some(cs) = rest.find(':') {
+            // could be scheme: or host:port
+            let before = &rest[..cs];
+            if before
+                .chars()
+                .all(|c| c.is_alphanumeric() || c == '+' || c == '-' || c == '.')
+            {
+                scheme = before.to_string();
+                rest = &rest[cs + 1..];
+            }
+        }
+
+        // fragment
+        if let Some(fi) = rest.find('#') {
+            fragment = rest[fi + 1..].to_string();
+            rest = &rest[..fi];
+        }
+
+        // query
+        if let Some(qi) = rest.find('?') {
+            query = rest[qi + 1..].to_string();
+            rest = &rest[..qi];
+        }
+
+        // authority (host[:port])
+        let authority_end = rest.find('/').unwrap_or(rest.len());
+        let authority = &rest[..authority_end];
+        let path = rest[authority_end..].to_string();
+
+        // userinfo
+        let (auth_no_user, ui) = if let Some(at) = authority.rfind('@') {
+            userinfo = authority[..at].to_string();
+            (&authority[at + 1..], true)
+        } else {
+            (authority, false)
+        };
+        let _ = ui;
+
+        // IPv6
+        if auth_no_user.starts_with('[') {
+            if let Some(cb) = auth_no_user.find(']') {
+                host = auth_no_user[..=cb].to_string();
+                let after = &auth_no_user[cb + 1..];
+                if after.starts_with(':') {
+                    port = after[1..].to_string();
+                }
+            }
+        } else if let Some(colon) = auth_no_user.rfind(':') {
+            let maybe_port = &auth_no_user[colon + 1..];
+            if maybe_port.chars().all(|c| c.is_ascii_digit()) {
+                host = auth_no_user[..colon].to_string();
+                port = maybe_port.to_string();
+            } else {
+                host = auth_no_user.to_string();
+            }
+        } else {
+            host = auth_no_user.to_string();
+        }
+
+        ParsedUrl {
+            scheme,
+            userinfo,
+            host,
+            port,
+            path,
+            query,
+            fragment,
+        }
+    }
+
+    fn show_parsed(p: &ParsedUrl, out: &mut String) {
+        if !p.scheme.is_empty() {
+            let _ = writeln!(out, "  Scheme   : {}", p.scheme);
+        }
+        if !p.userinfo.is_empty() {
+            let _ = writeln!(out, "  Userinfo : {}", p.userinfo);
+        }
+        if !p.host.is_empty() {
+            let _ = writeln!(out, "  Host     : {}", p.host);
+        }
+        if !p.port.is_empty() {
+            let _ = writeln!(out, "  Port     : {}", p.port);
+        } else if !p.scheme.is_empty() {
+            let default_port = match p.scheme.as_str() {
+                "https" => "443 (default)",
+                "http" => "80 (default)",
+                "ftp" => "21 (default)",
+                "ssh" => "22 (default)",
+                "smtp" => "25 (default)",
+                "ldap" => "389 (default)",
+                _ => "",
+            };
+            if !default_port.is_empty() {
+                let _ = writeln!(out, "  Port     : {}", default_port);
+            }
+        }
+        if !p.path.is_empty() {
+            let _ = writeln!(out, "  Path     : {}", p.path);
+        }
+        if !p.query.is_empty() {
+            let _ = writeln!(out, "  Query    : {}", p.query);
+        }
+        if !p.fragment.is_empty() {
+            let _ = writeln!(out, "  Fragment : #{}", p.fragment);
+        }
+    }
+
+    fn show_params(query_str: &str, out: &mut String) {
+        if query_str.is_empty() {
+            let _ = writeln!(out, "  No query string");
+            return;
+        }
+        let _ = writeln!(out, "  Query parameters:");
+        for pair in query_str.split('&') {
+            if let Some(eq) = pair.find('=') {
+                let k = pct_decode(&pair[..eq]);
+                let v = pct_decode(&pair[eq + 1..]);
+                let _ = writeln!(out, "    {:20} = {}", k, v);
+            } else if !pair.is_empty() {
+                let _ = writeln!(out, "    {:20} (no value)", pct_decode(pair));
+            }
+        }
+    }
+
+    // ── dispatch ─────────────────────────────────────────────────────────
+    if ql.starts_with("encode ") {
+        let text = &q[7..];
+        let encoded = pct_encode(text);
+        let _ = writeln!(out, "  Input   : {}", text);
+        let _ = writeln!(out, "  Encoded : {}", encoded);
+    } else if ql.starts_with("decode ") {
+        let text = &q[7..];
+        let decoded = pct_decode(text);
+        let _ = writeln!(out, "  Input   : {}", text);
+        let _ = writeln!(out, "  Decoded : {}", decoded);
+    } else if ql.starts_with("parse ") {
+        let url = &q[6..];
+        let p = parse_url(url);
+        show_parsed(&p, &mut out);
+        if !p.query.is_empty() {
+            let _ = writeln!(out, "");
+            show_params(&p.query, &mut out);
+        }
+    } else if ql.starts_with("params ") {
+        let url = &q[7..];
+        let p = parse_url(url);
+        show_params(&p.query, &mut out);
+    } else if ql.starts_with("build ") {
+        // build scheme=https host=example.com path=/api/v1 q=foo=bar
+        let rest = &q[6..];
+        let mut scheme = "https";
+        let mut host = "";
+        let mut port = "";
+        let mut path = "/";
+        let mut params: Vec<(&str, &str)> = Vec::new();
+        for part in rest.split_whitespace() {
+            if let Some(eq) = part.find('=') {
+                let (k, v) = (&part[..eq], &part[eq + 1..]);
+                match k {
+                    "scheme" => scheme = v,
+                    "host" => host = v,
+                    "port" => port = v,
+                    "path" => path = v,
+                    _ => params.push((k, v)),
+                }
+            }
+        }
+        let port_str = if port.is_empty() {
+            String::new()
+        } else {
+            format!(":{}", port)
+        };
+        let query_str = if params.is_empty() {
+            String::new()
+        } else {
+            "?".to_string()
+                + &params
+                    .iter()
+                    .map(|(k, v)| format!("{}={}", pct_encode(k), pct_encode(v)))
+                    .collect::<Vec<_>>()
+                    .join("&")
+        };
+        let built = format!("{}://{}{}{}{}", scheme, host, port_str, path, query_str);
+        let _ = writeln!(out, "  Built URL : {}", built);
+    } else {
+        // auto-parse if it looks like a URL
+        let q_trim = q.trim_matches('"').trim_matches('\'');
+        if q_trim.contains("://") || q_trim.starts_with('/') || q_trim.contains('.') {
+            let p = parse_url(q_trim);
+            show_parsed(&p, &mut out);
+            if !p.query.is_empty() {
+                let _ = writeln!(out, "");
+                show_params(&p.query, &mut out);
+            }
+        } else {
+            let _ = writeln!(out, "  Commands:");
+            let _ = writeln!(
+                out,
+                "    parse <url>                        — decompose URL"
+            );
+            let _ = writeln!(
+                out,
+                "    encode <text>                      — percent-encode"
+            );
+            let _ = writeln!(
+                out,
+                "    decode <text>                      — percent-decode"
+            );
+            let _ = writeln!(
+                out,
+                "    params <url>                       — show query params"
+            );
+            let _ = writeln!(out, "    build scheme=https host=x.com ...  — assemble URL");
+            let _ = writeln!(
+                out,
+                "  Example: hematite --url 'parse https://api.example.com/v1?key=foo&page=2'"
+            );
+        }
+    }
+
+    let _ = writeln!(out, "{}", sep);
+    out
+}
+
+// ─── Cron utility ─────────────────────────────────────────────────────────────
+
+/// Explain and compute next run times for cron expressions — offline, instant.
+///
+/// Standard 5-field cron: `minute hour day-of-month month day-of-week`
+/// Each field supports: `*`, `*/step`, `n`, `n,m`, `n-m`, `n-m/step`
+///
+/// Commands:
+///   `explain <expr>`   — plain-English description
+///   `next <expr>`      — next 5 run times from now
+///   `next N <expr>`    — next N run times
+///   bare `<expr>`      — explain + next 5 runs
+pub fn cron_calc(query: &str) -> String {
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+    let _ = writeln!(out, "{}", sep);
+    let _ = writeln!(out, "  Cron Toolkit");
+    let _ = writeln!(out, "{}", sep);
+
+    let q = query.trim();
+
+    // ── cron field parser ─────────────────────────────────────────────────
+    fn parse_field(s: &str, lo: u32, hi: u32) -> Vec<u32> {
+        let mut set = std::collections::BTreeSet::new();
+        for part in s.split(',') {
+            if part == "*" {
+                for v in lo..=hi {
+                    set.insert(v);
+                }
+            } else if let Some(rest) = part.strip_prefix("*/") {
+                let step: u32 = rest.parse().unwrap_or(1).max(1);
+                let mut v = lo;
+                while v <= hi {
+                    set.insert(v);
+                    v += step;
+                }
+            } else if part.contains('/') {
+                let mut it = part.splitn(2, '/');
+                let range_part = it.next().unwrap_or("*");
+                let step: u32 = it.next().and_then(|s| s.parse().ok()).unwrap_or(1).max(1);
+                let (rlo, rhi) = if range_part == "*" {
+                    (lo, hi)
+                } else if range_part.contains('-') {
+                    let mut rng = range_part.splitn(2, '-');
+                    let a = rng.next().and_then(|s| s.parse().ok()).unwrap_or(lo);
+                    let b = rng.next().and_then(|s| s.parse().ok()).unwrap_or(hi);
+                    (a, b)
+                } else {
+                    let a: u32 = range_part.parse().unwrap_or(lo);
+                    (a, hi)
+                };
+                let mut v = rlo;
+                while v <= rhi {
+                    set.insert(v);
+                    v += step;
+                }
+            } else if part.contains('-') {
+                let mut rng = part.splitn(2, '-');
+                let a: u32 = rng.next().and_then(|s| s.parse().ok()).unwrap_or(lo);
+                let b: u32 = rng.next().and_then(|s| s.parse().ok()).unwrap_or(hi);
+                for v in a..=b {
+                    if v <= hi {
+                        set.insert(v);
+                    }
+                }
+            } else if let Ok(n) = part.parse::<u32>() {
+                if n >= lo && n <= hi {
+                    set.insert(n);
+                }
+            }
+        }
+        set.into_iter().collect()
+    }
+
+    // ── cron field explainer ─────────────────────────────────────────────
+    fn explain_field(s: &str, unit: &str, names: Option<&[&str]>, lo: u32) -> String {
+        let label = |v: &str| -> String {
+            if let Some(names) = names {
+                if let Ok(n) = v.parse::<u32>() {
+                    let idx = (n - lo) as usize;
+                    if let Some(name) = names.get(idx) {
+                        return name.to_string();
+                    }
+                }
+            }
+            v.to_string()
+        };
+
+        if s == "*" {
+            return format!("every {}", unit);
+        }
+        if let Some(rest) = s.strip_prefix("*/") {
+            return format!("every {} {}(s)", rest, unit);
+        }
+        if s.contains(',') {
+            let parts: Vec<String> = s.split(',').map(|p| label(p)).collect();
+            return parts.join(", ");
+        }
+        if s.contains('/') {
+            let mut it = s.splitn(2, '/');
+            let range = it.next().unwrap_or("*");
+            let step = it.next().unwrap_or("1");
+            if range == "*" {
+                return format!("every {} {}(s)", step, unit);
+            }
+            return format!("every {} {}(s) starting at {}", step, unit, label(range));
+        }
+        if s.contains('-') {
+            let mut it = s.splitn(2, '-');
+            let a = label(it.next().unwrap_or("?"));
+            let b = label(it.next().unwrap_or("?"));
+            return format!("{} through {}", a, b);
+        }
+        format!("at {} {}", label(s), unit)
+    }
+
+    const MONTHS: &[&str] = &[
+        "January",
+        "February",
+        "March",
+        "April",
+        "May",
+        "June",
+        "July",
+        "August",
+        "September",
+        "October",
+        "November",
+        "December",
+    ];
+    const DAYS: &[&str] = &[
+        "Sunday",
+        "Monday",
+        "Tuesday",
+        "Wednesday",
+        "Thursday",
+        "Friday",
+        "Saturday",
+    ];
+
+    fn explain_expr(fields: &[&str]) -> String {
+        let min = explain_field(fields[0], "minute", None, 0);
+        let hr = explain_field(fields[1], "hour", None, 0);
+        let dom = explain_field(fields[2], "day", None, 1);
+        let mon = explain_field(fields[3], "month", Some(MONTHS), 1);
+        let dow = explain_field(fields[4], "weekday", Some(DAYS), 0);
+
+        let mut parts = Vec::new();
+        if fields[0] != "*" || fields[1] != "*" {
+            parts.push(format!("{}, {}", min, hr));
+        } else {
+            parts.push("every minute".to_string());
+        }
+        if fields[2] != "*" {
+            parts.push(format!("on {}", dom));
+        }
+        if fields[3] != "*" {
+            parts.push(format!("in {}", mon));
+        }
+        if fields[4] != "*" {
+            parts.push(format!("on {}", dow));
+        }
+        parts.join(", ")
+    }
+
+    // ── next-run calculator ───────────────────────────────────────────────
+    fn next_runs(fields: &[&str], count: usize) -> Vec<String> {
+        use chrono::{Datelike, Duration, Timelike};
+        let now = chrono::Local::now();
+        // truncate to current minute, then advance one minute
+        let start = now
+            .with_second(0)
+            .unwrap_or(now)
+            .with_nanosecond(0)
+            .unwrap_or(now)
+            + Duration::minutes(1);
+
+        let mins = parse_field(fields[0], 0, 59);
+        let hours = parse_field(fields[1], 0, 23);
+        let days_om = parse_field(fields[2], 1, 31);
+        let months = parse_field(fields[3], 1, 12);
+        let days_ow = parse_field(fields[4], 0, 7); // 0 and 7 both = Sunday
+
+        let dom_star = fields[2] == "*";
+        let dow_star = fields[4] == "*";
+
+        let mut results = Vec::new();
+        let mut t = start;
+        let limit = start + Duration::days(366);
+
+        while t < limit && results.len() < count {
+            let m = t.minute();
+            let h = t.hour();
+            let d = t.day();
+            let mo = t.month();
+            let wd = t.weekday().num_days_from_sunday(); // 0=Sun
+
+            let dow_match = days_ow.contains(&wd) || days_ow.contains(&(wd + 7));
+
+            // cron semantics: if both dom and dow are restricted, either match triggers
+            let day_match = if dom_star && dow_star {
+                true
+            } else if dom_star {
+                dow_match
+            } else if dow_star {
+                days_om.contains(&d)
+            } else {
+                days_om.contains(&d) || dow_match
+            };
+
+            if mins.contains(&m) && hours.contains(&h) && day_match && months.contains(&mo) {
+                results.push(t.format("%Y-%m-%d %H:%M  %a").to_string());
+            }
+            t = t + Duration::minutes(1);
+        }
+        results
+    }
+
+    // ── parse expression from query string ───────────────────────────────
+    fn try_parse_cron(expr: &str) -> Option<Vec<&str>> {
+        let fields: Vec<&str> = expr.split_whitespace().collect();
+        if fields.len() == 5 {
+            Some(fields)
+        } else {
+            None
+        }
+    }
+
+    // ── dispatch ─────────────────────────────────────────────────────────
+    let (cmd, rest) = if let Some(sp) = q.find(' ') {
+        (&q[..sp], q[sp + 1..].trim())
+    } else {
+        (q, "")
+    };
+
+    match cmd.to_lowercase().as_str() {
+        "explain" => {
+            if let Some(fields) = try_parse_cron(rest) {
+                let _ = writeln!(out, "  Expression : {}", rest);
+                let _ = writeln!(out, "  Meaning    : {}", explain_expr(&fields));
+                let _ = writeln!(out, "  Fields     :");
+                let labels = [
+                    "Minute (0-59)",
+                    "Hour (0-23)",
+                    "Day-of-month (1-31)",
+                    "Month (1-12)",
+                    "Day-of-week (0-7)",
+                ];
+                for (i, (f, l)) in fields.iter().zip(labels.iter()).enumerate() {
+                    let unit = ["minute", "hour", "day", "month", "weekday"][i];
+                    let names: Option<&[&str]> = match i {
+                        3 => Some(MONTHS),
+                        4 => Some(DAYS),
+                        _ => None,
+                    };
+                    let lo: u32 = if i >= 2 { 1 } else { 0 };
+                    let lo_adj = if i == 4 { 0 } else { lo };
+                    let _ = writeln!(
+                        out,
+                        "    {:30} → {}",
+                        l,
+                        explain_field(f, unit, names, lo_adj)
+                    );
+                }
+            } else {
+                let _ = writeln!(out, "  Usage: explain <5-field cron expression>");
+                let _ = writeln!(out, "  Example: explain */15 9-17 * * 1-5");
+            }
+        }
+        "next" => {
+            // next [N] <expr>
+            let (n, expr) = {
+                let parts: Vec<&str> = rest.splitn(2, ' ').collect();
+                if parts.len() == 2 {
+                    if let Ok(n) = parts[0].parse::<usize>() {
+                        (n.min(20), parts[1])
+                    } else {
+                        (5, rest)
+                    }
+                } else {
+                    (5, rest)
+                }
+            };
+            if let Some(fields) = try_parse_cron(expr) {
+                let _ = writeln!(out, "  Expression : {}", expr);
+                let _ = writeln!(out, "  Meaning    : {}", explain_expr(&fields));
+                let _ = writeln!(out, "  Next {} run(s):", n);
+                let runs = next_runs(&fields, n);
+                if runs.is_empty() {
+                    let _ = writeln!(out, "    (no match found in next 365 days)");
+                } else {
+                    for (i, r) in runs.iter().enumerate() {
+                        let _ = writeln!(out, "    {:2}. {}", i + 1, r);
+                    }
+                }
+            } else {
+                let _ = writeln!(out, "  Usage: next [N] <5-field cron expression>");
+                let _ = writeln!(out, "  Example: next 10 0 9 * * 1-5");
+            }
+        }
+        _ => {
+            // try to parse the whole query as a cron expression
+            if let Some(fields) = try_parse_cron(q) {
+                let _ = writeln!(out, "  Expression : {}", q);
+                let _ = writeln!(out, "  Meaning    : {}", explain_expr(&fields));
+                let _ = writeln!(out, "  Next 5 runs:");
+                let runs = next_runs(&fields, 5);
+                if runs.is_empty() {
+                    let _ = writeln!(out, "    (no match found in next 365 days)");
+                } else {
+                    for (i, r) in runs.iter().enumerate() {
+                        let _ = writeln!(out, "    {:2}. {}", i + 1, r);
+                    }
+                }
+            } else {
+                let _ = writeln!(out, "  Commands:");
+                let _ = writeln!(out, "    <expr>           — explain + next 5 runs");
+                let _ = writeln!(out, "    explain <expr>   — plain-English description");
+                let _ = writeln!(out, "    next <expr>      — next 5 run times from now");
+                let _ = writeln!(out, "    next N <expr>    — next N run times");
+                let _ = writeln!(
+                    out,
+                    "  Field order: minute hour day-of-month month day-of-week"
+                );
+                let _ = writeln!(out, "  Examples:");
+                let _ = writeln!(
+                    out,
+                    "    hematite --cron '* * * * *'           (every minute)"
+                );
+                let _ = writeln!(
+                    out,
+                    "    hematite --cron '0 9 * * 1-5'         (9am weekdays)"
+                );
+                let _ = writeln!(
+                    out,
+                    "    hematite --cron '*/15 * * * *'        (every 15 min)"
+                );
+                let _ = writeln!(
+                    out,
+                    "    hematite --cron 'next 10 0 0 1 1 *'   (next 10 New Years)"
+                );
+            }
+        }
+    }
+
+    let _ = writeln!(out, "{}", sep);
+    out
+}
+
+// ─── IP/subnet utility ────────────────────────────────────────────────────────
+
+/// IPv4/IPv6 address inspector and CIDR subnet calculator — offline, instant.
+///
+/// Commands:
+///   `<ip>`                  — classify: class, private/public, loopback, etc.
+///   `<ip>/<prefix>`         — CIDR subnet info: network, broadcast, mask, range, host count
+///   `contains <cidr> <ip>`  — test if IP is inside a subnet
+///   `range <ip1> <ip2>`     — count IPs in range, suggest CIDR
+///   `mask <mask>`           — convert dotted-decimal mask to prefix length and back
+pub fn ip_calc(query: &str) -> String {
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+    let _ = writeln!(out, "{}", sep);
+    let _ = writeln!(out, "  IP / Subnet Calculator");
+    let _ = writeln!(out, "{}", sep);
+
+    let q = query.trim();
+    let ql = q.to_lowercase();
+
+    // ── IPv4 helpers ──────────────────────────────────────────────────────
+    fn parse_ipv4(s: &str) -> Option<u32> {
+        let parts: Vec<&str> = s.trim().split('.').collect();
+        if parts.len() != 4 {
+            return None;
+        }
+        let mut n: u32 = 0;
+        for p in &parts {
+            let octet: u32 = p.parse().ok()?;
+            if octet > 255 {
+                return None;
+            }
+            n = (n << 8) | octet;
+        }
+        Some(n)
+    }
+
+    fn fmt_ipv4(n: u32) -> String {
+        format!(
+            "{}.{}.{}.{}",
+            (n >> 24) & 0xff,
+            (n >> 16) & 0xff,
+            (n >> 8) & 0xff,
+            n & 0xff
+        )
+    }
+
+    fn prefix_to_mask(prefix: u32) -> u32 {
+        if prefix == 0 {
+            0
+        } else {
+            !0u32 << (32 - prefix)
+        }
+    }
+
+    fn mask_to_prefix(mask: u32) -> Option<u32> {
+        let inv = !mask;
+        // must be contiguous 1s then 0s
+        if (inv & (inv + 1)) == 0 {
+            Some(32 - inv.count_ones())
+        } else {
+            None
+        }
+    }
+
+    fn classify_ipv4(ip: u32) -> Vec<String> {
+        let mut tags = Vec::new();
+        let a = (ip >> 24) & 0xff;
+
+        // RFC 1918 private
+        if a == 10 {
+            tags.push("Private (RFC 1918 Class A)".to_string());
+        } else if a == 172 && ((ip >> 16) & 0xf0) == 0x10 {
+            tags.push("Private (RFC 1918 Class B)".to_string());
+        } else if a == 192 && ((ip >> 16) & 0xff) == 168 {
+            tags.push("Private (RFC 1918 Class C)".to_string());
+        }
+        // Loopback
+        else if a == 127 {
+            tags.push("Loopback (127.0.0.0/8)".to_string());
+        }
+        // Link-local (APIPA)
+        else if a == 169 && ((ip >> 16) & 0xff) == 254 {
+            tags.push("Link-local / APIPA (169.254.0.0/16)".to_string());
+        }
+        // Multicast
+        else if a >= 224 && a <= 239 {
+            tags.push("Multicast (224.0.0.0/4)".to_string());
+        }
+        // Reserved / broadcast
+        else if a >= 240 {
+            tags.push("Reserved (240.0.0.0/4)".to_string());
+        }
+        // Special
+        else if ip == 0 {
+            tags.push("Unspecified (0.0.0.0)".to_string());
+        } else if ip == 0xffffffff {
+            tags.push("Limited broadcast (255.255.255.255)".to_string());
+        } else {
+            tags.push("Public".to_string());
+        }
+
+        // Class
+        let class = if a < 128 {
+            "A"
+        } else if a < 192 {
+            "B"
+        } else if a < 224 {
+            "C"
+        } else if a < 240 {
+            "D (multicast)"
+        } else {
+            "E (reserved)"
+        };
+        tags.push(format!("Class {}", class));
+
+        tags
+    }
+
+    fn show_cidr(ip_str: &str, prefix: u32, out: &mut String) {
+        let ip = match parse_ipv4(ip_str) {
+            Some(n) => n,
+            None => {
+                let _ = writeln!(out, "  Invalid IPv4 address: {}", ip_str);
+                return;
+            }
+        };
+        if prefix > 32 {
+            let _ = writeln!(out, "  Prefix length must be 0–32");
+            return;
+        }
+
+        let mask = prefix_to_mask(prefix);
+        let network = ip & mask;
+        let bcast = network | !mask;
+        let host_count: u64 = if prefix >= 31 {
+            1u64 << (32 - prefix)
+        } else {
+            (1u64 << (32 - prefix)) - 2
+        };
+        let first = if prefix < 31 { network + 1 } else { network };
+        let last = if prefix < 31 { bcast - 1 } else { bcast };
+
+        let _ = writeln!(out, "  CIDR         : {}/{}", fmt_ipv4(network), prefix);
+        let _ = writeln!(out, "  Subnet mask  : {}", fmt_ipv4(mask));
+        let _ = writeln!(out, "  Network      : {}", fmt_ipv4(network));
+        let _ = writeln!(out, "  Broadcast    : {}", fmt_ipv4(bcast));
+        let _ = writeln!(
+            out,
+            "  Usable range : {} – {}",
+            fmt_ipv4(first),
+            fmt_ipv4(last)
+        );
+        let _ = writeln!(out, "  Usable hosts : {}", host_count);
+        let total: u64 = 1u64 << (32 - prefix);
+        let _ = writeln!(out, "  Total IPs    : {}", total);
+        let _ = writeln!(out, "  Wildcard mask: {}", fmt_ipv4(!mask));
+
+        if ip != network {
+            let _ = writeln!(out, "");
+            let _ = writeln!(out, "  Host IP : {} (within this network)", fmt_ipv4(ip));
+            let tags = classify_ipv4(ip);
+            for t in &tags {
+                let _ = writeln!(out, "    → {}", t);
+            }
+        }
+    }
+
+    // ── dispatch ─────────────────────────────────────────────────────────
+    if ql.starts_with("contains ") {
+        // contains <cidr> <ip>
+        let rest = &q[9..].trim();
+        let parts: Vec<&str> = rest.splitn(2, ' ').collect();
+        if parts.len() < 2 {
+            let _ = writeln!(out, "  Usage: contains <CIDR> <IP>");
+        } else {
+            let cidr = parts[0];
+            let test_ip_str = parts[1].trim();
+            let (net_str, prefix) = if let Some(sl) = cidr.find('/') {
+                (&cidr[..sl], cidr[sl + 1..].parse::<u32>().unwrap_or(32))
+            } else {
+                (cidr, 32u32)
+            };
+            match (parse_ipv4(net_str), parse_ipv4(test_ip_str)) {
+                (Some(net), Some(test_ip)) => {
+                    let mask = prefix_to_mask(prefix);
+                    let network = net & mask;
+                    let in_range = (test_ip & mask) == network;
+                    let _ = writeln!(out, "  Network : {}/{}", fmt_ipv4(network), prefix);
+                    let _ = writeln!(out, "  Test IP : {}", fmt_ipv4(test_ip));
+                    if in_range {
+                        let _ = writeln!(
+                            out,
+                            "  Result  : YES — {} is inside {}/{}",
+                            fmt_ipv4(test_ip),
+                            fmt_ipv4(network),
+                            prefix
+                        );
+                    } else {
+                        let _ = writeln!(
+                            out,
+                            "  Result  : NO  — {} is outside {}/{}",
+                            fmt_ipv4(test_ip),
+                            fmt_ipv4(network),
+                            prefix
+                        );
+                    }
+                }
+                _ => {
+                    let _ = writeln!(out, "  Could not parse addresses");
+                }
+            }
+        }
+    } else if ql.starts_with("range ") {
+        // range <ip1> <ip2>
+        let rest = &q[6..].trim();
+        let parts: Vec<&str> = rest.splitn(2, ' ').collect();
+        if parts.len() < 2 {
+            let _ = writeln!(out, "  Usage: range <ip1> <ip2>");
+        } else {
+            match (parse_ipv4(parts[0].trim()), parse_ipv4(parts[1].trim())) {
+                (Some(a), Some(b)) => {
+                    let (lo, hi) = if a <= b { (a, b) } else { (b, a) };
+                    let count: u64 = (hi - lo) as u64 + 1;
+                    let _ = writeln!(out, "  Start  : {}", fmt_ipv4(lo));
+                    let _ = writeln!(out, "  End    : {}", fmt_ipv4(hi));
+                    let _ = writeln!(out, "  Count  : {} IPs", count);
+                    // suggest smallest enclosing CIDR
+                    let bits = (count as f64).log2().ceil() as u32;
+                    let prefix = 32u32.saturating_sub(bits);
+                    let mask = prefix_to_mask(prefix);
+                    let net = lo & mask;
+                    let _ = writeln!(
+                        out,
+                        "  Approx : {}/{} (smallest enclosing CIDR)",
+                        fmt_ipv4(net),
+                        prefix
+                    );
+                }
+                _ => {
+                    let _ = writeln!(out, "  Could not parse IP addresses");
+                }
+            }
+        }
+    } else if ql.starts_with("mask ") {
+        // mask <dotted> or mask /<prefix>
+        let rest = q[5..].trim().trim_start_matches('/');
+        if let Ok(prefix) = rest.parse::<u32>() {
+            if prefix <= 32 {
+                let mask = prefix_to_mask(prefix);
+                let _ = writeln!(out, "  Prefix      : /{}", prefix);
+                let _ = writeln!(out, "  Subnet mask : {}", fmt_ipv4(mask));
+                let _ = writeln!(out, "  Wildcard    : {}", fmt_ipv4(!mask));
+                let _ = writeln!(out, "  Host bits   : {}", 32 - prefix);
+                let hosts: u64 = if prefix >= 31 {
+                    1u64 << (32 - prefix)
+                } else {
+                    (1u64 << (32 - prefix)).saturating_sub(2)
+                };
+                let _ = writeln!(out, "  Usable IPs  : {}", hosts);
+            }
+        } else if let Some(n) = parse_ipv4(rest) {
+            if let Some(prefix) = mask_to_prefix(n) {
+                let _ = writeln!(out, "  Subnet mask : {}", fmt_ipv4(n));
+                let _ = writeln!(out, "  Prefix      : /{}", prefix);
+                let _ = writeln!(out, "  Wildcard    : {}", fmt_ipv4(!n));
+                let _ = writeln!(out, "  Host bits   : {}", 32 - prefix);
+                let hosts: u64 = if prefix >= 31 {
+                    1u64 << (32 - prefix)
+                } else {
+                    (1u64 << (32 - prefix)).saturating_sub(2)
+                };
+                let _ = writeln!(out, "  Usable IPs  : {}", hosts);
+            } else {
+                let _ = writeln!(out, "  {} is not a valid contiguous subnet mask", rest);
+            }
+        } else {
+            let _ = writeln!(out, "  Usage: mask <prefix-length>  or  mask <dotted-mask>");
+        }
+    } else {
+        // auto: IP or CIDR
+        let s = q.trim().trim_matches('"').trim_matches('\'');
+        if let Some(sl) = s.find('/') {
+            let ip_str = &s[..sl];
+            let prefix: u32 = s[sl + 1..].parse().unwrap_or(32);
+            show_cidr(ip_str, prefix, &mut out);
+        } else if let Some(ip) = parse_ipv4(s) {
+            let _ = writeln!(out, "  Address  : {}", fmt_ipv4(ip));
+            let _ = writeln!(out, "  Decimal  : {}", ip);
+            let _ = writeln!(out, "  Hex      : 0x{:08X}", ip);
+            let _ = writeln!(
+                out,
+                "  Binary   : {:08b}.{:08b}.{:08b}.{:08b}",
+                (ip >> 24) & 0xff,
+                (ip >> 16) & 0xff,
+                (ip >> 8) & 0xff,
+                ip & 0xff
+            );
+            let _ = writeln!(out, "  Type(s)  :");
+            for t in classify_ipv4(ip) {
+                let _ = writeln!(out, "    → {}", t);
+            }
+        } else if s.contains(':') {
+            // IPv6 — basic detection and classification
+            let _ = writeln!(out, "  IPv6 address detected: {}", s);
+            if s == "::" || s == "::0" {
+                let _ = writeln!(out, "  Type     : Unspecified (::/128)");
+            } else if s == "::1" {
+                let _ = writeln!(out, "  Type     : Loopback (::1/128)");
+            } else if s.to_lowercase().starts_with("fe80") {
+                let _ = writeln!(out, "  Type     : Link-local (fe80::/10)");
+            } else if s.to_lowercase().starts_with("fc") || s.to_lowercase().starts_with("fd") {
+                let _ = writeln!(out, "  Type     : Unique local (ULA, fc00::/7)");
+            } else if s.to_lowercase().starts_with("ff") {
+                let _ = writeln!(out, "  Type     : Multicast (ff00::/8)");
+            } else if s.to_lowercase().starts_with("2002") {
+                let _ = writeln!(out, "  Type     : 6to4 (2002::/16)");
+            } else if s.to_lowercase().starts_with("2001:db8") {
+                let _ = writeln!(out, "  Type     : Documentation (2001:db8::/32)");
+            } else {
+                let _ = writeln!(out, "  Type     : Global unicast");
+            }
+        } else {
+            let _ = writeln!(out, "  Commands:");
+            let _ = writeln!(out, "    <ip>                       — classify IP address");
+            let _ = writeln!(out, "    <ip>/<prefix>              — CIDR subnet details");
+            let _ = writeln!(out, "    contains <cidr> <ip>       — test membership");
+            let _ = writeln!(out, "    range <ip1> <ip2>          — count + suggest CIDR");
+            let _ = writeln!(out, "    mask <prefix|dotted>       — convert mask formats");
+            let _ = writeln!(out, "  Examples:");
+            let _ = writeln!(out, "    hematite --ip 192.168.1.0/24");
+            let _ = writeln!(out, "    hematite --ip 'contains 10.0.0.0/8 10.5.6.7'");
+            let _ = writeln!(out, "    hematite --ip 'range 192.168.1.1 192.168.1.254'");
+        }
+    }
+
+    let _ = writeln!(out, "{}", sep);
+    out
+}

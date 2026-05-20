@@ -999,6 +999,10 @@ mod tests {
             json: None,
             regex: None,
             csv: None,
+            jwt: None,
+            url_tool: None,
+            cron: None,
+            ip: None,
             pdf_extract_helper: None,
             teleported_from: None,
         };

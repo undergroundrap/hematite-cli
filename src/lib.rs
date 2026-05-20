@@ -1170,6 +1170,38 @@ pub struct CliCockpit {
 
     #[arg(
         long,
+        help_heading = "Math & Science",
+        value_name = "QUERY",
+        help = "JWT decoder — offline, instant, no cloud (replaces jwt.io). Commands: <token> (auto-decode header + claims + expiry), decode <token>, claims <token> (payload only), header <token>. Flags expired tokens, shows iss/sub/aud/iat/exp/nbf as human-readable dates, reports signature algorithm. Never sends your token anywhere. Example: hematite --jwt 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0In0.sig'"
+    )]
+    pub jwt: Option<String>,
+
+    #[arg(
+        long = "url-tool",
+        help_heading = "Math & Science",
+        value_name = "QUERY",
+        help = "URL toolkit — parse, encode, decode URLs offline. Commands: parse <url> (decompose scheme/host/port/path/query/fragment), encode <text> (percent-encode), decode <text> (percent-decode), params <url> (show query key=value pairs), build scheme=https host=x.com path=/api key=val (assemble URL). Bare URLs are auto-parsed. Examples: hematite --url-tool 'parse https://api.x.com/v1?foo=bar&page=2' | hematite --url-tool 'encode hello world' | hematite --url-tool 'decode hello%20world'"
+    )]
+    pub url_tool: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Math & Science",
+        value_name = "QUERY",
+        help = "Cron expression toolkit — explain and compute next run times offline (replaces crontab.guru). Commands: <expr> (explain + next 5 runs), explain <expr> (plain-English description of 5-field cron), next <expr> (next 5 run times from now), next N <expr> (next N run times). Fields: minute hour day-of-month month day-of-week. Supports */step, ranges, lists, combinations. Examples: hematite --cron '* * * * *' | hematite --cron '0 9 * * 1-5' | hematite --cron 'next 10 */15 * * * *'"
+    )]
+    pub cron: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Math & Science",
+        value_name = "QUERY",
+        help = "IP address and subnet calculator — classify IPs and compute CIDR blocks offline. Commands: <ip> (classify: private/public/loopback/class), <ip>/<prefix> (subnet details: mask, broadcast, usable range, host count), contains <cidr> <ip> (test membership), range <ip1> <ip2> (count IPs, suggest CIDR), mask <prefix|dotted> (convert mask formats). Also handles IPv6 classification. Examples: hematite --ip 192.168.1.0/24 | hematite --ip 'contains 10.0.0.0/8 10.5.6.7' | hematite --ip 'range 192.168.1.1 192.168.1.254'"
+    )]
+    pub ip: Option<String>,
+
+    #[arg(
+        long,
         help_heading = "Headless Reports",
         value_name = "ELEMENT",
         help = "Look up a periodic table element — instant, no model, no cloud. Accepts symbol (H, Au), full name (Gold, Hydrogen), or atomic number (79). Shows atomic mass, category, period/group, electronegativity, and state at STP. Example: hematite --periodic Au"
