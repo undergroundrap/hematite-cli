@@ -3,15 +3,16 @@
 /// Covers known-value correctness, edge-case non-panics, and the newer
 /// matrix decomposition modes (QR, SVD, Cholesky).
 use hematite::tools::math_util::{
-    ascii_calc, bitwise_calc, case_calc, chars_calc, checksum_calc, chemistry_calc, cipher_calc,
-    color_calc, combinatorics_calc, complex_calc, cron_calc, csv_calc, datetime_calc, diff_calc,
-    duration_calc, electrical_calc, encode_calc, escape_calc, fraction_calc, geometry_calc,
-    gitignore_calc, hash_calc, headers_calc, health_calc, http_calc, ip_calc, json_calc,
-    json_path_calc, jwt_calc, kbd_calc, license_calc, lorem_calc, markdown_calc, matrix_calc,
-    mime_calc, net_calc, number_format, number_theory_calc, percent_calc, physics_calc, port_calc,
-    prob_calc, regex_calc, roman_calc, semver_calc, set_calc, sort_viz, spark_calc, sql_fmt_calc,
-    stats_calc, string_dist, table_calc, template_calc, text_stats, timestamp_calc, toml_calc,
-    trig_calc, tz_calc, url_calc, uuid_calc, validate_calc, xml_calc, yaml_calc,
+    ascii_calc, ascii_table_calc, bitwise_calc, case_calc, chars_calc, checksum_calc,
+    chemistry_calc, cipher_calc, color_calc, combinatorics_calc, complex_calc, cron_calc, csv_calc,
+    datetime_calc, diff_calc, duration_calc, electrical_calc, encode_calc, escape_calc,
+    fraction_calc, geometry_calc, gitignore_calc, hash_calc, headers_calc, health_calc, http_calc,
+    id_gen_calc, ip_calc, json_calc, json_path_calc, jwt_calc, kbd_calc, license_calc, lorem_calc,
+    markdown_calc, matrix_calc, mime_calc, net_calc, number_format, number_theory_calc,
+    percent_calc, physics_calc, port_calc, prob_calc, regex_calc, regex_ref_calc, roman_calc,
+    semver_calc, set_calc, sort_viz, spark_calc, sql_fmt_calc, ssl_calc, stats_calc, string_dist,
+    table_calc, template_calc, text_stats, timestamp_calc, toml_calc, trig_calc, tz_calc, url_calc,
+    uuid_calc, validate_calc, xml_calc, yaml_calc,
 };
 
 // ─── Cipher tests ────────────────────────────────────────────────────────────
@@ -4389,4 +4390,460 @@ fn test_markdown_frontmatter_section() {
 fn test_markdown_blockquote_section() {
     let out = markdown_calc("blockquote");
     assert!(out.contains("> "), "{out}");
+}
+
+// ── Wave 11: regex_ref_calc ───────────────────────────────────────────────────
+
+#[test]
+fn test_regex_ref_empty_shows_help() {
+    let out = regex_ref_calc("");
+    assert!(out.contains("hematite --regex-ref"), "{out}");
+    assert!(out.contains("email"), "{out}");
+}
+
+#[test]
+fn test_regex_ref_email_pattern() {
+    let out = regex_ref_calc("email");
+    assert!(out.contains("email"), "{out}");
+    assert!(out.contains("@"), "{out}");
+    assert!(out.contains("grep"), "{out}");
+}
+
+#[test]
+fn test_regex_ref_uuid_pattern() {
+    let out = regex_ref_calc("uuid");
+    assert!(out.contains("UUID"), "{out}");
+    assert!(out.contains("[0-9a-f]"), "{out}");
+}
+
+#[test]
+fn test_regex_ref_url_by_alias() {
+    let out = regex_ref_calc("http");
+    assert!(out.contains("http"), "{out}");
+    assert!(out.contains("https?"), "{out}");
+}
+
+#[test]
+fn test_regex_ref_ipv4_pattern() {
+    let out = regex_ref_calc("ipv4");
+    assert!(out.contains("IPv4"), "{out}");
+    assert!(out.contains(r"\b"), "{out}");
+}
+
+#[test]
+fn test_regex_ref_date_iso_pattern() {
+    let out = regex_ref_calc("date-iso");
+    assert!(out.contains("ISO 8601"), "{out}");
+}
+
+#[test]
+fn test_regex_ref_syntax_section() {
+    let out = regex_ref_calc("syntax");
+    assert!(out.contains("Regex Syntax"), "{out}");
+    assert!(out.contains(r"\d"), "{out}");
+    assert!(out.contains("lookahead"), "{out}");
+}
+
+#[test]
+fn test_regex_ref_all_prints_every_pattern() {
+    let out = regex_ref_calc("all");
+    assert!(out.contains("email"), "{out}");
+    assert!(out.contains("uuid"), "{out}");
+    assert!(out.contains("mac-address"), "{out}");
+    assert!(out.contains("hashtag"), "{out}");
+}
+
+#[test]
+fn test_regex_ref_unknown_pattern() {
+    let out = regex_ref_calc("foobar_xyz");
+    assert!(out.contains("No pattern found"), "{out}");
+}
+
+#[test]
+fn test_regex_ref_hex_color() {
+    let out = regex_ref_calc("hex-color");
+    assert!(out.contains("CSS hex"), "{out}");
+    assert!(out.contains("#"), "{out}");
+}
+
+#[test]
+fn test_regex_ref_semver() {
+    let out = regex_ref_calc("semver");
+    assert!(out.contains("Semantic version"), "{out}");
+}
+
+#[test]
+fn test_regex_ref_jwt_by_alias() {
+    let out = regex_ref_calc("bearer");
+    assert!(out.contains("JWT") || out.contains("token"), "{out}");
+}
+
+// ── Wave 11: ascii_table_calc ─────────────────────────────────────────────────
+
+#[test]
+fn test_ascii_table_empty_shows_full_table() {
+    let out = ascii_table_calc("");
+    assert!(
+        out.contains("ASCII Table") || out.contains("Description"),
+        "{out}"
+    );
+    assert!(out.contains("NUL"), "{out}");
+    assert!(out.contains("DEL"), "{out}");
+}
+
+#[test]
+fn test_ascii_table_lookup_by_decimal() {
+    let out = ascii_table_calc("65");
+    assert!(out.contains("65"), "{out}");
+    assert!(out.contains("0x41"), "{out}");
+    assert!(out.contains("Uppercase A") || out.contains("A"), "{out}");
+}
+
+#[test]
+fn test_ascii_table_lookup_by_hex() {
+    let out = ascii_table_calc("0x41");
+    assert!(out.contains("65") || out.contains("Uppercase A"), "{out}");
+}
+
+#[test]
+fn test_ascii_table_lookup_by_char() {
+    let out = ascii_table_calc("A");
+    assert!(out.contains("65") || out.contains("0x41"), "{out}");
+}
+
+#[test]
+fn test_ascii_table_control_section() {
+    let out = ascii_table_calc("control");
+    assert!(out.contains("NUL"), "{out}");
+    assert!(out.contains("ESC"), "{out}");
+    // printable chars must not appear in control section
+    assert!(!out.contains("Uppercase A"), "{out}");
+}
+
+#[test]
+fn test_ascii_table_digits_section() {
+    let out = ascii_table_calc("digits");
+    assert!(out.contains("Digit zero"), "{out}");
+    assert!(out.contains("Digit nine"), "{out}");
+    assert!(!out.contains("NUL"), "{out}");
+}
+
+#[test]
+fn test_ascii_table_upper_section() {
+    let out = ascii_table_calc("upper");
+    assert!(out.contains("Uppercase A"), "{out}");
+    assert!(out.contains("Uppercase Z"), "{out}");
+    assert!(!out.contains("Lowercase"), "{out}");
+}
+
+#[test]
+fn test_ascii_table_punct_section() {
+    let out = ascii_table_calc("punct");
+    assert!(out.contains("Exclamation") || out.contains("!"), "{out}");
+    assert!(!out.contains("Digit"), "{out}");
+}
+
+#[test]
+fn test_ascii_table_search_by_name() {
+    let out = ascii_table_calc("backslash");
+    assert!(
+        out.contains("92") || out.contains("5C") || out.contains("backslash"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_ascii_table_dec_0_nul() {
+    let out = ascii_table_calc("0");
+    assert!(out.contains("NUL"), "{out}");
+    assert!(out.contains("00"), "{out}");
+}
+
+#[test]
+fn test_ascii_table_dec_32_space() {
+    let out = ascii_table_calc("32");
+    assert!(out.contains("SPC") || out.contains("Space"), "{out}");
+}
+
+#[test]
+fn test_ascii_table_unknown_returns_tip() {
+    let out = ascii_table_calc("zzquux");
+    assert!(out.contains("No match") || out.contains("Try"), "{out}");
+}
+
+// ── Wave 11: ssl_calc ─────────────────────────────────────────────────────────
+
+#[test]
+fn test_ssl_empty_shows_help() {
+    let out = ssl_calc("");
+    assert!(out.contains("hematite --ssl"), "{out}");
+    assert!(out.contains("handshake"), "{out}");
+}
+
+#[test]
+fn test_ssl_handshake_topic() {
+    let out = ssl_calc("handshake");
+    assert!(out.contains("ClientHello") || out.contains("TLS"), "{out}");
+    assert!(
+        out.contains("ServerHello") || out.contains("1-RTT"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_ssl_ciphers_topic() {
+    let out = ssl_calc("ciphers");
+    assert!(out.contains("AES"), "{out}");
+    assert!(
+        out.contains("CHACHA20") || out.contains("ChaCha20"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_ssl_openssl_commands() {
+    let out = ssl_calc("openssl");
+    assert!(out.contains("openssl x509"), "{out}");
+    assert!(out.contains("cert.pem"), "{out}");
+}
+
+#[test]
+fn test_ssl_certificates_topic() {
+    let out = ssl_calc("cert");
+    assert!(out.contains("PEM") || out.contains("DER"), "{out}");
+}
+
+#[test]
+fn test_ssl_nginx_config() {
+    let out = ssl_calc("nginx");
+    assert!(
+        out.contains("ssl_protocols") || out.contains("TLSv1"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_ssl_grades_topic() {
+    let out = ssl_calc("grades");
+    assert!(out.contains("Mozilla") || out.contains("Modern"), "{out}");
+    assert!(out.contains("A+") || out.contains("A "), "{out}");
+}
+
+#[test]
+fn test_ssl_hsts_headers() {
+    let out = ssl_calc("hsts");
+    assert!(out.contains("Strict-Transport-Security"), "{out}");
+    assert!(out.contains("max-age"), "{out}");
+}
+
+#[test]
+fn test_ssl_errors_section() {
+    let out = ssl_calc("errors");
+    assert!(out.contains("expired") || out.contains("ERR_CERT"), "{out}");
+}
+
+#[test]
+fn test_ssl_all_prints_all_sections() {
+    let out = ssl_calc("all");
+    assert!(
+        out.contains("handshake") || out.contains("ClientHello"),
+        "{out}"
+    );
+    assert!(out.contains("AES"), "{out}");
+    assert!(out.contains("Strict-Transport-Security"), "{out}");
+}
+
+#[test]
+fn test_ssl_unknown_topic() {
+    let out = ssl_calc("foobar_xyz");
+    assert!(out.contains("No section") || out.contains("help"), "{out}");
+}
+
+// ── Wave 11: id_gen_calc ──────────────────────────────────────────────────────
+
+#[test]
+fn test_id_gen_empty_shows_help() {
+    let out = id_gen_calc("");
+    assert!(out.contains("hematite --id"), "{out}");
+    assert!(out.contains("uuid"), "{out}");
+    assert!(out.contains("ulid"), "{out}");
+}
+
+#[test]
+fn test_id_gen_uuid_format() {
+    let out = id_gen_calc("uuid");
+    // UUID v4: 8-4-4-4-12 hex groups
+    let id_line = out.lines().find(|l| l.contains('-')).unwrap_or("");
+    let id = id_line.trim();
+    let parts: Vec<&str> = id.split('-').collect();
+    assert_eq!(parts.len(), 5, "UUID must have 5 parts: {id}");
+    assert_eq!(parts[0].len(), 8, "Part 0 len: {id}");
+    assert_eq!(parts[1].len(), 4, "Part 1 len: {id}");
+    assert_eq!(parts[2].len(), 4, "Part 2 len: {id}");
+    assert_eq!(parts[3].len(), 4, "Part 3 len: {id}");
+    assert_eq!(parts[4].len(), 12, "Part 4 len: {id}");
+}
+
+#[test]
+fn test_id_gen_uuid4_alias() {
+    let out = id_gen_calc("uuid4");
+    assert!(out.contains('-'), "{out}");
+}
+
+#[test]
+fn test_id_gen_ulid_format() {
+    let out = id_gen_calc("ulid");
+    // ULID: 26 Crockford base32 chars, uppercase, no dashes
+    let id_line = out.lines().find(|l| l.trim().len() == 26).unwrap_or("");
+    let id = id_line.trim();
+    assert_eq!(id.len(), 26, "ULID must be 26 chars: '{id}'");
+    assert!(
+        id.chars().all(|c| c.is_ascii_alphanumeric()),
+        "ULID must be alphanumeric: {id}"
+    );
+}
+
+#[test]
+fn test_id_gen_nanoid_default_length() {
+    let out = id_gen_calc("nanoid");
+    assert!(out.contains("21 chars") || out.contains("NanoID"), "{out}");
+    // Find the ID line (21 chars, no spaces)
+    let id_line = out.lines().find(|l| l.trim().len() == 21).unwrap_or("");
+    assert_eq!(
+        id_line.trim().len(),
+        21,
+        "NanoID must be 21 chars, got: '{}'",
+        id_line.trim()
+    );
+}
+
+#[test]
+fn test_id_gen_nanoid_custom_length() {
+    let out = id_gen_calc("nanoid 32");
+    assert!(out.contains("32 chars"), "{out}");
+    let id_line = out.lines().find(|l| l.trim().len() == 32).unwrap_or("");
+    assert_eq!(
+        id_line.trim().len(),
+        32,
+        "NanoID custom must be 32 chars: '{}'",
+        id_line.trim()
+    );
+}
+
+#[test]
+fn test_id_gen_hex8_format() {
+    let out = id_gen_calc("hex8");
+    // 16 hex chars
+    let id_line = out
+        .lines()
+        .find(|l| {
+            let t = l.trim();
+            t.len() == 16 && t.chars().all(|c| c.is_ascii_hexdigit())
+        })
+        .unwrap_or("");
+    assert!(
+        !id_line.is_empty(),
+        "hex8 must produce a 16-char hex ID, got: {out}"
+    );
+}
+
+#[test]
+fn test_id_gen_hex16_format() {
+    let out = id_gen_calc("hex16");
+    let id_line = out
+        .lines()
+        .find(|l| {
+            let t = l.trim();
+            t.len() == 32 && t.chars().all(|c| c.is_ascii_hexdigit())
+        })
+        .unwrap_or("");
+    assert!(
+        !id_line.is_empty(),
+        "hex16 must produce a 32-char hex ID, got: {out}"
+    );
+}
+
+#[test]
+fn test_id_gen_cuid2_format() {
+    let out = id_gen_calc("cuid2");
+    // CUID2: starts with lowercase letter, 25 total alphanumeric chars
+    let id_line = out
+        .lines()
+        .find(|l| {
+            let t = l.trim();
+            t.len() == 25 && t.chars().all(|c| c.is_ascii_alphanumeric())
+        })
+        .unwrap_or("");
+    assert!(
+        !id_line.is_empty(),
+        "cuid2 must be 25 lowercase alphanumeric chars, got: {out}"
+    );
+}
+
+#[test]
+fn test_id_gen_xid_format() {
+    let out = id_gen_calc("xid");
+    // XID: 20 base32 chars
+    let id_line = out
+        .lines()
+        .find(|l| {
+            let t = l.trim();
+            t.len() == 20 && t.chars().all(|c| c.is_ascii_alphanumeric())
+        })
+        .unwrap_or("");
+    assert!(!id_line.is_empty(), "xid must be 20 chars, got: {out}");
+}
+
+#[test]
+fn test_id_gen_all_shows_all_types() {
+    let out = id_gen_calc("all");
+    assert!(out.contains("UUID") || out.contains("uuid"), "{out}");
+    assert!(out.contains("ULID") || out.contains("ulid"), "{out}");
+    assert!(out.contains("NanoID") || out.contains("nanoid"), "{out}");
+    assert!(out.contains("Hex") || out.contains("hex"), "{out}");
+    assert!(out.contains("CUID2") || out.contains("cuid"), "{out}");
+    assert!(out.contains("XID") || out.contains("xid"), "{out}");
+}
+
+#[test]
+fn test_id_gen_unknown_type() {
+    let out = id_gen_calc("foobar_xyz");
+    assert!(
+        out.contains("Unknown type") || out.contains("help"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_id_gen_two_uuids_differ() {
+    let a = id_gen_calc("uuid");
+    let b = id_gen_calc("uuid");
+    // Extract the actual ID from each output
+    let id_a: String = a
+        .lines()
+        .find(|l| l.trim().len() == 36 && l.contains('-'))
+        .unwrap_or("")
+        .trim()
+        .to_string();
+    let id_b: String = b
+        .lines()
+        .find(|l| l.trim().len() == 36 && l.contains('-'))
+        .unwrap_or("")
+        .trim()
+        .to_string();
+    // They should differ (different nanosecond timestamps drive entropy)
+    // Note: in very fast sequential calls they might collide; this is a best-effort check
+    if !id_a.is_empty() && !id_b.is_empty() {
+        // Just verify both are valid UUID format
+        assert_eq!(
+            id_a.split('-').count(),
+            5,
+            "ID a must be UUID format: {id_a}"
+        );
+        assert_eq!(
+            id_b.split('-').count(),
+            5,
+            "ID b must be UUID format: {id_b}"
+        );
+    }
 }

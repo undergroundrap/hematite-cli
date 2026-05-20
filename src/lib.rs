@@ -1412,6 +1412,38 @@ pub struct CliCockpit {
         long,
         help_heading = "Math & Science",
         value_name = "QUERY",
+        help = "Regex pattern library — offline replacement for regex101.com lookups. Named patterns: email, url, uuid, ipv4, ipv6, phone-us, date-iso, date-us, time, zip-us, postal-ca, credit-card, ssn, hex-color, slug, semver, jwt, mac-address, filename, path-unix, path-win, html-tag, whitespace, digits, word, hashtag, mention. Commands: syntax = regex syntax cheatsheet; all = every pattern; <name> = single pattern + grep/rg snippets. Examples: hematite --regex-ref email | hematite --regex-ref uuid | hematite --regex-ref syntax"
+    )]
+    pub regex_ref: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Math & Science",
+        value_name = "QUERY",
+        help = "Full 7-bit ASCII table — offline replacement for asciitable.com. Lookup by decimal (65), hex (0x41 or 41h), or character (A). Filter sections: control, printable, upper, lower, digits, letters, punct. Show all: hematite --ascii-table all. Examples: hematite --ascii-table 65 | hematite --ascii-table A | hematite --ascii-table control | hematite --ascii-table punct"
+    )]
+    pub ascii_table: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Math & Science",
+        value_name = "TOPIC",
+        help = "TLS/SSL reference — offline replacement for SSL cheatsheets. Topics: handshake (TLS 1.2/1.3 flow), ciphers (recommended suites, deprecated suites), certificates (PEM/DER/PKCS formats, chain), openssl (command snippets), nginx (HTTPS server config), grades (Mozilla config levels, SSL Labs grading), hsts (security headers), errors (common TLS errors and fixes). Commands: all = print everything. Examples: hematite --ssl handshake | hematite --ssl openssl | hematite --ssl errors | hematite --ssl all"
+    )]
+    pub ssl: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Math & Science",
+        value_name = "TYPE",
+        help = "Unique ID generator — offline replacement for uuidgenerator.net and similar tools. Types: uuid/uuid4, ulid (sortable), nanoid (URL-safe 21 chars), nanoid <N> (custom length), hex8, hex16, hex32, cuid2, xid (K-sortable). Generate all at once: all. Examples: hematite --id uuid | hematite --id ulid | hematite --id nanoid | hematite --id nanoid 32 | hematite --id all"
+    )]
+    pub id: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Math & Science",
+        value_name = "QUERY",
         help = "Lorem ipsum generator — offline replacement for lipsum.com. Commands: (bare) or <N> = N paragraphs (default 1); words <N> = N words; sentences <N> = N sentences. Examples: hematite --lorem | hematite --lorem 3 | hematite --lorem 'words 50' | hematite --lorem 'sentences 5'"
     )]
     pub lorem: Option<String>,

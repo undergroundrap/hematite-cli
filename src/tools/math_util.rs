@@ -28882,3 +28882,955 @@ pub fn markdown_calc(query: &str) -> String {
     let _ = writeln!(out, "{sep}");
     out
 }
+
+// ─── Wave 11: regex-ref, ascii-table, ssl, id ─────────────────────────────────
+
+pub fn regex_ref_calc(query: &str) -> String {
+    use std::fmt::Write as _;
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+
+    const PATTERNS: &[(&str, &[&str], &str, &str)] = &[
+        (
+            "email",
+            &["email", "mail", "e-mail"],
+            r"^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$",
+            "Standard email address",
+        ),
+        (
+            "url",
+            &["url", "uri", "link", "http", "https"],
+            r"https?://[^\s/$.?#].[^\s]*",
+            "HTTP/HTTPS URL (permissive)",
+        ),
+        (
+            "uuid",
+            &["uuid", "guid"],
+            r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}",
+            "UUID v4 (lowercase hex)",
+        ),
+        (
+            "ipv4",
+            &["ipv4", "ip", "ip4"],
+            r"\b(?:(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\b",
+            "IPv4 address",
+        ),
+        (
+            "ipv6",
+            &["ipv6", "ip6"],
+            r"(?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}|::(?:[0-9a-fA-F]{1,4}:){0,6}[0-9a-fA-F]{1,4}",
+            "IPv6 address (full or compressed)",
+        ),
+        (
+            "phone-us",
+            &["phone", "tel", "telephone", "us-phone"],
+            r"\+?1?\s*[\(\-]?\d{3}[\)\-\s]\s*\d{3}[\-\s]\d{4}",
+            "US phone number (flexible format)",
+        ),
+        (
+            "date-iso",
+            &["date", "iso", "isodate", "date-iso"],
+            r"\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01])",
+            "ISO 8601 date  YYYY-MM-DD",
+        ),
+        (
+            "date-us",
+            &["date-us", "us-date", "mm/dd"],
+            r"(?:0?[1-9]|1[0-2])/(?:0?[1-9]|[12]\d|3[01])/(?:\d{2}|\d{4})",
+            "US date  MM/DD/YYYY or M/D/YY",
+        ),
+        (
+            "time",
+            &["time", "clock", "hh:mm"],
+            r"(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d)?",
+            "24-hour time  HH:MM or HH:MM:SS",
+        ),
+        (
+            "zip-us",
+            &["zip", "postal", "zipcode", "us-zip"],
+            r"\b\d{5}(?:-\d{4})?\b",
+            "US ZIP code  12345 or 12345-6789",
+        ),
+        (
+            "postal-ca",
+            &["postal-ca", "canada", "ca-postal"],
+            r"[A-Za-z]\d[A-Za-z]\s?\d[A-Za-z]\d",
+            "Canadian postal code  A1A 1A1",
+        ),
+        (
+            "credit-card",
+            &["credit", "card", "cc", "creditcard"],
+            r"\b(?:4\d{12}(?:\d{3})?|5[1-5]\d{14}|3[47]\d{13}|6(?:011|5\d{2})\d{12})\b",
+            "Credit card  Visa/MC/Amex/Discover",
+        ),
+        (
+            "ssn",
+            &["ssn", "social", "social-security"],
+            r"\b(?!000|666|9\d{2})\d{3}-(?!00)\d{2}-(?!0000)\d{4}\b",
+            "US Social Security Number",
+        ),
+        (
+            "hex-color",
+            &["hex", "color", "colour", "hexcolor"],
+            r"#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})\b",
+            "CSS hex color  #RGB or #RRGGBB",
+        ),
+        (
+            "slug",
+            &["slug", "url-slug"],
+            r"^[a-z0-9]+(?:-[a-z0-9]+)*$",
+            "URL slug  lowercase-with-hyphens",
+        ),
+        (
+            "semver",
+            &["semver", "version", "ver"],
+            r"v?(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)(?:-[\w.]+)?(?:\+[\w.]+)?",
+            "Semantic version  1.2.3 or v1.2.3-beta+build",
+        ),
+        (
+            "jwt",
+            &["jwt", "token", "bearer"],
+            r"eyJ[A-Za-z0-9-_]+\.eyJ[A-Za-z0-9-_]+\.[A-Za-z0-9-_.+/]*",
+            "JSON Web Token (header.payload.signature)",
+        ),
+        (
+            "mac-address",
+            &["mac", "hwaddr", "ethernet"],
+            r"(?:[0-9a-fA-F]{2}[:\-]){5}[0-9a-fA-F]{2}",
+            "MAC address  AA:BB:CC:DD:EE:FF or AA-BB-CC-DD-EE-FF",
+        ),
+        (
+            "filename",
+            &["filename", "file", "fname"],
+            r"[\w\-. ]+\.(?:txt|pdf|docx?|xlsx?|png|jpe?g|gif|mp[34]|zip|tar\.gz)\b",
+            "Common filename with extension",
+        ),
+        (
+            "path-unix",
+            &["path", "unix-path", "linux-path"],
+            r"(?:/[^\s/]+)+/?",
+            "Unix/Linux file path",
+        ),
+        (
+            "path-win",
+            &["windows-path", "win-path", "winpath"],
+            r#"[A-Za-z]:\\(?:[^\\\s/:*?"<>|]+\\)*[^\\\s/:*?"<>|]*"#,
+            r"Windows file path  C:\Users\name\file.txt",
+        ),
+        (
+            "html-tag",
+            &["html", "tag", "htmltag"],
+            r"<(/?)([a-zA-Z][a-zA-Z0-9]*)([^>]*)(/?)>",
+            "HTML tag (opening, closing, or self-closing)",
+        ),
+        (
+            "whitespace",
+            &["whitespace", "ws", "blank", "spaces"],
+            r"\s+",
+            "One or more whitespace characters",
+        ),
+        (
+            "digits",
+            &["digits", "numbers", "num", "integer"],
+            r"\b\d+\b",
+            "Whole number / integer sequence",
+        ),
+        (
+            "word",
+            &["word", "words", "alpha"],
+            r"\b[a-zA-Z]+\b",
+            "Alphabetic word",
+        ),
+        (
+            "hashtag",
+            &["hashtag", "hash", "twitter"],
+            r"#[A-Za-z]\w*",
+            "Social-media hashtag",
+        ),
+        (
+            "mention",
+            &["mention", "at", "twitter-mention"],
+            r"@[A-Za-z]\w*",
+            "Social-media @mention",
+        ),
+    ];
+
+    const SYNTAX: &[(&str, &str)] = &[
+        (".", "Any character except newline"),
+        ("^", "Start of string (or line in MULTILINE)"),
+        ("$", "End of string (or line in MULTILINE)"),
+        ("*", "0 or more of the preceding"),
+        ("+", "1 or more of the preceding"),
+        ("?", "0 or 1 of the preceding (also: lazy quantifier)"),
+        ("{n}", "Exactly n repetitions"),
+        ("{n,}", "n or more repetitions"),
+        ("{n,m}", "Between n and m repetitions"),
+        ("[abc]", "Character class  a, b, or c"),
+        ("[^abc]", "Negated class  anything except a, b, c"),
+        ("[a-z]", "Character range  a through z"),
+        ("(abc)", "Capture group"),
+        ("(?:abc)", "Non-capture group"),
+        ("a|b", "Alternation  a or b"),
+        ("\\b", "Word boundary"),
+        ("\\d", "Digit  [0-9]"),
+        ("\\D", "Non-digit  [^0-9]"),
+        ("\\w", "Word char  [a-zA-Z0-9_]"),
+        ("\\W", "Non-word char"),
+        ("\\s", "Whitespace  [ \\t\\n\\r\\f\\v]"),
+        ("\\S", "Non-whitespace"),
+        ("(?i)", "Case-insensitive flag"),
+        ("(?m)", "Multiline flag  ^ and $ match line ends"),
+        ("(?s)", "Dotall flag  . matches newlines too"),
+        ("(?=...)", "Lookahead  a(?=b) matches a before b"),
+        ("(?!...)", "Negative lookahead"),
+        ("(?<=...)", "Lookbehind  (?<=a)b matches b after a"),
+        ("(?<!...)", "Negative lookbehind"),
+        ("\\1", "Backreference to capture group 1"),
+    ];
+
+    let q = query.to_lowercase();
+
+    if q.is_empty() || q == "help" || q == "list" {
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  hematite --regex-ref <PATTERN>");
+        let _ = writeln!(
+            out,
+            "  Offline regex reference — replaces regex101.com for lookups"
+        );
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  Available patterns:");
+        for &(name, aliases, _, desc) in PATTERNS {
+            let alias_str = aliases.join(", ");
+            let _ = writeln!(out, "    {name:<14} ({alias_str})  --  {desc}");
+        }
+        let _ = writeln!(out, "\n  Special commands:");
+        let _ = writeln!(out, "    syntax        Print regex syntax quick-reference");
+        let _ = writeln!(out, "    all           Print all patterns");
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    if q == "syntax" {
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  Regex Syntax Quick Reference");
+        let _ = writeln!(out, "{sep}");
+        for &(token, desc) in SYNTAX {
+            let _ = writeln!(out, "  {token:<14} {desc}");
+        }
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    if q == "all" {
+        let _ = writeln!(out, "{sep}");
+        for &(name, _, pattern, desc) in PATTERNS {
+            let _ = writeln!(out, "  {name}");
+            let _ = writeln!(out, "    {desc}");
+            let _ = writeln!(out, "    {pattern}");
+            let _ = writeln!(out, "");
+        }
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    let found: Vec<_> = PATTERNS
+        .iter()
+        .filter(|&&(name, aliases, _, _)| {
+            name == q.as_str()
+                || aliases
+                    .iter()
+                    .any(|&a| a == q.as_str() || q.contains(a) || a.contains(q.as_str()))
+        })
+        .collect();
+
+    if found.is_empty() {
+        let _ = writeln!(out, "  No pattern found for '{}'.", query.trim());
+        let _ = writeln!(out, "  Run: hematite --regex-ref help");
+    } else {
+        let _ = writeln!(out, "{sep}");
+        for &&(name, aliases, pattern, desc) in &found {
+            let _ = writeln!(
+                out,
+                "  Pattern:     {name}  (aliases: {})",
+                aliases.join(", ")
+            );
+            let _ = writeln!(out, "  Description: {desc}");
+            let _ = writeln!(out, "  Regex:       {pattern}");
+            let _ = writeln!(out, "");
+            let _ = writeln!(out, "  Quick test (grep):    grep -P '{pattern}' file.txt");
+            let _ = writeln!(out, "  Quick test (ripgrep): rg '{pattern}' file.txt");
+        }
+        let _ = writeln!(out, "{sep}");
+    }
+    out
+}
+
+pub fn ascii_table_calc(query: &str) -> String {
+    use std::fmt::Write as _;
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+
+    // (dec, hex, name/char, description)
+    const ASCII: &[(u8, &str, &str, &str)] = &[
+        (0, "00", "NUL", "Null"),
+        (1, "01", "SOH", "Start of Heading"),
+        (2, "02", "STX", "Start of Text"),
+        (3, "03", "ETX", "End of Text"),
+        (4, "04", "EOT", "End of Transmission"),
+        (5, "05", "ENQ", "Enquiry"),
+        (6, "06", "ACK", "Acknowledge"),
+        (7, "07", "BEL", "Bell"),
+        (8, "08", "BS", "Backspace"),
+        (9, "09", "HT", "Horizontal Tab"),
+        (10, "0A", "LF", "Line Feed (newline)"),
+        (11, "0B", "VT", "Vertical Tab"),
+        (12, "0C", "FF", "Form Feed"),
+        (13, "0D", "CR", "Carriage Return"),
+        (14, "0E", "SO", "Shift Out"),
+        (15, "0F", "SI", "Shift In"),
+        (16, "10", "DLE", "Data Link Escape"),
+        (17, "11", "DC1", "Device Control 1 (XON)"),
+        (18, "12", "DC2", "Device Control 2"),
+        (19, "13", "DC3", "Device Control 3 (XOFF)"),
+        (20, "14", "DC4", "Device Control 4"),
+        (21, "15", "NAK", "Negative Acknowledge"),
+        (22, "16", "SYN", "Synchronous Idle"),
+        (23, "17", "ETB", "End of Transmission Block"),
+        (24, "18", "CAN", "Cancel"),
+        (25, "19", "EM", "End of Medium"),
+        (26, "1A", "SUB", "Substitute"),
+        (27, "1B", "ESC", "Escape"),
+        (28, "1C", "FS", "File Separator"),
+        (29, "1D", "GS", "Group Separator"),
+        (30, "1E", "RS", "Record Separator"),
+        (31, "1F", "US", "Unit Separator"),
+        (32, "20", "SPC", "Space"),
+        (33, "21", "!", "Exclamation mark"),
+        (34, "22", "\"", "Quotation mark"),
+        (35, "23", "#", "Number sign"),
+        (36, "24", "$", "Dollar sign"),
+        (37, "25", "%", "Percent sign"),
+        (38, "26", "&", "Ampersand"),
+        (39, "27", "'", "Apostrophe"),
+        (40, "28", "(", "Left parenthesis"),
+        (41, "29", ")", "Right parenthesis"),
+        (42, "2A", "*", "Asterisk"),
+        (43, "2B", "+", "Plus sign"),
+        (44, "2C", ",", "Comma"),
+        (45, "2D", "-", "Hyphen-minus"),
+        (46, "2E", ".", "Period / full stop"),
+        (47, "2F", "/", "Solidus / slash"),
+        (48, "30", "0", "Digit zero"),
+        (49, "31", "1", "Digit one"),
+        (50, "32", "2", "Digit two"),
+        (51, "33", "3", "Digit three"),
+        (52, "34", "4", "Digit four"),
+        (53, "35", "5", "Digit five"),
+        (54, "36", "6", "Digit six"),
+        (55, "37", "7", "Digit seven"),
+        (56, "38", "8", "Digit eight"),
+        (57, "39", "9", "Digit nine"),
+        (58, "3A", ":", "Colon"),
+        (59, "3B", ";", "Semicolon"),
+        (60, "3C", "<", "Less-than sign"),
+        (61, "3D", "=", "Equals sign"),
+        (62, "3E", ">", "Greater-than sign"),
+        (63, "3F", "?", "Question mark"),
+        (64, "40", "@", "Commercial at"),
+        (65, "41", "A", "Uppercase A"),
+        (66, "42", "B", "Uppercase B"),
+        (67, "43", "C", "Uppercase C"),
+        (68, "44", "D", "Uppercase D"),
+        (69, "45", "E", "Uppercase E"),
+        (70, "46", "F", "Uppercase F"),
+        (71, "47", "G", "Uppercase G"),
+        (72, "48", "H", "Uppercase H"),
+        (73, "49", "I", "Uppercase I"),
+        (74, "4A", "J", "Uppercase J"),
+        (75, "4B", "K", "Uppercase K"),
+        (76, "4C", "L", "Uppercase L"),
+        (77, "4D", "M", "Uppercase M"),
+        (78, "4E", "N", "Uppercase N"),
+        (79, "4F", "O", "Uppercase O"),
+        (80, "50", "P", "Uppercase P"),
+        (81, "51", "Q", "Uppercase Q"),
+        (82, "52", "R", "Uppercase R"),
+        (83, "53", "S", "Uppercase S"),
+        (84, "54", "T", "Uppercase T"),
+        (85, "55", "U", "Uppercase U"),
+        (86, "56", "V", "Uppercase V"),
+        (87, "57", "W", "Uppercase W"),
+        (88, "58", "X", "Uppercase X"),
+        (89, "59", "Y", "Uppercase Y"),
+        (90, "5A", "Z", "Uppercase Z"),
+        (91, "5B", "[", "Left square bracket"),
+        (92, "5C", "\\", "Reverse solidus / backslash"),
+        (93, "5D", "]", "Right square bracket"),
+        (94, "5E", "^", "Circumflex / caret"),
+        (95, "5F", "_", "Low line / underscore"),
+        (96, "60", "`", "Grave accent / backtick"),
+        (97, "61", "a", "Lowercase a"),
+        (98, "62", "b", "Lowercase b"),
+        (99, "63", "c", "Lowercase c"),
+        (100, "64", "d", "Lowercase d"),
+        (101, "65", "e", "Lowercase e"),
+        (102, "66", "f", "Lowercase f"),
+        (103, "67", "g", "Lowercase g"),
+        (104, "68", "h", "Lowercase h"),
+        (105, "69", "i", "Lowercase i"),
+        (106, "6A", "j", "Lowercase j"),
+        (107, "6B", "k", "Lowercase k"),
+        (108, "6C", "l", "Lowercase l"),
+        (109, "6D", "m", "Lowercase m"),
+        (110, "6E", "n", "Lowercase n"),
+        (111, "6F", "o", "Lowercase o"),
+        (112, "70", "p", "Lowercase p"),
+        (113, "71", "q", "Lowercase q"),
+        (114, "72", "r", "Lowercase r"),
+        (115, "73", "s", "Lowercase s"),
+        (116, "74", "t", "Lowercase t"),
+        (117, "75", "u", "Lowercase u"),
+        (118, "76", "v", "Lowercase v"),
+        (119, "77", "w", "Lowercase w"),
+        (120, "78", "x", "Lowercase x"),
+        (121, "79", "y", "Lowercase y"),
+        (122, "7A", "z", "Lowercase z"),
+        (123, "7B", "{", "Left curly bracket"),
+        (124, "7C", "|", "Vertical line / pipe"),
+        (125, "7D", "}", "Right curly bracket"),
+        (126, "7E", "~", "Tilde"),
+        (127, "7F", "DEL", "Delete"),
+    ];
+
+    let q = query.trim().to_lowercase();
+
+    // Lookup by decimal number
+    if let Ok(n) = q.parse::<u8>() {
+        if let Some(&(dec, hex, ch, desc)) = ASCII.iter().find(|&&(d, _, _, _)| d == n) {
+            let _ = writeln!(out, "{sep}");
+            let _ = writeln!(
+                out,
+                "  Dec: {dec:>3}  Hex: 0x{hex}  Oct: {dec:>03o}  Bin: {dec:>08b}"
+            );
+            let _ = writeln!(out, "  Char: {ch}  --  {desc}");
+            let _ = writeln!(out, "{sep}");
+        } else {
+            let _ = writeln!(out, "  {n} is outside 7-bit ASCII range (0-127).");
+        }
+        return out;
+    }
+
+    // Lookup by hex: 0x41 or 41h or bare two hex digits
+    let hex_val = if q.starts_with("0x") {
+        u8::from_str_radix(q.trim_start_matches("0x"), 16).ok()
+    } else if q.ends_with('h') && q.len() <= 3 {
+        u8::from_str_radix(q.trim_end_matches('h'), 16).ok()
+    } else if q.len() == 2 && q.chars().all(|c| c.is_ascii_hexdigit()) {
+        u8::from_str_radix(&q, 16).ok()
+    } else {
+        None
+    };
+    if let Some(n) = hex_val {
+        if let Some(&(dec, hex, ch, desc)) = ASCII.iter().find(|&&(d, _, _, _)| d == n) {
+            let _ = writeln!(out, "{sep}");
+            let _ = writeln!(
+                out,
+                "  Dec: {dec:>3}  Hex: 0x{hex}  Oct: {dec:>03o}  Bin: {dec:>08b}"
+            );
+            let _ = writeln!(out, "  Char: {ch}  --  {desc}");
+            let _ = writeln!(out, "{sep}");
+        } else {
+            let _ = writeln!(out, "  Value outside 7-bit ASCII range.");
+        }
+        return out;
+    }
+
+    // Lookup by single character
+    if query.trim().len() == 1 {
+        let ch = query.trim().chars().next().unwrap();
+        if let Some(&(dec, hex, chr, desc)) = ASCII
+            .iter()
+            .find(|&&(_, _, c, _)| c == ch.to_string().as_str())
+        {
+            let _ = writeln!(out, "{sep}");
+            let _ = writeln!(
+                out,
+                "  Dec: {dec:>3}  Hex: 0x{hex}  Oct: {dec:>03o}  Bin: {dec:>08b}"
+            );
+            let _ = writeln!(out, "  Char: {chr}  --  {desc}");
+            let _ = writeln!(out, "{sep}");
+            return out;
+        }
+    }
+
+    // Full table or section filters
+    if q.is_empty() || q == "all" || q == "table" || q == "full" {
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(
+            out,
+            "  Full 7-bit ASCII Table  (Dec / Hex / Oct / Char / Name)"
+        );
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(
+            out,
+            "  {:>3}  {:>4}  {:>4}  {:>4}  {}",
+            "Dec", "Hex", "Oct", "Chr", "Description"
+        );
+        let _ = writeln!(out, "  {}", "─".repeat(55));
+        for &(dec, hex, ch, desc) in ASCII {
+            let _ = writeln!(
+                out,
+                "  {:>3}  0x{hex}  {:>03o}  {:>4}  {desc}",
+                dec, dec, ch
+            );
+        }
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    let filter_fn: Option<Box<dyn Fn(u8) -> bool>> = match q.as_str() {
+        "control" | "ctrl" => Some(Box::new(|d: u8| d < 32 || d == 127)),
+        "printable" | "print" => Some(Box::new(|d: u8| (32..=126).contains(&d))),
+        "digits" | "numbers" | "num" => Some(Box::new(|d: u8| (48..=57).contains(&d))),
+        "upper" | "uppercase" => Some(Box::new(|d: u8| (65..=90).contains(&d))),
+        "lower" | "lowercase" => Some(Box::new(|d: u8| (97..=122).contains(&d))),
+        "letters" | "alpha" => Some(Box::new(|d: u8| {
+            (65..=90).contains(&d) || (97..=122).contains(&d)
+        })),
+        "punct" | "punctuation" | "symbols" => Some(Box::new(
+            |d: u8| matches!(d, 33..=47 | 58..=64 | 91..=96 | 123..=126),
+        )),
+        _ => None,
+    };
+
+    if let Some(f) = filter_fn {
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(
+            out,
+            "  {:>3}  {:>4}  {:>4}  {:>4}  {}",
+            "Dec", "Hex", "Oct", "Chr", "Description"
+        );
+        let _ = writeln!(out, "  {}", "─".repeat(55));
+        for &(dec, hex, ch, desc) in ASCII.iter().filter(|&&(d, _, _, _)| f(d)) {
+            let _ = writeln!(
+                out,
+                "  {:>3}  0x{hex}  {:>03o}  {:>4}  {desc}",
+                dec, dec, ch
+            );
+        }
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    // Name / description search
+    let found: Vec<_> = ASCII
+        .iter()
+        .filter(|&&(_, _, ch, desc)| {
+            ch.to_lowercase().contains(q.as_str()) || desc.to_lowercase().contains(q.as_str())
+        })
+        .collect();
+
+    if found.is_empty() {
+        let _ = writeln!(out, "  No match for '{}'.", query.trim());
+        let _ = writeln!(out, "  Try: a number (65), hex (0x41), char (A),");
+        let _ = writeln!(
+            out,
+            "       or a section: control, printable, upper, lower,"
+        );
+        let _ = writeln!(out, "       digits, letters, punct, all");
+    } else {
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(
+            out,
+            "  {:>3}  {:>4}  {:>4}  {:>4}  {}",
+            "Dec", "Hex", "Oct", "Chr", "Description"
+        );
+        let _ = writeln!(out, "  {}", "─".repeat(55));
+        for &&(dec, hex, ch, desc) in &found {
+            let _ = writeln!(
+                out,
+                "  {:>3}  0x{hex}  {:>03o}  {:>4}  {desc}",
+                dec, dec, ch
+            );
+        }
+        let _ = writeln!(out, "{sep}");
+    }
+    out
+}
+
+pub fn ssl_calc(query: &str) -> String {
+    use std::fmt::Write as _;
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+
+    // Topic index: (name, aliases, content_fn)
+    fn section_handshake() -> &'static str {
+        "  TLS 1.3 Handshake (1-RTT)\n  \n  Client -> Server: ClientHello  (supported versions, cipher suites, key share)\n  Server -> Client: ServerHello  (chosen version, cipher, key share)\n                   Certificate, CertificateVerify, Finished  (encrypted)\n  Client -> Server: Finished  (encrypted)\n  -- Application data flows both ways from here --\n  \n  TLS 1.2 Handshake (2-RTT, legacy)\n  \n  Client -> Server: ClientHello\n  Server -> Client: ServerHello, Certificate, ServerHelloDone\n  Client -> Server: ClientKeyExchange, ChangeCipherSpec, Finished\n  Server -> Client: ChangeCipherSpec, Finished\n  -- Application data --\n  \n  Session resumption: TLS 1.3 uses PSK; 0-RTT is possible\n  ALPN: Application-Layer Protocol Negotiation (selects h2, http/1.1)\n  SNI:  Server Name Indication -- virtual hosting over TLS\n"
+    }
+    fn section_ciphers() -> &'static str {
+        "  TLS 1.3 Cipher Suites\n  \n  TLS_AES_128_GCM_SHA256           recommended, fast\n  TLS_AES_256_GCM_SHA384           recommended, high security\n  TLS_CHACHA20_POLY1305_SHA256     recommended, mobile/ARM\n  TLS_AES_128_CCM_SHA256           IoT\n  TLS_AES_128_CCM_8_SHA256         constrained environments\n  \n  TLS 1.2 Recommended Suites\n  \n  TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256\n  TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384\n  TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256\n  TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256\n  \n  Avoid (deprecated):\n  TLS_RSA_*           no forward secrecy\n  *_RC4_*             broken\n  *_DES_* *_3DES_*    broken\n  *_EXPORT_*          broken\n  *_NULL_*            no encryption\n  *_anon_*            no authentication\n"
+    }
+    fn section_certificates() -> &'static str {
+        "  Certificate File Formats\n  \n  PEM      Base64 DER, ASCII  -----BEGIN CERTIFICATE-----  .pem .crt .cer\n  DER      Binary encoding, not human-readable  .der .cer\n  PKCS#12  Bundle: cert + private key (password-protected)  .p12 .pfx\n  PKCS#7   Certificate chain only, no private key  .p7b .p7c\n  \n  Key Certificate Fields\n  \n  Subject:       CN, O, OU, L, ST, C -- identifies the entity\n  Issuer:        CA that signed this cert\n  Valid From/To: Validity period (NotBefore / NotAfter)\n  SANs:          Subject Alternative Names -- all domains this cert covers\n  Key Usage:     digitalSignature, keyEncipherment, etc.\n  Extended Key:  serverAuth, clientAuth, codeSigning, emailProtection\n  \n  Certificate Chain\n  \n  Root CA (self-signed, in OS/browser trust store)\n    +-- Intermediate CA (cross-certified)\n         +-- Leaf / End-entity cert (your server/domain)\n"
+    }
+    fn section_openssl() -> &'static str {
+        "  OpenSSL Command Reference\n  \n  Inspect a certificate:\n    openssl x509 -in cert.pem -text -noout\n  \n  Check expiry date:\n    openssl x509 -in cert.pem -noout -enddate\n  \n  Verify cert chain:\n    openssl verify -CAfile chain.pem cert.pem\n  \n  Check a live server:\n    openssl s_client -connect example.com:443 -servername example.com\n  \n  Generate RSA private key (4096-bit):\n    openssl genrsa -out private.key 4096\n  \n  Generate EC private key (P-256):\n    openssl ecparam -genkey -name prime256v1 -noout -out ec.key\n  \n  Create CSR from existing key:\n    openssl req -new -key private.key -out request.csr\n  \n  Self-signed cert (dev only, 365 days):\n    openssl req -x509 -newkey rsa:4096 -keyout key.pem -out cert.pem -days 365 -nodes\n  \n  Convert PEM to DER:\n    openssl x509 -in cert.pem -outform DER -out cert.der\n  \n  Convert PFX to PEM:\n    openssl pkcs12 -in bundle.pfx -out bundle.pem -nodes\n  \n  Check key matches cert (outputs must match):\n    openssl x509 -noout -modulus -in cert.pem | openssl md5\n    openssl rsa  -noout -modulus -in key.pem  | openssl md5\n"
+    }
+    fn section_nginx() -> &'static str {
+        "  Nginx HTTPS Config (modern, TLS 1.2+1.3)\n  \n  server {\n      listen 443 ssl http2;\n      server_name example.com www.example.com;\n  \n      ssl_certificate     /etc/ssl/certs/example.com.pem;\n      ssl_certificate_key /etc/ssl/private/example.com.key;\n  \n      ssl_protocols       TLSv1.2 TLSv1.3;\n      ssl_ciphers         ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256\n                          :ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-CHACHA20-POLY1305;\n      ssl_prefer_server_ciphers off;\n  \n      ssl_session_cache   shared:SSL:10m;\n      ssl_session_timeout 1d;\n      ssl_session_tickets off;\n  \n      ssl_stapling        on;\n      ssl_stapling_verify on;\n      resolver            1.1.1.1 8.8.8.8 valid=300s;\n  \n      add_header Strict-Transport-Security \"max-age=63072000\" always;\n      add_header X-Frame-Options DENY;\n      add_header X-Content-Type-Options nosniff;\n  }\n  \n  # Redirect HTTP to HTTPS\n  server {\n      listen 80;\n      server_name example.com;\n      return 301 https://$host$request_uri;\n  }\n"
+    }
+    fn section_grades() -> &'static str {
+        "  Mozilla SSL Configuration Levels\n  \n  Modern (A+ / greenfield):\n    TLS 1.3 only, ECDHE key exchange, AES-GCM / ChaCha20-Poly1305\n    Drops: all TLS < 1.3, RSA key exchange\n  \n  Intermediate (A / recommended):\n    TLS 1.2 + 1.3, ECDHE key exchange, AES-GCM ciphers\n    Drops: TLS 1.0, 1.1, CBC ciphers, RC4, DES, 3DES\n  \n  Old (B / legacy):\n    TLS 1.0-1.3, ECDHE + RSA, AES + 3DES\n    Last resort for IE 8 / Android 2.3\n  \n  SSL Labs Grades:\n    A+  HSTS with long max-age, no issues\n    A   Good configuration, no known weaknesses\n    B   Uses TLS 1.0/1.1 or weak forward-secrecy ciphers\n    C   Uses RC4 or other deprecated suites\n    F   Supports SSL 2.0/3.0, POODLE, DROWN, or BEAST without mitigation\n"
+    }
+    fn section_hsts() -> &'static str {
+        "  HTTP Security Headers for HTTPS Sites\n  \n  Strict-Transport-Security: max-age=63072000; includeSubDomains; preload\n    Tells browsers to only use HTTPS for 2 years\n  \n  Content-Security-Policy: default-src 'self'; script-src 'self'\n    Controls allowed resource origins (prevents XSS)\n  \n  X-Content-Type-Options: nosniff\n    Prevents MIME-type sniffing\n  \n  X-Frame-Options: DENY\n    Prevents clickjacking (use DENY or SAMEORIGIN)\n  \n  Referrer-Policy: strict-origin-when-cross-origin\n    Controls how much referrer info is sent\n  \n  Permissions-Policy: geolocation=(), microphone=(), camera=()\n    Restricts browser features the page can use\n  \n  Cross-Origin-Opener-Policy: same-origin\n    Isolates browsing context (required for SharedArrayBuffer)\n  \n  Cross-Origin-Resource-Policy: same-origin\n    Prevents cross-origin reads of your resources\n"
+    }
+    fn section_errors() -> &'static str {
+        "  Common TLS/SSL Errors and Fixes\n  \n  ERR_CERT_DATE_INVALID / certificate expired\n    Renew the certificate.\n    Check: openssl x509 -in cert.pem -noout -enddate\n  \n  ERR_CERT_COMMON_NAME_INVALID / hostname mismatch\n    Cert SANs do not include the domain.\n    Check: openssl x509 -in cert.pem -text | grep DNS\n  \n  ERR_CERT_AUTHORITY_INVALID / self-signed or unknown CA\n    Missing intermediate cert in chain, or self-signed. Install full chain.\n  \n  SSL_ERROR_RX_RECORD_TOO_LONG\n    Server is speaking plain HTTP on an HTTPS port. Check virtual host config.\n  \n  UNABLE_TO_GET_ISSUER_CERT_LOCALLY\n    Intermediate/root CA not installed.\n    Verify: openssl verify -CAfile ca-bundle.pem cert.pem\n  \n  PROTOCOL_VERSION / handshake failure\n    Client and server have no common TLS version or cipher suite.\n  \n  self signed certificate in certificate chain\n    Missing intermediate cert.\n    Fix: cat cert.pem intermediate.pem > fullchain.pem\n  \n  Key/cert mismatch\n    openssl x509 -noout -modulus -in cert.pem | md5sum\n    openssl rsa  -noout -modulus -in key.pem  | md5sum\n    (outputs must match)\n"
+    }
+
+    type SslSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+    const SECTIONS: &[SslSection] = &[
+        (
+            "handshake",
+            &["handshake", "tls", "flow", "protocol"],
+            section_handshake,
+        ),
+        (
+            "ciphers",
+            &["ciphers", "cipher", "suites", "ecdhe", "aead"],
+            section_ciphers,
+        ),
+        (
+            "certificates",
+            &["certificate", "cert", "x509", "pem", "csr"],
+            section_certificates,
+        ),
+        (
+            "openssl",
+            &["openssl", "commands", "cmd", "cli", "shell"],
+            section_openssl,
+        ),
+        (
+            "nginx",
+            &["nginx", "config", "server-config", "https-config"],
+            section_nginx,
+        ),
+        (
+            "grades",
+            &["grades", "grade", "rating", "score", "ssllabs"],
+            section_grades,
+        ),
+        (
+            "hsts",
+            &["hsts", "headers", "security-headers", "http-headers"],
+            section_hsts,
+        ),
+        (
+            "errors",
+            &["errors", "error", "common", "debugging", "debug"],
+            section_errors,
+        ),
+    ];
+
+    let q = query.trim().to_lowercase();
+
+    if q.is_empty() || q == "help" || q == "list" {
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  hematite --ssl <TOPIC>");
+        let _ = writeln!(
+            out,
+            "  Offline TLS/SSL reference -- replaces SSL cheatsheets"
+        );
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  Topics:");
+        for &(name, aliases, _) in SECTIONS {
+            let _ = writeln!(out, "    {name:<16} ({})", aliases.join(", "));
+        }
+        let _ = writeln!(out, "\n  hematite --ssl all   -- print everything");
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    if q == "all" {
+        let _ = writeln!(out, "{sep}");
+        for &(name, _, content_fn) in SECTIONS {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", content_fn());
+            let _ = writeln!(out, "");
+        }
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    let found: Vec<_> = SECTIONS
+        .iter()
+        .filter(|&&(name, aliases, _)| {
+            name.contains(q.as_str())
+                || aliases
+                    .iter()
+                    .any(|&a| a.contains(q.as_str()) || q.contains(a))
+        })
+        .collect();
+
+    if found.is_empty() {
+        let _ = writeln!(out, "  No section found for '{}'.", query.trim());
+        let _ = writeln!(out, "  Run: hematite --ssl help");
+    } else {
+        let _ = writeln!(out, "{sep}");
+        for &&(name, _, content_fn) in &found {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", content_fn());
+        }
+        let _ = writeln!(out, "{sep}");
+    }
+    out
+}
+
+pub fn id_gen_calc(query: &str) -> String {
+    use std::fmt::Write as _;
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+
+    fn rand_bytes(n: usize) -> Vec<u8> {
+        use std::time::{SystemTime, UNIX_EPOCH};
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|d| d.subsec_nanos())
+            .unwrap_or(12345);
+        let mut state: u64 = (nanos as u64)
+            .wrapping_add(0x9e3779b97f4a7c15)
+            .wrapping_add((n as u64).wrapping_mul(0x6c62272e07bb0142));
+        let mut bytes = Vec::with_capacity(n);
+        for _ in 0..n {
+            state = state.wrapping_add(0x9e3779b97f4a7c15);
+            let mut z = state;
+            z = (z ^ (z >> 30)).wrapping_mul(0xbf58476d1ce4e5b9);
+            z = (z ^ (z >> 27)).wrapping_mul(0x94d049bb133111eb);
+            z ^= z >> 31;
+            bytes.push(z as u8);
+            state = state
+                .wrapping_add(((z as u8).wrapping_add(1) as u64).wrapping_mul(0x6c62272e07bb0142));
+        }
+        bytes
+    }
+
+    fn uuid_v4(b: &[u8]) -> String {
+        format!(
+            "{:02x}{:02x}{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}",
+            b[0], b[1], b[2], b[3],
+            b[4], b[5],
+            (b[6] & 0x0f) | 0x40, b[7],
+            (b[8] & 0x3f) | 0x80, b[9],
+            b[10], b[11], b[12], b[13], b[14], b[15],
+        )
+    }
+
+    fn ulid(b: &[u8]) -> String {
+        use std::time::{SystemTime, UNIX_EPOCH};
+        const C: &[u8] = b"0123456789ABCDEFGHJKMNPQRSTVWXYZ";
+        let ms = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|d| d.as_millis() as u64)
+            .unwrap_or(0);
+        let mut chars = [0u8; 26];
+        let mut t = ms;
+        for i in (0..10).rev() {
+            chars[i] = C[(t & 0x1f) as usize];
+            t >>= 5;
+        }
+        let mut r: u128 = 0;
+        for &byte in b.iter().take(10) {
+            r = (r << 8) | byte as u128;
+        }
+        for i in (10..26).rev() {
+            chars[i] = C[(r & 0x1f) as usize];
+            r >>= 5;
+        }
+        String::from_utf8(chars.to_vec()).unwrap_or_default()
+    }
+
+    fn nanoid(b: &[u8], size: usize) -> String {
+        const A: &[u8] = b"useandom-26T198340PX75pxJACKVERYMINDBUSHWOLF_GQZbfghjklqvwyzrict";
+        b.iter()
+            .take(size)
+            .map(|&v| A[v as usize % A.len()] as char)
+            .collect()
+    }
+
+    fn hex_id(b: &[u8], bytes: usize) -> String {
+        b.iter().take(bytes).map(|v| format!("{v:02x}")).collect()
+    }
+
+    fn cuid2_like(b: &[u8]) -> String {
+        const C: &[u8] = b"abcdefghijklmnopqrstuvwxyz0123456789";
+        let first = (b'a' + (b[0] % 26)) as char;
+        let rest: String = b[1..25]
+            .iter()
+            .map(|&v| C[v as usize % C.len()] as char)
+            .collect();
+        format!("{first}{rest}")
+    }
+
+    fn xid_like(b: &[u8]) -> String {
+        use std::time::{SystemTime, UNIX_EPOCH};
+        const C: &[u8] = b"0123456789abcdefghjkmnpqrstvwxyz";
+        let secs = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|d| d.as_secs() as u32)
+            .unwrap_or(0);
+        let mut raw = Vec::with_capacity(12);
+        raw.extend_from_slice(&secs.to_be_bytes());
+        raw.extend_from_slice(&b[..8]);
+        let mut chars = String::new();
+        let mut val: u64 = 0;
+        let mut bits = 0u32;
+        for byte in &raw {
+            val = (val << 8) | *byte as u64;
+            bits += 8;
+            while bits >= 5 {
+                bits -= 5;
+                chars.push(C[((val >> bits) & 0x1f) as usize] as char);
+            }
+        }
+        if bits > 0 {
+            chars.push(C[((val << (5 - bits)) & 0x1f) as usize] as char);
+        }
+        chars
+    }
+
+    let q = query.trim().to_lowercase();
+    let rng = rand_bytes(64);
+
+    if q.is_empty() || q == "help" || q == "list" {
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(
+            out,
+            "  hematite --id <TYPE>   -- generate a unique ID offline"
+        );
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  Types:");
+        let _ = writeln!(
+            out,
+            "    uuid / uuid4     UUID v4 (random) -- 128-bit, universally standard"
+        );
+        let _ = writeln!(
+            out,
+            "    ulid             ULID -- sortable, time-prefixed, Crockford base32"
+        );
+        let _ = writeln!(
+            out,
+            "    nanoid           NanoID -- URL-safe, 21 chars, ~UUID collision-resistance"
+        );
+        let _ = writeln!(out, "    nanoid <N>       NanoID of custom length N");
+        let _ = writeln!(out, "    hex8             8-byte (16 hex char) random ID");
+        let _ = writeln!(out, "    hex16            16-byte (32 hex char) random ID");
+        let _ = writeln!(out, "    hex32            32-byte (64 hex char) random ID");
+        let _ = writeln!(
+            out,
+            "    cuid2            CUID2-style (26 lowercase alphanumeric)"
+        );
+        let _ = writeln!(
+            out,
+            "    xid              XID-style (K-sortable, time+random, 20 chars)"
+        );
+        let _ = writeln!(out, "    all              Generate one of each type");
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  Examples:");
+        let _ = writeln!(out, "    hematite --id uuid");
+        let _ = writeln!(out, "    hematite --id ulid");
+        let _ = writeln!(out, "    hematite --id nanoid 32");
+        let _ = writeln!(out, "    hematite --id all");
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    if q.starts_with("nanoid") {
+        let size = q
+            .split_whitespace()
+            .nth(1)
+            .and_then(|s| s.parse::<usize>().ok())
+            .unwrap_or(21)
+            .max(4)
+            .min(255);
+        let id = nanoid(&rng, size);
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  NanoID ({size} chars):");
+        let _ = writeln!(out, "  {id}");
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    if q == "all" {
+        let rng2 = rand_bytes(64);
+        let rng3 = rand_bytes(64);
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  UUID v4 : {}", uuid_v4(&rng));
+        let _ = writeln!(out, "  ULID    : {}", ulid(&rng2));
+        let _ = writeln!(out, "  NanoID  : {}", nanoid(&rng3, 21));
+        let _ = writeln!(out, "  Hex-8   : {}", hex_id(&rng, 8));
+        let _ = writeln!(out, "  Hex-16  : {}", hex_id(&rng2, 16));
+        let _ = writeln!(out, "  CUID2   : {}", cuid2_like(&rng3));
+        let _ = writeln!(out, "  XID     : {}", xid_like(&rng));
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    match q.as_str() {
+        "uuid" | "uuid4" | "uuid-v4" | "uuidv4" => {
+            let _ = writeln!(out, "{sep}");
+            let _ = writeln!(out, "  UUID v4:");
+            let _ = writeln!(out, "  {}", uuid_v4(&rng));
+            let _ = writeln!(out, "{sep}");
+        }
+        "ulid" => {
+            let _ = writeln!(out, "{sep}");
+            let _ = writeln!(out, "  ULID:");
+            let _ = writeln!(out, "  {}", ulid(&rng));
+            let _ = writeln!(out, "{sep}");
+        }
+        "hex8" | "hex-8" => {
+            let _ = writeln!(out, "{sep}");
+            let _ = writeln!(out, "  Hex-8 (16 chars):");
+            let _ = writeln!(out, "  {}", hex_id(&rng, 8));
+            let _ = writeln!(out, "{sep}");
+        }
+        "hex16" | "hex-16" => {
+            let _ = writeln!(out, "{sep}");
+            let _ = writeln!(out, "  Hex-16 (32 chars):");
+            let _ = writeln!(out, "  {}", hex_id(&rng, 16));
+            let _ = writeln!(out, "{sep}");
+        }
+        "hex32" | "hex-32" => {
+            let _ = writeln!(out, "{sep}");
+            let _ = writeln!(out, "  Hex-32 (64 chars):");
+            let _ = writeln!(out, "  {}", hex_id(&rng, 32));
+            let _ = writeln!(out, "{sep}");
+        }
+        "cuid" | "cuid2" => {
+            let _ = writeln!(out, "{sep}");
+            let _ = writeln!(out, "  CUID2:");
+            let _ = writeln!(out, "  {}", cuid2_like(&rng));
+            let _ = writeln!(out, "{sep}");
+        }
+        "xid" => {
+            let _ = writeln!(out, "{sep}");
+            let _ = writeln!(out, "  XID:");
+            let _ = writeln!(out, "  {}", xid_like(&rng));
+            let _ = writeln!(out, "{sep}");
+        }
+        _ => {
+            let _ = writeln!(out, "  Unknown type: '{}'.", query.trim());
+            let _ = writeln!(out, "  Run: hematite --id help");
+        }
+    }
+    out
+}

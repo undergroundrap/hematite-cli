@@ -1031,6 +1031,10 @@ mod tests {
             license: None,
             json_path: None,
             markdown: None,
+            regex_ref: None,
+            ascii_table: None,
+            ssl: None,
+            id: None,
             pdf_extract_helper: None,
             teleported_from: None,
         };
