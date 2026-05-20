@@ -1082,6 +1082,30 @@ pub struct CliCockpit {
 
     #[arg(
         long,
+        help_heading = "Math & Science",
+        value_name = "QUERY",
+        help = "Date / time math — instant, no model, no cloud. Commands: date difference ('2025-01-15 to 2025-06-30' → days/weeks/months/business days), relative dates ('today + 90', '30 days from today', '90 days ago'), Unix timestamp conversion ('unix 1748000000' ↔ human date, 'toUnix 2025-06-30'), day-of-week info, and single-date profile. Examples: hematite --datetime '2025-01-15 to 2025-06-30' | hematite --datetime 'today + 90' | hematite --datetime 'unix 1748000000'"
+    )]
+    pub datetime: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Math & Science",
+        value_name = "QUERY",
+        help = "Number theory toolkit — instant, no model, no cloud. Commands: prime (primality test), factor (prime factorization + divisor count + Euler phi), gcd a b (GCD + LCM + Bézout coefficients), lcm a b, phi n (Euler's totient), modinv a m (modular inverse via extended GCD), primes N (list all primes up to N via sieve), nextprime N. Also accepts a bare number for a full profile. Examples: hematite --nt 'prime 97' | hematite --nt 'factor 360' | hematite --nt 'modinv 3 11' | hematite --nt 'primes 100'"
+    )]
+    pub nt: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Math & Science",
+        value_name = "QUERY",
+        help = "Health and body math — instant, no model, no cloud. Commands: bmi (w= kg or lb, h= m, cm, or 5ft10in), bmr (Mifflin-St Jeor formula — male/female, w=, h=, age=), tdee (BMR × activity level: sedentary/light/moderate/active/very — shows maintenance + cut/bulk targets), macros (protein/carb/fat breakdown for calories= and goal=maintain/muscle/cut/keto), ideal (ideal weight range for given height), water (daily water intake from body weight). Examples: hematite --health 'bmi w=70 h=1.75' | hematite --health 'tdee male w=80 h=180 age=30 activity=moderate' | hematite --health 'macros calories=2400 goal=muscle'"
+    )]
+    pub health: Option<String>,
+
+    #[arg(
+        long,
         help_heading = "Headless Reports",
         value_name = "ELEMENT",
         help = "Look up a periodic table element — instant, no model, no cloud. Accepts symbol (H, Au), full name (Gold, Hydrogen), or atomic number (79). Shows atomic mass, category, period/group, electronegativity, and state at STP. Example: hematite --periodic Au"

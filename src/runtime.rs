@@ -988,6 +988,9 @@ mod tests {
             physics: None,
             chemistry: None,
             combinatorics: None,
+            datetime: None,
+            nt: None,
+            health: None,
             pdf_extract_helper: None,
             teleported_from: None,
         };

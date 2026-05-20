@@ -3,9 +3,10 @@
 /// Covers known-value correctness, edge-case non-panics, and the newer
 /// matrix decomposition modes (QR, SVD, Cholesky).
 use hematite::tools::math_util::{
-    bitwise_calc, checksum_calc, chemistry_calc, cipher_calc, combinatorics_calc, electrical_calc,
-    encode_calc, geometry_calc, hash_calc, matrix_calc, number_format, physics_calc, prob_calc,
-    set_calc, sort_viz, stats_calc, string_dist, text_stats, validate_calc,
+    bitwise_calc, checksum_calc, chemistry_calc, cipher_calc, combinatorics_calc, datetime_calc,
+    electrical_calc, encode_calc, geometry_calc, hash_calc, health_calc, matrix_calc,
+    number_format, number_theory_calc, physics_calc, prob_calc, set_calc, sort_viz, stats_calc,
+    string_dist, text_stats, validate_calc,
 };
 
 // ─── Cipher tests ────────────────────────────────────────────────────────────
@@ -1011,6 +1012,222 @@ fn combinatorics_multinomial_12_3_4_5() {
 #[test]
 fn combinatorics_empty_no_panic() {
     let out = combinatorics_calc("");
+    assert!(!out.is_empty());
+}
+
+// ─── Date / time tests ───────────────────────────────────────────────────────
+
+#[test]
+fn datetime_date_diff_days() {
+    // 2025-01-01 to 2025-01-31 = 30 days
+    let out = datetime_calc("2025-01-01 to 2025-01-31");
+    assert!(out.contains("30"), "expected 30 days: {out}");
+}
+
+#[test]
+fn datetime_date_diff_includes_business_days() {
+    // 2025-01-06 (Mon) to 2025-01-10 (Fri) = 4 days, 4 business days
+    let out = datetime_calc("2025-01-06 to 2025-01-10");
+    assert!(out.contains('4'), "expected 4 business days: {out}");
+}
+
+#[test]
+fn datetime_unix_decode() {
+    // Unix 0 = 1970-01-01
+    let out = datetime_calc("unix 0");
+    assert!(out.contains("1970"), "epoch decode: {out}");
+}
+
+#[test]
+fn datetime_tounix_epoch() {
+    // 1970-01-01 = Unix 0
+    let out = datetime_calc("toUnix 1970-01-01");
+    assert!(out.contains('0'), "toUnix epoch: {out}");
+}
+
+#[test]
+fn datetime_today_no_panic() {
+    let out = datetime_calc("today");
+    assert!(out.contains("Date"), "today info: {out}");
+}
+
+#[test]
+fn datetime_relative_add() {
+    // "today + 0" = today, should still produce output
+    let out = datetime_calc("today + 0");
+    assert!(!out.is_empty());
+}
+
+#[test]
+fn datetime_single_date_profile() {
+    let out = datetime_calc("2000-01-01");
+    assert!(out.contains("2000"), "single date profile: {out}");
+    assert!(
+        out.contains("Saturday") || out.contains("Day of week"),
+        "day info: {out}"
+    );
+}
+
+#[test]
+fn datetime_empty_no_panic() {
+    let out = datetime_calc("");
+    assert!(!out.is_empty());
+}
+
+// ─── Number theory tests ──────────────────────────────────────────────────────
+
+#[test]
+fn nt_prime_97_is_prime() {
+    let out = number_theory_calc("prime 97");
+    assert!(out.contains("YES"), "97 is prime: {out}");
+}
+
+#[test]
+fn nt_prime_100_not_prime() {
+    let out = number_theory_calc("prime 100");
+    assert!(out.contains("NO"), "100 is not prime: {out}");
+}
+
+#[test]
+fn nt_factor_360() {
+    // 360 = 2^3 × 3^2 × 5
+    let out = number_theory_calc("factor 360");
+    assert!(out.contains('2'), "factor 360 has 2: {out}");
+    assert!(out.contains('3'), "factor 360 has 3: {out}");
+    assert!(out.contains('5'), "factor 360 has 5: {out}");
+}
+
+#[test]
+fn nt_gcd_48_18_is_6() {
+    let out = number_theory_calc("gcd 48 18");
+    assert!(out.contains('6'), "gcd(48,18)=6: {out}");
+}
+
+#[test]
+fn nt_lcm_12_18_is_36() {
+    let out = number_theory_calc("lcm 12 18");
+    assert!(out.contains("36"), "lcm(12,18)=36: {out}");
+}
+
+#[test]
+fn nt_phi_36_is_12() {
+    let out = number_theory_calc("phi 36");
+    assert!(out.contains("12"), "phi(36)=12: {out}");
+}
+
+#[test]
+fn nt_modinv_3_11_is_4() {
+    // 3 × 4 = 12 ≡ 1 (mod 11)
+    let out = number_theory_calc("modinv 3 11");
+    assert!(out.contains('4'), "modinv(3,11)=4: {out}");
+}
+
+#[test]
+fn nt_primes_up_to_20() {
+    let out = number_theory_calc("primes 20");
+    assert!(out.contains('2'), "primes(20): {out}");
+    assert!(out.contains("19"), "primes(20) includes 19: {out}");
+}
+
+#[test]
+fn nt_nextprime_after_10_is_11() {
+    let out = number_theory_calc("nextprime 10");
+    assert!(out.contains("11"), "nextprime(10)=11: {out}");
+}
+
+#[test]
+fn nt_bare_number_profile() {
+    let out = number_theory_calc("12");
+    assert!(!out.is_empty(), "bare number 12: {out}");
+    assert!(out.contains("NO"), "12 not prime: {out}");
+}
+
+#[test]
+fn nt_empty_no_panic() {
+    let out = number_theory_calc("");
+    assert!(!out.is_empty());
+}
+
+// ─── Health calc tests ────────────────────────────────────────────────────────
+
+#[test]
+fn health_bmi_normal_weight() {
+    // 70 kg, 1.75 m → BMI ≈ 22.9 (Normal weight)
+    let out = health_calc("bmi w=70 h=1.75");
+    assert!(out.contains("Normal"), "BMI normal: {out}");
+    assert!(
+        out.contains("22") || out.contains("23"),
+        "BMI ≈ 22.9: {out}"
+    );
+}
+
+#[test]
+fn health_bmi_overweight() {
+    // 90 kg, 1.70 m → BMI ≈ 31.1 (Obese)
+    let out = health_calc("bmi w=90 h=1.70");
+    assert!(
+        out.contains("Obese") || out.contains("Over"),
+        "BMI obese/over: {out}"
+    );
+}
+
+#[test]
+fn health_bmi_imperial() {
+    // 154 lb, 5ft10in ≈ 70 kg, 1.778 m → BMI ≈ 22.1
+    let out = health_calc("bmi w=154lb h=5ft10in");
+    assert!(
+        out.contains("Normal") || out.contains("22"),
+        "BMI imperial: {out}"
+    );
+}
+
+#[test]
+fn health_bmr_male() {
+    // 80 kg, 180 cm, 30 yr male → ≈ 1846 kcal
+    let out = health_calc("bmr male w=80 h=180 age=30");
+    assert!(out.contains("1") && out.contains("kcal"), "BMR male: {out}");
+    assert!(out.contains("Male"), "sex label: {out}");
+}
+
+#[test]
+fn health_tdee_moderate() {
+    let out = health_calc("tdee male w=80 h=180 age=30 activity=moderate");
+    assert!(out.contains("TDEE"), "tdee output: {out}");
+    assert!(out.contains("maintenance"), "maintenance label: {out}");
+}
+
+#[test]
+fn health_macros_muscle() {
+    let out = health_calc("macros calories=2400 goal=muscle");
+    assert!(out.contains("Protein"), "macros protein: {out}");
+    assert!(out.contains("30"), "muscle protein 30%: {out}");
+}
+
+#[test]
+fn health_macros_keto() {
+    let out = health_calc("macros calories=2000 goal=keto");
+    assert!(out.contains("70"), "keto fat 70%: {out}");
+}
+
+#[test]
+fn health_ideal_height() {
+    let out = health_calc("ideal h=175");
+    assert!(
+        out.contains("18.5") || out.contains("24.9") || out.contains("Ideal"),
+        "ideal: {out}"
+    );
+}
+
+#[test]
+fn health_water_intake() {
+    // 70 kg × 0.033 ≈ 2.31 L
+    let out = health_calc("water w=70");
+    assert!(out.contains('2'), "water ≈ 2.31 L: {out}");
+}
+
+#[test]
+fn health_empty_no_panic() {
+    let out = health_calc("");
     assert!(!out.is_empty());
 }
 

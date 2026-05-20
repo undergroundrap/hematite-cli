@@ -15937,3 +15937,901 @@ pub fn combinatorics_calc(query: &str) -> String {
     let _ = writeln!(out, "{}", sep);
     out
 }
+
+// ── Date / time math ─────────────────────────────────────────────────────────
+
+pub fn datetime_calc(query: &str) -> String {
+    use chrono::{Datelike, Duration, Local, NaiveDate, Weekday};
+
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+    let _ = writeln!(out, "\n  DATETIME CALCULATOR");
+    let _ = writeln!(out, "{}", sep);
+
+    let q = query.trim().to_lowercase();
+    let today = Local::now().date_naive();
+
+    // helper: parse YYYY-MM-DD or MM/DD/YYYY
+    fn parse_date(s: &str) -> Option<NaiveDate> {
+        let s = s.trim();
+        // YYYY-MM-DD
+        if let Ok(d) = NaiveDate::parse_from_str(s, "%Y-%m-%d") {
+            return Some(d);
+        }
+        // MM/DD/YYYY
+        if let Ok(d) = NaiveDate::parse_from_str(s, "%m/%d/%Y") {
+            return Some(d);
+        }
+        // MM-DD-YYYY
+        if let Ok(d) = NaiveDate::parse_from_str(s, "%m-%d-%Y") {
+            return Some(d);
+        }
+        None
+    }
+
+    fn weekday_name(wd: Weekday) -> &'static str {
+        match wd {
+            Weekday::Mon => "Monday",
+            Weekday::Tue => "Tuesday",
+            Weekday::Wed => "Wednesday",
+            Weekday::Thu => "Thursday",
+            Weekday::Fri => "Friday",
+            Weekday::Sat => "Saturday",
+            Weekday::Sun => "Sunday",
+        }
+    }
+
+    fn business_days_between(a: NaiveDate, b: NaiveDate) -> i64 {
+        let (start, end, sign) = if a <= b { (a, b, 1i64) } else { (b, a, -1i64) };
+        let mut count = 0i64;
+        let mut cur = start;
+        while cur < end {
+            let wd = cur.weekday();
+            if wd != Weekday::Sat && wd != Weekday::Sun {
+                count += 1;
+            }
+            cur += Duration::days(1);
+        }
+        count * sign
+    }
+
+    // "unix <timestamp>" — convert Unix epoch to human date
+    if q.starts_with("unix ") {
+        let rest = q[5..].trim();
+        if let Ok(ts) = rest.parse::<i64>() {
+            use chrono::TimeZone;
+            if let chrono::LocalResult::Single(dt) = chrono::Utc.timestamp_opt(ts, 0) {
+                let _ = writeln!(out, "  Unix timestamp : {}", ts);
+                let _ = writeln!(
+                    out,
+                    "  UTC date/time  : {}",
+                    dt.format("%Y-%m-%d %H:%M:%S UTC")
+                );
+                let _ = writeln!(out, "  Day of week    : {}", weekday_name(dt.weekday()));
+                let local = dt.with_timezone(&Local);
+                let _ = writeln!(
+                    out,
+                    "  Local time     : {}",
+                    local.format("%Y-%m-%d %H:%M:%S %Z")
+                );
+            } else {
+                let _ = writeln!(out, "  Could not decode timestamp: {}", ts);
+            }
+        } else {
+            let _ = writeln!(out, "  Usage: hematite --datetime 'unix 1748000000'");
+        }
+        let _ = writeln!(out, "{}", sep);
+        return out;
+    }
+
+    // "toUnix YYYY-MM-DD" — convert date to Unix epoch
+    if q.starts_with("tounix ") {
+        let rest = &query.trim()[7..];
+        if let Some(d) = parse_date(rest) {
+            let epoch = NaiveDate::from_ymd_opt(1970, 1, 1).unwrap();
+            let days = (d - epoch).num_days();
+            let ts = days * 86400;
+            let _ = writeln!(out, "  Date           : {}", d.format("%Y-%m-%d"));
+            let _ = writeln!(out, "  Unix timestamp : {} (midnight UTC)", ts);
+        } else {
+            let _ = writeln!(out, "  Usage: hematite --datetime 'toUnix 2025-06-30'");
+        }
+        let _ = writeln!(out, "{}", sep);
+        return out;
+    }
+
+    // "today" — show today's info
+    if q == "today" || q == "now" {
+        let ts = Local::now().timestamp();
+        let _ = writeln!(out, "  Date           : {}", today.format("%Y-%m-%d"));
+        let _ = writeln!(out, "  Day of week    : {}", weekday_name(today.weekday()));
+        let _ = writeln!(out, "  Day of year    : {} of 365/366", today.ordinal());
+        let _ = writeln!(out, "  Week number    : {} (ISO)", today.iso_week().week());
+        let _ = writeln!(out, "  Unix timestamp : {}", ts);
+        let _ = writeln!(out, "{}", sep);
+        return out;
+    }
+
+    // "today + N" or "today - N" or "N days from today"
+    let add_pat = ["today +", "today+", "+ today"];
+    let sub_pat = ["today -", "today-", "- today"];
+    let mut days_offset: Option<i64> = None;
+    let mut offset_sign = 1i64;
+
+    for pat in &add_pat {
+        if q.contains(pat) {
+            let rest = q.replacen(pat, "", 1);
+            let num_str: String = rest.chars().filter(|c| c.is_ascii_digit()).collect();
+            if let Ok(n) = num_str.parse::<i64>() {
+                days_offset = Some(n);
+                offset_sign = 1;
+            }
+        }
+    }
+    for pat in &sub_pat {
+        if days_offset.is_none() && q.contains(pat) {
+            let rest = q.replacen(pat, "", 1);
+            let num_str: String = rest.chars().filter(|c| c.is_ascii_digit()).collect();
+            if let Ok(n) = num_str.parse::<i64>() {
+                days_offset = Some(n);
+                offset_sign = -1;
+            }
+        }
+    }
+    // "N days from today" or "in N days"
+    if days_offset.is_none() {
+        let patterns = [("days from today", 1i64), ("days from now", 1), ("in ", 1)];
+        for (pat, sign) in &patterns {
+            if q.contains(pat) {
+                let num_str: String = q.chars().filter(|c| c.is_ascii_digit()).collect();
+                if let Ok(n) = num_str.parse::<i64>() {
+                    days_offset = Some(n);
+                    offset_sign = *sign;
+                    break;
+                }
+            }
+        }
+        // "N days ago"
+        if days_offset.is_none() && q.contains("days ago") {
+            let num_str: String = q.chars().filter(|c| c.is_ascii_digit()).collect();
+            if let Ok(n) = num_str.parse::<i64>() {
+                days_offset = Some(n);
+                offset_sign = -1;
+            }
+        }
+    }
+
+    if let Some(n) = days_offset {
+        let target = today + Duration::days(n * offset_sign);
+        let _ = writeln!(out, "  From today     : {}", today.format("%Y-%m-%d"));
+        let label = if offset_sign >= 0 {
+            format!("+{} days", n)
+        } else {
+            format!("-{} days", n)
+        };
+        let _ = writeln!(out, "  Offset         : {}", label);
+        let _ = writeln!(out, "  Result date    : {}", target.format("%Y-%m-%d"));
+        let _ = writeln!(out, "  Day of week    : {}", weekday_name(target.weekday()));
+        let bdays = business_days_between(today, target).abs();
+        let _ = writeln!(out, "  Business days  : {}", bdays);
+        let _ = writeln!(out, "{}", sep);
+        return out;
+    }
+
+    // "DATE to DATE" or "DATE - DATE"
+    let separators = [" to ", " - "];
+    for sep_str in &separators {
+        if let Some(idx) = q.find(sep_str) {
+            let left = query.trim()[..idx].trim();
+            let right = query.trim()[idx + sep_str.len()..].trim();
+            let a = if left.eq_ignore_ascii_case("today") {
+                Some(today)
+            } else {
+                parse_date(left)
+            };
+            let b = if right.eq_ignore_ascii_case("today") {
+                Some(today)
+            } else {
+                parse_date(right)
+            };
+            if let (Some(d1), Some(d2)) = (a, b) {
+                let diff = d2.signed_duration_since(d1);
+                let days = diff.num_days();
+                let bdays = business_days_between(d1, d2);
+                let weeks = days / 7;
+                let rem_days = days.abs() % 7;
+                let months = {
+                    let y_diff = d2.year() - d1.year();
+                    let m_diff = d2.month() as i32 - d1.month() as i32;
+                    y_diff * 12 + m_diff
+                };
+                let _ = writeln!(
+                    out,
+                    "  Start          : {}  ({})",
+                    d1.format("%Y-%m-%d"),
+                    weekday_name(d1.weekday())
+                );
+                let _ = writeln!(
+                    out,
+                    "  End            : {}  ({})",
+                    d2.format("%Y-%m-%d"),
+                    weekday_name(d2.weekday())
+                );
+                let _ = writeln!(out, "  Total days     : {}", days);
+                let _ = writeln!(out, "  Business days  : {}", bdays);
+                let _ = writeln!(
+                    out,
+                    "  Weeks + days   : {} weeks + {} days",
+                    weeks, rem_days
+                );
+                let _ = writeln!(out, "  Approx months  : {}", months);
+                let _ = writeln!(out, "{}", sep);
+                return out;
+            }
+        }
+    }
+
+    // fallback: single date info
+    if let Some(d) = parse_date(query.trim()) {
+        let diff = d.signed_duration_since(today).num_days();
+        let epoch = NaiveDate::from_ymd_opt(1970, 1, 1).unwrap();
+        let ts = (d - epoch).num_days() * 86400;
+        let _ = writeln!(out, "  Date           : {}", d.format("%Y-%m-%d"));
+        let _ = writeln!(out, "  Day of week    : {}", weekday_name(d.weekday()));
+        let _ = writeln!(out, "  Day of year    : {}", d.ordinal());
+        let _ = writeln!(out, "  ISO week       : {}", d.iso_week().week());
+        let _ = writeln!(out, "  Unix timestamp : {} (midnight UTC)", ts);
+        if diff == 0 {
+            let _ = writeln!(out, "  Relative today : today");
+        } else if diff > 0 {
+            let _ = writeln!(out, "  From today     : {} days in the future", diff);
+        } else {
+            let _ = writeln!(out, "  From today     : {} days ago", -diff);
+        }
+        let _ = writeln!(out, "{}", sep);
+        return out;
+    }
+
+    let _ = writeln!(out, "  Usage examples:");
+    let _ = writeln!(out, "    hematite --datetime '2025-01-15 to 2025-06-30'");
+    let _ = writeln!(out, "    hematite --datetime 'today + 90'");
+    let _ = writeln!(out, "    hematite --datetime '30 days from today'");
+    let _ = writeln!(out, "    hematite --datetime '90 days ago'");
+    let _ = writeln!(out, "    hematite --datetime 'unix 1748000000'");
+    let _ = writeln!(out, "    hematite --datetime 'toUnix 2025-06-30'");
+    let _ = writeln!(out, "    hematite --datetime 'today'");
+    let _ = writeln!(out, "    hematite --datetime '2025-07-04'");
+    let _ = writeln!(out, "{}", sep);
+    out
+}
+
+// ── Number theory ─────────────────────────────────────────────────────────────
+
+pub fn number_theory_calc(query: &str) -> String {
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+    let _ = writeln!(out, "\n  NUMBER THEORY");
+    let _ = writeln!(out, "{}", sep);
+
+    let q = query.trim().to_lowercase();
+    let parts: Vec<&str> = q.split_whitespace().collect();
+
+    if parts.is_empty() {
+        let _ = writeln!(out, "  Usage examples:");
+        let _ = writeln!(out, "    hematite --nt 'prime 97'");
+        let _ = writeln!(out, "    hematite --nt 'factor 360'");
+        let _ = writeln!(out, "    hematite --nt 'gcd 48 18'");
+        let _ = writeln!(out, "    hematite --nt 'lcm 12 18'");
+        let _ = writeln!(out, "    hematite --nt 'phi 36'");
+        let _ = writeln!(out, "    hematite --nt 'modinv 3 11'");
+        let _ = writeln!(out, "    hematite --nt 'primes 50'   (list primes up to N)");
+        let _ = writeln!(out, "    hematite --nt 'nextprime 100'");
+        let _ = writeln!(out, "{}", sep);
+        return out;
+    }
+
+    // extended GCD: returns (gcd, x, y) such that a*x + b*y = gcd
+    fn ext_gcd(a: i64, b: i64) -> (i64, i64, i64) {
+        if b == 0 {
+            return (a, 1, 0);
+        }
+        let (g, x1, y1) = ext_gcd(b, a % b);
+        (g, y1, x1 - (a / b) * y1)
+    }
+
+    fn euler_phi(mut n: u64) -> u64 {
+        let mut result = n;
+        let mut p = 2u64;
+        while p * p <= n {
+            if n % p == 0 {
+                while n % p == 0 {
+                    n /= p;
+                }
+                result -= result / p;
+            }
+            p += 1;
+        }
+        if n > 1 {
+            result -= result / n;
+        }
+        result
+    }
+
+    fn sieve(limit: usize) -> Vec<usize> {
+        if limit < 2 {
+            return vec![];
+        }
+        let mut composite = vec![false; limit + 1];
+        let mut primes = Vec::new();
+        for i in 2..=limit {
+            if !composite[i] {
+                primes.push(i);
+                let mut j = i * 2;
+                while j <= limit {
+                    composite[j] = true;
+                    j += i;
+                }
+            }
+        }
+        primes
+    }
+
+    let keyword = parts[0];
+
+    match keyword {
+        "prime" | "isprime" => {
+            if let Some(n) = parts.get(1).and_then(|s| s.parse::<u64>().ok()) {
+                let p = is_prime(n);
+                let _ = writeln!(out, "  n              : {}", n);
+                let _ = writeln!(out, "  Is prime       : {}", if p { "YES" } else { "NO" });
+                if !p && n > 1 {
+                    let factors = factorize(n);
+                    let fstr: Vec<String> = factors
+                        .iter()
+                        .map(|(p, e)| {
+                            if *e == 1 {
+                                p.to_string()
+                            } else {
+                                format!("{}^{}", p, e)
+                            }
+                        })
+                        .collect();
+                    let _ = writeln!(out, "  Factors        : {}", fstr.join(" × "));
+                }
+            } else {
+                let _ = writeln!(out, "  Usage: hematite --nt 'prime 97'");
+            }
+        }
+        "factor" | "factorize" | "factorization" => {
+            if let Some(n) = parts.get(1).and_then(|s| s.parse::<u64>().ok()) {
+                if n < 2 {
+                    let _ = writeln!(out, "  {} has no prime factors", n);
+                } else {
+                    let factors = factorize(n);
+                    let fstr: Vec<String> = factors
+                        .iter()
+                        .map(|(p, e)| {
+                            if *e == 1 {
+                                p.to_string()
+                            } else {
+                                format!("{}^{}", p, e)
+                            }
+                        })
+                        .collect();
+                    let _ = writeln!(out, "  n              : {}", n);
+                    let _ = writeln!(out, "  Factorization  : {}", fstr.join(" × "));
+                    let divisors: u64 = factors.iter().map(|(_, e)| (*e + 1) as u64).product();
+                    let _ = writeln!(out, "  Number of divisors: {}", divisors);
+                    let phi = euler_phi(n);
+                    let _ = writeln!(out, "  Euler phi(n)   : {}", phi);
+                }
+            } else {
+                let _ = writeln!(out, "  Usage: hematite --nt 'factor 360'");
+            }
+        }
+        "gcd" => {
+            if let (Some(a), Some(b)) = (
+                parts.get(1).and_then(|s| s.parse::<u64>().ok()),
+                parts.get(2).and_then(|s| s.parse::<u64>().ok()),
+            ) {
+                let g = gcd(a as u128, b as u128);
+                let l = if g == 0 {
+                    0u128
+                } else {
+                    (a as u128) / g * (b as u128)
+                };
+                let _ = writeln!(out, "  a              : {}", a);
+                let _ = writeln!(out, "  b              : {}", b);
+                let _ = writeln!(out, "  GCD(a, b)      : {}", g);
+                let _ = writeln!(out, "  LCM(a, b)      : {}", l);
+                let (_, x, y) = ext_gcd(a as i64, b as i64);
+                let _ = writeln!(
+                    out,
+                    "  Bezout coefs   : {}·{} + {}·{} = {} (extended GCD)",
+                    a, x, b, y, g
+                );
+            } else {
+                let _ = writeln!(out, "  Usage: hematite --nt 'gcd 48 18'");
+            }
+        }
+        "lcm" => {
+            if let (Some(a), Some(b)) = (
+                parts.get(1).and_then(|s| s.parse::<u64>().ok()),
+                parts.get(2).and_then(|s| s.parse::<u64>().ok()),
+            ) {
+                let g = gcd(a as u128, b as u128);
+                let l = if g == 0 {
+                    0u128
+                } else {
+                    (a as u128) / g * (b as u128)
+                };
+                let _ = writeln!(out, "  a              : {}", a);
+                let _ = writeln!(out, "  b              : {}", b);
+                let _ = writeln!(out, "  LCM(a, b)      : {}", l);
+                let _ = writeln!(out, "  GCD(a, b)      : {}", g);
+            } else {
+                let _ = writeln!(out, "  Usage: hematite --nt 'lcm 12 18'");
+            }
+        }
+        "phi" | "totient" => {
+            if let Some(n) = parts.get(1).and_then(|s| s.parse::<u64>().ok()) {
+                let phi = euler_phi(n);
+                let _ = writeln!(out, "  n              : {}", n);
+                let _ = writeln!(
+                    out,
+                    "  phi({})        : {} (integers < {} coprime to {})",
+                    n, phi, n, n
+                );
+            } else {
+                let _ = writeln!(out, "  Usage: hematite --nt 'phi 36'");
+            }
+        }
+        "modinv" => {
+            if let (Some(a), Some(m)) = (
+                parts.get(1).and_then(|s| s.parse::<i64>().ok()),
+                parts.get(2).and_then(|s| s.parse::<i64>().ok()),
+            ) {
+                let (g, x, _) = ext_gcd(a, m);
+                if g != 1 {
+                    let _ = writeln!(out, "  No inverse: gcd({}, {}) = {} ≠ 1", a, m, g);
+                } else {
+                    let inv = ((x % m) + m) % m;
+                    let _ = writeln!(out, "  a              : {}", a);
+                    let _ = writeln!(out, "  m              : {}", m);
+                    let _ = writeln!(out, "  a⁻¹ mod m      : {}", inv);
+                    let _ = writeln!(
+                        out,
+                        "  Verify: {} × {} mod {} = {}",
+                        a,
+                        inv,
+                        m,
+                        (a * inv).rem_euclid(m)
+                    );
+                }
+            } else {
+                let _ = writeln!(out, "  Usage: hematite --nt 'modinv 3 11'");
+            }
+        }
+        "primes" => {
+            if let Some(n) = parts.get(1).and_then(|s| s.parse::<usize>().ok()) {
+                let ps = sieve(n);
+                let _ = writeln!(out, "  Primes up to {} : {} found", n, ps.len());
+                let display: Vec<String> = ps.iter().take(50).map(|x| x.to_string()).collect();
+                let suffix = if ps.len() > 50 {
+                    format!(" ... (and {} more)", ps.len() - 50)
+                } else {
+                    String::new()
+                };
+                let _ = writeln!(out, "  {}{}", display.join("  "), suffix);
+            } else {
+                let _ = writeln!(out, "  Usage: hematite --nt 'primes 100'");
+            }
+        }
+        "nextprime" => {
+            if let Some(n) = parts.get(1).and_then(|s| s.parse::<u64>().ok()) {
+                let mut candidate = n + 1;
+                while !is_prime(candidate) {
+                    candidate += 1;
+                }
+                let _ = writeln!(out, "  Next prime after {} : {}", n, candidate);
+            } else {
+                let _ = writeln!(out, "  Usage: hematite --nt 'nextprime 100'");
+            }
+        }
+        _ => {
+            // Maybe it's just a number — show full profile
+            if let Ok(n) = keyword.parse::<u64>() {
+                let p = is_prime(n);
+                let phi = euler_phi(n);
+                let _ = writeln!(out, "  n              : {}", n);
+                let _ = writeln!(out, "  Is prime       : {}", if p { "YES" } else { "NO" });
+                if !p && n > 1 {
+                    let factors = factorize(n);
+                    let fstr: Vec<String> = factors
+                        .iter()
+                        .map(|(p, e)| {
+                            if *e == 1 {
+                                p.to_string()
+                            } else {
+                                format!("{}^{}", p, e)
+                            }
+                        })
+                        .collect();
+                    let _ = writeln!(out, "  Factorization  : {}", fstr.join(" × "));
+                    let divisors: u64 = factors.iter().map(|(_, e)| (*e + 1) as u64).product();
+                    let _ = writeln!(out, "  Number of divisors: {}", divisors);
+                }
+                let _ = writeln!(out, "  Euler phi(n)   : {}", phi);
+            } else {
+                let _ = writeln!(out, "  Unknown command: '{}'", keyword);
+                let _ = writeln!(
+                    out,
+                    "  Supported: prime, factor, gcd, lcm, phi, modinv, primes, nextprime"
+                );
+            }
+        }
+    }
+
+    let _ = writeln!(out, "{}", sep);
+    out
+}
+
+// ── Health / body math ────────────────────────────────────────────────────────
+
+pub fn health_calc(query: &str) -> String {
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+    let _ = writeln!(out, "\n  HEALTH CALCULATOR");
+    let _ = writeln!(out, "{}", sep);
+
+    let q = query.trim().to_lowercase();
+    let parts: Vec<&str> = q.split_whitespace().collect();
+
+    if parts.is_empty() {
+        let _ = writeln!(out, "  Usage examples:");
+        let _ = writeln!(
+            out,
+            "    hematite --health 'bmi w=70 h=1.75'       (kg / m)"
+        );
+        let _ = writeln!(
+            out,
+            "    hematite --health 'bmi w=154lb h=5ft10in'  (imperial)"
+        );
+        let _ = writeln!(out, "    hematite --health 'bmr male w=80 h=180 age=30'");
+        let _ = writeln!(
+            out,
+            "    hematite --health 'tdee male w=80 h=180 age=30 activity=moderate'"
+        );
+        let _ = writeln!(
+            out,
+            "    hematite --health 'macros calories=2400 goal=muscle'"
+        );
+        let _ = writeln!(
+            out,
+            "    hematite --health 'ideal h=175'            (ideal weight range)"
+        );
+        let _ = writeln!(
+            out,
+            "    hematite --health 'water w=70'             (daily water intake)"
+        );
+        let _ = writeln!(out, "{}", sep);
+        return out;
+    }
+
+    // parse key=value pairs from query
+    fn kv(q: &str, key: &str) -> Option<f64> {
+        let needle = format!("{}=", key);
+        let lower = q.to_lowercase();
+        if let Some(idx) = lower.find(&needle) {
+            let rest = &q[idx + needle.len()..];
+            let val_str: String = rest
+                .chars()
+                .take_while(|c| c.is_ascii_digit() || *c == '.')
+                .collect();
+            val_str.parse().ok()
+        } else {
+            None
+        }
+    }
+
+    fn kv_str<'a>(q: &'a str, key: &str) -> Option<&'a str> {
+        let needle = format!("{}=", key);
+        let lower = q.to_lowercase();
+        if let Some(idx) = lower.find(&needle) {
+            let rest = &q[idx + needle.len()..];
+            let end = rest.find(|c: char| c.is_whitespace()).unwrap_or(rest.len());
+            Some(&rest[..end])
+        } else {
+            None
+        }
+    }
+
+    // parse height: accepts 1.75 (meters), 175 (cm if >3), or 5ft10in / 5'10"
+    fn parse_height_m(q: &str) -> Option<f64> {
+        let lower = q.to_lowercase();
+        let needle = "h=";
+        if let Some(idx) = lower.find(needle) {
+            let rest = &q[idx + needle.len()..];
+            // imperial: 5ft10in or 5'10"
+            if let Some(ft_idx) = rest.find("ft") {
+                let ft: f64 = rest[..ft_idx].trim().parse().ok()?;
+                let after_ft = &rest[ft_idx + 2..];
+                let in_str: String = after_ft
+                    .chars()
+                    .take_while(|c| c.is_ascii_digit())
+                    .collect();
+                let inches: f64 = in_str.parse().unwrap_or(0.0);
+                return Some((ft * 12.0 + inches) * 0.0254);
+            }
+            // feet/inches with ' and "
+            if rest.contains('\'') {
+                if let Some(apos) = rest.find('\'') {
+                    let ft: f64 = rest[..apos].trim().parse().ok()?;
+                    let after = &rest[apos + 1..];
+                    let in_str: String = after.chars().take_while(|c| c.is_ascii_digit()).collect();
+                    let inches: f64 = in_str.parse().unwrap_or(0.0);
+                    return Some((ft * 12.0 + inches) * 0.0254);
+                }
+            }
+            // numeric
+            let val_str: String = rest
+                .chars()
+                .take_while(|c| c.is_ascii_digit() || *c == '.')
+                .collect();
+            if let Ok(v) = val_str.parse::<f64>() {
+                if v > 3.0 {
+                    return Some(v / 100.0); // cm → m
+                }
+                return Some(v); // already meters
+            }
+        }
+        None
+    }
+
+    // parse weight: accepts kg or lb
+    fn parse_weight_kg(q: &str) -> Option<f64> {
+        let lower = q.to_lowercase();
+        let needle = "w=";
+        if let Some(idx) = lower.find(needle) {
+            let rest = &q[idx + needle.len()..];
+            let val_str: String = rest
+                .chars()
+                .take_while(|c| c.is_ascii_digit() || *c == '.')
+                .collect();
+            if let Ok(v) = val_str.parse::<f64>() {
+                let after: String = rest[val_str.len()..].trim_start().chars().take(2).collect();
+                if after.to_lowercase().starts_with("lb") {
+                    return Some(v * 0.453592);
+                }
+                return Some(v); // assume kg
+            }
+        }
+        None
+    }
+
+    fn bmi_category(bmi: f64) -> &'static str {
+        if bmi < 18.5 {
+            "Underweight"
+        } else if bmi < 25.0 {
+            "Normal weight"
+        } else if bmi < 30.0 {
+            "Overweight"
+        } else {
+            "Obese"
+        }
+    }
+
+    let keyword = parts[0].to_string();
+
+    match keyword.as_str() {
+        "bmi" => {
+            let w = parse_weight_kg(query);
+            let h = parse_height_m(query);
+            if let (Some(w_kg), Some(h_m)) = (w, h) {
+                let bmi = w_kg / (h_m * h_m);
+                let _ = writeln!(
+                    out,
+                    "  Weight         : {:.1} kg  ({:.1} lb)",
+                    w_kg,
+                    w_kg * 2.20462
+                );
+                let _ = writeln!(
+                    out,
+                    "  Height         : {:.2} m   ({:.0} cm, {:.0}\" total)",
+                    h_m,
+                    h_m * 100.0,
+                    h_m / 0.0254
+                );
+                let _ = writeln!(out, "  BMI            : {:.1}", bmi);
+                let _ = writeln!(out, "  Category       : {}", bmi_category(bmi));
+                let _ = writeln!(
+                    out,
+                    "  Normal range   : 18.5 – 24.9  ({:.1}–{:.1} kg at this height)",
+                    18.5 * h_m * h_m,
+                    24.9 * h_m * h_m
+                );
+            } else {
+                let _ = writeln!(out, "  Usage: hematite --health 'bmi w=70 h=1.75'");
+                let _ = writeln!(out, "         hematite --health 'bmi w=154lb h=5ft10in'");
+            }
+        }
+        "bmr" => {
+            let w = parse_weight_kg(query);
+            let h = parse_height_m(query);
+            let age = kv(query, "age");
+            let is_male = q.contains("male") && !q.contains("female");
+            if let (Some(w_kg), Some(h_m), Some(age_yr)) = (w, h, age) {
+                // Mifflin-St Jeor
+                let bmr = if is_male {
+                    10.0 * w_kg + 6.25 * h_m * 100.0 - 5.0 * age_yr + 5.0
+                } else {
+                    10.0 * w_kg + 6.25 * h_m * 100.0 - 5.0 * age_yr - 161.0
+                };
+                let _ = writeln!(
+                    out,
+                    "  Sex            : {}",
+                    if is_male { "Male" } else { "Female" }
+                );
+                let _ = writeln!(out, "  Weight         : {:.1} kg", w_kg);
+                let _ = writeln!(out, "  Height         : {:.0} cm", h_m * 100.0);
+                let _ = writeln!(out, "  Age            : {:.0} years", age_yr);
+                let _ = writeln!(out, "  BMR (Mifflin)  : {:.0} kcal/day", bmr);
+                let _ = writeln!(out, "  (Calories needed at complete rest)");
+            } else {
+                let _ = writeln!(
+                    out,
+                    "  Usage: hematite --health 'bmr male w=80 h=180 age=30'"
+                );
+                let _ = writeln!(
+                    out,
+                    "         hematite --health 'bmr female w=60 h=165 age=25'"
+                );
+            }
+        }
+        "tdee" => {
+            let w = parse_weight_kg(query);
+            let h = parse_height_m(query);
+            let age = kv(query, "age");
+            let is_male = q.contains("male") && !q.contains("female");
+            let activity = kv_str(query, "activity").unwrap_or("moderate");
+            if let (Some(w_kg), Some(h_m), Some(age_yr)) = (w, h, age) {
+                let bmr = if is_male {
+                    10.0 * w_kg + 6.25 * h_m * 100.0 - 5.0 * age_yr + 5.0
+                } else {
+                    10.0 * w_kg + 6.25 * h_m * 100.0 - 5.0 * age_yr - 161.0
+                };
+                let multiplier = match activity.to_lowercase().as_str() {
+                    "sedentary" | "s" => 1.2,
+                    "light" | "l" => 1.375,
+                    "moderate" | "m" => 1.55,
+                    "active" | "a" => 1.725,
+                    "very" | "v" | "veryactive" => 1.9,
+                    _ => 1.55,
+                };
+                let tdee = bmr * multiplier;
+                let _ = writeln!(
+                    out,
+                    "  Sex            : {}",
+                    if is_male { "Male" } else { "Female" }
+                );
+                let _ = writeln!(out, "  BMR            : {:.0} kcal/day", bmr);
+                let _ = writeln!(out, "  Activity level : {} (×{:.3})", activity, multiplier);
+                let _ = writeln!(
+                    out,
+                    "  TDEE           : {:.0} kcal/day  (maintenance)",
+                    tdee
+                );
+                let _ = writeln!(
+                    out,
+                    "  ─────────────────────────────────────────────────────"
+                );
+                let _ = writeln!(
+                    out,
+                    "  Weight loss    : {:.0} kcal/day  (–500 kcal/day → –0.5 kg/week)",
+                    tdee - 500.0
+                );
+                let _ = writeln!(
+                    out,
+                    "  Weight gain    : {:.0} kcal/day  (+500 kcal/day → +0.5 kg/week)",
+                    tdee + 500.0
+                );
+                let _ = writeln!(
+                    out,
+                    "  Activity: sedentary | light | moderate | active | very"
+                );
+            } else {
+                let _ = writeln!(
+                    out,
+                    "  Usage: hematite --health 'tdee male w=80 h=180 age=30 activity=moderate'"
+                );
+            }
+        }
+        "macros" => {
+            let calories = kv(query, "calories").unwrap_or(2000.0);
+            let goal = kv_str(query, "goal").unwrap_or("maintain");
+            let (protein_pct, carb_pct, fat_pct) = match goal.to_lowercase().as_str() {
+                "muscle" | "bulk" => (0.30, 0.45, 0.25),
+                "cut" | "loss" => (0.40, 0.30, 0.30),
+                "keto" => (0.25, 0.05, 0.70),
+                _ => (0.25, 0.50, 0.25), // maintain
+            };
+            let protein_g = calories * protein_pct / 4.0;
+            let carb_g = calories * carb_pct / 4.0;
+            let fat_g = calories * fat_pct / 9.0;
+            let _ = writeln!(out, "  Goal           : {}", goal);
+            let _ = writeln!(out, "  Calories       : {:.0} kcal/day", calories);
+            let _ = writeln!(
+                out,
+                "  Protein        : {:.0} g/day  ({:.0}%)",
+                protein_g,
+                protein_pct * 100.0
+            );
+            let _ = writeln!(
+                out,
+                "  Carbohydrates  : {:.0} g/day  ({:.0}%)",
+                carb_g,
+                carb_pct * 100.0
+            );
+            let _ = writeln!(
+                out,
+                "  Fat            : {:.0} g/day  ({:.0}%)",
+                fat_g,
+                fat_pct * 100.0
+            );
+            let _ = writeln!(out, "  Goals: maintain | muscle | cut | keto");
+        }
+        "ideal" => {
+            let h = parse_height_m(query);
+            if let Some(h_m) = h {
+                let ideal_low = 18.5 * h_m * h_m;
+                let ideal_high = 24.9 * h_m * h_m;
+                let _ = writeln!(
+                    out,
+                    "  Height         : {:.2} m  ({:.0} cm)",
+                    h_m,
+                    h_m * 100.0
+                );
+                let _ = writeln!(
+                    out,
+                    "  Ideal weight   : {:.1} – {:.1} kg  (BMI 18.5–24.9)",
+                    ideal_low, ideal_high
+                );
+                let _ = writeln!(
+                    out,
+                    "                 : {:.0} – {:.0} lb",
+                    ideal_low * 2.20462,
+                    ideal_high * 2.20462
+                );
+            } else {
+                let _ = writeln!(
+                    out,
+                    "  Usage: hematite --health 'ideal h=175'  (height in cm or m)"
+                );
+            }
+        }
+        "water" => {
+            let w = parse_weight_kg(query);
+            if let Some(w_kg) = w {
+                let liters = w_kg * 0.033;
+                let _ = writeln!(out, "  Weight         : {:.1} kg", w_kg);
+                let _ = writeln!(
+                    out,
+                    "  Daily water    : {:.2} L  ({:.0} mL, {:.1} fl oz)",
+                    liters,
+                    liters * 1000.0,
+                    liters * 33.814
+                );
+                let _ = writeln!(out, "  (General guideline: ~33 mL per kg body weight)");
+            } else {
+                let _ = writeln!(out, "  Usage: hematite --health 'water w=70'");
+            }
+        }
+        _ => {
+            let _ = writeln!(out, "  Unknown command: '{}'", keyword);
+            let _ = writeln!(out, "  Supported: bmi, bmr, tdee, macros, ideal, water");
+        }
+    }
+
+    let _ = writeln!(out, "{}", sep);
+    out
+}
