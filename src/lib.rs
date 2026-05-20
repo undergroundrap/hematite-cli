@@ -1316,6 +1316,38 @@ pub struct CliCockpit {
         long,
         help_heading = "Math & Science",
         value_name = "QUERY",
+        help = "Date/duration arithmetic — offline replacement for timeanddate.com. Commands: today, age YYYY-MM-DD, YYYY-MM-DD to YYYY-MM-DD, 30 days ago, 90 days from now, N weeks from YYYY-MM-DD, 3600 in seconds, bare Unix timestamp decode. Date formats: YYYY-MM-DD | YYYY/MM/DD | DD/MM/YYYY | MM/DD/YYYY. Examples: hematite --duration today | hematite --duration 'age 1990-06-15' | hematite --duration '2024-01-01 to 2025-01-01' | hematite --duration '30 days ago' | hematite --duration 1715000000"
+    )]
+    pub duration: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Math & Science",
+        value_name = "QUERY",
+        help = "Unicode sparkline and ASCII bar chart from comma-separated numbers — offline replacement for online chart tools. Commands: <values> = sparkline (▁▂▃▄▅▆▇█); bar <values> = horizontal bar chart; stats <values> = statistics summary + sparkline; normalize <values> = normalize to 0-1 first. Examples: hematite --spark '1,4,2,8,5,7' | hematite --spark 'bar 10,20,30,25,15' | hematite --spark 'stats 3,7,2,9,4,6'"
+    )]
+    pub spark: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Math & Science",
+        value_name = "QUERY",
+        help = "Template variable substitution with {{key}} placeholders — offline replacement for online template engines. Separator between template and variables is |||. Multiple key=value pairs separated by commas or semicolons. Examples: hematite --template 'Hello {{name}}! ||| name=Alice' | hematite --template 'Dear {{first}} {{last}}, order #{{id}}. ||| first=Jane, last=Doe, id=42'"
+    )]
+    pub template: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Math & Science",
+        value_name = "QUERY",
+        help = "String escaping — offline replacement for online escape tools. Commands: json <text> = escape for JSON string; shell <text> = POSIX single-quote escaping; regex <text> = escape metacharacters; sql <text> = escape LIKE wildcards; unescape <text> = JSON unescape; bare input = all formats at once. Examples: hematite --escape 'json hello \"world\"' | hematite --escape 'regex (foo|bar).baz' | hematite --escape 'shell it'\"'\"'s fine'"
+    )]
+    pub escape: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Math & Science",
+        value_name = "QUERY",
         help = "Lorem ipsum generator — offline replacement for lipsum.com. Commands: (bare) or <N> = N paragraphs (default 1); words <N> = N words; sentences <N> = N sentences. Examples: hematite --lorem | hematite --lorem 3 | hematite --lorem 'words 50' | hematite --lorem 'sentences 5'"
     )]
     pub lorem: Option<String>,

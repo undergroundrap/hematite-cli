@@ -4,13 +4,13 @@
 /// matrix decomposition modes (QR, SVD, Cholesky).
 use hematite::tools::math_util::{
     ascii_calc, bitwise_calc, case_calc, checksum_calc, chemistry_calc, cipher_calc, color_calc,
-    combinatorics_calc, complex_calc, cron_calc, csv_calc, datetime_calc, diff_calc,
-    electrical_calc, encode_calc, fraction_calc, geometry_calc, hash_calc, health_calc, http_calc,
-    ip_calc, json_calc, jwt_calc, kbd_calc, lorem_calc, matrix_calc, mime_calc, net_calc,
-    number_format, number_theory_calc, percent_calc, physics_calc, prob_calc, regex_calc,
-    roman_calc, semver_calc, set_calc, sort_viz, sql_fmt_calc, stats_calc, string_dist, table_calc,
-    text_stats, timestamp_calc, toml_calc, trig_calc, url_calc, uuid_calc, validate_calc, xml_calc,
-    yaml_calc,
+    combinatorics_calc, complex_calc, cron_calc, csv_calc, datetime_calc, diff_calc, duration_calc,
+    electrical_calc, encode_calc, escape_calc, fraction_calc, geometry_calc, hash_calc,
+    health_calc, http_calc, ip_calc, json_calc, jwt_calc, kbd_calc, lorem_calc, matrix_calc,
+    mime_calc, net_calc, number_format, number_theory_calc, percent_calc, physics_calc, prob_calc,
+    regex_calc, roman_calc, semver_calc, set_calc, sort_viz, spark_calc, sql_fmt_calc, stats_calc,
+    string_dist, table_calc, template_calc, text_stats, timestamp_calc, toml_calc, trig_calc,
+    url_calc, uuid_calc, validate_calc, xml_calc, yaml_calc,
 };
 
 // ─── Cipher tests ────────────────────────────────────────────────────────────
@@ -3463,4 +3463,280 @@ fn kbd_unknown_tool_no_panic() {
         out.to_lowercase().contains("unknown") || out.to_lowercase().contains("available"),
         "{out}"
     );
+}
+
+// ── duration_calc tests ───────────────────────────────────────────────────────
+
+#[test]
+fn test_duration_today() {
+    let out = duration_calc("today");
+    assert!(out.contains("Today:"), "should show Today: line\n{out}");
+    assert!(out.contains("ISO date:"), "{out}");
+    assert!(out.contains("Day of year:"), "{out}");
+}
+
+#[test]
+fn test_duration_empty_shows_today() {
+    let out = duration_calc("");
+    assert!(out.contains("Today:"), "{out}");
+}
+
+#[test]
+fn test_duration_date_to_date() {
+    let out = duration_calc("2024-01-01 to 2025-01-01");
+    assert!(out.contains("Days:"), "should show Days:\n{out}");
+    assert!(out.contains("Weeks:"), "{out}");
+    assert!(out.contains("366"), "2024 has 366 days\n{out}");
+}
+
+#[test]
+fn test_duration_date_to_date_same() {
+    let out = duration_calc("2025-06-15 to 2025-06-15");
+    assert!(out.contains("Days:   0"), "same date = 0 days\n{out}");
+}
+
+#[test]
+fn test_duration_age() {
+    let out = duration_calc("age 1990-01-01");
+    assert!(out.contains("Age:"), "{out}");
+    assert!(out.contains("Birth date:"), "{out}");
+    assert!(out.contains("Next birthday"), "{out}");
+}
+
+#[test]
+fn test_duration_age_future_date() {
+    let out = duration_calc("age 2099-01-01");
+    assert!(out.to_lowercase().contains("future"), "{out}");
+}
+
+#[test]
+fn test_duration_unix_timestamp() {
+    // 2024-01-01 00:00:00 UTC
+    let out = duration_calc("1704067200");
+    assert!(out.contains("Unix timestamp:"), "{out}");
+    assert!(out.contains("UTC:"), "{out}");
+    assert!(out.contains("2024-01-01"), "{out}");
+}
+
+#[test]
+fn test_duration_days_ago() {
+    let out = duration_calc("30 days ago");
+    assert!(out.contains("Base date:"), "{out}");
+    assert!(out.contains("Offset:"), "{out}");
+    assert!(out.contains("Result:"), "{out}");
+}
+
+#[test]
+fn test_duration_days_from_now() {
+    let out = duration_calc("90 days from now");
+    assert!(out.contains("Result:"), "{out}");
+    assert!(out.contains("+90"), "{out}");
+}
+
+#[test]
+fn test_duration_weeks_from_date() {
+    let out = duration_calc("2 weeks from 2025-01-01");
+    assert!(
+        out.contains("2025-01-15"),
+        "2 weeks from Jan 1 = Jan 15\n{out}"
+    );
+}
+
+#[test]
+fn test_duration_in_seconds_conversion() {
+    let out = duration_calc("3600 in seconds");
+    assert!(out.contains("3600 seconds"), "{out}");
+    assert!(out.contains("60.00 minutes"), "{out}");
+    assert!(out.contains("1.0000 hours"), "{out}");
+}
+
+#[test]
+fn test_duration_bare_date() {
+    let out = duration_calc("2000-01-01");
+    assert!(out.contains("ISO date:"), "{out}");
+    assert!(out.contains("From today:"), "{out}");
+    assert!(out.contains("ago"), "{out}");
+}
+
+#[test]
+fn test_duration_help_on_unknown() {
+    let out = duration_calc("not a valid query xyz");
+    assert!(out.contains("Commands:"), "{out}");
+}
+
+// ── spark_calc tests ──────────────────────────────────────────────────────────
+
+#[test]
+fn test_spark_basic_sparkline() {
+    let out = spark_calc("1,4,2,8,5,7");
+    assert!(
+        out.contains('\u{2581}') || out.contains('\u{2588}'),
+        "should have spark chars\n{out}"
+    );
+    assert!(out.contains("min="), "{out}");
+    assert!(out.contains("max="), "{out}");
+}
+
+#[test]
+fn test_spark_all_same_values() {
+    let out = spark_calc("5,5,5,5");
+    assert!(!out.is_empty(), "{out}");
+}
+
+#[test]
+fn test_spark_bar_chart() {
+    let out = spark_calc("bar 10,20,30,25,15");
+    assert!(out.contains("BAR CHART"), "{out}");
+    assert!(out.contains('['), "{out}");
+    assert!(out.contains("30"), "{out}");
+}
+
+#[test]
+fn test_spark_stats_mode() {
+    let out = spark_calc("stats 3,7,2,9,4,6");
+    assert!(out.contains("STATISTICS"), "{out}");
+    assert!(out.contains("mean:"), "{out}");
+    assert!(out.contains("median:"), "{out}");
+    assert!(out.contains("std dev:"), "{out}");
+    assert!(out.contains("5.0000"), "median of [2,3,4,6,7,9] = 5\n{out}");
+}
+
+#[test]
+fn test_spark_normalize_mode() {
+    let out = spark_calc("normalize 0,5,10");
+    assert!(out.contains("Normalized:"), "{out}");
+    assert!(out.contains("0.000"), "{out}");
+    assert!(out.contains("1.000"), "{out}");
+}
+
+#[test]
+fn test_spark_empty_input() {
+    let out = spark_calc("");
+    assert!(out.to_lowercase().contains("no valid numbers"), "{out}");
+}
+
+#[test]
+fn test_spark_single_value() {
+    let out = spark_calc("42");
+    assert!(!out.is_empty(), "{out}");
+}
+
+#[test]
+fn test_spark_negative_numbers() {
+    let out = spark_calc("-3,-1,0,2,5");
+    assert!(!out.is_empty(), "{out}");
+    assert!(out.contains("min="), "{out}");
+}
+
+// ── template_calc tests ───────────────────────────────────────────────────────
+
+#[test]
+fn test_template_basic_substitution() {
+    let out = template_calc("Hello {{name}}! ||| name=Alice");
+    assert!(out.contains("Hello Alice!"), "substitution failed\n{out}");
+    assert!(out.contains("Substituted:"), "{out}");
+}
+
+#[test]
+fn test_template_multiple_vars() {
+    let out = template_calc("Dear {{first}} {{last}} ||| first=Jane, last=Doe");
+    assert!(out.contains("Dear Jane Doe"), "{out}");
+}
+
+#[test]
+fn test_template_semicolon_separator() {
+    let out = template_calc("{{greeting}} {{name}} ||| greeting=Hi; name=Bob");
+    assert!(out.contains("Hi Bob"), "{out}");
+}
+
+#[test]
+fn test_template_missing_var() {
+    let out = template_calc("Hello {{name}} {{title}}! ||| name=Alice");
+    assert!(out.contains("Missing vars:"), "{out}");
+    assert!(out.contains("title"), "{out}");
+}
+
+#[test]
+fn test_template_no_separator_shows_needs() {
+    let out = template_calc("Hello {{name}}!");
+    assert!(out.contains("Needs variables:"), "{out}");
+    assert!(out.contains("name"), "{out}");
+}
+
+#[test]
+fn test_template_no_placeholders_shows_help() {
+    let out = template_calc("");
+    assert!(out.to_lowercase().contains("usage"), "{out}");
+}
+
+#[test]
+fn test_template_repeated_placeholder() {
+    let out = template_calc("{{x}} + {{x}} = double ||| x=5");
+    assert!(out.contains("5 + 5"), "{out}");
+}
+
+// ── escape_calc tests ─────────────────────────────────────────────────────────
+
+#[test]
+fn test_escape_json_mode() {
+    let out = escape_calc("json She said \"hello\"");
+    assert!(out.contains("\\\""), "should escape quotes\n{out}");
+    assert!(out.contains("JSON:"), "{out}");
+}
+
+#[test]
+fn test_escape_json_backslash() {
+    let out = escape_calc("json C:\\Users\\foo");
+    assert!(out.contains("\\\\"), "should escape backslash\n{out}");
+}
+
+#[test]
+fn test_escape_shell_mode() {
+    let out = escape_calc("shell hello world");
+    assert!(out.contains("'hello world'"), "{out}");
+}
+
+#[test]
+fn test_escape_regex_mode() {
+    let out = escape_calc("regex (foo|bar)");
+    let result_line = out
+        .lines()
+        .find(|l| l.trim_start().starts_with("Regex:"))
+        .unwrap_or("");
+    assert!(result_line.contains("\\("), "should escape (\n{out}");
+    assert!(result_line.contains("\\|"), "should escape |\n{out}");
+}
+
+#[test]
+fn test_escape_sql_mode() {
+    let out = escape_calc("sql 50% off_sale");
+    assert!(out.contains("\\%"), "should escape %\n{out}");
+    assert!(out.contains("\\_"), "should escape _\n{out}");
+}
+
+#[test]
+fn test_escape_unescape_mode() {
+    let out = escape_calc("unescape \\\"hello\\\"");
+    assert!(out.contains("Unescaped:"), "{out}");
+}
+
+#[test]
+fn test_escape_all_mode() {
+    let out = escape_calc("hello (world)");
+    assert!(out.contains("JSON:"), "{out}");
+    assert!(out.contains("Shell:"), "{out}");
+    assert!(out.contains("Regex:"), "{out}");
+    assert!(out.contains("SQL LIKE:"), "{out}");
+}
+
+#[test]
+fn test_escape_empty_shows_help() {
+    let out = escape_calc("");
+    assert!(out.to_lowercase().contains("commands:"), "{out}");
+}
+
+#[test]
+fn test_escape_no_special_json() {
+    let out = escape_calc("json hello world");
+    assert!(out.contains("\"hello world\""), "{out}");
 }

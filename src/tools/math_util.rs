@@ -25531,3 +25531,692 @@ pub fn kbd_calc(query: &str) -> String {
     let _ = writeln!(out, "{sep}");
     out
 }
+
+// ── Duration / date arithmetic ────────────────────────────────────────────────
+
+pub fn duration_calc(query: &str) -> String {
+    use chrono::{Datelike, Duration, Local, NaiveDate, Weekday};
+
+    let sep = "─".repeat(60);
+    let mut out = String::new();
+    let _ = writeln!(out, "{sep}");
+    let _ = writeln!(out, "  DURATION CALCULATOR");
+    let _ = writeln!(out, "{sep}");
+
+    let q = query.trim();
+
+    fn parse_date(s: &str) -> Option<NaiveDate> {
+        if let Ok(d) = NaiveDate::parse_from_str(s.trim(), "%Y-%m-%d") {
+            return Some(d);
+        }
+        if let Ok(d) = NaiveDate::parse_from_str(s.trim(), "%Y/%m/%d") {
+            return Some(d);
+        }
+        if let Ok(d) = NaiveDate::parse_from_str(s.trim(), "%d/%m/%Y") {
+            return Some(d);
+        }
+        if let Ok(d) = NaiveDate::parse_from_str(s.trim(), "%m/%d/%Y") {
+            return Some(d);
+        }
+        None
+    }
+
+    fn weekday_name(w: Weekday) -> &'static str {
+        match w {
+            Weekday::Mon => "Monday",
+            Weekday::Tue => "Tuesday",
+            Weekday::Wed => "Wednesday",
+            Weekday::Thu => "Thursday",
+            Weekday::Fri => "Friday",
+            Weekday::Sat => "Saturday",
+            Weekday::Sun => "Sunday",
+        }
+    }
+
+    fn ordinal_suffix(n: u32) -> &'static str {
+        match n % 100 {
+            11 | 12 | 13 => "th",
+            _ => match n % 10 {
+                1 => "st",
+                2 => "nd",
+                3 => "rd",
+                _ => "th",
+            },
+        }
+    }
+
+    let today = Local::now().date_naive();
+
+    if q == "today" || q.is_empty() {
+        let dow = weekday_name(today.weekday());
+        let day = today.day();
+        let suf = ordinal_suffix(day);
+        let _ = writeln!(
+            out,
+            "  Today:       {dow}, {day}{suf} {} {}",
+            today.format("%B"),
+            today.year()
+        );
+        let _ = writeln!(out, "  ISO date:    {}", today.format("%Y-%m-%d"));
+        let _ = writeln!(out, "  Day of year: {}", today.ordinal());
+        let jan1 = NaiveDate::from_ymd_opt(today.year(), 1, 1).unwrap();
+        let dec31 = NaiveDate::from_ymd_opt(today.year(), 12, 31).unwrap();
+        let days_left = (dec31 - today).num_days();
+        let _ = writeln!(out, "  Days in year: {}", (dec31 - jan1).num_days() + 1);
+        let _ = writeln!(out, "  Days left:    {days_left}");
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    if let Ok(ts) = q.parse::<i64>() {
+        use chrono::TimeZone;
+        if let Some(dt) = chrono::Utc.timestamp_opt(ts, 0).single() {
+            let local_dt = dt.with_timezone(&Local);
+            let _ = writeln!(out, "  Unix timestamp: {ts}");
+            let _ = writeln!(
+                out,
+                "  UTC:            {}",
+                dt.format("%Y-%m-%d %H:%M:%S UTC")
+            );
+            let _ = writeln!(
+                out,
+                "  Local:          {}",
+                local_dt.format("%Y-%m-%d %H:%M:%S %Z")
+            );
+            let diff = today.signed_duration_since(dt.date_naive());
+            if diff.num_days() == 0 {
+                let _ = writeln!(out, "  Age:            today");
+            } else if diff.num_days() > 0 {
+                let _ = writeln!(out, "  Age:            {} days ago", diff.num_days());
+            } else {
+                let _ = writeln!(out, "  Age:            in {} days", -diff.num_days());
+            }
+        } else {
+            let _ = writeln!(out, "  Invalid Unix timestamp: {ts}");
+        }
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    if let Some(rest) = q.strip_prefix("age ") {
+        if let Some(dob) = parse_date(rest) {
+            if dob > today {
+                let _ = writeln!(out, "  Date is in the future.");
+            } else {
+                let years = today.year()
+                    - dob.year()
+                    - if (today.month(), today.day()) < (dob.month(), dob.day()) {
+                        1
+                    } else {
+                        0
+                    };
+                let total_days = (today - dob).num_days();
+                let _ = writeln!(out, "  Birth date:  {}", dob.format("%Y-%m-%d"));
+                let _ = writeln!(out, "  Age:         {years} years");
+                let _ = writeln!(out, "  Total days:  {}", total_days);
+                let next_bday =
+                    NaiveDate::from_ymd_opt(today.year(), dob.month(), dob.day()).unwrap_or(today);
+                let next_bday = if next_bday <= today {
+                    NaiveDate::from_ymd_opt(today.year() + 1, dob.month(), dob.day())
+                        .unwrap_or(next_bday)
+                } else {
+                    next_bday
+                };
+                let days_to_bday = (next_bday - today).num_days();
+                let _ = writeln!(
+                    out,
+                    "  Next birthday in {} days ({})",
+                    days_to_bday,
+                    next_bday.format("%Y-%m-%d")
+                );
+            }
+        } else {
+            let _ = writeln!(out, "  Could not parse date: '{rest}'");
+        }
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    if let Some(idx) = q.find(" to ") {
+        let left = q[..idx].trim();
+        let right = q[idx + 4..].trim();
+        if let (Some(d1), Some(d2)) = (parse_date(left), parse_date(right)) {
+            let diff = d2.signed_duration_since(d1);
+            let days = diff.num_days().abs();
+            let label = if diff.num_days() >= 0 {
+                "forward"
+            } else {
+                "backward"
+            };
+            let _ = writeln!(out, "  From: {}", d1.format("%Y-%m-%d  (%A)"));
+            let _ = writeln!(out, "  To:   {}", d2.format("%Y-%m-%d  (%A)"));
+            let _ = writeln!(out, "  Difference ({label}):");
+            let _ = writeln!(out, "    Days:   {days}");
+            let _ = writeln!(
+                out,
+                "    Weeks:  {} ({} remaining days)",
+                days / 7,
+                days % 7
+            );
+            let months = days / 30;
+            let _ = writeln!(out, "    Months: ~{months} (~{} remaining days)", days % 30);
+            let years = days / 365;
+            if years > 0 {
+                let _ = writeln!(out, "    Years:  ~{years} (~{} remaining days)", days % 365);
+            }
+        } else {
+            let _ = writeln!(out, "  Could not parse dates from: '{q}'");
+            let _ = writeln!(out, "  Format: YYYY-MM-DD to YYYY-MM-DD");
+        }
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    let q_lower = q.to_lowercase();
+    let (offset_part, base_date) = if let Some(idx) = q_lower.find(" from ") {
+        let base_str = q[idx + 6..].trim();
+        let base = if base_str == "now" || base_str == "today" {
+            Some(today)
+        } else {
+            parse_date(base_str)
+        };
+        (q[..idx].trim().to_string(), base)
+    } else if q_lower.ends_with(" ago") {
+        let part = &q[..q.len() - 4];
+        (part.trim().to_string(), Some(today))
+    } else {
+        (String::new(), None)
+    };
+
+    if let Some(base) = base_date {
+        let parts: Vec<&str> = offset_part.splitn(2, ' ').collect();
+        if parts.len() == 2 {
+            if let Ok(n) = parts[0].parse::<i64>() {
+                let unit = parts[1].to_lowercase();
+                let is_ago = q_lower.ends_with(" ago");
+                let sign = if is_ago { -1i64 } else { 1i64 };
+                let duration = match unit.trim_end_matches('s') {
+                    "day" => Some(Duration::days(n * sign)),
+                    "week" => Some(Duration::weeks(n * sign)),
+                    "hour" => Some(Duration::hours(n * sign)),
+                    "minute" | "min" => Some(Duration::minutes(n * sign)),
+                    "second" | "sec" => Some(Duration::seconds(n * sign)),
+                    _ => None,
+                };
+                if let Some(dur) = duration {
+                    let result = base + dur;
+                    let dow = weekday_name(result.weekday());
+                    let _ = writeln!(out, "  Base date: {}", base.format("%Y-%m-%d"));
+                    let _ = writeln!(
+                        out,
+                        "  Offset:    {}{n} {}",
+                        if is_ago { "-" } else { "+" },
+                        parts[1]
+                    );
+                    let _ = writeln!(out, "  Result:    {dow}, {}", result.format("%Y-%m-%d"));
+                } else {
+                    let _ = writeln!(out, "  Unknown unit: '{}'", parts[1]);
+                    let _ = writeln!(out, "  Supported: days, weeks, hours, minutes, seconds");
+                }
+                let _ = writeln!(out, "{sep}");
+                return out;
+            }
+        }
+    }
+
+    if let Some(idx) = q_lower.find(" in ") {
+        let num_part = q[..idx].trim();
+        let unit_part = q_lower[idx + 4..].trim().to_string();
+        if let Ok(n) = num_part.parse::<i64>() {
+            let seconds = match unit_part.trim_end_matches('s') {
+                "second" | "sec" => Some(n),
+                "minute" | "min" => Some(n * 60),
+                "hour" => Some(n * 3600),
+                "day" => Some(n * 86400),
+                "week" => Some(n * 604800),
+                _ => None,
+            };
+            if let Some(secs) = seconds {
+                let _ = writeln!(out, "  {n} {unit_part} =");
+                let _ = writeln!(out, "    {:>12} seconds", secs);
+                let _ = writeln!(out, "    {:>12.2} minutes", secs as f64 / 60.0);
+                let _ = writeln!(out, "    {:>12.4} hours", secs as f64 / 3600.0);
+                let _ = writeln!(out, "    {:>12.5} days", secs as f64 / 86400.0);
+                let _ = writeln!(out, "    {:>12.6} weeks", secs as f64 / 604800.0);
+            } else {
+                let _ = writeln!(out, "  Unknown unit: '{unit_part}'");
+            }
+            let _ = writeln!(out, "{sep}");
+            return out;
+        }
+    }
+
+    if let Some(d) = parse_date(q) {
+        let dow = weekday_name(d.weekday());
+        let day = d.day();
+        let suf = ordinal_suffix(day);
+        let _ = writeln!(
+            out,
+            "  Date:        {dow}, {day}{suf} {} {}",
+            d.format("%B"),
+            d.year()
+        );
+        let _ = writeln!(out, "  ISO date:    {}", d.format("%Y-%m-%d"));
+        let _ = writeln!(out, "  Day of year: {}", d.ordinal());
+        let diff = today.signed_duration_since(d);
+        if diff.num_days() == 0 {
+            let _ = writeln!(out, "  From today:  today");
+        } else if diff.num_days() > 0 {
+            let _ = writeln!(out, "  From today:  {} days ago", diff.num_days());
+        } else {
+            let _ = writeln!(out, "  From today:  in {} days", -diff.num_days());
+        }
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    let _ = writeln!(out, "  Commands:");
+    let _ = writeln!(out, "    today                         — today's date info");
+    let _ = writeln!(
+        out,
+        "    <UNIX-timestamp>              — decode Unix timestamp"
+    );
+    let _ = writeln!(
+        out,
+        "    age YYYY-MM-DD                — age from birth date"
+    );
+    let _ = writeln!(
+        out,
+        "    YYYY-MM-DD to YYYY-MM-DD      — days between two dates"
+    );
+    let _ = writeln!(
+        out,
+        "    30 days ago                   — date 30 days before today"
+    );
+    let _ = writeln!(
+        out,
+        "    90 days from now              — date 90 days from today"
+    );
+    let _ = writeln!(
+        out,
+        "    10 weeks from 2025-01-01      — date from specific base"
+    );
+    let _ = writeln!(
+        out,
+        "    3600 in seconds               — convert duration to all units"
+    );
+    let _ = writeln!(
+        out,
+        "  Date formats: YYYY-MM-DD | YYYY/MM/DD | DD/MM/YYYY | MM/DD/YYYY"
+    );
+    let _ = writeln!(out, "{sep}");
+    out
+}
+
+// ── Sparkline / bar chart ─────────────────────────────────────────────────────
+
+pub fn spark_calc(query: &str) -> String {
+    let sep = "─".repeat(60);
+    let mut out = String::new();
+    let _ = writeln!(out, "{sep}");
+
+    let q = query.trim();
+    let (mode, data_str) = if let Some(rest) = q.strip_prefix("bar ") {
+        ("bar", rest)
+    } else if let Some(rest) = q.strip_prefix("stats ") {
+        ("stats", rest)
+    } else if let Some(rest) = q.strip_prefix("normalize ") {
+        ("normalize", rest)
+    } else {
+        ("spark", q)
+    };
+
+    let nums: Vec<f64> = data_str
+        .split(|c: char| c == ',' || c == ' ' || c == '\t')
+        .filter(|s| !s.is_empty())
+        .filter_map(|s| s.parse::<f64>().ok())
+        .collect();
+
+    if nums.is_empty() {
+        let _ = writeln!(out, "  SPARKLINE / BAR CHART");
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(
+            out,
+            "  No valid numbers found. Provide comma-separated values."
+        );
+        let _ = writeln!(out, "  Commands:");
+        let _ = writeln!(
+            out,
+            "    <values>            — Unicode sparkline (▁▂▃▄▅▆▇█)"
+        );
+        let _ = writeln!(out, "    bar <values>        — ASCII horizontal bar chart");
+        let _ = writeln!(out, "    stats <values>      — statistics + sparkline");
+        let _ = writeln!(out, "    normalize <values>  — normalize to 0-1 then spark");
+        let _ = writeln!(out, "  Example: hematite --spark '1,4,2,8,5,7'");
+        let _ = writeln!(out, "  Example: hematite --spark 'bar 10,20,30,25,15'");
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    let min_val = nums.iter().cloned().fold(f64::INFINITY, f64::min);
+    let max_val = nums.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+    let sum: f64 = nums.iter().sum();
+    let mean = sum / nums.len() as f64;
+    let range = if (max_val - min_val).abs() < f64::EPSILON {
+        1.0
+    } else {
+        max_val - min_val
+    };
+
+    let spark_chars = ['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'];
+    let to_spark = |v: f64| -> char {
+        let idx = ((v - min_val) / range * 7.0).round() as usize;
+        spark_chars[idx.min(7)]
+    };
+
+    match mode {
+        "spark" | "normalize" => {
+            let _ = writeln!(out, "  SPARKLINE");
+            let _ = writeln!(out, "{sep}");
+            let spark: String = nums.iter().map(|&v| to_spark(v)).collect();
+            let _ = writeln!(out, "  {spark}");
+            if mode == "normalize" {
+                let normalized: Vec<String> = nums
+                    .iter()
+                    .map(|&v| format!("{:.3}", (v - min_val) / range))
+                    .collect();
+                let _ = writeln!(out, "  Normalized: {}", normalized.join(", "));
+            }
+            let _ = writeln!(out, "  min={min_val}  max={max_val}  n={}", nums.len());
+        }
+        "bar" => {
+            let _ = writeln!(out, "  BAR CHART  (n={})", nums.len());
+            let _ = writeln!(out, "{sep}");
+            let bar_width = 40usize;
+            for (i, &v) in nums.iter().enumerate() {
+                let filled = ((v - min_val) / range * bar_width as f64).round() as usize;
+                let bar: String = "█".repeat(filled.min(bar_width));
+                let label = format!("[{:>3}]", i + 1);
+                let _ = writeln!(out, "  {label} {bar:<40}  {v}");
+            }
+            let _ = writeln!(out, "  min={min_val}  max={max_val}  mean={mean:.3}");
+        }
+        "stats" => {
+            let _ = writeln!(out, "  STATISTICS + SPARKLINE");
+            let _ = writeln!(out, "{sep}");
+            let mut sorted = nums.clone();
+            sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
+            let median = if sorted.len() % 2 == 0 {
+                (sorted[sorted.len() / 2 - 1] + sorted[sorted.len() / 2]) / 2.0
+            } else {
+                sorted[sorted.len() / 2]
+            };
+            let variance =
+                nums.iter().map(|&v| (v - mean).powi(2)).sum::<f64>() / nums.len() as f64;
+            let std_dev = variance.sqrt();
+            let _ = writeln!(out, "  n:       {}", nums.len());
+            let _ = writeln!(out, "  min:     {min_val}");
+            let _ = writeln!(out, "  max:     {max_val}");
+            let _ = writeln!(out, "  mean:    {mean:.4}");
+            let _ = writeln!(out, "  median:  {median:.4}");
+            let _ = writeln!(out, "  std dev: {std_dev:.4}");
+            let _ = writeln!(out, "  sum:     {sum:.4}");
+            let _ = writeln!(out, "{sep}");
+            let spark: String = nums.iter().map(|&v| to_spark(v)).collect();
+            let _ = writeln!(out, "  {spark}");
+        }
+        _ => {}
+    }
+
+    let _ = writeln!(out, "{sep}");
+    out
+}
+
+// ── Template variable substitution ───────────────────────────────────────────
+
+pub fn template_calc(query: &str) -> String {
+    let sep = "─".repeat(60);
+    let mut out = String::new();
+    let _ = writeln!(out, "{sep}");
+    let _ = writeln!(out, "  TEMPLATE ENGINE");
+    let _ = writeln!(out, "{sep}");
+
+    let q = query.trim();
+    const VAR_SEP: &str = " ||| ";
+
+    if let Some(idx) = q.find(VAR_SEP) {
+        let template = &q[..idx];
+        let vars_str = &q[idx + VAR_SEP.len()..];
+
+        let mut vars: Vec<(String, String)> = Vec::new();
+        for pair in vars_str.split(|c| c == ',' || c == ';') {
+            let pair = pair.trim();
+            if let Some(eq) = pair.find('=') {
+                let k = pair[..eq].trim().to_string();
+                let v = pair[eq + 1..].trim().to_string();
+                if !k.is_empty() {
+                    vars.push((k, v));
+                }
+            }
+        }
+
+        let mut result = template.to_string();
+        let mut substituted = Vec::new();
+        let mut missing: Vec<String> = Vec::new();
+
+        for (k, v) in &vars {
+            let placeholder = format!("{{{{{k}}}}}");
+            if result.contains(&placeholder as &str) {
+                result = result.replace(&placeholder as &str, v);
+                substituted.push(k.clone());
+            }
+        }
+
+        let mut search_pos = 0;
+        while let Some(start) = result[search_pos..].find("{{") {
+            let abs_start = search_pos + start;
+            if let Some(end) = result[abs_start..].find("}}") {
+                let var_name = result[abs_start + 2..abs_start + end].to_string();
+                if !var_name.is_empty() && !var_name.contains('{') {
+                    missing.push(var_name);
+                }
+                search_pos = abs_start + end + 2;
+            } else {
+                break;
+            }
+        }
+
+        let _ = writeln!(out, "  Template:  {template}");
+        let _ = writeln!(
+            out,
+            "  Variables: {}",
+            vars.iter()
+                .map(|(k, v)| format!("{k}={v}"))
+                .collect::<Vec<_>>()
+                .join(", ")
+        );
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  Result:");
+        let _ = writeln!(out, "  {result}");
+        if !substituted.is_empty() {
+            let _ = writeln!(out, "{sep}");
+            let _ = writeln!(out, "  Substituted: {}", substituted.join(", "));
+        }
+        if !missing.is_empty() {
+            let _ = writeln!(out, "  Missing vars: {}", missing.join(", "));
+        }
+    } else if q.contains("{{") {
+        let mut placeholders = Vec::new();
+        let mut search_pos = 0;
+        while let Some(start) = q[search_pos..].find("{{") {
+            let abs_start = search_pos + start;
+            if let Some(end) = q[abs_start..].find("}}") {
+                let name = q[abs_start + 2..abs_start + end].to_string();
+                if !name.is_empty() && !name.contains('{') {
+                    placeholders.push(name);
+                }
+                search_pos = abs_start + end + 2;
+            } else {
+                break;
+            }
+        }
+        let _ = writeln!(out, "  Template: {q}");
+        let _ = writeln!(out, "  Needs variables: {}", placeholders.join(", "));
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(
+            out,
+            r#"  Usage: hematite --template 'Hello {{name}}! ||| name=Alice'"#
+        );
+    } else {
+        let _ = writeln!(
+            out,
+            "  Usage: hematite --template '<template> ||| key=value, key2=value2'"
+        );
+        let _ = writeln!(out, "");
+        let _ = writeln!(out, "  Examples:");
+        let _ = writeln!(out, r#"    --template 'Hello {{name}}! ||| name=Alice'"#);
+        let _ = writeln!(
+            out,
+            r#"    --template 'Dear {{first}} {{last}}, order #{{id}} ready. ||| first=Jane, last=Doe, id=42'"#
+        );
+        let _ = writeln!(
+            out,
+            r#"    --template '{{greeting}}, {{name}}! ||| greeting=Hi; name=Bob'"#
+        );
+        let _ = writeln!(out, "");
+        let _ = writeln!(out, "  Separator between template and vars: |||");
+        let _ = writeln!(
+            out,
+            "  Multiple vars: comma or semicolon separated key=value pairs"
+        );
+    }
+
+    let _ = writeln!(out, "{sep}");
+    out
+}
+
+// ── String escaping ───────────────────────────────────────────────────────────
+
+pub fn escape_calc(query: &str) -> String {
+    let sep = "─".repeat(60);
+    let mut out = String::new();
+    let _ = writeln!(out, "{sep}");
+    let _ = writeln!(out, "  STRING ESCAPER");
+    let _ = writeln!(out, "{sep}");
+
+    let q = query.trim();
+
+    fn escape_json(s: &str) -> String {
+        let mut buf = String::with_capacity(s.len() + 4);
+        buf.push('"');
+        for c in s.chars() {
+            match c {
+                '"' => buf.push_str(r#"\""#),
+                '\\' => buf.push_str(r"\\"),
+                '\n' => buf.push_str(r"\n"),
+                '\r' => buf.push_str(r"\r"),
+                '\t' => buf.push_str(r"\t"),
+                c if (c as u32) < 0x20 => {
+                    let _ = write!(buf, "\\u{:04x}", c as u32);
+                }
+                c => buf.push(c),
+            }
+        }
+        buf.push('"');
+        buf
+    }
+
+    fn escape_shell(s: &str) -> String {
+        format!("'{}'", s.replace('\'', r"'\''"))
+    }
+
+    fn escape_regex(s: &str) -> String {
+        const META: &[char] = &[
+            '.', '^', '$', '*', '+', '?', '(', ')', '[', ']', '{', '}', '\\', '|',
+        ];
+        let mut buf = String::with_capacity(s.len() * 2);
+        for c in s.chars() {
+            if META.contains(&c) {
+                buf.push('\\');
+            }
+            buf.push(c);
+        }
+        buf
+    }
+
+    fn escape_sql_like(s: &str) -> String {
+        s.replace('\\', r"\\")
+            .replace('%', r"\%")
+            .replace('_', r"\_")
+    }
+
+    let (mode, text) = if let Some(rest) = q.strip_prefix("json ") {
+        ("json", rest)
+    } else if let Some(rest) = q.strip_prefix("shell ") {
+        ("shell", rest)
+    } else if let Some(rest) = q.strip_prefix("regex ") {
+        ("regex", rest)
+    } else if let Some(rest) = q.strip_prefix("sql ") {
+        ("sql", rest)
+    } else if let Some(rest) = q.strip_prefix("unescape ") {
+        ("unescape", rest)
+    } else {
+        ("all", q)
+    };
+
+    match mode {
+        "json" => {
+            let _ = writeln!(out, "  Input:  {text}");
+            let _ = writeln!(out, "  JSON:   {}", escape_json(text));
+        }
+        "shell" => {
+            let _ = writeln!(out, "  Input:  {text}");
+            let _ = writeln!(out, "  Shell:  {}", escape_shell(text));
+        }
+        "regex" => {
+            let _ = writeln!(out, "  Input:  {text}");
+            let _ = writeln!(out, "  Regex:  {}", escape_regex(text));
+        }
+        "sql" => {
+            let _ = writeln!(out, "  Input:   {text}");
+            let _ = writeln!(out, "  SQL LIKE: {}", escape_sql_like(text));
+        }
+        "unescape" => {
+            let unescaped = text
+                .replace(r#"\""#, "\"")
+                .replace(r"\\", "\\")
+                .replace(r"\n", "\n")
+                .replace(r"\r", "\r")
+                .replace(r"\t", "\t");
+            let _ = writeln!(out, "  Input:     {text}");
+            let _ = writeln!(out, "  Unescaped: {unescaped}");
+        }
+        _ => {
+            if q.is_empty() {
+                let _ = writeln!(out, "  Commands:");
+                let _ = writeln!(out, "    json <text>    — escape for JSON string value");
+                let _ = writeln!(
+                    out,
+                    "    shell <text>   — POSIX single-quote shell escaping"
+                );
+                let _ = writeln!(out, "    regex <text>   — escape regex metacharacters");
+                let _ = writeln!(out, "    sql <text>     — escape SQL LIKE wildcards (%, _)");
+                let _ = writeln!(out, "    unescape <t>   — JSON unescape (basic)");
+                let _ = writeln!(out, "    <text>         — show all escape forms at once");
+                let _ = writeln!(out, "");
+                let _ = writeln!(out, r#"  Example: hematite --escape 'hello "world"'"#);
+                let _ = writeln!(out, r#"  Example: hematite --escape 'json She said "hi"'"#);
+            } else {
+                let _ = writeln!(out, "  Input:     {q}");
+                let _ = writeln!(out, "{sep}");
+                let _ = writeln!(out, "  JSON:      {}", escape_json(q));
+                let _ = writeln!(out, "  Shell:     {}", escape_shell(q));
+                let _ = writeln!(out, "  Regex:     {}", escape_regex(q));
+                let _ = writeln!(out, "  SQL LIKE:  {}", escape_sql_like(q));
+            }
+        }
+    }
+
+    let _ = writeln!(out, "{sep}");
+    out
+}

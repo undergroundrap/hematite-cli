@@ -1019,6 +1019,10 @@ mod tests {
             net: None,
             ascii: None,
             kbd: None,
+            duration: None,
+            spark: None,
+            template: None,
+            escape: None,
             pdf_extract_helper: None,
             teleported_from: None,
         };
