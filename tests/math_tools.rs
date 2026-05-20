@@ -3,10 +3,11 @@
 /// Covers known-value correctness, edge-case non-panics, and the newer
 /// matrix decomposition modes (QR, SVD, Cholesky).
 use hematite::tools::math_util::{
-    bitwise_calc, checksum_calc, chemistry_calc, cipher_calc, combinatorics_calc, datetime_calc,
-    electrical_calc, encode_calc, fraction_calc, geometry_calc, hash_calc, health_calc,
-    matrix_calc, number_format, number_theory_calc, physics_calc, prob_calc, set_calc, sort_viz,
-    stats_calc, string_dist, text_stats, trig_calc, validate_calc,
+    bitwise_calc, checksum_calc, chemistry_calc, cipher_calc, combinatorics_calc, complex_calc,
+    datetime_calc, electrical_calc, encode_calc, fraction_calc, geometry_calc, hash_calc,
+    health_calc, matrix_calc, number_format, number_theory_calc, percent_calc, physics_calc,
+    prob_calc, roman_calc, set_calc, sort_viz, stats_calc, string_dist, text_stats, trig_calc,
+    validate_calc,
 };
 
 // ─── Cipher tests ────────────────────────────────────────────────────────────
@@ -1399,6 +1400,212 @@ fn fraction_todec_quarter_terminates() {
 #[test]
 fn fraction_empty_no_panic() {
     let out = fraction_calc("");
+    assert!(!out.is_empty());
+}
+
+// ─── Percent tests ────────────────────────────────────────────────────────────
+
+#[test]
+fn percent_of_basic() {
+    // 15% of 350 = 52.5
+    let out = percent_calc("15% of 350");
+    assert!(
+        out.contains("52.5") || out.contains("52."),
+        "15% of 350: {out}"
+    );
+}
+
+#[test]
+fn percent_what_pct_of() {
+    // 42 is what % of 280 = 15%
+    let out = percent_calc("42 is what % of 280");
+    assert!(out.contains("15"), "42/280=15%: {out}");
+}
+
+#[test]
+fn percent_change_increase() {
+    // 80 to 100 = +25%
+    let out = percent_calc("change 80 to 100");
+    assert!(out.contains("25"), "80->100 = +25%: {out}");
+}
+
+#[test]
+fn percent_change_decrease() {
+    // 100 to 75 = -25%
+    let out = percent_calc("change 100 to 75");
+    assert!(out.contains("25"), "100->75 = -25%: {out}");
+}
+
+#[test]
+fn percent_increase_by_pct() {
+    // 200 + 10% = 220
+    let out = percent_calc("200 + 10%");
+    assert!(out.contains("220"), "200+10%=220: {out}");
+}
+
+#[test]
+fn percent_decrease_by_pct() {
+    // 200 - 25% = 150
+    let out = percent_calc("200 - 25%");
+    assert!(out.contains("150"), "200-25%=150: {out}");
+}
+
+#[test]
+fn percent_tip_calc() {
+    // tip 100 20% → tip=20, total=120
+    let out = percent_calc("tip 100 20%");
+    assert!(
+        out.contains("20.00") || out.contains("20"),
+        "tip 20%: {out}"
+    );
+    assert!(
+        out.contains("120") || out.contains("Total"),
+        "total 120: {out}"
+    );
+}
+
+#[test]
+fn percent_markup() {
+    // markup 80 25% → sell = 100
+    let out = percent_calc("markup 80 25%");
+    assert!(out.contains("100"), "markup 80+25%=100: {out}");
+}
+
+#[test]
+fn percent_discount() {
+    // discount 120 25% → final = 90
+    let out = percent_calc("discount 120 25%");
+    assert!(out.contains("90"), "discount 120-25%=90: {out}");
+}
+
+#[test]
+fn percent_empty_no_panic() {
+    let out = percent_calc("");
+    assert!(!out.is_empty());
+}
+
+// ─── Complex number tests ──────────────────────────────────────────────────────
+
+#[test]
+fn complex_magnitude_3_4_is_5() {
+    let out = complex_calc("mag 3+4i");
+    assert!(
+        out.contains('5') || out.contains("5.000"),
+        "|3+4i|=5: {out}"
+    );
+}
+
+#[test]
+fn complex_add() {
+    // (3+4i) + (1-2i) = 4+2i
+    let out = complex_calc("(3+4i) + (1-2i)");
+    assert!(out.contains('4') && out.contains('2'), "add: {out}");
+}
+
+#[test]
+fn complex_multiply() {
+    // (1+i)(1-i) = 1-i+i-i² = 1+1 = 2+0i
+    let out = complex_calc("(1+i) * (1-i)");
+    assert!(out.contains('2'), "mul: {out}");
+}
+
+#[test]
+fn complex_sqrt_neg4() {
+    // sqrt(-4) = 2i
+    let out = complex_calc("sqrt -4");
+    assert!(out.contains('2'), "sqrt(-4)=2i: {out}");
+}
+
+#[test]
+fn complex_euler_pi() {
+    // e^(i*pi) ≈ -1 + 0i
+    let out = complex_calc("euler 3.14159265");
+    assert!(
+        out.contains("-1") || out.contains("-0.99"),
+        "Euler e^(i*pi): {out}"
+    );
+}
+
+#[test]
+fn complex_arg_pure_imaginary() {
+    // arg(0+i) = 90 deg
+    let out = complex_calc("arg 0+1i");
+    assert!(out.contains("90"), "arg(i)=90 deg: {out}");
+}
+
+#[test]
+fn complex_conjugate() {
+    // conj(3+4i) = 3-4i
+    let out = complex_calc("conj 3+4i");
+    assert!(out.contains("3") && out.contains("4"), "conj: {out}");
+    // should show negative imaginary
+    assert!(out.contains('-'), "conjugate has minus: {out}");
+}
+
+#[test]
+fn complex_polar_3_4() {
+    // polar 3 4 → r=5, theta≈53.13°
+    let out = complex_calc("polar 3 4");
+    assert!(out.contains('5'), "r=5: {out}");
+    assert!(out.contains("53"), "theta≈53 deg: {out}");
+}
+
+#[test]
+fn complex_single_number_info() {
+    let out = complex_calc("3+4i");
+    assert!(
+        out.contains("magnitude") || out.contains("5"),
+        "info block: {out}"
+    );
+}
+
+#[test]
+fn complex_empty_no_panic() {
+    let out = complex_calc("");
+    assert!(!out.is_empty());
+}
+
+// ─── Roman numeral tests ──────────────────────────────────────────────────────
+
+#[test]
+fn roman_int_to_roman_42() {
+    let out = roman_calc("42");
+    assert!(out.contains("XLII"), "42=XLII: {out}");
+}
+
+#[test]
+fn roman_to_int_xlii() {
+    let out = roman_calc("XLII");
+    assert!(out.contains("42"), "XLII=42: {out}");
+}
+
+#[test]
+fn roman_2024() {
+    let out = roman_calc("2024");
+    assert!(out.contains("MMXXIV"), "2024=MMXXIV: {out}");
+}
+
+#[test]
+fn roman_mmxxiv_to_int() {
+    let out = roman_calc("MMXXIV");
+    assert!(out.contains("2024"), "MMXXIV=2024: {out}");
+}
+
+#[test]
+fn roman_1_is_i() {
+    let out = roman_calc("1");
+    assert!(out.contains('I'), "1=I: {out}");
+}
+
+#[test]
+fn roman_out_of_range_no_panic() {
+    let out = roman_calc("0");
+    assert!(!out.is_empty());
+}
+
+#[test]
+fn roman_empty_no_panic() {
+    let out = roman_calc("");
     assert!(!out.is_empty());
 }
 

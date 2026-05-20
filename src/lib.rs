@@ -1084,6 +1084,22 @@ pub struct CliCockpit {
         long,
         help_heading = "Math & Science",
         value_name = "QUERY",
+        help = "Percentage calculator — instant, no model, no cloud. Commands: 'X% of Y' (what is 15% of 350), 'X is what % of Y' (42 is what % of 280), 'change A to B' (percent change), 'X + Y%' / 'X - Y%' (increase/decrease by percent), 'markup cost pct%' (selling price + gross margin), 'discount price pct%' (final price after discount), 'tip bill pct%' (tip amount + total), 'split bill pct% N' (split N ways). Examples: hematite --percent '15% of 350' | hematite --percent 'change 80 to 95' | hematite --percent '350 + 15%' | hematite --percent 'tip 85 18%'"
+    )]
+    pub percent: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Math & Science",
+        value_name = "QUERY",
+        help = "Complex number arithmetic — instant, no model, no cloud. Pass a complex number (3+4i) for full info (magnitude, argument, conjugate, polar form), or use operators: '(3+4i) + (1-2i)', '(3+4i) * (1-2i)', '(3+4i) / (1+2i)'. Commands: mag (|z|), arg (phase angle), conj (conjugate), polar re im (rect -> polar), rect r theta_deg (polar -> rect), pow z n (z^n via De Moivre), sqrt (including sqrt of negatives), euler theta (e^(i*theta) Euler's formula). Examples: hematite --complex '3+4i' | hematite --complex '(1+i) * (1-i)' | hematite --complex 'pow 1+i 8' | hematite --complex 'euler 3.14159'"
+    )]
+    pub complex: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Math & Science",
+        value_name = "QUERY",
         help = "Trigonometry calculator — instant, no model, no cloud. Pass an angle (bare number = degrees, add 'deg' or 'rad' suffix) for a full table: sin/cos/tan/cot/sec/csc + hyperbolic sinh/cosh/tanh. Inverse trig: 'asin 0.5', 'acos 0.866', 'atan 1', 'atan2 y x'. Hyperbolic: 'sinh 1.5'. Reference table: 'hyp' (all standard angles 0–360°). Examples: hematite --trig '45' | hematite --trig 'asin 0.5' | hematite --trig '0.785rad' | hematite --trig 'hyp'"
     )]
     pub trig: Option<String>,

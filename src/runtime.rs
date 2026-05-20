@@ -988,6 +988,8 @@ mod tests {
             physics: None,
             chemistry: None,
             combinatorics: None,
+            percent: None,
+            complex: None,
             trig: None,
             vector: None,
             fraction: None,

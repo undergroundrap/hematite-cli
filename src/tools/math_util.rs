@@ -17375,3 +17375,781 @@ pub fn fraction_calc(query: &str) -> String {
     let _ = writeln!(out, "{}", sep);
     out
 }
+
+// ── Percentage calculator ─────────────────────────────────────────────────────
+
+pub fn percent_calc(query: &str) -> String {
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+    let _ = writeln!(out, "\n  PERCENTAGE CALCULATOR");
+    let _ = writeln!(out, "{}", sep);
+
+    let q = query.trim();
+
+    if q.is_empty() {
+        let _ = writeln!(out, "  Usage examples:");
+        let _ = writeln!(out, "    hematite --percent '15% of 350'");
+        let _ = writeln!(out, "    hematite --percent '42 is what % of 280'");
+        let _ = writeln!(
+            out,
+            "    hematite --percent 'change 80 to 95'     (percent change)"
+        );
+        let _ = writeln!(
+            out,
+            "    hematite --percent '350 + 15%'           (increase by %)"
+        );
+        let _ = writeln!(
+            out,
+            "    hematite --percent '350 - 20%'           (decrease by %)"
+        );
+        let _ = writeln!(
+            out,
+            "    hematite --percent 'markup 80 25%'       (cost + markup)"
+        );
+        let _ = writeln!(
+            out,
+            "    hematite --percent 'discount 120 30%'    (price - discount)"
+        );
+        let _ = writeln!(
+            out,
+            "    hematite --percent 'tip 85 18%'          (tip + total)"
+        );
+        let _ = writeln!(
+            out,
+            "    hematite --percent 'split 85 18% 4'      (tip split N ways)"
+        );
+        let _ = writeln!(out, "{}", sep);
+        return out;
+    }
+
+    // pull a bare f64 from a string, stripping trailing % or $
+    fn parse_num(s: &str) -> Option<f64> {
+        s.trim()
+            .trim_end_matches('%')
+            .trim_end_matches('$')
+            .trim()
+            .parse()
+            .ok()
+    }
+
+    let ql = q.to_lowercase();
+
+    // "X is what % of Y" — must check before plain "% of"
+    if ql.contains("is what") || ql.contains("what %") || ql.contains("what percent") {
+        let nums: Vec<f64> = q
+            .split(|c: char| !c.is_ascii_digit() && c != '.' && c != '-')
+            .filter_map(|s| s.parse().ok())
+            .collect();
+        if nums.len() >= 2 {
+            let part = nums[0];
+            let whole = nums[1];
+            if whole != 0.0 {
+                let pct = part / whole * 100.0;
+                let _ = writeln!(out, "  {} is {:.4}% of {}", part, pct, whole);
+                let _ = writeln!(out, "  Remaining      : {:.4}%", 100.0 - pct);
+            } else {
+                let _ = writeln!(out, "  Cannot divide by zero");
+            }
+        } else {
+            let _ = writeln!(out, "  Usage: hematite --percent '42 is what % of 280'");
+        }
+        let _ = writeln!(out, "{}", sep);
+        return out;
+    }
+
+    // "X% of Y"
+    if let Some(of_idx) = ql.find("% of ") {
+        let pct_str = &q[..of_idx];
+        let val_str = &q[of_idx + 5..];
+        if let (Some(pct), Some(val)) = (parse_num(pct_str), parse_num(val_str)) {
+            let result = val * pct / 100.0;
+            let _ = writeln!(out, "  {}% of {}  =  {:.4}", pct, val, result);
+            let _ = writeln!(
+                out,
+                "  Remainder      : {:.4}  ({}% of {})",
+                val - result,
+                100.0 - pct,
+                val
+            );
+        } else {
+            let _ = writeln!(out, "  Could not parse: '{}'", q);
+        }
+        let _ = writeln!(out, "{}", sep);
+        return out;
+    }
+
+    // "change X to Y" or "change X Y"
+    if ql.starts_with("change ") {
+        let rest = &q[7..];
+        let nums: Vec<f64> = rest
+            .split(|c: char| !c.is_ascii_digit() && c != '.' && c != '-')
+            .filter_map(|s| s.parse().ok())
+            .collect();
+        if nums.len() >= 2 {
+            let from = nums[0];
+            let to = nums[1];
+            if from != 0.0 {
+                let change = (to - from) / from * 100.0;
+                let dir = if change >= 0.0 {
+                    "increase"
+                } else {
+                    "decrease"
+                };
+                let _ = writeln!(out, "  From           : {}", from);
+                let _ = writeln!(out, "  To             : {}", to);
+                let _ = writeln!(out, "  Percent {}  : {:+.4}%", dir, change);
+                let _ = writeln!(out, "  Absolute diff  : {:+.4}", to - from);
+            } else {
+                let _ = writeln!(out, "  Cannot compute change from zero");
+            }
+        } else {
+            let _ = writeln!(out, "  Usage: hematite --percent 'change 80 to 95'");
+        }
+        let _ = writeln!(out, "{}", sep);
+        return out;
+    }
+
+    // "markup cost pct%" — selling price with gross margin / markup
+    if ql.starts_with("markup ") {
+        let rest = &q[7..];
+        let nums: Vec<f64> = rest
+            .split(|c: char| !c.is_ascii_digit() && c != '.' && c != '-')
+            .filter_map(|s| s.parse().ok())
+            .collect();
+        if nums.len() >= 2 {
+            let cost = nums[0];
+            let pct = nums[1];
+            let sell = cost * (1.0 + pct / 100.0);
+            let profit = sell - cost;
+            let margin = profit / sell * 100.0;
+            let _ = writeln!(out, "  Cost           : {:.4}", cost);
+            let _ = writeln!(out, "  Markup         : {}%", pct);
+            let _ = writeln!(out, "  Selling price  : {:.4}", sell);
+            let _ = writeln!(out, "  Profit         : {:.4}", profit);
+            let _ = writeln!(
+                out,
+                "  Gross margin   : {:.4}%  (profit / sell price)",
+                margin
+            );
+        } else {
+            let _ = writeln!(out, "  Usage: hematite --percent 'markup 80 25%'");
+        }
+        let _ = writeln!(out, "{}", sep);
+        return out;
+    }
+
+    // "discount price pct%"
+    if ql.starts_with("discount ") {
+        let rest = &q[9..];
+        let nums: Vec<f64> = rest
+            .split(|c: char| !c.is_ascii_digit() && c != '.' && c != '-')
+            .filter_map(|s| s.parse().ok())
+            .collect();
+        if nums.len() >= 2 {
+            let price = nums[0];
+            let pct = nums[1];
+            let savings = price * pct / 100.0;
+            let final_price = price - savings;
+            let _ = writeln!(out, "  Original price : {:.4}", price);
+            let _ = writeln!(out, "  Discount       : {}%  (-{:.4})", pct, savings);
+            let _ = writeln!(out, "  Final price    : {:.4}", final_price);
+        } else {
+            let _ = writeln!(out, "  Usage: hematite --percent 'discount 120 30%'");
+        }
+        let _ = writeln!(out, "{}", sep);
+        return out;
+    }
+
+    // "tip amount pct%" or "tip amount pct% N" (split N ways)
+    if ql.starts_with("tip ") || ql.starts_with("split ") {
+        let rest = if ql.starts_with("split ") {
+            &q[6..]
+        } else {
+            &q[4..]
+        };
+        let nums: Vec<f64> = rest
+            .split(|c: char| !c.is_ascii_digit() && c != '.' && c != '-')
+            .filter_map(|s| s.parse().ok())
+            .collect();
+        if nums.len() >= 2 {
+            let bill = nums[0];
+            let pct = nums[1];
+            let tip = bill * pct / 100.0;
+            let total = bill + tip;
+            let _ = writeln!(out, "  Bill           : {:.2}", bill);
+            let _ = writeln!(out, "  Tip ({}%)      : {:.2}", pct, tip);
+            let _ = writeln!(out, "  Total          : {:.2}", total);
+            if nums.len() >= 3 {
+                let n = nums[2].max(1.0);
+                let _ = writeln!(out, "  Per person ({:.0}) : {:.2}", n, total / n);
+            }
+        } else {
+            let _ = writeln!(out, "  Usage: hematite --percent 'tip 85 18%'");
+        }
+        let _ = writeln!(out, "{}", sep);
+        return out;
+    }
+
+    // "X + Y%" or "X - Y%"
+    // detect by presence of % at end and +/- operator
+    let has_plus = q.contains(" + ") || q.contains('+');
+    let has_minus = !has_plus && (q.contains(" - ") || (q.contains('-') && !q.starts_with('-')));
+    let op_char = if has_plus { '+' } else { '-' };
+
+    // find the % token
+    if (has_plus || has_minus) && q.contains('%') {
+        // split on the operator
+        let op_str = if has_plus { "+" } else { "-" };
+        if let Some(op_idx) = q.find(op_str) {
+            let base_str = q[..op_idx].trim();
+            let pct_str = q[op_idx + 1..].trim().trim_end_matches('%').trim();
+            if let (Some(base), Some(pct)) = (parse_num(base_str), parse_num(pct_str)) {
+                let delta = base * pct / 100.0;
+                let result = if op_char == '+' {
+                    base + delta
+                } else {
+                    base - delta
+                };
+                let _ = writeln!(out, "  {} {} {}%  =  {:.4}", base, op_char, pct, result);
+                let _ = writeln!(out, "  Delta          : {:+.4}", result - base);
+            } else {
+                let _ = writeln!(out, "  Could not parse: '{}'", q);
+            }
+        }
+        let _ = writeln!(out, "{}", sep);
+        return out;
+    }
+
+    // bare "X Y" — treat as "X is what % of Y"
+    let nums: Vec<f64> = q
+        .split(|c: char| !c.is_ascii_digit() && c != '.' && c != '-')
+        .filter_map(|s| s.parse().ok())
+        .collect();
+    if nums.len() == 2 && nums[1] != 0.0 {
+        let pct = nums[0] / nums[1] * 100.0;
+        let _ = writeln!(out, "  {} / {}  =  {:.4}%", nums[0], nums[1], pct);
+    } else {
+        let _ = writeln!(out, "  Could not parse: '{}'", q);
+        let _ = writeln!(
+            out,
+            "  Examples: '15% of 350'  'change 80 to 95'  '350 + 15%'"
+        );
+    }
+
+    let _ = writeln!(out, "{}", sep);
+    out
+}
+
+// ── Complex number arithmetic ─────────────────────────────────────────────────
+
+pub fn complex_calc(query: &str) -> String {
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+    let _ = writeln!(out, "\n  COMPLEX NUMBERS");
+    let _ = writeln!(out, "{}", sep);
+
+    let q = query.trim();
+
+    if q.is_empty() {
+        let _ = writeln!(out, "  Usage examples:");
+        let _ = writeln!(
+            out,
+            "    hematite --complex '3+4i'              (info about a number)"
+        );
+        let _ = writeln!(out, "    hematite --complex '(3+4i) + (1-2i)'");
+        let _ = writeln!(out, "    hematite --complex '(3+4i) * (1-2i)'");
+        let _ = writeln!(out, "    hematite --complex '(3+4i) / (1+2i)'");
+        let _ = writeln!(out, "    hematite --complex 'mag 3+4i'          (|z| = 5)");
+        let _ = writeln!(
+            out,
+            "    hematite --complex 'arg 3+4i'          (angle in deg)"
+        );
+        let _ = writeln!(
+            out,
+            "    hematite --complex 'conj 3+4i'         (conjugate)"
+        );
+        let _ = writeln!(
+            out,
+            "    hematite --complex 'polar 3 4'         (rect -> polar)"
+        );
+        let _ = writeln!(
+            out,
+            "    hematite --complex 'rect 5 53.13'      (polar -> rect, deg)"
+        );
+        let _ = writeln!(out, "    hematite --complex 'pow 1+i 8'         (z^n)");
+        let _ = writeln!(
+            out,
+            "    hematite --complex 'sqrt -4'           (sqrt of neg number)"
+        );
+        let _ = writeln!(
+            out,
+            "    hematite --complex 'euler 1.5708'      (e^(i*theta))"
+        );
+        let _ = writeln!(out, "{}", sep);
+        return out;
+    }
+
+    // parse "a+bi", "a-bi", "bi", "a", "a + bi", etc.
+    fn parse_complex(s: &str) -> Option<(f64, f64)> {
+        let s = s
+            .trim()
+            .trim_start_matches('(')
+            .trim_end_matches(')')
+            .trim();
+
+        // pure imaginary: "bi" or "-bi" or "i" or "-i"
+        if s == "i" {
+            return Some((0.0, 1.0));
+        }
+        if s == "-i" {
+            return Some((0.0, -1.0));
+        }
+        if s.ends_with('i') && !s.contains('+') {
+            let imag_str = s[..s.len() - 1].trim();
+            if imag_str.is_empty() || imag_str == "+" {
+                return Some((0.0, 1.0));
+            }
+            if imag_str == "-" {
+                return Some((0.0, -1.0));
+            }
+            // check for lone sign before numeric: could be "-3i" starting with -
+            if let Ok(im) = imag_str.parse::<f64>() {
+                return Some((0.0, im));
+            }
+        }
+
+        // try to split on last + or - that is not at the start and not preceded by e/E
+        // work right-to-left to find the split point
+        let chars: Vec<char> = s.chars().collect();
+        let mut split = None;
+        let mut i = chars.len().saturating_sub(1);
+        loop {
+            if chars[i] == '+' || (chars[i] == '-' && i > 0) {
+                // not a scientific notation exponent
+                let prev = chars.get(i.wrapping_sub(1)).copied().unwrap_or(' ');
+                if prev != 'e' && prev != 'E' {
+                    split = Some(i);
+                    break;
+                }
+            }
+            if i == 0 {
+                break;
+            }
+            i -= 1;
+        }
+
+        if let Some(idx) = split {
+            let real_str = s[..idx].trim();
+            let imag_str = s[idx..].trim();
+            let real: f64 = if real_str.is_empty() {
+                0.0
+            } else {
+                real_str.parse().ok()?
+            };
+            let imag_part = imag_str.trim_end_matches('i');
+            let imag: f64 = match imag_part.trim() {
+                "+" | "" => 1.0,
+                "-" => -1.0,
+                other => other.parse().ok()?,
+            };
+            return Some((real, imag));
+        }
+
+        // pure real
+        if let Ok(r) = s.parse::<f64>() {
+            return Some((r, 0.0));
+        }
+
+        None
+    }
+
+    fn fmt_complex(re: f64, im: f64) -> String {
+        let re_s = format!("{:.6}", re);
+        let im_s = format!("{:.6}", im.abs());
+        if im == 0.0 {
+            re_s
+        } else if re == 0.0 {
+            if im == 1.0 {
+                "i".to_string()
+            } else if im == -1.0 {
+                "-i".to_string()
+            } else {
+                format!("{}i", im_s)
+            }
+        } else if im < 0.0 {
+            format!("{} - {}i", re_s, im_s)
+        } else {
+            format!("{} + {}i", re_s, im_s)
+        }
+    }
+
+    fn c_mag(re: f64, im: f64) -> f64 {
+        (re * re + im * im).sqrt()
+    }
+
+    fn c_arg_deg(re: f64, im: f64) -> f64 {
+        im.atan2(re).to_degrees()
+    }
+
+    fn show_info(out: &mut String, re: f64, im: f64, sep: &str) {
+        let mag = c_mag(re, im);
+        let arg = c_arg_deg(re, im);
+        let _ = writeln!(out, "  z              : {}", fmt_complex(re, im));
+        let _ = writeln!(out, "  Real part      : {:.6}", re);
+        let _ = writeln!(out, "  Imaginary part : {:.6}", im);
+        let _ = writeln!(out, "  |z| magnitude  : {:.6}", mag);
+        let _ = writeln!(
+            out,
+            "  arg(z)         : {:.6} deg  =  {:.6} rad",
+            arg,
+            arg.to_radians()
+        );
+        let _ = writeln!(out, "  Conjugate      : {}", fmt_complex(re, -im));
+        let _ = writeln!(
+            out,
+            "  Polar form     : {:.6} * (cos({:.4} deg) + i*sin({:.4} deg))",
+            mag, arg, arg
+        );
+        let _ = writeln!(out, "{}", sep);
+    }
+
+    let ql = q.to_lowercase();
+    let parts: Vec<&str> = q.split_whitespace().collect();
+
+    // unary commands
+    match parts[0].to_lowercase().as_str() {
+        "mag" | "abs" | "modulus" => {
+            let rest = parts[1..].join("");
+            if let Some((re, im)) = parse_complex(&rest) {
+                let _ = writeln!(out, "  z              : {}", fmt_complex(re, im));
+                let _ = writeln!(out, "  |z|            : {:.6}", c_mag(re, im));
+            } else {
+                let _ = writeln!(out, "  Usage: hematite --complex 'mag 3+4i'");
+            }
+            let _ = writeln!(out, "{}", sep);
+            return out;
+        }
+        "arg" | "angle" | "phase" => {
+            let rest = parts[1..].join("");
+            if let Some((re, im)) = parse_complex(&rest) {
+                let _ = writeln!(out, "  z              : {}", fmt_complex(re, im));
+                let _ = writeln!(out, "  arg(z)         : {:.6} deg", c_arg_deg(re, im));
+                let _ = writeln!(
+                    out,
+                    "  arg(z)         : {:.6} rad",
+                    c_arg_deg(re, im).to_radians()
+                );
+            } else {
+                let _ = writeln!(out, "  Usage: hematite --complex 'arg 3+4i'");
+            }
+            let _ = writeln!(out, "{}", sep);
+            return out;
+        }
+        "conj" | "conjugate" => {
+            let rest = parts[1..].join("");
+            if let Some((re, im)) = parse_complex(&rest) {
+                let _ = writeln!(out, "  z              : {}", fmt_complex(re, im));
+                let _ = writeln!(out, "  conj(z)        : {}", fmt_complex(re, -im));
+            } else {
+                let _ = writeln!(out, "  Usage: hematite --complex 'conj 3+4i'");
+            }
+            let _ = writeln!(out, "{}", sep);
+            return out;
+        }
+        "polar" => {
+            // polar re im — convert rectangular to polar
+            if let (Some(re), Some(im)) = (
+                parts.get(1).and_then(|s| s.parse::<f64>().ok()),
+                parts.get(2).and_then(|s| s.parse::<f64>().ok()),
+            ) {
+                let r = c_mag(re, im);
+                let theta = c_arg_deg(re, im);
+                let _ = writeln!(out, "  Rectangular    : {} + {}i", re, im);
+                let _ = writeln!(
+                    out,
+                    "  Polar          : r = {:.6},  theta = {:.6} deg",
+                    r, theta
+                );
+                let _ = writeln!(
+                    out,
+                    "  Polar (rad)    : r = {:.6},  theta = {:.6} rad",
+                    r,
+                    theta.to_radians()
+                );
+            } else {
+                let _ = writeln!(out, "  Usage: hematite --complex 'polar 3 4'");
+            }
+            let _ = writeln!(out, "{}", sep);
+            return out;
+        }
+        "rect" | "rectangular" => {
+            // rect r theta_deg — convert polar to rectangular
+            if let (Some(r), Some(theta_deg)) = (
+                parts.get(1).and_then(|s| s.parse::<f64>().ok()),
+                parts.get(2).and_then(|s| s.parse::<f64>().ok()),
+            ) {
+                let theta = theta_deg.to_radians();
+                let re = r * theta.cos();
+                let im = r * theta.sin();
+                let _ = writeln!(
+                    out,
+                    "  Polar          : r = {},  theta = {} deg",
+                    r, theta_deg
+                );
+                let _ = writeln!(out, "  Rectangular    : {}", fmt_complex(re, im));
+            } else {
+                let _ = writeln!(out, "  Usage: hematite --complex 'rect 5 53.13'");
+            }
+            let _ = writeln!(out, "{}", sep);
+            return out;
+        }
+        "sqrt" => {
+            let rest = parts[1..].join("");
+            if let Ok(v) = rest.parse::<f64>() {
+                if v < 0.0 {
+                    let im = (-v).sqrt();
+                    let _ = writeln!(out, "  sqrt({})  =  {}i", v, im);
+                } else {
+                    let _ = writeln!(out, "  sqrt({})  =  {:.6}", v, v.sqrt());
+                }
+            } else if let Some((re, im)) = parse_complex(&rest) {
+                // sqrt of complex: r^0.5 * e^(i*theta/2)
+                let r = c_mag(re, im);
+                let theta = im.atan2(re);
+                let sr = r.sqrt();
+                let sre = sr * (theta / 2.0).cos();
+                let sim = sr * (theta / 2.0).sin();
+                let _ = writeln!(
+                    out,
+                    "  sqrt({})  =  {}",
+                    fmt_complex(re, im),
+                    fmt_complex(sre, sim)
+                );
+                let _ = writeln!(out, "  (principal square root)");
+            } else {
+                let _ = writeln!(out, "  Usage: hematite --complex 'sqrt -4'");
+            }
+            let _ = writeln!(out, "{}", sep);
+            return out;
+        }
+        "euler" | "exp" => {
+            // e^(i*theta)
+            if let Some(theta) = parts.get(1).and_then(|s| s.parse::<f64>().ok()) {
+                let re = theta.cos();
+                let im = theta.sin();
+                let _ = writeln!(out, "  e^(i * {:.4})  =  {}", theta, fmt_complex(re, im));
+                let _ = writeln!(
+                    out,
+                    "  Euler's formula: e^(i*theta) = cos(theta) + i*sin(theta)"
+                );
+            } else {
+                let _ = writeln!(out, "  Usage: hematite --complex 'euler 1.5708'  (pi/2)");
+            }
+            let _ = writeln!(out, "{}", sep);
+            return out;
+        }
+        "pow" => {
+            // pow z n  (integer n)
+            let z_str = parts.get(1).map(|s| s.to_string()).unwrap_or_default();
+            let n_str = parts.get(2).copied().unwrap_or("2");
+            if let (Some((mut re, mut im)), Ok(n)) = (parse_complex(&z_str), n_str.parse::<i32>()) {
+                let (orig_re, orig_im) = (re, im);
+                let r = c_mag(re, im);
+                let theta = im.atan2(re);
+                let rn = r.powi(n);
+                let theta_n = theta * n as f64;
+                re = rn * theta_n.cos();
+                im = rn * theta_n.sin();
+                let _ = writeln!(out, "  z              : {}", fmt_complex(orig_re, orig_im));
+                let _ = writeln!(out, "  n              : {}", n);
+                let _ = writeln!(out, "  z^n            : {}", fmt_complex(re, im));
+            } else {
+                let _ = writeln!(out, "  Usage: hematite --complex 'pow 1+i 8'");
+            }
+            let _ = writeln!(out, "{}", sep);
+            return out;
+        }
+        _ => {}
+    }
+
+    // binary operations: find operator +, -, *, / between two complex numbers
+    // strategy: look for ) + (, ) - (, ) * (, ) / ( or bare tokens
+    let ops = [" + ", " - ", " * ", " / "];
+    let mut found_op: Option<(char, usize)> = None;
+    for op_str in &ops {
+        if let Some(idx) = ql.find(op_str) {
+            found_op = Some((op_str.trim().chars().next().unwrap(), idx));
+            break;
+        }
+    }
+
+    if let Some((op, idx)) = found_op {
+        let left = q[..idx].trim();
+        let right = q[idx + 3..].trim();
+        if let (Some((ar, ai)), Some((br, bi))) = (parse_complex(left), parse_complex(right)) {
+            let (rr, ri) = match op {
+                '+' => (ar + br, ai + bi),
+                '-' => (ar - br, ai - bi),
+                '*' => (ar * br - ai * bi, ar * bi + ai * br),
+                '/' => {
+                    let denom = br * br + bi * bi;
+                    if denom == 0.0 {
+                        let _ = writeln!(out, "  Division by zero");
+                        let _ = writeln!(out, "{}", sep);
+                        return out;
+                    }
+                    ((ar * br + ai * bi) / denom, (ai * br - ar * bi) / denom)
+                }
+                _ => unreachable!(),
+            };
+            let op_label = match op {
+                '+' => "+",
+                '-' => "-",
+                '*' => "*",
+                '/' => "/",
+                _ => "?",
+            };
+            let _ = writeln!(out, "  a              : {}", fmt_complex(ar, ai));
+            let _ = writeln!(out, "  b              : {}", fmt_complex(br, bi));
+            let _ = writeln!(out, "  a {} b         : {}", op_label, fmt_complex(rr, ri));
+            let _ = writeln!(out, "  |result|       : {:.6}", c_mag(rr, ri));
+        } else {
+            let _ = writeln!(
+                out,
+                "  Could not parse operands: '{}' and '{}'",
+                left, right
+            );
+        }
+        let _ = writeln!(out, "{}", sep);
+        return out;
+    }
+
+    // single number — show full info
+    if let Some((re, im)) = parse_complex(q) {
+        show_info(&mut out, re, im, &sep);
+        return out;
+    }
+
+    let _ = writeln!(out, "  Could not parse: '{}'", q);
+    let _ = writeln!(
+        out,
+        "  Examples: '3+4i'  '(1+2i) * (3-4i)'  'mag 5-12i'  'polar 3 4'"
+    );
+    let _ = writeln!(out, "{}", sep);
+    out
+}
+
+#[doc(hidden)]
+pub fn roman_calc(query: &str) -> String {
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+    let _ = writeln!(out, "\n  ROMAN NUMERALS");
+    let _ = writeln!(out, "{}", sep);
+
+    let q = query.trim();
+
+    if q.is_empty() {
+        let _ = writeln!(out, "  Usage examples:");
+        let _ = writeln!(out, "    hematite --roman '42'        (integer to Roman)");
+        let _ = writeln!(out, "    hematite --roman 'XLII'      (Roman to integer)");
+        let _ = writeln!(out, "    hematite --roman '2024'");
+        let _ = writeln!(out, "    hematite --roman 'MMXXIV'");
+        let _ = writeln!(out, "{}", sep);
+        return out;
+    }
+
+    const VALS: &[(u32, &str)] = &[
+        (1000, "M"),
+        (900, "CM"),
+        (500, "D"),
+        (400, "CD"),
+        (100, "C"),
+        (90, "XC"),
+        (50, "L"),
+        (40, "XL"),
+        (10, "X"),
+        (9, "IX"),
+        (5, "V"),
+        (4, "IV"),
+        (1, "I"),
+    ];
+
+    fn to_roman(mut n: u32) -> String {
+        let mut s = String::new();
+        for &(val, sym) in VALS {
+            while n >= val {
+                s.push_str(sym);
+                n -= val;
+            }
+        }
+        s
+    }
+
+    fn from_roman(s: &str) -> Option<u32> {
+        fn val(c: char) -> Option<u32> {
+            match c {
+                'I' => Some(1),
+                'V' => Some(5),
+                'X' => Some(10),
+                'L' => Some(50),
+                'C' => Some(100),
+                'D' => Some(500),
+                'M' => Some(1000),
+                _ => None,
+            }
+        }
+        let chars: Vec<char> = s.to_uppercase().chars().collect();
+        if chars.is_empty() {
+            return None;
+        }
+        // all characters must be valid roman digits
+        if chars.iter().any(|c| val(*c).is_none()) {
+            return None;
+        }
+        let mut total = 0u32;
+        let mut i = 0;
+        while i < chars.len() {
+            let cur = val(chars[i])?;
+            let next = chars.get(i + 1).and_then(|c| val(*c)).unwrap_or(0);
+            if cur < next {
+                total += next - cur;
+                i += 2;
+            } else {
+                total += cur;
+                i += 1;
+            }
+        }
+        Some(total)
+    }
+
+    // detect: if all chars are roman numeral letters, parse as Roman; else parse as int
+    let is_roman = q.chars().all(|c| {
+        matches!(
+            c.to_uppercase().next().unwrap_or(' '),
+            'I' | 'V' | 'X' | 'L' | 'C' | 'D' | 'M'
+        )
+    });
+
+    if is_roman && !q.chars().all(|c| c.is_ascii_digit()) {
+        if let Some(n) = from_roman(q) {
+            let _ = writeln!(out, "  Roman          : {}", q.to_uppercase());
+            let _ = writeln!(out, "  Integer        : {}", n);
+        } else {
+            let _ = writeln!(out, "  Invalid Roman numeral: '{}'", q);
+        }
+    } else if let Ok(n) = q.parse::<u32>() {
+        if n == 0 || n > 3999 {
+            let _ = writeln!(out, "  Range: 1 – 3999 (standard Roman numerals)");
+        } else {
+            let roman = to_roman(n);
+            let _ = writeln!(out, "  Integer        : {}", n);
+            let _ = writeln!(out, "  Roman          : {}", roman);
+        }
+    } else {
+        let _ = writeln!(out, "  Could not parse: '{}'", q);
+        let _ = writeln!(out, "  Pass an integer (42) or Roman numerals (XLII)");
+    }
+
+    let _ = writeln!(out, "{}", sep);
+    out
+}
