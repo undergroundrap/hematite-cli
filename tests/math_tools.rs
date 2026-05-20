@@ -3,12 +3,12 @@
 /// Covers known-value correctness, edge-case non-panics, and the newer
 /// matrix decomposition modes (QR, SVD, Cholesky).
 use hematite::tools::math_util::{
-    bitwise_calc, checksum_calc, chemistry_calc, cipher_calc, color_calc, combinatorics_calc,
-    complex_calc, cron_calc, csv_calc, datetime_calc, diff_calc, electrical_calc, encode_calc,
-    fraction_calc, geometry_calc, hash_calc, health_calc, ip_calc, json_calc, jwt_calc,
-    matrix_calc, number_format, number_theory_calc, percent_calc, physics_calc, prob_calc,
-    regex_calc, roman_calc, semver_calc, set_calc, sort_viz, stats_calc, string_dist, text_stats,
-    trig_calc, url_calc, uuid_calc, validate_calc,
+    bitwise_calc, case_calc, checksum_calc, chemistry_calc, cipher_calc, color_calc,
+    combinatorics_calc, complex_calc, cron_calc, csv_calc, datetime_calc, diff_calc,
+    electrical_calc, encode_calc, fraction_calc, geometry_calc, hash_calc, health_calc, ip_calc,
+    json_calc, jwt_calc, lorem_calc, matrix_calc, number_format, number_theory_calc, percent_calc,
+    physics_calc, prob_calc, regex_calc, roman_calc, semver_calc, set_calc, sort_viz, stats_calc,
+    string_dist, text_stats, timestamp_calc, trig_calc, url_calc, uuid_calc, validate_calc,
 };
 
 // ─── Cipher tests ────────────────────────────────────────────────────────────
@@ -2392,6 +2392,230 @@ fn semver_validate_invalid() {
 #[test]
 fn semver_empty_no_panic() {
     let out = semver_calc("");
+    assert!(!out.is_empty());
+}
+
+// ─── Timestamp tests ─────────────────────────────────────────────────────────
+
+#[test]
+fn timestamp_current_shows_unix() {
+    let out = timestamp_calc("");
+    assert!(out.contains("Unix (s)"), "should show Unix seconds: {out}");
+    assert!(out.contains("ISO 8601"), "should show ISO 8601: {out}");
+    assert!(out.contains("Human UTC"), "should show human date: {out}");
+}
+
+#[test]
+fn timestamp_now_keyword() {
+    let out = timestamp_calc("now");
+    assert!(out.contains("Unix (s)"), "now keyword: {out}");
+}
+
+#[test]
+fn timestamp_decode_known() {
+    // 2024-05-20 00:00:00 UTC = 1716163200
+    let out = timestamp_calc("1716163200");
+    assert!(out.contains("2024"), "should decode to 2024: {out}");
+    assert!(
+        out.contains("May") || out.contains("05"),
+        "should show May: {out}"
+    );
+}
+
+#[test]
+fn timestamp_decode_millis() {
+    // millis version of 1716163200
+    let out = timestamp_calc("1716163200000");
+    assert!(
+        out.contains("auto-detected") || out.contains("ms"),
+        "should auto-detect millis: {out}"
+    );
+    assert!(out.contains("2024"), "should decode to 2024: {out}");
+}
+
+#[test]
+fn timestamp_parse_date_string() {
+    let out = timestamp_calc("2024-05-20");
+    assert!(out.contains("Unix (s)"), "date string to unix: {out}");
+    assert!(
+        out.contains("1716"),
+        "should produce 2024-05-20 unix: {out}"
+    );
+}
+
+#[test]
+fn timestamp_relative_future() {
+    let out = timestamp_calc("now + 1d");
+    assert!(
+        out.contains("Unix (s)") || out.contains("Offset"),
+        "relative future: {out}"
+    );
+}
+
+#[test]
+fn timestamp_relative_past() {
+    let out = timestamp_calc("now - 1h");
+    assert!(
+        out.contains("Unix (s)") || out.contains("Offset"),
+        "relative past: {out}"
+    );
+}
+
+#[test]
+fn timestamp_empty_no_panic() {
+    let out = timestamp_calc("");
+    assert!(!out.is_empty());
+}
+
+// ─── Lorem tests ──────────────────────────────────────────────────────────────
+
+#[test]
+fn lorem_default_one_paragraph() {
+    let out = lorem_calc("");
+    assert!(
+        out.contains("lorem") || out.contains("Lorem"),
+        "should contain lorem: {out}"
+    );
+    assert!(
+        out.contains("(1 paragraph)"),
+        "should say 1 paragraph: {out}"
+    );
+}
+
+#[test]
+fn lorem_multiple_paragraphs() {
+    let out = lorem_calc("3");
+    assert!(
+        out.contains("(3 paragraphs)"),
+        "should say 3 paragraphs: {out}"
+    );
+}
+
+#[test]
+fn lorem_words_mode() {
+    let out = lorem_calc("words 20");
+    assert!(out.contains("(20 words)"), "should say 20 words: {out}");
+    let word_count = out
+        .lines()
+        .find(|l| !l.trim().starts_with('(') && !l.contains("─") && !l.contains("Lorem"))
+        .map(|l| l.split_whitespace().count())
+        .unwrap_or(0);
+    assert!(
+        word_count >= 15,
+        "should have roughly 20 words, got {}: {out}",
+        word_count
+    );
+}
+
+#[test]
+fn lorem_sentences_mode() {
+    let out = lorem_calc("sentences 3");
+    assert!(
+        out.contains("(3 sentences)"),
+        "should say 3 sentences: {out}"
+    );
+}
+
+#[test]
+fn lorem_words_end_with_period() {
+    let out = lorem_calc("sentences 1");
+    let sentence_line = out.lines().find(|l| l.trim().ends_with('.'));
+    assert!(
+        sentence_line.is_some(),
+        "sentence should end with period: {out}"
+    );
+}
+
+#[test]
+fn lorem_empty_no_panic() {
+    let out = lorem_calc("");
+    assert!(!out.is_empty());
+}
+
+// ─── Case converter tests ─────────────────────────────────────────────────────
+
+#[test]
+fn case_all_hello_world() {
+    let out = case_calc("hello world");
+    assert!(
+        out.contains("helloWorld") || out.contains("camelCase"),
+        "camel: {out}"
+    );
+    assert!(
+        out.contains("HelloWorld") || out.contains("PascalCase"),
+        "pascal: {out}"
+    );
+    assert!(
+        out.contains("hello_world") || out.contains("snake_case"),
+        "snake: {out}"
+    );
+    assert!(
+        out.contains("hello-world") || out.contains("kebab-case"),
+        "kebab: {out}"
+    );
+    assert!(
+        out.contains("HELLO_WORLD") || out.contains("SCREAMING"),
+        "screaming: {out}"
+    );
+}
+
+#[test]
+fn case_snake_from_camel() {
+    let out = case_calc("snake getUserById");
+    assert!(out.contains("get_user_by_id"), "camelCase to snake: {out}");
+}
+
+#[test]
+fn case_camel_from_snake() {
+    let out = case_calc("camel user_profile_data");
+    assert!(out.contains("userProfileData"), "snake to camel: {out}");
+}
+
+#[test]
+fn case_pascal_from_kebab() {
+    let out = case_calc("pascal my-component-name");
+    assert!(out.contains("MyComponentName"), "kebab to pascal: {out}");
+}
+
+#[test]
+fn case_kebab_from_pascal() {
+    let out = case_calc("kebab MyComponentName");
+    assert!(out.contains("my-component-name"), "pascal to kebab: {out}");
+}
+
+#[test]
+fn case_screaming_snake() {
+    let out = case_calc("screaming hello world");
+    assert!(out.contains("HELLO_WORLD"), "screaming snake: {out}");
+}
+
+#[test]
+fn case_title_case() {
+    let out = case_calc("title hello world");
+    assert!(out.contains("Hello World"), "title case: {out}");
+}
+
+#[test]
+fn case_upper() {
+    let out = case_calc("upper hello world");
+    assert!(out.contains("HELLO WORLD"), "upper case: {out}");
+}
+
+#[test]
+fn case_lower() {
+    let out = case_calc("lower HELLO WORLD");
+    assert!(out.contains("hello world"), "lower case: {out}");
+}
+
+#[test]
+fn case_dot() {
+    let out = case_calc("dot hello world");
+    assert!(out.contains("hello.world"), "dot case: {out}");
+}
+
+#[test]
+fn case_empty_no_panic() {
+    let out = case_calc("");
     assert!(!out.is_empty());
 }
 

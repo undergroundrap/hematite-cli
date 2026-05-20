@@ -1006,6 +1006,9 @@ mod tests {
             uuid: None,
             text_diff: None,
             semver: None,
+            timestamp: None,
+            lorem: None,
+            case: None,
             pdf_extract_helper: None,
             teleported_from: None,
         };

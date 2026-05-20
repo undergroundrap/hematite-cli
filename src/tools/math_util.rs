@@ -22439,3 +22439,578 @@ pub fn semver_calc(query: &str) -> String {
     let _ = writeln!(out, "{}", sep);
     out
 }
+
+// ─── Timestamp utility ────────────────────────────────────────────────────────
+
+/// Unix timestamp converter — offline replacement for epoch.now.sh / unixtimestamp.com.
+///
+/// Commands:
+///   (bare) / now         — current time in all formats
+///   <unix-secs>          — decode Unix timestamp (auto-detects ms when >10^10)
+///   now + <N>d/h/m/s     — future relative timestamp
+///   now - <N>d/h/m/s     — past relative timestamp
+///   YYYY-MM-DD [HH:MM:SS] — date string to Unix timestamp
+pub fn timestamp_calc(query: &str) -> String {
+    use chrono::{NaiveDate, NaiveDateTime, TimeZone, Utc};
+
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+    let _ = writeln!(out, "{}", sep);
+    let _ = writeln!(out, "  Timestamp Toolkit");
+    let _ = writeln!(out, "{}", sep);
+
+    let q = query.trim();
+
+    fn show_ts(ts: i64, out: &mut String) {
+        if let chrono::LocalResult::Single(dt) = Utc.timestamp_opt(ts, 0) {
+            let _ = writeln!(out, "  Unix (s)  : {}", ts);
+            let _ = writeln!(out, "  Unix (ms) : {}", ts as i128 * 1000);
+            let _ = writeln!(out, "  ISO 8601  : {}", dt.format("%Y-%m-%dT%H:%M:%SZ"));
+            let _ = writeln!(
+                out,
+                "  RFC 2822  : {}",
+                dt.format("%a, %d %b %Y %H:%M:%S +0000")
+            );
+            let _ = writeln!(
+                out,
+                "  Human UTC : {}",
+                dt.format("%A, %B %-d, %Y at %H:%M:%S UTC")
+            );
+            let days_since_epoch = ts / 86400;
+            let _ = writeln!(
+                out,
+                "  Day #     : {} (days since 1970-01-01)",
+                days_since_epoch
+            );
+        } else {
+            let _ = writeln!(out, "  Timestamp out of range: {}", ts);
+        }
+    }
+
+    fn parse_relative(rest: &str) -> Option<i64> {
+        let rest = rest.trim();
+        let sign: i64 = if rest.starts_with('-') { -1 } else { 1 };
+        let inner = rest.trim_start_matches('+').trim_start_matches('-').trim();
+        let split_at = inner
+            .find(|c: char| c.is_alphabetic())
+            .unwrap_or(inner.len());
+        let num: i64 = inner[..split_at].trim().parse().ok()?;
+        let unit = inner[split_at..].trim().to_lowercase();
+        let secs = match unit.as_str() {
+            "s" | "sec" | "second" | "seconds" => num,
+            "m" | "min" | "minute" | "minutes" => num * 60,
+            "h" | "hr" | "hour" | "hours" => num * 3600,
+            "d" | "day" | "days" => num * 86400,
+            "w" | "wk" | "week" | "weeks" => num * 604800,
+            _ => return None,
+        };
+        Some(sign * secs)
+    }
+
+    if q.is_empty() || q.eq_ignore_ascii_case("now") {
+        let now = Utc::now();
+        show_ts(now.timestamp(), &mut out);
+    } else if let Ok(n) = q.parse::<i64>() {
+        let (ts, was_ms) = if n.unsigned_abs() > 9_999_999_999 {
+            (n / 1000, true)
+        } else {
+            (n, false)
+        };
+        if was_ms {
+            let _ = writeln!(out, "  Input (ms): {} → {}s (auto-detected)", n, ts);
+        }
+        show_ts(ts, &mut out);
+    } else if q.to_lowercase().starts_with("now") {
+        let rest = q[3..].trim();
+        match parse_relative(rest) {
+            Some(delta) => {
+                let ts = Utc::now().timestamp() + delta;
+                let _ = writeln!(
+                    out,
+                    "  Offset    : {}",
+                    if delta >= 0 {
+                        format!("+{}s", delta)
+                    } else {
+                        format!("{}s", delta)
+                    }
+                );
+                show_ts(ts, &mut out);
+            }
+            None => {
+                let _ = writeln!(out, "  Could not parse offset '{}'. Use: now + 7d", rest);
+            }
+        }
+    } else {
+        let fmts = [
+            "%Y-%m-%dT%H:%M:%S",
+            "%Y-%m-%d %H:%M:%S",
+            "%Y-%m-%dT%H:%M",
+            "%Y-%m-%d %H:%M",
+            "%d/%m/%Y %H:%M:%S",
+            "%m/%d/%Y %H:%M:%S",
+        ];
+        let date_fmts = ["%Y-%m-%d", "%d/%m/%Y", "%m/%d/%Y", "%d-%m-%Y"];
+        let mut found = false;
+        for fmt in &fmts {
+            if let Ok(ndt) = NaiveDateTime::parse_from_str(q, fmt) {
+                let dt = Utc.from_utc_datetime(&ndt);
+                show_ts(dt.timestamp(), &mut out);
+                found = true;
+                break;
+            }
+        }
+        if !found {
+            for fmt in &date_fmts {
+                if let Ok(nd) = NaiveDate::parse_from_str(q, fmt) {
+                    if let Some(ndt) = nd.and_hms_opt(0, 0, 0) {
+                        let dt = Utc.from_utc_datetime(&ndt);
+                        show_ts(dt.timestamp(), &mut out);
+                        found = true;
+                        break;
+                    }
+                }
+            }
+        }
+        if !found {
+            let _ = writeln!(out, "  Commands:");
+            let _ = writeln!(out, "    (bare)              — current timestamp");
+            let _ = writeln!(out, "    <unix-secs>         — decode Unix timestamp");
+            let _ = writeln!(out, "    <unix-ms>           — auto-detect milliseconds");
+            let _ = writeln!(out, "    now + <N>d/h/m/s    — relative future");
+            let _ = writeln!(out, "    now - <N>d/h/m/s    — relative past");
+            let _ = writeln!(out, "    YYYY-MM-DD          — date to Unix timestamp");
+            let _ = writeln!(out, "    YYYY-MM-DD HH:MM:SS — datetime to Unix timestamp");
+            let _ = writeln!(out, "  Example: hematite --timestamp 1716220800");
+        }
+    }
+
+    let _ = writeln!(out, "{}", sep);
+    out
+}
+
+// ─── Lorem ipsum generator ────────────────────────────────────────────────────
+
+/// Lorem ipsum generator — offline replacement for lipsum.com.
+///
+/// Commands:
+///   (bare) / 1            — one paragraph
+///   <N>                   — N paragraphs
+///   words <N>             — N words
+///   sentences <N>         — N sentences
+pub fn lorem_calc(query: &str) -> String {
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+    let _ = writeln!(out, "{}", sep);
+    let _ = writeln!(out, "  Lorem Ipsum Generator");
+    let _ = writeln!(out, "{}", sep);
+
+    const WORDS: &[&str] = &[
+        "lorem",
+        "ipsum",
+        "dolor",
+        "sit",
+        "amet",
+        "consectetur",
+        "adipiscing",
+        "elit",
+        "sed",
+        "do",
+        "eiusmod",
+        "tempor",
+        "incididunt",
+        "ut",
+        "labore",
+        "et",
+        "dolore",
+        "magna",
+        "aliqua",
+        "enim",
+        "ad",
+        "minim",
+        "veniam",
+        "quis",
+        "nostrud",
+        "exercitation",
+        "ullamco",
+        "laboris",
+        "nisi",
+        "aliquip",
+        "ex",
+        "ea",
+        "commodo",
+        "consequat",
+        "duis",
+        "aute",
+        "irure",
+        "in",
+        "reprehenderit",
+        "voluptate",
+        "velit",
+        "esse",
+        "cillum",
+        "fugiat",
+        "nulla",
+        "pariatur",
+        "excepteur",
+        "sint",
+        "occaecat",
+        "cupidatat",
+        "non",
+        "proident",
+        "sunt",
+        "culpa",
+        "qui",
+        "officia",
+        "deserunt",
+        "mollit",
+        "anim",
+        "id",
+        "est",
+        "laborum",
+        "at",
+        "vero",
+        "eos",
+        "accusamus",
+        "iusto",
+        "odio",
+        "dignissimos",
+        "ducimus",
+        "blanditiis",
+        "praesentium",
+        "voluptatum",
+        "deleniti",
+        "atque",
+        "corrupti",
+        "quos",
+        "dolores",
+        "quas",
+        "molestias",
+        "excepturi",
+        "similique",
+        "eligendi",
+        "optio",
+        "cumque",
+        "nihil",
+        "impedit",
+        "quo",
+        "minus",
+        "provident",
+        "perspiciatis",
+        "unde",
+        "omnis",
+        "iste",
+        "natus",
+        "error",
+        "voluptatem",
+        "accusantium",
+        "doloremque",
+        "totam",
+        "rem",
+        "aperiam",
+        "eaque",
+        "ipsa",
+        "quae",
+        "ab",
+        "illo",
+        "inventore",
+        "veritatis",
+    ];
+
+    fn make_sentence(offset: usize, words: &[&str], len: usize) -> String {
+        let mut s = String::new();
+        for i in 0..len {
+            let w = words[(offset + i) % words.len()];
+            if i == 0 {
+                let mut c = w.chars();
+                s.push_str(
+                    &c.next()
+                        .map(|ch| ch.to_uppercase().to_string())
+                        .unwrap_or_default(),
+                );
+                s.push_str(c.as_str());
+            } else {
+                s.push(' ');
+                s.push_str(w);
+            }
+        }
+        s.push('.');
+        s
+    }
+
+    fn make_paragraph(para_idx: usize, words: &[&str]) -> String {
+        let sentence_lens = [12usize, 8, 15, 10, 13, 9, 16, 11];
+        let num_sentences = 4 + (para_idx % 3);
+        let mut sentences = Vec::new();
+        let mut offset = para_idx * 17;
+        for i in 0..num_sentences {
+            let len = sentence_lens[(para_idx + i) % sentence_lens.len()];
+            sentences.push(make_sentence(offset, words, len));
+            offset += len + 3;
+        }
+        sentences.join(" ")
+    }
+
+    let q = query.trim();
+    let ql = q.to_lowercase();
+
+    if ql.starts_with("words ") {
+        let n: usize = q[6..].trim().parse().unwrap_or(50).min(2000);
+        let mut words_out = Vec::new();
+        for i in 0..n {
+            words_out.push(WORDS[i % WORDS.len()]);
+        }
+        let _ = writeln!(out, "  {}", words_out.join(" "));
+        let _ = writeln!(out, "");
+        let _ = writeln!(out, "  ({} words)", n);
+    } else if ql.starts_with("sentences ") {
+        let n: usize = q[10..].trim().parse().unwrap_or(5).min(100);
+        let mut offset = 0usize;
+        let sentence_lens = [12usize, 8, 15, 10, 13, 9, 16, 11];
+        for i in 0..n {
+            let len = sentence_lens[i % sentence_lens.len()];
+            let _ = writeln!(out, "  {}", make_sentence(offset, WORDS, len));
+            offset += len + 3;
+        }
+        let _ = writeln!(out, "");
+        let _ = writeln!(out, "  ({} sentences)", n);
+    } else {
+        let n: usize = q.parse().unwrap_or(1).min(20);
+        for i in 0..n {
+            if i > 0 {
+                let _ = writeln!(out, "");
+            }
+            let para = make_paragraph(i, WORDS);
+            // word-wrap at ~80 chars
+            let mut line = String::from("  ");
+            for word in para.split_whitespace() {
+                if line.len() + word.len() + 1 > 82 {
+                    let _ = writeln!(out, "{}", line);
+                    line = format!("  {}", word);
+                } else {
+                    if line.len() > 2 {
+                        line.push(' ');
+                    }
+                    line.push_str(word);
+                }
+            }
+            if !line.trim().is_empty() {
+                let _ = writeln!(out, "{}", line);
+            }
+        }
+        let _ = writeln!(out, "");
+        let _ = writeln!(out, "  ({} paragraph{})", n, if n == 1 { "" } else { "s" });
+    }
+
+    let _ = writeln!(out, "{}", sep);
+    out
+}
+
+// ─── Case converter ───────────────────────────────────────────────────────────
+
+/// Case converter — offline replacement for textconverter.com / convertcase.net.
+///
+/// Commands:
+///   camel <text>        — camelCase
+///   pascal <text>       — PascalCase
+///   snake <text>        — snake_case
+///   kebab <text>        — kebab-case
+///   screaming <text>    — SCREAMING_SNAKE_CASE
+///   title <text>        — Title Case
+///   upper <text>        — UPPER CASE
+///   lower <text>        — lower case
+///   dot <text>          — dot.case
+///   path <text>         — path/case
+///   all <text>          — all of the above at once
+pub fn case_calc(query: &str) -> String {
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+    let _ = writeln!(out, "{}", sep);
+    let _ = writeln!(out, "  Case Converter");
+    let _ = writeln!(out, "{}", sep);
+
+    let q = query.trim();
+
+    fn tokenize(s: &str) -> Vec<String> {
+        // Split on spaces, underscores, hyphens, dots, slashes
+        // Also split on camelCase/PascalCase transitions
+        let mut tokens: Vec<String> = Vec::new();
+        let mut cur = String::new();
+        let chars: Vec<char> = s.chars().collect();
+        for (i, &c) in chars.iter().enumerate() {
+            if c == '_' || c == '-' || c == ' ' || c == '.' || c == '/' || c == '\\' {
+                if !cur.is_empty() {
+                    tokens.push(cur.to_lowercase());
+                    cur = String::new();
+                }
+            } else if c.is_uppercase() && i > 0 && chars[i - 1].is_lowercase() {
+                // camelCase split: fooBar → ["foo", "Bar"]
+                if !cur.is_empty() {
+                    tokens.push(cur.to_lowercase());
+                    cur = String::new();
+                }
+                cur.push(c);
+            } else if c.is_uppercase()
+                && i + 1 < chars.len()
+                && chars[i + 1].is_lowercase()
+                && i > 0
+                && chars[i - 1].is_uppercase()
+            {
+                // ABCDef → ["ABC", "Def"]
+                if !cur.is_empty() {
+                    tokens.push(cur.to_lowercase());
+                    cur = String::new();
+                }
+                cur.push(c);
+            } else {
+                cur.push(c);
+            }
+        }
+        if !cur.is_empty() {
+            tokens.push(cur.to_lowercase());
+        }
+        tokens.into_iter().filter(|t| !t.is_empty()).collect()
+    }
+
+    fn to_camel(tokens: &[String]) -> String {
+        tokens
+            .iter()
+            .enumerate()
+            .map(|(i, t)| {
+                if i == 0 {
+                    t.clone()
+                } else {
+                    let mut c = t.chars();
+                    c.next()
+                        .map(|ch| ch.to_uppercase().to_string() + c.as_str())
+                        .unwrap_or_default()
+                }
+            })
+            .collect()
+    }
+
+    fn to_pascal(tokens: &[String]) -> String {
+        tokens
+            .iter()
+            .map(|t| {
+                let mut c = t.chars();
+                c.next()
+                    .map(|ch| ch.to_uppercase().to_string() + c.as_str())
+                    .unwrap_or_default()
+            })
+            .collect()
+    }
+
+    fn to_title(tokens: &[String]) -> String {
+        tokens
+            .iter()
+            .map(|t| {
+                let mut c = t.chars();
+                c.next()
+                    .map(|ch| ch.to_uppercase().to_string() + c.as_str())
+                    .unwrap_or_default()
+            })
+            .collect::<Vec<_>>()
+            .join(" ")
+    }
+
+    let (cmd, text) = if let Some(sp) = q.find(' ') {
+        (&q[..sp], q[sp + 1..].trim())
+    } else {
+        ("all", q)
+    };
+
+    let tokens = tokenize(text);
+    let snake = tokens.join("_");
+    let kebab = tokens.join("-");
+    let dot = tokens.join(".");
+    let path = tokens.join("/");
+    let upper = text.to_uppercase();
+    let lower = text.to_lowercase();
+    let screaming = tokens.join("_").to_uppercase();
+    let camel = to_camel(&tokens);
+    let pascal = to_pascal(&tokens);
+    let title = to_title(&tokens);
+
+    match cmd.to_lowercase().as_str() {
+        "camel" | "camelcase" => {
+            let _ = writeln!(out, "  {}", camel);
+        }
+        "pascal" | "pascalcase" => {
+            let _ = writeln!(out, "  {}", pascal);
+        }
+        "snake" | "snake_case" => {
+            let _ = writeln!(out, "  {}", snake);
+        }
+        "kebab" | "kebab-case" => {
+            let _ = writeln!(out, "  {}", kebab);
+        }
+        "screaming" | "screaming_snake" | "upper_snake" => {
+            let _ = writeln!(out, "  {}", screaming);
+        }
+        "title" | "titlecase" => {
+            let _ = writeln!(out, "  {}", title);
+        }
+        "upper" | "uppercase" => {
+            let _ = writeln!(out, "  {}", upper);
+        }
+        "lower" | "lowercase" => {
+            let _ = writeln!(out, "  {}", lower);
+        }
+        "dot" | "dot.case" => {
+            let _ = writeln!(out, "  {}", dot);
+        }
+        "path" => {
+            let _ = writeln!(out, "  {}", path);
+        }
+        "all" => {
+            let input = if cmd == "all" { text } else { q };
+            let tokens2 = tokenize(input);
+            let snake2 = tokens2.join("_");
+            let kebab2 = tokens2.join("-");
+            let dot2 = tokens2.join(".");
+            let path2 = tokens2.join("/");
+            let upper2 = input.to_uppercase();
+            let lower2 = input.to_lowercase();
+            let screaming2 = tokens2.join("_").to_uppercase();
+            let camel2 = to_camel(&tokens2);
+            let pascal2 = to_pascal(&tokens2);
+            let title2 = to_title(&tokens2);
+            let _ = writeln!(out, "  camelCase      : {}", camel2);
+            let _ = writeln!(out, "  PascalCase     : {}", pascal2);
+            let _ = writeln!(out, "  snake_case     : {}", snake2);
+            let _ = writeln!(out, "  kebab-case     : {}", kebab2);
+            let _ = writeln!(out, "  SCREAMING_SNAKE: {}", screaming2);
+            let _ = writeln!(out, "  Title Case     : {}", title2);
+            let _ = writeln!(out, "  dot.case       : {}", dot2);
+            let _ = writeln!(out, "  path/case      : {}", path2);
+            let _ = writeln!(out, "  UPPER CASE     : {}", upper2);
+            let _ = writeln!(out, "  lower case     : {}", lower2);
+        }
+        _ => {
+            // treat entire query as "all" input
+            let tokens2 = tokenize(q);
+            let _ = writeln!(out, "  camelCase      : {}", to_camel(&tokens2));
+            let _ = writeln!(out, "  PascalCase     : {}", to_pascal(&tokens2));
+            let _ = writeln!(out, "  snake_case     : {}", tokens2.join("_"));
+            let _ = writeln!(out, "  kebab-case     : {}", tokens2.join("-"));
+            let _ = writeln!(
+                out,
+                "  SCREAMING_SNAKE: {}",
+                tokens2.join("_").to_uppercase()
+            );
+            let _ = writeln!(out, "  Title Case     : {}", to_title(&tokens2));
+            let _ = writeln!(out, "  UPPER CASE     : {}", q.to_uppercase());
+            let _ = writeln!(out, "  lower case     : {}", q.to_lowercase());
+        }
+    }
+
+    let _ = writeln!(out, "");
+    let _ = writeln!(
+        out,
+        "  Commands: camel, pascal, snake, kebab, screaming, title, upper, lower, dot, path, all"
+    );
+    let _ = writeln!(out, "  Example : hematite --case 'hello world'");
+    let _ = writeln!(out, "          : hematite --case 'pascal getUserById'");
+    let _ = writeln!(out, "{}", sep);
+    out
+}

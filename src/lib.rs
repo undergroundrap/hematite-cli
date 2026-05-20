@@ -1226,6 +1226,30 @@ pub struct CliCockpit {
 
     #[arg(
         long,
+        help_heading = "Math & Science",
+        value_name = "QUERY",
+        help = "Unix timestamp converter — offline replacement for epoch.now.sh and unixtimestamp.com. Commands: (bare) = current timestamp; <unix-secs> = decode; <unix-ms> = auto-detect milliseconds; now + <N>d/h/m/s = relative future; now - <N>d/h/m/s = relative past; YYYY-MM-DD [HH:MM:SS] = date to Unix. Shows Unix (s/ms), ISO 8601, RFC 2822, human-readable UTC. Examples: hematite --timestamp | hematite --timestamp 1716220800 | hematite --timestamp '2024-05-20' | hematite --timestamp 'now + 7d'"
+    )]
+    pub timestamp: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Math & Science",
+        value_name = "QUERY",
+        help = "Lorem ipsum generator — offline replacement for lipsum.com. Commands: (bare) or <N> = N paragraphs (default 1); words <N> = N words; sentences <N> = N sentences. Examples: hematite --lorem | hematite --lorem 3 | hematite --lorem 'words 50' | hematite --lorem 'sentences 5'"
+    )]
+    pub lorem: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Math & Science",
+        value_name = "QUERY",
+        help = "Case converter — offline replacement for convertcase.net. Converts between camelCase, PascalCase, snake_case, kebab-case, SCREAMING_SNAKE_CASE, Title Case, dot.case, and more. Commands: camel, pascal, snake, kebab, screaming, title, upper, lower, dot, path, all. Bare input (no command) shows all at once. Examples: hematite --case 'hello world' | hematite --case 'snake getUserById' | hematite --case 'camel user_profile_data'"
+    )]
+    pub case: Option<String>,
+
+    #[arg(
+        long,
         help_heading = "Headless Reports",
         value_name = "ELEMENT",
         help = "Look up a periodic table element — instant, no model, no cloud. Accepts symbol (H, Au), full name (Gold, Hydrogen), or atomic number (79). Shows atomic mass, category, period/group, electronegativity, and state at STP. Example: hematite --periodic Au"
