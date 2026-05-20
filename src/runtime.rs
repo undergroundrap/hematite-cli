@@ -996,6 +996,9 @@ mod tests {
             datetime: None,
             nt: None,
             health: None,
+            json: None,
+            regex: None,
+            csv: None,
             pdf_extract_helper: None,
             teleported_from: None,
         };

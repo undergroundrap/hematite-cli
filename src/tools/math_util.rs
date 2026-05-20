@@ -18153,3 +18153,1909 @@ pub fn roman_calc(query: &str) -> String {
     let _ = writeln!(out, "{}", sep);
     out
 }
+
+// ─── JSON utility ─────────────────────────────────────────────────────────────
+
+/// Format, validate, pretty-print, query, and diff JSON — instant, no model.
+///
+/// Commands:
+///   `format <json>`          — pretty-print with 2-space indentation
+///   `validate <json>`        — report valid/invalid with first error location
+///   `minify <json>`          — collapse to single line
+///   `query <path> <json>`    — extract a value by dot-path (e.g. `query a.b[1] {...}`)
+///   `keys <json>`            — list all top-level keys of an object
+///   `diff <json1> --- <json2>` — show structural differences between two JSON values
+///   bare `<json>`            — auto-detects and pretty-prints
+pub fn json_calc(query: &str) -> String {
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+    let _ = writeln!(out, "{}", sep);
+    let _ = writeln!(out, "  JSON Toolkit");
+    let _ = writeln!(out, "{}", sep);
+
+    let q = query.trim();
+
+    // ── minimal JSON parser/formatter ────────────────────────────────────────
+    fn parse_json(s: &str) -> Result<JsonVal, String> {
+        let mut pos = 0usize;
+        let bytes = s.as_bytes();
+        skip_ws(bytes, &mut pos);
+        let val = parse_val(bytes, &mut pos)?;
+        skip_ws(bytes, &mut pos);
+        if pos < bytes.len() {
+            return Err(format!("unexpected token at position {}", pos));
+        }
+        Ok(val)
+    }
+
+    #[derive(Clone)]
+    enum JsonVal {
+        Null,
+        Bool(bool),
+        Num(f64),
+        Str(String),
+        Arr(Vec<JsonVal>),
+        Obj(Vec<(String, JsonVal)>),
+    }
+
+    fn skip_ws(b: &[u8], pos: &mut usize) {
+        while *pos < b.len()
+            && (b[*pos] == b' ' || b[*pos] == b'\t' || b[*pos] == b'\n' || b[*pos] == b'\r')
+        {
+            *pos += 1;
+        }
+    }
+
+    fn parse_val(b: &[u8], pos: &mut usize) -> Result<JsonVal, String> {
+        skip_ws(b, pos);
+        if *pos >= b.len() {
+            return Err("unexpected end of input".into());
+        }
+        match b[*pos] {
+            b'"' => Ok(JsonVal::Str(parse_str(b, pos)?)),
+            b'{' => parse_obj(b, pos),
+            b'[' => parse_arr(b, pos),
+            b't' => {
+                expect(b, pos, b"true")?;
+                Ok(JsonVal::Bool(true))
+            }
+            b'f' => {
+                expect(b, pos, b"false")?;
+                Ok(JsonVal::Bool(false))
+            }
+            b'n' => {
+                expect(b, pos, b"null")?;
+                Ok(JsonVal::Null)
+            }
+            b'-' | b'0'..=b'9' => parse_num(b, pos),
+            c => Err(format!(
+                "unexpected character '{}' at position {}",
+                c as char, pos
+            )),
+        }
+    }
+
+    fn expect(b: &[u8], pos: &mut usize, token: &[u8]) -> Result<(), String> {
+        if b.get(*pos..*pos + token.len()) == Some(token) {
+            *pos += token.len();
+            Ok(())
+        } else {
+            Err(format!(
+                "expected '{}' at position {}",
+                std::str::from_utf8(token).unwrap_or("?"),
+                pos
+            ))
+        }
+    }
+
+    fn parse_str(b: &[u8], pos: &mut usize) -> Result<String, String> {
+        *pos += 1; // skip opening "
+        let mut s = String::new();
+        while *pos < b.len() {
+            match b[*pos] {
+                b'"' => {
+                    *pos += 1;
+                    return Ok(s);
+                }
+                b'\\' => {
+                    *pos += 1;
+                    if *pos >= b.len() {
+                        return Err("unexpected end in string escape".into());
+                    }
+                    match b[*pos] {
+                        b'"' => {
+                            s.push('"');
+                            *pos += 1;
+                        }
+                        b'\\' => {
+                            s.push('\\');
+                            *pos += 1;
+                        }
+                        b'/' => {
+                            s.push('/');
+                            *pos += 1;
+                        }
+                        b'n' => {
+                            s.push('\n');
+                            *pos += 1;
+                        }
+                        b't' => {
+                            s.push('\t');
+                            *pos += 1;
+                        }
+                        b'r' => {
+                            s.push('\r');
+                            *pos += 1;
+                        }
+                        b'b' => {
+                            s.push('\x08');
+                            *pos += 1;
+                        }
+                        b'f' => {
+                            s.push('\x0c');
+                            *pos += 1;
+                        }
+                        b'u' => {
+                            *pos += 1;
+                            if *pos + 4 > b.len() {
+                                return Err("short unicode escape".into());
+                            }
+                            let hex = std::str::from_utf8(&b[*pos..*pos + 4]).unwrap_or("0000");
+                            let code = u32::from_str_radix(hex, 16).unwrap_or(0xFFFD);
+                            s.push(char::from_u32(code).unwrap_or('\u{FFFD}'));
+                            *pos += 4;
+                        }
+                        c => {
+                            s.push(c as char);
+                            *pos += 1;
+                        }
+                    }
+                }
+                c => {
+                    s.push(c as char);
+                    *pos += 1;
+                }
+            }
+        }
+        Err("unterminated string".into())
+    }
+
+    fn parse_num(b: &[u8], pos: &mut usize) -> Result<JsonVal, String> {
+        let start = *pos;
+        if *pos < b.len() && b[*pos] == b'-' {
+            *pos += 1;
+        }
+        while *pos < b.len() && b[*pos].is_ascii_digit() {
+            *pos += 1;
+        }
+        if *pos < b.len() && b[*pos] == b'.' {
+            *pos += 1;
+            while *pos < b.len() && b[*pos].is_ascii_digit() {
+                *pos += 1;
+            }
+        }
+        if *pos < b.len() && (b[*pos] == b'e' || b[*pos] == b'E') {
+            *pos += 1;
+            if *pos < b.len() && (b[*pos] == b'+' || b[*pos] == b'-') {
+                *pos += 1;
+            }
+            while *pos < b.len() && b[*pos].is_ascii_digit() {
+                *pos += 1;
+            }
+        }
+        let s = std::str::from_utf8(&b[start..*pos]).unwrap_or("0");
+        s.parse::<f64>()
+            .map(JsonVal::Num)
+            .map_err(|e| e.to_string())
+    }
+
+    fn parse_arr(b: &[u8], pos: &mut usize) -> Result<JsonVal, String> {
+        *pos += 1; // skip [
+        let mut arr = Vec::new();
+        skip_ws(b, pos);
+        if *pos < b.len() && b[*pos] == b']' {
+            *pos += 1;
+            return Ok(JsonVal::Arr(arr));
+        }
+        loop {
+            arr.push(parse_val(b, pos)?);
+            skip_ws(b, pos);
+            if *pos >= b.len() {
+                return Err("unterminated array".into());
+            }
+            match b[*pos] {
+                b',' => {
+                    *pos += 1;
+                    skip_ws(b, pos);
+                }
+                b']' => {
+                    *pos += 1;
+                    return Ok(JsonVal::Arr(arr));
+                }
+                c => {
+                    return Err(format!(
+                        "expected ',' or ']', got '{}' at {}",
+                        c as char, pos
+                    ))
+                }
+            }
+        }
+    }
+
+    fn parse_obj(b: &[u8], pos: &mut usize) -> Result<JsonVal, String> {
+        *pos += 1; // skip {
+        let mut obj = Vec::new();
+        skip_ws(b, pos);
+        if *pos < b.len() && b[*pos] == b'}' {
+            *pos += 1;
+            return Ok(JsonVal::Obj(obj));
+        }
+        loop {
+            skip_ws(b, pos);
+            if *pos >= b.len() || b[*pos] != b'"' {
+                return Err(format!("expected string key at position {}", pos));
+            }
+            let key = parse_str(b, pos)?;
+            skip_ws(b, pos);
+            if *pos >= b.len() || b[*pos] != b':' {
+                return Err(format!("expected ':' at position {}", pos));
+            }
+            *pos += 1;
+            let val = parse_val(b, pos)?;
+            obj.push((key, val));
+            skip_ws(b, pos);
+            if *pos >= b.len() {
+                return Err("unterminated object".into());
+            }
+            match b[*pos] {
+                b',' => {
+                    *pos += 1;
+                }
+                b'}' => {
+                    *pos += 1;
+                    return Ok(JsonVal::Obj(obj));
+                }
+                c => {
+                    return Err(format!(
+                        "expected ',' or '}}', got '{}' at {}",
+                        c as char, pos
+                    ))
+                }
+            }
+        }
+    }
+
+    fn fmt_json(val: &JsonVal, indent: usize) -> String {
+        let pad = "  ".repeat(indent);
+        let pad1 = "  ".repeat(indent + 1);
+        match val {
+            JsonVal::Null => "null".into(),
+            JsonVal::Bool(b) => {
+                if *b {
+                    "true".into()
+                } else {
+                    "false".into()
+                }
+            }
+            JsonVal::Num(n) => {
+                if n.fract() == 0.0 && n.abs() < 1e15 {
+                    format!("{}", *n as i64)
+                } else {
+                    format!("{}", n)
+                }
+            }
+            JsonVal::Str(s) => format!(
+                "\"{}\"",
+                s.replace('\\', "\\\\")
+                    .replace('"', "\\\"")
+                    .replace('\n', "\\n")
+                    .replace('\t', "\\t")
+            ),
+            JsonVal::Arr(arr) => {
+                if arr.is_empty() {
+                    return "[]".into();
+                }
+                let mut s = "[\n".to_string();
+                for (i, v) in arr.iter().enumerate() {
+                    s.push_str(&pad1);
+                    s.push_str(&fmt_json(v, indent + 1));
+                    if i + 1 < arr.len() {
+                        s.push(',');
+                    }
+                    s.push('\n');
+                }
+                s.push_str(&pad);
+                s.push(']');
+                s
+            }
+            JsonVal::Obj(obj) => {
+                if obj.is_empty() {
+                    return "{}".into();
+                }
+                let mut s = "{\n".to_string();
+                for (i, (k, v)) in obj.iter().enumerate() {
+                    s.push_str(&pad1);
+                    s.push_str(&format!("\"{}\": {}", k, fmt_json(v, indent + 1)));
+                    if i + 1 < obj.len() {
+                        s.push(',');
+                    }
+                    s.push('\n');
+                }
+                s.push_str(&pad);
+                s.push('}');
+                s
+            }
+        }
+    }
+
+    fn minify_json(val: &JsonVal) -> String {
+        match val {
+            JsonVal::Null => "null".into(),
+            JsonVal::Bool(b) => {
+                if *b {
+                    "true".into()
+                } else {
+                    "false".into()
+                }
+            }
+            JsonVal::Num(n) => {
+                if n.fract() == 0.0 && n.abs() < 1e15 {
+                    format!("{}", *n as i64)
+                } else {
+                    format!("{}", n)
+                }
+            }
+            JsonVal::Str(s) => format!(
+                "\"{}\"",
+                s.replace('\\', "\\\\")
+                    .replace('"', "\\\"")
+                    .replace('\n', "\\n")
+                    .replace('\t', "\\t")
+            ),
+            JsonVal::Arr(arr) => format!(
+                "[{}]",
+                arr.iter().map(minify_json).collect::<Vec<_>>().join(",")
+            ),
+            JsonVal::Obj(obj) => format!(
+                "{{{}}}",
+                obj.iter()
+                    .map(|(k, v)| format!("\"{}\":{}", k, minify_json(v)))
+                    .collect::<Vec<_>>()
+                    .join(",")
+            ),
+        }
+    }
+
+    fn json_type(val: &JsonVal) -> &'static str {
+        match val {
+            JsonVal::Null => "null",
+            JsonVal::Bool(_) => "boolean",
+            JsonVal::Num(_) => "number",
+            JsonVal::Str(_) => "string",
+            JsonVal::Arr(_) => "array",
+            JsonVal::Obj(_) => "object",
+        }
+    }
+
+    fn query_path<'a>(val: &'a JsonVal, path: &str) -> Option<&'a JsonVal> {
+        if path.is_empty() {
+            return Some(val);
+        }
+        let mut current = val;
+        for segment in path.split('.') {
+            // handle array index notation: "arr[2]"
+            if let Some(bracket) = segment.find('[') {
+                let key = &segment[..bracket];
+                let rest = &segment[bracket..];
+                // step into object key first if key is non-empty
+                if !key.is_empty() {
+                    if let JsonVal::Obj(obj) = current {
+                        current = obj.iter().find(|(k, _)| k == key).map(|(_, v)| v)?;
+                    } else {
+                        return None;
+                    }
+                }
+                // process bracket indices
+                let mut rem = rest;
+                while rem.starts_with('[') {
+                    let close = rem.find(']')?;
+                    let idx: usize = rem[1..close].parse().ok()?;
+                    if let JsonVal::Arr(arr) = current {
+                        current = arr.get(idx)?;
+                    } else {
+                        return None;
+                    }
+                    rem = &rem[close + 1..];
+                }
+            } else if let JsonVal::Obj(obj) = current {
+                current = obj.iter().find(|(k, _)| k == segment).map(|(_, v)| v)?;
+            } else {
+                return None;
+            }
+        }
+        Some(current)
+    }
+
+    fn diff_json(a: &JsonVal, b: &JsonVal, path: &str, lines: &mut Vec<String>) {
+        match (a, b) {
+            (JsonVal::Obj(ao), JsonVal::Obj(bo)) => {
+                let akeys: Vec<&str> = ao.iter().map(|(k, _)| k.as_str()).collect();
+                let bkeys: Vec<&str> = bo.iter().map(|(k, _)| k.as_str()).collect();
+                for k in &akeys {
+                    let p = if path.is_empty() {
+                        k.to_string()
+                    } else {
+                        format!("{}.{}", path, k)
+                    };
+                    if let Some((_, bv)) = bo.iter().find(|(bk, _)| bk == k) {
+                        let av = ao.iter().find(|(ak, _)| ak == k).map(|(_, v)| v).unwrap();
+                        diff_json(av, bv, &p, lines);
+                    } else {
+                        lines.push(format!("  - removed: {}", p));
+                    }
+                }
+                for k in &bkeys {
+                    if !akeys.contains(k) {
+                        let p = if path.is_empty() {
+                            k.to_string()
+                        } else {
+                            format!("{}.{}", path, k)
+                        };
+                        lines.push(format!("  + added:   {}", p));
+                    }
+                }
+            }
+            (JsonVal::Arr(aa), JsonVal::Arr(ba)) => {
+                let max = aa.len().max(ba.len());
+                for i in 0..max {
+                    let p = format!("{}[{}]", path, i);
+                    match (aa.get(i), ba.get(i)) {
+                        (Some(av), Some(bv)) => diff_json(av, bv, &p, lines),
+                        (Some(_), None) => lines.push(format!("  - removed: {}", p)),
+                        (None, Some(_)) => lines.push(format!("  + added:   {}", p)),
+                        _ => {}
+                    }
+                }
+            }
+            _ => {
+                let as_ = minify_json(a);
+                let bs_ = minify_json(b);
+                if as_ != bs_ {
+                    lines.push(format!("  ~ changed: {} : {} → {}", path, as_, bs_));
+                }
+            }
+        }
+    }
+
+    // ── dispatch ─────────────────────────────────────────────────────────────
+    let ql = q.to_lowercase();
+
+    if ql.starts_with("format ") || ql.starts_with("pretty ") {
+        let json_src = q[q.find(' ').unwrap_or(0) + 1..].trim();
+        match parse_json(json_src) {
+            Ok(v) => {
+                let _ = writeln!(out, "{}", fmt_json(&v, 0));
+            }
+            Err(e) => {
+                let _ = writeln!(out, "  Invalid JSON: {}", e);
+            }
+        }
+    } else if ql.starts_with("validate ") {
+        let json_src = q[9..].trim();
+        match parse_json(json_src) {
+            Ok(v) => {
+                let _ = writeln!(out, "  Valid JSON");
+                let _ = writeln!(out, "  Root type : {}", json_type(&v));
+                match &v {
+                    JsonVal::Arr(a) => {
+                        let _ = writeln!(out, "  Length    : {}", a.len());
+                    }
+                    JsonVal::Obj(o) => {
+                        let _ = writeln!(out, "  Keys      : {}", o.len());
+                    }
+                    _ => {}
+                }
+            }
+            Err(e) => {
+                let _ = writeln!(out, "  Invalid JSON: {}", e);
+            }
+        }
+    } else if ql.starts_with("minify ") {
+        let json_src = q[7..].trim();
+        match parse_json(json_src) {
+            Ok(v) => {
+                let _ = writeln!(out, "{}", minify_json(&v));
+            }
+            Err(e) => {
+                let _ = writeln!(out, "  Invalid JSON: {}", e);
+            }
+        }
+    } else if ql.starts_with("keys ") {
+        let json_src = q[5..].trim();
+        match parse_json(json_src) {
+            Ok(JsonVal::Obj(obj)) => {
+                let _ = writeln!(out, "  Top-level keys ({}):", obj.len());
+                for (k, v) in &obj {
+                    let _ = writeln!(out, "    {:30} {}", k, json_type(v));
+                }
+            }
+            Ok(_) => {
+                let _ = writeln!(out, "  Not an object (no keys)");
+            }
+            Err(e) => {
+                let _ = writeln!(out, "  Invalid JSON: {}", e);
+            }
+        }
+    } else if ql.starts_with("query ") {
+        // query <path> <json>
+        let rest = q[6..].trim();
+        let (path, json_src) = if let Some(sp) = rest.find(' ') {
+            (&rest[..sp], rest[sp + 1..].trim())
+        } else {
+            let _ = writeln!(
+                out,
+                "  Usage: query <path> <json>  (e.g. query a.b[0] {{...}})"
+            );
+            let _ = writeln!(out, "{}", sep);
+            return out;
+        };
+        match parse_json(json_src) {
+            Ok(v) => match query_path(&v, path) {
+                Some(found) => {
+                    let _ = writeln!(out, "{}", fmt_json(found, 0));
+                }
+                None => {
+                    let _ = writeln!(out, "  Path '{}' not found", path);
+                }
+            },
+            Err(e) => {
+                let _ = writeln!(out, "  Invalid JSON: {}", e);
+            }
+        }
+    } else if q.contains(" --- ") {
+        // diff two JSON blobs
+        let parts: Vec<&str> = q.splitn(2, " --- ").collect();
+        let (src_a, src_b) = (parts[0].trim(), parts.get(1).copied().unwrap_or("").trim());
+        match (parse_json(src_a), parse_json(src_b)) {
+            (Ok(a), Ok(b)) => {
+                let mut diffs = Vec::new();
+                diff_json(&a, &b, "", &mut diffs);
+                if diffs.is_empty() {
+                    let _ = writeln!(out, "  No differences found — JSON values are identical");
+                } else {
+                    let _ = writeln!(out, "  Differences ({}):", diffs.len());
+                    for d in &diffs {
+                        let _ = writeln!(out, "{}", d);
+                    }
+                }
+            }
+            (Err(e), _) => {
+                let _ = writeln!(out, "  Invalid JSON (left): {}", e);
+            }
+            (_, Err(e)) => {
+                let _ = writeln!(out, "  Invalid JSON (right): {}", e);
+            }
+        }
+    } else {
+        // auto-detect: try to parse as JSON
+        match parse_json(q) {
+            Ok(v) => {
+                let _ = writeln!(out, "  Type   : {}", json_type(&v));
+                match &v {
+                    JsonVal::Arr(a) => {
+                        let _ = writeln!(out, "  Length : {}", a.len());
+                    }
+                    JsonVal::Obj(o) => {
+                        let _ = writeln!(out, "  Keys   : {}", o.len());
+                    }
+                    _ => {}
+                }
+                let _ = writeln!(out, "");
+                let _ = writeln!(out, "{}", fmt_json(&v, 0));
+            }
+            Err(_) => {
+                let _ = writeln!(
+                    out,
+                    "  Commands: format <json> | validate <json> | minify <json>"
+                );
+                let _ = writeln!(out, "            keys <json> | query <path> <json>");
+                let _ = writeln!(out, "            <json_a> --- <json_b>  (diff)");
+                let _ = writeln!(out, "  Example : hematite --json 'query user.name {{\"user\":{{\"name\":\"Alice\"}}}}'");
+            }
+        }
+    }
+
+    let _ = writeln!(out, "{}", sep);
+    out
+}
+
+// ─── Regex utility ────────────────────────────────────────────────────────────
+
+/// Test, explain, and inspect regex patterns — instant, no model, no cloud.
+///
+/// Commands:
+///   `test <pattern> <text>`     — test if pattern matches; show all matches + capture groups
+///   `match <pattern> <text>`    — alias for test
+///   `explain <pattern>`         — describe what the pattern does in plain English
+///   `named <pattern> <text>`    — show named capture groups
+///   `split <pattern> <text>`    — split text by pattern, show parts
+///   `replace <pattern> <repl> <text>` — replace all matches
+pub fn regex_calc(query: &str) -> String {
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+    let _ = writeln!(out, "{}", sep);
+    let _ = writeln!(out, "  Regex Toolkit");
+    let _ = writeln!(out, "{}", sep);
+
+    let q = query.trim();
+    let ql = q.to_lowercase();
+
+    // ── pure-Rust regex engine (NFA simulation) ───────────────────────────
+    // Supports: . * + ? | () [] [^] {n} {n,m} ^ $ \d \w \s \D \W \S
+    // Returns list of (start, end) byte positions for each match (non-overlapping).
+
+    #[derive(Clone, Debug)]
+    enum Re {
+        Lit(char),
+        AnyChar,
+        Class(Vec<ClassItem>, bool), // items, negated
+        Anchor(bool),                // true=start ^, false=end $
+        Group(Vec<ReNode>, usize),   // body, group_index
+        Alt(Vec<Vec<ReNode>>),
+    }
+    #[derive(Clone, Debug)]
+    enum ClassItem {
+        Single(char),
+        Range(char, char),
+        Shorthand(char),
+    }
+    #[derive(Clone, Debug)]
+    struct ReNode {
+        re: Re,
+        min: usize,
+        max: Option<usize>,
+        greedy: bool,
+    }
+
+    fn parse_re(pat: &str) -> Result<Vec<ReNode>, String> {
+        let chars: Vec<char> = pat.chars().collect();
+        let mut pos = 0usize;
+        let mut group_counter = 0usize;
+        parse_alt(&chars, &mut pos, &mut group_counter, false)
+    }
+
+    fn parse_alt(
+        chars: &[char],
+        pos: &mut usize,
+        gc: &mut usize,
+        in_group: bool,
+    ) -> Result<Vec<ReNode>, String> {
+        let mut alts: Vec<Vec<ReNode>> = vec![Vec::new()];
+        while *pos < chars.len() {
+            if chars[*pos] == ')' && in_group {
+                break;
+            }
+            if chars[*pos] == '|' {
+                *pos += 1;
+                alts.push(Vec::new());
+                continue;
+            }
+            let node = parse_node(chars, pos, gc)?;
+            alts.last_mut().unwrap().push(node);
+        }
+        if alts.len() == 1 {
+            Ok(alts.remove(0))
+        } else {
+            Ok(vec![ReNode {
+                re: Re::Alt(alts),
+                min: 1,
+                max: Some(1),
+                greedy: true,
+            }])
+        }
+    }
+
+    fn parse_node(chars: &[char], pos: &mut usize, gc: &mut usize) -> Result<ReNode, String> {
+        let re = parse_atom(chars, pos, gc)?;
+        let (min, max, greedy) = parse_quant(chars, pos)?;
+        Ok(ReNode {
+            re,
+            min,
+            max,
+            greedy,
+        })
+    }
+
+    fn parse_quant(
+        chars: &[char],
+        pos: &mut usize,
+    ) -> Result<(usize, Option<usize>, bool), String> {
+        if *pos >= chars.len() {
+            return Ok((1, Some(1), true));
+        }
+        let (min, max) = match chars[*pos] {
+            '*' => {
+                *pos += 1;
+                (0, None)
+            }
+            '+' => {
+                *pos += 1;
+                (1, None)
+            }
+            '?' => {
+                *pos += 1;
+                (0, Some(1))
+            }
+            '{' => {
+                let start = *pos;
+                *pos += 1;
+                let mut ns = String::new();
+                while *pos < chars.len() && chars[*pos] != ',' && chars[*pos] != '}' {
+                    ns.push(chars[*pos]);
+                    *pos += 1;
+                }
+                let n: usize = ns.parse().map_err(|_| "invalid quantifier".to_string())?;
+                if *pos < chars.len() && chars[*pos] == ',' {
+                    *pos += 1;
+                    let mut ms = String::new();
+                    while *pos < chars.len() && chars[*pos] != '}' {
+                        ms.push(chars[*pos]);
+                        *pos += 1;
+                    }
+                    if *pos < chars.len() {
+                        *pos += 1;
+                    } // skip }
+                    if ms.is_empty() {
+                        (n, None)
+                    } else {
+                        let m: usize = ms.parse().map_err(|_| "invalid quantifier".to_string())?;
+                        (n, Some(m))
+                    }
+                } else {
+                    if *pos < chars.len() && chars[*pos] == '}' {
+                        *pos += 1;
+                    } else {
+                        *pos = start;
+                        return Ok((1, Some(1), true));
+                    }
+                    (n, Some(n))
+                }
+            }
+            _ => return Ok((1, Some(1), true)),
+        };
+        let greedy = if *pos < chars.len() && chars[*pos] == '?' {
+            *pos += 1;
+            false
+        } else {
+            true
+        };
+        Ok((min, max, greedy))
+    }
+
+    fn parse_atom(chars: &[char], pos: &mut usize, gc: &mut usize) -> Result<Re, String> {
+        if *pos >= chars.len() {
+            return Err("unexpected end of pattern".into());
+        }
+        match chars[*pos] {
+            '(' => {
+                *pos += 1;
+                *gc += 1;
+                let gi = *gc;
+                // handle non-capturing (?:...)
+                let non_cap = if chars.get(*pos) == Some(&'?') && chars.get(*pos + 1) == Some(&':')
+                {
+                    *pos += 2;
+                    true
+                } else {
+                    false
+                };
+                let body = parse_alt(chars, pos, gc, true)?;
+                if *pos < chars.len() && chars[*pos] == ')' {
+                    *pos += 1;
+                }
+                let idx = if non_cap { 0 } else { gi };
+                Ok(Re::Group(body, idx))
+            }
+            '[' => {
+                *pos += 1;
+                let negated = if *pos < chars.len() && chars[*pos] == '^' {
+                    *pos += 1;
+                    true
+                } else {
+                    false
+                };
+                let mut items = Vec::new();
+                while *pos < chars.len() && chars[*pos] != ']' {
+                    let c = chars[*pos];
+                    *pos += 1;
+                    if c == '\\' && *pos < chars.len() {
+                        items.push(ClassItem::Shorthand(chars[*pos]));
+                        *pos += 1;
+                    } else if chars.get(*pos) == Some(&'-')
+                        && chars.get(*pos + 1).is_some()
+                        && chars[*pos + 1] != ']'
+                    {
+                        *pos += 1;
+                        let end = chars[*pos];
+                        *pos += 1;
+                        items.push(ClassItem::Range(c, end));
+                    } else {
+                        items.push(ClassItem::Single(c));
+                    }
+                }
+                if *pos < chars.len() {
+                    *pos += 1;
+                } // skip ]
+                Ok(Re::Class(items, negated))
+            }
+            '\\' => {
+                *pos += 1;
+                if *pos >= chars.len() {
+                    return Err("trailing backslash".into());
+                }
+                let c = chars[*pos];
+                *pos += 1;
+                match c {
+                    'd' | 'D' | 'w' | 'W' | 's' | 'S' => {
+                        Ok(Re::Class(vec![ClassItem::Shorthand(c)], false))
+                    }
+                    'n' => Ok(Re::Lit('\n')),
+                    't' => Ok(Re::Lit('\t')),
+                    'r' => Ok(Re::Lit('\r')),
+                    _ => Ok(Re::Lit(c)),
+                }
+            }
+            '^' => {
+                *pos += 1;
+                Ok(Re::Anchor(true))
+            }
+            '$' => {
+                *pos += 1;
+                Ok(Re::Anchor(false))
+            }
+            '.' => {
+                *pos += 1;
+                Ok(Re::AnyChar)
+            }
+            c => {
+                *pos += 1;
+                Ok(Re::Lit(c))
+            }
+        }
+    }
+
+    fn class_matches(items: &[ClassItem], negated: bool, c: char) -> bool {
+        let hit = items.iter().any(|item| match item {
+            ClassItem::Single(ch) => *ch == c,
+            ClassItem::Range(lo, hi) => c >= *lo && c <= *hi,
+            ClassItem::Shorthand(sh) => match sh {
+                'd' => c.is_ascii_digit(),
+                'D' => !c.is_ascii_digit(),
+                'w' => c.is_alphanumeric() || c == '_',
+                'W' => !(c.is_alphanumeric() || c == '_'),
+                's' => c.is_whitespace(),
+                'S' => !c.is_whitespace(),
+                _ => false,
+            },
+        });
+        if negated {
+            !hit
+        } else {
+            hit
+        }
+    }
+
+    // NFA-based matching: returns Option<(end_pos, Vec<Option<(start,end)>> groups)>
+    fn nfa_match(
+        nodes: &[ReNode],
+        text: &[char],
+        pos: usize,
+        groups: &mut Vec<Option<(usize, usize)>>,
+    ) -> Option<usize> {
+        nfa_seq(nodes, 0, text, pos, groups)
+    }
+
+    fn nfa_seq(
+        nodes: &[ReNode],
+        ni: usize,
+        text: &[char],
+        pos: usize,
+        groups: &mut Vec<Option<(usize, usize)>>,
+    ) -> Option<usize> {
+        if ni >= nodes.len() {
+            return Some(pos);
+        }
+        let node = &nodes[ni];
+        nfa_repeat(node, 0, nodes, ni, text, pos, groups)
+    }
+
+    fn nfa_repeat(
+        node: &ReNode,
+        count: usize,
+        nodes: &[ReNode],
+        ni: usize,
+        text: &[char],
+        pos: usize,
+        groups: &mut Vec<Option<(usize, usize)>>,
+    ) -> Option<usize> {
+        let max = node.max.unwrap_or(usize::MAX);
+        // try matching enough reps
+        if count >= node.min && node.greedy {
+            // try skipping more reps first (greedy: try longer match)
+            if count < max {
+                let saved = groups.clone();
+                if let Some(end) = nfa_one(node, text, pos, groups)
+                    .and_then(|np| nfa_repeat(node, count + 1, nodes, ni, text, np, groups))
+                {
+                    return Some(end);
+                }
+                *groups = saved;
+            }
+            // try continuing with next node
+            return nfa_seq(nodes, ni + 1, text, pos, groups);
+        }
+        if count < node.min {
+            // must match more
+            return nfa_one(node, text, pos, groups)
+                .and_then(|np| nfa_repeat(node, count + 1, nodes, ni, text, np, groups));
+        }
+        // non-greedy: try next node first
+        {
+            let saved = groups.clone();
+            if let Some(end) = nfa_seq(nodes, ni + 1, text, pos, groups) {
+                return Some(end);
+            }
+            *groups = saved;
+        }
+        if count < max {
+            nfa_one(node, text, pos, groups)
+                .and_then(|np| nfa_repeat(node, count + 1, nodes, ni, text, np, groups))
+        } else {
+            None
+        }
+    }
+
+    fn nfa_one(
+        node: &ReNode,
+        text: &[char],
+        pos: usize,
+        groups: &mut Vec<Option<(usize, usize)>>,
+    ) -> Option<usize> {
+        match &node.re {
+            Re::Lit(c) => {
+                if text.get(pos) == Some(c) {
+                    Some(pos + 1)
+                } else {
+                    None
+                }
+            }
+            Re::AnyChar => {
+                if pos < text.len() && text[pos] != '\n' {
+                    Some(pos + 1)
+                } else {
+                    None
+                }
+            }
+            Re::Class(items, neg) => {
+                if pos < text.len() && class_matches(items, *neg, text[pos]) {
+                    Some(pos + 1)
+                } else {
+                    None
+                }
+            }
+            Re::Anchor(is_start) => {
+                if *is_start {
+                    if pos == 0 {
+                        Some(pos)
+                    } else {
+                        None
+                    }
+                } else {
+                    if pos == text.len() {
+                        Some(pos)
+                    } else {
+                        None
+                    }
+                }
+            }
+            Re::Group(body, gi) => {
+                let start = pos;
+                while groups.len() <= *gi {
+                    groups.push(None);
+                }
+                if let Some(end) = nfa_match(body, text, pos, groups) {
+                    if *gi > 0 {
+                        groups[*gi] = Some((start, end));
+                    }
+                    Some(end)
+                } else {
+                    None
+                }
+            }
+            Re::Alt(alts) => {
+                for alt in alts {
+                    let saved = groups.clone();
+                    if let Some(end) = nfa_match(alt, text, pos, groups) {
+                        return Some(end);
+                    }
+                    *groups = saved;
+                }
+                None
+            }
+        }
+    }
+
+    fn find_all(
+        nodes: &[ReNode],
+        text: &[char],
+    ) -> Vec<(usize, usize, Vec<Option<(usize, usize)>>)> {
+        let mut results = Vec::new();
+        let mut pos = 0;
+        while pos <= text.len() {
+            let mut groups = vec![None; 16];
+            if let Some(end) = nfa_match(nodes, text, pos, &mut groups) {
+                if end > pos {
+                    results.push((pos, end, groups));
+                    pos = end;
+                } else {
+                    pos += 1; // avoid infinite loop on zero-length match
+                }
+            } else {
+                pos += 1;
+            }
+        }
+        results
+    }
+
+    fn explain_pattern(pat: &str) -> String {
+        // token-by-token plain English description
+        let mut desc = Vec::new();
+        let chars: Vec<char> = pat.chars().collect();
+        let mut i = 0;
+        while i < chars.len() {
+            match chars[i] {
+                '^' => {
+                    desc.push("start of string".to_string());
+                    i += 1;
+                }
+                '$' => {
+                    desc.push("end of string".to_string());
+                    i += 1;
+                }
+                '.' => {
+                    desc.push("any character (except newline)".to_string());
+                    i += 1;
+                }
+                '*' => {
+                    if let Some(last) = desc.last_mut() {
+                        *last = format!("{} (zero or more)", last);
+                    }
+                    i += 1;
+                }
+                '+' => {
+                    if let Some(last) = desc.last_mut() {
+                        *last = format!("{} (one or more)", last);
+                    }
+                    i += 1;
+                }
+                '?' => {
+                    if let Some(last) = desc.last_mut() {
+                        *last = format!("{} (optional)", last);
+                    }
+                    i += 1;
+                }
+                '|' => {
+                    desc.push("OR".to_string());
+                    i += 1;
+                }
+                '(' => {
+                    if chars.get(i + 1) == Some(&'?') && chars.get(i + 2) == Some(&':') {
+                        desc.push("non-capturing group: (".to_string());
+                        i += 3;
+                    } else {
+                        desc.push("capture group: (".to_string());
+                        i += 1;
+                    }
+                }
+                ')' => {
+                    desc.push(")".to_string());
+                    i += 1;
+                }
+                '[' => {
+                    i += 1;
+                    let neg = if i < chars.len() && chars[i] == '^' {
+                        i += 1;
+                        true
+                    } else {
+                        false
+                    };
+                    let mut cls = String::new();
+                    while i < chars.len() && chars[i] != ']' {
+                        cls.push(chars[i]);
+                        i += 1;
+                    }
+                    i += 1; // skip ]
+                    let label = if neg {
+                        format!("character NOT in [{}]", cls)
+                    } else {
+                        format!("character in [{}]", cls)
+                    };
+                    desc.push(label);
+                }
+                '\\' => {
+                    i += 1;
+                    if i < chars.len() {
+                        let label = match chars[i] {
+                            'd' => "digit [0-9]".to_string(),
+                            'D' => "non-digit".to_string(),
+                            'w' => "word character [a-zA-Z0-9_]".to_string(),
+                            'W' => "non-word character".to_string(),
+                            's' => "whitespace".to_string(),
+                            'S' => "non-whitespace".to_string(),
+                            'n' => "newline".to_string(),
+                            't' => "tab".to_string(),
+                            c => format!("literal '{}'", c),
+                        };
+                        desc.push(label);
+                        i += 1;
+                    }
+                }
+                '{' => {
+                    // quantifier
+                    i += 1;
+                    let mut ns = String::new();
+                    while i < chars.len() && chars[i] != ',' && chars[i] != '}' {
+                        ns.push(chars[i]);
+                        i += 1;
+                    }
+                    if i < chars.len() && chars[i] == ',' {
+                        i += 1;
+                        let mut ms = String::new();
+                        while i < chars.len() && chars[i] != '}' {
+                            ms.push(chars[i]);
+                            i += 1;
+                        }
+                        if i < chars.len() {
+                            i += 1;
+                        }
+                        let label = if ms.is_empty() {
+                            format!("{} or more times", ns)
+                        } else {
+                            format!("{} to {} times", ns, ms)
+                        };
+                        if let Some(last) = desc.last_mut() {
+                            *last = format!("{} ({})", last, label);
+                        }
+                    } else {
+                        if i < chars.len() {
+                            i += 1;
+                        }
+                        if let Some(last) = desc.last_mut() {
+                            *last = format!("{} (exactly {} times)", last, ns);
+                        }
+                    }
+                }
+                c => {
+                    desc.push(format!("literal '{}'", c));
+                    i += 1;
+                }
+            }
+        }
+        desc.join(", ")
+    }
+
+    // ── dispatch ─────────────────────────────────────────────────────────────
+    let (cmd, rest) = if let Some(sp) = ql.find(' ') {
+        (&ql[..sp], q[sp + 1..].trim())
+    } else {
+        (ql.as_str(), "")
+    };
+
+    match cmd {
+        "test" | "match" => {
+            // test <pattern> <text> — delimiter: first space separates pattern from text
+            let (pattern, text) = if let Some(sp) = rest.find(' ') {
+                (&rest[..sp], &rest[sp + 1..])
+            } else {
+                let _ = writeln!(out, "  Usage: test <pattern> <text>");
+                let _ = writeln!(out, "{}", sep);
+                return out;
+            };
+            match parse_re(pattern) {
+                Err(e) => {
+                    let _ = writeln!(out, "  Invalid pattern: {}", e);
+                }
+                Ok(nodes) => {
+                    let chars: Vec<char> = text.chars().collect();
+                    let matches = find_all(&nodes, &chars);
+                    if matches.is_empty() {
+                        let _ = writeln!(out, "  No match");
+                    } else {
+                        let _ = writeln!(out, "  {} match(es):", matches.len());
+                        for (i, (start, end, groups)) in matches.iter().enumerate() {
+                            let matched: String = chars[*start..*end].iter().collect();
+                            let _ = writeln!(
+                                out,
+                                "    [{}] '{}' at chars {}-{}",
+                                i,
+                                matched,
+                                start,
+                                end - 1
+                            );
+                            for (gi, g) in groups.iter().enumerate().skip(1) {
+                                if let Some((gs, ge)) = g {
+                                    if *ge <= chars.len() {
+                                        let gstr: String = chars[*gs..*ge].iter().collect();
+                                        let _ = writeln!(out, "        group {} : '{}'", gi, gstr);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    let _ = writeln!(out, "  Pattern : {}", pattern);
+                    let _ = writeln!(out, "  Text    : {}", text);
+                }
+            }
+        }
+        "explain" => {
+            if rest.is_empty() {
+                let _ = writeln!(out, "  Usage: explain <pattern>");
+            } else {
+                let _ = writeln!(out, "  Pattern : {}", rest);
+                let _ = writeln!(out, "  Meaning : {}", explain_pattern(rest));
+            }
+        }
+        "split" => {
+            let (pattern, text) = if let Some(sp) = rest.find(' ') {
+                (&rest[..sp], &rest[sp + 1..])
+            } else {
+                let _ = writeln!(out, "  Usage: split <pattern> <text>");
+                let _ = writeln!(out, "{}", sep);
+                return out;
+            };
+            match parse_re(pattern) {
+                Err(e) => {
+                    let _ = writeln!(out, "  Invalid pattern: {}", e);
+                }
+                Ok(nodes) => {
+                    let chars: Vec<char> = text.chars().collect();
+                    let ms = find_all(&nodes, &chars);
+                    let mut parts: Vec<String> = Vec::new();
+                    let mut prev = 0usize;
+                    for (start, end, _) in &ms {
+                        parts.push(chars[prev..*start].iter().collect());
+                        prev = *end;
+                    }
+                    parts.push(chars[prev..].iter().collect());
+                    let _ = writeln!(out, "  {} parts:", parts.len());
+                    for (i, p) in parts.iter().enumerate() {
+                        let _ = writeln!(out, "    [{}] '{}'", i, p);
+                    }
+                }
+            }
+        }
+        "replace" => {
+            // replace <pattern> <replacement> <text>
+            let parts: Vec<&str> = rest.splitn(3, ' ').collect();
+            if parts.len() < 3 {
+                let _ = writeln!(out, "  Usage: replace <pattern> <replacement> <text>");
+            } else {
+                let (pattern, replacement, text) = (parts[0], parts[1], parts[2]);
+                match parse_re(pattern) {
+                    Err(e) => {
+                        let _ = writeln!(out, "  Invalid pattern: {}", e);
+                    }
+                    Ok(nodes) => {
+                        let chars: Vec<char> = text.chars().collect();
+                        let ms = find_all(&nodes, &chars);
+                        let mut result = String::new();
+                        let mut prev = 0usize;
+                        for (start, end, _) in &ms {
+                            result.extend(chars[prev..*start].iter());
+                            result.push_str(replacement);
+                            prev = *end;
+                        }
+                        result.extend(chars[prev..].iter());
+                        let _ = writeln!(out, "  Original  : {}", text);
+                        let _ = writeln!(out, "  Replaced  : {}", result);
+                        let _ = writeln!(out, "  Subs made : {}", ms.len());
+                    }
+                }
+            }
+        }
+        _ => {
+            let _ = writeln!(out, "  Commands:");
+            let _ = writeln!(
+                out,
+                "    test <pattern> <text>             — show all matches + groups"
+            );
+            let _ = writeln!(
+                out,
+                "    explain <pattern>                 — plain-English description"
+            );
+            let _ = writeln!(
+                out,
+                "    split <pattern> <text>            — split text on pattern"
+            );
+            let _ = writeln!(
+                out,
+                "    replace <pattern> <repl> <text>   — replace all matches"
+            );
+            let _ = writeln!(
+                out,
+                "  Example: hematite --regex 'test \\d+ hello 42 world 99'"
+            );
+        }
+    }
+
+    let _ = writeln!(out, "{}", sep);
+    out
+}
+
+// ─── CSV utility ──────────────────────────────────────────────────────────────
+
+/// Preview, filter, select columns, count/sum/group-by CSV data — instant, no Python.
+///
+/// Commands (all accept either a file path or inline CSV rows after the command):
+///   `preview <file>`              — show first 10 rows with column headers
+///   `head N <file>`               — show first N rows
+///   `cols <file>`                 — list column names and indices
+///   `select <col1,col2> <file>`   — select specific columns
+///   `filter <col> <op> <val> <file>` — filter rows (ops: = != > < >= <=)
+///   `count <file>`                — count rows
+///   `sum <col> <file>`            — sum a numeric column
+///   `avg <col> <file>`            — average a numeric column
+///   `groupby <col> <file>`        — group-by column and count
+///   `sort <col> [asc|desc] <file>` — sort by column
+pub fn csv_calc(query: &str) -> String {
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+    let _ = writeln!(out, "{}", sep);
+    let _ = writeln!(out, "  CSV Toolkit");
+    let _ = writeln!(out, "{}", sep);
+
+    let q = query.trim();
+
+    // ── CSV parser: handles quoted fields, embedded commas/newlines ───────
+    fn parse_csv(text: &str) -> Vec<Vec<String>> {
+        let mut rows: Vec<Vec<String>> = Vec::new();
+        for line in text.lines() {
+            if line.trim().is_empty() {
+                continue;
+            }
+            rows.push(parse_csv_row(line));
+        }
+        rows
+    }
+
+    fn parse_csv_row(line: &str) -> Vec<String> {
+        let mut fields = Vec::new();
+        let mut field = String::new();
+        let mut in_quotes = false;
+        let mut chars = line.chars().peekable();
+        while let Some(c) = chars.next() {
+            match c {
+                '"' => {
+                    if in_quotes && chars.peek() == Some(&'"') {
+                        chars.next();
+                        field.push('"');
+                    } else {
+                        in_quotes = !in_quotes;
+                    }
+                }
+                ',' if !in_quotes => {
+                    fields.push(field.trim().to_string());
+                    field = String::new();
+                }
+                _ => {
+                    field.push(c);
+                }
+            }
+        }
+        fields.push(field.trim().to_string());
+        fields
+    }
+
+    fn load_csv(src: &str) -> Result<Vec<Vec<String>>, String> {
+        // if src looks like a file path, try reading it; otherwise treat as inline CSV
+        let path = std::path::Path::new(src);
+        if path.exists() && path.is_file() {
+            let text = std::fs::read_to_string(path)
+                .map_err(|e| format!("could not read '{}': {}", src, e))?;
+            Ok(parse_csv(&text))
+        } else {
+            Ok(parse_csv(src))
+        }
+    }
+
+    fn col_index(headers: &[String], name: &str) -> Option<usize> {
+        // try by name, then by number
+        if let Some(i) = headers.iter().position(|h| h.eq_ignore_ascii_case(name)) {
+            return Some(i);
+        }
+        if let Ok(n) = name.parse::<usize>() {
+            if n < headers.len() {
+                return Some(n);
+            }
+        }
+        None
+    }
+
+    fn fmt_table(headers: &[String], rows: &[Vec<String>], max_rows: usize) -> String {
+        let ncols = headers.len();
+        let mut widths: Vec<usize> = headers.iter().map(|h| h.len()).collect();
+        for row in rows.iter().take(max_rows) {
+            for (i, cell) in row.iter().enumerate() {
+                if i < ncols {
+                    widths[i] = widths[i].max(cell.len().min(30));
+                }
+            }
+        }
+        let mut s = String::new();
+        // header
+        for (i, h) in headers.iter().enumerate() {
+            if i > 0 {
+                s.push_str("  ");
+            }
+            s.push_str(&format!("{:<width$}", h, width = widths[i]));
+        }
+        s.push('\n');
+        // separator
+        for (i, w) in widths.iter().enumerate() {
+            if i > 0 {
+                s.push_str("  ");
+            }
+            s.push_str(&"─".repeat(*w));
+        }
+        s.push('\n');
+        // rows
+        for row in rows.iter().take(max_rows) {
+            for (i, _) in headers.iter().enumerate() {
+                if i > 0 {
+                    s.push_str("  ");
+                }
+                let cell = row.get(i).map(|c| c.as_str()).unwrap_or("");
+                let cell = if cell.len() > 30 { &cell[..30] } else { cell };
+                s.push_str(&format!("{:<width$}", cell, width = widths[i]));
+            }
+            s.push('\n');
+        }
+        s
+    }
+
+    // ── dispatch ─────────────────────────────────────────────────────────────
+    let ql = q.to_lowercase();
+    let (cmd, rest) = if let Some(sp) = ql.find(' ') {
+        (ql[..sp].to_string(), q[sp + 1..].trim().to_string())
+    } else {
+        (ql.clone(), String::new())
+    };
+
+    match cmd.as_str() {
+        "preview" | "head" => {
+            let (n, src) = if cmd == "head" {
+                let parts: Vec<&str> = rest.splitn(2, ' ').collect();
+                let n = parts
+                    .first()
+                    .and_then(|s| s.parse::<usize>().ok())
+                    .unwrap_or(10);
+                let src = parts.get(1).copied().unwrap_or("").to_string();
+                (n, src)
+            } else {
+                (10usize, rest.clone())
+            };
+            match load_csv(&src) {
+                Err(e) => {
+                    let _ = writeln!(out, "  Error: {}", e);
+                }
+                Ok(rows) if rows.is_empty() => {
+                    let _ = writeln!(out, "  Empty CSV");
+                }
+                Ok(rows) => {
+                    let headers = rows[0].clone();
+                    let data = &rows[1..];
+                    let show = n.min(data.len());
+                    let _ = writeln!(
+                        out,
+                        "  {} columns, {} data rows (showing {})",
+                        headers.len(),
+                        data.len(),
+                        show
+                    );
+                    let _ = writeln!(out, "");
+                    let table = fmt_table(&headers, data, show);
+                    for line in table.lines() {
+                        let _ = writeln!(out, "  {}", line);
+                    }
+                    if data.len() > show {
+                        let _ = writeln!(out, "  ... {} more rows", data.len() - show);
+                    }
+                }
+            }
+        }
+        "cols" | "columns" => match load_csv(&rest) {
+            Err(e) => {
+                let _ = writeln!(out, "  Error: {}", e);
+            }
+            Ok(rows) if rows.is_empty() => {
+                let _ = writeln!(out, "  Empty CSV");
+            }
+            Ok(rows) => {
+                let headers = &rows[0];
+                let _ = writeln!(out, "  {} columns:", headers.len());
+                for (i, h) in headers.iter().enumerate() {
+                    let _ = writeln!(out, "    [{}] {}", i, h);
+                }
+            }
+        },
+        "count" => match load_csv(&rest) {
+            Err(e) => {
+                let _ = writeln!(out, "  Error: {}", e);
+            }
+            Ok(rows) if rows.is_empty() => {
+                let _ = writeln!(out, "  0 rows");
+            }
+            Ok(rows) => {
+                let _ = writeln!(
+                    out,
+                    "  {} data rows ({} columns)",
+                    rows.len().saturating_sub(1),
+                    rows[0].len()
+                );
+            }
+        },
+        "select" => {
+            // select col1,col2 <file>
+            let parts: Vec<&str> = rest.splitn(2, ' ').collect();
+            if parts.len() < 2 {
+                let _ = writeln!(out, "  Usage: select <col1,col2,...> <file>");
+            } else {
+                let col_names: Vec<&str> = parts[0].split(',').collect();
+                let src = parts[1];
+                match load_csv(src) {
+                    Err(e) => {
+                        let _ = writeln!(out, "  Error: {}", e);
+                    }
+                    Ok(rows) if rows.is_empty() => {
+                        let _ = writeln!(out, "  Empty CSV");
+                    }
+                    Ok(rows) => {
+                        let headers = &rows[0];
+                        let indices: Vec<usize> = col_names
+                            .iter()
+                            .filter_map(|n| col_index(headers, n))
+                            .collect();
+                        if indices.is_empty() {
+                            let _ = writeln!(
+                                out,
+                                "  No matching columns. Available: {}",
+                                headers.join(", ")
+                            );
+                        } else {
+                            let sel_headers: Vec<String> =
+                                indices.iter().map(|&i| headers[i].clone()).collect();
+                            let sel_rows: Vec<Vec<String>> = rows[1..]
+                                .iter()
+                                .map(|row| {
+                                    indices
+                                        .iter()
+                                        .map(|&i| row.get(i).cloned().unwrap_or_default())
+                                        .collect()
+                                })
+                                .collect();
+                            let show = 20.min(sel_rows.len());
+                            let _ = writeln!(
+                                out,
+                                "  {} columns selected, {} rows:",
+                                indices.len(),
+                                sel_rows.len()
+                            );
+                            let table = fmt_table(&sel_headers, &sel_rows, show);
+                            for line in table.lines() {
+                                let _ = writeln!(out, "  {}", line);
+                            }
+                            if sel_rows.len() > show {
+                                let _ = writeln!(out, "  ... {} more rows", sel_rows.len() - show);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        "filter" => {
+            // filter <col> <op> <val> <file>
+            let parts: Vec<&str> = rest.splitn(4, ' ').collect();
+            if parts.len() < 4 {
+                let _ = writeln!(
+                    out,
+                    "  Usage: filter <col> <op> <val> <file>  (ops: = != > < >= <=)"
+                );
+            } else {
+                let (col_name, op, val_str, src) = (parts[0], parts[1], parts[2], parts[3]);
+                match load_csv(src) {
+                    Err(e) => {
+                        let _ = writeln!(out, "  Error: {}", e);
+                    }
+                    Ok(rows) if rows.is_empty() => {
+                        let _ = writeln!(out, "  Empty CSV");
+                    }
+                    Ok(rows) => {
+                        let headers = rows[0].clone();
+                        match col_index(&headers, col_name) {
+                            None => {
+                                let _ = writeln!(
+                                    out,
+                                    "  Column '{}' not found. Available: {}",
+                                    col_name,
+                                    headers.join(", ")
+                                );
+                            }
+                            Some(ci) => {
+                                let val_num_opt: Option<f64> = val_str.parse::<f64>().ok();
+                                let filtered: Vec<Vec<String>> = rows[1..]
+                                    .iter()
+                                    .filter(|row| {
+                                        let cell = row.get(ci).map(|s| s.as_str()).unwrap_or("");
+                                        let cell_num: Option<f64> = cell.parse::<f64>().ok();
+                                        match op {
+                                            "=" | "==" => cell.eq_ignore_ascii_case(val_str),
+                                            "!=" => !cell.eq_ignore_ascii_case(val_str),
+                                            ">" => cell_num
+                                                .zip(val_num_opt)
+                                                .map(|(c, v)| c > v)
+                                                .unwrap_or(cell > val_str),
+                                            "<" => cell_num
+                                                .zip(val_num_opt)
+                                                .map(|(c, v)| c < v)
+                                                .unwrap_or(cell < val_str),
+                                            ">=" => cell_num
+                                                .zip(val_num_opt)
+                                                .map(|(c, v)| c >= v)
+                                                .unwrap_or(cell >= val_str),
+                                            "<=" => cell_num
+                                                .zip(val_num_opt)
+                                                .map(|(c, v)| c <= v)
+                                                .unwrap_or(cell <= val_str),
+                                            _ => false,
+                                        }
+                                    })
+                                    .cloned()
+                                    .collect();
+                                let show = 20.min(filtered.len());
+                                let _ = writeln!(out, "  {} matching rows:", filtered.len());
+                                let table = fmt_table(&headers, &filtered, show);
+                                for line in table.lines() {
+                                    let _ = writeln!(out, "  {}", line);
+                                }
+                                if filtered.len() > show {
+                                    let _ =
+                                        writeln!(out, "  ... {} more rows", filtered.len() - show);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        "sum" | "avg" | "average" | "mean" => {
+            let parts: Vec<&str> = rest.splitn(2, ' ').collect();
+            if parts.len() < 2 {
+                let _ = writeln!(out, "  Usage: sum <col> <file>  /  avg <col> <file>");
+            } else {
+                let (col_name, src) = (parts[0], parts[1]);
+                match load_csv(src) {
+                    Err(e) => {
+                        let _ = writeln!(out, "  Error: {}", e);
+                    }
+                    Ok(rows) if rows.is_empty() => {
+                        let _ = writeln!(out, "  Empty CSV");
+                    }
+                    Ok(rows) => {
+                        let headers = rows[0].clone();
+                        match col_index(&headers, col_name) {
+                            None => {
+                                let _ = writeln!(
+                                    out,
+                                    "  Column '{}' not found. Available: {}",
+                                    col_name,
+                                    headers.join(", ")
+                                );
+                            }
+                            Some(ci) => {
+                                let nums: Vec<f64> = rows[1..]
+                                    .iter()
+                                    .filter_map(|row| row.get(ci)?.parse::<f64>().ok())
+                                    .collect();
+                                if nums.is_empty() {
+                                    let _ = writeln!(
+                                        out,
+                                        "  No numeric values in column '{}'",
+                                        col_name
+                                    );
+                                } else {
+                                    let total: f64 = nums.iter().sum();
+                                    let avg = total / nums.len() as f64;
+                                    let _ = writeln!(out, "  Column : {}", col_name);
+                                    let _ = writeln!(out, "  Count  : {}", nums.len());
+                                    let _ = writeln!(out, "  Sum    : {:.4}", total);
+                                    let _ = writeln!(out, "  Avg    : {:.4}", avg);
+                                    let mn = nums.iter().cloned().fold(f64::INFINITY, f64::min);
+                                    let mx = nums.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+                                    let _ = writeln!(out, "  Min    : {:.4}", mn);
+                                    let _ = writeln!(out, "  Max    : {:.4}", mx);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        "groupby" | "group" => {
+            let parts: Vec<&str> = rest.splitn(2, ' ').collect();
+            if parts.len() < 2 {
+                let _ = writeln!(out, "  Usage: groupby <col> <file>");
+            } else {
+                let (col_name, src) = (parts[0], parts[1]);
+                match load_csv(src) {
+                    Err(e) => {
+                        let _ = writeln!(out, "  Error: {}", e);
+                    }
+                    Ok(rows) if rows.is_empty() => {
+                        let _ = writeln!(out, "  Empty CSV");
+                    }
+                    Ok(rows) => {
+                        let headers = rows[0].clone();
+                        match col_index(&headers, col_name) {
+                            None => {
+                                let _ = writeln!(
+                                    out,
+                                    "  Column '{}' not found. Available: {}",
+                                    col_name,
+                                    headers.join(", ")
+                                );
+                            }
+                            Some(ci) => {
+                                let mut counts: std::collections::HashMap<String, usize> =
+                                    std::collections::HashMap::new();
+                                for row in rows[1..].iter() {
+                                    let cell = row.get(ci).cloned().unwrap_or_default();
+                                    *counts.entry(cell).or_insert(0) += 1;
+                                }
+                                let mut pairs: Vec<(String, usize)> = counts.into_iter().collect();
+                                pairs.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
+                                let _ = writeln!(
+                                    out,
+                                    "  Group-by '{}' ({} groups):",
+                                    col_name,
+                                    pairs.len()
+                                );
+                                let _ = writeln!(out, "  {:30}  Count", "Value");
+                                let _ = writeln!(out, "  {}", "─".repeat(40));
+                                for (val, cnt) in &pairs {
+                                    let v = if val.len() > 30 {
+                                        &val[..30]
+                                    } else {
+                                        val.as_str()
+                                    };
+                                    let _ = writeln!(out, "  {:30}  {}", v, cnt);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        "sort" => {
+            // sort <col> [asc|desc] <file>
+            let parts: Vec<&str> = rest.splitn(3, ' ').collect();
+            let (col_name, order, src) = if parts.len() == 3 {
+                let dir = parts[1].to_lowercase();
+                if dir == "asc" || dir == "desc" {
+                    (parts[0], dir, parts[2].to_string())
+                } else {
+                    // no order given, treat 2nd token onward as src
+                    let src = format!("{} {}", parts[1], parts[2]);
+                    (parts[0], "asc".to_string(), src)
+                }
+            } else if parts.len() == 2 {
+                (parts[0], "asc".to_string(), parts[1].to_string())
+            } else {
+                let _ = writeln!(out, "  Usage: sort <col> [asc|desc] <file>");
+                let _ = writeln!(out, "{}", sep);
+                return out;
+            };
+            match load_csv(&src) {
+                Err(e) => {
+                    let _ = writeln!(out, "  Error: {}", e);
+                }
+                Ok(rows) if rows.is_empty() => {
+                    let _ = writeln!(out, "  Empty CSV");
+                }
+                Ok(rows) => {
+                    let headers = rows[0].clone();
+                    match col_index(&headers, col_name) {
+                        None => {
+                            let _ = writeln!(
+                                out,
+                                "  Column '{}' not found. Available: {}",
+                                col_name,
+                                headers.join(", ")
+                            );
+                        }
+                        Some(ci) => {
+                            let mut data = rows[1..].to_vec();
+                            data.sort_by(|a, b| {
+                                let av = a.get(ci).map(|s| s.as_str()).unwrap_or("");
+                                let bv = b.get(ci).map(|s| s.as_str()).unwrap_or("");
+                                let cmp = match (av.parse::<f64>(), bv.parse::<f64>()) {
+                                    (Ok(af), Ok(bf)) => {
+                                        af.partial_cmp(&bf).unwrap_or(std::cmp::Ordering::Equal)
+                                    }
+                                    _ => av.cmp(bv),
+                                };
+                                if order == "desc" {
+                                    cmp.reverse()
+                                } else {
+                                    cmp
+                                }
+                            });
+                            let show = 20.min(data.len());
+                            let _ = writeln!(
+                                out,
+                                "  Sorted by '{}' {} — {} rows:",
+                                col_name,
+                                order,
+                                data.len()
+                            );
+                            let table = fmt_table(&headers, &data, show);
+                            for line in table.lines() {
+                                let _ = writeln!(out, "  {}", line);
+                            }
+                            if data.len() > show {
+                                let _ = writeln!(out, "  ... {} more rows", data.len() - show);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        _ => {
+            let _ = writeln!(out, "  Commands:");
+            let _ = writeln!(
+                out,
+                "    preview <file>                     — first 10 rows"
+            );
+            let _ = writeln!(out, "    head N <file>                      — first N rows");
+            let _ = writeln!(
+                out,
+                "    cols <file>                        — list column names"
+            );
+            let _ = writeln!(out, "    count <file>                       — count rows");
+            let _ = writeln!(out, "    select <col1,col2> <file>          — pick columns");
+            let _ = writeln!(
+                out,
+                "    filter <col> <op> <val> <file>     — filter rows (= != > < >= <=)"
+            );
+            let _ = writeln!(
+                out,
+                "    sum <col> <file>                   — sum a numeric column"
+            );
+            let _ = writeln!(
+                out,
+                "    avg <col> <file>                   — average a numeric column"
+            );
+            let _ = writeln!(
+                out,
+                "    groupby <col> <file>               — group-by count"
+            );
+            let _ = writeln!(
+                out,
+                "    sort <col> [asc|desc] <file>       — sort by column"
+            );
+            let _ = writeln!(out, "  File path or inline CSV both work as <file>.");
+        }
+    }
+
+    let _ = writeln!(out, "{}", sep);
+    out
+}

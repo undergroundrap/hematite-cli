@@ -1146,6 +1146,30 @@ pub struct CliCockpit {
 
     #[arg(
         long,
+        help_heading = "Math & Science",
+        value_name = "QUERY",
+        help = "JSON toolkit — instant, no model, no cloud. Commands: format <json> (pretty-print), validate <json> (report valid/invalid), minify <json> (single line), keys <json> (list top-level keys), query <path> <json> (dot-path extraction, e.g. user.name or items[0].id), <json_a> --- <json_b> (diff two JSON blobs). Bare JSON is auto-formatted. Examples: hematite --json 'format {\"a\":1}' | hematite --json 'query user.name {\"user\":{\"name\":\"Alice\"}}' | hematite --json '{\"x\":1} --- {\"x\":2}'"
+    )]
+    pub json: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Math & Science",
+        value_name = "QUERY",
+        help = "Regex toolkit — instant, no model, no cloud. Commands: test <pattern> <text> (find all matches, show capture groups), explain <pattern> (plain-English description of what the regex does), split <pattern> <text> (split text on pattern), replace <pattern> <replacement> <text> (replace all matches). Supports: . * + ? | () [] [^] {n,m} ^ $ \\d \\w \\s and their negations. Examples: hematite --regex 'test \\d+ foo 42 bar 99' | hematite --regex 'explain ^\\w+@\\w+\\.\\w+$' | hematite --regex 'replace \\s+ _ hello world'"
+    )]
+    pub regex: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Math & Science",
+        value_name = "QUERY",
+        help = "CSV toolkit — instant, no model, no Python. Accepts a file path or inline CSV. Commands: preview <file> (first 10 rows), head N <file> (first N rows), cols <file> (list column names), count <file> (row count), select <col1,col2> <file> (pick columns), filter <col> <op> <val> <file> (filter rows, ops: = != > < >= <=), sum <col> <file>, avg <col> <file>, groupby <col> <file> (group-by count), sort <col> [asc|desc] <file>. Examples: hematite --csv 'preview data.csv' | hematite --csv 'filter age > 30 data.csv' | hematite --csv 'groupby country data.csv'"
+    )]
+    pub csv: Option<String>,
+
+    #[arg(
+        long,
         help_heading = "Headless Reports",
         value_name = "ELEMENT",
         help = "Look up a periodic table element — instant, no model, no cloud. Accepts symbol (H, Au), full name (Gold, Hydrogen), or atomic number (79). Shows atomic mass, category, period/group, electronegativity, and state at STP. Example: hematite --periodic Au"

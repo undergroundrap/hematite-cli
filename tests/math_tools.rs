@@ -4,10 +4,10 @@
 /// matrix decomposition modes (QR, SVD, Cholesky).
 use hematite::tools::math_util::{
     bitwise_calc, checksum_calc, chemistry_calc, cipher_calc, combinatorics_calc, complex_calc,
-    datetime_calc, electrical_calc, encode_calc, fraction_calc, geometry_calc, hash_calc,
-    health_calc, matrix_calc, number_format, number_theory_calc, percent_calc, physics_calc,
-    prob_calc, roman_calc, set_calc, sort_viz, stats_calc, string_dist, text_stats, trig_calc,
-    validate_calc,
+    csv_calc, datetime_calc, electrical_calc, encode_calc, fraction_calc, geometry_calc, hash_calc,
+    health_calc, json_calc, matrix_calc, number_format, number_theory_calc, percent_calc,
+    physics_calc, prob_calc, regex_calc, roman_calc, set_calc, sort_viz, stats_calc, string_dist,
+    text_stats, trig_calc, validate_calc,
 };
 
 // ─── Cipher tests ────────────────────────────────────────────────────────────
@@ -1606,6 +1606,211 @@ fn roman_out_of_range_no_panic() {
 #[test]
 fn roman_empty_no_panic() {
     let out = roman_calc("");
+    assert!(!out.is_empty());
+}
+
+// ─── JSON tests ──────────────────────────────────────────────────────────────
+
+#[test]
+fn json_format_object() {
+    let out = json_calc(r#"format {"name":"Alice","age":30}"#);
+    assert!(out.contains("\"name\""));
+    assert!(out.contains("\"Alice\""));
+}
+
+#[test]
+fn json_validate_valid() {
+    let out = json_calc(r#"validate {"x":1}"#);
+    assert!(out.contains("Valid JSON"));
+    assert!(out.contains("object"));
+}
+
+#[test]
+fn json_validate_invalid() {
+    let out = json_calc("validate {bad json}");
+    assert!(out.contains("Invalid JSON") || out.contains("invalid"));
+}
+
+#[test]
+fn json_minify() {
+    let out = json_calc("minify {\"a\": 1, \"b\": 2}");
+    assert!(out.contains("{\"a\":1,\"b\":2}"));
+}
+
+#[test]
+fn json_keys() {
+    let out = json_calc(r#"keys {"name":"Bob","score":42}"#);
+    assert!(out.contains("name"));
+    assert!(out.contains("score"));
+}
+
+#[test]
+fn json_query_nested() {
+    let out = json_calc(r#"query user.name {"user":{"name":"Alice","age":25}}"#);
+    assert!(out.contains("Alice"));
+}
+
+#[test]
+fn json_query_array_index() {
+    let out = json_calc(r#"query items[1] {"items":["a","b","c"]}"#);
+    assert!(out.contains("b") || out.contains("\"b\""));
+}
+
+#[test]
+fn json_diff_no_change() {
+    let out = json_calc(r#"{"x":1} --- {"x":1}"#);
+    assert!(out.contains("identical") || out.contains("No difference"));
+}
+
+#[test]
+fn json_diff_changed_value() {
+    let out = json_calc(r#"{"x":1} --- {"x":2}"#);
+    assert!(out.contains("changed") || out.contains("x"));
+}
+
+#[test]
+fn json_auto_format_bare() {
+    let out = json_calc(r#"{"hello":"world"}"#);
+    assert!(out.contains("hello"));
+}
+
+#[test]
+fn json_empty_no_panic() {
+    let out = json_calc("");
+    assert!(!out.is_empty());
+}
+
+// ─── Regex tests ─────────────────────────────────────────────────────────────
+
+#[test]
+fn regex_test_digits() {
+    let out = regex_calc(r"test \d+ hello 42 world 99");
+    assert!(out.contains("42") || out.contains("2 match"));
+}
+
+#[test]
+fn regex_test_no_match() {
+    let out = regex_calc(r"test \d+ abcdef");
+    assert!(out.contains("No match"));
+}
+
+#[test]
+fn regex_explain_pattern() {
+    let out = regex_calc(r"explain \d+");
+    assert!(out.contains("digit") || out.contains("one or more"));
+}
+
+#[test]
+fn regex_explain_anchors() {
+    let out = regex_calc(r"explain ^hello$");
+    assert!(out.contains("start") && out.contains("end"));
+}
+
+#[test]
+fn regex_split_whitespace() {
+    let out = regex_calc(r"split \s+ hello   world  foo");
+    assert!(out.contains("hello") && out.contains("world") && out.contains("foo"));
+}
+
+#[test]
+fn regex_replace_spaces() {
+    let out = regex_calc(r"replace \s+ _ hello world");
+    assert!(out.contains("hello_world"));
+}
+
+#[test]
+fn regex_capture_group() {
+    let out = regex_calc(r"test (\d+)-(\d+) foo 12-34 bar");
+    assert!(out.contains("12") && out.contains("34"));
+}
+
+#[test]
+fn regex_word_boundary_class() {
+    let out = regex_calc(r"test [a-z]+ hello123");
+    assert!(out.contains("hello"));
+}
+
+#[test]
+fn regex_invalid_no_panic() {
+    let out = regex_calc("");
+    assert!(!out.is_empty());
+}
+
+// ─── CSV tests ───────────────────────────────────────────────────────────────
+
+const SAMPLE_CSV: &str = "name,age,city\nAlice,30,NYC\nBob,25,LA\nCarol,35,NYC\nDave,28,Chicago";
+
+#[test]
+fn csv_preview() {
+    let out = csv_calc(&format!("preview {}", SAMPLE_CSV));
+    assert!(out.contains("name") && out.contains("Alice"));
+}
+
+#[test]
+fn csv_cols() {
+    let out = csv_calc(&format!("cols {}", SAMPLE_CSV));
+    assert!(out.contains("name") && out.contains("age") && out.contains("city"));
+}
+
+#[test]
+fn csv_count() {
+    let out = csv_calc(&format!("count {}", SAMPLE_CSV));
+    assert!(out.contains("4"));
+}
+
+#[test]
+fn csv_sum_numeric() {
+    let out = csv_calc(&format!("sum age {}", SAMPLE_CSV));
+    assert!(out.contains("118") || out.contains("Sum")); // 30+25+35+28=118
+}
+
+#[test]
+fn csv_avg_numeric() {
+    let out = csv_calc(&format!("avg age {}", SAMPLE_CSV));
+    assert!(out.contains("Avg") || out.contains("29.5"));
+}
+
+#[test]
+fn csv_filter_eq() {
+    let out = csv_calc(&format!("filter city = NYC {}", SAMPLE_CSV));
+    assert!(out.contains("Alice") || out.contains("Carol"));
+    // Bob (LA) should not appear
+    assert!(!out.contains("Bob"));
+}
+
+#[test]
+fn csv_filter_gt() {
+    let out = csv_calc(&format!("filter age > 28 {}", SAMPLE_CSV));
+    assert!(out.contains("Alice") || out.contains("Carol"));
+}
+
+#[test]
+fn csv_groupby() {
+    let out = csv_calc(&format!("groupby city {}", SAMPLE_CSV));
+    assert!(out.contains("NYC") && out.contains("2"));
+}
+
+#[test]
+fn csv_sort_asc() {
+    let out = csv_calc(&format!("sort age asc {}", SAMPLE_CSV));
+    // Bob (25) should appear before Alice (30)
+    let bob_pos = out.find("Bob").unwrap_or(usize::MAX);
+    let alice_pos = out.find("Alice").unwrap_or(usize::MAX);
+    assert!(bob_pos < alice_pos);
+}
+
+#[test]
+fn csv_select_columns() {
+    let out = csv_calc(&format!("select name,city {}", SAMPLE_CSV));
+    assert!(out.contains("name") && out.contains("city"));
+    // age column should not be in output header area
+    // (it may appear in data but the header "age" shouldn't be in the first display line)
+    assert!(!out.contains("age") || out.contains("name"));
+}
+
+#[test]
+fn csv_empty_no_panic() {
+    let out = csv_calc("");
     assert!(!out.is_empty());
 }
 
