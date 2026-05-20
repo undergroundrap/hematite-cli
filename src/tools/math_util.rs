@@ -23767,3 +23767,716 @@ pub fn sql_fmt_calc(query: &str) -> String {
     let _ = writeln!(out, "{}", sep);
     out
 }
+
+// ─── HTTP status code reference ───────────────────────────────────────────────
+
+/// HTTP status code lookup — offline replacement for httpstatuses.com.
+///
+/// Commands:
+///   <code>       — look up a specific status code (200, 404, 429 …)
+///   <keyword>    — search by name or description
+///   list         — all codes
+///   list 4xx     — filter to a range (1xx–5xx)
+pub fn http_calc(query: &str) -> String {
+    #[rustfmt::skip]
+    const CODES: &[(u16, &str, &str, &str)] = &[
+        (100,"Continue","Server received headers; client should proceed.","1xx Informational"),
+        (101,"Switching Protocols","Server switching protocols per Upgrade header.","1xx Informational"),
+        (102,"Processing","Server received and is processing (WebDAV).","1xx Informational"),
+        (103,"Early Hints","Preload resources while server prepares response.","1xx Informational"),
+        (200,"OK","Standard success response.","2xx Success"),
+        (201,"Created","Request fulfilled; new resource created.","2xx Success"),
+        (202,"Accepted","Accepted for processing; not yet complete.","2xx Success"),
+        (203,"Non-Authoritative Information","Metadata differs from origin server.","2xx Success"),
+        (204,"No Content","Success with no body — DELETE and silent PUT.","2xx Success"),
+        (205,"Reset Content","Client should reset the document view.","2xx Success"),
+        (206,"Partial Content","Partial GET (Range requests, resumable downloads).","2xx Success"),
+        (207,"Multi-Status","Multiple status codes in XML body (WebDAV).","2xx Success"),
+        (208,"Already Reported","Members already enumerated in prior reply (WebDAV).","2xx Success"),
+        (226,"IM Used","Response is result of instance manipulations.","2xx Success"),
+        (300,"Multiple Choices","Multiple representations available.","3xx Redirection"),
+        (301,"Moved Permanently","Resource permanently at Location URL.","3xx Redirection"),
+        (302,"Found","Resource temporarily elsewhere (legacy).","3xx Redirection"),
+        (303,"See Other","Redirect to Location using GET (PRG pattern).","3xx Redirection"),
+        (304,"Not Modified","Resource unchanged; use cached version.","3xx Redirection"),
+        (307,"Temporary Redirect","Like 302 but method must not change.","3xx Redirection"),
+        (308,"Permanent Redirect","Like 301 but method must not change.","3xx Redirection"),
+        (400,"Bad Request","Malformed syntax, invalid request, or client error.","4xx Client Error"),
+        (401,"Unauthorized","Authentication required (actually unauthenticated).","4xx Client Error"),
+        (402,"Payment Required","Reserved; used by some APIs for billing limits.","4xx Client Error"),
+        (403,"Forbidden","Authenticated but not authorized.","4xx Client Error"),
+        (404,"Not Found","Resource not found at this URI.","4xx Client Error"),
+        (405,"Method Not Allowed","HTTP method not supported for this endpoint.","4xx Client Error"),
+        (406,"Not Acceptable","Cannot serve content matching Accept headers.","4xx Client Error"),
+        (407,"Proxy Authentication Required","Must authenticate with the proxy.","4xx Client Error"),
+        (408,"Request Timeout","Server timed out waiting for the request.","4xx Client Error"),
+        (409,"Conflict","Conflicts with current state of the resource.","4xx Client Error"),
+        (410,"Gone","Resource permanently removed; no forwarding address.","4xx Client Error"),
+        (411,"Length Required","Content-Length header required.","4xx Client Error"),
+        (412,"Precondition Failed","Precondition in headers evaluated to false.","4xx Client Error"),
+        (413,"Content Too Large","Request body exceeds server limit.","4xx Client Error"),
+        (414,"URI Too Long","URI longer than server can process.","4xx Client Error"),
+        (415,"Unsupported Media Type","Payload format not supported.","4xx Client Error"),
+        (416,"Range Not Satisfiable","Requested range cannot be satisfied.","4xx Client Error"),
+        (417,"Expectation Failed","Server cannot meet Expect header requirements.","4xx Client Error"),
+        (418,"I'm a Teapot","RFC 2324 easter egg — refuses to brew coffee.","4xx Client Error"),
+        (421,"Misdirected Request","Server unable to produce a response for this request.","4xx Client Error"),
+        (422,"Unprocessable Content","Well-formed but semantically erroneous (validation).","4xx Client Error"),
+        (423,"Locked","Resource is locked (WebDAV).","4xx Client Error"),
+        (424,"Failed Dependency","Previous request failed (WebDAV).","4xx Client Error"),
+        (425,"Too Early","Unwilling to risk replayed request.","4xx Client Error"),
+        (426,"Upgrade Required","Client must switch to a different protocol.","4xx Client Error"),
+        (428,"Precondition Required","Origin server requires conditional request.","4xx Client Error"),
+        (429,"Too Many Requests","Rate limit exceeded — check Retry-After header.","4xx Client Error"),
+        (431,"Request Header Fields Too Large","Headers exceed server limits.","4xx Client Error"),
+        (451,"Unavailable For Legal Reasons","Blocked for legal reasons (DMCA, censorship).","4xx Client Error"),
+        (500,"Internal Server Error","Generic server-side error — check logs.","5xx Server Error"),
+        (501,"Not Implemented","Server does not support the request method.","5xx Server Error"),
+        (502,"Bad Gateway","Upstream server returned invalid response.","5xx Server Error"),
+        (503,"Service Unavailable","Server overloaded or in maintenance.","5xx Server Error"),
+        (504,"Gateway Timeout","Upstream server timed out.","5xx Server Error"),
+        (505,"HTTP Version Not Supported","HTTP version not supported.","5xx Server Error"),
+        (506,"Variant Also Negotiates","Transparent content negotiation loop.","5xx Server Error"),
+        (507,"Insufficient Storage","Server out of storage space (WebDAV).","5xx Server Error"),
+        (508,"Loop Detected","Infinite loop detected (WebDAV).","5xx Server Error"),
+        (510,"Not Extended","Further extensions needed for the request.","5xx Server Error"),
+        (511,"Network Authentication Required","Must authenticate to access the network.","5xx Server Error"),
+    ];
+
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+    let _ = writeln!(out, "{}", sep);
+    let _ = writeln!(out, "  HTTP Status Codes");
+    let _ = writeln!(out, "{}", sep);
+
+    let q = query.trim();
+    let ql = q.to_lowercase();
+
+    if q.is_empty() {
+        let _ = writeln!(out, "  Commands:");
+        let _ = writeln!(out, "    <code>      — look up 200, 404, 429, 503 ...");
+        let _ = writeln!(out, "    <keyword>   — search by name/description");
+        let _ = writeln!(out, "    list        — all codes");
+        let _ = writeln!(out, "    list 4xx    — only 4xx (use 1xx–5xx)");
+        let _ = writeln!(
+            out,
+            "  Example: hematite --http 429  |  hematite --http 'rate limit'"
+        );
+    } else if ql == "list" {
+        let mut last_cat = "";
+        for &(code, name, desc, cat) in CODES {
+            if cat != last_cat {
+                if !last_cat.is_empty() {
+                    let _ = writeln!(out, "");
+                }
+                let _ = writeln!(out, "  {}:", cat);
+                last_cat = cat;
+            }
+            let _ = writeln!(out, "    {:3}  {:<32}  {}", code, name, desc);
+        }
+    } else if ql.starts_with("list ") {
+        let filter = ql[5..].trim();
+        let prefix_digit = filter.chars().next().filter(|c| c.is_ascii_digit());
+        for &(code, name, desc, cat) in CODES {
+            let matches = match prefix_digit {
+                Some(d) => code.to_string().starts_with(d),
+                None => cat.to_lowercase().contains(filter),
+            };
+            if matches {
+                let _ = writeln!(out, "  {:3}  {:<32}  {}", code, name, desc);
+            }
+        }
+    } else if let Ok(n) = q.parse::<u16>() {
+        match CODES.iter().find(|&&(code, ..)| code == n) {
+            Some(&(code, name, desc, cat)) => {
+                let _ = writeln!(out, "  Code     : {}", code);
+                let _ = writeln!(out, "  Name     : {}", name);
+                let _ = writeln!(out, "  Category : {}", cat);
+                let _ = writeln!(out, "");
+                let _ = writeln!(out, "  {}", desc);
+            }
+            None => {
+                let _ = writeln!(out, "  {} is not a standard HTTP status code.", n);
+            }
+        }
+    } else {
+        let matches: Vec<_> = CODES
+            .iter()
+            .filter(|&&(_, name, desc, cat)| {
+                let hay = format!("{} {} {}", name, desc, cat).to_lowercase();
+                ql.split_whitespace().all(|w| hay.contains(w))
+            })
+            .collect();
+        if matches.is_empty() {
+            let _ = writeln!(out, "  No matches for '{}'.", q);
+        } else {
+            for &&(code, name, desc, _) in &matches {
+                let _ = writeln!(out, "  {:3}  {}", code, name);
+                let _ = writeln!(out, "       {}", desc);
+                let _ = writeln!(out, "");
+            }
+        }
+    }
+
+    let _ = writeln!(out, "{}", sep);
+    out
+}
+
+// ─── MIME type reference ──────────────────────────────────────────────────────
+
+/// MIME type ↔ file extension lookup — offline replacement for mimeTypes.io.
+///
+/// Commands:
+///   .ext              — extension to MIME type(s)
+///   <mime/type>       — MIME to extension(s)
+///   <keyword>         — search by partial name
+///   list              — all known types
+pub fn mime_calc(query: &str) -> String {
+    #[rustfmt::skip]
+    const TYPES: &[(&str, &[&str], &str)] = &[
+        ("text/plain",              &["txt","text","log","conf","cfg","ini","md","rst"],  "Plain text"),
+        ("text/html",               &["html","htm","xhtml"],   "HTML document"),
+        ("text/css",                &["css"],                  "CSS stylesheet"),
+        ("text/javascript",         &["js","mjs","cjs"],       "JavaScript (legacy MIME)"),
+        ("text/xml",                &["xml","xsl","xsd"],      "XML document"),
+        ("text/csv",                &["csv"],                  "Comma-separated values"),
+        ("text/markdown",           &["md","markdown"],        "Markdown document"),
+        ("text/calendar",           &["ics"],                  "iCalendar data"),
+        ("application/javascript",  &["js","mjs"],             "JavaScript (IANA standard)"),
+        ("application/json",        &["json"],                 "JSON data"),
+        ("application/ld+json",     &["jsonld"],               "JSON-LD linked data"),
+        ("application/xml",         &["xml"],                  "XML data"),
+        ("application/pdf",         &["pdf"],                  "PDF document"),
+        ("application/zip",         &["zip"],                  "ZIP archive"),
+        ("application/gzip",        &["gz","gzip"],            "Gzip archive"),
+        ("application/x-tar",       &["tar"],                  "Tar archive"),
+        ("application/x-7z-compressed",&["7z"],               "7-Zip archive"),
+        ("application/x-bzip2",     &["bz2"],                  "Bzip2 archive"),
+        ("application/x-rar-compressed",&["rar"],              "RAR archive"),
+        ("application/octet-stream",&["bin","exe","dll","iso"],"Binary/arbitrary data"),
+        ("application/wasm",        &["wasm"],                 "WebAssembly binary"),
+        ("application/x-www-form-urlencoded",&[],             "HTML form body"),
+        ("multipart/form-data",     &[],                       "HTML file upload body"),
+        ("application/x-sh",        &["sh","bash"],            "Shell script"),
+        ("application/sql",         &["sql"],                  "SQL script"),
+        ("application/yaml",        &["yaml","yml"],           "YAML data"),
+        ("application/toml",        &["toml"],                 "TOML config"),
+        ("application/x-ndjson",    &["ndjson","jsonl"],       "Newline-delimited JSON"),
+        ("application/msword",      &["doc"],                  "Microsoft Word (legacy)"),
+        ("application/vnd.openxmlformats-officedocument.wordprocessingml.document",&["docx"],"Microsoft Word"),
+        ("application/vnd.ms-excel",&["xls"],                  "Microsoft Excel (legacy)"),
+        ("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",&["xlsx"],"Microsoft Excel"),
+        ("application/vnd.ms-powerpoint",&["ppt"],             "Microsoft PowerPoint (legacy)"),
+        ("application/vnd.openxmlformats-officedocument.presentationml.presentation",&["pptx"],"Microsoft PowerPoint"),
+        ("application/epub+zip",    &["epub"],                 "EPUB e-book"),
+        ("application/x-pkcs12",    &["p12","pfx"],            "PKCS#12 certificate bundle"),
+        ("application/x-x509-ca-cert",&["crt","cer","der"],   "X.509 certificate"),
+        ("application/x-pem-file",  &["pem"],                  "PEM certificate/key"),
+        ("image/jpeg",              &["jpg","jpeg","jfif"],    "JPEG image"),
+        ("image/png",               &["png"],                  "PNG image"),
+        ("image/gif",               &["gif"],                  "GIF image"),
+        ("image/webp",              &["webp"],                 "WebP image"),
+        ("image/svg+xml",           &["svg","svgz"],           "SVG vector image"),
+        ("image/x-icon",            &["ico"],                  "Windows icon"),
+        ("image/avif",              &["avif"],                 "AVIF image"),
+        ("image/tiff",              &["tif","tiff"],           "TIFF image"),
+        ("image/bmp",               &["bmp"],                  "BMP image"),
+        ("audio/mpeg",              &["mp3"],                  "MP3 audio"),
+        ("audio/ogg",               &["ogg","oga"],            "Ogg audio"),
+        ("audio/wav",               &["wav"],                  "WAV audio"),
+        ("audio/flac",              &["flac"],                 "FLAC audio"),
+        ("audio/aac",               &["aac","m4a"],            "AAC audio"),
+        ("audio/midi",              &["mid","midi"],           "MIDI audio"),
+        ("video/mp4",               &["mp4","m4v"],            "MP4 video"),
+        ("video/webm",              &["webm"],                 "WebM video"),
+        ("video/mpeg",              &["mpeg","mpg"],           "MPEG video"),
+        ("video/quicktime",         &["mov"],                  "QuickTime video"),
+        ("video/x-msvideo",         &["avi"],                  "AVI video"),
+        ("video/x-matroska",        &["mkv"],                  "Matroska video"),
+        ("font/woff",               &["woff"],                 "Web Open Font Format"),
+        ("font/woff2",              &["woff2"],                "Web Open Font Format 2"),
+        ("font/ttf",                &["ttf"],                  "TrueType font"),
+        ("font/otf",                &["otf"],                  "OpenType font"),
+    ];
+
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+    let _ = writeln!(out, "{}", sep);
+    let _ = writeln!(out, "  MIME Type Reference");
+    let _ = writeln!(out, "{}", sep);
+
+    let q = query.trim();
+    let ql = q.to_lowercase();
+
+    if q.is_empty() {
+        let _ = writeln!(out, "  Commands:");
+        let _ = writeln!(out, "    .ext             — extension to MIME type(s)");
+        let _ = writeln!(out, "    <mime/type>      — MIME to extension(s)");
+        let _ = writeln!(out, "    <keyword>        — search by partial name");
+        let _ = writeln!(out, "    list             — all known types");
+        let _ = writeln!(
+            out,
+            "  Example: hematite --mime .json  |  hematite --mime 'application/pdf'"
+        );
+    } else if ql == "list" {
+        for &(mime, exts, desc) in TYPES {
+            let ext_str = if exts.is_empty() {
+                "(no file extension)".to_string()
+            } else {
+                exts.iter()
+                    .map(|e| format!(".{}", e))
+                    .collect::<Vec<_>>()
+                    .join("  ")
+            };
+            let _ = writeln!(out, "  {}", mime);
+            let _ = writeln!(out, "    {}  —  {}", ext_str, desc);
+        }
+    } else if ql.starts_with('.') {
+        let ext = ql.trim_start_matches('.');
+        let found: Vec<_> = TYPES
+            .iter()
+            .filter(|&&(_, exts, _)| exts.contains(&ext))
+            .collect();
+        if found.is_empty() {
+            let _ = writeln!(out, "  No MIME type found for '.{}'.", ext);
+        } else {
+            let _ = writeln!(out, "  Extension : .{}", ext);
+            let _ = writeln!(out, "");
+            for &&(mime, _, desc) in &found {
+                let _ = writeln!(out, "  MIME      : {}", mime);
+                let _ = writeln!(out, "  Desc      : {}", desc);
+                let _ = writeln!(out, "");
+            }
+        }
+    } else if ql.contains('/') {
+        let found: Vec<_> = TYPES
+            .iter()
+            .filter(|&&(mime, _, _)| mime.to_lowercase().contains(&ql))
+            .collect();
+        if found.is_empty() {
+            let _ = writeln!(out, "  No match for '{}'.", q);
+        } else {
+            for &&(mime, exts, desc) in &found {
+                let ext_str = if exts.is_empty() {
+                    "(no extension)".to_string()
+                } else {
+                    exts.iter()
+                        .map(|e| format!(".{}", e))
+                        .collect::<Vec<_>>()
+                        .join("  ")
+                };
+                let _ = writeln!(out, "  MIME       : {}", mime);
+                let _ = writeln!(out, "  Extensions : {}", ext_str);
+                let _ = writeln!(out, "  Desc       : {}", desc);
+                let _ = writeln!(out, "");
+            }
+        }
+    } else {
+        let found: Vec<_> = TYPES
+            .iter()
+            .filter(|&&(mime, exts, desc)| {
+                let hay = format!("{} {} {}", mime, exts.join(" "), desc).to_lowercase();
+                ql.split_whitespace().all(|w| hay.contains(w))
+            })
+            .collect();
+        if found.is_empty() {
+            let _ = writeln!(out, "  No matches for '{}'.", q);
+        } else {
+            for &&(mime, exts, desc) in &found {
+                let ext_str = if exts.is_empty() {
+                    "(no extension)".to_string()
+                } else {
+                    exts.iter()
+                        .map(|e| format!(".{}", e))
+                        .collect::<Vec<_>>()
+                        .join("  ")
+                };
+                let _ = writeln!(out, "  {}  —  {}", mime, desc);
+                let _ = writeln!(out, "  {}", ext_str);
+                let _ = writeln!(out, "");
+            }
+        }
+    }
+
+    let _ = writeln!(out, "{}", sep);
+    out
+}
+
+// ─── XML validator and formatter ──────────────────────────────────────────────
+
+/// XML validator and formatter — offline replacement for xmlvalidator.com / xmlformatter.com.
+/// Pure-Rust well-formedness checker (no XML crate required).
+///
+/// Commands:
+///   (bare) / validate <xml|file>   — well-formedness check
+///   format  <xml|file>             — pretty-print with indentation
+///   minify  <xml|file>             — collapse to single line
+///   get     <xml|file> <element>   — extract first matching element's content
+pub fn xml_calc(query: &str) -> String {
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+    let _ = writeln!(out, "{}", sep);
+    let _ = writeln!(out, "  XML Toolkit");
+    let _ = writeln!(out, "{}", sep);
+
+    let q = query.trim();
+    let ql = q.to_lowercase();
+
+    fn load_content(s: &str) -> Result<String, String> {
+        if std::path::Path::new(s).is_file() {
+            std::fs::read_to_string(s).map_err(|e| format!("Error reading '{}': {}", s, e))
+        } else {
+            Ok(s.to_string())
+        }
+    }
+
+    fn validate_xml(xml: &str) -> Result<usize, String> {
+        let mut stack: Vec<String> = Vec::new();
+        let bytes = xml.as_bytes();
+        let len = bytes.len();
+        let mut elem_count = 0usize;
+        let mut i = 0;
+
+        while i < len {
+            if bytes[i] != b'<' {
+                i += 1;
+                continue;
+            }
+            i += 1;
+            if i >= len {
+                return Err("Unexpected end after '<'".to_string());
+            }
+
+            if bytes[i] == b'/' {
+                i += 1;
+                let start = i;
+                while i < len && bytes[i] != b'>' && !bytes[i].is_ascii_whitespace() {
+                    i += 1;
+                }
+                let tag = std::str::from_utf8(&bytes[start..i])
+                    .unwrap_or("")
+                    .trim()
+                    .to_string();
+                while i < len && bytes[i] != b'>' {
+                    i += 1;
+                }
+                i += 1;
+                match stack.last() {
+                    Some(t) if *t == tag => {
+                        stack.pop();
+                    }
+                    Some(t) => {
+                        return Err(format!("Mismatched: expected </{}>, got </{}>", t, tag))
+                    }
+                    None => return Err(format!("Unexpected closing tag </{}>", tag)),
+                }
+            } else if bytes[i] == b'!' {
+                if i + 2 < len && &bytes[i..i + 3] == b"!--" {
+                    i += 3;
+                    loop {
+                        if i + 2 >= len {
+                            return Err("Unclosed comment".to_string());
+                        }
+                        if &bytes[i..i + 3] == b"-->" {
+                            i += 3;
+                            break;
+                        }
+                        i += 1;
+                    }
+                } else {
+                    while i < len && bytes[i] != b'>' {
+                        i += 1;
+                    }
+                    i += 1;
+                }
+            } else if bytes[i] == b'?' {
+                i += 1;
+                loop {
+                    if i + 1 >= len {
+                        return Err("Unclosed processing instruction".to_string());
+                    }
+                    if &bytes[i..i + 2] == b"?>" {
+                        i += 2;
+                        break;
+                    }
+                    i += 1;
+                }
+            } else {
+                let start = i;
+                while i < len
+                    && bytes[i] != b'>'
+                    && !bytes[i].is_ascii_whitespace()
+                    && bytes[i] != b'/'
+                {
+                    i += 1;
+                }
+                let tag = std::str::from_utf8(&bytes[start..i])
+                    .unwrap_or("")
+                    .trim()
+                    .to_string();
+                if tag.is_empty() {
+                    return Err("Empty tag name".to_string());
+                }
+                let mut self_close = false;
+                let mut in_quote: Option<u8> = None;
+                while i < len {
+                    let b = bytes[i];
+                    match in_quote {
+                        Some(q) if b == q => {
+                            in_quote = None;
+                        }
+                        Some(_) => {}
+                        None => {
+                            if b == b'"' || b == b'\'' {
+                                in_quote = Some(b);
+                            } else if b == b'/' && i + 1 < len && bytes[i + 1] == b'>' {
+                                self_close = true;
+                                i += 1;
+                                break;
+                            } else if b == b'>' {
+                                break;
+                            }
+                        }
+                    }
+                    i += 1;
+                }
+                i += 1;
+                if in_quote.is_some() {
+                    return Err(format!("Unclosed quote in <{}>", tag));
+                }
+                if !self_close {
+                    stack.push(tag);
+                    elem_count += 1;
+                }
+            }
+        }
+
+        if !stack.is_empty() {
+            return Err(format!(
+                "Unclosed: {}",
+                stack
+                    .iter()
+                    .map(|s| format!("<{}>", s))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ));
+        }
+        Ok(elem_count)
+    }
+
+    fn format_xml(xml: &str) -> String {
+        let mut result = String::new();
+        let mut depth: i32 = 0;
+        let bytes = xml.as_bytes();
+        let len = bytes.len();
+        let mut i = 0;
+
+        while i < len {
+            if bytes[i] == b'<' {
+                let start = i;
+                let is_close = i + 1 < len && bytes[i + 1] == b'/';
+                if is_close {
+                    depth -= 1;
+                }
+                let mut in_quote: Option<u8> = None;
+                while i < len {
+                    let b = bytes[i];
+                    match in_quote {
+                        Some(q) if b == q => {
+                            in_quote = None;
+                        }
+                        Some(_) => {}
+                        None => {
+                            if b == b'"' || b == b'\'' {
+                                in_quote = Some(b);
+                            } else if b == b'>' {
+                                break;
+                            }
+                        }
+                    }
+                    i += 1;
+                }
+                i += 1;
+                let tag_str = std::str::from_utf8(&bytes[start..i]).unwrap_or("").trim();
+                let indent = "  ".repeat(depth.max(0) as usize);
+                result.push_str(&indent);
+                result.push_str(tag_str);
+                result.push('\n');
+                let is_self = tag_str.ends_with("/>") || tag_str.ends_with("?>");
+                let is_decl = tag_str.starts_with("<!") || tag_str.starts_with("<?");
+                if !is_close && !is_self && !is_decl {
+                    depth += 1;
+                }
+            } else {
+                let start = i;
+                while i < len && bytes[i] != b'<' {
+                    i += 1;
+                }
+                let text = std::str::from_utf8(&bytes[start..i]).unwrap_or("").trim();
+                if !text.is_empty() {
+                    let indent = "  ".repeat(depth.max(0) as usize);
+                    result.push_str(&indent);
+                    result.push_str(text);
+                    result.push('\n');
+                }
+            }
+        }
+        result
+    }
+
+    fn minify_xml(xml: &str) -> String {
+        let mut result = String::new();
+        let mut in_tag = false;
+        let mut in_quote: Option<char> = None;
+        let mut prev_ws = false;
+        for c in xml.chars() {
+            match in_quote {
+                Some(q) if c == q => {
+                    in_quote = None;
+                    result.push(c);
+                    prev_ws = false;
+                }
+                Some(_) => {
+                    result.push(c);
+                    prev_ws = false;
+                }
+                None => {
+                    if c == '"' || c == '\'' {
+                        in_quote = Some(c);
+                        result.push(c);
+                    } else if c == '<' {
+                        in_tag = true;
+                        result.push(c);
+                        prev_ws = false;
+                    } else if c == '>' {
+                        in_tag = false;
+                        result.push(c);
+                        prev_ws = false;
+                    } else if c.is_whitespace() {
+                        if !prev_ws && !in_tag {
+                            result.push(' ');
+                        } else if !prev_ws && in_tag {
+                            result.push(' ');
+                        }
+                        prev_ws = true;
+                    } else {
+                        result.push(c);
+                        prev_ws = false;
+                    }
+                }
+            }
+        }
+        result.split_whitespace().collect::<Vec<_>>().join(" ")
+    }
+
+    let (cmd, rest) = if ql.starts_with("validate ") {
+        ("validate", q[9..].trim())
+    } else if ql.starts_with("format ") {
+        ("format", q[7..].trim())
+    } else if ql.starts_with("minify ") {
+        ("minify", q[7..].trim())
+    } else if ql.starts_with("get ") {
+        ("get", q[4..].trim())
+    } else if q.is_empty() {
+        ("help", "")
+    } else {
+        ("validate", q)
+    };
+
+    match cmd {
+        "validate" => match load_content(rest) {
+            Err(e) => {
+                let _ = writeln!(out, "  {}", e);
+            }
+            Ok(content) => match validate_xml(&content) {
+                Ok(count) => {
+                    let _ = writeln!(out, "  VALID XML");
+                    let _ = writeln!(out, "  Elements : {}", count);
+                    let _ = writeln!(out, "  Lines    : {}", content.lines().count());
+                    let _ = writeln!(out, "  Bytes    : {}", content.len());
+                }
+                Err(e) => {
+                    let _ = writeln!(out, "  INVALID XML");
+                    let _ = writeln!(out, "  Error    : {}", e);
+                }
+            },
+        },
+        "format" => match load_content(rest) {
+            Err(e) => {
+                let _ = writeln!(out, "  {}", e);
+            }
+            Ok(content) => {
+                for line in format_xml(&content).lines() {
+                    let _ = writeln!(out, "  {}", line);
+                }
+            }
+        },
+        "minify" => match load_content(rest) {
+            Err(e) => {
+                let _ = writeln!(out, "  {}", e);
+            }
+            Ok(content) => {
+                let _ = writeln!(out, "  {}", minify_xml(&content));
+            }
+        },
+        "get" => {
+            if let Some(last_sp) = rest.rfind(' ') {
+                let (src, elem) = (&rest[..last_sp], rest[last_sp + 1..].trim());
+                match load_content(src) {
+                    Err(e) => {
+                        let _ = writeln!(out, "  {}", e);
+                    }
+                    Ok(content) => {
+                        let open_tag = format!("<{}", elem);
+                        let close_tag = format!("</{}>", elem);
+                        if let Some(start) = content.find(&open_tag) {
+                            let after = &content[start..];
+                            let tag_end = after.find('>').map(|p| p + 1).unwrap_or(after.len());
+                            let inner = &after[tag_end..];
+                            if let Some(end) = inner.find(&close_tag) {
+                                let _ = writeln!(out, "  <{}>", elem);
+                                for line in inner[..end].lines() {
+                                    let t = line.trim();
+                                    if !t.is_empty() {
+                                        let _ = writeln!(out, "    {}", t);
+                                    }
+                                }
+                                let _ = writeln!(out, "  </{}>", elem);
+                            } else {
+                                let _ = writeln!(out, "  <{}> has no closing tag.", elem);
+                            }
+                        } else {
+                            let _ = writeln!(out, "  Element <{}> not found.", elem);
+                        }
+                    }
+                }
+            } else {
+                let _ = writeln!(out, "  Usage: get <file|xml> <element>");
+            }
+        }
+        _ => {
+            let _ = writeln!(out, "  Commands:");
+            let _ = writeln!(
+                out,
+                "    validate <file|xml>           — well-formedness check"
+            );
+            let _ = writeln!(
+                out,
+                "    format   <file|xml>           — pretty-print with indent"
+            );
+            let _ = writeln!(
+                out,
+                "    minify   <file|xml>           — collapse to one line"
+            );
+            let _ = writeln!(
+                out,
+                "    get      <file|xml> <element> — extract element content"
+            );
+            let _ = writeln!(out, "  Example: hematite --xml '<r><a>1</a></r>'");
+            let _ = writeln!(out, "         : hematite --xml 'format config.xml'");
+        }
+    }
+
+    let _ = writeln!(out, "{}", sep);
+    out
+}

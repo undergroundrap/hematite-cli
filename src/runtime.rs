@@ -1012,6 +1012,9 @@ mod tests {
             yaml: None,
             table: None,
             sql_fmt: None,
+            http: None,
+            mime: None,
+            xml: None,
             pdf_extract_helper: None,
             teleported_from: None,
         };

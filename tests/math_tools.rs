@@ -5,11 +5,11 @@
 use hematite::tools::math_util::{
     bitwise_calc, case_calc, checksum_calc, chemistry_calc, cipher_calc, color_calc,
     combinatorics_calc, complex_calc, cron_calc, csv_calc, datetime_calc, diff_calc,
-    electrical_calc, encode_calc, fraction_calc, geometry_calc, hash_calc, health_calc, ip_calc,
-    json_calc, jwt_calc, lorem_calc, matrix_calc, number_format, number_theory_calc, percent_calc,
-    physics_calc, prob_calc, regex_calc, roman_calc, semver_calc, set_calc, sort_viz, sql_fmt_calc,
-    stats_calc, string_dist, table_calc, text_stats, timestamp_calc, trig_calc, url_calc,
-    uuid_calc, validate_calc, yaml_calc,
+    electrical_calc, encode_calc, fraction_calc, geometry_calc, hash_calc, health_calc, http_calc,
+    ip_calc, json_calc, jwt_calc, lorem_calc, matrix_calc, mime_calc, number_format,
+    number_theory_calc, percent_calc, physics_calc, prob_calc, regex_calc, roman_calc, semver_calc,
+    set_calc, sort_viz, sql_fmt_calc, stats_calc, string_dist, table_calc, text_stats,
+    timestamp_calc, trig_calc, url_calc, uuid_calc, validate_calc, xml_calc, yaml_calc,
 };
 
 // ─── Cipher tests ────────────────────────────────────────────────────────────
@@ -2840,4 +2840,243 @@ fn parse_cdf_value(out: &str) -> f64 {
         .and_then(|l| l.split('=').last())
         .and_then(|s| s.trim().parse::<f64>().ok())
         .unwrap_or_else(|| panic!("Could not parse CDF value from:\n{out}"))
+}
+
+// ─── HTTP status code tests ───────────────────────────────────────────────────
+
+#[test]
+fn http_lookup_404() {
+    let out = http_calc("404");
+    assert!(out.contains("404"), "should echo the code: {out}");
+    assert!(
+        out.to_lowercase().contains("not found"),
+        "404 should be Not Found: {out}"
+    );
+}
+
+#[test]
+fn http_lookup_200() {
+    let out = http_calc("200");
+    assert!(out.contains("200"), "{out}");
+    assert!(out.to_lowercase().contains("ok"), "200 should be OK: {out}");
+}
+
+#[test]
+fn http_lookup_500() {
+    let out = http_calc("500");
+    assert!(out.contains("500"), "{out}");
+    assert!(
+        out.to_lowercase().contains("internal server error"),
+        "500 → Internal Server Error: {out}"
+    );
+}
+
+#[test]
+fn http_keyword_search() {
+    let out = http_calc("redirect");
+    assert!(
+        out.contains("301") || out.contains("302") || out.contains("307"),
+        "keyword 'redirect' should match 3xx codes: {out}"
+    );
+}
+
+#[test]
+fn http_range_filter_4xx() {
+    let out = http_calc("list 4xx");
+    assert!(out.contains("400"), "4xx range should include 400: {out}");
+    assert!(out.contains("404"), "4xx range should include 404: {out}");
+    assert!(
+        !out.contains("200"),
+        "4xx range must not include 200: {out}"
+    );
+}
+
+#[test]
+fn http_range_filter_5xx() {
+    let out = http_calc("list 5xx");
+    assert!(out.contains("500"), "{out}");
+    assert!(out.contains("503"), "{out}");
+}
+
+#[test]
+fn http_list_all() {
+    let out = http_calc("list");
+    assert!(out.contains("200"), "{out}");
+    assert!(out.contains("404"), "{out}");
+    assert!(out.contains("500"), "{out}");
+}
+
+#[test]
+fn http_unknown_code_no_panic() {
+    let out = http_calc("999");
+    assert!(
+        !out.is_empty(),
+        "unknown code should still return something"
+    );
+}
+
+#[test]
+fn http_empty_no_panic() {
+    let out = http_calc("");
+    assert!(!out.is_empty());
+}
+
+// ─── MIME type tests ──────────────────────────────────────────────────────────
+
+#[test]
+fn mime_extension_json() {
+    let out = mime_calc(".json");
+    assert!(
+        out.contains("application/json"),
+        ".json should map to application/json: {out}"
+    );
+}
+
+#[test]
+fn mime_extension_without_dot() {
+    let out = mime_calc("png");
+    assert!(out.contains("image/png"), "png → image/png: {out}");
+}
+
+#[test]
+fn mime_type_to_extension() {
+    let out = mime_calc("application/pdf");
+    assert!(out.contains(".pdf"), "application/pdf → .pdf: {out}");
+}
+
+#[test]
+fn mime_keyword_search() {
+    let out = mime_calc("video");
+    assert!(
+        out.contains("video/mp4") || out.contains("video/"),
+        "keyword 'video' should match video/* types: {out}"
+    );
+}
+
+#[test]
+fn mime_list_all() {
+    let out = mime_calc("list");
+    assert!(out.contains("text/html"), "{out}");
+    assert!(out.contains("application/json"), "{out}");
+}
+
+#[test]
+fn mime_list_category() {
+    // keyword search for "image" returns only image/* types
+    let out = mime_calc("image");
+    assert!(
+        out.contains("image/"),
+        "keyword 'image' should list image/* types: {out}"
+    );
+    // audio types contain no "image" token — should not appear
+    assert!(
+        !out.contains("audio/mpeg"),
+        "image search must not include audio/mpeg: {out}"
+    );
+}
+
+#[test]
+fn mime_html_extension() {
+    let out = mime_calc(".html");
+    assert!(out.contains("text/html"), ".html → text/html: {out}");
+}
+
+#[test]
+fn mime_unknown_extension_no_panic() {
+    let out = mime_calc(".xyz_unknown_ext");
+    assert!(!out.is_empty());
+}
+
+#[test]
+fn mime_empty_no_panic() {
+    let out = mime_calc("");
+    assert!(!out.is_empty());
+}
+
+// ─── XML toolkit tests ────────────────────────────────────────────────────────
+
+#[test]
+fn xml_validate_wellformed() {
+    let out = xml_calc("validate <root><child/></root>");
+    assert!(
+        out.to_lowercase().contains("valid") || out.to_lowercase().contains("well"),
+        "well-formed XML should pass validation: {out}"
+    );
+}
+
+#[test]
+fn xml_validate_selfclosing() {
+    let out = xml_calc("validate <root/>");
+    assert!(
+        out.to_lowercase().contains("valid") || out.to_lowercase().contains("well"),
+        "self-closing root should be valid: {out}"
+    );
+}
+
+#[test]
+fn xml_validate_malformed_unclosed() {
+    let out = xml_calc("validate <root><unclosed></root>");
+    assert!(
+        out.to_lowercase().contains("error")
+            || out.to_lowercase().contains("invalid")
+            || out.to_lowercase().contains("mismatch"),
+        "unclosed tag should report an error: {out}"
+    );
+}
+
+#[test]
+fn xml_format_adds_indentation() {
+    let out = xml_calc("format <a><b><c/></b></a>");
+    assert!(out.contains('\n'), "format should add newlines: {out}");
+    // indented child elements should appear
+    assert!(
+        out.contains("  ") || out.contains('\t'),
+        "format should indent: {out}"
+    );
+}
+
+#[test]
+fn xml_minify_collapses_whitespace() {
+    let input = "minify <root>\n  <child />\n</root>";
+    let out = xml_calc(input);
+    // the decorative header always has newlines; check the XML content line itself
+    let xml_line = out
+        .lines()
+        .find(|l| l.contains("<root>"))
+        .unwrap_or_else(|| panic!("No XML content line found in:\n{out}"));
+    assert!(
+        xml_line.contains("<child") && xml_line.contains("</root>"),
+        "minified content should have root and child on the same line: {xml_line}"
+    );
+}
+
+#[test]
+fn xml_get_element_content() {
+    let out = xml_calc("get name <person><name>Alice</name><age>30</age></person>");
+    assert!(
+        out.contains("Alice"),
+        "get name should extract Alice: {out}"
+    );
+}
+
+#[test]
+fn xml_get_missing_tag() {
+    let out = xml_calc("get email <person><name>Bob</name></person>");
+    // should report not found, not panic
+    assert!(
+        !out.is_empty(),
+        "missing tag should return a message, not panic"
+    );
+}
+
+#[test]
+fn xml_empty_no_panic() {
+    let out = xml_calc("");
+    assert!(!out.is_empty());
+}
+
+#[test]
+fn xml_validate_empty_string_no_panic() {
+    let out = xml_calc("validate ");
+    assert!(!out.is_empty());
 }

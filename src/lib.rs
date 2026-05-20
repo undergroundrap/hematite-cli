@@ -1260,6 +1260,30 @@ pub struct CliCockpit {
         long,
         help_heading = "Math & Science",
         value_name = "QUERY",
+        help = "HTTP status code reference — offline replacement for httpstatuses.com. Commands: <code> (look up a code), <keyword> (search by phrase), list, list 4xx / list 5xx (range filter). Examples: hematite --http 404 | hematite --http 'server error' | hematite --http 'list 2xx'"
+    )]
+    pub http: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Math & Science",
+        value_name = "QUERY",
+        help = "MIME type reference — offline replacement for mime.io / mimeapplication.com. Bidirectional: extension→type and type→extensions. Commands: <.ext> or <ext>, <type/subtype>, <keyword>, list, list <category>. Examples: hematite --mime .json | hematite --mime 'application/pdf' | hematite --mime image | hematite --mime list"
+    )]
+    pub mime: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Math & Science",
+        value_name = "QUERY",
+        help = "XML toolkit — offline replacement for xmlvalidation.com / xmlformatter.com. Commands: validate <xml>, format <xml> (pretty-print), minify <xml>, get <tag> <xml> (extract element content). Examples: hematite --xml 'validate <root/>' | hematite --xml 'format <a><b/></a>' | hematite --xml 'get name <person><name>Alice</name></person>'"
+    )]
+    pub xml: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Math & Science",
+        value_name = "QUERY",
         help = "Lorem ipsum generator — offline replacement for lipsum.com. Commands: (bare) or <N> = N paragraphs (default 1); words <N> = N words; sentences <N> = N sentences. Examples: hematite --lorem | hematite --lorem 3 | hematite --lorem 'words 50' | hematite --lorem 'sentences 5'"
     )]
     pub lorem: Option<String>,
