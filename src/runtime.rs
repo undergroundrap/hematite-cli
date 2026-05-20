@@ -1023,6 +1023,10 @@ mod tests {
             spark: None,
             template: None,
             escape: None,
+            port: None,
+            chars: None,
+            tz: None,
+            headers: None,
             pdf_extract_helper: None,
             teleported_from: None,
         };

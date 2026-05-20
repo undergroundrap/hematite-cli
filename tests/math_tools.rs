@@ -3,14 +3,15 @@
 /// Covers known-value correctness, edge-case non-panics, and the newer
 /// matrix decomposition modes (QR, SVD, Cholesky).
 use hematite::tools::math_util::{
-    ascii_calc, bitwise_calc, case_calc, checksum_calc, chemistry_calc, cipher_calc, color_calc,
-    combinatorics_calc, complex_calc, cron_calc, csv_calc, datetime_calc, diff_calc, duration_calc,
-    electrical_calc, encode_calc, escape_calc, fraction_calc, geometry_calc, hash_calc,
-    health_calc, http_calc, ip_calc, json_calc, jwt_calc, kbd_calc, lorem_calc, matrix_calc,
-    mime_calc, net_calc, number_format, number_theory_calc, percent_calc, physics_calc, prob_calc,
-    regex_calc, roman_calc, semver_calc, set_calc, sort_viz, spark_calc, sql_fmt_calc, stats_calc,
-    string_dist, table_calc, template_calc, text_stats, timestamp_calc, toml_calc, trig_calc,
-    url_calc, uuid_calc, validate_calc, xml_calc, yaml_calc,
+    ascii_calc, bitwise_calc, case_calc, chars_calc, checksum_calc, chemistry_calc, cipher_calc,
+    color_calc, combinatorics_calc, complex_calc, cron_calc, csv_calc, datetime_calc, diff_calc,
+    duration_calc, electrical_calc, encode_calc, escape_calc, fraction_calc, geometry_calc,
+    hash_calc, headers_calc, health_calc, http_calc, ip_calc, json_calc, jwt_calc, kbd_calc,
+    lorem_calc, matrix_calc, mime_calc, net_calc, number_format, number_theory_calc, percent_calc,
+    physics_calc, port_calc, prob_calc, regex_calc, roman_calc, semver_calc, set_calc, sort_viz,
+    spark_calc, sql_fmt_calc, stats_calc, string_dist, table_calc, template_calc, text_stats,
+    timestamp_calc, toml_calc, trig_calc, tz_calc, url_calc, uuid_calc, validate_calc, xml_calc,
+    yaml_calc,
 };
 
 // ─── Cipher tests ────────────────────────────────────────────────────────────
@@ -3739,4 +3740,315 @@ fn test_escape_empty_shows_help() {
 fn test_escape_no_special_json() {
     let out = escape_calc("json hello world");
     assert!(out.contains("\"hello world\""), "{out}");
+}
+
+// ── port_calc tests ───────────────────────────────────────────────────────────
+
+#[test]
+fn test_port_numeric_lookup_443() {
+    let out = port_calc("443");
+    assert!(out.contains("443"), "{out}");
+    assert!(out.to_lowercase().contains("https"), "{out}");
+}
+
+#[test]
+fn test_port_numeric_lookup_5432() {
+    let out = port_calc("5432");
+    assert!(out.to_lowercase().contains("postgres"), "{out}");
+}
+
+#[test]
+fn test_port_numeric_lookup_6379() {
+    let out = port_calc("6379");
+    assert!(out.to_lowercase().contains("redis"), "{out}");
+}
+
+#[test]
+fn test_port_service_name_lookup() {
+    let out = port_calc("mysql");
+    assert!(out.contains("3306"), "mysql should map to port 3306\n{out}");
+}
+
+#[test]
+fn test_port_keyword_search() {
+    let out = port_calc("mongo");
+    assert!(out.contains("27017"), "{out}");
+}
+
+#[test]
+fn test_port_unknown_number() {
+    let out = port_calc("49999");
+    assert!(!out.is_empty(), "{out}");
+    // Should mention it's not in directory or mention ephemeral range
+    assert!(
+        out.to_lowercase().contains("not in") || out.to_lowercase().contains("ephemeral"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_port_list_shows_entries() {
+    let out = port_calc("list");
+    assert!(out.contains("80"), "{out}");
+    assert!(out.contains("443"), "{out}");
+    assert!(out.contains("22"), "{out}");
+}
+
+#[test]
+fn test_port_empty_shows_list() {
+    let out = port_calc("");
+    assert!(out.contains("PORT"), "{out}");
+}
+
+#[test]
+fn test_port_ssh_lookup() {
+    let out = port_calc("22");
+    assert!(out.to_lowercase().contains("ssh"), "{out}");
+}
+
+#[test]
+fn test_port_kafka_keyword() {
+    let out = port_calc("kafka");
+    assert!(out.contains("9092"), "{out}");
+}
+
+// ── chars_calc tests ──────────────────────────────────────────────────────────
+
+#[test]
+fn test_chars_ascii_letter() {
+    let out = chars_calc("A");
+    assert!(out.contains("U+0041"), "{out}");
+    assert!(out.to_lowercase().contains("latin"), "{out}");
+}
+
+#[test]
+fn test_chars_space() {
+    let out = chars_calc(" ");
+    assert!(out.contains("U+0020"), "{out}");
+    assert!(out.to_lowercase().contains("space"), "{out}");
+}
+
+#[test]
+fn test_chars_multi_char() {
+    let out = chars_calc("Hi!");
+    assert!(out.contains("U+0048"), "H should be U+0048\n{out}");
+    assert!(out.contains("U+0069"), "i should be U+0069\n{out}");
+    assert!(out.contains("U+0021"), "! should be U+0021\n{out}");
+}
+
+#[test]
+fn test_chars_codepoint_lookup() {
+    let out = chars_calc("U+2014");
+    assert!(out.contains("U+2014"), "{out}");
+    assert!(
+        out.to_lowercase().contains("em dash") || out.contains("EM DASH"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_chars_nbsp() {
+    let out = chars_calc("\u{00A0}");
+    assert!(out.contains("U+00A0"), "{out}");
+    assert!(
+        out.to_lowercase().contains("no-break") || out.to_lowercase().contains("nbsp"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_chars_digit() {
+    let out = chars_calc("9");
+    assert!(out.contains("U+0039"), "{out}");
+    assert!(
+        out.to_lowercase().contains("digit") || out.to_lowercase().contains("nine"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_chars_html_entity_amp() {
+    let out = chars_calc("&");
+    assert!(out.contains("&amp;"), "should show &amp; entity\n{out}");
+}
+
+#[test]
+fn test_chars_html_entity_lt() {
+    let out = chars_calc("<");
+    assert!(out.contains("&lt;"), "{out}");
+}
+
+#[test]
+fn test_chars_empty_shows_help() {
+    let out = chars_calc("");
+    assert!(out.to_lowercase().contains("usage"), "{out}");
+}
+
+#[test]
+fn test_chars_shows_utf8_bytes() {
+    // 'A' is 0x41 in UTF-8
+    let out = chars_calc("A");
+    assert!(out.contains("41"), "should show UTF-8 byte 41\n{out}");
+}
+
+// ── tz_calc tests ─────────────────────────────────────────────────────────────
+
+#[test]
+fn test_tz_list_shows_zones() {
+    let out = tz_calc("list");
+    assert!(out.contains("UTC"), "{out}");
+    assert!(out.contains("JST"), "{out}");
+    assert!(out.contains("EST"), "{out}");
+}
+
+#[test]
+fn test_tz_now_in_utc() {
+    let out = tz_calc("now in utc");
+    assert!(out.contains("UTC"), "{out}");
+    assert!(out.contains(':'), "should show time with colon\n{out}");
+}
+
+#[test]
+fn test_tz_now_in_tokyo() {
+    let out = tz_calc("now in tokyo");
+    assert!(out.contains("Tokyo") || out.contains("JST"), "{out}");
+}
+
+#[test]
+fn test_tz_time_conversion_est_to_jst() {
+    let out = tz_calc("9am EST in JST");
+    // EST is UTC-5, JST is UTC+9, so 9am EST = 23:00 JST
+    assert!(out.contains("23:00"), "9am EST should be 23:00 JST\n{out}");
+}
+
+#[test]
+fn test_tz_time_conversion_24h() {
+    let out = tz_calc("14:00 UTC in JST");
+    // UTC+9: 14:00 + 9h = 23:00
+    assert!(
+        out.contains("23:00"),
+        "14:00 UTC should be 23:00 JST\n{out}"
+    );
+}
+
+#[test]
+fn test_tz_midnight_wraps_to_next_day() {
+    let out = tz_calc("20:00 EST in JST");
+    // EST UTC-5: 20:00 EST = 01:00 UTC next day; +9 = 10:00 JST next day?
+    // 20:00 EST (UTC-5) -> 25:00 UTC = 01:00 UTC +1day; +9 -> 10:00 JST next day
+    assert!(out.contains("next day") || out.contains("10:00"), "{out}");
+}
+
+#[test]
+fn test_tz_single_zone_lookup() {
+    let out = tz_calc("jst");
+    assert!(out.contains("JST") || out.contains("Japan"), "{out}");
+    assert!(out.contains("UTC+09:00") || out.contains("+09"), "{out}");
+}
+
+#[test]
+fn test_tz_unknown_zone() {
+    let out = tz_calc("now in fakezone");
+    assert!(out.to_lowercase().contains("unknown"), "{out}");
+}
+
+#[test]
+fn test_tz_empty_shows_list() {
+    let out = tz_calc("");
+    assert!(out.contains("UTC"), "{out}");
+}
+
+#[test]
+fn test_tz_city_london() {
+    let out = tz_calc("london");
+    assert!(out.contains("London"), "{out}");
+}
+
+// ── headers_calc tests ────────────────────────────────────────────────────────
+
+#[test]
+fn test_headers_cache_control() {
+    let out = headers_calc("cache-control");
+    assert!(out.to_lowercase().contains("cache"), "{out}");
+    assert!(
+        out.to_lowercase().contains("caching") || out.to_lowercase().contains("directives"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_headers_exact_content_type() {
+    let out = headers_calc("content-type");
+    assert!(
+        out.contains("Content-Type") || out.contains("content-type"),
+        "{out}"
+    );
+    assert!(
+        out.to_lowercase().contains("media type") || out.to_lowercase().contains("body"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_headers_cors_shortcut() {
+    let out = headers_calc("cors");
+    assert!(out.contains("Access-Control-Allow-Origin"), "{out}");
+    assert!(out.contains("Access-Control-Allow-Methods"), "{out}");
+    assert!(out.contains("Access-Control-Allow-Headers"), "{out}");
+}
+
+#[test]
+fn test_headers_security_shortcut() {
+    let out = headers_calc("security");
+    assert!(out.contains("Strict-Transport-Security"), "{out}");
+    assert!(out.contains("Content-Security-Policy"), "{out}");
+    assert!(out.contains("X-Frame-Options"), "{out}");
+}
+
+#[test]
+fn test_headers_etag() {
+    let out = headers_calc("etag");
+    assert!(out.to_lowercase().contains("etag"), "{out}");
+    assert!(
+        out.to_lowercase().contains("version") || out.to_lowercase().contains("identifier"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_headers_authorization() {
+    let out = headers_calc("authorization");
+    assert!(
+        out.to_lowercase().contains("bearer") || out.to_lowercase().contains("auth"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_headers_list_shows_all() {
+    let out = headers_calc("list");
+    assert!(out.contains("Cache-Control"), "{out}");
+    assert!(out.contains("Content-Type"), "{out}");
+    assert!(out.contains("Authorization"), "{out}");
+}
+
+#[test]
+fn test_headers_keyword_search_cookie() {
+    let out = headers_calc("cookie");
+    assert!(out.to_lowercase().contains("cookie"), "{out}");
+}
+
+#[test]
+fn test_headers_empty_shows_list() {
+    let out = headers_calc("");
+    assert!(out.contains("Cache-Control") || out.contains("["), "{out}");
+}
+
+#[test]
+fn test_headers_unknown_shows_no_match() {
+    let out = headers_calc("xyznotaheader");
+    assert!(
+        out.to_lowercase().contains("no headers found") || out.to_lowercase().contains("not found"),
+        "{out}"
+    );
 }

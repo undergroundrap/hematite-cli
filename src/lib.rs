@@ -1348,6 +1348,38 @@ pub struct CliCockpit {
         long,
         help_heading = "Math & Science",
         value_name = "QUERY",
+        help = "Well-known port directory — offline replacement for port number Googling. Query by number (443), service name (postgres), or keyword (database). 'list' shows all ~80 entries. Examples: hematite --port 443 | hematite --port postgres | hematite --port redis | hematite --port list"
+    )]
+    pub port: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Math & Science",
+        value_name = "QUERY",
+        help = "Unicode character inspector — offline replacement for unicode-table.com. Shows codepoint (U+XXXX), UTF-8 bytes, block, category, and HTML entity for every character. Supports U+XXXX direct lookup. Examples: hematite --chars 'Hello' | hematite --chars U+2014 | hematite --chars 'cafe\u{301}'"
+    )]
+    pub chars: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Math & Science",
+        value_name = "QUERY",
+        help = "Timezone converter — offline replacement for timeanddate.com timezone tool. Commands: 'now in <zone>', '<time> <from> in <to>', single zone lookup, 'list'. Zones: UTC, EST, PST, JST, IST, CET, city names (tokyo, london, nyc, etc.). Examples: hematite --tz 'now in tokyo' | hematite --tz '3pm EST in JST' | hematite --tz '14:30 UTC in sydney' | hematite --tz list"
+    )]
+    pub tz: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Math & Science",
+        value_name = "QUERY",
+        help = "HTTP header reference — offline replacement for MDN header lookups. Shortcuts: cors (full CORS header set), security (security headers). Query by exact name, keyword, or category. Examples: hematite --headers cache-control | hematite --headers cors | hematite --headers security | hematite --headers etag | hematite --headers list"
+    )]
+    pub headers: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Math & Science",
+        value_name = "QUERY",
         help = "Lorem ipsum generator — offline replacement for lipsum.com. Commands: (bare) or <N> = N paragraphs (default 1); words <N> = N words; sentences <N> = N sentences. Examples: hematite --lorem | hematite --lorem 3 | hematite --lorem 'words 50' | hematite --lorem 'sentences 5'"
     )]
     pub lorem: Option<String>,

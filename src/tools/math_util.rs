@@ -26220,3 +26220,1374 @@ pub fn escape_calc(query: &str) -> String {
     let _ = writeln!(out, "{sep}");
     out
 }
+
+// ── Well-known port directory ─────────────────────────────────────────────────
+
+pub fn port_calc(query: &str) -> String {
+    let sep = "─".repeat(60);
+    let mut out = String::new();
+    let _ = writeln!(out, "{sep}");
+    let _ = writeln!(out, "  WELL-KNOWN PORT DIRECTORY");
+    let _ = writeln!(out, "{sep}");
+
+    // (port, short_name, protocol, description)
+    const PORTS: &[(u16, &str, &str, &str)] = &[
+        (20, "ftp-data", "TCP", "FTP data transfer"),
+        (21, "ftp", "TCP", "FTP control"),
+        (22, "ssh", "TCP", "Secure Shell"),
+        (23, "telnet", "TCP", "Telnet (unencrypted)"),
+        (25, "smtp", "TCP", "SMTP email submission"),
+        (53, "dns", "TCP/UDP", "Domain Name System"),
+        (67, "dhcp", "UDP", "DHCP server"),
+        (68, "dhcp", "UDP", "DHCP client"),
+        (69, "tftp", "UDP", "Trivial FTP"),
+        (80, "http", "TCP", "HTTP web traffic"),
+        (110, "pop3", "TCP", "POP3 email retrieval"),
+        (111, "rpc", "TCP/UDP", "ONC RPC portmapper"),
+        (119, "nntp", "TCP", "Network News Transfer"),
+        (123, "ntp", "UDP", "Network Time Protocol"),
+        (135, "msrpc", "TCP", "Microsoft RPC"),
+        (137, "netbios", "UDP", "NetBIOS name service"),
+        (138, "netbios", "UDP", "NetBIOS datagram"),
+        (139, "netbios", "TCP", "NetBIOS session"),
+        (143, "imap", "TCP", "IMAP email"),
+        (161, "snmp", "UDP", "SNMP agent"),
+        (162, "snmp-trap", "UDP", "SNMP trap"),
+        (179, "bgp", "TCP", "Border Gateway Protocol"),
+        (194, "irc", "TCP", "Internet Relay Chat"),
+        (389, "ldap", "TCP", "LDAP directory"),
+        (443, "https", "TCP", "HTTPS (TLS)"),
+        (445, "smb", "TCP", "SMB / Windows file sharing"),
+        (465, "smtps", "TCP", "SMTP over TLS"),
+        (514, "syslog", "UDP", "Syslog"),
+        (515, "lpd", "TCP", "Line Printer Daemon"),
+        (587, "submission", "TCP", "SMTP mail submission (auth)"),
+        (636, "ldaps", "TCP", "LDAP over TLS"),
+        (993, "imaps", "TCP", "IMAP over TLS"),
+        (995, "pop3s", "TCP", "POP3 over TLS"),
+        (1080, "socks", "TCP", "SOCKS proxy"),
+        (1194, "openvpn", "UDP", "OpenVPN"),
+        (1433, "mssql", "TCP", "Microsoft SQL Server"),
+        (1521, "oracle", "TCP", "Oracle Database"),
+        (1883, "mqtt", "TCP", "MQTT IoT messaging"),
+        (2049, "nfs", "TCP", "Network File System"),
+        (2181, "zookeeper", "TCP", "Apache ZooKeeper"),
+        (2375, "docker", "TCP", "Docker daemon (unencrypted)"),
+        (2376, "docker-tls", "TCP", "Docker daemon (TLS)"),
+        (3000, "dev", "TCP", "Common dev server (React/Node)"),
+        (3306, "mysql", "TCP", "MySQL / MariaDB"),
+        (3389, "rdp", "TCP", "Remote Desktop Protocol"),
+        (4200, "angular", "TCP", "Angular dev server"),
+        (4369, "epmd", "TCP", "Erlang Port Mapper (RabbitMQ)"),
+        (5000, "flask", "TCP", "Flask / Python dev server"),
+        (5432, "postgres", "TCP", "PostgreSQL"),
+        (5601, "kibana", "TCP", "Kibana"),
+        (5672, "amqp", "TCP", "RabbitMQ AMQP"),
+        (5900, "vnc", "TCP", "VNC remote desktop"),
+        (6379, "redis", "TCP", "Redis"),
+        (6443, "k8s-api", "TCP", "Kubernetes API server"),
+        (7000, "cassandra", "TCP", "Cassandra inter-node"),
+        (7001, "cassandra", "TCP", "Cassandra TLS inter-node"),
+        (7474, "neo4j", "TCP", "Neo4j HTTP"),
+        (7687, "neo4j-bolt", "TCP", "Neo4j Bolt"),
+        (8000, "http-alt", "TCP", "Common HTTP alt / Django dev"),
+        (8080, "http-proxy", "TCP", "HTTP proxy / Tomcat / Jenkins"),
+        (8081, "http-alt2", "TCP", "HTTP alternative"),
+        (8443, "https-alt", "TCP", "HTTPS alternative"),
+        (8888, "jupyter", "TCP", "Jupyter Notebook"),
+        (9000, "sonarqube", "TCP", "SonarQube / PHP-FPM"),
+        (9090, "prometheus", "TCP", "Prometheus"),
+        (9092, "kafka", "TCP", "Apache Kafka"),
+        (9200, "elasticsearch", "TCP", "Elasticsearch HTTP"),
+        (9300, "elasticsearch", "TCP", "Elasticsearch transport"),
+        (10250, "kubelet", "TCP", "Kubernetes kubelet API"),
+        (11211, "memcached", "TCP/UDP", "Memcached"),
+        (15672, "rabbitmq-mgmt", "TCP", "RabbitMQ management UI"),
+        (16686, "jaeger", "TCP", "Jaeger UI"),
+        (27017, "mongodb", "TCP", "MongoDB"),
+        (27018, "mongodb", "TCP", "MongoDB shard"),
+        (28015, "rethinkdb", "TCP", "RethinkDB"),
+        (50070, "hdfs", "TCP", "Hadoop NameNode"),
+        (50000, "jenkins", "TCP", "Jenkins agent"),
+    ];
+
+    let q = query.trim().to_lowercase();
+
+    if q.is_empty() || q == "list" || q == "all" {
+        let _ = writeln!(
+            out,
+            "  {:>5}  {:<14}  {:<8}  {}",
+            "PORT", "SERVICE", "PROTO", "DESCRIPTION"
+        );
+        let _ = writeln!(out, "  {}", "─".repeat(56));
+        for &(port, name, proto, desc) in PORTS {
+            let _ = writeln!(out, "  {:>5}  {:<14}  {:<8}  {}", port, name, proto, desc);
+        }
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(
+            out,
+            "  {} ports listed. Query: hematite --port 443 | --port postgres",
+            PORTS.len()
+        );
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    // Try numeric lookup
+    if let Ok(n) = q.parse::<u16>() {
+        let matches: Vec<_> = PORTS.iter().filter(|&&(p, _, _, _)| p == n).collect();
+        if matches.is_empty() {
+            let _ = writeln!(out, "  Port {n}: not in well-known directory");
+            let _ = writeln!(
+                out,
+                "  Range 0-1023 = system ports, 1024-49151 = registered, 49152+ = ephemeral"
+            );
+        } else {
+            for &&(port, name, proto, desc) in &matches {
+                let _ = writeln!(out, "  Port {port:>5}  {name}  [{proto}]");
+                let _ = writeln!(out, "  {desc}");
+            }
+        }
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    // Keyword / service name search
+    let matches: Vec<_> = PORTS
+        .iter()
+        .filter(|&&(_, name, _, desc)| {
+            name.contains(q.as_str()) || desc.to_lowercase().contains(q.as_str())
+        })
+        .collect();
+
+    if matches.is_empty() {
+        let _ = writeln!(out, "  No ports found for '{query}'");
+        let _ = writeln!(out, "  Try: port number, service name, or 'list' for all");
+    } else {
+        let _ = writeln!(
+            out,
+            "  {:>5}  {:<14}  {:<8}  {}",
+            "PORT", "SERVICE", "PROTO", "DESCRIPTION"
+        );
+        let _ = writeln!(out, "  {}", "─".repeat(56));
+        for &&(port, name, proto, desc) in &matches {
+            let _ = writeln!(out, "  {:>5}  {:<14}  {:<8}  {}", port, name, proto, desc);
+        }
+    }
+
+    let _ = writeln!(out, "{sep}");
+    out
+}
+
+// ── Unicode character inspector ───────────────────────────────────────────────
+
+pub fn chars_calc(query: &str) -> String {
+    let sep = "─".repeat(60);
+    let mut out = String::new();
+    let _ = writeln!(out, "{sep}");
+    let _ = writeln!(out, "  UNICODE CHARACTER INSPECTOR");
+    let _ = writeln!(out, "{sep}");
+
+    // Trim only for U+XXXX lookup detection; preserve content for inspection
+    let q_trimmed = query.trim();
+
+    if query.is_empty() {
+        let _ = writeln!(out, "  Usage: hematite --chars '<text>'");
+        let _ = writeln!(
+            out,
+            "  Shows codepoint, name, block, category, and HTML entity"
+        );
+        let _ = writeln!(out, "  for every character in the input.");
+        let _ = writeln!(out, "");
+        let _ = writeln!(out, "  Examples:");
+        let _ = writeln!(out, "    hematite --chars 'Hello'");
+        let _ = writeln!(
+            out,
+            "    hematite --chars '\u{00a0}'    (non-breaking space)"
+        );
+        let _ = writeln!(out, "    hematite --chars '\u{1f30d}'   (globe emoji)");
+        let _ = writeln!(
+            out,
+            "    hematite --chars U+2014        (lookup by codepoint)"
+        );
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    // Support "U+XXXX" direct codepoint lookup
+    let chars_to_inspect: Vec<char> = if q_trimmed.to_uppercase().starts_with("U+")
+        || q_trimmed.starts_with("0x")
+        || q_trimmed.starts_with("0X")
+    {
+        let hex_str = q_trimmed
+            .trim_start_matches("U+")
+            .trim_start_matches("u+")
+            .trim_start_matches("0x")
+            .trim_start_matches("0X");
+        if let Ok(cp) = u32::from_str_radix(hex_str, 16) {
+            if let Some(c) = char::from_u32(cp) {
+                vec![c]
+            } else {
+                let _ = writeln!(out, "  U+{hex_str}: not a valid Unicode scalar value");
+                let _ = writeln!(out, "{sep}");
+                return out;
+            }
+        } else {
+            query.chars().collect()
+        }
+    } else {
+        query.chars().collect()
+    };
+
+    fn unicode_block(cp: u32) -> &'static str {
+        match cp {
+            0x0000..=0x007F => "Basic Latin",
+            0x0080..=0x00FF => "Latin-1 Supplement",
+            0x0100..=0x017F => "Latin Extended-A",
+            0x0180..=0x024F => "Latin Extended-B",
+            0x0250..=0x02AF => "IPA Extensions",
+            0x02B0..=0x02FF => "Spacing Modifier Letters",
+            0x0300..=0x036F => "Combining Diacritical Marks",
+            0x0370..=0x03FF => "Greek and Coptic",
+            0x0400..=0x04FF => "Cyrillic",
+            0x0500..=0x052F => "Cyrillic Supplement",
+            0x0530..=0x058F => "Armenian",
+            0x0590..=0x05FF => "Hebrew",
+            0x0600..=0x06FF => "Arabic",
+            0x0900..=0x097F => "Devanagari",
+            0x0980..=0x09FF => "Bengali",
+            0x0E00..=0x0E7F => "Thai",
+            0x1000..=0x109F => "Myanmar",
+            0x1100..=0x11FF => "Hangul Jamo",
+            0x1700..=0x171F => "Tagalog",
+            0x1E00..=0x1EFF => "Latin Extended Additional",
+            0x1F00..=0x1FFF => "Greek Extended",
+            0x2000..=0x206F => "General Punctuation",
+            0x2070..=0x209F => "Superscripts and Subscripts",
+            0x20A0..=0x20CF => "Currency Symbols",
+            0x2100..=0x214F => "Letterlike Symbols",
+            0x2150..=0x218F => "Number Forms",
+            0x2190..=0x21FF => "Arrows",
+            0x2200..=0x22FF => "Mathematical Operators",
+            0x2300..=0x23FF => "Miscellaneous Technical",
+            0x2400..=0x243F => "Control Pictures",
+            0x2440..=0x245F => "Optical Character Recognition",
+            0x2460..=0x24FF => "Enclosed Alphanumerics",
+            0x2500..=0x257F => "Box Drawing",
+            0x2580..=0x259F => "Block Elements",
+            0x25A0..=0x25FF => "Geometric Shapes",
+            0x2600..=0x26FF => "Miscellaneous Symbols",
+            0x2700..=0x27BF => "Dingbats",
+            0x27C0..=0x27EF => "Miscellaneous Mathematical Symbols-A",
+            0x2900..=0x297F => "Supplemental Arrows-B",
+            0x3000..=0x303F => "CJK Symbols and Punctuation",
+            0x3040..=0x309F => "Hiragana",
+            0x30A0..=0x30FF => "Katakana",
+            0x3100..=0x312F => "Bopomofo",
+            0x3130..=0x318F => "Hangul Compatibility Jamo",
+            0x3200..=0x32FF => "Enclosed CJK Letters and Months",
+            0x3300..=0x33FF => "CJK Compatibility",
+            0x3400..=0x4DBF => "CJK Unified Ideographs Extension A",
+            0x4E00..=0x9FFF => "CJK Unified Ideographs",
+            0xA000..=0xA48F => "Yi Syllables",
+            0xAC00..=0xD7AF => "Hangul Syllables",
+            0xE000..=0xF8FF => "Private Use Area",
+            0xFB00..=0xFB4F => "Alphabetic Presentation Forms",
+            0xFB50..=0xFDFF => "Arabic Presentation Forms-A",
+            0xFE30..=0xFE4F => "CJK Compatibility Forms",
+            0xFE50..=0xFE6F => "Small Form Variants",
+            0xFEFF..=0xFEFF => "Specials (BOM)",
+            0xFF00..=0xFFEF => "Halfwidth and Fullwidth Forms",
+            0x1D400..=0x1D7FF => "Mathematical Alphanumeric Symbols",
+            0x1F000..=0x1F02F => "Mahjong Tiles",
+            0x1F0A0..=0x1F0FF => "Playing Cards",
+            0x1F100..=0x1F1FF => "Enclosed Alphanumeric Supplement",
+            0x1F300..=0x1F5FF => "Miscellaneous Symbols and Pictographs",
+            0x1F600..=0x1F64F => "Emoticons",
+            0x1F650..=0x1F67F => "Ornamental Dingbats",
+            0x1F680..=0x1F6FF => "Transport and Map Symbols",
+            0x1F700..=0x1F77F => "Alchemical Symbols",
+            0x1F900..=0x1F9FF => "Supplemental Symbols and Pictographs",
+            0x1FA00..=0x1FA6F => "Chess Symbols",
+            0x1FA70..=0x1FAFF => "Symbols and Pictographs Extended-A",
+            _ => "Unknown Block",
+        }
+    }
+
+    fn unicode_category(cp: u32) -> &'static str {
+        match cp {
+            0x0000..=0x001F | 0x007F..=0x009F => "Control",
+            0x0020 | 0x00A0 | 0x1680 | 0x2000..=0x200A | 0x202F | 0x205F | 0x3000 => {
+                "Space Separator"
+            }
+            0x0021..=0x002F | 0x003A..=0x0040 | 0x005B..=0x0060 | 0x007B..=0x007E => {
+                "Punctuation / Symbol"
+            }
+            0x0030..=0x0039 => "Decimal Digit",
+            0x0041..=0x005A => "Uppercase Letter",
+            0x0061..=0x007A => "Lowercase Letter",
+            0x00C0..=0x00D6 | 0x00D8..=0x00F6 | 0x00F8..=0x00FF => "Latin Letter",
+            0x0300..=0x036F => "Combining Mark",
+            0x0400..=0x04FF => "Cyrillic Letter",
+            0x0600..=0x06FF => "Arabic Letter",
+            0x0900..=0x097F => "Devanagari Letter",
+            0x2000..=0x206F => "Punctuation",
+            0x2100..=0x214F => "Letterlike Symbol",
+            0x2190..=0x21FF => "Arrow",
+            0x2200..=0x22FF => "Math Symbol",
+            0x2500..=0x257F => "Box Drawing",
+            0x2580..=0x259F => "Block Element",
+            0x25A0..=0x25FF => "Geometric Shape",
+            0x2600..=0x27BF => "Symbol",
+            0x3000..=0x303F => "CJK Punctuation",
+            0x3040..=0x309F => "Hiragana",
+            0x30A0..=0x30FF => "Katakana",
+            0x4E00..=0x9FFF | 0x3400..=0x4DBF => "CJK Ideograph",
+            0xAC00..=0xD7AF => "Hangul Syllable",
+            0x1F300..=0x1FAFF => "Emoji / Symbol",
+            _ => "Other",
+        }
+    }
+
+    fn char_name(cp: u32) -> &'static str {
+        match cp {
+            0x0000 => "NULL",
+            0x0001 => "START OF HEADING",
+            0x0008 => "BACKSPACE",
+            0x0009 => "CHARACTER TABULATION",
+            0x000A => "LINE FEED",
+            0x000D => "CARRIAGE RETURN",
+            0x001B => "ESCAPE",
+            0x001F => "UNIT SEPARATOR",
+            0x0020 => "SPACE",
+            0x0021 => "EXCLAMATION MARK",
+            0x0022 => "QUOTATION MARK",
+            0x0023 => "NUMBER SIGN",
+            0x0024 => "DOLLAR SIGN",
+            0x0025 => "PERCENT SIGN",
+            0x0026 => "AMPERSAND",
+            0x0027 => "APOSTROPHE",
+            0x0028 => "LEFT PARENTHESIS",
+            0x0029 => "RIGHT PARENTHESIS",
+            0x002A => "ASTERISK",
+            0x002B => "PLUS SIGN",
+            0x002C => "COMMA",
+            0x002D => "HYPHEN-MINUS",
+            0x002E => "FULL STOP",
+            0x002F => "SOLIDUS",
+            0x0030 => "DIGIT ZERO",
+            0x0031 => "DIGIT ONE",
+            0x0032 => "DIGIT TWO",
+            0x0033 => "DIGIT THREE",
+            0x0034 => "DIGIT FOUR",
+            0x0035 => "DIGIT FIVE",
+            0x0036 => "DIGIT SIX",
+            0x0037 => "DIGIT SEVEN",
+            0x0038 => "DIGIT EIGHT",
+            0x0039 => "DIGIT NINE",
+            0x003A => "COLON",
+            0x003B => "SEMICOLON",
+            0x003C => "LESS-THAN SIGN",
+            0x003D => "EQUALS SIGN",
+            0x003E => "GREATER-THAN SIGN",
+            0x003F => "QUESTION MARK",
+            0x0040 => "COMMERCIAL AT",
+            0x0041..=0x005A => "LATIN CAPITAL LETTER",
+            0x005B => "LEFT SQUARE BRACKET",
+            0x005C => "REVERSE SOLIDUS",
+            0x005D => "RIGHT SQUARE BRACKET",
+            0x005E => "CIRCUMFLEX ACCENT",
+            0x005F => "LOW LINE",
+            0x0060 => "GRAVE ACCENT",
+            0x0061..=0x007A => "LATIN SMALL LETTER",
+            0x007B => "LEFT CURLY BRACKET",
+            0x007C => "VERTICAL LINE",
+            0x007D => "RIGHT CURLY BRACKET",
+            0x007E => "TILDE",
+            0x007F => "DELETE",
+            0x00A0 => "NO-BREAK SPACE",
+            0x00A9 => "COPYRIGHT SIGN",
+            0x00AE => "REGISTERED SIGN",
+            0x00B0 => "DEGREE SIGN",
+            0x00B7 => "MIDDLE DOT",
+            0x00D7 => "MULTIPLICATION SIGN",
+            0x00F7 => "DIVISION SIGN",
+            0x2013 => "EN DASH",
+            0x2014 => "EM DASH",
+            0x2018 => "LEFT SINGLE QUOTATION MARK",
+            0x2019 => "RIGHT SINGLE QUOTATION MARK",
+            0x201C => "LEFT DOUBLE QUOTATION MARK",
+            0x201D => "RIGHT DOUBLE QUOTATION MARK",
+            0x2026 => "HORIZONTAL ELLIPSIS",
+            0x2028 => "LINE SEPARATOR",
+            0x2029 => "PARAGRAPH SEPARATOR",
+            0x202F => "NARROW NO-BREAK SPACE",
+            0x20AC => "EURO SIGN",
+            0x2122 => "TRADE MARK SIGN",
+            0x2190 => "LEFTWARDS ARROW",
+            0x2191 => "UPWARDS ARROW",
+            0x2192 => "RIGHTWARDS ARROW",
+            0x2193 => "DOWNWARDS ARROW",
+            0x21D2 => "RIGHTWARDS DOUBLE ARROW",
+            0x2200 => "FOR ALL",
+            0x2203 => "THERE EXISTS",
+            0x2208 => "ELEMENT OF",
+            0x2209 => "NOT AN ELEMENT OF",
+            0x2212 => "MINUS SIGN",
+            0x221A => "SQUARE ROOT",
+            0x221E => "INFINITY",
+            0x2248 => "ALMOST EQUAL TO",
+            0x2260 => "NOT EQUAL TO",
+            0x2264 => "LESS-THAN OR EQUAL TO",
+            0x2265 => "GREATER-THAN OR EQUAL TO",
+            0x2500 => "BOX DRAWINGS LIGHT HORIZONTAL",
+            0x2502 => "BOX DRAWINGS LIGHT VERTICAL",
+            0x250C => "BOX DRAWINGS LIGHT DOWN AND RIGHT",
+            0x2510 => "BOX DRAWINGS LIGHT DOWN AND LEFT",
+            0x2514 => "BOX DRAWINGS LIGHT UP AND RIGHT",
+            0x2518 => "BOX DRAWINGS LIGHT UP AND LEFT",
+            0x2588 => "FULL BLOCK",
+            0x25A0 => "BLACK SQUARE",
+            0x25B2 => "BLACK UP-POINTING TRIANGLE",
+            0x25BA => "BLACK RIGHT-POINTING POINTER",
+            0x2600 => "BLACK SUN WITH RAYS",
+            0x2601 => "CLOUD",
+            0x2602 => "UMBRELLA",
+            0x2603 => "SNOWMAN",
+            0x2605 => "BLACK STAR",
+            0x2606 => "WHITE STAR",
+            0x260E => "BLACK TELEPHONE",
+            0x2610 => "BALLOT BOX",
+            0x2611 => "BALLOT BOX WITH CHECK",
+            0x2614 => "UMBRELLA WITH RAIN DROPS",
+            0x2615 => "HOT BEVERAGE",
+            0x2620 => "SKULL AND CROSSBONES",
+            0x2622 => "RADIOACTIVE SIGN",
+            0x2623 => "BIOHAZARD SIGN",
+            0x262E => "PEACE SYMBOL",
+            0x2639 => "WHITE FROWNING FACE",
+            0x263A => "WHITE SMILING FACE",
+            0x263B => "BLACK SMILING FACE",
+            0x2665 => "BLACK HEART SUIT",
+            0x2713 => "CHECK MARK",
+            0x2714 => "HEAVY CHECK MARK",
+            0x2715 => "MULTIPLICATION X",
+            0x2716 => "HEAVY MULTIPLICATION X",
+            0x2718 => "HEAVY BALLOT X",
+            0x271A => "HEAVY GREEK CROSS",
+            0x27A4 => "BLACK RIGHTWARDS ARROWHEAD",
+            0xFEFF => "ZERO WIDTH NO-BREAK SPACE (BOM)",
+            0x200B => "ZERO WIDTH SPACE",
+            0x200C => "ZERO WIDTH NON-JOINER",
+            0x200D => "ZERO WIDTH JOINER",
+            0x1F300 => "CYCLONE",
+            0x1F4A9 => "PILE OF POO",
+            0x1F600 => "GRINNING FACE",
+            0x1F601 => "GRINNING FACE WITH SMILING EYES",
+            0x1F602 => "FACE WITH TEARS OF JOY",
+            0x1F60A => "SMILING FACE WITH SMILING EYES",
+            0x1F60D => "SMILING FACE WITH HEART-EYES",
+            0x1F614 => "PENSIVE FACE",
+            0x1F621 => "POUTING FACE",
+            0x1F62D => "LOUDLY CRYING FACE",
+            0x1F631 => "FACE SCREAMING IN FEAR",
+            0x1F635 => "DIZZY FACE",
+            0x1F643 => "UPSIDE-DOWN FACE",
+            0x1F648 => "SEE-NO-EVIL MONKEY",
+            0x1F680 => "ROCKET",
+            0x1F4BB => "PERSONAL COMPUTER",
+            0x1F4DA => "BOOKS",
+            0x1F50D => "LEFT-POINTING MAGNIFYING GLASS",
+            0x1F512 => "LOCK",
+            0x1F513 => "OPEN LOCK",
+            0x1F525 => "FIRE",
+            0x1F527 => "WRENCH",
+            0x1F528 => "HAMMER",
+            0x1F4E7 => "E-MAIL",
+            0x1F30D => "EARTH GLOBE EUROPE-AFRICA",
+            0x1F30E => "EARTH GLOBE AMERICAS",
+            0x1F30F => "EARTH GLOBE ASIA-AUSTRALIA",
+            _ => "",
+        }
+    }
+
+    fn html_entity(cp: u32, c: char) -> String {
+        match cp {
+            0x0022 => "&quot;".to_string(),
+            0x0026 => "&amp;".to_string(),
+            0x003C => "&lt;".to_string(),
+            0x003E => "&gt;".to_string(),
+            0x00A0 => "&nbsp;".to_string(),
+            0x00A9 => "&copy;".to_string(),
+            0x00AE => "&reg;".to_string(),
+            0x00B0 => "&deg;".to_string(),
+            0x00D7 => "&times;".to_string(),
+            0x00F7 => "&divide;".to_string(),
+            0x2013 => "&ndash;".to_string(),
+            0x2014 => "&mdash;".to_string(),
+            0x2018 => "&lsquo;".to_string(),
+            0x2019 => "&rsquo;".to_string(),
+            0x201C => "&ldquo;".to_string(),
+            0x201D => "&rdquo;".to_string(),
+            0x2026 => "&hellip;".to_string(),
+            0x20AC => "&euro;".to_string(),
+            0x2122 => "&trade;".to_string(),
+            0x221E => "&infin;".to_string(),
+            0x2260 => "&ne;".to_string(),
+            0x2264 => "&le;".to_string(),
+            0x2265 => "&ge;".to_string(),
+            0x2665 => "&hearts;".to_string(),
+            cp if cp > 0x7E || cp < 0x20 => format!("&#{};", cp),
+            _ => {
+                let _ = c;
+                String::new()
+            }
+        }
+    }
+
+    let _ = writeln!(
+        out,
+        "  {:<6}  {:<8}  {:<10}  {:<26}  {:<10}  {}",
+        "CHAR", "U+", "BYTES", "NAME", "HTML", "BLOCK"
+    );
+    let _ = writeln!(out, "  {}", "─".repeat(80));
+
+    for c in &chars_to_inspect {
+        let cp = *c as u32;
+        let display = if cp < 0x20
+            || (cp >= 0x7F && cp <= 0x9F)
+            || cp == 0x200B
+            || cp == 0x200C
+            || cp == 0x200D
+            || cp == 0xFEFF
+        {
+            format!("<U+{cp:04X}>")
+        } else {
+            format!("'{c}'")
+        };
+        let codepoint = format!("U+{cp:04X}");
+        let bytes: Vec<String> = {
+            let mut buf = [0u8; 4];
+            let encoded = c.encode_utf8(&mut buf);
+            encoded.bytes().map(|b| format!("{b:02X}")).collect()
+        };
+        let byte_str = bytes.join(" ");
+        let name = char_name(cp);
+        let name_str = if name.is_empty() {
+            format!("U+{cp:04X}")
+        } else if matches!(cp, 0x0041..=0x005A | 0x0061..=0x007A) {
+            format!("{} '{}'", name, c.to_uppercase().next().unwrap_or(*c))
+        } else {
+            name.to_string()
+        };
+        let entity = html_entity(cp, *c);
+        let block = unicode_block(cp);
+        let category = unicode_category(cp);
+        let _ = writeln!(
+            out,
+            "  {:<6}  {:<8}  {:<10}  {:<26}  {:<10}  {}",
+            display,
+            codepoint,
+            byte_str,
+            &name_str[..name_str.len().min(26)],
+            entity,
+            block
+        );
+        if cp < 0x80 {
+            let _ = writeln!(out, "         dec={cp}  oct={cp:03o}  category={category}");
+        } else {
+            let _ = writeln!(out, "         category={category}");
+        }
+    }
+
+    let _ = writeln!(out, "{sep}");
+    out
+}
+
+// ── Timezone converter ────────────────────────────────────────────────────────
+
+pub fn tz_calc(query: &str) -> String {
+    let sep = "─".repeat(60);
+    let mut out = String::new();
+    let _ = writeln!(out, "{sep}");
+    let _ = writeln!(out, "  TIMEZONE CONVERTER");
+    let _ = writeln!(out, "{sep}");
+
+    // (name/alias, UTC offset minutes, display label)
+    const ZONES: &[(&str, i32, &str)] = &[
+        ("utc", 0, "UTC"),
+        ("gmt", 0, "GMT"),
+        ("z", 0, "Z (UTC)"),
+        // Americas
+        ("hst", -600, "HST (Hawaii)"),
+        ("hdt", -540, "HDT (Hawaii Daylight)"),
+        ("akst", -540, "AKST (Alaska)"),
+        ("akdt", -480, "AKDT (Alaska Daylight)"),
+        ("pst", -480, "PST (Pacific)"),
+        ("pdt", -420, "PDT (Pacific Daylight)"),
+        ("mst", -420, "MST (Mountain)"),
+        ("mdt", -360, "MDT (Mountain Daylight)"),
+        ("cst", -360, "CST (Central)"),
+        ("cdt", -300, "CDT (Central Daylight)"),
+        ("est", -300, "EST (Eastern)"),
+        ("edt", -240, "EDT (Eastern Daylight)"),
+        ("ast", -240, "AST (Atlantic)"),
+        ("adt", -180, "ADT (Atlantic Daylight)"),
+        ("nst", -210, "NST (Newfoundland)"),
+        ("brt", -180, "BRT (Brazil)"),
+        ("art", -180, "ART (Argentina)"),
+        // Europe
+        ("wet", 0, "WET (Western Europe)"),
+        ("west", 60, "WEST (Western Europe Summer)"),
+        ("cet", 60, "CET (Central Europe)"),
+        ("cest", 120, "CEST (Central Europe Summer)"),
+        ("eet", 120, "EET (Eastern Europe)"),
+        ("eest", 180, "EEST (Eastern Europe Summer)"),
+        ("msk", 180, "MSK (Moscow)"),
+        ("trt", 180, "TRT (Turkey)"),
+        // Africa
+        ("wat", 60, "WAT (West Africa)"),
+        ("cat", 120, "CAT (Central Africa)"),
+        ("eat", 180, "EAT (East Africa)"),
+        ("sast", 120, "SAST (South Africa)"),
+        // Asia
+        ("irst", 210, "IRST (Iran)"),
+        ("gst", 240, "GST (Gulf)"),
+        ("get", 240, "GET (Georgia)"),
+        ("pkt", 300, "PKT (Pakistan)"),
+        ("ist", 330, "IST (India)"),
+        ("slt", 330, "SLT (Sri Lanka)"),
+        ("npt", 345, "NPT (Nepal)"),
+        ("bst", 360, "BST (Bangladesh)"),
+        ("bdt", 360, "BDT (Bangladesh)"),
+        ("mmt", 390, "MMT (Myanmar)"),
+        ("ict", 420, "ICT (Indochina)"),
+        ("wib", 420, "WIB (Western Indonesia)"),
+        ("cst+8", 480, "CST+8 (China)"),
+        ("hkt", 480, "HKT (Hong Kong)"),
+        ("sgt", 480, "SGT (Singapore)"),
+        ("myt", 480, "MYT (Malaysia)"),
+        ("wita", 480, "WITA (Central Indonesia)"),
+        ("jst", 540, "JST (Japan)"),
+        ("kst", 540, "KST (Korea)"),
+        ("wit", 540, "WIT (Eastern Indonesia)"),
+        ("acst", 570, "ACST (Australian Central)"),
+        ("aest", 600, "AEST (Australian Eastern)"),
+        ("aedt", 660, "AEDT (Australian Eastern Summer)"),
+        ("nzst", 720, "NZST (New Zealand)"),
+        ("nzdt", 780, "NZDT (New Zealand Summer)"),
+        // City aliases
+        ("london", 0, "London (GMT/BST)"),
+        ("paris", 60, "Paris (CET/CEST)"),
+        ("berlin", 60, "Berlin (CET/CEST)"),
+        ("rome", 60, "Rome (CET/CEST)"),
+        ("amsterdam", 60, "Amsterdam (CET/CEST)"),
+        ("stockholm", 60, "Stockholm (CET/CEST)"),
+        ("madrid", 60, "Madrid (CET/CEST)"),
+        ("warsaw", 60, "Warsaw (CET/CEST)"),
+        ("athens", 120, "Athens (EET/EEST)"),
+        ("helsinki", 120, "Helsinki (EET/EEST)"),
+        ("moscow", 180, "Moscow (MSK)"),
+        ("istanbul", 180, "Istanbul (TRT)"),
+        ("dubai", 240, "Dubai (GST)"),
+        ("karachi", 300, "Karachi (PKT)"),
+        ("mumbai", 330, "Mumbai (IST)"),
+        ("delhi", 330, "Delhi (IST)"),
+        ("kolkata", 330, "Kolkata (IST)"),
+        ("dhaka", 360, "Dhaka (BDT)"),
+        ("bangkok", 420, "Bangkok (ICT)"),
+        ("jakarta", 420, "Jakarta (WIB)"),
+        ("singapore", 480, "Singapore (SGT)"),
+        ("shanghai", 480, "Shanghai (CST+8)"),
+        ("beijing", 480, "Beijing (CST+8)"),
+        ("hongkong", 480, "Hong Kong (HKT)"),
+        ("taipei", 480, "Taipei (CST+8)"),
+        ("seoul", 540, "Seoul (KST)"),
+        ("tokyo", 540, "Tokyo (JST)"),
+        ("sydney", 600, "Sydney (AEST)"),
+        ("melbourne", 600, "Melbourne (AEST)"),
+        ("auckland", 720, "Auckland (NZST)"),
+        ("newyork", -300, "New York (EST/EDT)"),
+        ("new-york", -300, "New York (EST/EDT)"),
+        ("nyc", -300, "New York (EST/EDT)"),
+        ("chicago", -360, "Chicago (CST/CDT)"),
+        ("denver", -420, "Denver (MST/MDT)"),
+        ("losangeles", -480, "Los Angeles (PST/PDT)"),
+        ("la", -480, "Los Angeles (PST/PDT)"),
+        ("seattle", -480, "Seattle (PST/PDT)"),
+        ("sanfrancisco", -480, "San Francisco (PST/PDT)"),
+        ("sf", -480, "San Francisco (PST/PDT)"),
+        ("anchorage", -540, "Anchorage (AKST/AKDT)"),
+        ("honolulu", -600, "Honolulu (HST)"),
+        ("saopaulo", -180, "Sao Paulo (BRT)"),
+        ("toronto", -300, "Toronto (EST/EDT)"),
+        ("vancouver", -480, "Vancouver (PST/PDT)"),
+        ("mexico", -360, "Mexico City (CST/CDT)"),
+        ("johannesburg", 120, "Johannesburg (SAST)"),
+        ("nairobi", 180, "Nairobi (EAT)"),
+        ("cairo", 120, "Cairo (EET)"),
+        ("lagos", 60, "Lagos (WAT)"),
+    ];
+
+    fn find_zone(name: &str) -> Option<(&'static str, i32, &'static str)> {
+        let lower = name.to_lowercase().replace([' ', '_'], "");
+        ZONES
+            .iter()
+            .find(|&&(k, _, _)| k == lower.as_str())
+            .map(|&(k, off, label)| (k, off, label))
+    }
+
+    fn fmt_offset(minutes: i32) -> String {
+        let sign = if minutes >= 0 { '+' } else { '-' };
+        let abs = minutes.abs();
+        format!("UTC{sign}{:02}:{:02}", abs / 60, abs % 60)
+    }
+
+    fn apply_offset(h: u32, m: u32, offset_minutes: i32) -> (u32, u32, i32) {
+        let total = h as i32 * 60 + m as i32 + offset_minutes;
+        let day_delta = if total < 0 {
+            -1
+        } else if total >= 1440 {
+            1
+        } else {
+            0
+        };
+        let wrapped = ((total % 1440) + 1440) % 1440;
+        (wrapped as u32 / 60, wrapped as u32 % 60, day_delta)
+    }
+
+    let q = query.trim().to_lowercase();
+
+    if q.is_empty() || q == "list" {
+        let _ = writeln!(out, "  Available zones ({} entries):", ZONES.len());
+        let _ = writeln!(out, "{sep}");
+        for &(_, off, label) in ZONES.iter() {
+            let _ = writeln!(out, "  {:<20}  {}", label, fmt_offset(off));
+        }
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  Usage:");
+        let _ = writeln!(out, "    hematite --tz 'now in tokyo'");
+        let _ = writeln!(out, "    hematite --tz '3pm EST in JST'");
+        let _ = writeln!(out, "    hematite --tz '2025-06-15 09:00 UTC to PST'");
+        let _ = writeln!(out, "    hematite --tz 'list'");
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    // "now in <zone>"
+    let q_orig = query.trim();
+    if let Some(zone_str) = q.strip_prefix("now in ").or_else(|| q.strip_prefix("now ")) {
+        use chrono::Timelike;
+        let now = chrono::Local::now();
+        let local_h = now.hour();
+        let local_m = now.minute();
+        // Local offset from chrono
+        let local_offset_secs = now.offset().local_minus_utc();
+        let local_offset_min = local_offset_secs / 60;
+
+        if let Some((_, target_off, target_label)) = find_zone(zone_str.trim()) {
+            // Convert local → UTC → target
+            let utc_min = local_h as i32 * 60 + local_m as i32 - local_offset_min;
+            let utc_h = ((utc_min / 60) % 24 + 24) as u32 % 24;
+            let utc_m = ((utc_min % 60) + 60) as u32 % 60;
+            let (th, tm, _) = apply_offset(utc_h, utc_m, target_off);
+            let _ = writeln!(out, "  Local now:  {:02}:{:02}", local_h, local_m);
+            let _ = writeln!(
+                out,
+                "  {}:  {:02}:{:02}  ({})",
+                target_label,
+                th,
+                tm,
+                fmt_offset(target_off)
+            );
+        } else {
+            let _ = writeln!(out, "  Unknown timezone: '{zone_str}'");
+            let _ = writeln!(out, "  Run 'hematite --tz list' to see all zones");
+        }
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    // "<time> <from-zone> in <to-zone>"  OR  "<time> <from-zone> to <to-zone>"
+    // Parse: look for " in " or " to " as separator
+    let sep_idx = q.find(" in ").or_else(|| q.find(" to "));
+    if let Some(idx) = sep_idx {
+        let left = q_orig[..idx].trim();
+        let right_start = if q[idx..].starts_with(" in ") {
+            idx + 4
+        } else {
+            idx + 4
+        };
+        let to_zone_str = q[right_start..].trim();
+
+        // Parse time from left: "3pm EST", "14:30 UTC", "09:00"
+        let (time_str, from_zone_str) = if let Some(pos) = left.rfind(|c: char| c.is_whitespace()) {
+            (left[..pos].trim(), left[pos..].trim())
+        } else {
+            (left, "utc")
+        };
+
+        // Parse time
+        let (h, m) = {
+            let t = time_str.to_lowercase();
+            let pm = t.ends_with("pm");
+            let am = t.ends_with("am");
+            let digits = t.trim_end_matches("am").trim_end_matches("pm").trim();
+
+            if let Some(colon) = digits.find(':') {
+                let h: u32 = digits[..colon].parse().unwrap_or(0);
+                let m: u32 = digits[colon + 1..].parse().unwrap_or(0);
+                let h = if pm && h != 12 {
+                    h + 12
+                } else if am && h == 12 {
+                    0
+                } else {
+                    h
+                };
+                (h % 24, m)
+            } else if let Ok(h) = digits.parse::<u32>() {
+                let h = if pm && h != 12 {
+                    h + 12
+                } else if am && h == 12 {
+                    0
+                } else {
+                    h
+                };
+                (h % 24, 0)
+            } else {
+                let _ = writeln!(out, "  Could not parse time from: '{time_str}'");
+                let _ = writeln!(out, "  Expected: 14:30, 3pm, 09:00");
+                let _ = writeln!(out, "{sep}");
+                return out;
+            }
+        };
+
+        match (find_zone(from_zone_str), find_zone(to_zone_str)) {
+            (Some((_, from_off, from_label)), Some((_, to_off, to_label))) => {
+                // Convert from → UTC → to
+                let utc_total = h as i32 * 60 + m as i32 - from_off;
+                let utc_h = ((utc_total / 60) % 24 + 24) as u32 % 24;
+                let utc_m = ((utc_total % 60) + 60) as u32 % 60;
+                let (th, tm, day_delta) = apply_offset(utc_h, utc_m, to_off);
+                let day_note = match day_delta {
+                    -1 => " (previous day)",
+                    1 => " (next day)",
+                    _ => "",
+                };
+                let _ = writeln!(
+                    out,
+                    "  {:02}:{:02}  {}  ({})",
+                    h,
+                    m,
+                    from_label,
+                    fmt_offset(from_off)
+                );
+                let _ = writeln!(
+                    out,
+                    "  {:02}:{:02}  {}  ({}){}",
+                    th,
+                    tm,
+                    to_label,
+                    fmt_offset(to_off),
+                    day_note
+                );
+                let diff = to_off - from_off;
+                let sign = if diff >= 0 { '+' } else { '-' };
+                let abs = diff.abs();
+                let _ = writeln!(out, "  Offset difference: {sign}{:.1}h", abs as f64 / 60.0);
+            }
+            (None, _) => {
+                let _ = writeln!(out, "  Unknown source timezone: '{from_zone_str}'");
+                let _ = writeln!(out, "  Run 'hematite --tz list' to see all zones");
+            }
+            (_, None) => {
+                let _ = writeln!(out, "  Unknown target timezone: '{to_zone_str}'");
+                let _ = writeln!(out, "  Run 'hematite --tz list' to see all zones");
+            }
+        }
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    // Single zone lookup — show current offset and info
+    if let Some((_, off, label)) = find_zone(&q) {
+        let _ = writeln!(out, "  {label}");
+        let _ = writeln!(out, "  UTC offset: {}", fmt_offset(off));
+        let _ = writeln!(out, "  Example: hematite --tz 'now in {}'", q_orig);
+        let _ = writeln!(
+            out,
+            "  Example: hematite --tz '3pm EST in {}'",
+            q_orig.to_uppercase()
+        );
+    } else {
+        let _ = writeln!(out, "  Unknown timezone: '{q_orig}'");
+        let _ = writeln!(out, "  Run 'hematite --tz list' to see all zones");
+        let _ = writeln!(out, "  Usage:");
+        let _ = writeln!(out, "    hematite --tz 'now in tokyo'");
+        let _ = writeln!(out, "    hematite --tz '3pm EST in JST'");
+        let _ = writeln!(out, "    hematite --tz 'list'");
+    }
+    let _ = writeln!(out, "{sep}");
+    out
+}
+
+// ── HTTP header reference ─────────────────────────────────────────────────────
+
+pub fn headers_calc(query: &str) -> String {
+    let sep = "─".repeat(60);
+    let mut out = String::new();
+    let _ = writeln!(out, "{sep}");
+    let _ = writeln!(out, "  HTTP HEADER REFERENCE");
+    let _ = writeln!(out, "{sep}");
+
+    // (name, category, description, example)
+    const HEADERS: &[(&str, &str, &str, &str)] = &[
+        // Request headers
+        (
+            "Accept",
+            "Request",
+            "Media types the client can handle",
+            "Accept: application/json, text/html",
+        ),
+        (
+            "Accept-Charset",
+            "Request",
+            "Character sets the client accepts",
+            "Accept-Charset: utf-8",
+        ),
+        (
+            "Accept-Encoding",
+            "Request",
+            "Compression algorithms the client supports",
+            "Accept-Encoding: gzip, deflate, br",
+        ),
+        (
+            "Accept-Language",
+            "Request",
+            "Languages preferred by the client",
+            "Accept-Language: en-US,en;q=0.9",
+        ),
+        (
+            "Authorization",
+            "Request",
+            "Credentials for authenticating with server",
+            "Authorization: Bearer eyJhbGci...",
+        ),
+        (
+            "Cache-Control",
+            "Both",
+            "Directives for caching in both requests and responses",
+            "Cache-Control: no-cache, max-age=3600",
+        ),
+        (
+            "Connection",
+            "Both",
+            "Control options for the current connection",
+            "Connection: keep-alive",
+        ),
+        (
+            "Content-Length",
+            "Both",
+            "Size of the request/response body in bytes",
+            "Content-Length: 1234",
+        ),
+        (
+            "Content-Type",
+            "Both",
+            "Media type of the body",
+            "Content-Type: application/json; charset=utf-8",
+        ),
+        (
+            "Cookie",
+            "Request",
+            "HTTP cookies previously sent by the server",
+            "Cookie: session=abc123; theme=dark",
+        ),
+        (
+            "DNT",
+            "Request",
+            "Do Not Track preference (1=opt-out, 0=opt-in)",
+            "DNT: 1",
+        ),
+        (
+            "Expect",
+            "Request",
+            "Expected server behavior (e.g. 100-continue)",
+            "Expect: 100-continue",
+        ),
+        (
+            "Host",
+            "Request",
+            "Domain name and port of the server being addressed",
+            "Host: api.example.com:443",
+        ),
+        (
+            "If-Match",
+            "Request",
+            "Make request conditional on ETag match",
+            "If-Match: \"737060cd\"",
+        ),
+        (
+            "If-Modified-Since",
+            "Request",
+            "Return resource only if modified since this date",
+            "If-Modified-Since: Sat, 01 Jan 2024 00:00:00 GMT",
+        ),
+        (
+            "If-None-Match",
+            "Request",
+            "Return 304 if ETag matches (cache validation)",
+            "If-None-Match: \"737060cd\"",
+        ),
+        (
+            "If-Unmodified-Since",
+            "Request",
+            "Apply request only if not modified since date",
+            "If-Unmodified-Since: Sat, 01 Jan 2024 00:00:00 GMT",
+        ),
+        (
+            "Origin",
+            "Request",
+            "Origin of a cross-origin request",
+            "Origin: https://app.example.com",
+        ),
+        (
+            "Range",
+            "Request",
+            "Request only part of a resource (byte range)",
+            "Range: bytes=0-1023",
+        ),
+        (
+            "Referer",
+            "Request",
+            "URL of the page making the request",
+            "Referer: https://example.com/page",
+        ),
+        (
+            "TE",
+            "Request",
+            "Transfer encodings the client accepts",
+            "TE: trailers, deflate",
+        ),
+        (
+            "Upgrade",
+            "Request",
+            "Ask server to switch to a different protocol",
+            "Upgrade: websocket",
+        ),
+        (
+            "User-Agent",
+            "Request",
+            "Identifies the client software making the request",
+            "User-Agent: Mozilla/5.0 (compatible)",
+        ),
+        (
+            "X-Forwarded-For",
+            "Request",
+            "Originating IP address through proxy chain",
+            "X-Forwarded-For: 203.0.113.1, 70.41.3.18",
+        ),
+        (
+            "X-Requested-With",
+            "Request",
+            "Identifies AJAX requests",
+            "X-Requested-With: XMLHttpRequest",
+        ),
+        // Response headers
+        (
+            "Access-Control-Allow-Origin",
+            "CORS",
+            "Which origins can access the response",
+            "Access-Control-Allow-Origin: *",
+        ),
+        (
+            "Access-Control-Allow-Methods",
+            "CORS",
+            "Which HTTP methods are allowed for CORS",
+            "Access-Control-Allow-Methods: GET, POST, PUT, DELETE",
+        ),
+        (
+            "Access-Control-Allow-Headers",
+            "CORS",
+            "Which request headers can be used in CORS",
+            "Access-Control-Allow-Headers: Content-Type, Authorization",
+        ),
+        (
+            "Access-Control-Allow-Credentials",
+            "CORS",
+            "Whether cookies/auth can be sent in CORS",
+            "Access-Control-Allow-Credentials: true",
+        ),
+        (
+            "Access-Control-Max-Age",
+            "CORS",
+            "How long preflight results can be cached (seconds)",
+            "Access-Control-Max-Age: 86400",
+        ),
+        (
+            "Access-Control-Expose-Headers",
+            "CORS",
+            "Which response headers JS can access",
+            "Access-Control-Expose-Headers: X-Custom-Header",
+        ),
+        (
+            "Age",
+            "Response",
+            "Time in seconds the object has been in proxy cache",
+            "Age: 3600",
+        ),
+        (
+            "Allow",
+            "Response",
+            "HTTP methods supported by the resource",
+            "Allow: GET, POST, HEAD",
+        ),
+        (
+            "Content-Disposition",
+            "Response",
+            "Whether to display inline or as download attachment",
+            "Content-Disposition: attachment; filename=\"report.pdf\"",
+        ),
+        (
+            "Content-Encoding",
+            "Response",
+            "Compression applied to the response body",
+            "Content-Encoding: gzip",
+        ),
+        (
+            "Content-Language",
+            "Response",
+            "Language(s) of the response content",
+            "Content-Language: en-US",
+        ),
+        (
+            "Content-Range",
+            "Response",
+            "Position of partial content within the full body",
+            "Content-Range: bytes 0-1023/2048",
+        ),
+        (
+            "ETag",
+            "Response",
+            "Opaque identifier for a specific resource version",
+            "ETag: \"737060cd8c284d8af7ad3082f209582d\"",
+        ),
+        (
+            "Expires",
+            "Response",
+            "Date/time after which the response is stale",
+            "Expires: Thu, 01 Jan 2026 00:00:00 GMT",
+        ),
+        (
+            "Last-Modified",
+            "Response",
+            "Date/time the resource was last changed",
+            "Last-Modified: Mon, 01 Apr 2024 00:00:00 GMT",
+        ),
+        (
+            "Location",
+            "Response",
+            "URL to redirect to (3xx) or newly created resource (201)",
+            "Location: https://example.com/new-resource",
+        ),
+        (
+            "Retry-After",
+            "Response",
+            "How long to wait before making another request",
+            "Retry-After: 120",
+        ),
+        (
+            "Server",
+            "Response",
+            "Software used by the origin server",
+            "Server: nginx/1.25.0",
+        ),
+        (
+            "Set-Cookie",
+            "Response",
+            "Send a cookie from server to client",
+            "Set-Cookie: id=abc; Path=/; Secure; HttpOnly; SameSite=Strict",
+        ),
+        (
+            "Strict-Transport-Security",
+            "Security",
+            "Force HTTPS; browser ignores HTTP for this domain",
+            "Strict-Transport-Security: max-age=31536000; includeSubDomains",
+        ),
+        (
+            "Transfer-Encoding",
+            "Response",
+            "Form of encoding used to transfer the body",
+            "Transfer-Encoding: chunked",
+        ),
+        (
+            "Vary",
+            "Response",
+            "Which request headers affect caching/responses",
+            "Vary: Accept-Encoding, Accept-Language",
+        ),
+        (
+            "WWW-Authenticate",
+            "Response",
+            "Auth method the server requires",
+            "WWW-Authenticate: Bearer realm=\"api\"",
+        ),
+        (
+            "X-Content-Type-Options",
+            "Security",
+            "Prevent MIME type sniffing",
+            "X-Content-Type-Options: nosniff",
+        ),
+        (
+            "X-Frame-Options",
+            "Security",
+            "Control iframe embedding (clickjacking protection)",
+            "X-Frame-Options: DENY",
+        ),
+        (
+            "X-XSS-Protection",
+            "Security",
+            "Legacy XSS filter (deprecated; use CSP instead)",
+            "X-XSS-Protection: 1; mode=block",
+        ),
+        (
+            "Content-Security-Policy",
+            "Security",
+            "Restrict where resources can be loaded from",
+            "Content-Security-Policy: default-src 'self'",
+        ),
+        (
+            "Permissions-Policy",
+            "Security",
+            "Control browser features (camera, mic, etc.)",
+            "Permissions-Policy: geolocation=(), microphone=()",
+        ),
+        (
+            "Referrer-Policy",
+            "Security",
+            "Control how much referrer info is sent",
+            "Referrer-Policy: strict-origin-when-cross-origin",
+        ),
+        (
+            "Cross-Origin-Opener-Policy",
+            "Security",
+            "Isolate browsing context from cross-origin docs",
+            "Cross-Origin-Opener-Policy: same-origin",
+        ),
+        (
+            "Cross-Origin-Resource-Policy",
+            "Security",
+            "Prevent cross-origin resource loading",
+            "Cross-Origin-Resource-Policy: same-origin",
+        ),
+        (
+            "Cross-Origin-Embedder-Policy",
+            "Security",
+            "Require CORP for all sub-resources",
+            "Cross-Origin-Embedder-Policy: require-corp",
+        ),
+    ];
+
+    let q = query.trim().to_lowercase();
+
+    // CORS quick-reference
+    if q == "cors" {
+        let _ = writeln!(out, "  CORS HEADERS QUICK REFERENCE");
+        let _ = writeln!(out, "{sep}");
+        for &(name, cat, desc, example) in HEADERS {
+            if cat == "CORS" {
+                let _ = writeln!(out, "  {name}");
+                let _ = writeln!(out, "    {desc}");
+                let _ = writeln!(out, "    {example}");
+                let _ = writeln!(out, "");
+            }
+        }
+        let _ = writeln!(out, "  Minimal CORS response headers:");
+        let _ = writeln!(out, "    Access-Control-Allow-Origin: https://yourapp.com");
+        let _ = writeln!(out, "    Access-Control-Allow-Methods: GET, POST, OPTIONS");
+        let _ = writeln!(
+            out,
+            "    Access-Control-Allow-Headers: Content-Type, Authorization"
+        );
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    // Security headers quick-reference
+    if q == "security" || q == "sec" {
+        let _ = writeln!(out, "  SECURITY HEADERS QUICK REFERENCE");
+        let _ = writeln!(out, "{sep}");
+        for &(name, cat, desc, example) in HEADERS {
+            if cat == "Security" {
+                let _ = writeln!(out, "  {name}");
+                let _ = writeln!(out, "    {desc}");
+                let _ = writeln!(out, "    {example}");
+                let _ = writeln!(out, "");
+            }
+        }
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    // List all
+    if q.is_empty() || q == "list" || q == "all" {
+        for &(name, cat, desc, _example) in HEADERS {
+            let _ = writeln!(out, "  [{cat:<8}]  {name:<40}  {desc}");
+        }
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(
+            out,
+            "  Shortcuts: cors | security | <header-name> | <keyword>"
+        );
+        let _ = writeln!(out, "  Example: hematite --headers cache-control");
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    // Exact or partial match
+    let exact: Vec<_> = HEADERS
+        .iter()
+        .filter(|&&(name, _, _, _)| name.to_lowercase() == q)
+        .collect();
+
+    if !exact.is_empty() {
+        for &&(name, cat, desc, example) in &exact {
+            let _ = writeln!(out, "  {name}  [{cat}]");
+            let _ = writeln!(out, "{sep}");
+            let _ = writeln!(out, "  {desc}");
+            let _ = writeln!(out, "");
+            let _ = writeln!(out, "  Example:");
+            let _ = writeln!(out, "    {example}");
+        }
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    // Keyword search across name + description
+    let matches: Vec<_> = HEADERS
+        .iter()
+        .filter(|&&(name, cat, desc, _)| {
+            name.to_lowercase().contains(q.as_str())
+                || desc.to_lowercase().contains(q.as_str())
+                || cat.to_lowercase().contains(q.as_str())
+        })
+        .collect();
+
+    if matches.is_empty() {
+        let _ = writeln!(out, "  No headers found for '{query}'");
+        let _ = writeln!(
+            out,
+            "  Try: header name, keyword, 'cors', 'security', or 'list'"
+        );
+    } else {
+        for &&(name, cat, desc, example) in &matches {
+            let _ = writeln!(out, "  {name}  [{cat}]");
+            let _ = writeln!(out, "    {desc}");
+            let _ = writeln!(out, "    {example}");
+            let _ = writeln!(out, "");
+        }
+    }
+
+    let _ = writeln!(out, "{sep}");
+    out
+}
