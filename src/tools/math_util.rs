@@ -21328,3 +21328,1114 @@ pub fn ip_calc(query: &str) -> String {
     let _ = writeln!(out, "{}", sep);
     out
 }
+
+// ─── Color utility ────────────────────────────────────────────────────────────
+
+/// Color conversion and analysis — hex↔RGB↔HSL↔HSV, WCAG contrast, mix.
+///
+/// Commands:
+///   `<hex>`              — auto-parse #RGB or #RRGGBB, show all formats
+///   `rgb r g b`          — from RGB values
+///   `hsl h s% l%`        — from HSL values
+///   `hsv h s% v%`        — from HSV values
+///   `<name>`             — lookup named CSS color
+///   `mix <c1> <c2>`      — mix two colors at 50%
+///   `contrast <c1> <c2>` — WCAG contrast ratio between two colors
+pub fn color_calc(query: &str) -> String {
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+    let _ = writeln!(out, "{}", sep);
+    let _ = writeln!(out, "  Color Toolkit");
+    let _ = writeln!(out, "{}", sep);
+
+    let q = query.trim();
+
+    const NAMED: &[(&str, u8, u8, u8)] = &[
+        ("black", 0, 0, 0),
+        ("white", 255, 255, 255),
+        ("red", 255, 0, 0),
+        ("lime", 0, 255, 0),
+        ("blue", 0, 0, 255),
+        ("yellow", 255, 255, 0),
+        ("cyan", 0, 255, 255),
+        ("aqua", 0, 255, 255),
+        ("magenta", 255, 0, 255),
+        ("fuchsia", 255, 0, 255),
+        ("silver", 192, 192, 192),
+        ("gray", 128, 128, 128),
+        ("grey", 128, 128, 128),
+        ("maroon", 128, 0, 0),
+        ("olive", 128, 128, 0),
+        ("green", 0, 128, 0),
+        ("purple", 128, 0, 128),
+        ("teal", 0, 128, 128),
+        ("navy", 0, 0, 128),
+        ("orange", 255, 165, 0),
+        ("pink", 255, 192, 203),
+        ("coral", 255, 127, 80),
+        ("salmon", 250, 128, 114),
+        ("gold", 255, 215, 0),
+        ("violet", 238, 130, 238),
+        ("indigo", 75, 0, 130),
+        ("crimson", 220, 20, 60),
+        ("tomato", 255, 99, 71),
+        ("turquoise", 64, 224, 208),
+        ("tan", 210, 180, 140),
+        ("sienna", 160, 82, 45),
+        ("orchid", 218, 112, 214),
+        ("plum", 221, 160, 221),
+        ("ivory", 255, 255, 240),
+        ("beige", 245, 245, 220),
+        ("lavender", 230, 230, 250),
+        ("azure", 240, 255, 255),
+        ("skyblue", 135, 206, 235),
+        ("wheat", 245, 222, 179),
+        ("chocolate", 210, 105, 30),
+        ("khaki", 240, 230, 140),
+        ("snow", 255, 250, 250),
+        ("linen", 250, 240, 230),
+        ("mintcream", 245, 255, 250),
+        ("hotpink", 255, 105, 180),
+        ("deeppink", 255, 20, 147),
+        ("dodgerblue", 30, 144, 255),
+        ("steelblue", 70, 130, 180),
+        ("forestgreen", 34, 139, 34),
+        ("darkorange", 255, 140, 0),
+    ];
+
+    fn hex_to_rgb(s: &str) -> Option<(u8, u8, u8)> {
+        let s = s.trim_start_matches('#');
+        match s.len() {
+            3 => {
+                let r = u8::from_str_radix(&s[0..1].repeat(2), 16).ok()?;
+                let g = u8::from_str_radix(&s[1..2].repeat(2), 16).ok()?;
+                let b = u8::from_str_radix(&s[2..3].repeat(2), 16).ok()?;
+                Some((r, g, b))
+            }
+            6 | 8 => {
+                let r = u8::from_str_radix(&s[0..2], 16).ok()?;
+                let g = u8::from_str_radix(&s[2..4], 16).ok()?;
+                let b = u8::from_str_radix(&s[4..6], 16).ok()?;
+                Some((r, g, b))
+            }
+            _ => None,
+        }
+    }
+
+    fn rgb_to_hsl(r: u8, g: u8, b: u8) -> (f64, f64, f64) {
+        let (r, g, b) = (r as f64 / 255.0, g as f64 / 255.0, b as f64 / 255.0);
+        let max = r.max(g).max(b);
+        let min = r.min(g).min(b);
+        let l = (max + min) / 2.0;
+        if (max - min).abs() < 1e-10 {
+            return (0.0, 0.0, l);
+        }
+        let d = max - min;
+        let s = if l > 0.5 {
+            d / (2.0 - max - min)
+        } else {
+            d / (max + min)
+        };
+        let h = if (max - r).abs() < 1e-10 {
+            (g - b) / d + if g < b { 6.0 } else { 0.0 }
+        } else if (max - g).abs() < 1e-10 {
+            (b - r) / d + 2.0
+        } else {
+            (r - g) / d + 4.0
+        };
+        (h * 60.0, s, l)
+    }
+
+    fn rgb_to_hsv(r: u8, g: u8, b: u8) -> (f64, f64, f64) {
+        let (r, g, b) = (r as f64 / 255.0, g as f64 / 255.0, b as f64 / 255.0);
+        let max = r.max(g).max(b);
+        let min = r.min(g).min(b);
+        let d = max - min;
+        let s = if max.abs() < 1e-10 { 0.0 } else { d / max };
+        let h = if d.abs() < 1e-10 {
+            0.0
+        } else if (max - r).abs() < 1e-10 {
+            60.0 * (((g - b) / d) % 6.0)
+        } else if (max - g).abs() < 1e-10 {
+            60.0 * ((b - r) / d + 2.0)
+        } else {
+            60.0 * ((r - g) / d + 4.0)
+        };
+        let h = if h < 0.0 { h + 360.0 } else { h };
+        (h, s, max)
+    }
+
+    fn hsl_to_rgb(h: f64, s: f64, l: f64) -> (u8, u8, u8) {
+        if s.abs() < 1e-10 {
+            let v = (l * 255.0).round() as u8;
+            return (v, v, v);
+        }
+        let q = if l < 0.5 {
+            l * (1.0 + s)
+        } else {
+            l + s - l * s
+        };
+        let p = 2.0 * l - q;
+        let hk = h / 360.0;
+        let hue_to = |t: f64| -> f64 {
+            let t = if t < 0.0 {
+                t + 1.0
+            } else if t > 1.0 {
+                t - 1.0
+            } else {
+                t
+            };
+            if t < 1.0 / 6.0 {
+                p + (q - p) * 6.0 * t
+            } else if t < 0.5 {
+                q
+            } else if t < 2.0 / 3.0 {
+                p + (q - p) * (2.0 / 3.0 - t) * 6.0
+            } else {
+                p
+            }
+        };
+        (
+            (hue_to(hk + 1.0 / 3.0) * 255.0).round() as u8,
+            (hue_to(hk) * 255.0).round() as u8,
+            (hue_to(hk - 1.0 / 3.0) * 255.0).round() as u8,
+        )
+    }
+
+    fn hsv_to_rgb(h: f64, s: f64, v: f64) -> (u8, u8, u8) {
+        if s.abs() < 1e-10 {
+            let c = (v * 255.0).round() as u8;
+            return (c, c, c);
+        }
+        let hi = (h / 60.0).floor() as i32 % 6;
+        let f = h / 60.0 - (h / 60.0).floor();
+        let p = v * (1.0 - s);
+        let q2 = v * (1.0 - f * s);
+        let t = v * (1.0 - (1.0 - f) * s);
+        let (r, g, b) = match hi {
+            0 => (v, t, p),
+            1 => (q2, v, p),
+            2 => (p, v, t),
+            3 => (p, q2, v),
+            4 => (t, p, v),
+            _ => (v, p, q2),
+        };
+        (
+            (r * 255.0).round() as u8,
+            (g * 255.0).round() as u8,
+            (b * 255.0).round() as u8,
+        )
+    }
+
+    fn luminance(r: u8, g: u8, b: u8) -> f64 {
+        let lin = |c: f64| {
+            if c <= 0.04045 {
+                c / 12.92
+            } else {
+                ((c + 0.055) / 1.055_f64).powf(2.4)
+            }
+        };
+        0.2126 * lin(r as f64 / 255.0)
+            + 0.7152 * lin(g as f64 / 255.0)
+            + 0.0722 * lin(b as f64 / 255.0)
+    }
+
+    fn contrast(l1: f64, l2: f64) -> f64 {
+        let (hi, lo) = if l1 > l2 { (l1, l2) } else { (l2, l1) };
+        (hi + 0.05) / (lo + 0.05)
+    }
+
+    fn wcag(cr: f64) -> &'static str {
+        if cr >= 7.0 {
+            "AAA"
+        } else if cr >= 4.5 {
+            "AA"
+        } else if cr >= 3.0 {
+            "AA large"
+        } else {
+            "Fail"
+        }
+    }
+
+    fn show_color(r: u8, g: u8, b: u8, out: &mut String) {
+        let (h, s, l) = rgb_to_hsl(r, g, b);
+        let (hv, sv, v) = rgb_to_hsv(r, g, b);
+        let lum = luminance(r, g, b);
+        let _ = writeln!(out, "  Hex      : #{:02X}{:02X}{:02X}", r, g, b);
+        let _ = writeln!(out, "  RGB      : rgb({}, {}, {})", r, g, b);
+        let _ = writeln!(
+            out,
+            "  HSL      : hsl({:.0}°, {:.1}%, {:.1}%)",
+            h,
+            s * 100.0,
+            l * 100.0
+        );
+        let _ = writeln!(
+            out,
+            "  HSV      : hsv({:.0}°, {:.1}%, {:.1}%)",
+            hv,
+            sv * 100.0,
+            v * 100.0
+        );
+        let _ = writeln!(out, "  Luminance: {:.4}", lum);
+        let cr_w = contrast(lum, 1.0);
+        let cr_b = contrast(lum, 0.0);
+        let _ = writeln!(out, "  vs White : {:.2}:1 — {}", cr_w, wcag(cr_w));
+        let _ = writeln!(out, "  vs Black : {:.2}:1 — {}", cr_b, wcag(cr_b));
+    }
+
+    fn parse_color(s: &str) -> Option<(u8, u8, u8)> {
+        let s = s.trim();
+        let sl = s.to_lowercase();
+        if let Some(&(_, r, g, b)) = NAMED.iter().find(|(n, _, _, _)| *n == sl.as_str()) {
+            return Some((r, g, b));
+        }
+        if s.starts_with('#')
+            || (s.len() == 6 && s.chars().all(|c| c.is_ascii_hexdigit()))
+            || (s.len() == 3 && s.chars().all(|c| c.is_ascii_hexdigit()))
+        {
+            return hex_to_rgb(s);
+        }
+        None
+    }
+
+    let ql = q.to_lowercase();
+    if ql.starts_with("rgb") {
+        let nums: Vec<f64> = q
+            .split(|c: char| !c.is_ascii_digit() && c != '.')
+            .filter_map(|s| s.parse().ok())
+            .collect();
+        if nums.len() >= 3 {
+            show_color(
+                nums[0].min(255.0) as u8,
+                nums[1].min(255.0) as u8,
+                nums[2].min(255.0) as u8,
+                &mut out,
+            );
+        } else {
+            let _ = writeln!(out, "  Usage: rgb <r> <g> <b>  (0–255 each)");
+        }
+    } else if ql.starts_with("hsl") {
+        let nums: Vec<f64> = q
+            .split(|c: char| !c.is_ascii_digit() && c != '.')
+            .filter_map(|s| s.parse().ok())
+            .collect();
+        if nums.len() >= 3 {
+            let (r, g, b) = hsl_to_rgb(nums[0], nums[1] / 100.0, nums[2] / 100.0);
+            show_color(r, g, b, &mut out);
+        } else {
+            let _ = writeln!(out, "  Usage: hsl <h°> <s%> <l%>");
+        }
+    } else if ql.starts_with("hsv") {
+        let nums: Vec<f64> = q
+            .split(|c: char| !c.is_ascii_digit() && c != '.')
+            .filter_map(|s| s.parse().ok())
+            .collect();
+        if nums.len() >= 3 {
+            let (r, g, b) = hsv_to_rgb(nums[0], nums[1] / 100.0, nums[2] / 100.0);
+            show_color(r, g, b, &mut out);
+        } else {
+            let _ = writeln!(out, "  Usage: hsv <h°> <s%> <v%>");
+        }
+    } else if ql.starts_with("mix ") {
+        let rest = q[4..].trim();
+        let parts: Vec<&str> = rest.splitn(2, ' ').collect();
+        if parts.len() == 2 {
+            match (parse_color(parts[0]), parse_color(parts[1].trim())) {
+                (Some((r1, g1, b1)), Some((r2, g2, b2))) => {
+                    let mix = (
+                        ((r1 as u16 + r2 as u16) / 2) as u8,
+                        ((g1 as u16 + g2 as u16) / 2) as u8,
+                        ((b1 as u16 + b2 as u16) / 2) as u8,
+                    );
+                    let _ = writeln!(out, "  A : #{:02X}{:02X}{:02X}", r1, g1, b1);
+                    let _ = writeln!(out, "  B : #{:02X}{:02X}{:02X}", r2, g2, b2);
+                    let _ = writeln!(out, "  Mix (50%):");
+                    show_color(mix.0, mix.1, mix.2, &mut out);
+                }
+                _ => {
+                    let _ = writeln!(out, "  Could not parse colors.");
+                }
+            }
+        } else {
+            let _ = writeln!(out, "  Usage: mix <c1> <c2>  (e.g. mix #FF0000 blue)");
+        }
+    } else if ql.starts_with("contrast ") {
+        let rest = q[9..].trim();
+        let parts: Vec<&str> = rest.splitn(2, ' ').collect();
+        if parts.len() == 2 {
+            match (parse_color(parts[0]), parse_color(parts[1].trim())) {
+                (Some((r1, g1, b1)), Some((r2, g2, b2))) => {
+                    let cr = contrast(luminance(r1, g1, b1), luminance(r2, g2, b2));
+                    let _ = writeln!(out, "  A        : #{:02X}{:02X}{:02X}", r1, g1, b1);
+                    let _ = writeln!(out, "  B        : #{:02X}{:02X}{:02X}", r2, g2, b2);
+                    let _ = writeln!(out, "  Ratio    : {:.2}:1", cr);
+                    let _ = writeln!(
+                        out,
+                        "  WCAG AA  : {}  (normal ≥4.5, large ≥3.0)",
+                        if cr >= 4.5 {
+                            "PASS"
+                        } else if cr >= 3.0 {
+                            "PASS (large)"
+                        } else {
+                            "FAIL"
+                        }
+                    );
+                    let _ = writeln!(
+                        out,
+                        "  WCAG AAA : {}  (≥7.0:1)",
+                        if cr >= 7.0 { "PASS" } else { "FAIL" }
+                    );
+                }
+                _ => {
+                    let _ = writeln!(out, "  Could not parse colors.");
+                }
+            }
+        } else {
+            let _ = writeln!(out, "  Usage: contrast <c1> <c2>");
+        }
+    } else if ql.starts_with("palette ")
+        || ql.starts_with("palette#")
+        || (ql.starts_with("palette") && q.len() > 7)
+    {
+        let rest = if ql.starts_with("palette ") {
+            q[8..].trim()
+        } else {
+            q[7..].trim()
+        };
+        match parse_color(rest) {
+            Some((r, g, b)) => {
+                let (h, s, l) = rgb_to_hsl(r, g, b);
+                let _ = writeln!(
+                    out,
+                    "  Base        : #{:02X}{:02X}{:02X}  hsl({:.0}°, {:.1}%, {:.1}%)",
+                    r,
+                    g,
+                    b,
+                    h,
+                    s * 100.0,
+                    l * 100.0
+                );
+                let complement_h = (h + 180.0) % 360.0;
+                let (cr, cg, cb) = hsl_to_rgb(complement_h, s, l);
+                let _ = writeln!(
+                    out,
+                    "  Complement  : #{:02X}{:02X}{:02X}  hsl({:.0}°, {:.1}%, {:.1}%)",
+                    cr,
+                    cg,
+                    cb,
+                    complement_h,
+                    s * 100.0,
+                    l * 100.0
+                );
+                let triad1_h = (h + 120.0) % 360.0;
+                let triad2_h = (h + 240.0) % 360.0;
+                let (t1r, t1g, t1b) = hsl_to_rgb(triad1_h, s, l);
+                let (t2r, t2g, t2b) = hsl_to_rgb(triad2_h, s, l);
+                let _ = writeln!(
+                    out,
+                    "  Triad +120° : #{:02X}{:02X}{:02X}  hsl({:.0}°, {:.1}%, {:.1}%)",
+                    t1r,
+                    t1g,
+                    t1b,
+                    triad1_h,
+                    s * 100.0,
+                    l * 100.0
+                );
+                let _ = writeln!(
+                    out,
+                    "  Triad +240° : #{:02X}{:02X}{:02X}  hsl({:.0}°, {:.1}%, {:.1}%)",
+                    t2r,
+                    t2g,
+                    t2b,
+                    triad2_h,
+                    s * 100.0,
+                    l * 100.0
+                );
+                let split1_h = (h + 150.0) % 360.0;
+                let split2_h = (h + 210.0) % 360.0;
+                let (s1r, s1g, s1b) = hsl_to_rgb(split1_h, s, l);
+                let (s2r, s2g, s2b) = hsl_to_rgb(split2_h, s, l);
+                let _ = writeln!(
+                    out,
+                    "  Split +150° : #{:02X}{:02X}{:02X}  hsl({:.0}°, {:.1}%, {:.1}%)",
+                    s1r,
+                    s1g,
+                    s1b,
+                    split1_h,
+                    s * 100.0,
+                    l * 100.0
+                );
+                let _ = writeln!(
+                    out,
+                    "  Split +210° : #{:02X}{:02X}{:02X}  hsl({:.0}°, {:.1}%, {:.1}%)",
+                    s2r,
+                    s2g,
+                    s2b,
+                    split2_h,
+                    s * 100.0,
+                    l * 100.0
+                );
+            }
+            None => {
+                let _ = writeln!(out, "  Could not parse color '{}'.", rest);
+            }
+        }
+    } else if let Some((r, g, b)) = parse_color(q) {
+        show_color(r, g, b, &mut out);
+    } else {
+        let _ = writeln!(out, "  Commands:");
+        let _ = writeln!(out, "    #RRGGBB / #RGB          — hex color");
+        let _ = writeln!(out, "    <name>                  — CSS named color");
+        let _ = writeln!(out, "    rgb <r> <g> <b>         — from RGB (0-255)");
+        let _ = writeln!(out, "    hsl <h°> <s%> <l%>      — from HSL");
+        let _ = writeln!(out, "    hsv <h°> <s%> <v%>      — from HSV");
+        let _ = writeln!(out, "    mix <c1> <c2>           — 50% blend");
+        let _ = writeln!(out, "    contrast <c1> <c2>      — WCAG contrast ratio");
+        let _ = writeln!(
+            out,
+            "    palette <color>         — complementary + triadic + split"
+        );
+        let _ = writeln!(
+            out,
+            "  Example: hematite --color '#1E90FF'  |  hematite --color coral"
+        );
+    }
+
+    let _ = writeln!(out, "{}", sep);
+    out
+}
+
+// ─── UUID utility ─────────────────────────────────────────────────────────────
+
+/// Generate and decode UUIDs — offline, instant.
+///
+/// Commands:
+///   (bare)              — generate UUID v4
+///   `v4`                — generate UUID v4
+///   `batch N`           — generate N UUIDs
+///   `decode <uuid>`     — show version, variant, timestamp (v1)
+///   `nil`               — show the nil UUID
+///   `<uuid>`            — auto-decode
+pub fn uuid_calc(query: &str) -> String {
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+    let _ = writeln!(out, "{}", sep);
+    let _ = writeln!(out, "  UUID Toolkit");
+    let _ = writeln!(out, "{}", sep);
+
+    let q = query.trim();
+    let ql = q.to_lowercase();
+
+    fn gen_v4() -> String {
+        use rand::Rng;
+        let mut rng = rand::thread_rng();
+        let mut b = [0u8; 16];
+        rng.fill(&mut b);
+        b[6] = (b[6] & 0x0f) | 0x40;
+        b[8] = (b[8] & 0x3f) | 0x80;
+        format!(
+            "{:02x}{:02x}{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}-\
+             {:02x}{:02x}{:02x}{:02x}{:02x}{:02x}",
+            b[0],
+            b[1],
+            b[2],
+            b[3],
+            b[4],
+            b[5],
+            b[6],
+            b[7],
+            b[8],
+            b[9],
+            b[10],
+            b[11],
+            b[12],
+            b[13],
+            b[14],
+            b[15]
+        )
+    }
+
+    fn decode_uuid(s: &str, out: &mut String) {
+        let clean: String = s.chars().filter(|&c| c != '-').collect();
+        if clean.len() != 32 || !clean.chars().all(|c| c.is_ascii_hexdigit()) {
+            let _ = writeln!(out, "  Not a valid UUID: '{}'", s);
+            return;
+        }
+        let bytes: Vec<u8> = (0..16)
+            .map(|i| u8::from_str_radix(&clean[i * 2..i * 2 + 2], 16).unwrap_or(0))
+            .collect();
+        let version = (bytes[6] >> 4) & 0x0f;
+        let variant = if bytes[8] >> 7 == 0 {
+            "NCS (legacy)"
+        } else if (bytes[8] >> 6) & 0x3 == 0x2 {
+            "RFC 4122"
+        } else if (bytes[8] >> 5) & 0x7 == 0x6 {
+            "Microsoft"
+        } else {
+            "Reserved"
+        };
+        let _ = writeln!(out, "  UUID     : {}", s.to_lowercase());
+        let _ = writeln!(out, "  Version  : {}", version);
+        let _ = writeln!(out, "  Variant  : {}", variant);
+        match version {
+            1 => {
+                let tl = u32::from_be_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]) as u64;
+                let tm = u16::from_be_bytes([bytes[4], bytes[5]]) as u64;
+                let th = (u16::from_be_bytes([bytes[6], bytes[7]]) & 0x0fff) as u64;
+                let ts100 = (th << 48) | (tm << 32) | tl;
+                let unix_ns = ts100.wrapping_sub(122_192_928_000_000_000) * 100;
+                let unix_s = unix_ns / 1_000_000_000;
+                use chrono::TimeZone;
+                if let chrono::LocalResult::Single(dt) = chrono::Utc.timestamp_opt(unix_s as i64, 0)
+                {
+                    let _ = writeln!(out, "  Timestamp: {}", dt.format("%Y-%m-%d %H:%M:%S UTC"));
+                }
+                let cs = ((bytes[8] as u16 & 0x3f) << 8) | bytes[9] as u16;
+                let _ = writeln!(out, "  Clock seq: {}", cs);
+                let node = format!(
+                    "{:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}",
+                    bytes[10], bytes[11], bytes[12], bytes[13], bytes[14], bytes[15]
+                );
+                let _ = writeln!(out, "  Node MAC : {}", node);
+            }
+            4 => {
+                let _ = writeln!(out, "  Content  : 122 bits random entropy");
+            }
+            5 => {
+                let _ = writeln!(out, "  Content  : SHA-1 of namespace + name");
+            }
+            3 => {
+                let _ = writeln!(out, "  Content  : MD5 of namespace + name");
+            }
+            7 => {
+                let _ = writeln!(out, "  Content  : Unix timestamp + random");
+            }
+            _ => {}
+        }
+        if bytes.iter().all(|&b| b == 0) {
+            let _ = writeln!(out, "  Special  : Nil UUID");
+        }
+    }
+
+    if q.is_empty() || ql == "v4" || ql == "generate" {
+        let _ = writeln!(out, "  {}", gen_v4());
+    } else if ql.starts_with("batch ") {
+        let n: usize = q[6..].trim().parse().unwrap_or(5).min(100);
+        for _ in 0..n {
+            let _ = writeln!(out, "  {}", gen_v4());
+        }
+    } else if ql == "nil" {
+        let _ = writeln!(out, "  00000000-0000-0000-0000-000000000000");
+        let _ = writeln!(out, "  (Nil UUID — absent/unset value sentinel)");
+    } else if ql.starts_with("decode ") {
+        decode_uuid(&q[7..].trim(), &mut out);
+    } else if q.len() == 36 && q.chars().filter(|&c| c == '-').count() == 4 {
+        decode_uuid(q, &mut out);
+    } else {
+        let _ = writeln!(out, "  Commands:");
+        let _ = writeln!(out, "    (bare) / v4   — generate UUID v4");
+        let _ = writeln!(out, "    batch N        — generate N (max 100)");
+        let _ = writeln!(out, "    decode <uuid>  — show version/variant/fields");
+        let _ = writeln!(out, "    nil            — the nil UUID");
+        let _ = writeln!(
+            out,
+            "  Example: hematite --uuid  |  hematite --uuid 'batch 10'"
+        );
+    }
+
+    let _ = writeln!(out, "{}", sep);
+    out
+}
+
+// ─── Diff utility ─────────────────────────────────────────────────────────────
+
+/// Line and word diff — offline, instant (replaces diffchecker.com).
+///
+/// Separator: use ` ||| ` to split two inline texts.
+///
+/// Commands:
+///   `<textA> ||| <textB>`       — line diff
+///   `word <textA> ||| <textB>`  — word-level diff
+///   `<file1> <file2>`           — diff two files
+pub fn diff_calc(query: &str) -> String {
+    use similar::{ChangeTag, TextDiff};
+
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+    let _ = writeln!(out, "{}", sep);
+    let _ = writeln!(out, "  Diff Toolkit");
+    let _ = writeln!(out, "{}", sep);
+
+    let q = query.trim();
+    let ql = q.to_lowercase();
+
+    let (word_mode, content) = if ql.starts_with("word ") {
+        (true, q[5..].trim())
+    } else {
+        (false, q)
+    };
+
+    fn run_diff(a: &str, b: &str, word_mode: bool, out: &mut String) {
+        let mut added = 0usize;
+        let mut removed = 0usize;
+        let mut equal = 0usize;
+        let mut lines: Vec<String> = Vec::new();
+
+        if word_mode {
+            let diff = TextDiff::from_words(a, b);
+            for ch in diff.iter_all_changes() {
+                let v = ch.value();
+                match ch.tag() {
+                    ChangeTag::Equal => {
+                        equal += 1;
+                        lines.push(format!("   {}", v));
+                    }
+                    ChangeTag::Insert => {
+                        added += 1;
+                        lines.push(format!("  +{}", v));
+                    }
+                    ChangeTag::Delete => {
+                        removed += 1;
+                        lines.push(format!("  -{}", v));
+                    }
+                }
+            }
+        } else {
+            let diff = TextDiff::from_lines(a, b);
+            for ch in diff.iter_all_changes() {
+                let v = ch.value().trim_end_matches('\n');
+                match ch.tag() {
+                    ChangeTag::Equal => {
+                        equal += 1;
+                        lines.push(format!("   {}", v));
+                    }
+                    ChangeTag::Insert => {
+                        added += 1;
+                        lines.push(format!("  +{}", v));
+                    }
+                    ChangeTag::Delete => {
+                        removed += 1;
+                        lines.push(format!("  -{}", v));
+                    }
+                }
+            }
+        }
+
+        let unit = if word_mode { "word" } else { "line" };
+        let _ = writeln!(
+            out,
+            "  +{} {}(s) added, -{} removed, {} unchanged",
+            added, unit, removed, equal
+        );
+        if added == 0 && removed == 0 {
+            let _ = writeln!(out, "  Texts are identical");
+            return;
+        }
+        let _ = writeln!(out, "");
+        for line in &lines {
+            let _ = writeln!(out, "{}", line);
+        }
+    }
+
+    if content.contains(" ||| ") {
+        let parts: Vec<&str> = content.splitn(2, " ||| ").collect();
+        run_diff(parts[0].trim(), parts[1].trim(), word_mode, &mut out);
+    } else if !word_mode {
+        let parts: Vec<&str> = content.splitn(2, ' ').collect();
+        if parts.len() == 2 {
+            let (pa, pb) = (
+                std::path::Path::new(parts[0].trim()),
+                std::path::Path::new(parts[1].trim()),
+            );
+            if pa.is_file() && pb.is_file() {
+                match (std::fs::read_to_string(pa), std::fs::read_to_string(pb)) {
+                    (Ok(a), Ok(b)) => {
+                        let _ = writeln!(out, "  A : {}", parts[0].trim());
+                        let _ = writeln!(out, "  B : {}", parts[1].trim());
+                        let _ = writeln!(out, "");
+                        run_diff(&a, &b, false, &mut out);
+                    }
+                    (Err(e), _) => {
+                        let _ = writeln!(out, "  Error reading '{}': {}", parts[0].trim(), e);
+                    }
+                    (_, Err(e)) => {
+                        let _ = writeln!(out, "  Error reading '{}': {}", parts[1].trim(), e);
+                    }
+                }
+            } else {
+                let _ = writeln!(out, "  Tip: use ' ||| ' to separate two inline texts");
+                let _ = writeln!(
+                    out,
+                    "  Example: hematite --diff 'hello world ||| hello there'"
+                );
+            }
+        } else {
+            let _ = writeln!(out, "  Commands:");
+            let _ = writeln!(out, "    <textA> ||| <textB>          — line diff");
+            let _ = writeln!(out, "    word <textA> ||| <textB>     — word-level diff");
+            let _ = writeln!(out, "    <file1> <file2>              — diff two files");
+        }
+    } else {
+        let _ = writeln!(out, "  Usage: word <textA> ||| <textB>");
+    }
+
+    let _ = writeln!(out, "{}", sep);
+    out
+}
+
+// ─── Semver utility ───────────────────────────────────────────────────────────
+
+/// Semantic version tools — compare, range-check, bump, sort.
+///
+/// Commands:
+///   `<v1> vs <v2>`                — compare two versions
+///   `satisfies <version> <range>` — check ^ ~ >= <= > < range
+///   `bump major|minor|patch <v>`  — compute next version
+///   `sort <v1> <v2> ...`          — sort versions (oldest first)
+///   `parse <version>`             — show components
+///   `explain <range>`             — plain-English range description
+pub fn semver_calc(query: &str) -> String {
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+    let _ = writeln!(out, "{}", sep);
+    let _ = writeln!(out, "  Semver Toolkit");
+    let _ = writeln!(out, "{}", sep);
+
+    let q = query.trim();
+    let ql = q.to_lowercase();
+
+    #[derive(Debug, Clone, PartialEq, Eq)]
+    struct SemVer {
+        major: u64,
+        minor: u64,
+        patch: u64,
+        pre: Vec<String>,
+        build: String,
+    }
+
+    impl SemVer {
+        fn parse(s: &str) -> Option<SemVer> {
+            let s = s.trim().trim_start_matches('v').trim_start_matches('=');
+            let (s, build) = if let Some(i) = s.find('+') {
+                (&s[..i], s[i + 1..].to_string())
+            } else {
+                (s, String::new())
+            };
+            let (s, pre_str) = if let Some(i) = s.find('-') {
+                (&s[..i], s[i + 1..].to_string())
+            } else {
+                (s, String::new())
+            };
+            let parts: Vec<&str> = s.split('.').collect();
+            if parts.is_empty() || parts.len() > 3 {
+                return None;
+            }
+            let major = parts[0].parse::<u64>().ok()?;
+            let minor = if parts.len() > 1 && parts[1] != "x" && parts[1] != "*" {
+                parts[1].parse::<u64>().ok()?
+            } else {
+                0
+            };
+            let patch = if parts.len() > 2 && parts[2] != "x" && parts[2] != "*" {
+                parts[2].parse::<u64>().ok()?
+            } else {
+                0
+            };
+            let pre = if pre_str.is_empty() {
+                vec![]
+            } else {
+                pre_str.split('.').map(|s| s.to_string()).collect()
+            };
+            Some(SemVer {
+                major,
+                minor,
+                patch,
+                pre,
+                build,
+            })
+        }
+    }
+
+    impl PartialOrd for SemVer {
+        fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+            Some(self.cmp(other))
+        }
+    }
+    impl Ord for SemVer {
+        fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+            let core =
+                (self.major, self.minor, self.patch).cmp(&(other.major, other.minor, other.patch));
+            if core != std::cmp::Ordering::Equal {
+                return core;
+            }
+            match (self.pre.is_empty(), other.pre.is_empty()) {
+                (true, false) => std::cmp::Ordering::Greater,
+                (false, true) => std::cmp::Ordering::Less,
+                _ => {
+                    for (a, b) in self.pre.iter().zip(other.pre.iter()) {
+                        let ord = match (a.parse::<u64>(), b.parse::<u64>()) {
+                            (Ok(an), Ok(bn)) => an.cmp(&bn),
+                            _ => a.cmp(b),
+                        };
+                        if ord != std::cmp::Ordering::Equal {
+                            return ord;
+                        }
+                    }
+                    self.pre.len().cmp(&other.pre.len())
+                }
+            }
+        }
+    }
+
+    impl std::fmt::Display for SemVer {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            write!(f, "{}.{}.{}", self.major, self.minor, self.patch)?;
+            if !self.pre.is_empty() {
+                write!(f, "-{}", self.pre.join("."))?;
+            }
+            if !self.build.is_empty() {
+                write!(f, "+{}", self.build)?;
+            }
+            Ok(())
+        }
+    }
+
+    fn satisfies_single(ver: &SemVer, part: &str) -> bool {
+        if part == "*" || part.is_empty() {
+            return true;
+        }
+        if let Some(rest) = part.strip_prefix('^') {
+            if let Some(base) = SemVer::parse(rest) {
+                if *ver < base {
+                    return false;
+                }
+                return if base.major > 0 {
+                    ver.major == base.major
+                } else if base.minor > 0 {
+                    ver.major == 0 && ver.minor == base.minor
+                } else {
+                    ver.major == 0 && ver.minor == 0 && ver.patch == base.patch
+                };
+            }
+        } else if let Some(rest) = part.strip_prefix('~') {
+            if let Some(base) = SemVer::parse(rest) {
+                if *ver < base {
+                    return false;
+                }
+                return ver.major == base.major && ver.minor == base.minor;
+            }
+        } else if let Some(rest) = part.strip_prefix(">=") {
+            if let Some(b) = SemVer::parse(rest) {
+                return *ver >= b;
+            }
+        } else if let Some(rest) = part.strip_prefix("<=") {
+            if let Some(b) = SemVer::parse(rest) {
+                return *ver <= b;
+            }
+        } else if let Some(rest) = part.strip_prefix('>') {
+            if let Some(b) = SemVer::parse(rest) {
+                return *ver > b;
+            }
+        } else if let Some(rest) = part.strip_prefix('<') {
+            if let Some(b) = SemVer::parse(rest) {
+                return *ver < b;
+            }
+        } else if let Some(rest) = part.strip_prefix('=') {
+            if let Some(b) = SemVer::parse(rest) {
+                return *ver == b;
+            }
+        } else if let Some(b) = SemVer::parse(part) {
+            return *ver == b;
+        }
+        false
+    }
+
+    fn satisfies(ver: &SemVer, range: &str) -> bool {
+        if range.contains("||") {
+            return range.split("||").any(|r| satisfies(ver, r.trim()));
+        }
+        range.split_whitespace().all(|p| satisfies_single(ver, p))
+    }
+
+    fn explain_range(r: &str) -> String {
+        if r == "*" || r.is_empty() {
+            return "any version".to_string();
+        }
+        if let Some(rest) = r.strip_prefix('^') {
+            if let Some(v) = SemVer::parse(rest) {
+                if v.major > 0 {
+                    return format!(">={}, <{}.0.0", v, v.major + 1);
+                }
+                if v.minor > 0 {
+                    return format!(">={}, <0.{}.0", v, v.minor + 1);
+                }
+                return format!("exactly {} (^0.0.x pins patch)", v);
+            }
+        }
+        if let Some(rest) = r.strip_prefix('~') {
+            if let Some(v) = SemVer::parse(rest) {
+                return format!(">={}, <{}.{}.0 (same major.minor)", v, v.major, v.minor + 1);
+            }
+        }
+        format!("explicit: {}", r)
+    }
+
+    if q.contains(" vs ") {
+        let p: Vec<&str> = q.splitn(2, " vs ").collect();
+        match (SemVer::parse(p[0].trim()), SemVer::parse(p[1].trim())) {
+            (Some(a), Some(b)) => {
+                let _ = writeln!(out, "  A : {}", a);
+                let _ = writeln!(out, "  B : {}", b);
+                let _ = writeln!(out, "");
+                match a.cmp(&b) {
+                    std::cmp::Ordering::Equal => {
+                        let _ = writeln!(out, "  A == B  (equal)");
+                    }
+                    std::cmp::Ordering::Greater => {
+                        let _ = writeln!(out, "  A > B   ({} is newer)", a);
+                    }
+                    std::cmp::Ordering::Less => {
+                        let _ = writeln!(out, "  A < B   ({} is newer)", b);
+                    }
+                }
+                if a.major != b.major {
+                    let _ = writeln!(out, "  Major : {} → {} (breaking)", a.major, b.major);
+                } else if a.minor != b.minor {
+                    let _ = writeln!(out, "  Minor : {} → {} (feature)", a.minor, b.minor);
+                } else if a.patch != b.patch {
+                    let _ = writeln!(out, "  Patch : {} → {} (fix)", a.patch, b.patch);
+                }
+                if a.pre != b.pre {
+                    let _ = writeln!(out, "  Pre   : {:?} → {:?}", a.pre, b.pre);
+                }
+            }
+            _ => {
+                let _ = writeln!(out, "  Could not parse versions");
+            }
+        }
+    } else if ql.starts_with("satisfies ") {
+        let rest = q[10..].trim();
+        if let Some(sp) = rest.find(' ') {
+            let (ver_s, range_s) = (&rest[..sp], rest[sp + 1..].trim());
+            match SemVer::parse(ver_s) {
+                None => {
+                    let _ = writeln!(out, "  Invalid version: '{}'", ver_s);
+                }
+                Some(v) => {
+                    let _ = writeln!(out, "  Version : {}", v);
+                    let _ = writeln!(out, "  Range   : {}  ({})", range_s, explain_range(range_s));
+                    let ok = satisfies(&v, range_s);
+                    let _ = writeln!(out, "  Result  : {}", if ok { "YES" } else { "NO" });
+                }
+            }
+        } else {
+            let _ = writeln!(out, "  Usage: satisfies <version> <range>");
+        }
+    } else if ql.starts_with("bump ") {
+        let rest = q[5..].trim();
+        let p: Vec<&str> = rest.splitn(2, ' ').collect();
+        if p.len() < 2 {
+            let _ = writeln!(out, "  Usage: bump major|minor|patch <version>");
+        } else {
+            match SemVer::parse(p[1].trim()) {
+                None => {
+                    let _ = writeln!(out, "  Invalid version: '{}'", p[1].trim());
+                }
+                Some(mut v) => {
+                    let before = v.to_string();
+                    v.pre.clear();
+                    v.build.clear();
+                    match p[0].to_lowercase().as_str() {
+                        "major" => {
+                            v.major += 1;
+                            v.minor = 0;
+                            v.patch = 0;
+                        }
+                        "minor" => {
+                            v.minor += 1;
+                            v.patch = 0;
+                        }
+                        "patch" => {
+                            v.patch += 1;
+                        }
+                        k => {
+                            let _ = writeln!(out, "  Unknown: '{}' — use major/minor/patch", k);
+                        }
+                    }
+                    let _ = writeln!(out, "  Before : {}", before);
+                    let _ = writeln!(out, "  After  : {}", v);
+                }
+            }
+        }
+    } else if ql.starts_with("sort ") {
+        let mut versions: Vec<SemVer> = q[5..]
+            .trim()
+            .split_whitespace()
+            .filter_map(SemVer::parse)
+            .collect();
+        if versions.is_empty() {
+            let _ = writeln!(out, "  No valid versions found");
+        } else {
+            versions.sort();
+            for (i, v) in versions.iter().enumerate() {
+                let _ = writeln!(out, "  {:2}. {}", i + 1, v);
+            }
+            let _ = writeln!(out, "  Latest : {}", versions.last().unwrap());
+        }
+    } else if ql.starts_with("parse ") {
+        match SemVer::parse(q[6..].trim()) {
+            None => {
+                let _ = writeln!(out, "  Invalid semver: '{}'", q[6..].trim());
+            }
+            Some(v) => {
+                let _ = writeln!(out, "  Version    : {}", v);
+                let _ = writeln!(out, "  Major      : {}", v.major);
+                let _ = writeln!(out, "  Minor      : {}", v.minor);
+                let _ = writeln!(out, "  Patch      : {}", v.patch);
+                if !v.pre.is_empty() {
+                    let _ = writeln!(out, "  Pre-release: {}", v.pre.join("."));
+                }
+                if !v.build.is_empty() {
+                    let _ = writeln!(out, "  Build meta : {}", v.build);
+                }
+                let _ = writeln!(
+                    out,
+                    "  Stable     : {}",
+                    if v.pre.is_empty() { "yes" } else { "no" }
+                );
+            }
+        }
+    } else if ql.starts_with("explain ") {
+        let range_s = q[8..].trim();
+        let _ = writeln!(out, "  Range   : {}", range_s);
+        let _ = writeln!(out, "  Meaning : {}", explain_range(range_s));
+    } else {
+        let _ = writeln!(out, "  Commands:");
+        let _ = writeln!(out, "    <v1> vs <v2>                   — compare");
+        let _ = writeln!(
+            out,
+            "    satisfies <ver> <range>        — ^, ~, >=, <=, >, <"
+        );
+        let _ = writeln!(out, "    bump major|minor|patch <ver>   — next version");
+        let _ = writeln!(
+            out,
+            "    sort <v1> <v2> ...             — sort oldest→newest"
+        );
+        let _ = writeln!(out, "    parse <version>                — show components");
+        let _ = writeln!(
+            out,
+            "    explain <range>                — plain-English meaning"
+        );
+        let _ = writeln!(out, "  Examples:");
+        let _ = writeln!(out, "    hematite --semver '1.5.3 vs 2.0.0'");
+        let _ = writeln!(out, "    hematite --semver 'satisfies 1.5.3 ^1.2.0'");
+        let _ = writeln!(
+            out,
+            "    hematite --semver 'sort 2.1.0 1.0.0 1.9.3 2.0.0-beta.1'"
+        );
+    }
+
+    let _ = writeln!(out, "{}", sep);
+    out
+}

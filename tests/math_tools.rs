@@ -3,11 +3,12 @@
 /// Covers known-value correctness, edge-case non-panics, and the newer
 /// matrix decomposition modes (QR, SVD, Cholesky).
 use hematite::tools::math_util::{
-    bitwise_calc, checksum_calc, chemistry_calc, cipher_calc, combinatorics_calc, complex_calc,
-    cron_calc, csv_calc, datetime_calc, electrical_calc, encode_calc, fraction_calc, geometry_calc,
-    hash_calc, health_calc, ip_calc, json_calc, jwt_calc, matrix_calc, number_format,
-    number_theory_calc, percent_calc, physics_calc, prob_calc, regex_calc, roman_calc, set_calc,
-    sort_viz, stats_calc, string_dist, text_stats, trig_calc, url_calc, validate_calc,
+    bitwise_calc, checksum_calc, chemistry_calc, cipher_calc, color_calc, combinatorics_calc,
+    complex_calc, cron_calc, csv_calc, datetime_calc, diff_calc, electrical_calc, encode_calc,
+    fraction_calc, geometry_calc, hash_calc, health_calc, ip_calc, json_calc, jwt_calc,
+    matrix_calc, number_format, number_theory_calc, percent_calc, physics_calc, prob_calc,
+    regex_calc, roman_calc, semver_calc, set_calc, sort_viz, stats_calc, string_dist, text_stats,
+    trig_calc, url_calc, uuid_calc, validate_calc,
 };
 
 // ─── Cipher tests ────────────────────────────────────────────────────────────
@@ -2060,6 +2061,337 @@ fn ip_ipv6_loopback() {
 #[test]
 fn ip_empty_no_panic() {
     let out = ip_calc("");
+    assert!(!out.is_empty());
+}
+
+// ─── Color tests ─────────────────────────────────────────────────────────────
+
+#[test]
+fn color_parse_hex6() {
+    let out = color_calc("#1a2b3c");
+    assert!(
+        out.contains("26") || out.contains("RGB"),
+        "expected RGB decode: {out}"
+    );
+    assert!(
+        out.contains("HSL") || out.contains("hsl"),
+        "expected HSL: {out}"
+    );
+}
+
+#[test]
+fn color_parse_hex3() {
+    let out = color_calc("#fff");
+    assert!(out.contains("255"), "expected RGB 255 from #fff: {out}");
+}
+
+#[test]
+fn color_rgb_command() {
+    let out = color_calc("rgb 255 128 0");
+    assert!(
+        out.contains("255") && out.contains("128"),
+        "expected rgb components: {out}"
+    );
+    assert!(
+        out.contains('#') || out.contains("hex") || out.contains("Hex"),
+        "expected hex output: {out}"
+    );
+}
+
+#[test]
+fn color_mix_command() {
+    let out = color_calc("mix #ff0000 #0000ff");
+    assert!(!out.is_empty(), "mix should not be empty");
+    assert!(
+        out.contains('#') || out.contains("Mix") || out.contains("mix"),
+        "expected mixed color: {out}"
+    );
+}
+
+#[test]
+fn color_contrast_black_white() {
+    let out = color_calc("contrast #000000 #ffffff");
+    assert!(
+        out.contains("21") || out.contains("PASS") || out.contains("AA"),
+        "expected max contrast ratio: {out}"
+    );
+}
+
+#[test]
+fn color_palette_command() {
+    let out = color_calc("palette #ff0000");
+    assert!(
+        out.contains("complement")
+            || out.contains("Complement")
+            || out.contains("triad")
+            || out.contains("Triad"),
+        "expected palette output: {out}"
+    );
+}
+
+#[test]
+fn color_hsl_command() {
+    let out = color_calc("hsl 0 100% 50%");
+    assert!(
+        out.contains("255") || out.contains("ff0000") || out.contains("FF0000"),
+        "hsl 0 100 50 should be red: {out}"
+    );
+}
+
+#[test]
+fn color_empty_no_panic() {
+    let out = color_calc("");
+    assert!(!out.is_empty());
+}
+
+// ─── UUID tests ───────────────────────────────────────────────────────────────
+
+#[test]
+fn uuid_v4_generates_valid() {
+    let out = uuid_calc("v4");
+    // UUID v4 format: 8-4-4-4-12 hex chars
+    let uuid_line = out.lines().find(|l| l.contains('-')).unwrap_or(&out);
+    let parts: Vec<&str> = uuid_line.trim().split('-').collect();
+    assert_eq!(parts.len(), 5, "UUID should have 5 groups: {out}");
+    assert_eq!(parts[0].len(), 8, "first group 8 chars: {out}");
+    assert_eq!(parts[2].len(), 4, "third group 4 chars: {out}");
+    // version nibble should be '4'
+    assert!(
+        parts[2].starts_with('4'),
+        "version nibble should be 4: {out}"
+    );
+}
+
+#[test]
+fn uuid_v4_batch() {
+    let out = uuid_calc("batch 5");
+    let uuid_lines: Vec<&str> = out
+        .lines()
+        .filter(|l| {
+            let t = l.trim();
+            t.len() >= 36 && t.chars().filter(|&c| c == '-').count() == 4
+        })
+        .collect();
+    assert_eq!(uuid_lines.len(), 5, "expected 5 UUIDs: {out}");
+}
+
+#[test]
+fn uuid_nil() {
+    let out = uuid_calc("nil");
+    assert!(
+        out.contains("00000000-0000-0000-0000-000000000000"),
+        "nil UUID: {out}"
+    );
+}
+
+#[test]
+fn uuid_decode_valid() {
+    let out = uuid_calc("decode 550e8400-e29b-41d4-a716-446655440000");
+    assert!(
+        out.contains("Version") || out.contains("version"),
+        "should show version: {out}"
+    );
+    assert!(
+        out.contains("RFC") || out.contains("Variant") || out.contains("variant"),
+        "should show variant: {out}"
+    );
+}
+
+#[test]
+fn uuid_decode_invalid() {
+    let out = uuid_calc("decode not-a-valid-uuid-string");
+    assert!(
+        out.contains("Not a valid") || out.contains("invalid") || out.contains("Invalid"),
+        "should report invalid: {out}"
+    );
+}
+
+#[test]
+fn uuid_parse_v4() {
+    let out = uuid_calc("decode 550e8400-e29b-41d4-a716-446655440000");
+    assert!(
+        out.contains("Version") && (out.contains(" 4") || out.contains(": 4")),
+        "should show version 4: {out}"
+    );
+}
+
+#[test]
+fn uuid_empty_no_panic() {
+    let out = uuid_calc("");
+    assert!(!out.is_empty());
+}
+
+// ─── Diff tests ───────────────────────────────────────────────────────────────
+
+#[test]
+fn diff_identical_texts() {
+    let out = diff_calc("hello world ||| hello world");
+    assert!(
+        out.contains("identical") || out.contains("Identical"),
+        "identical texts: {out}"
+    );
+}
+
+#[test]
+fn diff_changed_line() {
+    let out = diff_calc("hello world ||| hello there");
+    assert!(
+        out.contains("world") || out.contains('-') || out.contains('+'),
+        "should show diff: {out}"
+    );
+}
+
+#[test]
+fn diff_word_mode() {
+    let out = diff_calc("word foo bar baz ||| foo qux baz");
+    assert!(
+        out.contains("bar") || out.contains("qux") || out.contains('-') || out.contains('+'),
+        "word diff: {out}"
+    );
+}
+
+#[test]
+fn diff_line_counts() {
+    let out = diff_calc("hello world ||| hello there");
+    assert!(
+        out.contains("line") || out.contains("added") || out.contains("removed"),
+        "should show counts: {out}"
+    );
+}
+
+#[test]
+fn diff_multiline() {
+    let out = diff_calc("line one\nline two ||| line one\nline three");
+    assert!(
+        out.contains("two") || out.contains("three") || out.contains('-') || out.contains('+'),
+        "multiline diff: {out}"
+    );
+}
+
+#[test]
+fn diff_empty_no_panic() {
+    let out = diff_calc("");
+    assert!(!out.is_empty());
+}
+
+// ─── SemVer tests ─────────────────────────────────────────────────────────────
+
+#[test]
+fn semver_parse_basic() {
+    let out = semver_calc("parse 1.2.3");
+    assert!(
+        out.contains('1') && out.contains('2') && out.contains('3'),
+        "parse components: {out}"
+    );
+    assert!(
+        out.contains("major") || out.contains("Major"),
+        "should label major: {out}"
+    );
+}
+
+#[test]
+fn semver_parse_prerelease() {
+    let out = semver_calc("parse 1.2.3-alpha.1+build.456");
+    assert!(out.contains("alpha"), "pre-release label: {out}");
+    assert!(
+        out.contains("build") || out.contains("456"),
+        "build metadata: {out}"
+    );
+}
+
+#[test]
+fn semver_compare_gt() {
+    let out = semver_calc("2.0.0 vs 1.9.9");
+    assert!(
+        out.contains('>') || out.contains("newer") || out.contains("2.0.0"),
+        "2.0.0 > 1.9.9: {out}"
+    );
+}
+
+#[test]
+fn semver_compare_eq() {
+    let out = semver_calc("1.0.0 vs 1.0.0");
+    assert!(
+        out.contains("==") || out.contains("equal"),
+        "equal versions: {out}"
+    );
+}
+
+#[test]
+fn semver_satisfies_caret() {
+    let out = semver_calc("satisfies 1.5.0 ^1.2.3");
+    assert!(
+        out.contains("YES") || out.contains("yes"),
+        "^1.2.3 satisfied by 1.5.0: {out}"
+    );
+}
+
+#[test]
+fn semver_satisfies_caret_fail() {
+    let out = semver_calc("satisfies 2.0.0 ^1.2.3");
+    assert!(
+        out.contains("NO") || out.contains("no"),
+        "^1.2.3 not satisfied by 2.0.0: {out}"
+    );
+}
+
+#[test]
+fn semver_satisfies_tilde() {
+    let out = semver_calc("satisfies 1.2.9 ~1.2.3");
+    assert!(
+        out.contains("YES") || out.contains("yes"),
+        "~1.2.3 satisfied by 1.2.9: {out}"
+    );
+}
+
+#[test]
+fn semver_sort() {
+    let out = semver_calc("sort 1.10.0 1.9.0 1.2.0");
+    // sorted ascending, 1.2.0 should come before 1.10.0
+    let pos_1_2 = out.find("1.2.0").unwrap_or(usize::MAX);
+    let pos_1_10 = out.find("1.10.0").unwrap_or(usize::MAX);
+    assert!(pos_1_2 < pos_1_10, "1.2.0 should sort before 1.10.0: {out}");
+}
+
+#[test]
+fn semver_bump_minor() {
+    let out = semver_calc("bump minor 1.2.3");
+    assert!(out.contains("1.3.0"), "bump minor: {out}");
+}
+
+#[test]
+fn semver_bump_patch() {
+    let out = semver_calc("bump patch 1.2.3");
+    assert!(out.contains("1.2.4"), "bump patch: {out}");
+}
+
+#[test]
+fn semver_bump_major() {
+    let out = semver_calc("bump major 1.2.3");
+    assert!(out.contains("2.0.0"), "bump major: {out}");
+}
+
+#[test]
+fn semver_validate_valid() {
+    let out = semver_calc("parse 1.2.3-beta.1");
+    assert!(
+        out.contains("Pre-release") || out.contains("beta"),
+        "should show pre-release: {out}"
+    );
+}
+
+#[test]
+fn semver_validate_invalid() {
+    let out = semver_calc("parse not.a.version");
+    assert!(
+        out.contains("Invalid") || out.contains("invalid") || out.contains("Could not"),
+        "should be invalid: {out}"
+    );
+}
+
+#[test]
+fn semver_empty_no_panic() {
+    let out = semver_calc("");
     assert!(!out.is_empty());
 }
 

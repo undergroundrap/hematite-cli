@@ -2823,7 +2823,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     if let Some(ref input) = cockpit.color {
-        let result = hematite::tools::math_util::color_convert(input.trim());
+        let result = hematite::tools::math_util::color_calc(input.trim());
         println!("{}", result.trim());
         if cockpit.clipboard {
             copy_to_clipboard(&result);
@@ -3364,6 +3364,36 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     if let Some(ref query) = cockpit.ip {
         let result = hematite::tools::math_util::ip_calc(query.trim());
+        println!("{}", result.trim());
+        if cockpit.clipboard {
+            copy_to_clipboard(&result);
+            println!("Copied to clipboard.");
+        }
+        return Ok(());
+    }
+
+    if let Some(ref query) = cockpit.uuid {
+        let result = hematite::tools::math_util::uuid_calc(query.trim());
+        println!("{}", result.trim());
+        if cockpit.clipboard {
+            copy_to_clipboard(&result);
+            println!("Copied to clipboard.");
+        }
+        return Ok(());
+    }
+
+    if let Some(ref query) = cockpit.text_diff {
+        let result = hematite::tools::math_util::diff_calc(query.trim());
+        println!("{}", result.trim());
+        if cockpit.clipboard {
+            copy_to_clipboard(&result);
+            println!("Copied to clipboard.");
+        }
+        return Ok(());
+    }
+
+    if let Some(ref query) = cockpit.semver {
+        let result = hematite::tools::math_util::semver_calc(query.trim());
         println!("{}", result.trim());
         if cockpit.clipboard {
             copy_to_clipboard(&result);

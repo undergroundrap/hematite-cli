@@ -1003,6 +1003,9 @@ mod tests {
             url_tool: None,
             cron: None,
             ip: None,
+            uuid: None,
+            text_diff: None,
+            semver: None,
             pdf_extract_helper: None,
             teleported_from: None,
         };

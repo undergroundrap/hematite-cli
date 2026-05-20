@@ -1202,6 +1202,30 @@ pub struct CliCockpit {
 
     #[arg(
         long,
+        help_heading = "Math & Science",
+        value_name = "QUERY",
+        help = "UUID generator and inspector — offline replacement for uuid generator sites. Commands: v4 (generate one random UUID v4), v4 <N> (generate N UUIDs), nil (the all-zeros nil UUID), parse <uuid> (decode version, variant, timestamp for v1/v4), validate <uuid> (strict RFC 4122 format check). Examples: hematite --uuid v4 | hematite --uuid 'v4 5' | hematite --uuid 'parse 550e8400-e29b-41d4-a716-446655440000'"
+    )]
+    pub uuid: Option<String>,
+
+    #[arg(
+        long = "text-diff",
+        help_heading = "Math & Science",
+        value_name = "QUERY",
+        help = "Text diff — offline replacement for diffchecker.com. Pass two texts separated by ' vs '. Commands: '<text A> vs <text B>' (line diff), 'word: <text A> vs <text B>' (word-level diff), 'stats: <text A> vs <text B>' (summary counts only). Examples: hematite --text-diff 'hello world vs hello there' | hematite --text-diff 'word: foo bar baz vs foo qux baz'"
+    )]
+    pub text_diff: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Math & Science",
+        value_name = "QUERY",
+        help = "Semantic version toolkit — offline replacement for semver.npmjs.com. Commands: parse <ver> (decode major/minor/patch/pre-release/build), compare <v1> <v2> (ordering), satisfies <version> <range> (npm/cargo range check: ^, ~, >=, <=, =), sort <v1> <v2> ... (order a list), bump <ver> major|minor|patch (next version), validate <ver> (strict semver check). Examples: hematite --semver 'parse 1.2.3-alpha.1' | hematite --semver 'satisfies 1.5.0 ^1.2.3' | hematite --semver 'bump 1.2.3 minor'"
+    )]
+    pub semver: Option<String>,
+
+    #[arg(
+        long,
         help_heading = "Headless Reports",
         value_name = "ELEMENT",
         help = "Look up a periodic table element — instant, no model, no cloud. Accepts symbol (H, Au), full name (Gold, Hydrogen), or atomic number (79). Shows atomic mass, category, period/group, electronegativity, and state at STP. Example: hematite --periodic Au"
