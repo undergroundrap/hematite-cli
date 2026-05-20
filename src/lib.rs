@@ -1284,6 +1284,38 @@ pub struct CliCockpit {
         long,
         help_heading = "Math & Science",
         value_name = "QUERY",
+        help = "TOML validator and toolkit — offline replacement for toml-lint.com. Commands: validate <toml|file>, keys <toml|file> (list key paths), get <key> <toml|file>, fmt <toml|file> (normalize spacing). Examples: hematite --toml 'validate [server]\\nport=8080' | hematite --toml 'keys Cargo.toml'"
+    )]
+    pub toml: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Math & Science",
+        value_name = "QUERY",
+        help = "Network / CIDR calculator — offline replacement for subnet-calculator.com. Commands: <ip>/<prefix> (CIDR breakdown), <ip> (IP classification), contains <ip> <cidr>, split <cidr> /<prefix>. Examples: hematite --net 192.168.1.0/24 | hematite --net 10.0.0.5 | hematite --net 'split 10.0.0.0/16 /24'"
+    )]
+    pub net: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Math & Science",
+        value_name = "QUERY",
+        help = "ASCII table reference — offline replacement for asciitable.com. Commands: <decimal>, 0x<hex>, <char>, list, list printable, list control, <keyword>. Examples: hematite --ascii 65 | hematite --ascii 0x1B | hematite --ascii A | hematite --ascii newline"
+    )]
+    pub ascii: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Math & Science",
+        value_name = "QUERY",
+        help = "Keyboard shortcut cheatsheets — instant offline reference for vim / vscode / tmux / git / bash / windows. Commands: <tool>, <tool> <filter>. Examples: hematite --kbd vim | hematite --kbd vscode | hematite --kbd 'vim search' | hematite --kbd 'git rebase'"
+    )]
+    pub kbd: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Math & Science",
+        value_name = "QUERY",
         help = "Lorem ipsum generator — offline replacement for lipsum.com. Commands: (bare) or <N> = N paragraphs (default 1); words <N> = N words; sentences <N> = N sentences. Examples: hematite --lorem | hematite --lorem 3 | hematite --lorem 'words 50' | hematite --lorem 'sentences 5'"
     )]
     pub lorem: Option<String>,

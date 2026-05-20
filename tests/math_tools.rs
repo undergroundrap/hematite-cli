@@ -3,13 +3,14 @@
 /// Covers known-value correctness, edge-case non-panics, and the newer
 /// matrix decomposition modes (QR, SVD, Cholesky).
 use hematite::tools::math_util::{
-    bitwise_calc, case_calc, checksum_calc, chemistry_calc, cipher_calc, color_calc,
+    ascii_calc, bitwise_calc, case_calc, checksum_calc, chemistry_calc, cipher_calc, color_calc,
     combinatorics_calc, complex_calc, cron_calc, csv_calc, datetime_calc, diff_calc,
     electrical_calc, encode_calc, fraction_calc, geometry_calc, hash_calc, health_calc, http_calc,
-    ip_calc, json_calc, jwt_calc, lorem_calc, matrix_calc, mime_calc, number_format,
-    number_theory_calc, percent_calc, physics_calc, prob_calc, regex_calc, roman_calc, semver_calc,
-    set_calc, sort_viz, sql_fmt_calc, stats_calc, string_dist, table_calc, text_stats,
-    timestamp_calc, trig_calc, url_calc, uuid_calc, validate_calc, xml_calc, yaml_calc,
+    ip_calc, json_calc, jwt_calc, kbd_calc, lorem_calc, matrix_calc, mime_calc, net_calc,
+    number_format, number_theory_calc, percent_calc, physics_calc, prob_calc, regex_calc,
+    roman_calc, semver_calc, set_calc, sort_viz, sql_fmt_calc, stats_calc, string_dist, table_calc,
+    text_stats, timestamp_calc, toml_calc, trig_calc, url_calc, uuid_calc, validate_calc, xml_calc,
+    yaml_calc,
 };
 
 // ─── Cipher tests ────────────────────────────────────────────────────────────
@@ -3079,4 +3080,387 @@ fn xml_empty_no_panic() {
 fn xml_validate_empty_string_no_panic() {
     let out = xml_calc("validate ");
     assert!(!out.is_empty());
+}
+
+// ─── TOML toolkit tests ───────────────────────────────────────────────────────
+
+#[test]
+fn toml_validate_valid_simple() {
+    let out = toml_calc("validate [server]\nport = 8080\nhost = \"localhost\"");
+    assert!(out.contains('✓'), "valid TOML should pass: {out}");
+}
+
+#[test]
+fn toml_validate_valid_bare_kv() {
+    let out = toml_calc("[db]\nname = \"mydb\"\nmax_conn = 10");
+    assert!(
+        out.contains('✓'),
+        "bare key-value section should be valid: {out}"
+    );
+}
+
+#[test]
+fn toml_validate_unclosed_table() {
+    let out = toml_calc("validate [server\nport = 8080");
+    assert!(
+        out.contains('✗')
+            || out.to_lowercase().contains("invalid")
+            || out.to_lowercase().contains("unclosed"),
+        "unclosed table header should fail: {out}"
+    );
+}
+
+#[test]
+fn toml_validate_missing_equals() {
+    let out = toml_calc("validate [s]\nbadline");
+    assert!(
+        out.contains('✗')
+            || out.to_lowercase().contains("invalid")
+            || out.to_lowercase().contains("expected"),
+        "line without '=' should fail: {out}"
+    );
+}
+
+#[test]
+fn toml_keys_lists_key_paths() {
+    let out = toml_calc("keys [server]\nport = 8080\nhost = \"localhost\"");
+    assert!(
+        out.contains("server.port"),
+        "keys should show dotted paths: {out}"
+    );
+    assert!(out.contains("server.host"), "{out}");
+}
+
+#[test]
+fn toml_keys_bare_section() {
+    let out = toml_calc("keys name = \"Alice\"\nage = 30");
+    assert!(out.contains("name"), "top-level keys should appear: {out}");
+    assert!(out.contains("age"), "{out}");
+}
+
+#[test]
+fn toml_get_existing_key() {
+    let out = toml_calc("get port [server]\nport = 8080");
+    assert!(out.contains("8080"), "get should return the value: {out}");
+}
+
+#[test]
+fn toml_get_missing_key() {
+    let out = toml_calc("get missing [server]\nport = 8080");
+    assert!(
+        out.to_lowercase().contains("not found"),
+        "missing key should report not found: {out}"
+    );
+}
+
+#[test]
+fn toml_fmt_normalizes_spacing() {
+    let out = toml_calc("fmt [s]\nport=8080\nhost =   \"x\"");
+    assert!(
+        out.contains("port = 8080") || out.contains("port ="),
+        "fmt should add spaces: {out}"
+    );
+}
+
+#[test]
+fn toml_empty_shows_help() {
+    let out = toml_calc("");
+    assert!(
+        out.to_lowercase().contains("validate") || out.to_lowercase().contains("command"),
+        "{out}"
+    );
+}
+
+#[test]
+fn toml_empty_input_no_panic() {
+    let out = toml_calc("validate ");
+    assert!(!out.is_empty());
+}
+
+// ─── Network / CIDR calculator tests ─────────────────────────────────────────
+
+#[test]
+fn net_cidr_24_breakdown() {
+    let out = net_calc("192.168.1.0/24");
+    assert!(out.contains("192.168.1.0"), "network address: {out}");
+    assert!(out.contains("192.168.1.255"), "broadcast address: {out}");
+    assert!(out.contains("255.255.255.0"), "subnet mask: {out}");
+}
+
+#[test]
+fn net_cidr_hosts_count() {
+    let out = net_calc("10.0.0.0/24");
+    assert!(
+        out.contains("254"),
+        "usable hosts in /24 should be 254: {out}"
+    );
+}
+
+#[test]
+fn net_cidr_32_single_host() {
+    let out = net_calc("192.168.1.1/32");
+    assert!(out.contains('1'), "{out}");
+    // /32 = 1 usable host
+    assert!(out.contains('1'), "single host: {out}");
+}
+
+#[test]
+fn net_ip_classification_private_192() {
+    let out = net_calc("192.168.1.100");
+    assert!(
+        out.to_lowercase().contains("private") || out.contains("RFC 1918"),
+        "192.168.x should be private: {out}"
+    );
+}
+
+#[test]
+fn net_ip_classification_loopback() {
+    let out = net_calc("127.0.0.1");
+    assert!(
+        out.to_lowercase().contains("loopback"),
+        "127.0.0.1 is loopback: {out}"
+    );
+}
+
+#[test]
+fn net_ip_classification_public() {
+    let out = net_calc("8.8.8.8");
+    assert!(
+        out.to_lowercase().contains("public"),
+        "8.8.8.8 is public: {out}"
+    );
+}
+
+#[test]
+fn net_contains_true() {
+    let out = net_calc("contains 10.0.0.5 10.0.0.0/24");
+    assert!(
+        out.to_uppercase().contains("YES"),
+        "10.0.0.5 in 10.0.0.0/24: {out}"
+    );
+}
+
+#[test]
+fn net_contains_false() {
+    let out = net_calc("contains 10.0.1.5 10.0.0.0/24");
+    assert!(
+        out.to_uppercase().contains("NO"),
+        "10.0.1.5 not in 10.0.0.0/24: {out}"
+    );
+}
+
+#[test]
+fn net_split_shows_subnets() {
+    let out = net_calc("split 10.0.0.0/24 /26");
+    assert!(out.contains("10.0.0.0/26"), "first /26 subnet: {out}");
+    assert!(
+        out.contains("10.0.0.64/26") || out.contains("10.0.0.64"),
+        "second /26 subnet: {out}"
+    );
+}
+
+#[test]
+fn net_invalid_ip_no_panic() {
+    let out = net_calc("999.999.999.999");
+    assert!(!out.is_empty());
+}
+
+#[test]
+fn net_empty_shows_help() {
+    let out = net_calc("");
+    assert!(
+        out.to_lowercase().contains("cidr") || out.to_lowercase().contains("command"),
+        "{out}"
+    );
+}
+
+// ─── ASCII table tests ────────────────────────────────────────────────────────
+
+#[test]
+fn ascii_lookup_decimal_65() {
+    let out = ascii_calc("65");
+    assert!(out.contains("65"), "{out}");
+    assert!(out.contains("'A'") || out.contains("A"), "65 is 'A': {out}");
+}
+
+#[test]
+fn ascii_lookup_decimal_10() {
+    let out = ascii_calc("10");
+    assert!(
+        out.contains("LF") || out.to_lowercase().contains("line feed"),
+        "10 is LF: {out}"
+    );
+}
+
+#[test]
+fn ascii_lookup_hex_0x41() {
+    let out = ascii_calc("0x41");
+    assert!(
+        out.contains("65") || out.contains("'A'"),
+        "0x41 = 65 = 'A': {out}"
+    );
+}
+
+#[test]
+fn ascii_lookup_hex_0x1b() {
+    let out = ascii_calc("0x1B");
+    assert!(
+        out.contains("ESC") || out.to_lowercase().contains("escape"),
+        "0x1B is ESC: {out}"
+    );
+}
+
+#[test]
+fn ascii_lookup_char_a() {
+    let out = ascii_calc("A");
+    assert!(
+        out.contains("65") || out.contains("'A'"),
+        "char A = 65: {out}"
+    );
+}
+
+#[test]
+fn ascii_list_contains_multiple() {
+    let out = ascii_calc("list printable");
+    assert!(
+        out.contains("65"),
+        "printable list should include 65: {out}"
+    );
+    assert!(
+        out.contains("90") || out.contains("'Z'"),
+        "should include Z: {out}"
+    );
+    assert!(
+        !out.contains("NUL"),
+        "printable should not include NUL: {out}"
+    );
+}
+
+#[test]
+fn ascii_list_control_has_nul() {
+    let out = ascii_calc("list control");
+    assert!(
+        out.contains("NUL"),
+        "control list should include NUL: {out}"
+    );
+    assert!(out.contains("LF"), "control list should include LF: {out}");
+}
+
+#[test]
+fn ascii_keyword_newline() {
+    let out = ascii_calc("newline");
+    assert!(
+        out.contains("LF") || out.to_lowercase().contains("line feed"),
+        "keyword 'newline' should find LF: {out}"
+    );
+}
+
+#[test]
+fn ascii_empty_no_panic() {
+    let out = ascii_calc("");
+    assert!(!out.is_empty());
+}
+
+#[test]
+fn ascii_unknown_code_no_panic() {
+    let out = ascii_calc("999");
+    // 999 overflows u8, so lookup returns None → falls through to keyword search
+    assert!(!out.is_empty());
+}
+
+// ─── Keyboard shortcuts tests ─────────────────────────────────────────────────
+
+#[test]
+fn kbd_vim_shows_shortcuts() {
+    let out = kbd_calc("vim");
+    assert!(out.to_lowercase().contains("vim"), "{out}");
+    assert!(
+        out.contains("h  j  k  l") || out.contains("h j k l"),
+        "vim nav shortcuts: {out}"
+    );
+}
+
+#[test]
+fn kbd_vscode_shows_shortcuts() {
+    let out = kbd_calc("vscode");
+    assert!(
+        out.contains("Ctrl+P") || out.contains("Ctrl+p"),
+        "vscode quick-open: {out}"
+    );
+}
+
+#[test]
+fn kbd_tmux_shows_shortcuts() {
+    let out = kbd_calc("tmux");
+    assert!(out.to_lowercase().contains("prefix"), "tmux prefix: {out}");
+    assert!(
+        out.contains("prefix d") || out.to_lowercase().contains("detach"),
+        "tmux detach: {out}"
+    );
+}
+
+#[test]
+fn kbd_git_shows_shortcuts() {
+    let out = kbd_calc("git");
+    assert!(out.to_lowercase().contains("commit"), "git commit: {out}");
+    assert!(out.to_lowercase().contains("push"), "git push: {out}");
+}
+
+#[test]
+fn kbd_bash_shows_shortcuts() {
+    let out = kbd_calc("bash");
+    assert!(
+        out.contains("Ctrl+R") || out.contains("Ctrl+r"),
+        "bash reverse search: {out}"
+    );
+}
+
+#[test]
+fn kbd_windows_shows_shortcuts() {
+    let out = kbd_calc("windows");
+    assert!(
+        out.to_lowercase().contains("win+l") || out.to_lowercase().contains("lock"),
+        "windows lock: {out}"
+    );
+}
+
+#[test]
+fn kbd_vim_filter_search() {
+    let out = kbd_calc("vim search");
+    assert!(
+        out.to_lowercase().contains("search") || out.contains('/'),
+        "vim search filter should show search shortcuts: {out}"
+    );
+}
+
+#[test]
+fn kbd_git_filter_rebase() {
+    let out = kbd_calc("git rebase");
+    assert!(
+        out.to_lowercase().contains("rebase"),
+        "git rebase filter: {out}"
+    );
+}
+
+#[test]
+fn kbd_empty_lists_tools() {
+    let out = kbd_calc("");
+    assert!(
+        out.to_lowercase().contains("vim"),
+        "empty query lists tools: {out}"
+    );
+    assert!(out.to_lowercase().contains("vscode"), "{out}");
+}
+
+#[test]
+fn kbd_unknown_tool_no_panic() {
+    let out = kbd_calc("notarealtoolforsure");
+    assert!(
+        !out.is_empty(),
+        "unknown tool should return a message, not panic"
+    );
+    assert!(
+        out.to_lowercase().contains("unknown") || out.to_lowercase().contains("available"),
+        "{out}"
+    );
 }

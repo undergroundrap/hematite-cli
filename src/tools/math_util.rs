@@ -24480,3 +24480,1054 @@ pub fn xml_calc(query: &str) -> String {
     let _ = writeln!(out, "{}", sep);
     out
 }
+
+// ─── TOML toolkit ─────────────────────────────────────────────────────────────
+
+/// TOML validator — offline replacement for toml-lint.com / taplo.tamasfe.dev.
+/// Pure-Rust well-formedness check; no toml crate required.
+pub fn toml_calc(query: &str) -> String {
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+    let _ = writeln!(out, "{sep}");
+    let _ = writeln!(out, "  TOML Toolkit");
+    let _ = writeln!(out, "{sep}");
+    let q = query.trim();
+
+    let (mode, content_raw): (&str, &str) = if let Some(r) = q.strip_prefix("validate ") {
+        ("validate", r)
+    } else if let Some(r) = q.strip_prefix("keys ") {
+        ("keys", r)
+    } else if let Some(r) = q.strip_prefix("get ") {
+        ("get", r)
+    } else if let Some(r) = q.strip_prefix("fmt ") {
+        ("fmt", r)
+    } else if q.is_empty() {
+        ("help", "")
+    } else {
+        ("validate", q)
+    };
+
+    if mode == "help" {
+        let _ = writeln!(out, "  Commands:");
+        let _ = writeln!(out, "    validate <toml|file>      — check well-formedness");
+        let _ = writeln!(out, "    keys <toml|file>          — list all key paths");
+        let _ = writeln!(out, "    get <key> <toml|file>     — extract a key's value");
+        let _ = writeln!(out, "    fmt <toml|file>           — normalize = spacing");
+        let _ = writeln!(out, "  Pass inline TOML or a file path.");
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    fn parse_toml(content: &str) -> (Vec<(String, String)>, Option<String>) {
+        let mut pairs: Vec<(String, String)> = Vec::new();
+        let mut section = String::new();
+        let mut in_ml_basic = false;
+        let mut in_ml_lit = false;
+        for (idx, raw) in content.lines().enumerate() {
+            let n = idx + 1;
+            if in_ml_basic {
+                if raw.contains("\"\"\"") {
+                    in_ml_basic = false;
+                }
+                continue;
+            }
+            if in_ml_lit {
+                if raw.contains("'''") {
+                    in_ml_lit = false;
+                }
+                continue;
+            }
+            let line = raw.trim();
+            if line.is_empty() || line.starts_with('#') {
+                continue;
+            }
+            let visible = {
+                let mut s = String::with_capacity(line.len());
+                let (mut dq, mut sq) = (false, false);
+                for ch in line.chars() {
+                    match ch {
+                        '"' if !sq => {
+                            dq = !dq;
+                            s.push(ch);
+                        }
+                        '\'' if !dq => {
+                            sq = !sq;
+                            s.push(ch);
+                        }
+                        '#' if !dq && !sq => break,
+                        _ => s.push(ch),
+                    }
+                }
+                s
+            };
+            let vis = visible.trim().to_string();
+            if vis.matches("\"\"\"").count() % 2 != 0 {
+                in_ml_basic = true;
+            }
+            if vis.matches("'''").count() % 2 != 0 {
+                in_ml_lit = true;
+            }
+            if vis.starts_with("[[") {
+                if !vis.ends_with("]]") {
+                    return (pairs, Some(format!("Line {n}: unclosed [[ ]]")));
+                }
+                let inner = vis
+                    .trim_start_matches('[')
+                    .trim_end_matches(']')
+                    .trim()
+                    .to_string();
+                if inner.is_empty() {
+                    return (pairs, Some(format!("Line {n}: empty [[]] name")));
+                }
+                section = inner;
+                continue;
+            }
+            if vis.starts_with('[') {
+                if !vis.ends_with(']') {
+                    return (pairs, Some(format!("Line {n}: unclosed [ ]")));
+                }
+                let inner = vis
+                    .trim_start_matches('[')
+                    .trim_end_matches(']')
+                    .trim()
+                    .to_string();
+                if inner.is_empty() {
+                    return (pairs, Some(format!("Line {n}: empty [] name")));
+                }
+                section = inner;
+                continue;
+            }
+            if let Some(eq) = vis.find('=') {
+                let k = vis[..eq].trim().to_string();
+                let v = vis[eq + 1..].trim().to_string();
+                if k.is_empty() {
+                    return (pairs, Some(format!("Line {n}: empty key before '='")));
+                }
+                let full_key = if section.is_empty() {
+                    k
+                } else {
+                    format!("{section}.{k}")
+                };
+                pairs.push((full_key, v));
+            } else {
+                return (pairs, Some(format!("Line {n}: expected 'key = value'")));
+            }
+        }
+        (pairs, None)
+    }
+
+    if mode == "get" {
+        let sp = content_raw
+            .find(char::is_whitespace)
+            .unwrap_or(content_raw.len());
+        let target = &content_raw[..sp];
+        let rest = content_raw[sp..].trim();
+        let src = if std::path::Path::new(rest).is_file() {
+            match std::fs::read_to_string(rest) {
+                Ok(s) => s,
+                Err(e) => {
+                    let _ = writeln!(out, "  Error: {e}");
+                    let _ = writeln!(out, "{sep}");
+                    return out;
+                }
+            }
+        } else {
+            rest.to_string()
+        };
+        let (pairs, err) = parse_toml(&src);
+        if let Some(e) = err {
+            let _ = writeln!(out, "  ✗ {e}");
+        } else {
+            let suffix = format!(".{target}");
+            let hits: Vec<_> = pairs
+                .iter()
+                .filter(|(k, _)| k == target || k.ends_with(&suffix))
+                .collect();
+            if hits.is_empty() {
+                let _ = writeln!(out, "  Key '{target}' not found.");
+            } else {
+                for (k, v) in &hits {
+                    let _ = writeln!(out, "  {k} = {v}");
+                }
+            }
+        }
+    } else {
+        let src = if std::path::Path::new(content_raw).is_file() {
+            match std::fs::read_to_string(content_raw) {
+                Ok(s) => s,
+                Err(e) => {
+                    let _ = writeln!(out, "  Error: {e}");
+                    let _ = writeln!(out, "{sep}");
+                    return out;
+                }
+            }
+        } else {
+            content_raw.to_string()
+        };
+        let (pairs, err) = parse_toml(&src);
+        match mode {
+            "validate" => match err {
+                None => {
+                    let _ = writeln!(out, "  ✓ Valid TOML ({} key(s))", pairs.len());
+                }
+                Some(e) => {
+                    let _ = writeln!(out, "  ✗ Invalid TOML");
+                    let _ = writeln!(out, "  {e}");
+                }
+            },
+            "keys" => {
+                if let Some(e) = err {
+                    let _ = writeln!(out, "  ✗ {e}");
+                } else if pairs.is_empty() {
+                    let _ = writeln!(out, "  (no keys found)");
+                } else {
+                    for (k, v) in &pairs {
+                        let preview = if v.len() > 40 {
+                            format!("{}…", &v[..40])
+                        } else {
+                            v.clone()
+                        };
+                        let _ = writeln!(out, "  {k}  =  {preview}");
+                    }
+                }
+            }
+            "fmt" => {
+                if let Some(e) = err {
+                    let _ = writeln!(out, "  ✗ Cannot format: {e}");
+                } else {
+                    for line in src.lines() {
+                        let t = line.trim();
+                        if t.is_empty() || t.starts_with('#') || t.starts_with('[') {
+                            let _ = writeln!(out, "{line}");
+                        } else if let Some(eq) = t.find('=') {
+                            let _ = writeln!(out, "{} = {}", t[..eq].trim(), t[eq + 1..].trim());
+                        } else {
+                            let _ = writeln!(out, "{line}");
+                        }
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+
+    let _ = writeln!(out, "{sep}");
+    out
+}
+
+// ─── Network / CIDR calculator ────────────────────────────────────────────────
+
+/// IPv4 network calculator — offline replacement for subnet-calculator.com / cidr.xyz.
+pub fn net_calc(query: &str) -> String {
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+    let _ = writeln!(out, "{sep}");
+    let _ = writeln!(out, "  Network / CIDR Calculator");
+    let _ = writeln!(out, "{sep}");
+    let q = query.trim();
+    let ql = q.to_lowercase();
+
+    fn parse_ip(s: &str) -> Option<u32> {
+        let p: Vec<u8> = s.trim().split('.').filter_map(|x| x.parse().ok()).collect();
+        if p.len() != 4 {
+            return None;
+        }
+        Some(((p[0] as u32) << 24) | ((p[1] as u32) << 16) | ((p[2] as u32) << 8) | p[3] as u32)
+    }
+
+    fn fmt_ip(ip: u32) -> String {
+        format!(
+            "{}.{}.{}.{}",
+            ip >> 24,
+            (ip >> 16) & 0xFF,
+            (ip >> 8) & 0xFF,
+            ip & 0xFF
+        )
+    }
+
+    fn bin_ip(ip: u32) -> String {
+        format!(
+            "{:08b}.{:08b}.{:08b}.{:08b}",
+            ip >> 24,
+            (ip >> 16) & 0xFF,
+            (ip >> 8) & 0xFF,
+            ip & 0xFF
+        )
+    }
+
+    fn classify(ip: u32) -> &'static str {
+        if ip == 0 {
+            return "Unspecified (0.0.0.0)";
+        }
+        if ip >> 24 == 10 {
+            return "Private (RFC 1918 — 10.0.0.0/8)";
+        }
+        if ip >> 24 == 127 {
+            return "Loopback (127.0.0.0/8)";
+        }
+        if ip & 0xFFFF0000 == 0xA9FE0000 {
+            return "Link-local (RFC 3927 — 169.254.0.0/16)";
+        }
+        if ip & 0xFFF00000 == 0xAC100000 {
+            return "Private (RFC 1918 — 172.16.0.0/12)";
+        }
+        if ip & 0xFFFF0000 == 0xC0A80000 {
+            return "Private (RFC 1918 — 192.168.0.0/16)";
+        }
+        if ip & 0xFFC00000 == 0x64400000 {
+            return "Shared Address Space (RFC 6598 — 100.64.0.0/10)";
+        }
+        if ip & 0xFFFFFF00 == 0xC0000000 {
+            return "Documentation (RFC 5737 — 192.0.0.0/24)";
+        }
+        if ip & 0xFFFFFF00 == 0xC6336400 {
+            return "Documentation (RFC 5737 — 198.51.100.0/24)";
+        }
+        if ip & 0xFFFFFF00 == 0xCB007100 {
+            return "Documentation (RFC 5737 — 203.0.113.0/24)";
+        }
+        if ip >> 28 == 0xE {
+            return "Multicast (RFC 3171 — 224.0.0.0/4)";
+        }
+        if ip == 0xFFFFFFFF {
+            return "Limited Broadcast (255.255.255.255)";
+        }
+        if ip >> 28 == 0xF {
+            return "Reserved/Future Use (240.0.0.0/4)";
+        }
+        "Public (globally routable)"
+    }
+
+    if q.contains('/') && !ql.starts_with("contains ") && !ql.starts_with("split ") {
+        let mut parts = q.splitn(2, '/');
+        let ip_str = parts.next().unwrap_or("").trim();
+        let pfx_str = parts.next().unwrap_or("").trim();
+        let ip = match parse_ip(ip_str) {
+            Some(v) => v,
+            None => {
+                let _ = writeln!(out, "  Invalid IP: {ip_str}");
+                let _ = writeln!(out, "{sep}");
+                return out;
+            }
+        };
+        let prefix: u8 = match pfx_str.parse::<u8>() {
+            Ok(p) if p <= 32 => p,
+            _ => {
+                let _ = writeln!(out, "  Invalid prefix /{pfx_str} (must be 0–32)");
+                let _ = writeln!(out, "{sep}");
+                return out;
+            }
+        };
+        let mask: u32 = if prefix == 0 {
+            0
+        } else {
+            !0u32 << (32 - prefix)
+        };
+        let network = ip & mask;
+        let broadcast = network | !mask;
+        let (first, last, hosts) = match prefix {
+            32 => (network, network, 1u64),
+            31 => (network, broadcast, 2),
+            _ => (network + 1, broadcast - 1, (broadcast - network - 1) as u64),
+        };
+        let _ = writeln!(out, "  CIDR          : {}/{prefix}", fmt_ip(ip));
+        let _ = writeln!(out, "  Network       : {}", fmt_ip(network));
+        let _ = writeln!(out, "  Broadcast     : {}", fmt_ip(broadcast));
+        let _ = writeln!(out, "  Subnet mask   : {}", fmt_ip(mask));
+        let _ = writeln!(out, "  Wildcard mask : {}", fmt_ip(!mask));
+        let _ = writeln!(out, "  First host    : {}", fmt_ip(first));
+        let _ = writeln!(out, "  Last host     : {}", fmt_ip(last));
+        let _ = writeln!(out, "  Usable hosts  : {hosts}");
+        let _ = writeln!(out, "");
+        let _ = writeln!(out, "  IP (binary)   : {}", bin_ip(ip));
+        let _ = writeln!(out, "  Mask (binary) : {}", bin_ip(mask));
+        let _ = writeln!(out, "");
+        let _ = writeln!(out, "  Class         : {}", classify(ip));
+    } else if ql.starts_with("contains ") {
+        let rest = &q["contains ".len()..];
+        let mut parts = rest.split_whitespace();
+        let ip_s = parts.next().unwrap_or("");
+        let cidr_s = parts.next().unwrap_or("");
+        let ip = match parse_ip(ip_s) {
+            Some(v) => v,
+            None => {
+                let _ = writeln!(out, "  Invalid IP: {ip_s}");
+                let _ = writeln!(out, "{sep}");
+                return out;
+            }
+        };
+        let mut cp = cidr_s.splitn(2, '/');
+        let net_ip = match parse_ip(cp.next().unwrap_or("")) {
+            Some(v) => v,
+            None => {
+                let _ = writeln!(out, "  Invalid network address in '{cidr_s}'");
+                let _ = writeln!(out, "{sep}");
+                return out;
+            }
+        };
+        let pfx: u8 = cp.next().and_then(|p| p.parse().ok()).unwrap_or(32);
+        let mask: u32 = if pfx == 0 { 0 } else { !0u32 << (32 - pfx) };
+        let yn = if (ip & mask) == (net_ip & mask) {
+            "YES — IP is in the subnet"
+        } else {
+            "NO — IP is outside the subnet"
+        };
+        let _ = writeln!(out, "  {} in {} : {yn}", fmt_ip(ip), cidr_s);
+    } else if ql.starts_with("split ") {
+        let rest = &q["split ".len()..];
+        let mut parts = rest.split_whitespace();
+        let cidr_s = parts.next().unwrap_or("");
+        let new_pfx_s = parts.next().unwrap_or("").trim_start_matches('/');
+        let mut cp = cidr_s.splitn(2, '/');
+        let base_ip = match parse_ip(cp.next().unwrap_or("")) {
+            Some(v) => v,
+            None => {
+                let _ = writeln!(out, "  Invalid base network IP");
+                let _ = writeln!(out, "{sep}");
+                return out;
+            }
+        };
+        let base_pfx: u8 = cp.next().and_then(|p| p.parse().ok()).unwrap_or(24);
+        let new_pfx: u8 = match new_pfx_s.parse::<u8>() {
+            Ok(p) if p > base_pfx && p <= 32 => p,
+            _ => {
+                let _ = writeln!(
+                    out,
+                    "  New prefix /{new_pfx_s} must be > /{base_pfx} and ≤ 32"
+                );
+                let _ = writeln!(out, "{sep}");
+                return out;
+            }
+        };
+        let base_mask: u32 = if base_pfx == 0 {
+            0
+        } else {
+            !0u32 << (32 - base_pfx)
+        };
+        let base_net = base_ip & base_mask;
+        let subnet_size: u64 = 1u64 << (32 - new_pfx);
+        let num_subnets: u64 = 1u64 << (new_pfx - base_pfx);
+        let show = num_subnets.min(16);
+        let usable = if new_pfx >= 31 {
+            subnet_size
+        } else {
+            subnet_size.saturating_sub(2)
+        };
+        let more = if num_subnets > 16 {
+            "  (showing first 16)"
+        } else {
+            ""
+        };
+        let _ = writeln!(
+            out,
+            "  Splitting {}/{base_pfx} into /{new_pfx} subnets",
+            fmt_ip(base_net)
+        );
+        let _ = writeln!(out, "  Total subnets  : {num_subnets}{more}");
+        let _ = writeln!(out, "  Usable hosts   : {usable} per subnet");
+        let _ = writeln!(out, "");
+        for i in 0..show {
+            let offset = (i * subnet_size) as u32;
+            let net = base_net.wrapping_add(offset);
+            let bcast = net.wrapping_add((subnet_size as u32).wrapping_sub(1));
+            let _ = writeln!(
+                out,
+                "  {}/{new_pfx}  —  broadcast {}",
+                fmt_ip(net),
+                fmt_ip(bcast)
+            );
+        }
+    } else if let Some(ip) = parse_ip(q) {
+        let _ = writeln!(out, "  IP address    : {}", fmt_ip(ip));
+        let _ = writeln!(out, "  Decimal       : {ip}");
+        let _ = writeln!(out, "  Hexadecimal   : {:08X}", ip);
+        let _ = writeln!(out, "  Binary        : {}", bin_ip(ip));
+        let _ = writeln!(out, "  Class         : {}", classify(ip));
+    } else if q.is_empty() {
+        let _ = writeln!(out, "  Commands:");
+        let _ = writeln!(out, "    <ip>/<prefix>              CIDR breakdown");
+        let _ = writeln!(
+            out,
+            "    <ip>                       IP info and classification"
+        );
+        let _ = writeln!(out, "    contains <ip> <cidr>       subnet membership test");
+        let _ = writeln!(
+            out,
+            "    split <cidr> /<prefix>     divide into subnets (show ≤16)"
+        );
+        let _ = writeln!(out, "  Examples:");
+        let _ = writeln!(out, "    hematite --net 192.168.1.0/24");
+        let _ = writeln!(out, "    hematite --net 10.0.0.5");
+        let _ = writeln!(out, "    hematite --net 'contains 10.0.0.5 10.0.0.0/24'");
+        let _ = writeln!(out, "    hematite --net 'split 10.0.0.0/16 /24'");
+    } else {
+        let _ = writeln!(out, "  Could not parse '{q}'.");
+        let _ = writeln!(out, "  Try: x.x.x.x/prefix, x.x.x.x, contains, or split.");
+    }
+
+    let _ = writeln!(out, "{sep}");
+    out
+}
+
+// ─── ASCII table ──────────────────────────────────────────────────────────────
+
+/// ASCII table reference — offline replacement for asciitable.com.
+pub fn ascii_calc(query: &str) -> String {
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+    let _ = writeln!(out, "{sep}");
+    let _ = writeln!(out, "  ASCII Table");
+    let _ = writeln!(out, "{sep}");
+    let q = query.trim();
+    let ql = q.to_lowercase();
+
+    fn ctrl_name(code: u8) -> (&'static str, &'static str) {
+        match code {
+            0 => ("NUL", "Null"),
+            1 => ("SOH", "Start of Heading"),
+            2 => ("STX", "Start of Text"),
+            3 => ("ETX", "End of Text"),
+            4 => ("EOT", "End of Transmission"),
+            5 => ("ENQ", "Enquiry"),
+            6 => ("ACK", "Acknowledge"),
+            7 => ("BEL", "Bell (\\a)"),
+            8 => ("BS", "Backspace (\\b)"),
+            9 => ("HT", "Horizontal Tab (\\t)"),
+            10 => ("LF", "Line Feed / newline (\\n)"),
+            11 => ("VT", "Vertical Tab (\\v)"),
+            12 => ("FF", "Form Feed (\\f)"),
+            13 => ("CR", "Carriage Return (\\r)"),
+            14 => ("SO", "Shift Out"),
+            15 => ("SI", "Shift In"),
+            16 => ("DLE", "Data Link Escape"),
+            17 => ("DC1", "Device Control 1 / XON"),
+            18 => ("DC2", "Device Control 2"),
+            19 => ("DC3", "Device Control 3 / XOFF"),
+            20 => ("DC4", "Device Control 4"),
+            21 => ("NAK", "Negative Acknowledge"),
+            22 => ("SYN", "Synchronous Idle"),
+            23 => ("ETB", "End of Transmission Block"),
+            24 => ("CAN", "Cancel"),
+            25 => ("EM", "End of Medium"),
+            26 => ("SUB", "Substitute (Ctrl+Z)"),
+            27 => ("ESC", "Escape"),
+            28 => ("FS", "File Separator"),
+            29 => ("GS", "Group Separator"),
+            30 => ("RS", "Record Separator"),
+            31 => ("US", "Unit Separator"),
+            127 => ("DEL", "Delete"),
+            _ => ("", ""),
+        }
+    }
+
+    fn print_header(out: &mut String) {
+        let _ = writeln!(
+            out,
+            "  {:<4} {:<6} {:<5} {:<10} Char / Name",
+            "Dec", "Hex", "Oct", "Binary"
+        );
+        let _ = writeln!(out, "  {}", "─".repeat(56));
+    }
+
+    fn show_entry(out: &mut String, code: u8) {
+        if code < 32 || code == 127 {
+            let (name, desc) = ctrl_name(code);
+            let _ = writeln!(
+                out,
+                "  {:<4} 0x{:02X}  {:03o}  {:08b}  {:<4}  {}",
+                code, code, code, code, name, desc
+            );
+        } else {
+            let _ = writeln!(
+                out,
+                "  {:<4} 0x{:02X}  {:03o}  {:08b}  '{}'",
+                code, code, code, code, code as char
+            );
+        }
+    }
+
+    let lookup: Option<u8> = if ql.starts_with("0x") {
+        u8::from_str_radix(q[2..].trim(), 16).ok()
+    } else if let Ok(n) = q.parse::<u8>() {
+        Some(n)
+    } else if q.chars().count() == 1 {
+        q.chars()
+            .next()
+            .and_then(|c| u8::try_from(c as u32).ok())
+            .filter(|&n| n < 128)
+    } else {
+        None
+    };
+
+    if let Some(code) = lookup {
+        print_header(&mut out);
+        show_entry(&mut out, code);
+    } else if ql == "list" {
+        print_header(&mut out);
+        for code in 0u8..=127 {
+            show_entry(&mut out, code);
+        }
+    } else if ql == "list printable" || ql == "printable" {
+        print_header(&mut out);
+        for code in 32u8..=126 {
+            show_entry(&mut out, code);
+        }
+    } else if ql == "list control" || ql == "control" || ql == "ctrl" {
+        print_header(&mut out);
+        for code in 0u8..32 {
+            show_entry(&mut out, code);
+        }
+        show_entry(&mut out, 127);
+    } else if !q.is_empty() {
+        let mut any = false;
+        for code in 0u8..=127 {
+            if code < 32 || code == 127 {
+                let (name, desc) = ctrl_name(code);
+                if name.to_lowercase().contains(ql.as_str())
+                    || desc.to_lowercase().contains(ql.as_str())
+                {
+                    if !any {
+                        print_header(&mut out);
+                    }
+                    show_entry(&mut out, code);
+                    any = true;
+                }
+            }
+        }
+        if !any {
+            let _ = writeln!(out, "  No control-character matches for '{q}'.");
+            let _ = writeln!(
+                out,
+                "  Tip: for printable chars try the character directly (e.g. hematite --ascii A)"
+            );
+        }
+    } else {
+        let _ = writeln!(out, "  Commands:");
+        let _ = writeln!(out, "    <decimal>          — lookup by code  (e.g. 65)");
+        let _ = writeln!(out, "    0x<hex>            — lookup by hex   (e.g. 0x41)");
+        let _ = writeln!(out, "    <char>             — lookup by char  (e.g. A)");
+        let _ = writeln!(out, "    list               — full 0–127 table");
+        let _ = writeln!(out, "    list printable     — printable chars 32–126");
+        let _ = writeln!(out, "    list control       — control chars 0–31 + 127");
+        let _ = writeln!(out, "    <keyword>          — search control char names");
+        let _ = writeln!(out, "  Examples:");
+        let _ = writeln!(
+            out,
+            "    hematite --ascii 65  |  hematite --ascii 0x1B  |  hematite --ascii A"
+        );
+        let _ = writeln!(
+            out,
+            "    hematite --ascii 'list printable'  |  hematite --ascii newline"
+        );
+    }
+
+    let _ = writeln!(out, "{sep}");
+    out
+}
+
+// ─── Keyboard shortcut cheatsheets ────────────────────────────────────────────
+
+/// Keyboard shortcut cheatsheets — instant offline reference for common tools.
+/// Replaces repeated browser searches for vim / VS Code / tmux / git / bash / Windows shortcuts.
+pub fn kbd_calc(query: &str) -> String {
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+    let _ = writeln!(out, "{sep}");
+    let _ = writeln!(out, "  Keyboard Shortcuts");
+    let _ = writeln!(out, "{sep}");
+    let q = query.trim();
+    let ql = q.to_lowercase();
+
+    // Each entry: ("## Section" marks a section header, "" desc) or ("keys", "desc")
+    const VIM: &[(&str, &str)] = &[
+        ("## Navigation", ""),
+        ("h  j  k  l", "← ↓ ↑ →  (character)"),
+        ("w / b / e", "next word / prev word / end of word"),
+        ("W / B / E", "same but WORD (whitespace-delimited)"),
+        ("0  ^  $", "line start (col 0) / first non-blank / line end"),
+        ("gg / G", "file top / file bottom"),
+        ("%", "jump to matching bracket ( ) [ ] { }"),
+        ("Ctrl+d / Ctrl+u", "scroll half-page down / up"),
+        ("Ctrl+f / Ctrl+b", "scroll full page down / up"),
+        ("H / M / L", "screen top / middle / bottom"),
+        ("{ / }", "prev / next paragraph (blank-line boundary)"),
+        ("## Insert Mode", ""),
+        ("i / a", "insert before / after cursor"),
+        ("I / A", "insert at line start / end"),
+        ("o / O", "new line below / above and insert"),
+        ("Esc / Ctrl+[", "return to Normal mode"),
+        (
+            "Ctrl+h / Ctrl+w",
+            "delete char / word backwards in Insert mode",
+        ),
+        ("## Editing", ""),
+        ("x / X", "delete char under / before cursor"),
+        ("dd / D", "delete line / delete to end of line"),
+        ("yy / Y", "yank (copy) line"),
+        ("p / P", "paste after / before cursor"),
+        ("u / Ctrl+r", "undo / redo"),
+        (".", "repeat last change"),
+        ("J", "join line below to current"),
+        (">> / <<", "indent / dedent line"),
+        ("~", "toggle case of char under cursor"),
+        ("## Operators + Motions", ""),
+        ("d{motion}", "delete: dw, d$, d3j, dap …"),
+        ("y{motion}", "yank:   yw, yip, y2k …"),
+        ("c{motion}", "change (delete + insert mode)"),
+        ("={motion}", "auto-indent"),
+        ("i) a) i] a] i} a}", "text objects: inside / around ( ] }"),
+        (
+            "iw aw",
+            "text objects: inner word / a word (includes space)",
+        ),
+        ("## Visual Mode", ""),
+        ("v / V / Ctrl+v", "char / line / block selection"),
+        ("o", "move to other end of selection"),
+        ("gv", "re-select last visual selection"),
+        ("## Search & Replace", ""),
+        ("/pattern  ?pattern", "search forward / backward"),
+        ("n / N", "next / previous match"),
+        ("* / #", "search word under cursor forward / backward"),
+        (
+            ":s/old/new/g",
+            "replace on current line (g = all occurrences)",
+        ),
+        (":%s/old/new/g", "replace in entire file"),
+        (":%s/old/new/gc", "replace with confirmation"),
+        ("## Files & Windows", ""),
+        (":w  :q  :wq  :q!", "save / quit / save+quit / force-quit"),
+        ("ZZ / ZQ", "save+quit / quit without saving"),
+        (":e filename", "open file"),
+        (":sp / :vs", "horizontal / vertical split"),
+        ("Ctrl+w h/j/k/l", "navigate splits"),
+        ("Ctrl+w s/v/=", "split horiz / vert / equalize"),
+        (":tabe  :tabn  :tabp", "new tab / next tab / prev tab"),
+        ("## Macros & Marks", ""),
+        (
+            "qa … q  @a  @@",
+            "record macro to a / play a / repeat last macro",
+        ),
+        (
+            "ma  `a  ''",
+            "set mark a / jump to mark a / jump to last position",
+        ),
+    ];
+
+    const VSCODE: &[(&str, &str)] = &[
+        ("## Navigation", ""),
+        ("Ctrl+P", "quick open file by name"),
+        ("Ctrl+Shift+P", "command palette"),
+        ("Ctrl+G", "go to line number"),
+        ("Ctrl+Tab", "cycle open editors"),
+        ("Alt+← / Alt+→", "navigate back / forward"),
+        ("Ctrl+Shift+O", "go to symbol in file"),
+        ("Ctrl+T", "go to symbol in workspace"),
+        ("F12", "go to definition"),
+        ("Alt+F12", "peek definition"),
+        ("Shift+F12", "find all references"),
+        ("## Editing", ""),
+        ("Alt+↑ / Alt+↓", "move line up / down"),
+        ("Shift+Alt+↑ / ↓", "copy line up / down"),
+        ("Ctrl+Shift+K", "delete line"),
+        ("Ctrl+Enter", "insert line below"),
+        ("Ctrl+Shift+Enter", "insert line above"),
+        ("Ctrl+/", "toggle line comment"),
+        ("Shift+Alt+A", "toggle block comment"),
+        ("Ctrl+]  / Ctrl+[", "indent / dedent selection"),
+        ("Shift+Alt+F", "format document"),
+        ("Ctrl+K  Ctrl+F", "format selection"),
+        ("F2", "rename symbol"),
+        ("Ctrl+.", "quick fix / lightbulb"),
+        ("## Multi-cursor & Selection", ""),
+        ("Alt+Click", "add cursor at click point"),
+        ("Ctrl+Alt+↑ / ↓", "add cursor above / below"),
+        ("Ctrl+D", "select next occurrence of selection"),
+        ("Ctrl+Shift+L", "select all occurrences of selection"),
+        ("Ctrl+K Ctrl+D", "skip current occurrence (with Ctrl+D)"),
+        ("Shift+Alt+→", "expand selection"),
+        ("Shift+Alt+←", "shrink selection"),
+        ("## Search", ""),
+        ("Ctrl+F", "find in file"),
+        ("Ctrl+H", "replace in file"),
+        ("Ctrl+Shift+F", "search across all files"),
+        ("Ctrl+Shift+H", "replace across all files"),
+        ("## View & Terminal", ""),
+        ("Ctrl+`", "toggle integrated terminal"),
+        ("Ctrl+Shift+`", "new terminal"),
+        ("Ctrl+B", "toggle sidebar"),
+        ("Ctrl+Shift+E", "explorer panel"),
+        ("Ctrl+Shift+G", "source control panel"),
+        ("Ctrl+\\", "split editor"),
+        ("Ctrl+1 / 2 / 3", "focus editor group 1 / 2 / 3"),
+        ("## Debug", ""),
+        ("F5", "start / continue debugging"),
+        ("F9", "toggle breakpoint"),
+        ("F10", "step over"),
+        ("F11 / Shift+F11", "step into / step out"),
+        ("Shift+F5", "stop debugging"),
+    ];
+
+    const TMUX: &[(&str, &str)] = &[
+        ("## Prefix (default Ctrl+B)", ""),
+        (
+            "Ctrl+B  then key…",
+            "the default prefix — press then release before the key",
+        ),
+        ("## Sessions", ""),
+        ("prefix d", "detach from session"),
+        ("prefix s", "list / switch sessions"),
+        ("prefix $", "rename current session"),
+        ("tmux new -s name", "create named session (CLI)"),
+        ("tmux attach -t name", "attach to named session (CLI)"),
+        ("tmux ls", "list sessions (CLI)"),
+        ("## Windows", ""),
+        ("prefix c", "create new window"),
+        ("prefix n / p", "next / previous window"),
+        ("prefix l", "last (most recent) window"),
+        ("prefix w", "interactive window list"),
+        ("prefix ,", "rename current window"),
+        ("prefix &", "close current window (confirm)"),
+        ("prefix 0–9", "switch to window N"),
+        ("## Panes", ""),
+        ("prefix %", "split pane vertically (left/right)"),
+        ("prefix \"", "split pane horizontally (top/bottom)"),
+        ("prefix x", "close current pane (confirm)"),
+        ("prefix arrows", "navigate between panes"),
+        ("prefix o", "cycle to next pane"),
+        ("prefix q", "show pane numbers; press number to jump"),
+        ("prefix z", "zoom/unzoom current pane (full screen)"),
+        ("prefix { / }", "swap pane with previous / next"),
+        ("prefix Ctrl+arrows", "resize pane in arrow direction"),
+        ("## Copy Mode", ""),
+        ("prefix [", "enter copy mode (Vi-style)"),
+        (
+            "Space / Enter",
+            "start selection / copy selection (Vi mode)",
+        ),
+        ("prefix ]", "paste from buffer"),
+        ("prefix =", "choose from buffer list"),
+        ("## Misc", ""),
+        ("prefix ?", "show all key bindings"),
+        ("prefix t", "show clock"),
+        ("prefix :", "enter tmux command prompt"),
+    ];
+
+    const GIT: &[(&str, &str)] = &[
+        ("## Status & Log", ""),
+        ("git status", "working tree status"),
+        ("git status -s", "short status"),
+        ("git log --oneline", "compact commit log"),
+        ("git log --oneline --graph --all", "visual branch graph"),
+        ("git diff", "unstaged changes"),
+        (
+            "git diff --staged",
+            "staged changes (what will be committed)",
+        ),
+        ("git show <hash>", "show a specific commit"),
+        ("git blame <file>", "who changed each line"),
+        ("## Staging & Committing", ""),
+        ("git add <file>", "stage a file"),
+        ("git add -p", "interactively stage hunks"),
+        ("git restore --staged <file>", "unstage a file"),
+        ("git restore <file>", "discard working-tree changes"),
+        ("git commit -m \"msg\"", "commit with message"),
+        ("git commit -am \"msg\"", "stage tracked files + commit"),
+        ("git commit --amend", "modify the last commit"),
+        (
+            "git commit --amend --no-edit",
+            "amend without changing message",
+        ),
+        ("## Branches", ""),
+        ("git branch", "list local branches"),
+        ("git switch -c <name>", "create and switch to new branch"),
+        ("git switch <branch>", "switch to branch"),
+        ("git branch -d <name>", "delete merged branch"),
+        ("git branch -D <name>", "force-delete branch"),
+        ("git merge <branch>", "merge branch into current"),
+        ("git rebase <branch>", "rebase current onto branch"),
+        ("git rebase -i HEAD~N", "interactive rebase last N commits"),
+        ("git cherry-pick <hash>", "apply a specific commit"),
+        ("## Remote", ""),
+        ("git push", "push to tracking remote"),
+        ("git push -u origin <branch>", "push and set upstream"),
+        (
+            "git push --force-with-lease",
+            "force push (safe — fails if remote changed)",
+        ),
+        ("git pull", "fetch + merge"),
+        ("git fetch --prune", "fetch and remove stale remote refs"),
+        ("## Undo", ""),
+        ("git reset HEAD~1", "undo last commit, keep changes staged"),
+        (
+            "git reset --hard HEAD~1",
+            "undo last commit and discard changes",
+        ),
+        ("git stash", "stash working-tree changes"),
+        ("git stash pop", "restore most recent stash"),
+        ("git stash list", "list stash entries"),
+        ("git reflog", "full history including resets (recovery)"),
+    ];
+
+    const BASH: &[(&str, &str)] = &[
+        ("## Cursor Movement", ""),
+        ("Ctrl+A", "beginning of line"),
+        ("Ctrl+E", "end of line"),
+        ("Alt+F / Alt+B", "move forward / backward one word"),
+        (
+            "Ctrl+XX",
+            "toggle between start of line and current position",
+        ),
+        ("## Editing", ""),
+        ("Ctrl+K", "cut from cursor to end of line"),
+        ("Ctrl+U", "cut from cursor to start of line"),
+        ("Ctrl+W", "cut word before cursor"),
+        ("Alt+D", "cut word after cursor"),
+        ("Ctrl+Y", "paste (yank) last cut text"),
+        ("Alt+Backspace", "delete word before cursor"),
+        ("Ctrl+H", "delete character before cursor"),
+        ("Ctrl+T", "swap current and previous character"),
+        ("Alt+T", "swap current and previous word"),
+        ("Alt+U / Alt+L", "uppercase / lowercase word"),
+        ("## History", ""),
+        ("Ctrl+R", "reverse-search history"),
+        ("Ctrl+S", "forward-search history (if not suspended)"),
+        ("Ctrl+P / Ctrl+N", "previous / next history entry"),
+        ("!!", "repeat last command"),
+        ("!<text>", "last command starting with <text>"),
+        ("!<N>", "run command number N from history"),
+        ("^old^new", "replace 'old' with 'new' in last command"),
+        ("Alt+.", "insert last argument of previous command"),
+        ("## Process Control", ""),
+        ("Ctrl+C", "interrupt (kill) current process"),
+        ("Ctrl+Z", "suspend process (resume with fg or bg)"),
+        ("Ctrl+D", "send EOF / logout if line is empty"),
+        ("Ctrl+L", "clear screen"),
+        ("## Completion", ""),
+        ("Tab", "complete path / command"),
+        ("Tab Tab", "list all completions"),
+        ("Alt+?", "list possible completions"),
+        ("Alt+*", "insert all completions"),
+        ("Ctrl+X Ctrl+E", "edit current line in $EDITOR"),
+    ];
+
+    const WINDOWS: &[(&str, &str)] = &[
+        ("## Window Management", ""),
+        ("Win+D", "show / hide desktop"),
+        ("Win+↑ / Win+↓", "maximize / restore-minimize"),
+        ("Win+← / Win+→", "snap left / snap right"),
+        ("Win+Shift+← / →", "move window to other monitor"),
+        ("Alt+F4", "close current window / app"),
+        ("Alt+Tab", "switch app (hold Alt to browse)"),
+        ("Win+Tab", "task view (virtual desktops)"),
+        ("Win+number", "launch / switch taskbar app by position"),
+        ("## Desktop & System", ""),
+        ("Win+L", "lock screen"),
+        ("Win+E", "open File Explorer"),
+        ("Win+R", "open Run dialog"),
+        ("Win+I", "open Settings"),
+        ("Win+S / Win+Q", "open Search"),
+        ("Win+X", "quick link menu (Device Manager, Terminal, etc.)"),
+        ("Win+V", "clipboard history (requires feature enabled)"),
+        ("Win+.", "emoji / symbol picker"),
+        ("Win+Pause", "system info"),
+        ("## Screenshots", ""),
+        (
+            "Win+Shift+S",
+            "snip & sketch — region / window / fullscreen",
+        ),
+        ("PrtSc", "copy full screenshot to clipboard"),
+        ("Alt+PrtSc", "copy active window to clipboard"),
+        ("Win+PrtSc", "save full screenshot to Pictures/Screenshots"),
+        ("## Task Manager & Clipboard", ""),
+        ("Ctrl+Shift+Esc", "open Task Manager directly"),
+        (
+            "Ctrl+Alt+Del",
+            "security screen (lock / task manager / sign out)",
+        ),
+        ("Ctrl+C / Ctrl+X / Ctrl+V", "copy / cut / paste"),
+        ("Ctrl+Z / Ctrl+Y", "undo / redo"),
+        ("## Virtual Desktops", ""),
+        ("Win+Ctrl+D", "create new virtual desktop"),
+        ("Win+Ctrl+F4", "close current virtual desktop"),
+        ("Win+Ctrl+← / →", "switch virtual desktop"),
+        ("## Accessibility", ""),
+        ("Win+= / Win+-", "magnifier zoom in / out"),
+        ("Win+Esc", "close magnifier"),
+        ("Win+U", "open Accessibility settings"),
+    ];
+
+    // Tool registry
+    let tools: &[(&str, &[(&str, &str)])] = &[
+        ("vim", VIM),
+        ("vscode", VSCODE),
+        ("tmux", TMUX),
+        ("git", GIT),
+        ("bash", BASH),
+        ("windows", WINDOWS),
+    ];
+
+    let (tool_name, filter) = if q.is_empty() {
+        ("", "")
+    } else {
+        let sp = q.find(char::is_whitespace).unwrap_or(q.len());
+        let t = &ql[..sp.min(ql.len())];
+        let f = if sp < q.len() { q[sp..].trim() } else { "" };
+        (t, f)
+    };
+
+    if q.is_empty() {
+        let _ = writeln!(out, "  Available cheatsheets:");
+        for (name, _) in tools {
+            let _ = writeln!(out, "    hematite --kbd {name}");
+        }
+        let _ = writeln!(out, "");
+        let _ = writeln!(out, "  Filter by keyword:");
+        let _ = writeln!(out, "    hematite --kbd 'vim search'");
+        let _ = writeln!(out, "    hematite --kbd 'git rebase'");
+    } else if let Some(&(_, shortcuts)) = tools.iter().find(|&&(n, _)| n == tool_name) {
+        let filter_lc = filter.to_lowercase();
+        let do_filter = !filter.is_empty();
+
+        if do_filter {
+            let _ = writeln!(out, "  [{tool_name}] filter: '{filter}'");
+            let _ = writeln!(out, "");
+            let mut last_section = "";
+            for (keys, desc) in shortcuts {
+                if keys.starts_with("## ") {
+                    last_section = &keys[3..];
+                    continue;
+                }
+                let keys_lc = keys.to_lowercase();
+                let desc_lc = desc.to_lowercase();
+                if keys_lc.contains(filter_lc.as_str()) || desc_lc.contains(filter_lc.as_str()) {
+                    if !last_section.is_empty() {
+                        let _ = writeln!(out, "  ─── {last_section}");
+                        last_section = "";
+                    }
+                    let _ = writeln!(out, "  {:<38}  {}", keys, desc);
+                }
+            }
+        } else {
+            let _ = writeln!(out, "  [{tool_name}]");
+            for (keys, desc) in shortcuts {
+                if keys.starts_with("## ") {
+                    let _ = writeln!(out, "");
+                    let _ = writeln!(
+                        out,
+                        "  ─── {} {}",
+                        &keys[3..],
+                        "─".repeat(40usize.saturating_sub(keys.len()))
+                    );
+                } else {
+                    let _ = writeln!(out, "  {:<38}  {}", keys, desc);
+                }
+            }
+        }
+    } else {
+        let _ = writeln!(out, "  Unknown tool '{tool_name}'.");
+        let _ = writeln!(out, "  Available: vim, vscode, tmux, git, bash, windows");
+    }
+
+    let _ = writeln!(out, "{sep}");
+    out
+}

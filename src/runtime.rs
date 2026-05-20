@@ -1015,6 +1015,10 @@ mod tests {
             http: None,
             mime: None,
             xml: None,
+            toml: None,
+            net: None,
+            ascii: None,
+            kbd: None,
             pdf_extract_helper: None,
             teleported_from: None,
         };
