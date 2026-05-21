@@ -1106,6 +1106,9 @@ mod tests {
             rust_patterns: None,
             event_driven: None,
             api_gateway: None,
+            database_adv: None,
+            networking_adv: None,
+            testing_ref: None,
             pdf_extract_helper: None,
             teleported_from: None,
         };

@@ -46271,3 +46271,706 @@ pub fn api_gateway_calc(query: &str) -> String {
     }
     out
 }
+
+// ── Wave 30: database_adv_calc ────────────────────────────────────────────────
+
+type DbAdvSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+
+fn s_db_indexing() -> &'static str {
+    "── Indexing ──
+B-tree index: default; balanced; O(log n) lookup; good for range queries
+Hash index: O(1) exact match; no range; PostgreSQL only for equality
+GIN index: inverted; full-text search, JSONB, arrays (PostgreSQL)
+GiST index: generalized; geometric, full-text, range types (PostgreSQL)
+BRIN (Block Range): very large tables with natural physical ordering (timestamps)
+Composite index: (col_a, col_b) satisfies queries on (a), (a, b); NOT (b) alone
+Covering index: INCLUDE extra columns so index-only scan avoids heap fetch
+  PostgreSQL: CREATE INDEX ON t(a) INCLUDE (b, c);
+Partial index: WHERE clause; smaller; faster; e.g. WHERE deleted_at IS NULL
+Expression index: on expression result; e.g. LOWER(email) for case-insensitive lookup
+Index selectivity: high cardinality = good candidate; low cardinality = skip (use bitmap)
+Unused index detection: pg_stat_user_indexes.idx_scan = 0 after sufficient traffic"
+}
+
+fn s_db_partitioning() -> &'static str {
+    "── Partitioning ──
+Range partitioning: by date range; most common for time-series, logs, orders
+  CREATE TABLE orders PARTITION BY RANGE (created_at);
+  CREATE TABLE orders_2025 PARTITION OF orders FOR VALUES FROM ('2025-01-01') TO ('2026-01-01');
+List partitioning: by discrete values — region, status, country code
+Hash partitioning: by hash(key) mod N — even distribution when no natural range
+Partition pruning: query planner skips irrelevant partitions when WHERE uses key
+Sub-partitioning: range -> hash for very large tables
+Partition maintenance: detach old partitions (no lock on parent), archive, reattach or drop
+  ALTER TABLE orders DETACH PARTITION orders_2024;
+Global vs local indexes: local (per partition) — faster maintenance; global — cross-partition queries
+MySQL partitioning: similar syntax; all partition keys must be in primary/unique keys
+Caveats: foreign keys to/from partitioned tables restricted in some DBs"
+}
+
+fn s_db_replication() -> &'static str {
+    "── Replication ──
+Physical (streaming) replication: byte-level WAL copy; replica is exact copy; read-only
+  PostgreSQL: primary_conninfo + recovery_target_timeline; pg_basebackup for initial copy
+  Lag monitoring: pg_stat_replication.write_lag / flush_lag / replay_lag
+Logical replication: row-level changes; selective tables; heterogeneous DB versions possible
+  PostgreSQL: CREATE PUBLICATION / SUBSCRIPTION; logical_replication_mode
+  Use case: cross-version upgrades, partial replicas, event streaming via Debezium
+MySQL replication: binlog-based; GTID (Global Transaction ID) for auto-positioning
+  Semi-synchronous: wait for at least 1 replica ACK before commit returns
+Read replicas: route read traffic; replication lag means eventually consistent reads
+Multi-master / active-active: conflicts possible; use with care; CRDTs help
+Failover: automatic via Patroni (PostgreSQL), MHA (MySQL), or managed cloud service
+RPO/RTO: RPO = max data loss; RTO = max downtime; synchronous rep -> RPO ~= 0"
+}
+
+fn s_db_query_opt() -> &'static str {
+    "── Query Optimization ──
+EXPLAIN ANALYZE: actual rows, loops, cost; look for Seq Scan on large tables
+  Rows estimate vs actual: large divergence -> stale statistics -> ANALYZE
+  Seq Scan acceptable on small tables; alarming on millions of rows with WHERE
+Index scan types: Index Scan (random I/O), Index Only Scan (fastest), Bitmap Index Scan (batch)
+Nested loop join: fast when inner side is small and indexed; slow for large tables
+Hash join: best for large unsorted equijoins; requires memory (work_mem)
+Merge join: sorted inputs; efficient for pre-sorted data or sort+merge
+work_mem: per-sort/hash; set per query: SET work_mem = '256MB'; affects multiple ops per query
+Statistics: pg_statistic; update with ANALYZE; autovacuum does this automatically
+  Increase stats target: ALTER TABLE t ALTER COLUMN c SET STATISTICS 500;
+N+1 query: detect via query count spike in APM; fix with JOIN or eager loading
+Materialized views: precompute expensive JOIN/AGG; refresh manually or concurrently
+  REFRESH MATERIALIZED VIEW CONCURRENTLY mv_name;  -- no lock, needs unique index
+CTEs (WITH): may or may not be optimization fence; in PG 12+ they inline by default
+Window functions: OVER (PARTITION BY ... ORDER BY ...); avoids self-join for running totals"
+}
+
+fn s_db_transactions() -> &'static str {
+    "── Transactions & Concurrency ──
+Isolation levels: Read Uncommitted / Read Committed / Repeatable Read / Serializable
+  PostgreSQL default: Read Committed; MySQL InnoDB default: Repeatable Read
+  Serializable Snapshot Isolation (SSI): PostgreSQL 9.1+; detects dangerous cycles
+MVCC (Multi-Version Concurrency Control): readers don't block writers; each tx sees snapshot
+  Dead tuples: vacuum reclaims; autovacuum threshold = 50 + 0.2 * table size
+  Transaction ID wraparound: monitor age(relfrozenxid) < 1.5B; VACUUM FREEZE
+Deadlock: two txs each waiting for the other's lock; DB detects and aborts one
+  Prevention: acquire locks in consistent order; keep transactions short
+  Monitoring: pg_locks JOIN pg_stat_activity; check wait_event_type = 'Lock'
+Optimistic concurrency: version column; check-and-update; no lock held between read+write
+  UPDATE t SET val=?, version=version+1 WHERE id=? AND version=?  -- 0 rows = conflict
+Pessimistic: SELECT ... FOR UPDATE; blocks other writers; use sparingly
+Advisory locks: pg_try_advisory_lock(key) -- application-level named locks; fast
+Two-phase commit (2PC): PREPARE TRANSACTION / COMMIT PREPARED -- distributed atomicity"
+}
+
+fn s_db_maintenance() -> &'static str {
+    "── Maintenance & Operations ──
+Vacuum (PostgreSQL): reclaim dead tuples; VACUUM ANALYZE; VACUUM FULL (lock, compacts)
+  autovacuum: always-on; tune autovacuum_vacuum_scale_factor and cost_delay
+Bloat monitoring: pgstattuple extension; SELECT * FROM pgstattuple('table_name');
+Connection pooling: PgBouncer (session/transaction/statement mode) or pgpool-II
+  Transaction mode: most efficient; stateless; works with most ORMs
+  Max connections: PostgreSQL default 100; each connection ~5 MB RAM
+Backup: pg_dump (logical, single DB) / pg_basebackup (physical, whole cluster)
+  Point-in-time recovery (PITR): base backup + WAL archive; restore to any past timestamp
+MySQL: mysqldump / xtrabackup (hot physical backup); binlog for PITR
+Slow query log: log_min_duration_statement = 1000 (ms); pg_stat_statements extension
+  SELECT query, calls, mean_exec_time FROM pg_stat_statements ORDER BY mean_exec_time DESC;
+Index maintenance: REINDEX CONCURRENTLY; no lock in PG 12+
+Table statistics: pg_stat_user_tables -- seq_scan, idx_scan, n_dead_tup, last_vacuum
+Schema migrations: avoid long locks; prefer non-blocking patterns (add nullable col, backfill, set NOT NULL)"
+}
+
+const DB_ADV_SECTIONS: &[DbAdvSection] = &[
+    (
+        "indexing",
+        &[
+            "index",
+            "btree",
+            "gin",
+            "gist",
+            "brin",
+            "covering",
+            "partial-index",
+            "expression-index",
+            "composite",
+        ],
+        s_db_indexing,
+    ),
+    (
+        "partitioning",
+        &[
+            "partition",
+            "range-partition",
+            "list-partition",
+            "hash-partition",
+            "pruning",
+            "sharding",
+        ],
+        s_db_partitioning,
+    ),
+    (
+        "replication",
+        &[
+            "replica",
+            "streaming",
+            "logical-replication",
+            "failover",
+            "wal",
+            "binlog",
+            "gtid",
+            "patroni",
+            "rpo",
+            "rto",
+        ],
+        s_db_replication,
+    ),
+    (
+        "query-opt",
+        &[
+            "explain",
+            "query-plan",
+            "seq-scan",
+            "hash-join",
+            "nested-loop",
+            "statistics",
+            "work-mem",
+            "materialized-view",
+            "cte",
+            "window",
+        ],
+        s_db_query_opt,
+    ),
+    (
+        "transactions",
+        &[
+            "mvcc",
+            "isolation",
+            "deadlock",
+            "serializable",
+            "vacuum",
+            "optimistic",
+            "pessimistic",
+            "advisory-lock",
+            "two-phase",
+        ],
+        s_db_transactions,
+    ),
+    (
+        "maintenance",
+        &[
+            "pgbouncer",
+            "connection-pool",
+            "bloat",
+            "pg-dump",
+            "pg-basebackup",
+            "pitr",
+            "slow-query",
+            "autovacuum",
+            "migration",
+        ],
+        s_db_maintenance,
+    ),
+];
+
+pub fn database_adv_calc(query: &str) -> String {
+    let q = query.trim().to_lowercase();
+    if q.is_empty() || q == "list" || q == "help" {
+        let topics: Vec<&str> = DB_ADV_SECTIONS.iter().map(|(n, _, _)| *n).collect();
+        return format!(
+            "database-adv topics: {}\nUse: --database-adv <topic>  or  --database-adv all",
+            topics.join(", ")
+        );
+    }
+    if q == "all" {
+        return DB_ADV_SECTIONS
+            .iter()
+            .map(|(_, _, f)| f())
+            .collect::<Vec<_>>()
+            .join("\n\n");
+    }
+    for (name, aliases, func) in DB_ADV_SECTIONS {
+        if q == *name || aliases.iter().any(|a| q == *a || q.contains(a)) {
+            return func().to_string();
+        }
+    }
+    format!(
+        "No topic found for '{}'. Try: --database-adv list",
+        query.trim()
+    )
+}
+
+// ── Wave 30: networking_adv_calc ──────────────────────────────────────────────
+
+type NetAdvSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+
+fn s_net_subnetting() -> &'static str {
+    "── Subnetting & CIDR ──
+CIDR notation: IP/prefix -- 192.168.1.0/24 = 256 addresses, 254 usable
+  /30 = 4 addr (2 usable) -- point-to-point links
+  /29 = 8 addr (6 usable), /28 = 16/14, /27 = 32/30, /26 = 64/62
+  /25 = 128/126, /24 = 256/254, /23 = 512/510, /22 = 1024/1022
+  /16 = 65536/65534, /8 = 16M addresses
+Subnetting: divide a network into smaller blocks
+  Given 10.0.0.0/8, need 200 subnets of 500 hosts:
+    500 hosts -> /23 (512 addr); 200 subnets of /23 within /8 -- plenty of space
+VLSM (Variable Length Subnet Masking): different subnet sizes from same block
+Private ranges (RFC 1918): 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16
+  Link-local: 169.254.0.0/16 (APIPA); Loopback: 127.0.0.0/8
+Supernetting (route aggregation): combine /24s into /23 when they share prefix
+  203.0.113.0/24 + 203.0.114.0/24 can aggregate if aligned on boundary"
+}
+
+fn s_net_routing() -> &'static str {
+    "── Routing Protocols ──
+Static routes: manually configured; no overhead; no convergence; maintenance burden
+Default route: 0.0.0.0/0 -- matches everything; lowest specificity
+Longest prefix match: router always uses most specific matching route
+OSPF (Open Shortest Path First): link-state; Dijkstra SPF; areas (area 0 = backbone)
+  LSA types: Type 1 (Router), Type 2 (Network), Type 3 (Summary), Type 5 (External)
+  Metric: cost = reference_bw / interface_bw; default ref 100 Mbps (use 1000/10000 for GigE)
+  Convergence: fast; neighbor adjacency via Hello packets; dead interval = 4x hello
+EIGRP: Cisco proprietary; DUAL algorithm; feasible successor for fast failover
+BGP (Border Gateway Protocol): path-vector; EGP for internet routing
+  eBGP: between AS; iBGP: within AS (full mesh or route reflector)
+  Attributes: WEIGHT (local, highest) / LOCAL_PREF (within AS, highest wins) /
+              AS_PATH (shortest) / MED (suggest to neighbor, lowest wins)
+  Community: 32-bit tag; well-known: NO_EXPORT, NO_ADVERTISE
+  Route reflector: avoids iBGP full mesh; RR client learns all routes via RR
+RIP: distance-vector; hop count max 15; slow convergence; not recommended"
+}
+
+fn s_net_vlan() -> &'static str {
+    "── VLANs & Switching ──
+VLAN: logical segmentation; 802.1Q tag (12-bit VID, 0-4095; 1=default, 1002-1005 reserved)
+Access port: single VLAN; untagged; for end devices
+Trunk port: multiple VLANs tagged; native VLAN untagged; for switch-to-switch/router
+  switchport mode trunk; switchport trunk allowed vlan 10,20,30
+Router-on-a-stick: single physical link; subinterfaces per VLAN; not scalable
+Layer 3 switch: SVIs (Switched Virtual Interfaces) for inter-VLAN routing; faster
+STP (Spanning Tree Protocol): loop prevention; elects root bridge (lowest bridge ID)
+  Port states: Blocking -> Listening -> Learning -> Forwarding (50s default)
+  RSTP (802.1w): faster convergence; port roles: Root, Designated, Alternate, Backup
+  MSTP (802.1s): multiple STP instances per VLAN group
+VTP (VLAN Trunking Protocol): propagates VLAN config; VTP v3 for extended VLANs
+  Danger: VTP server with higher revision number wipes VLAN database on switch join
+LACP (802.3ad): link aggregation; active/passive modes; load balancing by src-dst IP/MAC"
+}
+
+fn s_net_qos() -> &'static str {
+    "── QoS (Quality of Service) ──
+DSCP (Differentiated Services Code Point): 6-bit field in IP header; 64 values
+  Expedited Forwarding (EF): DSCP 46 (0b101110); for VoIP/real-time; low latency
+  Assured Forwarding (AF): AF11-AF43; 4 classes x 3 drop precedences
+    AF41 (DSCP 34) video; AF21 (DSCP 18) interactive data; AF11 (DSCP 10) general data
+  Class Selector (CS): backward compat with IP Precedence; CS0-CS7
+Queuing mechanisms:
+  FIFO: simple; tail-drop on overflow; no prioritization
+  WFQ (Weighted Fair Queuing): fair bandwidth share; automatic
+  CBWFQ (Class-Based WFQ): assign bandwidth to traffic classes; guarantees
+  LLQ (Low Latency Queuing): strict priority queue for voice + CBWFQ for rest
+  WRR (Weighted Round Robin): weights determine bandwidth share
+Shaping vs Policing:
+  Shaping: buffer excess; smooth bursts; delays packets; outbound only
+  Policing: drop excess; enforce hard limit; ingress + egress; marks or drops
+WRED (Weighted Random Early Detection): probabilistic drop before queue full;
+  higher drop probability for lower DSCP; avoids TCP global synchronization"
+}
+
+fn s_net_nat() -> &'static str {
+    "── NAT & Firewalls ──
+NAT (Network Address Translation): hides private IPs behind public IP
+  Static NAT: 1:1 private<->public mapping; inbound connections work
+  Dynamic NAT: pool of public IPs; no inbound initiation from outside
+  PAT (Port Address Translation) / NAT Overload: many:1; tracks by src port; most common
+    ip nat inside source list ACL interface GigE0/1 overload
+  NAT64: IPv6 -> IPv4 translation; for IPv6-only clients reaching IPv4 servers
+Stateful firewall: tracks connection state; allows return traffic automatically
+  ALLOW: TCP from inside initiated connections; DROP: unsolicited inbound
+Stateless (ACL): checks each packet independently; must permit both directions
+  ip access-list extended OUTSIDE_IN
+    permit tcp any host 10.0.0.5 eq 443
+    permit established  -- permits return TCP (ACK bit set)
+    deny ip any any log
+Zone-based firewall: define zones; policy between zones; default deny inter-zone
+iptables / nftables: Linux packet filter; tables (filter/nat/mangle) + chains (INPUT/OUTPUT/FORWARD)
+  iptables -A INPUT -p tcp --dport 22 -j ACCEPT
+  nftables: modern replacement; atomic rule sets; better performance"
+}
+
+fn s_net_tunneling() -> &'static str {
+    "── Tunneling & VPN ──
+IPsec: suite -- IKE (key exchange) + ESP (encrypt+auth) or AH (auth only)
+  IKEv2: faster re-key; MOBIKE for roaming; preferred over IKEv1
+  Tunnel mode: full IP packet encapsulated; for site-to-site VPN
+  Transport mode: payload only; for host-to-host; used with GRE
+  ESP + tunnel mode: encrypt original packet; add new IP header
+GRE (Generic Routing Encapsulation): multiprotocol; point-to-point; not encrypted alone
+  GRE over IPsec: encapsulate multicast routing (OSPF/EIGRP) through IPsec tunnel
+WireGuard: modern VPN; UDP; ChaCha20-Poly1305; 4000 LoC kernel module; fast handshake
+  wg genkey | tee privatekey | wg pubkey > publickey
+  Simple peer config: [Peer] PublicKey = ...; AllowedIPs = 10.0.0.0/24; Endpoint = host:51820
+SSL/TLS VPN: OpenVPN (TLS over UDP/TCP); works through NAT/firewalls; client cert
+MPLS: label-based forwarding; LSR (Label Switch Router); LDP for label distribution
+  MPLS VPN (L3VPN): VRF per customer; route distinguisher (RD) makes routes unique
+  MPLS TE (Traffic Engineering): explicit paths; avoid congestion; RSVP signaling
+SD-WAN: software-defined; overlay over broadband/MPLS/LTE; centralized policy"
+}
+
+const NET_ADV_SECTIONS: &[NetAdvSection] = &[
+    (
+        "subnetting",
+        &[
+            "cidr",
+            "vlsm",
+            "subnet",
+            "prefix",
+            "rfc1918",
+            "private-range",
+            "supernet",
+            "aggregation",
+        ],
+        s_net_subnetting,
+    ),
+    (
+        "routing",
+        &[
+            "ospf",
+            "bgp",
+            "eigrp",
+            "rip",
+            "static-route",
+            "default-route",
+            "longest-prefix",
+            "route-reflector",
+            "as-path",
+            "local-pref",
+        ],
+        s_net_routing,
+    ),
+    (
+        "vlan",
+        &[
+            "802.1q",
+            "trunk",
+            "access-port",
+            "stp",
+            "rstp",
+            "lacp",
+            "vtp",
+            "layer3-switch",
+            "svi",
+            "inter-vlan",
+        ],
+        s_net_vlan,
+    ),
+    (
+        "qos",
+        &[
+            "dscp",
+            "dscp-marking",
+            "queuing",
+            "shaping",
+            "policing",
+            "wred",
+            "llq",
+            "cbwfq",
+            "wfq",
+            "expedited-forwarding",
+        ],
+        s_net_qos,
+    ),
+    (
+        "nat",
+        &[
+            "pat",
+            "nat-overload",
+            "stateful",
+            "iptables",
+            "nftables",
+            "acl",
+            "zone-based",
+            "nat64",
+            "firewall-rule",
+        ],
+        s_net_nat,
+    ),
+    (
+        "tunneling",
+        &[
+            "ipsec",
+            "ikev2",
+            "wireguard",
+            "gre",
+            "ssl-vpn",
+            "openvpn",
+            "mpls",
+            "sd-wan",
+            "l3vpn",
+            "vrf",
+        ],
+        s_net_tunneling,
+    ),
+];
+
+pub fn networking_adv_calc(query: &str) -> String {
+    let q = query.trim().to_lowercase();
+    if q.is_empty() || q == "list" || q == "help" {
+        let topics: Vec<&str> = NET_ADV_SECTIONS.iter().map(|(n, _, _)| *n).collect();
+        return format!(
+            "networking-adv topics: {}\nUse: --networking-adv <topic>  or  --networking-adv all",
+            topics.join(", ")
+        );
+    }
+    if q == "all" {
+        return NET_ADV_SECTIONS
+            .iter()
+            .map(|(_, _, f)| f())
+            .collect::<Vec<_>>()
+            .join("\n\n");
+    }
+    for (name, aliases, func) in NET_ADV_SECTIONS {
+        if q == *name || aliases.iter().any(|a| q == *a || q.contains(a)) {
+            return func().to_string();
+        }
+    }
+    format!(
+        "No topic found for '{}'. Try: --networking-adv list",
+        query.trim()
+    )
+}
+
+// ── Wave 30: testing_ref_calc ─────────────────────────────────────────────────
+
+type TestSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+
+fn s_test_strategy() -> &'static str {
+    "── Testing Strategy ──
+Test pyramid: many unit tests -> fewer integration -> few e2e/UI tests
+  Unit: fast, isolated, deterministic; mock external deps; run on every save
+  Integration: test component boundaries together; DB, HTTP, message queue
+  E2E: full user flow; slow, flaky, expensive; automate happy paths only
+TDD (Test-Driven Development): Red -> Green -> Refactor
+  Write failing test first; write minimum code to pass; then clean up
+  Benefits: forces design clarity; built-in regression safety net
+BDD (Behavior-Driven Development): Given / When / Then notation (Cucumber, Gherkin)
+ATDD (Acceptance TDD): acceptance criteria as executable tests with stakeholders
+Test coverage: line coverage is a vanity metric; branch/condition coverage more meaningful
+  Target: 80% branch coverage on business logic; 100% on critical paths
+  What NOT to cover: generated code, framework glue, simple getters/setters
+Mutation testing: modify code (mutants) -> see if tests catch the change
+  Tools: cargo-mutants (Rust), PIT (Java), Stryker (JS)
+  High coverage + many surviving mutants = weak test suite"
+}
+
+fn s_test_unit() -> &'static str {
+    "── Unit Testing ──
+Isolation: each test exercises one function/method with controlled inputs
+  Arrange: set up test data and mocks
+  Act: call the unit under test
+  Assert: verify outputs and side effects
+Test doubles:
+  Stub: returns canned responses; no verification
+  Mock: verifies interactions were called correctly
+  Fake: lightweight working implementation (in-memory DB)
+  Spy: wraps real implementation; records calls
+Property-based testing: generate random inputs to find edge cases
+  Rust: proptest, quickcheck -- define invariants instead of examples
+  Python: Hypothesis -- finds minimal failing example (shrinking)
+  assert forall x in range: sort(x) == sorted(x)
+Snapshot testing: capture output; fail on unexpected change; useful for serialization, HTML
+  Rust: insta crate -- cargo insta review to update snapshots
+Parameterized tests: DRY test same logic with different inputs
+  Rust: #[rstest] with fixtures; Python: @pytest.mark.parametrize"
+}
+
+fn s_test_integration() -> &'static str {
+    "── Integration Testing ──
+Testcontainers: spin up real Docker containers (Postgres, Redis, Kafka) in tests
+  Rust: testcontainers crate; Java: Testcontainers Java; Python: testcontainers-python
+  Auto lifecycle: container starts before test, stops after; ephemeral, parallel-safe
+Database integration tests:
+  Use real DB with a test transaction that rolls back after each test (fast cleanup)
+  Or use Docker container per test run; seed with fixtures
+HTTP integration tests: axum::test_helpers / actix_web::test; mock external services
+  wiremock (Rust), WireMock (Java/Python) -- stub HTTP servers for 3rd party APIs
+Contract testing: verify API producer/consumer agreement
+  Pact: consumer-driven contract; consumer defines interactions; provider verifies
+  Ensures frontend and backend stay in sync across independent deployments
+Message queue testing: embed broker (e.g. TestkafkaContainers) or use in-memory mode
+Environment parity: test DB schema = production DB schema; no schema drift
+  Use migrations (sqlx migrate, Alembic, Flyway) -- same migrations run in tests"
+}
+
+fn s_test_e2e() -> &'static str {
+    "── End-to-End & UI Testing ──
+Playwright: cross-browser (Chromium/Firefox/WebKit); auto-waits; reliable locators
+  npx playwright test; test.ts files; locator() over CSS selectors
+  Trace viewer: record and replay test runs; video + screenshot on failure
+  API testing built-in: request.get/post without browser for setup/teardown
+Cypress: browser-only; time-travel debugging; good DX for frontend teams
+  cy.visit('/'); cy.get('[data-testid=btn]').click(); cy.contains('Success')
+Selenium: mature; multi-language; WebDriver protocol; slower than Playwright
+Page Object Model: encapsulate page selectors in a class; tests call methods not selectors
+  class LoginPage { async login(u, p) { await page.fill('#user', u); ... } }
+Test data management: factories (FactoryBot, Factory Boy) over fixtures for flexibility
+Flakiness mitigation:
+  Explicit waits over sleep; waitForSelector, waitForResponse
+  Retry logic for transient failures (3 attempts with jitter)
+  Deterministic test IDs (data-testid) over text or CSS structure
+Visual regression: Percy, Chromatic, Playwright screenshots -- pixel-diff snapshots"
+}
+
+fn s_test_performance() -> &'static str {
+    "── Performance & Load Testing ──
+Load test: expected normal/peak load; verify response time SLAs hold
+Stress test: beyond normal; find breaking point; observe failure mode
+Soak test: normal load for extended duration (hours/days); catch memory leaks
+Spike test: sudden traffic surge; verify autoscaling or graceful degradation
+Tools:
+  k6: JS scripts; CLI; thresholds built in; k6 cloud for distributed
+    http.get(url); check(res, {'status 200': r => r.status === 200}); sleep(1)
+    thresholds: { http_req_duration: ['p(95)<500'] }
+  Gatling: Scala DSL; high throughput simulation; HTML reports
+  Locust: Python; define user behavior as class; web UI; distributed mode
+  wrk/wrk2: raw HTTP benchmarking; no scripting; good for baseline
+  Apache JMeter: GUI + XML; enterprise; many plugins
+Metrics to capture: p50/p95/p99 latency, throughput (req/s), error rate, saturation
+Benchmark in CI: track regression per commit; alert if p99 degrades >10%
+  Rust: cargo bench (criterion); Python: pytest-benchmark"
+}
+
+fn s_test_mocking() -> &'static str {
+    "── Mocking & Test Doubles ──
+Rust mocking:
+  mockall: #[automock]; set expectations with .expect_method().returning(||...)
+  mockito: HTTP mock server for outbound HTTP; starts on random port
+  wiremock-rs: expressive HTTP stubbing; .mount(&server) in tests
+Python mocking:
+  unittest.mock: @patch decorator; MagicMock; assert_called_once_with()
+  pytest-mock: mocker.patch fixture; cleaner than @patch nesting
+  responses: mock requests library; @responses.activate; responses.add(GET, url, json=...)
+  freezegun: mock datetime.now(); deterministic time-dependent tests
+JavaScript mocking:
+  jest.fn() / jest.spyOn(); mockResolvedValue / mockRejectedValue
+  msw (Mock Service Worker): intercepts real fetch/XHR at service worker level
+  nock: HTTP interceptor for Node; nock('http://api.com').get('/').reply(200, {})
+Dependency injection: design code to accept dependencies as args -> easily swap with fakes
+  Prefer interfaces/traits over concrete types in function signatures
+Avoid over-mocking: mock at system boundaries (HTTP, DB, queue), not internal helpers"
+}
+
+const TEST_SECTIONS: &[TestSection] = &[
+    (
+        "strategy",
+        &[
+            "test-pyramid",
+            "tdd",
+            "bdd",
+            "atdd",
+            "coverage",
+            "mutation-testing",
+            "mutation",
+        ],
+        s_test_strategy,
+    ),
+    (
+        "unit",
+        &[
+            "unit-test",
+            "stub",
+            "fake",
+            "spy",
+            "property-based",
+            "snapshot",
+            "parameterized",
+            "proptest",
+            "quickcheck",
+            "hypothesis",
+        ],
+        s_test_unit,
+    ),
+    (
+        "integration",
+        &[
+            "testcontainers",
+            "contract",
+            "pact",
+            "wiremock",
+            "integration-test",
+            "db-test",
+            "http-test",
+            "test-rollback",
+        ],
+        s_test_integration,
+    ),
+    (
+        "e2e",
+        &[
+            "playwright",
+            "cypress",
+            "selenium",
+            "page-object",
+            "visual-regression",
+            "flakiness",
+            "end-to-end",
+            "ui-test",
+        ],
+        s_test_e2e,
+    ),
+    (
+        "performance",
+        &[
+            "load-test",
+            "stress-test",
+            "soak-test",
+            "spike-test",
+            "k6",
+            "gatling",
+            "locust",
+            "jmeter",
+            "benchmark",
+            "latency-test",
+        ],
+        s_test_performance,
+    ),
+    (
+        "mocking",
+        &[
+            "mockall",
+            "mockito",
+            "responses",
+            "freezegun",
+            "msw",
+            "nock",
+            "dependency-injection",
+            "test-double",
+        ],
+        s_test_mocking,
+    ),
+];
+
+pub fn testing_ref_calc(query: &str) -> String {
+    let q = query.trim().to_lowercase();
+    if q.is_empty() || q == "list" || q == "help" {
+        let topics: Vec<&str> = TEST_SECTIONS.iter().map(|(n, _, _)| *n).collect();
+        return format!(
+            "testing-ref topics: {}\nUse: --testing-ref <topic>  or  --testing-ref all",
+            topics.join(", ")
+        );
+    }
+    if q == "all" {
+        return TEST_SECTIONS
+            .iter()
+            .map(|(_, _, f)| f())
+            .collect::<Vec<_>>()
+            .join("\n\n");
+    }
+    for (name, aliases, func) in TEST_SECTIONS {
+        if q == *name || aliases.iter().any(|a| q == *a || q.contains(a)) {
+            return func().to_string();
+        }
+    }
+    format!(
+        "No topic found for '{}'. Try: --testing-ref list",
+        query.trim()
+    )
+}

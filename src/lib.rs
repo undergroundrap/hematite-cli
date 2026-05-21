@@ -2010,6 +2010,30 @@ pub struct CliCockpit {
 
     #[arg(
         long,
+        help_heading = "Developer Toolkit",
+        value_name = "QUERY",
+        help = "Advanced database reference — offline replacement for PostgreSQL/MySQL docs tabs. Topics: indexing, partitioning, replication, query-opt, transactions, maintenance. Aliases: btree, gin, explain, mvcc, pgbouncer, pitr, vacuum, patroni, and more. Examples: hematite --database-adv indexing | hematite --database-adv explain | hematite --database-adv mvcc | hematite --database-adv all"
+    )]
+    pub database_adv: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Developer Toolkit",
+        value_name = "QUERY",
+        help = "Advanced networking reference — offline replacement for Cisco/networking bookmarks. Topics: subnetting, routing, vlan, qos, nat, tunneling. Aliases: cidr, ospf, bgp, stp, dscp, ipsec, wireguard, vrf, and more. Examples: hematite --networking-adv subnetting | hematite --networking-adv ospf | hematite --networking-adv wireguard | hematite --networking-adv all"
+    )]
+    pub networking_adv: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Developer Toolkit",
+        value_name = "QUERY",
+        help = "Software testing reference — offline replacement for testing docs and blogs. Topics: strategy, unit, integration, e2e, performance, mocking. Aliases: tdd, bdd, playwright, k6, testcontainers, mockall, pact, snapshot, and more. Examples: hematite --testing-ref strategy | hematite --testing-ref playwright | hematite --testing-ref k6 | hematite --testing-ref all"
+    )]
+    pub testing_ref: Option<String>,
+
+    #[arg(
+        long,
         help_heading = "Math & Science",
         value_name = "QUERY",
         help = "Lorem ipsum generator — offline replacement for lipsum.com. Commands: (bare) or <N> = N paragraphs (default 1); words <N> = N words; sentences <N> = N sentences. Examples: hematite --lorem | hematite --lorem 3 | hematite --lorem 'words 50' | hematite --lorem 'sentences 5'"
