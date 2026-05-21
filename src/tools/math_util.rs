@@ -44636,3 +44636,1638 @@ pub fn security_scan_calc(query: &str) -> String {
     }
     out
 }
+
+// ── Wave 29 functions ─────────────────────────────────────────────────────────
+
+type MlSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+
+fn s_ml_fundamentals() -> &'static str {
+    "\
+  ML Fundamentals:
+  Types of learning:
+    Supervised:   labeled data → predict labels (classification, regression)
+    Unsupervised: no labels → find structure (clustering, dimensionality reduction)
+    Semi-supervised: few labels + much unlabeled data
+    Reinforcement learning: agent + environment + reward signal
+    Self-supervised: generate labels from data (next token, masked image patches)
+
+  Bias-Variance tradeoff:
+    High bias (underfitting): model too simple; high train + test error
+    High variance (overfitting): model too complex; low train, high test error
+    Sweet spot: enough capacity + regularization + sufficient data
+    Cross-validation: k-fold CV estimates generalization error
+
+  Train/Val/Test split:
+    Train: fit model parameters
+    Validation: tune hyperparameters; model selection
+    Test: final unbiased evaluation (touch only once)
+    Leakage: data from future or test leaks into train → inflated results
+    Stratified split: preserve class distribution (for imbalanced datasets)
+
+  Loss functions:
+    Regression: MSE (mean squared error), MAE (mean absolute error), Huber
+    Binary classification: binary cross-entropy (log loss)
+    Multi-class: categorical cross-entropy
+    Ranking: triplet loss, contrastive loss
+    Generative: ELBO (VAE), adversarial (GAN)
+
+  Metrics:
+    Classification: accuracy, precision, recall, F1, AUC-ROC, AUC-PR
+    Regression: RMSE, MAE, R², MAPE
+    Confusion matrix: TP, FP, FN, TN
+    Class imbalance: use F1, AUC-PR; never just accuracy
+"
+}
+
+fn s_ml_models() -> &'static str {
+    "\
+  Model Types:
+  Classical ML (sklearn):
+    Linear: LinearRegression, LogisticRegression, Ridge, Lasso, ElasticNet
+    Trees: DecisionTree, RandomForest, GradientBoosting, XGBoost, LightGBM
+    Kernel: SVM (kernel trick); SVR for regression
+    Neighbors: KNN (k-nearest neighbors)
+    Probabilistic: Naive Bayes, Gaussian Process
+    Unsupervised: KMeans, DBSCAN, PCA, t-SNE, UMAP, IsolationForest
+
+  Gradient Boosted Trees (GBT):
+    XGBoost: industry standard; handles missing values; feature importance
+    LightGBM: faster; leaf-wise growth; categorical features natively
+    CatBoost: handles categoricals; good for tabular; no target leakage
+    Usage: tabular data, structured features, competitions
+
+  Deep learning:
+    MLP: multi-layer perceptron; dense layers; universal approximator
+    CNN: convolutional neural network; spatial hierarchy; image/sequence
+    RNN/LSTM/GRU: sequence modeling; temporal dependencies
+    Transformer: attention mechanism; sequence-to-sequence; BERT, GPT
+    Diffusion: image/audio generation (denoising score matching)
+
+  When to use what:
+    Tabular data (structured):  GBT > DNN in most cases
+    Images:  CNN → Vision Transformer (ViT) for large data
+    Text:  fine-tune BERT/RoBERTa (classification); GPT (generation)
+    Time series:  Prophet, TFT, N-BEATS, LightGBM with lag features
+    Recommendations:  matrix factorization, two-tower model, DLRM
+
+  Scikit-learn API:
+    model.fit(X_train, y_train)
+    model.predict(X_test)
+    model.predict_proba(X_test)    — class probabilities
+    model.score(X_test, y_test)    — default metric
+    Pipeline([('scaler', StandardScaler()), ('clf', LogisticRegression())])
+"
+}
+
+fn s_ml_features() -> &'static str {
+    "\
+  Feature Engineering:
+  Numerical features:
+    Scaling: StandardScaler (z-score), MinMaxScaler, RobustScaler (IQR)
+    Normalization: unit vector per sample (cosine similarity prep)
+    Log transform: right-skewed distributions (income, prices)
+    Power transform: Box-Cox, Yeo-Johnson (makes distribution normal-ish)
+    Binning: cut into buckets (age groups, percentile bins)
+    Polynomial features: x1*x2, x1^2 for non-linear relationships
+
+  Categorical features:
+    Ordinal encoding: for ordered categories (low/med/high → 0/1/2)
+    One-hot encoding: for unordered categories; beware high cardinality
+    Target encoding: replace category with target mean (risk: leakage)
+    Frequency encoding: replace with count/frequency
+    Embedding: learnable dense vectors (neural networks)
+
+  Text features:
+    Bag of words: CountVectorizer; TF-IDF
+    TF-IDF: term frequency × inverse document frequency
+    N-grams: unigrams, bigrams for local patterns
+    Embeddings: word2vec, fastText, sentence-transformers
+    Pre-trained: BERT embeddings for classification
+
+  Time series features:
+    Lag features: target at t-1, t-7, t-30
+    Rolling statistics: mean/std over past N periods
+    Calendar: hour, day of week, month, is_holiday, is_weekend
+    Cyclical encoding: sin/cos for hour, month (preserves periodicity)
+    Trend and seasonality decomposition: STL, statsmodels
+
+  Missing values:
+    Mean/median imputation: simple; may distort distributions
+    Model-based: IterativeImputer (MICE); predict from other features
+    Indicator: add binary 'was_missing' flag alongside imputed value
+    Don't impute test with test statistics (fit imputer on train only)
+"
+}
+
+fn s_ml_training() -> &'static str {
+    "\
+  Training & Optimization:
+  Gradient descent variants:
+    SGD: noisy; stochastic gradient; can escape local minima
+    Mini-batch SGD: balance between full gradient and noise
+    Adam: adaptive learning rate; momentum + RMSProp; default choice
+    AdamW: Adam + weight decay (proper L2); better generalization
+    SGD + momentum: often better final accuracy than Adam on vision tasks
+
+  Learning rate:
+    Too high: diverges or oscillates; too low: slow convergence
+    LR schedule: step decay, cosine annealing, warmup + cosine
+    LR finder: sweep LR, find where loss drops fastest
+    OneCycleLR: fast convergence; useful for short training
+
+  Regularization:
+    L1 (Lasso): sparsity; zero out irrelevant features
+    L2 (Ridge/weight decay): small weights; smoother models
+    Dropout: randomly zero activations; prevents co-adaptation
+    Batch normalization: stabilize activations; implicit regularization
+    Data augmentation: expand effective dataset (image flip, crop, color jitter)
+    Early stopping: monitor validation loss; stop when it stops improving
+
+  Hyperparameter tuning:
+    Grid search: exhaustive; exponential cost
+    Random search: 60× more efficient than grid for equal computation
+    Bayesian optimization: Optuna, Hyperopt; model the objective function
+    Population-based training (PBT): evolutionary hyperparameter search
+
+  Distributed training:
+    Data parallel: split batch across GPUs; aggregate gradients
+    Model parallel: split model layers across GPUs
+    PyTorch: DistributedDataParallel (DDP); torchrun; FSDP
+    DeepSpeed: ZeRO optimizer stages (1/2/3); huge model training
+    JAX/XLA: functional; jit-compiled; multi-device sharding
+"
+}
+
+fn s_ml_evaluation() -> &'static str {
+    "\
+  Model Evaluation & Validation:
+  Classification metrics:
+    Accuracy:   TP+TN / total  (misleading for imbalanced)
+    Precision:  TP / (TP+FP)   (how many predicted positive are actually positive)
+    Recall:     TP / (TP+FN)   (how many actual positives were found)
+    F1:         2 * P*R / (P+R)  (harmonic mean; balance P and R)
+    F-beta:     weight recall more (beta>1) or precision more (beta<1)
+    AUC-ROC:    discrimination at all thresholds; threshold-independent
+    AUC-PR:     better for severe class imbalance than AUC-ROC
+
+  Calibration:
+    Probability calibration: does P(0.8) mean 80% actually positive?
+    Reliability diagram (calibration curve): predicted vs actual rates
+    Calibration methods: Platt scaling (logistic), Isotonic regression
+    Brier score: mean squared error of probabilities
+
+  Cross-validation:
+    k-Fold: split data into k folds; rotate test fold; mean metric
+    Stratified k-Fold: preserves class ratio in each fold
+    TimeSeriesSplit: no future leakage; walk-forward validation
+    Leave-one-out: extreme; only for tiny datasets
+
+  Error analysis:
+    Confusion matrix: find which classes are confused
+    Error cases: inspect specific wrong predictions
+    Slice analysis: performance per subgroup (age, gender, region)
+    Confidence intervals: bootstrap or analytical; report uncertainty
+    Statistical tests: McNemar (comparing classifiers), paired t-test
+
+  Concept drift:
+    Input drift: P(X) changes over time
+    Label drift: P(Y|X) changes over time
+    Monitor: distribution statistics, PSI (Population Stability Index)
+    Response: periodic retraining, online learning, drift detection (ADWIN)
+"
+}
+
+fn s_ml_deployment() -> &'static str {
+    "\
+  ML Deployment & MLOps:
+  Model serving:
+    REST API: Flask/FastAPI wrapper; sync inference
+    gRPC: lower latency; binary serialization; TensorFlow Serving, Triton
+    Batch inference: Spark, Ray, AWS Batch for offline scoring
+    Edge/mobile: ONNX Runtime, TFLite, CoreML, NCNN
+
+  Model formats:
+    ONNX: interoperable; convert from PyTorch, TF, sklearn
+    TorchScript: frozen PyTorch model (traced or scripted)
+    SavedModel (TensorFlow): portable saved format
+    GGUF: LLM quantized format (llama.cpp ecosystem)
+    Pickle / joblib: Python-only; not recommended for production
+
+  MLOps tools:
+    Experiment tracking: MLflow, W&B (Weights & Biases), Comet
+    Model registry: MLflow Model Registry, Hugging Face Hub
+    Feature store: Feast, Tecton, Hopsworks
+    Pipelines: Kubeflow, Vertex AI, AWS SageMaker Pipelines, ZenML
+    Monitoring: Evidently, Arize, WhyLabs, Seldon Alibi Detect
+
+  Model optimization:
+    Quantization: INT8, FP16; reduce size 4×; minor accuracy drop
+    Pruning: remove low-importance weights; structured vs unstructured
+    Distillation: train small student model from large teacher
+    ONNX Runtime + graph optimization: fuse ops, constant folding
+    TensorRT: NVIDIA; kernel fusion; best GPU throughput
+
+  A/B testing models:
+    Shadow mode: new model runs in parallel, results not shown
+    Canary: route small % of traffic to new model
+    Champion/Challenger: compare metrics before full rollout
+    Metrics: business KPI not just accuracy (CTR, revenue, engagement)
+    Guardrails: auto-rollback if error rate / latency threshold exceeded
+"
+}
+
+const ML_SECTIONS: &[MlSection] = &[
+    (
+        "fundamentals",
+        &[
+            "fundamentals",
+            "basics",
+            "bias-variance",
+            "overfitting",
+            "underfitting",
+            "train-test",
+            "loss",
+            "supervised",
+            "metric",
+        ],
+        s_ml_fundamentals,
+    ),
+    (
+        "models",
+        &[
+            "models",
+            "model",
+            "xgboost",
+            "lightgbm",
+            "sklearn",
+            "random-forest",
+            "transformer",
+            "cnn",
+            "lstm",
+            "tabular",
+        ],
+        s_ml_models,
+    ),
+    (
+        "features",
+        &[
+            "features",
+            "feature",
+            "encoding",
+            "scaling",
+            "imputation",
+            "tfidf",
+            "embedding",
+            "categorical",
+            "lag",
+        ],
+        s_ml_features,
+    ),
+    (
+        "training",
+        &[
+            "training",
+            "optimizer",
+            "adam",
+            "sgd",
+            "learning-rate",
+            "regularization",
+            "dropout",
+            "hyperparameter",
+            "distributed",
+        ],
+        s_ml_training,
+    ),
+    (
+        "evaluation",
+        &[
+            "evaluation",
+            "metrics",
+            "precision",
+            "recall",
+            "f1",
+            "auc",
+            "cross-validation",
+            "calibration",
+            "drift",
+        ],
+        s_ml_evaluation,
+    ),
+    (
+        "deployment",
+        &[
+            "deployment",
+            "serving",
+            "mlops",
+            "onnx",
+            "quantization",
+            "distillation",
+            "ab-test",
+            "mlflow",
+            "monitoring",
+        ],
+        s_ml_deployment,
+    ),
+];
+
+/// Machine learning reference — fundamentals, models, feature engineering, training, evaluation, deployment.
+pub fn ml_ref_calc(query: &str) -> String {
+    use std::fmt::Write;
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+    let _ = writeln!(out, "{}", sep);
+    let _ = writeln!(out, "  Machine Learning Reference");
+    let _ = writeln!(out, "{}", sep);
+
+    let q = query.trim().to_ascii_lowercase();
+
+    if q.is_empty() || q == "help" || q == "list" {
+        let _ = writeln!(
+            out,
+            "  Topics: fundamentals, models, features, training, evaluation, deployment"
+        );
+        let _ = writeln!(out, "  Commands: all = all topics");
+        let _ = writeln!(out, "  Run: hematite --ml-ref <topic>");
+        let _ = writeln!(out, "{}", sep);
+        return out;
+    }
+
+    if q == "all" {
+        let _ = writeln!(out, "{}", sep);
+        for &(name, _, f) in ML_SECTIONS {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+        }
+        let _ = writeln!(out, "{}", sep);
+        return out;
+    }
+
+    let found: Vec<_> = ML_SECTIONS
+        .iter()
+        .filter(|&&(name, aliases, _)| {
+            name.contains(q.as_str())
+                || aliases
+                    .iter()
+                    .any(|&a| a.contains(q.as_str()) || q.contains(a))
+        })
+        .collect();
+
+    if found.is_empty() {
+        let _ = writeln!(out, "  No topic found for '{}'.", query.trim());
+        let _ = writeln!(out, "  Run: hematite --ml-ref help");
+    } else {
+        let _ = writeln!(out, "{}", sep);
+        for &&(name, _, f) in &found {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+        }
+        let _ = writeln!(out, "{}", sep);
+    }
+    out
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+type RustPatternsSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+
+fn s_rust_errors() -> &'static str {
+    "\
+  Error Handling Patterns:
+  Result and Option:
+    fn parse(s: &str) -> Result<i32, ParseError> { ... }
+    let n = s.parse::<i32>()?;        — propagate with ?
+    let n = s.parse().unwrap_or(0);   — default on error
+    let n = opt.ok_or(MyError::Missing)?;  — Option to Result
+
+  Custom error types:
+    #[derive(Debug, thiserror::Error)]
+    enum AppError {
+        #[error('IO error: {0}')]
+        Io(#[from] std::io::Error),
+        #[error('Parse error: {0}')]
+        Parse(#[from] std::num::ParseIntError),
+        #[error('Not found: {0}')]
+        NotFound(String),
+    }
+
+  anyhow for application code:
+    use anyhow::{Result, Context, bail, anyhow};
+    fn run() -> Result<()> {
+        let f = File::open('data.txt').context('opening data file')?;
+        bail!('unexpected state: {}', state);
+    }
+    Error chain: anyhow wraps any std::error::Error
+
+  thiserror for library code:
+    #[derive(Debug, thiserror::Error)]
+    pub enum LibError {
+        #[error('invalid input: {field}')]
+        Invalid { field: String },
+        #[error(transparent)]
+        Io(#[from] std::io::Error),  — transparent: delegate Display
+    }
+
+  Error conversion patterns:
+    From<T>: automatic ? conversion when From is implemented
+    map_err(|e| MyError::from(e))  — explicit conversion
+    .ok()  — Result to Option (discards error)
+    .transpose()  — Option<Result<T,E>> ↔ Result<Option<T>,E>
+
+  Error handling in async:
+    async fn fetch(url: &str) -> Result<String, reqwest::Error> { ... }
+    tokio::try_join!(a(), b(), c())  — parallel, first error wins
+    futures::future::try_join_all(futs)  — collect all or first error
+"
+}
+
+fn s_rust_iterators() -> &'static str {
+    "\
+  Iterator Patterns:
+  Core Iterator methods:
+    .map(|x| x * 2)                  — transform each element
+    .filter(|x| x > 0)               — keep matching elements
+    .filter_map(|x| x.parse().ok())  — map + filter (discard None)
+    .flat_map(|x| x.iter())          — map + flatten one level
+    .flatten()                        — flatten nested iterators
+    .take(n) / .skip(n)              — first/skip N elements
+    .take_while(pred) / .skip_while  — take/skip while predicate holds
+    .enumerate()                      — (index, value) pairs
+    .zip(other)                       — pair two iterators
+    .chain(other)                     — concatenate two iterators
+    .peekable()                       — peek at next without consuming
+    .scan(state, |s, x| ...)         — stateful transform
+    .fold(init, |acc, x| ...)        — reduce to single value
+
+  Terminal operations:
+    .collect::<Vec<_>>()             — collect into container
+    .collect::<HashMap<_, _>>()     — collect into map
+    .sum::<i32>() / .product()
+    .count() / .max() / .min()
+    .any(pred) / .all(pred)          — short-circuit
+    .find(pred)                       — first match (Option)
+    .position(pred)                   — index of first match
+
+  Custom iterators:
+    impl Iterator for MyIter {
+        type Item = i32;
+        fn next(&mut self) -> Option<i32> {
+            if self.pos < self.data.len() {
+                let v = self.data[self.pos];
+                self.pos += 1;
+                Some(v)
+            } else { None }
+        }
+    }
+
+  IntoIterator:
+    for x in &vec { ... }            — borrows; impl IntoIterator for &Vec<T>
+    for x in vec { ... }             — moves; impl IntoIterator for Vec<T>
+    iter() → immutable refs; iter_mut() → mutable refs; into_iter() → owned
+
+  Parallel iterators (rayon):
+    use rayon::prelude::*;
+    vec.par_iter().map(|x| heavy(x)).collect::<Vec<_>>()
+    par_iter().filter().reduce(||, |a,b| ...)
+    rayon::join(|| a(), || b())       — parallel execution
+"
+}
+
+fn s_rust_traits() -> &'static str {
+    "\
+  Trait Objects & Generics:
+  Static dispatch (generics):
+    fn process<T: Display + Clone>(item: T) { ... }
+    fn largest<T: PartialOrd>(list: &[T]) -> &T { ... }
+    Monomorphized: one copy per concrete type; zero runtime cost
+
+  Dynamic dispatch (trait objects):
+    fn notify(item: &dyn Display) { ... }
+    fn draw(shapes: &[Box<dyn Shape>]) { ... }
+    let boxed: Box<dyn Error> = Box::new(my_error);
+    Fat pointer: data ptr + vtable ptr; one copy; runtime cost
+
+  Associated types vs generics:
+    impl Iterator { type Item = i32 }  — one impl per type (coherence)
+    impl<T> From<T> for Wrapper<T>     — multiple impls
+
+  Trait bounds:
+    where T: Clone + Send + 'static
+    T: Fn(i32) -> i32                  — closure trait
+    T: Iterator<Item = u8>             — associated type constraint
+    T: ?Sized                          — opt out of Sized (for dyn)
+
+  Common derive macros:
+    #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+    #[derive(Serialize, Deserialize)]  — serde
+    #[derive(Default)]                 — zero/empty value
+    #[derive(Error)]                   — thiserror
+
+  Blanket impls:
+    impl<T: Display> ToString for T { ... }  — all Display types get ToString
+    impl<T: ?Sized> From<T> for T { ... }   — reflexive From
+    Newtype pattern: struct Wrapper(Inner); implement your own From/Display
+
+  Builder pattern:
+    #[derive(Default)]
+    struct Builder { name: Option<String>, value: u32 }
+    impl Builder {
+        fn name(mut self, n: &str) -> Self { self.name = Some(n.into()); self }
+        fn build(self) -> Result<Config, &'static str> { ... }
+    }
+    let cfg = Builder::default().name('app').build()?;
+"
+}
+
+fn s_rust_async() -> &'static str {
+    "\
+  Async & Concurrency Patterns:
+  Async basics:
+    async fn fetch(url: &str) -> Result<String> { ... }
+    let result = fetch(url).await?;
+    async block: async { heavy_computation() }.await
+    async closure (unstable): |x| async move { x * 2 }
+
+  Tokio runtime:
+    #[tokio::main]
+    async fn main() { ... }
+    tokio::spawn(async { ... })   — spawn concurrent task
+    tokio::time::sleep(Duration::from_secs(1)).await
+    tokio::fs, tokio::net, tokio::sync  — async stdlib equivalents
+
+  Concurrency primitives:
+    tokio::sync::Mutex  — async Mutex (don't hold across .await)
+    tokio::sync::RwLock — concurrent reads, exclusive writes
+    tokio::sync::Semaphore — limit concurrent operations
+    tokio::sync::mpsc   — multi-producer single-consumer channel
+    tokio::sync::broadcast — one-to-many channel
+    tokio::sync::watch  — last-value channel (config updates)
+    std::sync::Arc      — shared ownership across tasks
+
+  Join and select:
+    tokio::join!(a(), b(), c())         — wait for all; parallel
+    tokio::try_join!(a(), b())          — stop on first error
+    tokio::select! {                     — first to complete wins
+        result = a() => { ... }
+        result = b() => { ... }
+        _ = tokio::time::sleep(timeout) => { ... }
+    }
+
+  Shared state patterns:
+    Arc<Mutex<T>>: safe to share across tasks
+    Arc<RwLock<T>>: concurrent reads, exclusive writes
+    DashMap: concurrent HashMap (no lock for reads in many cases)
+    Avoid: std::sync::Mutex across .await (holds thread lock)
+
+  Streams (async iterators):
+    use futures::StreamExt;
+    while let Some(item) = stream.next().await { ... }
+    stream.map(|x| async move { ... }).buffer_unordered(10)  — 10 concurrent
+    tokio_stream::wrappers::ReceiverStream — channel as stream
+"
+}
+
+fn s_rust_concurrency() -> &'static str {
+    "\
+  Concurrency & Ownership Patterns:
+  Thread safety:
+    Send: safe to send to another thread (no Rc, raw pointers without sync)
+    Sync: safe to share references between threads (no Cell, RefCell)
+    Arc<T>: T must be Send+Sync for Arc<T> to be Send
+    Mutex<T>: makes non-Sync T shareable
+
+  Thread-based:
+    let handle = std::thread::spawn(|| heavy_work());
+    let result = handle.join().unwrap();
+    std::thread::scope(|s| { s.spawn(|| ...); });  — scoped threads (Rust 1.63+)
+    Rayon: work-stealing thread pool; data parallelism
+
+  Channels:
+    std::sync::mpsc: multiple producer, single consumer
+    crossbeam::channel: std improvement; both directions; select!
+    flume: fast MPMC; async-compatible
+
+  Lock-free patterns:
+    atomic: AtomicUsize, AtomicBool, AtomicPtr (std::sync::atomic)
+    Ordering: Relaxed, Acquire, Release, AcqRel, SeqCst
+    Arc::strong_count: read without locking
+    Once / OnceLock: initialize exactly once (lazy statics)
+
+  Interior mutability:
+    Cell<T>: Copy types; single-threaded
+    RefCell<T>: runtime borrow check; single-threaded
+    Mutex<T>: blocking; thread-safe
+    RwLock<T>: concurrent reads; exclusive write
+    AtomicXxx: hardware-atomic operations
+
+  Deadlock avoidance:
+    Always acquire locks in consistent order
+    Use timeout: Mutex::try_lock() / RwLock::try_read()
+    Avoid holding multiple locks (prefer message passing)
+    tokio::sync::Mutex: prefer over std::sync in async code
+"
+}
+
+fn s_rust_design() -> &'static str {
+    "\
+  Rust Design Patterns:
+  Type state pattern:
+    struct Socket<State> { _state: PhantomData<State> }
+    struct Closed; struct Connected;
+    impl Socket<Closed> {
+        fn connect(self) -> Socket<Connected> { ... }
+    }
+    impl Socket<Connected> {
+        fn send(&mut self, data: &[u8]) { ... }
+    }
+    Compile-time state machine: wrong order = compile error
+
+  Extension traits:
+    trait StringExt { fn title_case(&self) -> String; }
+    impl StringExt for str { ... }
+    Add methods to external types without newtype wrapper
+
+  Newtype pattern:
+    struct UserId(u64);
+    struct Email(String);
+    Prevents mixing up values of same underlying type
+    impl From<u64> for UserId { ... }
+
+  State machine with enum:
+    enum State { Idle, Processing { data: Vec<u8> }, Done(Output) }
+    match state { State::Idle => ..., State::Processing { data } => ... }
+
+  Command pattern with enums:
+    enum Command { MoveLeft, MoveRight(f32), Fire { angle: f32 } }
+    fn process(cmd: Command) { match cmd { ... } }
+
+  Zero-cost abstraction patterns:
+    Inline: #[inline] or #[inline(always)] for hot paths
+    Generic newtypes: struct Wrapper<T>(T) — all methods zero-cost
+    Const generics: Matrix<const N: usize, const M: usize>
+    HRTB (higher-ranked trait bounds):
+      where F: for<'a> Fn(&'a str) -> &'a str
+
+  Common crate patterns:
+    serde: #[derive(Serialize, Deserialize)] on all data types
+    clap: #[derive(Parser)] on CLI struct
+    tokio: #[tokio::main]; all async functions use tokio
+    tracing: #[instrument]; structured logging + spans
+"
+}
+
+const RUST_PATTERNS_SECTIONS: &[RustPatternsSection] = &[
+    (
+        "errors",
+        &[
+            "errors",
+            "error",
+            "result",
+            "option",
+            "anyhow",
+            "thiserror",
+            "question-mark",
+            "propagate",
+            "context",
+        ],
+        s_rust_errors,
+    ),
+    (
+        "iterators",
+        &[
+            "iterators",
+            "iterator",
+            "iter",
+            "map",
+            "filter",
+            "fold",
+            "collect",
+            "rayon",
+            "flatten",
+        ],
+        s_rust_iterators,
+    ),
+    (
+        "traits",
+        &[
+            "traits",
+            "trait",
+            "generics",
+            "dynamic-dispatch",
+            "static-dispatch",
+            "trait-object",
+            "dyn",
+            "blanket",
+            "builder",
+        ],
+        s_rust_traits,
+    ),
+    (
+        "async",
+        &[
+            "async", "await", "tokio", "spawn", "join", "select", "stream", "channel", "mutex",
+        ],
+        s_rust_async,
+    ),
+    (
+        "concurrency",
+        &[
+            "concurrency",
+            "thread",
+            "arc",
+            "atomic",
+            "mutex",
+            "rwlock",
+            "send",
+            "sync",
+            "deadlock",
+        ],
+        s_rust_concurrency,
+    ),
+    (
+        "design",
+        &[
+            "design",
+            "typestate",
+            "newtype",
+            "state-machine",
+            "extension-trait",
+            "command",
+            "zero-cost",
+            "const-generics",
+            "hrtb",
+        ],
+        s_rust_design,
+    ),
+];
+
+/// Rust design patterns — error handling, iterators, traits, async, concurrency, design patterns.
+pub fn rust_patterns_calc(query: &str) -> String {
+    use std::fmt::Write;
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+    let _ = writeln!(out, "{}", sep);
+    let _ = writeln!(out, "  Rust Design Patterns");
+    let _ = writeln!(out, "{}", sep);
+
+    let q = query.trim().to_ascii_lowercase();
+
+    if q.is_empty() || q == "help" || q == "list" {
+        let _ = writeln!(
+            out,
+            "  Topics: errors, iterators, traits, async, concurrency, design"
+        );
+        let _ = writeln!(out, "  Commands: all = all topics");
+        let _ = writeln!(out, "  Run: hematite --rust-patterns <topic>");
+        let _ = writeln!(out, "{}", sep);
+        return out;
+    }
+
+    if q == "all" {
+        let _ = writeln!(out, "{}", sep);
+        for &(name, _, f) in RUST_PATTERNS_SECTIONS {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+        }
+        let _ = writeln!(out, "{}", sep);
+        return out;
+    }
+
+    let found: Vec<_> = RUST_PATTERNS_SECTIONS
+        .iter()
+        .filter(|&&(name, aliases, _)| {
+            name.contains(q.as_str())
+                || aliases
+                    .iter()
+                    .any(|&a| a.contains(q.as_str()) || q.contains(a))
+        })
+        .collect();
+
+    if found.is_empty() {
+        let _ = writeln!(out, "  No topic found for '{}'.", query.trim());
+        let _ = writeln!(out, "  Run: hematite --rust-patterns help");
+    } else {
+        let _ = writeln!(out, "{}", sep);
+        for &&(name, _, f) in &found {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+        }
+        let _ = writeln!(out, "{}", sep);
+    }
+    out
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+type EventDrivenSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+
+fn s_ed_patterns() -> &'static str {
+    "\
+  Event-Driven Architecture Patterns:
+  Core concepts:
+    Event: immutable fact that something happened (past tense)
+    Command: imperative request to do something (may fail)
+    Query: request for data (read-only, no side effects)
+    Producer/Publisher: emits events; does not know consumers
+    Consumer/Subscriber: reacts to events; decoupled from producer
+    Event broker/bus: routes events between producers and consumers
+
+  Patterns:
+    Pub/Sub: publisher → topic → subscribers (N-to-N fan-out)
+    Event streaming: ordered log of events (Kafka); replay possible
+    Event sourcing: store events, derive state by replaying
+    CQRS: separate read model (query) from write model (command)
+    Saga: distributed transaction via sequence of events + compensating actions
+    Outbox pattern: write event + DB record atomically; poll outbox table
+
+  Guarantees:
+    At-most-once: fire and forget; may lose events
+    At-least-once: retry until acked; may duplicate events
+    Exactly-once: hardest; Kafka transactions; idempotent consumers required
+    Idempotency: same event processed N times = same result as once
+
+  Event design:
+    Use past-tense names: OrderPlaced, UserRegistered, PaymentFailed
+    Include event metadata: id, timestamp, source, version, correlation_id
+    Schema evolution: backward/forward compatible (Avro, Protobuf)
+    Event envelope: { meta: { id, ts, type, version }, data: { ... } }
+"
+}
+
+fn s_ed_kafka() -> &'static str {
+    "\
+  Kafka:
+  Core concepts:
+    Topic: named log of events; append-only; immutable
+    Partition: topic split into ordered, replicated logs
+    Offset: position of message within a partition
+    Consumer group: multiple consumers share partition load
+    Replication factor: number of copies of each partition
+    ISR (In-Sync Replicas): replicas caught up with leader
+
+  Key settings:
+    Retention: log.retention.hours=168 (7 days); log.retention.bytes
+    Partitions: more = higher throughput; can't reduce after creation
+    replication.factor: 3 for production; 1 for dev
+    acks=all: producer waits for all ISR to ack (durability)
+    min.insync.replicas=2: require N replicas to ack before success
+    enable.idempotence=true: producer dedup across retries
+
+  Consumer group behavior:
+    Each partition assigned to exactly one consumer in a group
+    More consumers than partitions → some consumers idle
+    Rebalance: triggered by consumer join/leave; avoid long pauses
+    max.poll.interval.ms: time between polls (increase for slow processing)
+    enable.auto.commit=false: commit after successful processing
+    Offset management: __consumer_offsets topic
+
+  Key CLI commands:
+    kafka-topics.sh --create --topic orders --partitions 6 --replication-factor 3
+    kafka-topics.sh --describe --topic orders
+    kafka-console-producer.sh --topic orders --bootstrap-server localhost:9092
+    kafka-console-consumer.sh --topic orders --from-beginning
+    kafka-consumer-groups.sh --describe --group my-group
+
+  Kafka Connect:
+    Source connector: pull data from DB/S3 into Kafka (Debezium CDC)
+    Sink connector: push Kafka events to DB/ES/S3
+    kafka-connect REST API: POST /connectors with JSON config
+
+  Kafka Streams / ksqlDB:
+    Kafka Streams: Java library; stateful stream processing
+    ksqlDB: SQL interface for stream processing; CREATE STREAM AS SELECT
+"
+}
+
+fn s_ed_event_sourcing() -> &'static str {
+    "\
+  Event Sourcing & CQRS:
+  Event sourcing:
+    State is derived by replaying all events from beginning
+    Events are the source of truth; never update/delete events
+    Snapshotting: periodic state snapshot + events after snapshot
+    Benefits: full audit log, time travel, replay with new projections
+    Downsides: eventual consistency, complex querying, schema evolution
+
+  CQRS (Command Query Responsibility Segregation):
+    Write side (command model):
+      Receives commands → validates → emits events → updates aggregate
+      Aggregate: consistency boundary; loads events; applies domain logic
+    Read side (query model / projection):
+      Subscribes to events → builds optimized read models (denormalized)
+      Can have multiple read models optimized for different queries
+      Eventually consistent with write side
+
+  Aggregate pattern:
+    pub struct OrderAggregate {
+        id: OrderId,
+        status: OrderStatus,
+        items: Vec<OrderItem>,
+        version: u64,
+    }
+    impl OrderAggregate {
+        fn apply(&mut self, event: &OrderEvent) { ... }  — pure, no side effects
+        fn handle(&mut self, cmd: OrderCommand) -> Vec<OrderEvent> { ... }
+    }
+
+  Event store:
+    EventStoreDB: purpose-built; subscriptions; projections
+    PostgreSQL: events table (id, aggregate_id, type, data, timestamp)
+    Append-only: INSERT only; no UPDATE/DELETE on events
+
+  Sagas (distributed transactions):
+    Choreography: each service emits/listens without coordinator
+    Orchestration: central saga orchestrator sends commands to services
+    Compensating events: undo each step if later step fails
+    Example: OrderSaga: PlaceOrder → ReserveInventory → ChargePay → ConfirmOrder
+"
+}
+
+fn s_ed_messaging() -> &'static str {
+    "\
+  Message Queues & Brokers:
+  RabbitMQ:
+    Exchange types: direct, fanout, topic (wildcards), headers
+    Topic routing: order.# (all order events), *.created (all created events)
+    DLX (Dead Letter Exchange): messages that fail/expire route here
+    Consumer ack: channel.basicAck(tag, false)  — after successful processing
+    Priority queues: x-max-priority argument
+    Shovel/Federation: link RabbitMQ clusters
+
+  Redis Pub/Sub vs Streams:
+    Pub/Sub: fire-and-forget; no persistence; client must be connected
+    Streams: XADD key * field value; persistent; consumer groups
+      XREAD COUNT 10 STREAMS mystream 0-0   — read from start
+      XREADGROUP GROUP mygroup consumer1 COUNT 10 STREAMS mystream >
+
+  AWS SNS + SQS:
+    SNS: pub/sub; fan-out to SQS, Lambda, HTTP, email, SMS
+    SQS Standard: at-least-once; high throughput; unordered
+    SQS FIFO: exactly-once; ordered; 3000 TPS per queue
+    Message retention: 4 days default; up to 14 days
+    DLQ (Dead Letter Queue): failed messages after maxReceiveCount
+
+  NATS:
+    Core NATS: pub/sub; at-most-once; no persistence
+    JetStream: persistent streams; at-least-once; consumer groups
+    Very low latency: microseconds; IoT and edge use cases
+
+  Google Pub/Sub:
+    Topic → subscription (push or pull)
+    At-least-once; message TTL configurable
+    Exactly-once delivery: opt-in; higher latency
+
+  Common patterns:
+    Request/Reply: correlationId + reply-to queue
+    Work queues: round-robin dispatch to competing consumers
+    Batch processing: accumulate N messages, process together
+    Priority queues: process high-priority first
+"
+}
+
+fn s_ed_cdc() -> &'static str {
+    "\
+  Change Data Capture (CDC) & Outbox:
+  CDC (Change Data Capture):
+    Captures DB changes (insert/update/delete) as events
+    Source: database transaction log (WAL in PostgreSQL, binlog in MySQL)
+
+  Debezium:
+    Kafka Connect source connector for CDC
+    Supported: PostgreSQL, MySQL, SQL Server, MongoDB, Oracle
+    PostgreSQL: requires logical replication (wal_level=logical)
+    Events: {before, after, op: c/u/d/r, source: { table, ts }}
+    Schema registry (Confluent/Redpanda): Avro schema for events
+
+  Debezium setup (PostgreSQL):
+    ALTER SYSTEM SET wal_level = logical;
+    SELECT pg_create_logical_replication_slot('debezium', 'pgoutput');
+    CREATE PUBLICATION dbz_pub FOR TABLE orders, payments;
+    connector config:
+      plugin.name=pgoutput, publication.name=dbz_pub
+
+  Outbox pattern:
+    Problem: DB write + message publish not atomic → dual-write hazard
+    Solution:
+      1. Write business record + outbox event in same DB transaction
+      2. CDC/polling reads outbox table → publishes to broker
+      3. Mark outbox event as published
+    Avoids dual-write inconsistency without distributed transactions
+
+  Transactional outbox implementations:
+    Debezium + Kafka: CDC reads outbox table → Kafka topic
+    Polling publisher: background job reads unpublished outbox rows
+    Relay table: outbox_events(id, type, payload, published_at)
+
+  Inbox pattern (idempotent consumer):
+    Store processed event IDs in inbox table
+    Check inbox before processing; skip if already processed
+    Works with at-least-once delivery to achieve exactly-once semantics
+"
+}
+
+fn s_ed_schema() -> &'static str {
+    "\
+  Schema Evolution & Serialization:
+  Serialization formats:
+    JSON: human-readable; schema-less; slower; verbose
+    Avro: schema required; compact binary; schema registry; Kafka default
+    Protobuf: efficient binary; backward/forward compatible; gRPC
+    MessagePack: binary JSON; compact; no schema
+    CBOR: concise binary object representation; IoT
+
+  Schema compatibility:
+    Backward compatible: new reader reads old data (add optional fields)
+    Forward compatible: old reader reads new data (remove optional fields)
+    Full compatible: both directions (add optional, remove optional only)
+    Breaking changes: rename fields, change types, remove required fields
+
+  Avro schema evolution rules:
+    Add field with default → backward + forward compatible
+    Remove field with default → backward + forward compatible
+    Rename field → use alias
+    Change type → only if promotion allowed (int→long, float→double)
+
+  Confluent Schema Registry:
+    POST /subjects/order-value/versions  — register new schema version
+    GET /schemas/ids/{id}                — get schema by ID
+    Compatibility: BACKWARD, FORWARD, FULL, NONE
+    Avro/JSON/Protobuf supported
+    Every Kafka message: [magic byte, schema_id 4 bytes, data]
+
+  AsyncAPI specification:
+    Describe event-driven APIs (like OpenAPI for REST but for events)
+    Define: channels, messages, schemas, servers (Kafka, AMQP, MQTT)
+    Generators: TypeScript/Java/Python code from spec
+    asyncapi.com/tools: studio, CLI, generator
+"
+}
+
+const EVENT_DRIVEN_SECTIONS: &[EventDrivenSection] = &[
+    (
+        "patterns",
+        &[
+            "patterns",
+            "pubsub",
+            "pub-sub",
+            "command",
+            "event",
+            "saga",
+            "outbox",
+            "idempotent",
+            "guarantee",
+        ],
+        s_ed_patterns,
+    ),
+    (
+        "kafka",
+        &[
+            "kafka",
+            "topic",
+            "partition",
+            "consumer-group",
+            "ksqldb",
+            "connect",
+            "debezium",
+            "offset",
+            "acks",
+        ],
+        s_ed_kafka,
+    ),
+    (
+        "event-sourcing",
+        &[
+            "event-sourcing",
+            "cqrs",
+            "aggregate",
+            "projection",
+            "snapshot",
+            "eventstoredb",
+            "replay",
+            "write-side",
+            "read-side",
+        ],
+        s_ed_event_sourcing,
+    ),
+    (
+        "messaging",
+        &[
+            "messaging",
+            "rabbitmq",
+            "sqs",
+            "sns",
+            "nats",
+            "dlq",
+            "exchange",
+            "queue",
+            "retry",
+        ],
+        s_ed_messaging,
+    ),
+    (
+        "cdc",
+        &[
+            "cdc",
+            "outbox",
+            "debezium",
+            "wal",
+            "replication",
+            "inbox",
+            "dual-write",
+            "transactional",
+            "change-data-capture",
+        ],
+        s_ed_cdc,
+    ),
+    (
+        "schema",
+        &[
+            "schema",
+            "avro",
+            "protobuf",
+            "schema-registry",
+            "asyncapi",
+            "compatibility",
+            "evolution",
+            "serialization",
+        ],
+        s_ed_schema,
+    ),
+];
+
+/// Event-driven architecture reference — pub/sub patterns, Kafka, event sourcing, CQRS, messaging, CDC, schema evolution.
+pub fn event_driven_calc(query: &str) -> String {
+    use std::fmt::Write;
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+    let _ = writeln!(out, "{}", sep);
+    let _ = writeln!(out, "  Event-Driven Architecture Reference");
+    let _ = writeln!(out, "{}", sep);
+
+    let q = query.trim().to_ascii_lowercase();
+
+    if q.is_empty() || q == "help" || q == "list" {
+        let _ = writeln!(
+            out,
+            "  Topics: patterns, kafka, event-sourcing, messaging, cdc, schema"
+        );
+        let _ = writeln!(out, "  Commands: all = all topics");
+        let _ = writeln!(out, "  Run: hematite --event-driven <topic>");
+        let _ = writeln!(out, "{}", sep);
+        return out;
+    }
+
+    if q == "all" {
+        let _ = writeln!(out, "{}", sep);
+        for &(name, _, f) in EVENT_DRIVEN_SECTIONS {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+        }
+        let _ = writeln!(out, "{}", sep);
+        return out;
+    }
+
+    let found: Vec<_> = EVENT_DRIVEN_SECTIONS
+        .iter()
+        .filter(|&&(name, aliases, _)| {
+            name.contains(q.as_str())
+                || aliases
+                    .iter()
+                    .any(|&a| a.contains(q.as_str()) || q.contains(a))
+        })
+        .collect();
+
+    if found.is_empty() {
+        let _ = writeln!(out, "  No topic found for '{}'.", query.trim());
+        let _ = writeln!(out, "  Run: hematite --event-driven help");
+    } else {
+        let _ = writeln!(out, "{}", sep);
+        for &&(name, _, f) in &found {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+        }
+        let _ = writeln!(out, "{}", sep);
+    }
+    out
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+type ApiGwSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+
+fn s_apigw_patterns() -> &'static str {
+    "\
+  API Gateway Patterns:
+  What an API gateway does:
+    Single entry point for multiple backend services
+    Cross-cutting concerns: auth, rate limiting, logging, caching, TLS termination
+    Protocol translation: REST → gRPC, HTTP/1.1 → HTTP/2
+    Request/response transformation: headers, body, routing
+
+  Core patterns:
+    Backend for Frontend (BFF): separate gateway per client type (mobile, web, partner)
+    Aggregation: combine multiple service calls into one response
+    Fanout: send one request to multiple services; aggregate
+    Circuit breaker: stop sending to failing backends (fail fast)
+    Retry with backoff: retry on transient failures
+    Caching: response cache; reduce backend load; cache-control headers
+    Request hedging: send same request to 2 backends; use faster response
+
+  Rate limiting algorithms:
+    Fixed window: count per N-second window; boundary burst allowed
+    Sliding window: count in last N seconds; smoother; more complex
+    Token bucket: tokens refill at fixed rate; burst allowed up to bucket size
+    Leaky bucket: process at fixed rate; queue excess; strict smoothing
+    Concurrency limit: max N concurrent requests (backpressure)
+
+  Rate limit response:
+    HTTP 429 Too Many Requests
+    Headers: X-RateLimit-Limit, X-RateLimit-Remaining, Retry-After
+    Differentiate: per-user, per-IP, per-client, global
+
+  Authentication patterns:
+    API key: simple; in header (X-API-Key) or query param; revocable
+    JWT: stateless; validated at gateway without backend call
+    OAuth2: full authorization framework; token introspection or JWT
+    mTLS: mutual TLS; client certificate; strong identity
+    HMAC: sign request payload; prevent tampering
+"
+}
+
+fn s_apigw_products() -> &'static str {
+    "\
+  API Gateway Products:
+  Kong:
+    Open source + Enterprise; Lua plugins; DB-less mode
+    Admin API: POST /services, /routes, /plugins
+    Plugins: rate-limiting, oauth2, jwt, key-auth, cors, prometheus
+    Declarative config: deck sync (sync from YAML to running Kong)
+    Kong Ingress Controller: K8s native
+
+  Nginx / OpenResty:
+    NGINX as reverse proxy + API gateway
+    limit_req_zone: rate limiting; limit_req: apply zone
+    auth_request: delegate auth to internal endpoint
+    OpenResty: NGINX + LuaJIT; full programmability
+    lua_shared_dict: shared memory for counters/caches
+
+  Envoy:
+    High-performance C++ proxy; L4+L7; used by Istio/Consul
+    Configuration: via xDS APIs (control plane) or static YAML
+    Filters: HTTP connection manager, rate limit, ext_authz, fault injection
+    Cluster: upstream service definition; LB policy (round robin, least request)
+    Health checking: active (HTTP probe) + passive (outlier detection)
+
+  AWS API Gateway:
+    REST API / HTTP API / WebSocket
+    Authorizers: Lambda authorizer, Cognito, JWT
+    Usage plans: throttle + quota per API key
+    Stage variables: environment-specific config
+    Integrations: Lambda, HTTP, AWS service, mock
+
+  Traefik:
+    Cloud-native; auto-discovers K8s Ingress / Docker labels
+    Middleware: rate limit, headers, auth, circuit breaker
+    Dynamic config from providers (K8s, Docker, Consul, file)
+
+  Caddy:
+    Automatic HTTPS (Let's Encrypt); simple Caddyfile config
+    Reverse proxy: reverse_proxy localhost:8080
+    Rate limit: via plugin (caddy-ratelimit)
+"
+}
+
+fn s_apigw_service_mesh() -> &'static str {
+    "\
+  Service Mesh:
+  What a service mesh does:
+    Sidecar proxies (Envoy) injected per pod
+    Transparent mTLS between all services
+    Observability: metrics, tracing, access logs automatically
+    Traffic management: retries, timeouts, circuit breaking, canary
+    No application code changes required
+
+  Istio:
+    Control plane: istiod (pilot, citadel, galley merged)
+    Data plane: Envoy sidecar per pod
+    CRDs:
+      VirtualService: routing rules (canary, A/B, fault injection)
+      DestinationRule: LB policy, circuit breaker, subset definitions
+      Gateway: ingress; TLS termination
+      PeerAuthentication: mTLS mode (PERMISSIVE, STRICT)
+      AuthorizationPolicy: L7 access control (source, method, path)
+
+  Key Istio configs:
+    VirtualService: route 10% traffic to v2:
+      http: [{ match: [], route: [{destination: {host: svc, subset: v1}, weight: 90},
+                                   {destination: {host: svc, subset: v2}, weight: 10}] }]
+    Fault injection:
+      fault: { delay: { percentage: { value: 10 }, fixedDelay: 5s } }
+
+  Linkerd:
+    Lighter than Istio; Rust data plane (linkerd2-proxy)
+    Automatic mTLS; automatic retries; latency-aware LB
+    CLI: linkerd viz dashboard; linkerd check; linkerd inject
+
+  Consul Connect:
+    HashiCorp; service discovery + service mesh
+    Works in VMs + K8s; Envoy sidecar or built-in proxy
+    Intentions: L4/L7 access control between services
+
+  Cilium:
+    eBPF-based CNI + service mesh; replaces sidecar with kernel networking
+    Hubble: eBPF-based observability; network policy visualization
+"
+}
+
+fn s_apigw_auth() -> &'static str {
+    "\
+  Auth & Security at the Gateway:
+  JWT validation:
+    Validate at gateway: signature, expiry, audience, issuer
+    No backend call needed for validation (stateless)
+    Forward claims as headers: X-User-Id, X-User-Role
+    Key rotation: JWKS endpoint (/.well-known/jwks.json)
+    Algorithm confusion: always specify expected algorithm (RS256 or HS256)
+
+  OAuth2 flows at gateway:
+    Authorization Code: user-facing apps; browser redirect
+    Client Credentials: machine-to-machine; no user context
+    PKCE (Proof Key for Code Exchange): public clients (SPA, mobile)
+    Token introspection: gateway calls auth server to validate opaque token
+
+  API key management:
+    Prefix key type: pk_live_... sk_test_... (indicate env + type)
+    Hash stored key: never store plaintext; SHA-256 the key at rest
+    Rate limit per key; revoke individual keys without affecting others
+    Scopes: key has limited permissions (read-only, write, admin)
+
+  CORS (Cross-Origin Resource Sharing):
+    Preflight: OPTIONS request; browser checks allowed origins/methods
+    Access-Control-Allow-Origin: * or specific origin
+    Access-Control-Allow-Methods: GET, POST, PUT, DELETE
+    Access-Control-Allow-Headers: Content-Type, Authorization
+    Access-Control-Max-Age: 86400 (cache preflight 24h)
+    Credentials: Access-Control-Allow-Credentials: true (no wildcard origin)
+
+  Security headers at gateway:
+    Strict-Transport-Security: max-age=31536000; includeSubDomains
+    X-Content-Type-Options: nosniff
+    X-Frame-Options: DENY
+    Content-Security-Policy: add after evaluating your needs
+    Remove: Server, X-Powered-By headers (info leakage)
+"
+}
+
+fn s_apigw_observability() -> &'static str {
+    "\
+  Gateway Observability & Debugging:
+  Key metrics to track:
+    Request rate: requests per second per route/service
+    Error rate: 4xx and 5xx separately (4xx = client; 5xx = server)
+    Latency: p50, p95, p99 at gateway vs backend (gateway overhead)
+    Upstream availability: successful vs failed backend connections
+    Cache hit rate: reduce backend load; improve latency
+
+  Access log format (NGINX / Apache Combined + extras):
+    $remote_addr $request_time $upstream_response_time $status
+    $request $body_bytes_sent $http_referer $http_user_agent
+    JSON access logs: easier to parse and aggregate
+
+  Distributed tracing at gateway:
+    Inject trace headers on first request (if not present):
+      traceparent: W3C standard
+      X-B3-TraceId / X-B3-SpanId: Zipkin/B3 format
+    Log trace ID in access logs for correlation
+    Kong: opentelemetry plugin; Envoy: built-in tracing support
+
+  Health check endpoints:
+    /health: liveness check (is the gateway process alive)
+    /ready: readiness check (is the gateway ready to serve)
+    /metrics: Prometheus scrape endpoint
+    Upstream health: active health checks + passive outlier detection
+
+  Debugging tips:
+    Log request/response bodies selectively (PII concern)
+    Use X-Request-ID header; generate if not present; log it
+    Canary traffic: log both old and new model results; compare offline
+    Replay production traffic to staging (shadow traffic)
+    kubectl port-forward to reach internal services for testing
+"
+}
+
+fn s_apigw_design() -> &'static str {
+    "\
+  API Gateway Design Considerations:
+  Positioning:
+    Edge gateway: faces internet; handles external auth, DDoS, TLS
+    Internal gateway: service-to-service; lighter; mTLS
+    BFF (Backend for Frontend): client-specific aggregation layer
+
+  Versioning strategies:
+    URL path: /v1/users (most common; visible)
+    Header: API-Version: 2024-01-01 or Accept: application/vnd.api+json;version=2
+    Query param: ?version=2 (not recommended; breaks caching)
+    Evolution: prefer additive changes; deprecate old with sunset header
+
+  Circuit breaker at gateway:
+    Closed → Open → Half-Open
+    Closed: all requests pass through
+    Open: all requests fail fast (do not call backend)
+    Half-Open: allow one request; if success → Closed; if fail → Open
+    Libraries: Resilience4j (Java), polly (.NET), gobreaker (Go)
+
+  Timeout and retry strategy:
+    Gateway timeout: slightly less than client timeout (avoid cascading)
+    Retry: only safe (idempotent) operations (GET, PUT); not POST
+    Retry-After: respect 429 with backoff
+    Hedging: send speculative second request at p99 latency (reduce tail latency)
+
+  API lifecycle:
+    Alpha/Beta: unstable; may break; opt-in
+    GA: stable; backwards compatible for N months
+    Deprecated: works but sunset date announced (Sunset header)
+    Removed: returns 410 Gone after sunset
+
+  Documentation and contracts:
+    OpenAPI 3.x: publish to developer portal (Swagger UI, Redoc, Stoplight)
+    API changelog: CHANGELOG.md with version + breaking change notes
+    Mock server: generate from OpenAPI spec; Prism, WireMock
+    Contract testing: consumer-driven contracts (Pact)
+"
+}
+
+const API_GW_SECTIONS: &[ApiGwSection] = &[
+    (
+        "patterns",
+        &[
+            "patterns",
+            "bff",
+            "aggregation",
+            "rate-limit",
+            "circuit-breaker",
+            "caching",
+            "gateway",
+            "token-bucket",
+        ],
+        s_apigw_patterns,
+    ),
+    (
+        "products",
+        &[
+            "products",
+            "kong",
+            "nginx",
+            "envoy",
+            "traefik",
+            "caddy",
+            "aws-api-gateway",
+            "openresty",
+        ],
+        s_apigw_products,
+    ),
+    (
+        "service-mesh",
+        &[
+            "service-mesh",
+            "istio",
+            "linkerd",
+            "consul",
+            "cilium",
+            "sidecar",
+            "mtls",
+            "virtualservice",
+            "envoy-sidecar",
+        ],
+        s_apigw_service_mesh,
+    ),
+    (
+        "auth",
+        &[
+            "auth",
+            "jwt",
+            "oauth2",
+            "api-key",
+            "cors",
+            "mtls",
+            "authorization",
+            "pkce",
+            "jwks",
+        ],
+        s_apigw_auth,
+    ),
+    (
+        "observability",
+        &[
+            "observability",
+            "metrics",
+            "access-log",
+            "tracing",
+            "health",
+            "x-request-id",
+            "debugging",
+        ],
+        s_apigw_observability,
+    ),
+    (
+        "design",
+        &[
+            "design",
+            "versioning",
+            "lifecycle",
+            "deprecation",
+            "timeout",
+            "retry",
+            "openapi",
+            "contract",
+        ],
+        s_apigw_design,
+    ),
+];
+
+/// API gateway reference — patterns, products (Kong/Envoy/Istio), auth, service mesh, observability, design.
+pub fn api_gateway_calc(query: &str) -> String {
+    use std::fmt::Write;
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+    let _ = writeln!(out, "{}", sep);
+    let _ = writeln!(out, "  API Gateway & Service Mesh Reference");
+    let _ = writeln!(out, "{}", sep);
+
+    let q = query.trim().to_ascii_lowercase();
+
+    if q.is_empty() || q == "help" || q == "list" {
+        let _ = writeln!(
+            out,
+            "  Topics: patterns, products, service-mesh, auth, observability, design"
+        );
+        let _ = writeln!(out, "  Commands: all = all topics");
+        let _ = writeln!(out, "  Run: hematite --api-gateway <topic>");
+        let _ = writeln!(out, "{}", sep);
+        return out;
+    }
+
+    if q == "all" {
+        let _ = writeln!(out, "{}", sep);
+        for &(name, _, f) in API_GW_SECTIONS {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+        }
+        let _ = writeln!(out, "{}", sep);
+        return out;
+    }
+
+    let found: Vec<_> = API_GW_SECTIONS
+        .iter()
+        .filter(|&&(name, aliases, _)| {
+            name.contains(q.as_str())
+                || aliases
+                    .iter()
+                    .any(|&a| a.contains(q.as_str()) || q.contains(a))
+        })
+        .collect();
+
+    if found.is_empty() {
+        let _ = writeln!(out, "  No topic found for '{}'.", query.trim());
+        let _ = writeln!(out, "  Run: hematite --api-gateway help");
+    } else {
+        let _ = writeln!(out, "{}", sep);
+        for &&(name, _, f) in &found {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+        }
+        let _ = writeln!(out, "{}", sep);
+    }
+    out
+}

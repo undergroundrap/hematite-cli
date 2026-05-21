@@ -1102,6 +1102,10 @@ mod tests {
             observability: None,
             terraform_adv: None,
             security_scan: None,
+            ml_ref: None,
+            rust_patterns: None,
+            event_driven: None,
+            api_gateway: None,
             pdf_extract_helper: None,
             teleported_from: None,
         };

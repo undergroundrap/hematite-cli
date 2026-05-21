@@ -1978,6 +1978,38 @@ pub struct CliCockpit {
 
     #[arg(
         long,
+        help_heading = "Developer Toolkit",
+        value_name = "TOPIC",
+        help = "Machine learning reference — fundamentals, models, feature engineering, training, evaluation, deployment/MLOps. Topics: fundamentals, models, features, training, evaluation, deployment. Commands: all = everything. Examples: hematite --ml-ref models | hematite --ml-ref training | hematite --ml-ref evaluation"
+    )]
+    pub ml_ref: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Developer Toolkit",
+        value_name = "TOPIC",
+        help = "Rust design patterns — error handling, iterators, traits, async/concurrency, design patterns. Topics: errors, iterators, traits, async, concurrency, design. Commands: all = everything. Examples: hematite --rust-patterns errors | hematite --rust-patterns async | hematite --rust-patterns iterators"
+    )]
+    pub rust_patterns: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Developer Toolkit",
+        value_name = "TOPIC",
+        help = "Event-driven architecture reference — pub/sub, Kafka, event sourcing, CQRS, messaging, CDC, schema evolution. Topics: patterns, kafka, event-sourcing, messaging, cdc, schema. Commands: all = everything. Examples: hematite --event-driven kafka | hematite --event-driven event-sourcing | hematite --event-driven cdc"
+    )]
+    pub event_driven: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Developer Toolkit",
+        value_name = "TOPIC",
+        help = "API gateway reference — patterns, products (Kong/Envoy/Istio), auth, service mesh, observability, design. Topics: patterns, products, service-mesh, auth, observability, design. Commands: all = everything. Examples: hematite --api-gateway patterns | hematite --api-gateway service-mesh | hematite --api-gateway auth"
+    )]
+    pub api_gateway: Option<String>,
+
+    #[arg(
+        long,
         help_heading = "Math & Science",
         value_name = "QUERY",
         help = "Lorem ipsum generator — offline replacement for lipsum.com. Commands: (bare) or <N> = N paragraphs (default 1); words <N> = N words; sentences <N> = N sentences. Examples: hematite --lorem | hematite --lorem 3 | hematite --lorem 'words 50' | hematite --lorem 'sentences 5'"

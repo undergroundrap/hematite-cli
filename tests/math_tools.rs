@@ -3,27 +3,28 @@
 /// Covers known-value correctness, edge-case non-panics, and the newer
 /// matrix decomposition modes (QR, SVD, Cholesky).
 use hematite::tools::math_util::{
-    accessibility_calc, algo_ref_calc, ansible_calc, api_design_calc, ascii_calc, ascii_table_calc,
-    awk_calc, bash_adv_calc, bash_ref_calc, bitwise_calc, case_calc, chars_calc, checksum_calc,
-    chemistry_calc, chmod_calc, cipher_calc, cloud_ref_calc, color_calc, color_names_calc,
-    combinatorics_calc, complex_calc, cron_calc, crypto_ref_calc, css_ref_calc, csv_calc,
-    curl_calc, datetime_calc, db_design_calc, devops_ref_calc, diff_calc, docker_adv_calc,
-    docker_compose_calc, docker_ref_calc, duration_calc, electrical_calc, encode_calc, escape_calc,
-    find_calc, fraction_calc, geometry_calc, git_adv_calc, git_ref_calc, gitignore_calc,
-    go_ref_calc, grep_calc, hash_calc, headers_calc, health_calc, http_adv_calc, http_calc,
-    http_headers_calc, http_status_calc, id_gen_calc, ip_calc, jinja_calc, jq_calc, js_ref_calc,
-    json_calc, json_path_calc, jwt_calc, k8s_ref_calc, kbd_calc, kubectl_calc, license_calc,
-    linux_adv_calc, linux_sys_calc, lorem_calc, make_calc, makefile_calc, markdown_calc,
-    matrix_calc, mime_calc, net_calc, network_ref_calc, nginx_calc, npm_calc, number_format,
-    number_theory_calc, observability_calc, oop_ref_calc, openssl_calc, percent_calc,
-    perf_ref_calc, physics_calc, port_calc, postgres_calc, prob_calc, python_data_calc,
-    python_ref_calc, regex_adv_calc, regex_calc, regex_ref_calc, regex_test_calc, roman_calc,
-    rust_adv_calc, rust_ref_calc, security_ref_calc, security_scan_calc, sed_calc, semver_calc,
-    set_calc, sort_viz, spark_calc, sql_adv_calc, sql_fmt_calc, sql_ref_calc, ssh_ref_calc,
-    ssl_calc, stats_calc, string_dist, systemd_adv_calc, systemd_calc, table_calc, tar_calc,
-    template_calc, terraform_adv_calc, terraform_calc, text_stats, timestamp_calc, tmux_calc,
-    toml_calc, trig_calc, ts_ref_calc, typescript_adv_calc, tz_calc, unicode_ref_calc, url_calc,
-    uuid_calc, validate_calc, vim_adv_calc, vim_calc, wasm_ref_calc, xml_calc, yaml_calc,
+    accessibility_calc, algo_ref_calc, ansible_calc, api_design_calc, api_gateway_calc, ascii_calc,
+    ascii_table_calc, awk_calc, bash_adv_calc, bash_ref_calc, bitwise_calc, case_calc, chars_calc,
+    checksum_calc, chemistry_calc, chmod_calc, cipher_calc, cloud_ref_calc, color_calc,
+    color_names_calc, combinatorics_calc, complex_calc, cron_calc, crypto_ref_calc, css_ref_calc,
+    csv_calc, curl_calc, datetime_calc, db_design_calc, devops_ref_calc, diff_calc,
+    docker_adv_calc, docker_compose_calc, docker_ref_calc, duration_calc, electrical_calc,
+    encode_calc, escape_calc, event_driven_calc, find_calc, fraction_calc, geometry_calc,
+    git_adv_calc, git_ref_calc, gitignore_calc, go_ref_calc, grep_calc, hash_calc, headers_calc,
+    health_calc, http_adv_calc, http_calc, http_headers_calc, http_status_calc, id_gen_calc,
+    ip_calc, jinja_calc, jq_calc, js_ref_calc, json_calc, json_path_calc, jwt_calc, k8s_ref_calc,
+    kbd_calc, kubectl_calc, license_calc, linux_adv_calc, linux_sys_calc, lorem_calc, make_calc,
+    makefile_calc, markdown_calc, matrix_calc, mime_calc, ml_ref_calc, net_calc, network_ref_calc,
+    nginx_calc, npm_calc, number_format, number_theory_calc, observability_calc, oop_ref_calc,
+    openssl_calc, percent_calc, perf_ref_calc, physics_calc, port_calc, postgres_calc, prob_calc,
+    python_data_calc, python_ref_calc, regex_adv_calc, regex_calc, regex_ref_calc, regex_test_calc,
+    roman_calc, rust_adv_calc, rust_patterns_calc, rust_ref_calc, security_ref_calc,
+    security_scan_calc, sed_calc, semver_calc, set_calc, sort_viz, spark_calc, sql_adv_calc,
+    sql_fmt_calc, sql_ref_calc, ssh_ref_calc, ssl_calc, stats_calc, string_dist, systemd_adv_calc,
+    systemd_calc, table_calc, tar_calc, template_calc, terraform_adv_calc, terraform_calc,
+    text_stats, timestamp_calc, tmux_calc, toml_calc, trig_calc, ts_ref_calc, typescript_adv_calc,
+    tz_calc, unicode_ref_calc, url_calc, uuid_calc, validate_calc, vim_adv_calc, vim_calc,
+    wasm_ref_calc, xml_calc, yaml_calc,
 };
 
 // ─── Cipher tests ────────────────────────────────────────────────────────────
@@ -18215,4 +18216,899 @@ fn security_scan_headers_alias() {
 fn security_scan_edge_cases() {
     let _ = security_scan_calc("@#$%");
     let _ = security_scan_calc("   ");
+}
+
+// ── ml_ref_calc ───────────────────────────────────────────────────────────────
+
+#[test]
+fn ml_ref_empty() {
+    let out = ml_ref_calc("");
+    assert!(out.contains("fundamentals") || out.contains("models") || out.contains("Topics"));
+}
+
+#[test]
+fn ml_ref_nomatch() {
+    let out = ml_ref_calc("zzznomatch");
+    assert!(out.contains("No topic found") || out.contains("no topic"));
+}
+
+#[test]
+fn ml_ref_all() {
+    let out = ml_ref_calc("all");
+    assert!(out.contains("fundamentals") || out.contains("Fundamentals"));
+    assert!(out.contains("models") || out.contains("Models"));
+    assert!(out.contains("features") || out.contains("Features"));
+    assert!(out.contains("training") || out.contains("Training"));
+    assert!(out.contains("evaluation") || out.contains("Evaluation"));
+    assert!(out.contains("deployment") || out.contains("Deployment"));
+}
+
+#[test]
+fn ml_ref_fundamentals() {
+    let out = ml_ref_calc("fundamentals");
+    assert!(out.contains("bias") || out.contains("Bias") || out.contains("supervised"));
+}
+
+#[test]
+fn ml_ref_bias_variance_alias() {
+    let out = ml_ref_calc("bias-variance");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("bias") || out.contains("variance") || out.contains("overfitting"));
+}
+
+#[test]
+fn ml_ref_overfitting_alias() {
+    let out = ml_ref_calc("overfitting");
+    assert!(!out.contains("No topic found"));
+    assert!(
+        out.contains("overfitting") || out.contains("regularization") || out.contains("variance")
+    );
+}
+
+#[test]
+fn ml_ref_supervised_alias() {
+    let out = ml_ref_calc("supervised");
+    assert!(!out.contains("No topic found"));
+    assert!(
+        out.contains("supervised") || out.contains("labeled") || out.contains("classification")
+    );
+}
+
+#[test]
+fn ml_ref_models() {
+    let out = ml_ref_calc("models");
+    assert!(
+        out.contains("XGBoost")
+            || out.contains("sklearn")
+            || out.contains("CNN")
+            || out.contains("transformer")
+    );
+}
+
+#[test]
+fn ml_ref_xgboost_alias() {
+    let out = ml_ref_calc("xgboost");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("XGBoost") || out.contains("xgboost") || out.contains("gradient"));
+}
+
+#[test]
+fn ml_ref_random_forest_alias() {
+    let out = ml_ref_calc("random-forest");
+    assert!(!out.contains("No topic found"));
+    assert!(
+        out.contains("RandomForest") || out.contains("random forest") || out.contains("Forest")
+    );
+}
+
+#[test]
+fn ml_ref_tabular_alias() {
+    let out = ml_ref_calc("tabular");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("tabular") || out.contains("GBT") || out.contains("structured"));
+}
+
+#[test]
+fn ml_ref_features() {
+    let out = ml_ref_calc("features");
+    assert!(
+        out.contains("encoding")
+            || out.contains("scaling")
+            || out.contains("feature")
+            || out.contains("Feature")
+    );
+}
+
+#[test]
+fn ml_ref_scaling_alias() {
+    let out = ml_ref_calc("scaling");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("StandardScaler") || out.contains("scaling") || out.contains("MinMax"));
+}
+
+#[test]
+fn ml_ref_encoding_alias() {
+    let out = ml_ref_calc("encoding");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("encoding") || out.contains("one-hot") || out.contains("categorical"));
+}
+
+#[test]
+fn ml_ref_tfidf_alias() {
+    let out = ml_ref_calc("tfidf");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("TF-IDF") || out.contains("tfidf") || out.contains("text"));
+}
+
+#[test]
+fn ml_ref_training() {
+    let out = ml_ref_calc("training");
+    assert!(
+        out.contains("gradient")
+            || out.contains("Gradient")
+            || out.contains("Adam")
+            || out.contains("learning rate")
+    );
+}
+
+#[test]
+fn ml_ref_adam_alias() {
+    let out = ml_ref_calc("adam");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("Adam") || out.contains("adam") || out.contains("optimizer"));
+}
+
+#[test]
+fn ml_ref_learning_rate_alias() {
+    let out = ml_ref_calc("learning-rate");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("learning rate") || out.contains("LR") || out.contains("schedule"));
+}
+
+#[test]
+fn ml_ref_dropout_alias() {
+    let out = ml_ref_calc("dropout");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("Dropout") || out.contains("dropout") || out.contains("regularization"));
+}
+
+#[test]
+fn ml_ref_evaluation() {
+    let out = ml_ref_calc("evaluation");
+    assert!(
+        out.contains("precision")
+            || out.contains("Precision")
+            || out.contains("F1")
+            || out.contains("AUC")
+    );
+}
+
+#[test]
+fn ml_ref_f1_alias() {
+    let out = ml_ref_calc("f1");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("F1") || out.contains("precision") || out.contains("recall"));
+}
+
+#[test]
+fn ml_ref_auc_alias() {
+    let out = ml_ref_calc("auc");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("AUC") || out.contains("ROC") || out.contains("threshold"));
+}
+
+#[test]
+fn ml_ref_drift_alias() {
+    let out = ml_ref_calc("drift");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("drift") || out.contains("Drift") || out.contains("distribution"));
+}
+
+#[test]
+fn ml_ref_deployment() {
+    let out = ml_ref_calc("deployment");
+    assert!(
+        out.contains("serving")
+            || out.contains("ONNX")
+            || out.contains("MLflow")
+            || out.contains("quantization")
+    );
+}
+
+#[test]
+fn ml_ref_onnx_alias() {
+    let out = ml_ref_calc("onnx");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("ONNX") || out.contains("onnx") || out.contains("interoperable"));
+}
+
+#[test]
+fn ml_ref_quantization_alias() {
+    let out = ml_ref_calc("quantization");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("quantization") || out.contains("Quantization") || out.contains("INT8"));
+}
+
+#[test]
+fn ml_ref_edge_cases() {
+    let _ = ml_ref_calc("@#$%");
+    let _ = ml_ref_calc("   ");
+}
+
+// ── rust_patterns_calc ────────────────────────────────────────────────────────
+
+#[test]
+fn rust_patterns_empty() {
+    let out = rust_patterns_calc("");
+    assert!(out.contains("errors") || out.contains("iterators") || out.contains("Topics"));
+}
+
+#[test]
+fn rust_patterns_nomatch() {
+    let out = rust_patterns_calc("zzznomatch");
+    assert!(out.contains("No topic found") || out.contains("no topic"));
+}
+
+#[test]
+fn rust_patterns_all() {
+    let out = rust_patterns_calc("all");
+    assert!(out.contains("errors") || out.contains("Errors") || out.contains("Error"));
+    assert!(out.contains("iterators") || out.contains("Iterator"));
+    assert!(out.contains("traits") || out.contains("Traits") || out.contains("Trait"));
+    assert!(out.contains("async") || out.contains("Async"));
+    assert!(out.contains("concurrency") || out.contains("Concurrency"));
+    assert!(out.contains("design") || out.contains("Design"));
+}
+
+#[test]
+fn rust_patterns_errors() {
+    let out = rust_patterns_calc("errors");
+    assert!(out.contains("Result") || out.contains("anyhow") || out.contains("thiserror"));
+}
+
+#[test]
+fn rust_patterns_anyhow_alias() {
+    let out = rust_patterns_calc("anyhow");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("anyhow") || out.contains("context") || out.contains("Result"));
+}
+
+#[test]
+fn rust_patterns_thiserror_alias() {
+    let out = rust_patterns_calc("thiserror");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("thiserror") || out.contains("derive") || out.contains("Error"));
+}
+
+#[test]
+fn rust_patterns_result_alias() {
+    let out = rust_patterns_calc("result");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("Result") || out.contains("error") || out.contains("Ok"));
+}
+
+#[test]
+fn rust_patterns_iterators() {
+    let out = rust_patterns_calc("iterators");
+    assert!(
+        out.contains("Iterator")
+            || out.contains("map")
+            || out.contains("filter")
+            || out.contains("collect")
+    );
+}
+
+#[test]
+fn rust_patterns_map_alias() {
+    let out = rust_patterns_calc("map");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("map") || out.contains("transform") || out.contains("Iterator"));
+}
+
+#[test]
+fn rust_patterns_collect_alias() {
+    let out = rust_patterns_calc("collect");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("collect") || out.contains("Vec") || out.contains("HashMap"));
+}
+
+#[test]
+fn rust_patterns_rayon_alias() {
+    let out = rust_patterns_calc("rayon");
+    assert!(!out.contains("No topic found"));
+    assert!(
+        out.contains("rayon")
+            || out.contains("Rayon")
+            || out.contains("parallel")
+            || out.contains("par_iter")
+    );
+}
+
+#[test]
+fn rust_patterns_traits() {
+    let out = rust_patterns_calc("traits");
+    assert!(
+        out.contains("Trait")
+            || out.contains("trait")
+            || out.contains("dyn")
+            || out.contains("generic")
+    );
+}
+
+#[test]
+fn rust_patterns_dyn_alias() {
+    let out = rust_patterns_calc("dyn");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("dyn") || out.contains("trait object") || out.contains("dispatch"));
+}
+
+#[test]
+fn rust_patterns_builder_alias() {
+    let out = rust_patterns_calc("builder");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("Builder") || out.contains("builder") || out.contains("build"));
+}
+
+#[test]
+fn rust_patterns_async() {
+    let out = rust_patterns_calc("async");
+    assert!(
+        out.contains("async")
+            || out.contains("Async")
+            || out.contains("tokio")
+            || out.contains("Tokio")
+    );
+}
+
+#[test]
+fn rust_patterns_tokio_alias() {
+    let out = rust_patterns_calc("tokio");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("tokio") || out.contains("Tokio") || out.contains("spawn"));
+}
+
+#[test]
+fn rust_patterns_spawn_alias() {
+    let out = rust_patterns_calc("spawn");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("spawn") || out.contains("task") || out.contains("tokio"));
+}
+
+#[test]
+fn rust_patterns_select_alias() {
+    let out = rust_patterns_calc("select");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("select") || out.contains("first") || out.contains("tokio"));
+}
+
+#[test]
+fn rust_patterns_concurrency() {
+    let out = rust_patterns_calc("concurrency");
+    assert!(
+        out.contains("Send")
+            || out.contains("Sync")
+            || out.contains("Arc")
+            || out.contains("thread")
+    );
+}
+
+#[test]
+fn rust_patterns_arc_alias() {
+    let out = rust_patterns_calc("arc");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("Arc") || out.contains("shared") || out.contains("atomic"));
+}
+
+#[test]
+fn rust_patterns_deadlock_alias() {
+    let out = rust_patterns_calc("deadlock");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("deadlock") || out.contains("Deadlock") || out.contains("lock"));
+}
+
+#[test]
+fn rust_patterns_design() {
+    let out = rust_patterns_calc("design");
+    assert!(
+        out.contains("typestate")
+            || out.contains("newtype")
+            || out.contains("state machine")
+            || out.contains("pattern")
+    );
+}
+
+#[test]
+fn rust_patterns_newtype_alias() {
+    let out = rust_patterns_calc("newtype");
+    assert!(!out.contains("No topic found"));
+    assert!(
+        out.contains("newtype")
+            || out.contains("Newtype")
+            || out.contains("wrapper")
+            || out.contains("Wrapper")
+    );
+}
+
+#[test]
+fn rust_patterns_typestate_alias() {
+    let out = rust_patterns_calc("typestate");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("typestate") || out.contains("TypeState") || out.contains("PhantomData"));
+}
+
+#[test]
+fn rust_patterns_edge_cases() {
+    let _ = rust_patterns_calc("@#$%");
+    let _ = rust_patterns_calc("   ");
+}
+
+// ── event_driven_calc ─────────────────────────────────────────────────────────
+
+#[test]
+fn event_driven_empty() {
+    let out = event_driven_calc("");
+    assert!(out.contains("patterns") || out.contains("kafka") || out.contains("Topics"));
+}
+
+#[test]
+fn event_driven_nomatch() {
+    let out = event_driven_calc("zzznomatch");
+    assert!(out.contains("No topic found") || out.contains("no topic"));
+}
+
+#[test]
+fn event_driven_all() {
+    let out = event_driven_calc("all");
+    assert!(out.contains("patterns") || out.contains("Patterns"));
+    assert!(out.contains("kafka") || out.contains("Kafka"));
+    assert!(
+        out.contains("event-sourcing") || out.contains("Event Sourcing") || out.contains("CQRS")
+    );
+    assert!(out.contains("messaging") || out.contains("Messaging"));
+    assert!(out.contains("cdc") || out.contains("CDC"));
+    assert!(out.contains("schema") || out.contains("Schema"));
+}
+
+#[test]
+fn event_driven_patterns() {
+    let out = event_driven_calc("patterns");
+    assert!(
+        out.contains("pub/sub")
+            || out.contains("pubsub")
+            || out.contains("event")
+            || out.contains("saga")
+    );
+}
+
+#[test]
+fn event_driven_pubsub_alias() {
+    let out = event_driven_calc("pubsub");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("pub") || out.contains("subscriber") || out.contains("topic"));
+}
+
+#[test]
+fn event_driven_saga_alias() {
+    let out = event_driven_calc("saga");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("Saga") || out.contains("saga") || out.contains("compensating"));
+}
+
+#[test]
+fn event_driven_idempotent_alias() {
+    let out = event_driven_calc("idempotent");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("idempotent") || out.contains("Idempotent") || out.contains("duplicate"));
+}
+
+#[test]
+fn event_driven_kafka() {
+    let out = event_driven_calc("kafka");
+    assert!(
+        out.contains("Kafka")
+            || out.contains("topic")
+            || out.contains("partition")
+            || out.contains("consumer")
+    );
+}
+
+#[test]
+fn event_driven_topic_alias() {
+    let out = event_driven_calc("topic");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("topic") || out.contains("Topic") || out.contains("partition"));
+}
+
+#[test]
+fn event_driven_offset_alias() {
+    let out = event_driven_calc("offset");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("offset") || out.contains("Offset") || out.contains("position"));
+}
+
+#[test]
+fn event_driven_ksqldb_alias() {
+    let out = event_driven_calc("ksqldb");
+    assert!(!out.contains("No topic found"));
+    assert!(
+        out.contains("ksqlDB")
+            || out.contains("ksqldb")
+            || out.contains("SQL")
+            || out.contains("stream")
+    );
+}
+
+#[test]
+fn event_driven_event_sourcing() {
+    let out = event_driven_calc("event-sourcing");
+    assert!(
+        out.contains("event sourcing")
+            || out.contains("Event Sourcing")
+            || out.contains("aggregate")
+            || out.contains("CQRS")
+    );
+}
+
+#[test]
+fn event_driven_cqrs_alias() {
+    let out = event_driven_calc("cqrs");
+    assert!(!out.contains("No topic found"));
+    assert!(
+        out.contains("CQRS")
+            || out.contains("cqrs")
+            || out.contains("command")
+            || out.contains("query")
+    );
+}
+
+#[test]
+fn event_driven_aggregate_alias() {
+    let out = event_driven_calc("aggregate");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("aggregate") || out.contains("Aggregate") || out.contains("domain"));
+}
+
+#[test]
+fn event_driven_snapshot_alias() {
+    let out = event_driven_calc("snapshot");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("snapshot") || out.contains("Snapshot") || out.contains("replay"));
+}
+
+#[test]
+fn event_driven_messaging() {
+    let out = event_driven_calc("messaging");
+    assert!(
+        out.contains("RabbitMQ")
+            || out.contains("SQS")
+            || out.contains("NATS")
+            || out.contains("queue")
+    );
+}
+
+#[test]
+fn event_driven_rabbitmq_alias() {
+    let out = event_driven_calc("rabbitmq");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("RabbitMQ") || out.contains("rabbitmq") || out.contains("exchange"));
+}
+
+#[test]
+fn event_driven_sqs_alias() {
+    let out = event_driven_calc("sqs");
+    assert!(!out.contains("No topic found"));
+    assert!(
+        out.contains("SQS") || out.contains("FIFO") || out.contains("DLQ") || out.contains("queue")
+    );
+}
+
+#[test]
+fn event_driven_dlq_alias() {
+    let out = event_driven_calc("dlq");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("DLQ") || out.contains("Dead Letter") || out.contains("dead letter"));
+}
+
+#[test]
+fn event_driven_cdc() {
+    let out = event_driven_calc("cdc");
+    assert!(
+        out.contains("CDC")
+            || out.contains("Debezium")
+            || out.contains("outbox")
+            || out.contains("WAL")
+    );
+}
+
+#[test]
+fn event_driven_debezium_alias() {
+    let out = event_driven_calc("debezium");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("Debezium") || out.contains("debezium") || out.contains("CDC"));
+}
+
+#[test]
+fn event_driven_outbox_alias() {
+    let out = event_driven_calc("outbox");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("outbox") || out.contains("Outbox") || out.contains("atomic"));
+}
+
+#[test]
+fn event_driven_dual_write_alias() {
+    let out = event_driven_calc("dual-write");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("dual-write") || out.contains("outbox") || out.contains("atomic"));
+}
+
+#[test]
+fn event_driven_schema() {
+    let out = event_driven_calc("schema");
+    assert!(
+        out.contains("Avro")
+            || out.contains("Protobuf")
+            || out.contains("schema")
+            || out.contains("evolution")
+    );
+}
+
+#[test]
+fn event_driven_avro_alias() {
+    let out = event_driven_calc("avro");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("Avro") || out.contains("avro") || out.contains("schema"));
+}
+
+#[test]
+fn event_driven_asyncapi_alias() {
+    let out = event_driven_calc("asyncapi");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("AsyncAPI") || out.contains("asyncapi") || out.contains("channel"));
+}
+
+#[test]
+fn event_driven_edge_cases() {
+    let _ = event_driven_calc("@#$%");
+    let _ = event_driven_calc("   ");
+}
+
+// ── api_gateway_calc ──────────────────────────────────────────────────────────
+
+#[test]
+fn api_gateway_empty() {
+    let out = api_gateway_calc("");
+    assert!(out.contains("patterns") || out.contains("products") || out.contains("Topics"));
+}
+
+#[test]
+fn api_gateway_nomatch() {
+    let out = api_gateway_calc("zzznomatch");
+    assert!(out.contains("No topic found") || out.contains("no topic"));
+}
+
+#[test]
+fn api_gateway_all() {
+    let out = api_gateway_calc("all");
+    assert!(out.contains("patterns") || out.contains("Patterns"));
+    assert!(out.contains("products") || out.contains("Products") || out.contains("Kong"));
+    assert!(out.contains("service-mesh") || out.contains("Service Mesh") || out.contains("Istio"));
+    assert!(out.contains("auth") || out.contains("Auth"));
+    assert!(out.contains("observability") || out.contains("Observability"));
+    assert!(out.contains("design") || out.contains("Design"));
+}
+
+#[test]
+fn api_gateway_patterns() {
+    let out = api_gateway_calc("patterns");
+    assert!(
+        out.contains("BFF")
+            || out.contains("rate limit")
+            || out.contains("circuit")
+            || out.contains("gateway")
+    );
+}
+
+#[test]
+fn api_gateway_bff_alias() {
+    let out = api_gateway_calc("bff");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("BFF") || out.contains("Backend for Frontend") || out.contains("client"));
+}
+
+#[test]
+fn api_gateway_rate_limit_alias() {
+    let out = api_gateway_calc("rate-limit");
+    assert!(!out.contains("No topic found"));
+    assert!(
+        out.contains("rate")
+            || out.contains("Rate")
+            || out.contains("throttle")
+            || out.contains("429")
+    );
+}
+
+#[test]
+fn api_gateway_circuit_breaker_alias() {
+    let out = api_gateway_calc("circuit-breaker");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("circuit") || out.contains("Circuit") || out.contains("fail fast"));
+}
+
+#[test]
+fn api_gateway_products() {
+    let out = api_gateway_calc("products");
+    assert!(
+        out.contains("Kong")
+            || out.contains("Nginx")
+            || out.contains("Envoy")
+            || out.contains("Traefik")
+    );
+}
+
+#[test]
+fn api_gateway_kong_alias() {
+    let out = api_gateway_calc("kong");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("Kong") || out.contains("kong") || out.contains("plugin"));
+}
+
+#[test]
+fn api_gateway_nginx_alias() {
+    let out = api_gateway_calc("nginx");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("NGINX") || out.contains("nginx") || out.contains("proxy"));
+}
+
+#[test]
+fn api_gateway_envoy_alias() {
+    let out = api_gateway_calc("envoy");
+    assert!(!out.contains("No topic found"));
+    assert!(
+        out.contains("Envoy")
+            || out.contains("envoy")
+            || out.contains("filter")
+            || out.contains("cluster")
+    );
+}
+
+#[test]
+fn api_gateway_traefik_alias() {
+    let out = api_gateway_calc("traefik");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("Traefik") || out.contains("traefik") || out.contains("middleware"));
+}
+
+#[test]
+fn api_gateway_service_mesh() {
+    let out = api_gateway_calc("service-mesh");
+    assert!(
+        out.contains("Istio")
+            || out.contains("Linkerd")
+            || out.contains("sidecar")
+            || out.contains("mTLS")
+    );
+}
+
+#[test]
+fn api_gateway_istio_alias() {
+    let out = api_gateway_calc("istio");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("Istio") || out.contains("istio") || out.contains("VirtualService"));
+}
+
+#[test]
+fn api_gateway_linkerd_alias() {
+    let out = api_gateway_calc("linkerd");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("Linkerd") || out.contains("linkerd") || out.contains("proxy"));
+}
+
+#[test]
+fn api_gateway_sidecar_alias() {
+    let out = api_gateway_calc("sidecar");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("sidecar") || out.contains("Sidecar") || out.contains("Envoy"));
+}
+
+#[test]
+fn api_gateway_auth() {
+    let out = api_gateway_calc("auth");
+    assert!(
+        out.contains("JWT")
+            || out.contains("OAuth")
+            || out.contains("API key")
+            || out.contains("auth")
+    );
+}
+
+#[test]
+fn api_gateway_jwt_alias() {
+    let out = api_gateway_calc("jwt");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("JWT") || out.contains("jwt") || out.contains("token"));
+}
+
+#[test]
+fn api_gateway_oauth2_alias() {
+    let out = api_gateway_calc("oauth2");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("OAuth") || out.contains("oauth") || out.contains("token"));
+}
+
+#[test]
+fn api_gateway_cors_alias() {
+    let out = api_gateway_calc("cors");
+    assert!(!out.contains("No topic found"));
+    assert!(
+        out.contains("CORS")
+            || out.contains("cors")
+            || out.contains("preflight")
+            || out.contains("Preflight")
+    );
+}
+
+#[test]
+fn api_gateway_jwks_alias() {
+    let out = api_gateway_calc("jwks");
+    assert!(!out.contains("No topic found"));
+    assert!(
+        out.contains("JWKS")
+            || out.contains("jwks")
+            || out.contains("key rotation")
+            || out.contains("rotation")
+    );
+}
+
+#[test]
+fn api_gateway_observability() {
+    let out = api_gateway_calc("observability");
+    assert!(
+        out.contains("metric")
+            || out.contains("Metric")
+            || out.contains("trace")
+            || out.contains("log")
+    );
+}
+
+#[test]
+fn api_gateway_access_log_alias() {
+    let out = api_gateway_calc("access-log");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("access log") || out.contains("log") || out.contains("format"));
+}
+
+#[test]
+fn api_gateway_design() {
+    let out = api_gateway_calc("design");
+    assert!(
+        out.contains("version")
+            || out.contains("Version")
+            || out.contains("lifecycle")
+            || out.contains("deprecat")
+    );
+}
+
+#[test]
+fn api_gateway_versioning_alias() {
+    let out = api_gateway_calc("versioning");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("version") || out.contains("v1") || out.contains("URL"));
+}
+
+#[test]
+fn api_gateway_openapi_alias() {
+    let out = api_gateway_calc("openapi");
+    assert!(!out.contains("No topic found"));
+    assert!(
+        out.contains("OpenAPI")
+            || out.contains("openapi")
+            || out.contains("spec")
+            || out.contains("Swagger")
+    );
+}
+
+#[test]
+fn api_gateway_edge_cases() {
+    let _ = api_gateway_calc("@#$%");
+    let _ = api_gateway_calc("   ");
 }
