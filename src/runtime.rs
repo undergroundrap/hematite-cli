@@ -1067,6 +1067,10 @@ mod tests {
             terraform: None,
             npm: None,
             git_adv: None,
+            docker_adv: None,
+            systemd_adv: None,
+            makefile: None,
+            jinja: None,
             pdf_extract_helper: None,
             teleported_from: None,
         };

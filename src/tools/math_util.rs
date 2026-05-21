@@ -34965,3 +34965,571 @@ pub fn git_adv_calc(query: &str) -> String {
     }
     out
 }
+
+// ─── Wave 20: docker-adv, systemd-adv, makefile, jinja ───────────────────────
+
+pub fn docker_adv_calc(query: &str) -> String {
+    use std::fmt::Write as _;
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+
+    fn s_dockerfile() -> &'static str {
+        "  Multi-stage builds:\n  FROM golang:1.22 AS builder\n  WORKDIR /app\n  COPY go.mod go.sum ./\n  RUN go mod download\n  COPY . .\n  RUN CGO_ENABLED=0 go build -o /app/server ./cmd/server\n\n  FROM gcr.io/distroless/static:nonroot\n  COPY --from=builder /app/server /server\n  EXPOSE 8080\n  ENTRYPOINT [\"/server\"]\n\n  Key instructions:\n  FROM image[:tag] [AS name]\n  ARG NAME=default          (build-time variable; before FROM = global)\n  ENV KEY=value             (runtime env var; persists in image)\n  WORKDIR /path             (creates dir if missing; affects subsequent cmds)\n  COPY [--chown=user:group] src dst\n  COPY --from=stage src dst (copy from another stage or image)\n  ADD src dst               (like COPY but auto-extracts .tar; avoid for plain files)\n  RUN cmd                   (creates a layer; chain with && to minimize layers)\n  CMD [\"exec\", \"args\"]      (default command; overridable at run time)\n  ENTRYPOINT [\"exec\"]       (fixed entrypoint; CMD becomes default args)\n  EXPOSE port/proto         (documentation only; does not publish)\n  VOLUME [\"/data\"]          (creates anonymous volume at path)\n  USER uid[:gid]            (switch user for subsequent RUN/CMD/ENTRYPOINT)\n  HEALTHCHECK --interval=30s --timeout=3s CMD curl -f http://localhost/ || exit 1\n  LABEL key=\"value\"         (metadata)\n  ONBUILD instruction       (triggers when image is used as base)\n  STOPSIGNAL SIGTERM\n\n  Layer cache tips:\n  - Copy dependency files first, install, then copy source\n  - RUN --mount=type=cache,target=/root/.cache/pip pip install ...\n  - RUN --mount=type=cache,target=/root/.cargo cargo build\n  - Use .dockerignore aggressively (node_modules, .git, target/)\n\n  BuildKit features (DOCKER_BUILDKIT=1 or docker buildx):\n  RUN --mount=type=secret,id=mysecret cat /run/secrets/mysecret\n  RUN --mount=type=ssh ssh-add && git clone git@github.com:org/repo\n  RUN --mount=type=bind,source=.,target=/src,rw ...\n"
+    }
+    fn s_networks() -> &'static str {
+        "  Network drivers:\n  bridge     Default; isolated bridge; containers communicate by name on same network\n  host       Remove network isolation; use host's network directly (Linux only)\n  none       Disable all networking\n  overlay    Multi-host (Swarm / cross-daemon)\n  macvlan    Assign MAC address; appear as physical devices on LAN\n  ipvlan     Similar to macvlan but shares MAC\n\n  Common commands:\n  docker network create mynet\n  docker network create --driver bridge --subnet 172.20.0.0/16 mynet\n  docker network ls\n  docker network inspect mynet\n  docker network rm mynet\n  docker network prune         (remove all unused networks)\n\n  Connect / disconnect:\n  docker network connect mynet container\n  docker network disconnect mynet container\n  docker run --network mynet nginx\n  docker run --network host nginx\n  docker run --network none nginx\n\n  DNS in user-defined bridge networks:\n  - Containers resolve each other by container name automatically\n  - Default bridge does NOT support DNS (use --link legacy or switch to named network)\n\n  Port publishing:\n  -p 8080:80           host:container\n  -p 127.0.0.1:8080:80 Bind to loopback only\n  -p 8080:80/udp       UDP port\n  -P                   Publish all EXPOSE'd ports to random host ports\n\n  Inspect IP / ports:\n  docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' ctr\n  docker port mycontainer\n"
+    }
+    fn s_volumes() -> &'static str {
+        "  Volume types:\n  Named volume    Managed by Docker; persists across container removal\n  Bind mount      Host path mounted into container; useful for dev\n  tmpfs mount     In-memory; not persisted; useful for secrets\n  Volume in image Created by VOLUME instruction; anonymous unless named at run\n\n  Commands:\n  docker volume create myvol\n  docker volume ls\n  docker volume inspect myvol\n  docker volume rm myvol\n  docker volume prune          (remove all unused volumes)\n\n  Using volumes at run time:\n  docker run -v myvol:/data nginx                (named volume)\n  docker run -v /host/path:/container/path nginx (bind mount)\n  docker run -v /host/path:/container/path:ro nginx  (read-only)\n  docker run --mount type=volume,src=myvol,dst=/data nginx\n  docker run --mount type=bind,src=$(pwd),dst=/app nginx\n  docker run --mount type=tmpfs,dst=/tmp,tmpfs-size=100m nginx\n\n  Copy data to/from volumes:\n  docker cp file.txt mycontainer:/data/file.txt\n  docker cp mycontainer:/data/file.txt ./file.txt\n\n  Backup / restore:\n  docker run --rm -v myvol:/data -v $(pwd):/backup alpine \\\n    tar czf /backup/vol-backup.tar.gz -C /data .\n  docker run --rm -v myvol:/data -v $(pwd):/backup alpine \\\n    tar xzf /backup/vol-backup.tar.gz -C /data\n\n  Dev workflow (bind mount src + named vol for node_modules):\n  docker run -v $(pwd):/app -v /app/node_modules node:20 npm start\n  # node_modules in container not overwritten by host bind mount\n"
+    }
+    fn s_compose() -> &'static str {
+        "  Compose file (compose.yml / docker-compose.yml):\n  services:\n    web:\n      image: nginx:alpine\n      build:\n        context: .\n        dockerfile: Dockerfile\n        args:\n          NODE_ENV: production\n        target: production        # multi-stage target\n        cache_from:\n          - myapp:latest\n      ports:\n        - \"8080:80\"\n      environment:\n        DATABASE_URL: postgres://user:pass@db:5432/app\n      env_file:\n        - .env\n      depends_on:\n        db:\n          condition: service_healthy\n      volumes:\n        - ./src:/app/src          # bind mount\n        - appdata:/app/data       # named volume\n      networks:\n        - backend\n      restart: unless-stopped\n      healthcheck:\n        test: [\"CMD\", \"curl\", \"-f\", \"http://localhost/\"]\n        interval: 30s\n        timeout: 10s\n        retries: 3\n        start_period: 10s\n      deploy:\n        resources:\n          limits:\n            cpus: '0.5'\n            memory: 512M\n    db:\n      image: postgres:16-alpine\n      volumes:\n        - pgdata:/var/lib/postgresql/data\n      environment:\n        POSTGRES_PASSWORD: pass\n      healthcheck:\n        test: [\"CMD-SHELL\", \"pg_isready -U postgres\"]\n        interval: 10s\n        timeout: 5s\n        retries: 5\n  volumes:\n    appdata:\n    pgdata:\n  networks:\n    backend:\n\n  Common commands:\n  docker compose up -d\n  docker compose up --build\n  docker compose down\n  docker compose down -v         (also remove volumes)\n  docker compose ps\n  docker compose logs -f web\n  docker compose exec web sh\n  docker compose run --rm web npm test\n  docker compose pull\n  docker compose build --no-cache\n  docker compose config           (validate + print merged config)\n  docker compose -f override.yml up (override file)\n"
+    }
+    fn s_buildkit() -> &'static str {
+        "  Enable BuildKit:\n  DOCKER_BUILDKIT=1 docker build .\n  # Or globally: { \"features\": { \"buildkit\": true } } in /etc/docker/daemon.json\n  # docker buildx is always BuildKit\n\n  docker buildx:\n  docker buildx create --use --name mybuilder\n  docker buildx build --platform linux/amd64,linux/arm64 -t img:tag --push .\n  docker buildx ls\n  docker buildx rm mybuilder\n  docker buildx bake             (build from bake file — like Makefile for images)\n\n  Cache management:\n  docker buildx build --cache-to type=local,dest=/tmp/cache .\n  docker buildx build --cache-from type=local,src=/tmp/cache .\n  docker buildx build --cache-to type=registry,ref=myimg:cache .\n  docker buildx build --cache-from type=registry,ref=myimg:cache .\n\n  Secrets (never baked into layers):\n  docker buildx build --secret id=mysecret,src=./secret.txt .\n  # In Dockerfile:\n  RUN --mount=type=secret,id=mysecret cat /run/secrets/mysecret\n\n  Build args vs ENV:\n  ARG NODE_VERSION=20              (build time only; not in final image)\n  ENV NODE_VERSION=$NODE_VERSION   (persists into image; avoid for secrets)\n\n  Squash layers (alternative to multi-stage):\n  docker build --squash .          (requires experimental daemon flag)\n\n  Inspect image layers:\n  docker history myimage:tag\n  docker image inspect myimage:tag | jq '.[].RootFS'\n  dive myimage:tag                 (third-party: layer-by-layer explorer)\n\n  Image size tips:\n  - Use alpine, distroless, or scratch base images\n  - RUN apt-get install -y pkg && apt-get clean && rm -rf /var/lib/apt/lists/*\n  - Combine RUN steps; copy only what you need\n  - Use multi-stage; final stage from distroless/scratch\n"
+    }
+    fn s_operations() -> &'static str {
+        "  Container lifecycle:\n  docker run -d --name web --restart unless-stopped -p 8080:80 nginx\n  docker start/stop/restart/kill/pause/unpause web\n  docker rm web               (must stop first, or -f to force)\n  docker rm -f web\n  docker logs web\n  docker logs web --tail 100 -f\n  docker logs web --since 1h\n  docker exec -it web sh\n  docker exec web env\n  docker top web\n  docker stats                (live CPU/mem for all containers)\n  docker stats web --no-stream\n\n  Image management:\n  docker pull nginx:alpine\n  docker push myregistry/myimage:tag\n  docker tag source:tag target:tag\n  docker rmi myimage:tag\n  docker images\n  docker images --filter dangling=true\n  docker image prune\n  docker image prune -a       (all unused images)\n  docker save myimage:tag | gzip > image.tar.gz\n  docker load < image.tar.gz\n\n  System cleanup:\n  docker system prune           (stopped containers, dangling images, unused networks)\n  docker system prune -a        (also removes unused images)\n  docker system prune --volumes (also volumes)\n  docker system df              (show disk usage)\n\n  Registry / login:\n  docker login\n  docker login myregistry.example.com\n  docker logout\n\n  Context (remote daemons):\n  docker context create remote --docker host=ssh://user@host\n  docker context use remote\n  docker context ls\n  DOCKER_HOST=ssh://user@host docker ps\n"
+    }
+
+    type DockerAdvSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+    const SECTIONS: &[DockerAdvSection] = &[
+        (
+            "dockerfile",
+            &[
+                "dockerfile",
+                "multi-stage",
+                "instruction",
+                "layer",
+                "buildarg",
+                "healthcheck",
+            ],
+            s_dockerfile,
+        ),
+        (
+            "networks",
+            &[
+                "network", "networks", "bridge", "dns", "port", "overlay", "macvlan",
+            ],
+            s_networks,
+        ),
+        (
+            "volumes",
+            &["volume", "volumes", "bind", "mount", "tmpfs", "backup"],
+            s_volumes,
+        ),
+        (
+            "compose",
+            &[
+                "compose", "service", "depends", "restart", "env_file", "deploy",
+            ],
+            s_compose,
+        ),
+        (
+            "buildkit",
+            &[
+                "buildkit", "buildx", "cache", "secret", "platform", "squash", "bake",
+            ],
+            s_buildkit,
+        ),
+        (
+            "operations",
+            &[
+                "operation",
+                "run",
+                "exec",
+                "logs",
+                "prune",
+                "registry",
+                "context",
+                "stats",
+            ],
+            s_operations,
+        ),
+    ];
+
+    let q = query.trim().to_lowercase();
+
+    if q.is_empty() || q == "help" || q == "list" {
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  hematite --docker-adv <TOPIC>");
+        let _ = writeln!(out, "  Offline advanced Docker reference");
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  Topics:");
+        for &(name, aliases, _) in SECTIONS {
+            let _ = writeln!(out, "    {name:<12} ({})", aliases.join(", "));
+        }
+        let _ = writeln!(out, "\n  hematite --docker-adv all   -- print everything");
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    if q == "all" {
+        let _ = writeln!(out, "{sep}");
+        for &(name, _, f) in SECTIONS {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+            let _ = writeln!(out, "");
+        }
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    let found: Vec<_> = SECTIONS
+        .iter()
+        .filter(|&&(name, aliases, _)| {
+            name.contains(q.as_str())
+                || aliases
+                    .iter()
+                    .any(|&a| a.contains(q.as_str()) || q.contains(a))
+        })
+        .collect();
+
+    if found.is_empty() {
+        let _ = writeln!(out, "  No topic found for '{}'.", query.trim());
+        let _ = writeln!(out, "  Run: hematite --docker-adv help");
+    } else {
+        let _ = writeln!(out, "{sep}");
+        for &&(name, _, f) in &found {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+        }
+        let _ = writeln!(out, "{sep}");
+    }
+    out
+}
+
+pub fn systemd_adv_calc(query: &str) -> String {
+    use std::fmt::Write as _;
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+
+    fn s_units() -> &'static str {
+        "  Unit types:\n  .service   Daemon or one-shot process\n  .socket    Socket activation (start service when connection arrives)\n  .timer     Cron replacement — schedule .service units\n  .path      Path-based activation (start when file/dir changes)\n  .target    Group of units; synchronization point\n  .mount     Mount point (auto-generated from /etc/fstab or manual)\n  .device    Kernel device\n  .scope     Externally created processes (not managed by systemd directly)\n  .slice     cgroup hierarchy for resource management\n\n  Unit file locations (precedence: /etc > /run > /usr/lib):\n  /etc/systemd/system/           User / admin units (highest priority)\n  /run/systemd/system/           Runtime units\n  /usr/lib/systemd/system/       Vendor units (distro-provided)\n  ~/.config/systemd/user/        User units (systemctl --user)\n\n  [Unit] section:\n  Description=My Application\n  Documentation=https://example.com\n  After=network.target            Start after network is up\n  After=postgresql.service        Ordering dependency\n  Requires=postgresql.service     Hard dependency (fail together)\n  Wants=redis.service             Soft dependency (try to start)\n  BindsTo=container.service       Stop together with\n  PartOf=app.target               Stop/reload together with\n  Conflicts=old-app.service       Cannot run together\n  ConditionPathExists=/etc/myapp/config.yml\n  ConditionFileNotEmpty=/etc/myapp/config.yml\n\n  [Install] section:\n  WantedBy=multi-user.target      Enable at runlevel 3 equivalent\n  WantedBy=graphical.target       Enable for GUI boot\n  RequiredBy=app.target\n  Alias=myapp.service             Alternative name\n"
+    }
+    fn s_service() -> &'static str {
+        "  [Service] section — key options:\n\n  Type:\n  simple     (default) ExecStart is main process; ready immediately\n  exec       Like simple but waits for exec() to succeed\n  forking    Process forks; parent exits; PIDFile= tracks child\n  oneshot    Process exits after completion; RemainAfterExit=yes to stay 'active'\n  notify     Process sends sd_notify() when ready\n  dbus       Ready when BusName= appears on D-Bus\n  idle       Like simple but waits for all jobs to complete first\n\n  Execution:\n  ExecStart=/usr/bin/myapp --config /etc/myapp.conf\n  ExecStartPre=/usr/bin/migrate-db\n  ExecStartPost=/usr/bin/post-start\n  ExecReload=/bin/kill -HUP $MAINPID\n  ExecStop=/usr/bin/myapp-shutdown\n  ExecStopPost=/usr/bin/cleanup\n  PIDFile=/run/myapp.pid          (for Type=forking)\n  WorkingDirectory=/opt/myapp\n  User=myapp\n  Group=myapp\n  UMask=0027\n\n  Environment:\n  Environment=KEY=value\n  Environment=KEY=value KEY2=value2\n  EnvironmentFile=/etc/myapp/env\n  EnvironmentFile=-/etc/myapp/env.optional   (- = ignore if missing)\n\n  Restart behaviour:\n  Restart=no|always|on-success|on-failure|on-abnormal|on-abort|on-watchdog\n  RestartSec=5s\n  StartLimitIntervalSec=30s\n  StartLimitBurst=3              (max 3 starts in 30s before giving up)\n  TimeoutStartSec=90s\n  TimeoutStopSec=30s\n  TimeoutSec=90s                 (sets both start and stop)\n  KillMode=control-group         (kill all processes in cgroup on stop)\n  KillSignal=SIGTERM\n\n  Sandboxing (hardening):\n  PrivateTmp=true\n  ProtectSystem=strict           (read-only /usr, /boot, /etc)\n  ProtectHome=true\n  NoNewPrivileges=true\n  CapabilityBoundingSet=CAP_NET_BIND_SERVICE\n  ReadWritePaths=/var/lib/myapp\n  ReadOnlyPaths=/etc/myapp\n"
+    }
+    fn s_journal() -> &'static str {
+        "  journalctl basics:\n  journalctl                     All logs (oldest first)\n  journalctl -r                  Reverse (newest first)\n  journalctl -f                  Follow (like tail -f)\n  journalctl -n 50               Last 50 lines\n  journalctl -b                  Current boot\n  journalctl -b -1               Previous boot\n  journalctl -b -2               Two boots ago\n  journalctl --list-boots        All boot records\n\n  Filter by unit:\n  journalctl -u nginx\n  journalctl -u nginx -u postgresql  (multiple)\n  journalctl -u nginx -f\n  journalctl -u nginx --since today\n  journalctl -u nginx --since \"2024-01-01 10:00\" --until \"2024-01-01 11:00\"\n  journalctl -u nginx --since \"-1h\"\n\n  Filter by priority:\n  journalctl -p err              (0=emerg 1=alert 2=crit 3=err 4=warn 5=notice 6=info 7=debug)\n  journalctl -p warning..err\n  journalctl -p 3                (numeric ok)\n\n  Filter by field:\n  journalctl _PID=1234\n  journalctl _UID=1000\n  journalctl _SYSTEMD_UNIT=nginx.service\n  journalctl _COMM=python3\n  journalctl SYSLOG_IDENTIFIER=myapp\n\n  Output formats:\n  journalctl -u nginx -o json\n  journalctl -u nginx -o json-pretty\n  journalctl -u nginx -o short-iso   (ISO timestamps)\n  journalctl -u nginx -o verbose     (all metadata)\n  journalctl -u nginx -o cat         (message only)\n\n  Disk usage:\n  journalctl --disk-usage\n  journalctl --vacuum-size=500M      (trim to 500 MB)\n  journalctl --vacuum-time=7d        (keep last 7 days)\n  journalctl --verify                (verify journal integrity)\n\n  /etc/systemd/journald.conf (important options):\n  Storage=persistent                 (keep after reboot; default on most distros)\n  Compress=yes\n  SystemMaxUse=500M\n  SystemKeepFree=100M\n  MaxRetentionSec=1month\n"
+    }
+    fn s_timers() -> &'static str {
+        "  Timer unit (.timer) — cron replacement:\n\n  Example: /etc/systemd/system/backup.timer\n  [Unit]\n  Description=Daily backup at 02:30\n\n  [Timer]\n  OnCalendar=*-*-* 02:30:00      (every day at 02:30)\n  RandomizedDelaySec=300         (spread load; up to 5 min random delay)\n  Persistent=true                (run missed jobs on next boot)\n\n  [Install]\n  WantedBy=timers.target\n\n  Paired service: /etc/systemd/system/backup.service\n  [Unit]\n  Description=Backup job\n  [Service]\n  Type=oneshot\n  ExecStart=/opt/backup.sh\n  User=backup\n\n  OnCalendar syntax:\n  OnCalendar=daily               Midnight every day\n  OnCalendar=weekly              Monday midnight\n  OnCalendar=monthly             1st of month\n  OnCalendar=hourly              :00 each hour\n  OnCalendar=*-*-* 09:00:00      Every day at 09:00\n  OnCalendar=Mon-Fri *-*-* 09:00 Weekdays at 09:00\n  OnCalendar=*-*-01 00:00:00     1st of every month\n  OnCalendar=2024-12-25 00:00:00 Specific date\n\n  Monotonic timers (relative to event):\n  OnBootSec=10min                10 min after boot\n  OnActiveSec=1h                 1h after unit activated\n  OnUnitActiveSec=1d             24h after last successful activation\n\n  Timer management:\n  systemctl enable --now backup.timer\n  systemctl list-timers\n  systemctl list-timers --all    (including inactive)\n  systemctl status backup.timer\n  systemctl cat backup.timer\n  systemd-analyze calendar '*-*-* 02:30:00'  (validate + next runs)\n"
+    }
+    fn s_dropin() -> &'static str {
+        "  Drop-in overrides (extend vendor units without editing them):\n\n  Create override directory:\n  systemctl edit nginx             (opens editor; creates drop-in automatically)\n  systemctl edit --full nginx      (edit the full unit copy; NOT recommended)\n\n  Manual drop-in:\n  mkdir -p /etc/systemd/system/nginx.service.d/\n  cat > /etc/systemd/system/nginx.service.d/override.conf << EOF\n  [Service]\n  LimitNOFILE=65535\n  Restart=always\n  RestartSec=5s\n  Environment=MY_VAR=value\n  EOF\n\n  After editing:\n  systemctl daemon-reload\n  systemctl restart nginx\n\n  Common override use cases:\n  # Increase open file limit:\n  [Service]\n  LimitNOFILE=65535\n\n  # Add env var to vendor service:\n  [Service]\n  Environment=DEBUG=true\n\n  # Change restart policy:\n  [Service]\n  Restart=always\n  RestartSec=10s\n\n  # Override ExecStart (must clear first for services that set it):\n  [Service]\n  ExecStart=\n  ExecStart=/usr/bin/myapp --new-flag\n\n  # Add dependency:\n  [Unit]\n  After=vault.service\n  Wants=vault.service\n\n  View effective unit (merged with overrides):\n  systemctl cat nginx\n  systemd-analyze verify nginx.service\n\n  Revert override:\n  systemctl revert nginx           (removes drop-in directory)\n"
+    }
+    fn s_ctl() -> &'static str {
+        "  systemctl — manage units:\n  systemctl start/stop/restart/reload name\n  systemctl enable name            (enable at boot)\n  systemctl enable --now name      (enable + start)\n  systemctl disable name\n  systemctl disable --now name     (disable + stop)\n  systemctl status name\n  systemctl is-active name\n  systemctl is-enabled name\n  systemctl is-failed name\n  systemctl daemon-reload          (after editing unit files)\n  systemctl reset-failed           (clear failed state)\n  systemctl mask name              (hard-prevent start)\n  systemctl unmask name\n  systemctl list-units             (active units)\n  systemctl list-units --all       (all states)\n  systemctl list-units --type=service\n  systemctl list-units --state=failed\n  systemctl list-unit-files        (enabled/disabled state)\n  systemctl list-dependencies name (dependency tree)\n  systemctl show name              (all properties)\n  systemctl show name -p Restart   (single property)\n  systemctl cat name               (show unit file + overrides)\n  systemctl edit name              (edit/create override)\n\n  System state:\n  systemctl poweroff / reboot / suspend / hibernate\n  systemctl default                (go to default target)\n  systemctl isolate rescue.target  (switch target; drops to single-user)\n  systemctl get-default            (show default target)\n  systemctl set-default multi-user.target\n\n  systemd-analyze — boot performance:\n  systemd-analyze\n  systemd-analyze blame            (time per unit)\n  systemd-analyze critical-chain   (critical path)\n  systemd-analyze plot > boot.svg  (SVG timeline)\n  systemd-analyze verify myunit.service\n  systemd-analyze calendar '* *-*-* 09:00:00'\n\n  User services (systemctl --user):\n  systemctl --user start myapp\n  systemctl --user enable --now myapp\n  loginctl enable-linger username  (allow user services to run without login)\n"
+    }
+
+    type SystemdSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+    const SECTIONS: &[SystemdSection] = &[
+        (
+            "units",
+            &[
+                "unit", "units", "type", "target", "socket", "path", "requires", "wants",
+            ],
+            s_units,
+        ),
+        (
+            "service",
+            &[
+                "service",
+                "execstart",
+                "restart",
+                "sandbox",
+                "oneshot",
+                "notify",
+                "user",
+            ],
+            s_service,
+        ),
+        (
+            "journal",
+            &[
+                "journal",
+                "journalctl",
+                "log",
+                "logs",
+                "priority",
+                "vacuum",
+                "boot",
+            ],
+            s_journal,
+        ),
+        (
+            "timers",
+            &[
+                "timer",
+                "timers",
+                "cron",
+                "calendar",
+                "schedule",
+                "oncalendar",
+            ],
+            s_timers,
+        ),
+        (
+            "dropin",
+            &[
+                "dropin",
+                "drop-in",
+                "override",
+                "extend",
+                "edit",
+                "daemon-reload",
+            ],
+            s_dropin,
+        ),
+        (
+            "ctl",
+            &[
+                "ctl",
+                "systemctl",
+                "enable",
+                "disable",
+                "analyze",
+                "blame",
+                "linger",
+            ],
+            s_ctl,
+        ),
+    ];
+
+    let q = query.trim().to_lowercase();
+
+    if q.is_empty() || q == "help" || q == "list" {
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  hematite --systemd-adv <TOPIC>");
+        let _ = writeln!(out, "  Offline advanced systemd reference");
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  Topics:");
+        for &(name, aliases, _) in SECTIONS {
+            let _ = writeln!(out, "    {name:<10} ({})", aliases.join(", "));
+        }
+        let _ = writeln!(out, "\n  hematite --systemd-adv all   -- print everything");
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    if q == "all" {
+        let _ = writeln!(out, "{sep}");
+        for &(name, _, f) in SECTIONS {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+            let _ = writeln!(out, "");
+        }
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    let found: Vec<_> = SECTIONS
+        .iter()
+        .filter(|&&(name, aliases, _)| {
+            name.contains(q.as_str())
+                || aliases
+                    .iter()
+                    .any(|&a| a.contains(q.as_str()) || q.contains(a))
+        })
+        .collect();
+
+    if found.is_empty() {
+        let _ = writeln!(out, "  No topic found for '{}'.", query.trim());
+        let _ = writeln!(out, "  Run: hematite --systemd-adv help");
+    } else {
+        let _ = writeln!(out, "{sep}");
+        for &&(name, _, f) in &found {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+        }
+        let _ = writeln!(out, "{sep}");
+    }
+    out
+}
+
+pub fn makefile_calc(query: &str) -> String {
+    use std::fmt::Write as _;
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+
+    fn s_basics() -> &'static str {
+        "  Makefile structure:\n  target: prerequisites\n  \trecipe-command       # MUST be a real TAB, not spaces\n  \trecipe-command2\n\n  Example:\n  CC = gcc\n  CFLAGS = -Wall -O2\n\n  all: main\n\n  main: main.o utils.o\n  \t$(CC) $(CFLAGS) -o main main.o utils.o\n\n  main.o: main.c utils.h\n  \t$(CC) $(CFLAGS) -c main.c\n\n  utils.o: utils.c utils.h\n  \t$(CC) $(CFLAGS) -c utils.c\n\n  .PHONY: all clean\n  clean:\n  \trm -f *.o main\n\n  .PHONY targets (don't correspond to files):\n  .PHONY: all build test clean install release docs lint fmt\n\n  Running:\n  make               (default target = first target)\n  make build\n  make clean build   (multiple targets)\n  make -j4           (parallel jobs)\n  make -n            (dry run — print commands without running)\n  make -B            (force rebuild all)\n  make -C subdir     (run in subdirectory)\n  make -f MyMakefile (use alternate file)\n  make VAR=value     (override variable)\n  make --debug       (verbose debug output)\n"
+    }
+    fn s_variables() -> &'static str {
+        "  Variable flavors:\n  IMMEDIATE := $(shell date)   (expand once at assignment time)\n  DEFERRED   = $(shell date)   (expand every time it is used)\n  CONDITIONAL ?= default       (set only if not already set)\n  APPEND     += more           (append to existing value)\n\n  Automatic variables (in recipes):\n  $@   Target name\n  $<   First prerequisite\n  $^   All prerequisites (deduplicated)\n  $+   All prerequisites (with duplicates)\n  $*   Stem of implicit rule match (e.g., % in %.o: %.c)\n  $?   Prerequisites newer than target\n  $(@D) Directory part of target\n  $(@F) File part of target\n  $(<D) / $(<F)  Dir/file part of first prerequisite\n\n  Example:\n  %.o: %.c\n  \t$(CC) $(CFLAGS) -c $< -o $@\n  # $< = the .c file; $@ = the .o file\n\n  Shell functions:\n  FILES := $(wildcard src/*.c)\n  OBJS  := $(patsubst src/%.c, build/%.o, $(FILES))\n  NAMES := $(notdir $(FILES))         Remove directory part\n  DIRS  := $(dir $(FILES))            Directory part\n  STEMS := $(basename $(NAMES))       Strip extension\n  EXTS  := $(suffix $(NAMES))         Extension only\n  UPPER := $(shell echo $(VAR) | tr a-z A-Z)\n\n  String functions:\n  $(subst from,to,text)\n  $(patsubst pattern,replacement,text)\n  $(strip text)\n  $(filter pattern,text)\n  $(filter-out pattern,text)\n  $(sort list)                 Sort + deduplicate\n  $(word N,text)               Nth word\n  $(words text)                Count words\n  $(firstword text)\n  $(lastword text)\n  $(addprefix prefix,list)\n  $(addsuffix suffix,list)\n  $(join list1,list2)\n"
+    }
+    fn s_patterns() -> &'static str {
+        "  Pattern rules (implicit rules):\n  %.o: %.c\n  \t$(CC) $(CFLAGS) -c $< -o $@\n\n  %.o: %.cpp\n  \t$(CXX) $(CXXFLAGS) -c $< -o $@\n\n  Static pattern rules (restrict to specific targets):\n  OBJS = main.o utils.o helper.o\n  $(OBJS): %.o: %.c\n  \t$(CC) -c $< -o $@\n\n  Double-colon rules (multiple independent rules for same target):\n  clean::\n  \trm -f *.o\n  clean::\n  \trm -f *.d\n\n  Order-only prerequisites (|):\n  output.o: source.c | build/\n  # build/ directory must exist but timestamp is ignored\n  build/:\n  \tmkdir -p $@\n\n  include other makefiles:\n  include config.mk\n  -include optional.mk           (- suppresses error if missing)\n  include $(wildcard *.d)        (auto-generated dependency files)\n\n  Dependency tracking (GCC):\n  DEPFLAGS = -MMD -MP -MF $(@:.o=.d)\n  %.o: %.c\n  \t$(CC) $(DEPFLAGS) $(CFLAGS) -c $< -o $@\n  -include $(OBJS:.o=.d)\n\n  Phony targets as dependencies:\n  .PHONY: all build test\n  all: build test\n  build:\n  \t$(MAKE) -C src\n  test: build\n  \t./run_tests.sh\n"
+    }
+    fn s_functions() -> &'static str {
+        "  Conditional functions:\n  $(if condition,then,else)         (non-empty = true)\n  $(or val1,val2,val3)              First non-empty\n  $(and val1,val2,val3)             All must be non-empty\n\n  ifeq / ifneq / ifdef / ifndef:\n  ifeq ($(OS),Windows_NT)\n    TARGET = app.exe\n  else\n    TARGET = app\n  endif\n\n  ifneq ($(findstring debug,$(MAKECMDGOALS)),)\n    CFLAGS += -DDEBUG -g\n  endif\n\n  ifdef VERBOSE\n    Q =\n  else\n    Q = @\n  endif\n  # Use $(Q) to suppress output: $(Q)$(CC) -c $<\n\n  foreach:\n  DIRS = src lib test\n  $(foreach dir,$(DIRS),$(wildcard $(dir)/*.c))\n\n  call (user-defined functions):\n  define compile\n    $(CC) $(CFLAGS) -c $(1) -o $(2)\n  endef\n  target.o:\n  \t$(call compile,$<,$@)\n\n  eval:\n  define NEWLINE\n  \n  endef\n  $(eval $(call TEMPLATE,$(VAR)))\n\n  error / warning / info:\n  $(error Fatal: variable X not set)\n  $(warning This is a warning)\n  $(info Building for $(TARGET))\n\n  origin — where a variable came from:\n  $(origin VAR)     Returns: undefined, default, environment,\n                    file, command line, override, automatic\n"
+    }
+    fn s_recipes() -> &'static str {
+        "  Recipe control:\n  @command          Suppress echoing of command\n  -command          Ignore errors (don't stop)\n  +command          Run even with --dry-run / -n\n\n  .SILENT:          Suppress all echo (or list targets)\n  .IGNORE:          Ignore all errors\n  .ONESHELL:        Run all lines in same shell instance\n                    (needed for shell loops, cd, etc.)\n\n  Example with ONESHELL:\n  .ONESHELL:\n  build-in-subdir:\n  \tcd subdir\n  \t$(MAKE) all\n\n  Multi-line variable (define ... endef):\n  define USAGE\n  Usage:\n    make build    - compile\n    make test     - run tests\n    make clean    - remove artifacts\n  endef\n  export USAGE\n  help:\n  \t@echo \"$$USAGE\"\n\n  Parallel make tips:\n  make -j$(nproc)                   Use all cores\n  make -j4 --output-sync=recurse    Synchronize parallel output\n  .NOTPARALLEL: target              Force sequential\n\n  Self-documenting Makefile pattern:\n  .PHONY: help\n  help:  ## Show this help\n  \t@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \\\n  \t  | awk 'BEGIN {FS = \":.*?## \"}; {printf \"  %-20s %s\\n\", $$1, $$2}'\n  build: ## Compile the project\n  \tcargo build\n  test: ## Run tests\n  \tcargo test\n"
+    }
+
+    type MakeSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+    const SECTIONS: &[MakeSection] = &[
+        (
+            "basics",
+            &[
+                "basic",
+                "basics",
+                "target",
+                "prerequisite",
+                "phony",
+                "recipe",
+                "syntax",
+            ],
+            s_basics,
+        ),
+        (
+            "variables",
+            &[
+                "variable",
+                "variables",
+                "automatic",
+                "wildcard",
+                "patsubst",
+                "subst",
+            ],
+            s_variables,
+        ),
+        (
+            "patterns",
+            &[
+                "pattern",
+                "implicit",
+                "static",
+                "double-colon",
+                "dependency",
+                "depflags",
+            ],
+            s_patterns,
+        ),
+        (
+            "functions",
+            &[
+                "function", "ifeq", "ifdef", "foreach", "define", "eval", "origin",
+            ],
+            s_functions,
+        ),
+        (
+            "recipes",
+            &[
+                "recipe", "silent", "oneshell", "parallel", "self-doc", "export",
+            ],
+            s_recipes,
+        ),
+    ];
+
+    let q = query.trim().to_lowercase();
+
+    if q.is_empty() || q == "help" || q == "list" {
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  hematite --makefile <TOPIC>");
+        let _ = writeln!(out, "  Offline GNU Make / Makefile reference");
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  Topics:");
+        for &(name, aliases, _) in SECTIONS {
+            let _ = writeln!(out, "    {name:<12} ({})", aliases.join(", "));
+        }
+        let _ = writeln!(out, "\n  hematite --makefile all   -- print everything");
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    if q == "all" {
+        let _ = writeln!(out, "{sep}");
+        for &(name, _, f) in SECTIONS {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+            let _ = writeln!(out, "");
+        }
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    let found: Vec<_> = SECTIONS
+        .iter()
+        .filter(|&&(name, aliases, _)| {
+            name.contains(q.as_str())
+                || aliases
+                    .iter()
+                    .any(|&a| a.contains(q.as_str()) || q.contains(a))
+        })
+        .collect();
+
+    if found.is_empty() {
+        let _ = writeln!(out, "  No topic found for '{}'.", query.trim());
+        let _ = writeln!(out, "  Run: hematite --makefile help");
+    } else {
+        let _ = writeln!(out, "{sep}");
+        for &&(name, _, f) in &found {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+        }
+        let _ = writeln!(out, "{sep}");
+    }
+    out
+}
+
+pub fn jinja_calc(query: &str) -> String {
+    use std::fmt::Write as _;
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+
+    fn s_syntax() -> &'static str {
+        "  Delimiters:\n  {{ expression }}   Output / print\n  {% statement %}    Control flow (if, for, block, etc.)\n  {# comment #}      Comment (not rendered)\n  {{- expr -}}       Strip whitespace before/after (- trims)\n  {%- if x -%}       Strip whitespace on both sides\n\n  Variables:\n  {{ name }}\n  {{ user.name }}     Attribute access\n  {{ user['name'] }}  Item access\n  {{ items[0] }}      Index access\n  {{ items[-1] }}     Last item\n\n  Setting variables:\n  {% set greeting = 'Hello, ' ~ name %}\n  {% set ns = namespace(count=0) %}    (namespace for scope across loops)\n\n  Undefined handling:\n  {{ missing_var }}                    Empty string by default\n  {{ missing_var | default('n/a') }}   Explicit fallback\n  {{ missing_var | default('n/a', true) }} Also catches falsy values\n\n  Comments:\n  {# This is a comment — not rendered #}\n  {#\n    Multi-line comment\n  #}\n\n  Raw blocks (output delimiters literally):\n  {% raw %}\n    {{ this will not be evaluated }}\n  {% endraw %}\n"
+    }
+    fn s_control() -> &'static str {
+        "  if / elif / else:\n  {% if user.is_admin %}\n    Admin panel\n  {% elif user.is_staff %}\n    Staff panel\n  {% else %}\n    Regular user\n  {% endif %}\n\n  Tests in conditions:\n  {% if var is defined %}\n  {% if var is not defined %}\n  {% if var is none %}\n  {% if var is string %}\n  {% if var is number %}\n  {% if var is iterable %}\n  {% if var is mapping %}\n  {% if var is sequence %}\n  {% if var is divisibleby 2 %}\n  {% if var is sameas other %}\n  {% if var is even %} / {% if var is odd %}\n  {% if var is upper %} / {% if var is lower %}\n\n  for loops:\n  {% for item in items %}\n    {{ loop.index }} of {{ loop.length }}: {{ item }}\n  {% else %}\n    No items found.\n  {% endfor %}\n\n  Loop variables:\n  loop.index       Current iteration (1-based)\n  loop.index0      Current iteration (0-based)\n  loop.revindex    Iterations remaining (1-based)\n  loop.first       True if first iteration\n  loop.last        True if last iteration\n  loop.length      Total items\n  loop.depth       Nesting depth (1-based)\n  loop.depth0\n  loop.previtem    Previous item\n  loop.nextitem    Next item\n  loop.changed(x)  True if x changed since last iteration\n\n  Loop with dict:\n  {% for key, value in my_dict.items() %}\n    {{ key }}: {{ value }}\n  {% endfor %}\n\n  Loop control:\n  {% for item in items if item.active %}\n  {% break %} / {% continue %}  (Jinja2 does not support; use if + loop.last)\n  {%- for item in items | selectattr('active') %}\n"
+    }
+    fn s_filters() -> &'static str {
+        "  String filters:\n  {{ text | upper }}             UPPERCASE\n  {{ text | lower }}             lowercase\n  {{ text | title }}             Title Case\n  {{ text | capitalize }}        First letter upper\n  {{ text | trim }}              Strip whitespace\n  {{ text | strip }}             (same as trim in Ansible)\n  {{ text | replace('a','b') }}\n  {{ text | truncate(50) }}\n  {{ text | truncate(50, killwords=True, end='...') }}\n  {{ text | wordwrap(80) }}\n  {{ text | center(80) }}\n  {{ text | indent(4) }}         Indent all lines\n  {{ text | indent(4, first=True) }}\n  {{ text | striptags }}\n  {{ text | e }} / {{ text | escape }}\n  {{ text | safe }}              Mark as safe HTML (disable escaping)\n  {{ text | urlencode }}\n  {{ text | urldecode }}         (Ansible; not standard Jinja2)\n\n  Number filters:\n  {{ num | abs }}\n  {{ num | round(2) }}\n  {{ num | round(2, 'floor') }}\n  {{ num | round(2, 'ceil') }}\n  {{ num | int }}\n  {{ num | float }}\n  {{ num | string }}\n  {{ 1000000 | filesizeformat }}\n\n  List / sequence filters:\n  {{ items | length }}\n  {{ items | first }} / {{ items | last }}\n  {{ items | join(', ') }}\n  {{ items | join(', ', attribute='name') }}\n  {{ items | reverse }}\n  {{ items | sort }}\n  {{ items | sort(attribute='name') }}\n  {{ items | unique }}\n  {{ items | min }} / {{ items | max }}\n  {{ items | sum }} / {{ items | sum(attribute='price') }}\n  {{ items | map(attribute='name') | list }}\n  {{ items | selectattr('active') | list }}\n  {{ items | rejectattr('disabled') | list }}\n  {{ items | selectattr('role', 'equalto', 'admin') | list }}\n  {{ items | map('upper') | list }}\n  {{ items | batch(3) | list }}   (group into lists of 3)\n  {{ items | slice(3) | list }}   (split into 3 roughly-equal groups)\n  {{ items | random }}\n  {{ items | shuffle }}\n\n  Dict filters:\n  {{ dict | items }}          (key-value pairs as list)\n  {{ dict | dictsort }}       (sorted by key)\n  {{ dict | dictsort(by='value') }}\n  {{ dict.keys() | list }}\n  {{ dict.values() | list }}\n"
+    }
+    fn s_macros() -> &'static str {
+        "  Macros (reusable template snippets):\n\n  Define:\n  {% macro input(name, value='', type='text', size=20) %}\n    <input type=\"{{ type }}\" name=\"{{ name }}\"\n           value=\"{{ value | e }}\" size=\"{{ size }}\">\n  {% endmacro %}\n\n  Call:\n  {{ input('username') }}\n  {{ input('password', type='password') }}\n\n  caller (pass a block to a macro):\n  {% macro render_dialog(title) %}\n    <div class=\"dialog\">\n      <h2>{{ title }}</h2>\n      {{ caller() }}\n    </div>\n  {% endmacro %}\n\n  {% call render_dialog('Hello') %}\n    <p>Dialog content here.</p>\n  {% endcall %}\n\n  Import macros from another file:\n  {% from 'macros.html' import input, select %}\n  {% import 'macros.html' as forms %}\n  {{ forms.input('email') }}\n  {% from 'macros.html' import input with context %}  (pass current scope)\n\n  Macro special variables (inside macro body):\n  varargs    Extra positional args as tuple\n  kwargs     Extra keyword args as dict\n  caller     Defined if called as a block (with {% call %})\n  name       Name of the macro\n  arguments  List of declared argument names\n  catch_kwargs / catch_varargs  Suppress 'too many args' errors\n"
+    }
+    fn s_inheritance() -> &'static str {
+        "  Template inheritance:\n\n  base.html (parent):\n  <!DOCTYPE html>\n  <html>\n  <head>\n    <title>{% block title %}Default Title{% endblock %}</title>\n    {% block head %}{% endblock %}\n  </head>\n  <body>\n    {% block header %}\n      <header>Site Header</header>\n    {% endblock %}\n    <main>\n      {% block content %}{% endblock %}\n    </main>\n    {% block footer %}<footer>Default footer</footer>{% endblock %}\n  </body>\n  </html>\n\n  child.html:\n  {% extends 'base.html' %}\n\n  {% block title %}My Page — {{ super() }}{% endblock %}\n\n  {% block content %}\n    <h1>My Content</h1>\n    {{ super() }}  {# include parent block content #}\n  {% endblock %}\n\n  Include (insert another template, shares current context):\n  {% include 'partials/nav.html' %}\n  {% include 'partials/nav.html' ignore missing %}\n  {% include ['first.html', 'fallback.html'] %}\n  {% include 'header.html' without context %}   (isolated scope)\n\n  Import vs Include:\n  include    Renders the template inline; shares context\n  import     Loads macros without rendering; isolated scope\n\n  scoped blocks:\n  {% block sidebar scoped %}   (access parent template variables)\n  {% endblock %}\n"
+    }
+
+    type JinjaSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+    const SECTIONS: &[JinjaSection] = &[
+        (
+            "syntax",
+            &[
+                "syntax",
+                "delimiter",
+                "variable",
+                "comment",
+                "raw",
+                "whitespace",
+            ],
+            s_syntax,
+        ),
+        (
+            "control",
+            &[
+                "control",
+                "if",
+                "elif",
+                "else",
+                "for",
+                "loop",
+                "test",
+                "selectattr",
+            ],
+            s_control,
+        ),
+        (
+            "filters",
+            &[
+                "filter", "filters", "upper", "lower", "join", "sort", "map", "select",
+            ],
+            s_filters,
+        ),
+        (
+            "macros",
+            &["macro", "macros", "caller", "import", "varargs", "kwargs"],
+            s_macros,
+        ),
+        (
+            "inheritance",
+            &[
+                "inheritance",
+                "extends",
+                "block",
+                "include",
+                "super",
+                "partial",
+                "scoped",
+            ],
+            s_inheritance,
+        ),
+    ];
+
+    let q = query.trim().to_lowercase();
+
+    if q.is_empty() || q == "help" || q == "list" {
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  hematite --jinja <TOPIC>");
+        let _ = writeln!(out, "  Offline Jinja2 template reference");
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  Topics:");
+        for &(name, aliases, _) in SECTIONS {
+            let _ = writeln!(out, "    {name:<12} ({})", aliases.join(", "));
+        }
+        let _ = writeln!(out, "\n  hematite --jinja all   -- print everything");
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    if q == "all" {
+        let _ = writeln!(out, "{sep}");
+        for &(name, _, f) in SECTIONS {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+            let _ = writeln!(out, "");
+        }
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    let found: Vec<_> = SECTIONS
+        .iter()
+        .filter(|&&(name, aliases, _)| {
+            name.contains(q.as_str())
+                || aliases
+                    .iter()
+                    .any(|&a| a.contains(q.as_str()) || q.contains(a))
+        })
+        .collect();
+
+    if found.is_empty() {
+        let _ = writeln!(out, "  No topic found for '{}'.", query.trim());
+        let _ = writeln!(out, "  Run: hematite --jinja help");
+    } else {
+        let _ = writeln!(out, "{sep}");
+        for &&(name, _, f) in &found {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+        }
+        let _ = writeln!(out, "{sep}");
+    }
+    out
+}

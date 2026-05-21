@@ -1697,6 +1697,38 @@ pub struct CliCockpit {
     pub git_adv: Option<String>,
 
     #[arg(
+        long = "docker-adv",
+        help_heading = "Math & Science",
+        value_name = "TOPIC",
+        help = "Advanced Docker reference — offline cheatsheet. Topics: dockerfile, networks, volumes, compose, buildkit, operations. Commands: all = everything. Examples: hematite --docker-adv dockerfile | hematite --docker-adv compose | hematite --docker-adv buildkit"
+    )]
+    pub docker_adv: Option<String>,
+
+    #[arg(
+        long = "systemd-adv",
+        help_heading = "Math & Science",
+        value_name = "TOPIC",
+        help = "Advanced systemd reference — offline cheatsheet. Topics: units, service, journal, timers, dropin, ctl. Commands: all = everything. Examples: hematite --systemd-adv service | hematite --systemd-adv timers | hematite --systemd-adv journal"
+    )]
+    pub systemd_adv: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Math & Science",
+        value_name = "TOPIC",
+        help = "GNU Make / Makefile reference — offline cheatsheet. Topics: basics, variables, patterns, functions, recipes. Commands: all = everything. Examples: hematite --makefile variables | hematite --makefile patterns | hematite --makefile functions"
+    )]
+    pub makefile: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Math & Science",
+        value_name = "TOPIC",
+        help = "Jinja2 template reference — offline cheatsheet. Topics: syntax, control, filters, macros, inheritance. Commands: all = everything. Examples: hematite --jinja filters | hematite --jinja control | hematite --jinja inheritance"
+    )]
+    pub jinja: Option<String>,
+
+    #[arg(
         long,
         help_heading = "Math & Science",
         value_name = "QUERY",

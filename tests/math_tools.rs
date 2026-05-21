@@ -6,18 +6,19 @@ use hematite::tools::math_util::{
     ansible_calc, ascii_calc, ascii_table_calc, awk_calc, bash_ref_calc, bitwise_calc, case_calc,
     chars_calc, checksum_calc, chemistry_calc, chmod_calc, cipher_calc, color_calc,
     color_names_calc, combinatorics_calc, complex_calc, cron_calc, csv_calc, curl_calc,
-    datetime_calc, diff_calc, docker_ref_calc, duration_calc, electrical_calc, encode_calc,
-    escape_calc, find_calc, fraction_calc, geometry_calc, git_adv_calc, git_ref_calc,
+    datetime_calc, diff_calc, docker_adv_calc, docker_ref_calc, duration_calc, electrical_calc,
+    encode_calc, escape_calc, find_calc, fraction_calc, geometry_calc, git_adv_calc, git_ref_calc,
     gitignore_calc, go_ref_calc, grep_calc, hash_calc, headers_calc, health_calc, http_calc,
-    http_status_calc, id_gen_calc, ip_calc, jq_calc, js_ref_calc, json_calc, json_path_calc,
-    jwt_calc, kbd_calc, kubectl_calc, license_calc, lorem_calc, make_calc, markdown_calc,
-    matrix_calc, mime_calc, net_calc, nginx_calc, npm_calc, number_format, number_theory_calc,
-    openssl_calc, percent_calc, physics_calc, port_calc, postgres_calc, prob_calc, python_ref_calc,
-    regex_calc, regex_ref_calc, roman_calc, rust_ref_calc, sed_calc, semver_calc, set_calc,
-    sort_viz, spark_calc, sql_fmt_calc, sql_ref_calc, ssh_ref_calc, ssl_calc, stats_calc,
-    string_dist, systemd_calc, table_calc, tar_calc, template_calc, terraform_calc, text_stats,
-    timestamp_calc, tmux_calc, toml_calc, trig_calc, ts_ref_calc, tz_calc, url_calc, uuid_calc,
-    validate_calc, vim_calc, xml_calc, yaml_calc,
+    http_status_calc, id_gen_calc, ip_calc, jinja_calc, jq_calc, js_ref_calc, json_calc,
+    json_path_calc, jwt_calc, kbd_calc, kubectl_calc, license_calc, lorem_calc, make_calc,
+    makefile_calc, markdown_calc, matrix_calc, mime_calc, net_calc, nginx_calc, npm_calc,
+    number_format, number_theory_calc, openssl_calc, percent_calc, physics_calc, port_calc,
+    postgres_calc, prob_calc, python_ref_calc, regex_calc, regex_ref_calc, roman_calc,
+    rust_ref_calc, sed_calc, semver_calc, set_calc, sort_viz, spark_calc, sql_fmt_calc,
+    sql_ref_calc, ssh_ref_calc, ssl_calc, stats_calc, string_dist, systemd_adv_calc, systemd_calc,
+    table_calc, tar_calc, template_calc, terraform_calc, text_stats, timestamp_calc, tmux_calc,
+    toml_calc, trig_calc, ts_ref_calc, tz_calc, url_calc, uuid_calc, validate_calc, vim_calc,
+    xml_calc, yaml_calc,
 };
 
 // ─── Cipher tests ────────────────────────────────────────────────────────────
@@ -8473,4 +8474,672 @@ fn test_git_adv_hooks_alias_husky() {
 fn test_git_adv_no_match() {
     let out = git_adv_calc("xyznotfound");
     assert!(out.contains("No topic") || out.contains("hematite --git-adv"));
+}
+
+// ─── Wave 20 Tests: docker-adv, systemd-adv, makefile, jinja ─────────────────
+
+// ── docker_adv_calc ───────────────────────────────────────────────────────────
+
+#[test]
+fn test_docker_adv_help_empty() {
+    let out = docker_adv_calc("");
+    assert!(out.contains("hematite --docker-adv") || out.contains("Topics"));
+}
+
+#[test]
+fn test_docker_adv_all() {
+    let out = docker_adv_calc("all");
+    assert!(out.contains("dockerfile") && out.contains("compose") && out.contains("buildkit"));
+}
+
+#[test]
+fn test_docker_adv_dockerfile_topic() {
+    let out = docker_adv_calc("dockerfile");
+    assert!(out.contains("FROM") || out.contains("multi-stage") || out.contains("Multi-stage"));
+    assert!(out.contains("COPY") || out.contains("RUN") || out.contains("ENTRYPOINT"));
+}
+
+#[test]
+fn test_docker_adv_dockerfile_alias_multistage() {
+    let out = docker_adv_calc("multi-stage");
+    assert!(out.contains("AS builder") || out.contains("multi-stage") || out.contains("FROM"));
+}
+
+#[test]
+fn test_docker_adv_dockerfile_alias_layer() {
+    let out = docker_adv_calc("layer");
+    assert!(out.contains("layer") || out.contains("Layer cache") || out.contains("cache"));
+}
+
+#[test]
+fn test_docker_adv_dockerfile_alias_healthcheck() {
+    let out = docker_adv_calc("healthcheck");
+    assert!(out.contains("HEALTHCHECK") || out.contains("healthcheck"));
+}
+
+#[test]
+fn test_docker_adv_networks_topic() {
+    let out = docker_adv_calc("networks");
+    assert!(out.contains("bridge") || out.contains("Network drivers"));
+    assert!(out.contains("docker network") || out.contains("overlay") || out.contains("DNS"));
+}
+
+#[test]
+fn test_docker_adv_networks_alias_bridge() {
+    let out = docker_adv_calc("bridge");
+    assert!(out.contains("bridge") || out.contains("Bridge"));
+}
+
+#[test]
+fn test_docker_adv_networks_alias_port() {
+    let out = docker_adv_calc("port");
+    assert!(out.contains("-p ") || out.contains("Port publishing") || out.contains("8080:80"));
+}
+
+#[test]
+fn test_docker_adv_networks_alias_dns() {
+    let out = docker_adv_calc("dns");
+    assert!(out.contains("DNS") || out.contains("resolve") || out.contains("container name"));
+}
+
+#[test]
+fn test_docker_adv_volumes_topic() {
+    let out = docker_adv_calc("volumes");
+    assert!(out.contains("Named volume") || out.contains("docker volume"));
+    assert!(out.contains("bind") || out.contains("Bind mount") || out.contains("tmpfs"));
+}
+
+#[test]
+fn test_docker_adv_volumes_alias_bind() {
+    let out = docker_adv_calc("bind");
+    assert!(out.contains("bind") || out.contains("Bind mount") || out.contains("host path"));
+}
+
+#[test]
+fn test_docker_adv_volumes_alias_tmpfs() {
+    let out = docker_adv_calc("tmpfs");
+    assert!(out.contains("tmpfs") || out.contains("In-memory"));
+}
+
+#[test]
+fn test_docker_adv_volumes_alias_backup() {
+    let out = docker_adv_calc("backup");
+    assert!(out.contains("backup") || out.contains("tar czf") || out.contains("Backup"));
+}
+
+#[test]
+fn test_docker_adv_compose_topic() {
+    let out = docker_adv_calc("compose");
+    assert!(out.contains("docker compose") || out.contains("services:"));
+    assert!(out.contains("depends_on") || out.contains("healthcheck") || out.contains("restart"));
+}
+
+#[test]
+fn test_docker_adv_compose_alias_service() {
+    let out = docker_adv_calc("service");
+    assert!(out.contains("services:") || out.contains("service") || out.contains("image:"));
+}
+
+#[test]
+fn test_docker_adv_compose_alias_depends() {
+    let out = docker_adv_calc("depends");
+    assert!(out.contains("depends_on") || out.contains("service_healthy"));
+}
+
+#[test]
+fn test_docker_adv_compose_alias_env_file() {
+    let out = docker_adv_calc("env_file");
+    assert!(out.contains("env_file") || out.contains(".env") || out.contains("environment:"));
+}
+
+#[test]
+fn test_docker_adv_buildkit_topic() {
+    let out = docker_adv_calc("buildkit");
+    assert!(out.contains("BuildKit") || out.contains("buildx") || out.contains("DOCKER_BUILDKIT"));
+    assert!(out.contains("cache") || out.contains("--platform") || out.contains("secret"));
+}
+
+#[test]
+fn test_docker_adv_buildkit_alias_cache() {
+    let out = docker_adv_calc("cache");
+    assert!(out.contains("cache") || out.contains("--cache-to") || out.contains("--cache-from"));
+}
+
+#[test]
+fn test_docker_adv_buildkit_alias_platform() {
+    let out = docker_adv_calc("platform");
+    assert!(out.contains("--platform") || out.contains("linux/amd64") || out.contains("arm64"));
+}
+
+#[test]
+fn test_docker_adv_buildkit_alias_secret() {
+    let out = docker_adv_calc("secret");
+    assert!(out.contains("secret") || out.contains("--secret") || out.contains("/run/secrets"));
+}
+
+#[test]
+fn test_docker_adv_operations_topic() {
+    let out = docker_adv_calc("operations");
+    assert!(out.contains("docker run") || out.contains("docker exec"));
+    assert!(out.contains("docker logs") || out.contains("docker stats") || out.contains("prune"));
+}
+
+#[test]
+fn test_docker_adv_operations_alias_prune() {
+    let out = docker_adv_calc("prune");
+    assert!(out.contains("prune") || out.contains("docker system prune"));
+}
+
+#[test]
+fn test_docker_adv_operations_alias_registry() {
+    let out = docker_adv_calc("registry");
+    assert!(
+        out.contains("docker login") || out.contains("registry") || out.contains("docker push")
+    );
+}
+
+#[test]
+fn test_docker_adv_no_match() {
+    let out = docker_adv_calc("xyznotfound");
+    assert!(out.contains("No topic") || out.contains("hematite --docker-adv"));
+}
+
+// ── systemd_adv_calc ──────────────────────────────────────────────────────────
+
+#[test]
+fn test_systemd_adv_help_empty() {
+    let out = systemd_adv_calc("");
+    assert!(out.contains("hematite --systemd-adv") || out.contains("Topics"));
+}
+
+#[test]
+fn test_systemd_adv_all() {
+    let out = systemd_adv_calc("all");
+    assert!(out.contains("service") && out.contains("journal") && out.contains("timer"));
+}
+
+#[test]
+fn test_systemd_adv_units_topic() {
+    let out = systemd_adv_calc("units");
+    assert!(out.contains(".service") || out.contains(".timer") || out.contains("Unit types"));
+    assert!(out.contains("After=") || out.contains("Requires=") || out.contains("Wants="));
+}
+
+#[test]
+fn test_systemd_adv_units_alias_target() {
+    let out = systemd_adv_calc("target");
+    assert!(out.contains("target") || out.contains(".target") || out.contains("multi-user"));
+}
+
+#[test]
+fn test_systemd_adv_units_alias_socket() {
+    let out = systemd_adv_calc("socket");
+    assert!(out.contains(".socket") || out.contains("Socket activation"));
+}
+
+#[test]
+fn test_systemd_adv_units_alias_requires() {
+    let out = systemd_adv_calc("requires");
+    assert!(out.contains("Requires=") || out.contains("Hard dependency"));
+}
+
+#[test]
+fn test_systemd_adv_service_topic() {
+    let out = systemd_adv_calc("service");
+    assert!(out.contains("ExecStart=") || out.contains("Type=") || out.contains("[Service]"));
+    assert!(out.contains("Restart=") || out.contains("User=") || out.contains("restart"));
+}
+
+#[test]
+fn test_systemd_adv_service_alias_execstart() {
+    let out = systemd_adv_calc("execstart");
+    assert!(
+        out.contains("ExecStart=") || out.contains("ExecStartPre") || out.contains("Execution")
+    );
+}
+
+#[test]
+fn test_systemd_adv_service_alias_sandbox() {
+    let out = systemd_adv_calc("sandbox");
+    assert!(
+        out.contains("PrivateTmp") || out.contains("ProtectSystem") || out.contains("Sandboxing")
+    );
+}
+
+#[test]
+fn test_systemd_adv_service_alias_oneshot() {
+    let out = systemd_adv_calc("oneshot");
+    assert!(out.contains("oneshot") || out.contains("RemainAfterExit"));
+}
+
+#[test]
+fn test_systemd_adv_journal_topic() {
+    let out = systemd_adv_calc("journal");
+    assert!(out.contains("journalctl") || out.contains("journal"));
+    assert!(out.contains("-f") || out.contains("follow") || out.contains("--since"));
+}
+
+#[test]
+fn test_systemd_adv_journal_alias_logs() {
+    let out = systemd_adv_calc("logs");
+    assert!(out.contains("journalctl") || out.contains("logs"));
+}
+
+#[test]
+fn test_systemd_adv_journal_alias_priority() {
+    let out = systemd_adv_calc("priority");
+    assert!(out.contains("-p ") || out.contains("priority") || out.contains("emerg"));
+}
+
+#[test]
+fn test_systemd_adv_journal_alias_vacuum() {
+    let out = systemd_adv_calc("vacuum");
+    assert!(out.contains("vacuum") || out.contains("--vacuum-size") || out.contains("disk-usage"));
+}
+
+#[test]
+fn test_systemd_adv_timers_topic() {
+    let out = systemd_adv_calc("timers");
+    assert!(out.contains("[Timer]") || out.contains("OnCalendar") || out.contains(".timer"));
+    assert!(out.contains("Persistent=") || out.contains("RandomizedDelay") || out.contains("cron"));
+}
+
+#[test]
+fn test_systemd_adv_timers_alias_cron() {
+    let out = systemd_adv_calc("cron");
+    assert!(out.contains("cron") || out.contains("OnCalendar") || out.contains("replacement"));
+}
+
+#[test]
+fn test_systemd_adv_timers_alias_calendar() {
+    let out = systemd_adv_calc("calendar");
+    assert!(out.contains("OnCalendar") || out.contains("calendar"));
+}
+
+#[test]
+fn test_systemd_adv_timers_alias_schedule() {
+    let out = systemd_adv_calc("schedule");
+    assert!(out.contains("OnCalendar") || out.contains("schedule") || out.contains("Timer"));
+}
+
+#[test]
+fn test_systemd_adv_dropin_topic() {
+    let out = systemd_adv_calc("dropin");
+    assert!(out.contains("drop-in") || out.contains("override") || out.contains("Drop-in"));
+    assert!(out.contains("daemon-reload") || out.contains("systemctl edit"));
+}
+
+#[test]
+fn test_systemd_adv_dropin_alias_override() {
+    let out = systemd_adv_calc("override");
+    assert!(out.contains("override") || out.contains("drop-in") || out.contains("Drop-in"));
+}
+
+#[test]
+fn test_systemd_adv_dropin_alias_edit() {
+    let out = systemd_adv_calc("edit");
+    assert!(out.contains("systemctl edit") || out.contains("override.conf"));
+}
+
+#[test]
+fn test_systemd_adv_ctl_topic() {
+    let out = systemd_adv_calc("ctl");
+    assert!(out.contains("systemctl") || out.contains("enable") || out.contains("disable"));
+    assert!(out.contains("list-units") || out.contains("status") || out.contains("daemon-reload"));
+}
+
+#[test]
+fn test_systemd_adv_ctl_alias_enable() {
+    let out = systemd_adv_calc("enable");
+    assert!(out.contains("enable") || out.contains("--now"));
+}
+
+#[test]
+fn test_systemd_adv_ctl_alias_analyze() {
+    let out = systemd_adv_calc("analyze");
+    assert!(
+        out.contains("systemd-analyze") || out.contains("blame") || out.contains("critical-chain")
+    );
+}
+
+#[test]
+fn test_systemd_adv_ctl_alias_linger() {
+    let out = systemd_adv_calc("linger");
+    assert!(out.contains("linger") || out.contains("loginctl") || out.contains("user services"));
+}
+
+#[test]
+fn test_systemd_adv_no_match() {
+    let out = systemd_adv_calc("xyznotfound");
+    assert!(out.contains("No topic") || out.contains("hematite --systemd-adv"));
+}
+
+// ── makefile_calc ─────────────────────────────────────────────────────────────
+
+#[test]
+fn test_makefile_help_empty() {
+    let out = makefile_calc("");
+    assert!(out.contains("hematite --makefile") || out.contains("Topics"));
+}
+
+#[test]
+fn test_makefile_all() {
+    let out = makefile_calc("all");
+    assert!(out.contains("basics") && out.contains("variables") && out.contains("pattern"));
+}
+
+#[test]
+fn test_makefile_basics_topic() {
+    let out = makefile_calc("basics");
+    assert!(out.contains(".PHONY") || out.contains("target:") || out.contains("recipe"));
+    assert!(out.contains("make -j") || out.contains("clean") || out.contains("make -n"));
+}
+
+#[test]
+fn test_makefile_basics_alias_target() {
+    let out = makefile_calc("target");
+    assert!(out.contains("target:") || out.contains("target") || out.contains("prerequisites"));
+}
+
+#[test]
+fn test_makefile_basics_alias_phony() {
+    let out = makefile_calc("phony");
+    assert!(out.contains(".PHONY") || out.contains("PHONY"));
+}
+
+#[test]
+fn test_makefile_basics_alias_syntax() {
+    let out = makefile_calc("syntax");
+    assert!(out.contains("TAB") || out.contains("recipe") || out.contains("target:"));
+}
+
+#[test]
+fn test_makefile_variables_topic() {
+    let out = makefile_calc("variables");
+    assert!(out.contains(":=") || out.contains("Variable flavors") || out.contains("Automatic"));
+    assert!(out.contains("$@") || out.contains("$<") || out.contains("wildcard"));
+}
+
+#[test]
+fn test_makefile_variables_alias_automatic() {
+    let out = makefile_calc("automatic");
+    assert!(out.contains("$@") || out.contains("$<") || out.contains("Automatic"));
+}
+
+#[test]
+fn test_makefile_variables_alias_wildcard() {
+    let out = makefile_calc("wildcard");
+    assert!(out.contains("wildcard") || out.contains("$(wildcard"));
+}
+
+#[test]
+fn test_makefile_variables_alias_patsubst() {
+    let out = makefile_calc("patsubst");
+    assert!(out.contains("patsubst") || out.contains("$(patsubst"));
+}
+
+#[test]
+fn test_makefile_patterns_topic() {
+    let out = makefile_calc("patterns");
+    assert!(out.contains("%.o:") || out.contains("Pattern rules") || out.contains("implicit"));
+    assert!(out.contains("static") || out.contains("dependency") || out.contains("double-colon"));
+}
+
+#[test]
+fn test_makefile_patterns_alias_implicit() {
+    let out = makefile_calc("implicit");
+    assert!(out.contains("implicit") || out.contains("%.o") || out.contains("Pattern"));
+}
+
+#[test]
+fn test_makefile_patterns_alias_static() {
+    let out = makefile_calc("static");
+    assert!(out.contains("Static pattern") || out.contains("static") || out.contains("$(OBJS)"));
+}
+
+#[test]
+fn test_makefile_patterns_alias_dependency() {
+    let out = makefile_calc("dependency");
+    assert!(out.contains("dependency") || out.contains("-MMD") || out.contains("Dependency"));
+}
+
+#[test]
+fn test_makefile_functions_topic() {
+    let out = makefile_calc("functions");
+    assert!(out.contains("$(if ") || out.contains("ifeq") || out.contains("foreach"));
+    assert!(out.contains("define") || out.contains("$(call") || out.contains("$(error"));
+}
+
+#[test]
+fn test_makefile_functions_alias_ifeq() {
+    let out = makefile_calc("ifeq");
+    assert!(out.contains("ifeq") || out.contains("ifneq") || out.contains("endif"));
+}
+
+#[test]
+fn test_makefile_functions_alias_ifdef() {
+    let out = makefile_calc("ifdef");
+    assert!(out.contains("ifdef") || out.contains("ifndef") || out.contains("VERBOSE"));
+}
+
+#[test]
+fn test_makefile_functions_alias_foreach() {
+    let out = makefile_calc("foreach");
+    assert!(out.contains("foreach") || out.contains("$(foreach"));
+}
+
+#[test]
+fn test_makefile_functions_alias_define() {
+    let out = makefile_calc("define");
+    assert!(out.contains("define") || out.contains("endef") || out.contains("user-defined"));
+}
+
+#[test]
+fn test_makefile_functions_alias_origin() {
+    let out = makefile_calc("origin");
+    assert!(out.contains("origin") || out.contains("$(origin") || out.contains("where a variable"));
+}
+
+#[test]
+fn test_makefile_recipes_topic() {
+    let out = makefile_calc("recipes");
+    assert!(out.contains(".SILENT") || out.contains(".ONESHELL") || out.contains("@command"));
+    assert!(out.contains("parallel") || out.contains("-j") || out.contains("NOTPARALLEL"));
+}
+
+#[test]
+fn test_makefile_recipes_alias_silent() {
+    let out = makefile_calc("silent");
+    assert!(out.contains(".SILENT") || out.contains("@command") || out.contains("Suppress"));
+}
+
+#[test]
+fn test_makefile_recipes_alias_oneshell() {
+    let out = makefile_calc("oneshell");
+    assert!(out.contains(".ONESHELL") || out.contains("ONESHELL") || out.contains("same shell"));
+}
+
+#[test]
+fn test_makefile_recipes_alias_parallel() {
+    let out = makefile_calc("parallel");
+    assert!(out.contains("-j") || out.contains("parallel") || out.contains("nproc"));
+}
+
+#[test]
+fn test_makefile_no_match() {
+    let out = makefile_calc("xyznotfound");
+    assert!(out.contains("No topic") || out.contains("hematite --makefile"));
+}
+
+// ── jinja_calc ────────────────────────────────────────────────────────────────
+
+#[test]
+fn test_jinja_help_empty() {
+    let out = jinja_calc("");
+    assert!(out.contains("hematite --jinja") || out.contains("Topics"));
+}
+
+#[test]
+fn test_jinja_all() {
+    let out = jinja_calc("all");
+    assert!(out.contains("syntax") && out.contains("control") && out.contains("inheritance"));
+}
+
+#[test]
+fn test_jinja_syntax_topic() {
+    let out = jinja_calc("syntax");
+    assert!(out.contains("{{") || out.contains("{%") || out.contains("Delimiters"));
+    assert!(out.contains("comment") || out.contains("{#") || out.contains("raw"));
+}
+
+#[test]
+fn test_jinja_syntax_alias_delimiter() {
+    let out = jinja_calc("delimiter");
+    assert!(out.contains("{{") || out.contains("{%") || out.contains("Delimiters"));
+}
+
+#[test]
+fn test_jinja_syntax_alias_whitespace() {
+    let out = jinja_calc("whitespace");
+    assert!(out.contains("whitespace") || out.contains("{{-") || out.contains("trim"));
+}
+
+#[test]
+fn test_jinja_syntax_alias_raw() {
+    let out = jinja_calc("raw");
+    assert!(out.contains("raw") || out.contains("{% raw %}") || out.contains("endraw"));
+}
+
+#[test]
+fn test_jinja_control_topic() {
+    let out = jinja_calc("control");
+    assert!(out.contains("{% if") || out.contains("{% for") || out.contains("{% else %}"));
+    assert!(out.contains("loop.index") || out.contains("endif") || out.contains("endfor"));
+}
+
+#[test]
+fn test_jinja_control_alias_if() {
+    let out = jinja_calc("if");
+    assert!(out.contains("{% if") || out.contains("{% elif") || out.contains("endif"));
+}
+
+#[test]
+fn test_jinja_control_alias_for() {
+    let out = jinja_calc("for");
+    assert!(out.contains("{% for") || out.contains("endfor") || out.contains("loop.index"));
+}
+
+#[test]
+fn test_jinja_control_alias_test() {
+    let out = jinja_calc("test");
+    assert!(out.contains("is defined") || out.contains("is none") || out.contains("is string"));
+}
+
+#[test]
+fn test_jinja_control_alias_selectattr() {
+    let out = jinja_calc("selectattr");
+    assert!(out.contains("selectattr") || out.contains("active") || out.contains("| select"));
+}
+
+#[test]
+fn test_jinja_filters_topic() {
+    let out = jinja_calc("filters");
+    assert!(out.contains("| upper") || out.contains("| lower") || out.contains("String filters"));
+    assert!(out.contains("| join") || out.contains("| sort") || out.contains("| length"));
+}
+
+#[test]
+fn test_jinja_filters_alias_upper() {
+    let out = jinja_calc("upper");
+    assert!(out.contains("upper") || out.contains("| upper") || out.contains("UPPERCASE"));
+}
+
+#[test]
+fn test_jinja_filters_alias_join() {
+    let out = jinja_calc("join");
+    assert!(out.contains("| join") || out.contains("join("));
+}
+
+#[test]
+fn test_jinja_filters_alias_sort() {
+    let out = jinja_calc("sort");
+    assert!(out.contains("| sort") || out.contains("dictsort") || out.contains("sort("));
+}
+
+#[test]
+fn test_jinja_filters_alias_map() {
+    let out = jinja_calc("map");
+    assert!(out.contains("| map") || out.contains("map(attribute"));
+}
+
+#[test]
+fn test_jinja_macros_topic() {
+    let out = jinja_calc("macros");
+    assert!(out.contains("{% macro") || out.contains("Macros") || out.contains("macro"));
+    assert!(out.contains("caller") || out.contains("{% call") || out.contains("varargs"));
+}
+
+#[test]
+fn test_jinja_macros_alias_caller() {
+    let out = jinja_calc("caller");
+    assert!(out.contains("caller") || out.contains("{% call") || out.contains("endcall"));
+}
+
+#[test]
+fn test_jinja_macros_alias_import() {
+    let out = jinja_calc("import");
+    assert!(out.contains("{% import") || out.contains("{% from") || out.contains("Import macros"));
+}
+
+#[test]
+fn test_jinja_macros_alias_kwargs() {
+    let out = jinja_calc("kwargs");
+    assert!(out.contains("kwargs") || out.contains("keyword args") || out.contains("varargs"));
+}
+
+#[test]
+fn test_jinja_inheritance_topic() {
+    let out = jinja_calc("inheritance");
+    assert!(
+        out.contains("{% extends")
+            || out.contains("{% block")
+            || out.contains("Template inheritance")
+    );
+    assert!(out.contains("super()") || out.contains("{% include") || out.contains("endblock"));
+}
+
+#[test]
+fn test_jinja_inheritance_alias_extends() {
+    let out = jinja_calc("extends");
+    assert!(out.contains("extends") || out.contains("{% extends") || out.contains("parent"));
+}
+
+#[test]
+fn test_jinja_inheritance_alias_block() {
+    let out = jinja_calc("block");
+    assert!(out.contains("{% block") || out.contains("endblock") || out.contains("block"));
+}
+
+#[test]
+fn test_jinja_inheritance_alias_include() {
+    let out = jinja_calc("include");
+    assert!(out.contains("{% include") || out.contains("include") || out.contains("partials"));
+}
+
+#[test]
+fn test_jinja_inheritance_alias_super() {
+    let out = jinja_calc("super");
+    assert!(out.contains("super()") || out.contains("parent block") || out.contains("{{ super()"));
+}
+
+#[test]
+fn test_jinja_inheritance_alias_partial() {
+    let out = jinja_calc("partial");
+    assert!(out.contains("partial") || out.contains("include") || out.contains("nav.html"));
+}
+
+#[test]
+fn test_jinja_no_match() {
+    let out = jinja_calc("xyznotfound");
+    assert!(out.contains("No topic") || out.contains("hematite --jinja"));
 }
