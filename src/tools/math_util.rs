@@ -33131,3 +33131,641 @@ pub fn bash_ref_calc(query: &str) -> String {
     }
     out
 }
+
+// ─── Wave 17: python-ref, rust-ref, go-ref, js-ref ────────────────────────────
+
+pub fn python_ref_calc(query: &str) -> String {
+    use std::fmt::Write as _;
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+
+    fn s_builtins() -> &'static str {
+        "  Core built-in functions:\n  print(*args, sep=' ', end='\\n', file=sys.stdout)\n  len(obj)          Number of items\n  range(stop)       range(start, stop, step)\n  type(obj)         Return type object\n  isinstance(obj, cls)  Type check (works with tuples: isinstance(x, (int, float)))\n  id(obj)           Memory address\n  dir(obj)          List attributes/methods\n  help(obj)         Interactive docs\n  repr(obj)         Developer string\n  str(obj)          User string\n  int/float/bool/complex/bytes/bytearray(obj)\n  list/tuple/set/frozenset/dict(iterable)\n\n  Iteration / functional:\n  iter(obj)         Get iterator\n  next(it, default) Next item\n  enumerate(it, start=0)    (index, value) pairs\n  zip(*iterables)   Pair items; zip_longest from itertools for unequal lengths\n  map(fn, *iters)   Apply function (returns iterator)\n  filter(fn, iter)  Filter items (returns iterator)\n  sorted(it, key=fn, reverse=False)\n  reversed(seq)     Reverse iterator\n  sum(it, start=0)\n  min/max(it, key=fn, default=...)\n  any(it) / all(it) Short-circuit boolean tests\n  abs/round/divmod/pow/hash\n\n  I/O and introspection:\n  open(path, mode='r', encoding='utf-8')   Modes: r w a rb wb x r+\n  input(prompt='')  Read line from stdin\n  vars(obj)         Return __dict__\n  getattr/setattr/hasattr/delattr\n  callable(obj)     True if obj is callable\n  globals() / locals()\n"
+    }
+    fn s_strings() -> &'static str {
+        "  f-strings (Python 3.6+):\n  f\"{value}\"             Basic interpolation\n  f\"{value!r}\"           repr()\n  f\"{value!s}\"           str()\n  f\"{num:.2f}\"           2 decimal places\n  f\"{num:>10}\"           Right-align width 10\n  f\"{num:0>8}\"           Zero-pad width 8\n  f\"{num:,}\"             Thousand separators\n  f\"{num:#010x}\"         Hex with 0x prefix, width 10\n  f\"{name=}\"             Debug: prints 'name=value' (3.8+)\n  f\"{expr:{width}.{prec}}\"  Nested f-string for dynamic format\n\n  Common string methods:\n  s.strip() / s.lstrip() / s.rstrip()\n  s.split(sep=None, maxsplit=-1)\n  s.rsplit(sep, maxsplit)\n  s.splitlines()\n  sep.join(iterable)\n  s.upper() / s.lower() / s.title() / s.swapcase()\n  s.startswith(prefix) / s.endswith(suffix)\n  s.find(sub) / s.rfind(sub)     Returns -1 if not found\n  s.index(sub)                   Raises ValueError if not found\n  s.replace(old, new, count=-1)\n  s.count(sub)\n  s.strip(chars=None)\n  s.zfill(width)                 Zero-pad on left\n  s.center(width, fillchar=' ')\n  s.ljust(width) / s.rjust(width)\n  s.encode('utf-8') / b.decode('utf-8')\n  s.isdigit() / s.isalpha() / s.isalnum() / s.isspace()\n  s.translate(str.maketrans(old, new, delete))\n\n  String formatting (older styles):\n  \"Hello %s\" % name\n  \"Hello {}\".format(name)\n  \"Hello {name}\".format(name=name)\n"
+    }
+    fn s_collections() -> &'static str {
+        "  Lists:\n  lst = [1, 2, 3]\n  lst.append(x)          Add to end\n  lst.extend(iterable)   Add all items\n  lst.insert(i, x)       Insert at index\n  lst.remove(x)          Remove first occurrence (ValueError if absent)\n  lst.pop(i=-1)          Remove and return item at index\n  lst.index(x)           First index of x\n  lst.count(x)           Occurrences of x\n  lst.reverse()          In-place reverse\n  lst.sort(key=fn, reverse=False)  In-place sort\n  lst.copy()             Shallow copy\n  lst.clear()\n  del lst[i] / del lst[i:j]\n  lst[start:stop:step]   Slicing (negative indices work)\n\n  Dicts:\n  d = {'key': 'val'}\n  d[key] / d.get(key, default)\n  d.setdefault(key, default)\n  d.update(other_dict)   Merge (in-place)\n  {**d1, **d2}           Merge (new dict)\n  d.keys() / d.values() / d.items()\n  d.pop(key, default)\n  d.popitem()            Remove last inserted (LIFO)\n  dict.fromkeys(keys, value=None)\n  key in d               Membership test (O(1))\n\n  Sets:\n  s = {1, 2, 3}\n  s.add(x) / s.discard(x) / s.remove(x)\n  s.union(t) or s | t\n  s.intersection(t) or s & t\n  s.difference(t) or s - t\n  s.symmetric_difference(t) or s ^ t\n  s.issubset(t) / s.issuperset(t) / s.isdisjoint(t)\n\n  Tuples — immutable; namedtuple:\n  from collections import namedtuple\n  Point = namedtuple('Point', ['x', 'y'])\n  p = Point(1, 2); p.x; p._asdict()\n\n  collections module:\n  from collections import defaultdict, Counter, deque, OrderedDict\n  Counter(iterable).most_common(n)\n  defaultdict(list)       Auto-initializes missing keys\n  deque(maxlen=N)        .appendleft() .popleft() O(1)\n"
+    }
+    fn s_comprehensions() -> &'static str {
+        "  List comprehension:\n  [expr for item in iterable]\n  [expr for item in iterable if condition]\n  [expr for x in xs for y in ys]   Nested (outer first)\n\n  Dict comprehension:\n  {k: v for k, v in iterable}\n  {k: v for k, v in d.items() if v > 0}\n\n  Set comprehension:\n  {expr for item in iterable}\n\n  Generator expression (lazy, memory-efficient):\n  (expr for item in iterable)        Must wrap in ()\n  sum(x*x for x in range(1000))      No extra parens needed in calls\n  list(x for x in range(10) if x%2)  Materialize as needed\n\n  Walrus operator := (Python 3.8+):\n  [y := f(x), y**2, y**3]            Assign and use in same expression\n  [n for x in data if (n := compute(x)) > 0]\n\n  Practical patterns:\n  # Flatten a list of lists\n  flat = [x for sublist in nested for x in sublist]\n  # Transpose matrix\n  transposed = [[row[i] for row in matrix] for i in range(len(matrix[0]))]\n  # Dict from two lists\n  d = {k: v for k, v in zip(keys, vals)}\n  # Invert a dict\n  inv = {v: k for k, v in d.items()}\n  # Conditional expression (ternary)\n  result = val_if_true if condition else val_if_false\n"
+    }
+    fn s_functions() -> &'static str {
+        "  Defining functions:\n  def fn(pos, /, normal, *, kw_only, kw=default):\n      \"\"\"Docstring.\"\"\"\n      return value\n\n  Parameter types:\n  def f(a, b):           Positional-or-keyword\n  def f(a, b, /):        Positional-only (before /)\n  def f(*, a, b):        Keyword-only (after *)\n  def f(*args):          Variadic positional (tuple)\n  def f(**kwargs):       Variadic keyword (dict)\n  def f(a, b=10, *args, key=None, **kw):  Combined\n\n  Lambdas:\n  fn = lambda x, y: x + y\n  sorted(lst, key=lambda x: x['name'])\n\n  Closures:\n  def make_adder(n):\n      def adder(x): return x + n   # n is a closure variable\n      return adder\n  add5 = make_adder(5)\n\n  Decorators:\n  @decorator\n  def fn(): ...\n  # Equivalent to: fn = decorator(fn)\n\n  def my_decorator(func):\n      from functools import wraps\n      @wraps(func)         # Preserves __name__, __doc__\n      def wrapper(*args, **kwargs):\n          # before\n          result = func(*args, **kwargs)\n          # after\n          return result\n      return wrapper\n\n  Decorator with arguments:\n  def repeat(n):\n      def decorator(func):\n          @wraps(func)\n          def wrapper(*args, **kwargs):\n              for _ in range(n): func(*args, **kwargs)\n          return wrapper\n      return decorator\n  @repeat(3)\n  def hello(): print('hi')\n\n  functools:\n  from functools import partial, lru_cache, cached_property, reduce\n  lru_cache(maxsize=128)   Memoize (use @lru_cache)\n  partial(fn, arg1)        Fix some arguments\n"
+    }
+    fn s_classes() -> &'static str {
+        "  Basic class:\n  class Animal:\n      class_var = 0           # Shared across instances\n      def __init__(self, name: str) -> None:\n          self.name = name    # Instance variable\n      def speak(self) -> str:\n          return f\"{self.name} speaks\"\n      @classmethod\n      def create(cls, name): return cls(name)\n      @staticmethod\n      def is_animal(): return True\n      def __repr__(self): return f\"Animal({self.name!r})\"\n      def __str__(self): return self.name\n\n  Inheritance:\n  class Dog(Animal):\n      def speak(self): return f\"{self.name} barks\"\n      def __init__(self, name, breed):\n          super().__init__(name)\n          self.breed = breed\n\n  Important dunder methods:\n  __init__(self, ...)     Constructor\n  __repr__(self)          Unambiguous string (for devs)\n  __str__(self)           Readable string (for users)\n  __len__(self)           len(obj)\n  __getitem__(self, key)  obj[key]\n  __setitem__(self, k, v) obj[key] = v\n  __contains__(self, x)  x in obj\n  __iter__(self)          iter(obj)\n  __next__(self)          next(iterator)\n  __enter__ / __exit__    Context manager (with)\n  __eq__ / __lt__ / __le__ / __gt__ / __ge__ / __ne__\n  __hash__(self)          hash(obj) — set None if mutable\n  __call__(self, ...)     obj(...)\n  __del__(self)           Destructor\n\n  dataclasses (Python 3.7+):\n  from dataclasses import dataclass, field\n  @dataclass\n  class Point:\n      x: float\n      y: float = 0.0\n      tags: list = field(default_factory=list)\n  # Auto-generates __init__, __repr__, __eq__\n  @dataclass(frozen=True)    # Immutable (hashable)\n  @dataclass(order=True)     # Auto __lt__ etc.\n"
+    }
+    fn s_async() -> &'static str {
+        "  asyncio basics:\n  import asyncio\n\n  async def fetch(url):\n      await asyncio.sleep(1)    # Non-blocking wait\n      return \"result\"\n\n  Run coroutine:\n  asyncio.run(fetch(url))          Python 3.7+ entry point\n\n  await — suspend until result is ready:\n  result = await some_coroutine()\n  result = await asyncio.sleep(delay)\n\n  Gather — run concurrently:\n  results = await asyncio.gather(\n      fetch(url1), fetch(url2), fetch(url3)\n  )\n  # return_exceptions=True prevents one failure cancelling others\n  results = await asyncio.gather(*coros, return_exceptions=True)\n\n  Tasks — fire and forget:\n  task = asyncio.create_task(coro())\n  await task                        Wait for specific task\n  task.cancel()\n\n  Timeouts:\n  try:\n      result = await asyncio.wait_for(coro(), timeout=5.0)\n  except asyncio.TimeoutError:\n      ...\n\n  Async context managers and iterators:\n  async with aiofiles.open('f') as f:  # requires aiofiles\n      content = await f.read()\n  async for item in async_generator():\n      process(item)\n\n  asyncio.Queue — producer/consumer:\n  q = asyncio.Queue()\n  await q.put(item)\n  item = await q.get()\n  q.task_done()\n  await q.join()          Wait until all tasks are done\n\n  aiohttp pattern:\n  async with aiohttp.ClientSession() as session:\n      async with session.get(url) as resp:\n          data = await resp.json()\n"
+    }
+
+    type PySection = (&'static str, &'static [&'static str], fn() -> &'static str);
+    const SECTIONS: &[PySection] = &[
+        (
+            "builtins",
+            &[
+                "builtin", "builtins", "print", "len", "range", "sorted", "map", "filter",
+            ],
+            s_builtins,
+        ),
+        (
+            "strings",
+            &[
+                "string", "strings", "fstring", "format", "method", "strip", "split",
+            ],
+            s_strings,
+        ),
+        (
+            "collections",
+            &[
+                "collection",
+                "list",
+                "dict",
+                "set",
+                "tuple",
+                "counter",
+                "deque",
+            ],
+            s_collections,
+        ),
+        (
+            "comprehensions",
+            &[
+                "comprehension",
+                "listcomp",
+                "dictcomp",
+                "generator",
+                "walrus",
+            ],
+            s_comprehensions,
+        ),
+        (
+            "functions",
+            &[
+                "function",
+                "lambda",
+                "decorator",
+                "closure",
+                "partial",
+                "kwargs",
+            ],
+            s_functions,
+        ),
+        (
+            "classes",
+            &[
+                "class",
+                "oop",
+                "dunder",
+                "dataclass",
+                "inheritance",
+                "staticmethod",
+            ],
+            s_classes,
+        ),
+        (
+            "async",
+            &[
+                "async",
+                "asyncio",
+                "await",
+                "gather",
+                "task",
+                "coroutine",
+                "aiohttp",
+            ],
+            s_async,
+        ),
+    ];
+
+    let q = query.trim().to_lowercase();
+
+    if q.is_empty() || q == "help" || q == "list" {
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  hematite --python-ref <TOPIC>");
+        let _ = writeln!(out, "  Offline Python 3 reference");
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  Topics:");
+        for &(name, aliases, _) in SECTIONS {
+            let _ = writeln!(out, "    {name:<16} ({})", aliases.join(", "));
+        }
+        let _ = writeln!(out, "\n  hematite --python-ref all   -- print everything");
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    if q == "all" {
+        let _ = writeln!(out, "{sep}");
+        for &(name, _, f) in SECTIONS {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+            let _ = writeln!(out, "");
+        }
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    let found: Vec<_> = SECTIONS
+        .iter()
+        .filter(|&&(name, aliases, _)| {
+            name.contains(q.as_str())
+                || aliases
+                    .iter()
+                    .any(|&a| a.contains(q.as_str()) || q.contains(a))
+        })
+        .collect();
+
+    if found.is_empty() {
+        let _ = writeln!(out, "  No topic found for '{}'.", query.trim());
+        let _ = writeln!(out, "  Run: hematite --python-ref help");
+    } else {
+        let _ = writeln!(out, "{sep}");
+        for &&(name, _, f) in &found {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+        }
+        let _ = writeln!(out, "{sep}");
+    }
+    out
+}
+
+pub fn rust_ref_calc(query: &str) -> String {
+    use std::fmt::Write as _;
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+
+    fn s_ownership() -> &'static str {
+        "  Ownership rules:\n  1. Each value has one owner\n  2. When owner goes out of scope, value is dropped\n  3. There can only be one owner at a time\n\n  Move (default for non-Copy types):\n  let s1 = String::from(\"hello\");\n  let s2 = s1;          // s1 moved to s2; s1 no longer valid\n  let s3 = s2.clone();  // Deep copy — both valid\n\n  Copy types (stack-only, implicit copy):\n  All integer types, bool, char, f32/f64, tuples of Copy types\n  let x = 5; let y = x;  // x still valid (copied)\n\n  Borrowing — shared reference (&T):\n  let s = String::from(\"hi\");\n  let r1 = &s;           // Immutable borrow — many allowed\n  let r2 = &s;           // Fine — multiple shared refs OK\n  println!(\"{r1} {r2}\"); // Both valid here\n\n  Mutable reference (&mut T):\n  let mut s = String::from(\"hi\");\n  let r = &mut s;        // Exactly ONE mutable ref at a time\n  r.push_str(\" world\");\n  // Cannot have &s and &mut s alive at the same time\n\n  Lifetimes:\n  fn longest<'a>(x: &'a str, y: &'a str) -> &'a str {\n      if x.len() > y.len() { x } else { y }\n  }\n  struct Important<'a> { part: &'a str }  // Struct holding a ref\n  'static lifetime: references valid for the entire program\n  String literals are &'static str\n\n  Common patterns:\n  fn process(s: &str)    Accept borrowed str (works with &String too)\n  fn modify(v: &mut Vec<i32>)  Accept mutable borrow\n  fn take(s: String)     Take ownership (caller can no longer use)\n  fn give() -> String    Transfer ownership out\n"
+    }
+    fn s_types() -> &'static str {
+        "  Primitives:\n  i8 i16 i32 i64 i128 isize   Signed integers\n  u8 u16 u32 u64 u128 usize   Unsigned integers\n  f32 f64                       Floats\n  bool                          true / false\n  char                          Unicode scalar ('a', '\\u{1F600}')\n  ()                            Unit type (empty tuple)\n  str / &str                    String slice (UTF-8)\n  String                        Owned heap string\n\n  Structs:\n  struct Point { x: f64, y: f64 }               Named fields\n  struct Pair(i32, i32);                          Tuple struct\n  struct Unit;                                    Unit struct\n\n  Enums:\n  enum Direction { North, South, East, West }\n  enum Shape {\n      Circle(f64),\n      Rect { width: f64, height: f64 },\n  }\n\n  Option<T> — absence without null:\n  Some(value) / None\n  opt.unwrap()             Panic if None\n  opt.unwrap_or(default)\n  opt.unwrap_or_else(|| compute())\n  opt.map(|v| transform(v))\n  opt.and_then(|v| returns_option(v))\n  opt.is_some() / opt.is_none()\n  if let Some(v) = opt { ... }\n\n  Result<T, E> — error without exceptions:\n  Ok(value) / Err(error)\n  res.unwrap()             Panic if Err\n  res.unwrap_or(default)\n  res.map(|v| transform(v))\n  res.map_err(|e| convert(e))\n  res.and_then(|v| returns_result(v))\n  res?                     Propagate error (in fn returning Result)\n  if let Ok(v) = res { ... }\n\n  Type aliases:\n  type Meters = f64;\n  type Result<T> = std::result::Result<T, MyError>;\n\n  Casting:\n  let x: i64 = 42i32 as i64;    Numeric cast\n  let s: &str = &my_string;     Deref coercion\n"
+    }
+    fn s_traits() -> &'static str {
+        "  Defining a trait:\n  trait Greet {\n      fn hello(&self) -> String;\n      fn hi(&self) -> String {     // Default implementation\n          format!(\"Hi, {}!\", self.hello())\n      }\n  }\n\n  Implementing:\n  struct Dog { name: String }\n  impl Greet for Dog {\n      fn hello(&self) -> String { format!(\"Woof, {}!\", self.name) }\n  }\n\n  Generics with trait bounds:\n  fn greet_all<T: Greet>(items: &[T]) {\n      for item in items { println!(\"{}\", item.hello()); }\n  }\n  fn greet_all<T>(items: &[T]) where T: Greet + Display { ... }\n\n  impl Trait (anonymous generics):\n  fn make_greeter() -> impl Greet { Dog { name: \"Rex\".into() } }\n  fn print_greet(g: &impl Greet) { println!(\"{}\", g.hello()); }\n\n  Trait objects (dynamic dispatch):\n  fn greet_dyn(g: &dyn Greet) { println!(\"{}\", g.hello()); }\n  let greeters: Vec<Box<dyn Greet>> = vec![Box::new(Dog{...})];\n\n  Essential standard traits:\n  Clone / Copy       Deep copy / implicit bitwise copy\n  Debug / Display    {:?} formatting / {} formatting\n  PartialEq / Eq     == operator\n  PartialOrd / Ord   < > comparisons\n  Hash               Hashable (for HashMap keys)\n  Default            Default::default()\n  From<T> / Into<T>  Infallible conversion\n  TryFrom / TryInto  Fallible conversion (returns Result)\n  Iterator           .next() method; unlocks all iterator adapters\n  Deref / DerefMut   * operator; enables coercions\n  Drop               Custom destructor\n  Send / Sync        Thread-safety markers\n"
+    }
+    fn s_iterators() -> &'static str {
+        "  Iterator adapters (lazy — only run when consumed):\n  iter.map(|x| x * 2)             Transform each item\n  iter.filter(|x| x % 2 == 0)     Keep matching items\n  iter.filter_map(|x| option)      Filter + transform in one\n  iter.flat_map(|x| iterable)      Map then flatten one level\n  iter.flatten()                   Flatten one level\n  iter.take(n)                     First n items\n  iter.skip(n)                     Skip first n\n  iter.take_while(|x| cond)        Take while predicate holds\n  iter.skip_while(|x| cond)        Skip while predicate holds\n  iter.enumerate()                 (index, value) pairs\n  iter.zip(other)                  Pair items\n  iter.chain(other)                Concatenate iterators\n  iter.peekable()                  Peek without consuming\n  iter.cloned()                    Clone &T into T\n  iter.copied()                    Copy &T into T (Copy types)\n  iter.rev()                       Reverse (DoubleEndedIterator)\n  iter.step_by(n)                  Every nth item\n  iter.inspect(|x| dbg!(x))        Debug without consuming\n\n  Consumers (trigger evaluation):\n  iter.collect::<Vec<_>>()         Collect into collection\n  iter.collect::<HashMap<_, _>>()\n  iter.sum::<i64>()\n  iter.product::<i64>()\n  iter.count()\n  iter.last()\n  iter.nth(n)\n  iter.any(|x| cond)\n  iter.all(|x| cond)\n  iter.find(|x| cond)              Returns Option\n  iter.position(|x| cond)          Returns Option<usize>\n  iter.max() / iter.min()          Returns Option\n  iter.max_by_key(|x| key(x))\n  iter.fold(init, |acc, x| acc + x)\n  iter.reduce(|acc, x| acc + x)    First item as init\n  iter.for_each(|x| action(x))\n  iter.partition(|x| cond)         (matches, not_matches)\n  iter.unzip()                     Vec of pairs -> (Vec, Vec)\n"
+    }
+    fn s_error() -> &'static str {
+        "  Error propagation with ?:\n  fn read_file(path: &str) -> Result<String, io::Error> {\n      let mut f = File::open(path)?;   // ? returns Err early\n      let mut s = String::new();\n      f.read_to_string(&mut s)?;\n      Ok(s)\n  }\n\n  Converting error types:\n  fn foo() -> Result<(), Box<dyn Error>> {  // Accept any error\n      let n: i32 = \"hi\".parse()?;           // ParseIntError -> Box<dyn Error>\n      Ok(())\n  }\n\n  Custom error with thiserror:\n  use thiserror::Error;\n  #[derive(Debug, Error)]\n  enum AppError {\n      #[error(\"IO failed: {0}\")]\n      Io(#[from] io::Error),\n      #[error(\"parse failed: {0}\")]\n      Parse(#[from] std::num::ParseIntError),\n      #[error(\"not found: {msg}\")]\n      NotFound { msg: String },\n  }\n\n  anyhow (application code — easy ergonomics):\n  use anyhow::{Result, Context, bail, anyhow};\n  fn run() -> Result<()> {\n      let f = File::open(path).context(\"opening config\")?;\n      bail!(\"unrecoverable: {}\", reason);    // Return Err immediately\n      return Err(anyhow!(\"custom error\"));\n      Ok(())\n  }\n  err.downcast::<io::Error>()    Recover concrete type\n\n  Pattern matching on errors:\n  match result {\n      Ok(val) => use(val),\n      Err(e) if e.kind() == ErrorKind::NotFound => handle_missing(),\n      Err(e) => return Err(e),\n  }\n"
+    }
+    fn s_concurrency() -> &'static str {
+        "  Threads:\n  use std::thread;\n  let handle = thread::spawn(|| { /* work */ });\n  handle.join().unwrap();\n\n  Move closure (capture ownership for thread):\n  let data = vec![1, 2, 3];\n  let h = thread::spawn(move || println!(\"{:?}\", data));\n  h.join().unwrap();\n\n  Arc<T> — shared ownership across threads:\n  use std::sync::Arc;\n  let shared = Arc::new(vec![1, 2, 3]);\n  let clone = Arc::clone(&shared);    // Cheap reference count\n  thread::spawn(move || use_data(&clone));\n\n  Mutex<T> — mutual exclusion:\n  use std::sync::{Arc, Mutex};\n  let counter = Arc::new(Mutex::new(0));\n  let c = Arc::clone(&counter);\n  thread::spawn(move || { *c.lock().unwrap() += 1; });\n\n  RwLock<T> — multiple readers or one writer:\n  use std::sync::RwLock;\n  let lock = RwLock::new(5);\n  let r = lock.read().unwrap();    // Many readers\n  let mut w = lock.write().unwrap(); // One writer\n\n  Channels (mpsc = multi-producer, single-consumer):\n  use std::sync::mpsc;\n  let (tx, rx) = mpsc::channel();\n  let tx2 = tx.clone();             // Multiple senders\n  thread::spawn(move || tx.send(42).unwrap());\n  let val = rx.recv().unwrap();\n  for val in rx { ... }             // Iterate until all tx dropped\n\n  Atomic types:\n  use std::sync::atomic::{AtomicUsize, Ordering};\n  static COUNTER: AtomicUsize = AtomicUsize::new(0);\n  COUNTER.fetch_add(1, Ordering::SeqCst);\n  COUNTER.load(Ordering::Relaxed);\n\n  rayon (data parallelism, add rayon crate):\n  use rayon::prelude::*;\n  let sum: i64 = (0..1000).into_par_iter().sum();\n  data.par_iter().map(|x| x*2).collect::<Vec<_>>();\n"
+    }
+
+    type RustSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+    const SECTIONS: &[RustSection] = &[
+        (
+            "ownership",
+            &[
+                "ownership",
+                "borrow",
+                "move",
+                "lifetime",
+                "reference",
+                "clone",
+            ],
+            s_ownership,
+        ),
+        (
+            "types",
+            &[
+                "type", "types", "struct", "enum", "option", "result", "cast",
+            ],
+            s_types,
+        ),
+        (
+            "traits",
+            &[
+                "trait", "traits", "generic", "impl", "dyn", "bound", "where",
+            ],
+            s_traits,
+        ),
+        (
+            "iterators",
+            &[
+                "iterator", "iter", "map", "filter", "collect", "fold", "chain",
+            ],
+            s_iterators,
+        ),
+        (
+            "error",
+            &[
+                "error",
+                "result",
+                "question-mark",
+                "thiserror",
+                "anyhow",
+                "context",
+            ],
+            s_error,
+        ),
+        (
+            "concurrency",
+            &[
+                "concurrency",
+                "thread",
+                "arc",
+                "mutex",
+                "channel",
+                "atomic",
+                "rayon",
+            ],
+            s_concurrency,
+        ),
+    ];
+
+    let q = query.trim().to_lowercase();
+
+    if q.is_empty() || q == "help" || q == "list" {
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  hematite --rust-ref <TOPIC>");
+        let _ = writeln!(out, "  Offline Rust language reference");
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  Topics:");
+        for &(name, aliases, _) in SECTIONS {
+            let _ = writeln!(out, "    {name:<14} ({})", aliases.join(", "));
+        }
+        let _ = writeln!(out, "\n  hematite --rust-ref all   -- print everything");
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    if q == "all" {
+        let _ = writeln!(out, "{sep}");
+        for &(name, _, f) in SECTIONS {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+            let _ = writeln!(out, "");
+        }
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    let found: Vec<_> = SECTIONS
+        .iter()
+        .filter(|&&(name, aliases, _)| {
+            name.contains(q.as_str())
+                || aliases
+                    .iter()
+                    .any(|&a| a.contains(q.as_str()) || q.contains(a))
+        })
+        .collect();
+
+    if found.is_empty() {
+        let _ = writeln!(out, "  No topic found for '{}'.", query.trim());
+        let _ = writeln!(out, "  Run: hematite --rust-ref help");
+    } else {
+        let _ = writeln!(out, "{sep}");
+        for &&(name, _, f) in &found {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+        }
+        let _ = writeln!(out, "{sep}");
+    }
+    out
+}
+
+pub fn go_ref_calc(query: &str) -> String {
+    use std::fmt::Write as _;
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+
+    fn s_basics() -> &'static str {
+        "  Variables:\n  var x int = 5          Explicit type\n  var x = 5              Type inferred\n  x := 5                 Short declaration (inside functions only)\n  var a, b int = 1, 2    Multiple\n  var (                  Block declaration\n      x int\n      s string\n  )\n  const Pi = 3.14159     Constant\n  const (\n      KB = 1024\n      MB = KB * 1024\n  )\n\n  Zero values (default when declared but not assigned):\n  int/float -> 0    bool -> false    string -> \"\"    pointer/slice/map/chan/func -> nil\n\n  Types:\n  bool  string  int  int8  int16  int32  int64\n  uint  uint8  uint16  uint32  uint64  uintptr\n  byte (alias for uint8)  rune (alias for int32, Unicode code point)\n  float32  float64  complex64  complex128\n\n  Type conversion (explicit, no implicit):\n  i := int(f)     f := float64(i)     s := string(rune)\n  n, err := strconv.Atoi(\"42\")     // string -> int\n  s := strconv.Itoa(42)            // int -> string\n  s := fmt.Sprintf(\"%d\", n)        // any -> string\n\n  Blank identifier:\n  _, err := someFunc()    // Discard first return value\n\n  iota (enum pattern):\n  const (\n      Sun = iota   // 0\n      Mon          // 1\n      Tue          // 2\n  )\n  const (\n      _  = iota              // skip 0\n      KB = 1 << (10 * iota)  // 1024, 1048576, ...\n      MB\n      GB\n  )\n"
+    }
+    fn s_functions() -> &'static str {
+        "  Function basics:\n  func add(x, y int) int { return x + y }\n  func swap(x, y string) (string, string) { return y, x }  // Multiple returns\n  func split(sum int) (x, y int) {  // Named returns\n      x = sum * 4 / 9\n      y = sum - x\n      return  // Naked return — returns named values\n  }\n\n  Variadic:\n  func sum(nums ...int) int {\n      total := 0\n      for _, n := range nums { total += n }\n      return total\n  }\n  sum(1, 2, 3)\n  nums := []int{1, 2, 3}; sum(nums...)  // Spread slice\n\n  First-class functions / closures:\n  adder := func(x int) int { return x + 1 }\n  apply := func(f func(int) int, v int) int { return f(v) }\n  makeCounter := func() func() int {\n      n := 0\n      return func() int { n++; return n }  // Closes over n\n  }\n\n  defer (execute when surrounding function returns):\n  defer f.Close()              Runs on return (LIFO order)\n  defer os.Remove(tmpfile)\n  defer func() {               Closure defer\n      if r := recover(); r != nil { log.Println(\"recovered\", r) }\n  }()\n\n  panic / recover:\n  panic(\"something wrong\")     Unwinds stack (like exception)\n  recover()                    Catch panic in deferred function — returns nil if no panic\n\n  init functions:\n  func init() { ... }          Runs before main; one per file; no arguments/returns\n"
+    }
+    fn s_slices() -> &'static str {
+        "  Slice fundamentals:\n  var s []int                    Nil slice (len=0, cap=0)\n  s := []int{1, 2, 3}           Literal\n  s := make([]int, len)         Length; cap = len\n  s := make([]int, len, cap)    Length and capacity\n\n  Slice operations:\n  s[low:high]     Sub-slice [low, high)\n  s[low:]         From low to end\n  s[:high]        From start to high\n  s[:]            Copy of full slice\n  len(s)          Length\n  cap(s)          Capacity\n  s = append(s, x)              Append (may allocate)\n  s = append(s, x, y, z)        Multiple values\n  s = append(s, other...)       Append all from other\n  copy(dst, src)                Copy min(len(dst), len(src)) elements; returns n copied\n\n  2D slices:\n  matrix := make([][]int, rows)\n  for i := range matrix { matrix[i] = make([]int, cols) }\n\n  range over slice:\n  for i, v := range s { ... }   Index and value\n  for i := range s { ... }      Index only\n  for _, v := range s { ... }   Value only\n\n  Nil vs empty:\n  var s []int            // nil — s == nil is true\n  s := []int{}           // empty — s == nil is false, len=0\n  s := make([]int, 0)    // empty — same as above\n\n  Sorting:\n  sort.Ints(s)                   In-place sort ints\n  sort.Strings(s)                In-place sort strings\n  sort.Slice(s, func(i,j int) bool { return s[i] < s[j] })\n  sort.SliceStable(...)          Stable sort\n"
+    }
+    fn s_maps() -> &'static str {
+        "  Map fundamentals:\n  var m map[string]int            Nil map (reads OK, writes panic)\n  m := map[string]int{}           Empty map\n  m := make(map[string]int)       Empty map\n  m := map[string]int{\"a\": 1}    Literal\n\n  Operations:\n  m[\"key\"] = value               Set\n  v := m[\"key\"]                  Get (zero value if absent)\n  v, ok := m[\"key\"]             Get with existence check\n  delete(m, \"key\")               Delete (no error if absent)\n  len(m)                         Number of pairs\n\n  Existence check:\n  if v, ok := m[\"key\"]; ok {\n      // key exists; v has the value\n  }\n\n  Iteration (random order):\n  for k, v := range m { ... }\n  for k := range m { ... }        Keys only\n\n  Sorted iteration (common pattern):\n  keys := make([]string, 0, len(m))\n  for k := range m { keys = append(keys, k) }\n  sort.Strings(keys)\n  for _, k := range keys { fmt.Println(k, m[k]) }\n\n  Nested maps:\n  nested := make(map[string]map[string]int)\n  nested[\"outer\"] = make(map[string]int)\n  nested[\"outer\"][\"inner\"] = 42\n\n  Map as set:\n  seen := make(map[string]struct{})\n  seen[\"x\"] = struct{}{}\n  if _, ok := seen[\"x\"]; ok { ... }\n"
+    }
+    fn s_interfaces() -> &'static str {
+        "  Interface definition:\n  type Stringer interface {\n      String() string\n  }\n  type ReadWriter interface {\n      io.Reader              // Embedding another interface\n      io.Writer\n  }\n\n  Implicit satisfaction — no 'implements' keyword:\n  type Dog struct{ Name string }\n  func (d Dog) String() string { return d.Name }  // Dog satisfies Stringer\n\n  Pointer vs value receiver:\n  func (d *Dog) Bark() { ... }   // Only *Dog satisfies interface with pointer methods\n  func (d Dog)  Name() string    // Both Dog and *Dog satisfy interface with value methods\n\n  Empty interface (any in Go 1.18+):\n  func print(v interface{}) { fmt.Println(v) }\n  func print(v any) { fmt.Println(v) }   // Preferred (Go 1.18+)\n\n  Type assertion:\n  var i interface{} = \"hello\"\n  s := i.(string)              // Panic if wrong type\n  s, ok := i.(string)          // Safe — ok=false if wrong type\n\n  Type switch:\n  switch v := i.(type) {\n  case int:    fmt.Printf(\"int: %d\", v)\n  case string: fmt.Printf(\"string: %s\", v)\n  default:     fmt.Printf(\"unknown: %T\", v)\n  }\n\n  Key standard interfaces:\n  io.Reader       Read(p []byte) (n int, err error)\n  io.Writer       Write(p []byte) (n int, err error)\n  io.Closer       Close() error\n  fmt.Stringer    String() string\n  error           Error() string\n  sort.Interface  Len() int; Less(i,j int) bool; Swap(i,j int)\n"
+    }
+    fn s_goroutines() -> &'static str {
+        "  Goroutines — lightweight concurrent functions:\n  go func() { ... }()             Anonymous goroutine\n  go process(data)                 Named function as goroutine\n\n  Channels:\n  ch := make(chan int)             Unbuffered (synchronous)\n  ch := make(chan int, 100)        Buffered (async up to 100)\n  ch <- value                     Send (blocks until received)\n  value := <-ch                   Receive (blocks until sent)\n  close(ch)                       Close — panics if send after close\n  v, ok := <-ch                   ok=false when closed and empty\n\n  Range over channel:\n  for v := range ch { ... }       Reads until channel is closed\n\n  Select — wait on multiple channels:\n  select {\n  case v := <-ch1:   use(v)\n  case ch2 <- x:     // Sent on ch2\n  case <-time.After(1 * time.Second):\n      fmt.Println(\"timeout\")\n  default:            // Non-blocking — runs if no case ready\n  }\n\n  sync.WaitGroup — wait for goroutines:\n  var wg sync.WaitGroup\n  for _, item := range items {\n      wg.Add(1)\n      go func(item T) {\n          defer wg.Done()\n          process(item)\n      }(item)\n  }\n  wg.Wait()\n\n  sync.Mutex:\n  var mu sync.Mutex\n  mu.Lock()\n  defer mu.Unlock()\n  // critical section\n\n  context — cancellation / deadlines:\n  ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)\n  defer cancel()\n  select {\n  case result := <-ch:  use(result)\n  case <-ctx.Done():    return ctx.Err()\n  }\n"
+    }
+    fn s_errors() -> &'static str {
+        "  Error interface:\n  type error interface { Error() string }\n\n  Creating errors:\n  errors.New(\"something failed\")\n  fmt.Errorf(\"context: %w\", err)   Wrap — preserves unwrap chain\n\n  Custom error type:\n  type NotFoundError struct{ Name string }\n  func (e *NotFoundError) Error() string {\n      return fmt.Sprintf(\"%s: not found\", e.Name)\n  }\n\n  errors.Is — check error identity:\n  if errors.Is(err, os.ErrNotExist) { ... }\n  var sentinel = errors.New(\"special\")\n  if errors.Is(err, sentinel) { ... }  // Works through wrapping\n\n  errors.As — check and extract error type:\n  var nfe *NotFoundError\n  if errors.As(err, &nfe) {\n      fmt.Println(nfe.Name)\n  }\n\n  Handling errors:\n  v, err := doThing()\n  if err != nil { return fmt.Errorf(\"doThing: %w\", err) }\n\n  Multiple return cleanup:\n  f, err := os.Open(path)\n  if err != nil { return err }\n  defer f.Close()\n\n  Sentinel errors:\n  var ErrNotFound = errors.New(\"not found\")   // In a package\n  if err == io.EOF { ... }   // io.EOF is a sentinel\n\n  No exceptions: Go does not have try/catch. Errors are values returned\n  from functions. panic/recover exists but is for truly exceptional\n  situations (programmer errors), not normal error flow.\n"
+    }
+
+    type GoSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+    const SECTIONS: &[GoSection] = &[
+        (
+            "basics",
+            &[
+                "basic", "variable", "const", "iota", "type", "zero", "convert",
+            ],
+            s_basics,
+        ),
+        (
+            "functions",
+            &[
+                "function", "variadic", "closure", "defer", "panic", "recover", "init",
+            ],
+            s_functions,
+        ),
+        (
+            "slices",
+            &["slice", "append", "copy", "make", "range", "sort", "2d"],
+            s_slices,
+        ),
+        (
+            "maps",
+            &[
+                "map",
+                "key",
+                "value",
+                "delete",
+                "existence",
+                "nested",
+                "set",
+            ],
+            s_maps,
+        ),
+        (
+            "interfaces",
+            &[
+                "interface",
+                "type-assert",
+                "type-switch",
+                "stringer",
+                "embed",
+            ],
+            s_interfaces,
+        ),
+        (
+            "goroutines",
+            &[
+                "goroutine",
+                "channel",
+                "select",
+                "waitgroup",
+                "mutex",
+                "context",
+            ],
+            s_goroutines,
+        ),
+        (
+            "errors",
+            &[
+                "error",
+                "errors-is",
+                "errors-as",
+                "wrap",
+                "sentinel",
+                "fmt-errorf",
+            ],
+            s_errors,
+        ),
+    ];
+
+    let q = query.trim().to_lowercase();
+
+    if q.is_empty() || q == "help" || q == "list" {
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  hematite --go-ref <TOPIC>");
+        let _ = writeln!(out, "  Offline Go language reference");
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  Topics:");
+        for &(name, aliases, _) in SECTIONS {
+            let _ = writeln!(out, "    {name:<14} ({})", aliases.join(", "));
+        }
+        let _ = writeln!(out, "\n  hematite --go-ref all   -- print everything");
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    if q == "all" {
+        let _ = writeln!(out, "{sep}");
+        for &(name, _, f) in SECTIONS {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+            let _ = writeln!(out, "");
+        }
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    let found: Vec<_> = SECTIONS
+        .iter()
+        .filter(|&&(name, aliases, _)| {
+            name.contains(q.as_str())
+                || aliases
+                    .iter()
+                    .any(|&a| a.contains(q.as_str()) || q.contains(a))
+        })
+        .collect();
+
+    if found.is_empty() {
+        let _ = writeln!(out, "  No topic found for '{}'.", query.trim());
+        let _ = writeln!(out, "  Run: hematite --go-ref help");
+    } else {
+        let _ = writeln!(out, "{sep}");
+        for &&(name, _, f) in &found {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+        }
+        let _ = writeln!(out, "{sep}");
+    }
+    out
+}
+
+pub fn js_ref_calc(query: &str) -> String {
+    use std::fmt::Write as _;
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+
+    fn s_types() -> &'static str {
+        "  Primitives:\n  undefined  null  boolean  number  bigint  string  symbol\n\n  typeof:\n  typeof undefined   // 'undefined'\n  typeof null        // 'object' (historic bug)\n  typeof 42          // 'number'\n  typeof 'hi'        // 'string'\n  typeof true        // 'boolean'\n  typeof Symbol()    // 'symbol'\n  typeof 42n         // 'bigint'\n  typeof {}          // 'object'\n  typeof []          // 'object' — use Array.isArray()\n  typeof function(){}// 'function'\n\n  Equality:\n  ==   Loose equality (coerces types — avoid)\n  ===  Strict equality (no coercion — prefer)\n  Object.is(a, b)   Like === but: NaN===NaN is true, +0===-0 is false\n\n  Truthy / falsy:\n  Falsy: false, 0, -0, 0n, '', null, undefined, NaN\n  Truthy: everything else (including '0', [], {})\n\n  Type coercion:\n  +'42'     -> 42      (unary plus)\n  ''+42     -> '42'    (string concat)\n  !!value   -> boolean (double negation)\n  Boolean(value)\n  Number(value)  — NaN if invalid\n  String(value)\n  parseInt('42px', 10)   -> 42  (radix required)\n  parseFloat('3.14abc')  -> 3.14\n\n  Nullish coalescing (??) vs OR (||):\n  a ?? b   Returns b if a is null or undefined (not 0 or '')\n  a || b   Returns b if a is falsy (includes 0, '')\n"
+    }
+    fn s_functions() -> &'static str {
+        "  Function declaration (hoisted):\n  function greet(name) { return 'Hello ' + name; }\n\n  Function expression (not hoisted):\n  const greet = function(name) { return 'Hello ' + name; };\n\n  Arrow functions (no own this/arguments/super):\n  const greet = (name) => 'Hello ' + name;\n  const greet = name => 'Hello ' + name;    // Single param: no parens\n  const getObj = () => ({ key: 'val' });    // Return object: wrap in ()\n  const multi = (x, y) => {                // Block body needs return\n      const sum = x + y;\n      return sum;\n  };\n\n  Default parameters:\n  function greet(name = 'World') { return `Hello ${name}`; }\n\n  Rest parameters:\n  function sum(...nums) { return nums.reduce((a, b) => a + b, 0); }\n\n  Spread operator:\n  const arr2 = [...arr1, 4, 5];         // Spread array\n  const obj2 = { ...obj1, key: 'val' }; // Spread object\n  Math.max(...nums);                     // Spread into args\n\n  IIFE (Immediately Invoked Function Expression):\n  (function() { /* isolated scope */ })();\n  (() => { /* arrow IIFE */ })();\n\n  Closures:\n  function makeCounter() {\n      let count = 0;          // Closed over by returned function\n      return () => ++count;\n  }\n  const counter = makeCounter();\n  counter(); // 1   counter(); // 2\n"
+    }
+    fn s_arrays() -> &'static str {
+        "  Array methods (do not mutate unless noted):\n  arr.map(fn)           Transform each item -> new array\n  arr.filter(fn)        Keep items where fn returns true\n  arr.reduce(fn, init)  Accumulate -> single value\n  arr.find(fn)          First item where fn is true (or undefined)\n  arr.findIndex(fn)     Index of first match (or -1)\n  arr.some(fn)          True if any match\n  arr.every(fn)         True if all match\n  arr.includes(val)     True if val is in array\n  arr.indexOf(val)      First index (or -1)\n  arr.flat(depth=1)     Flatten nested arrays\n  arr.flatMap(fn)       Map then flatten one level\n  arr.slice(start,end)  Sub-array (end exclusive)\n  arr.forEach(fn)       Iterate, no return (avoid in favor of for..of)\n\n  Mutating methods:\n  arr.push(x)           Add to end (returns new length)\n  arr.pop()             Remove from end (returns item)\n  arr.shift()           Remove from start (returns item)\n  arr.unshift(x)        Add to start (returns new length)\n  arr.splice(i, n, ...items)  Remove n items at i, insert items\n  arr.sort(cmp)         In-place sort (use comparator for numbers!)\n  arr.reverse()         In-place reverse\n  arr.fill(val, start, end)\n\n  Destructuring:\n  const [a, b, ...rest] = arr;\n  const [, second] = arr;      // Skip first\n  const [x = 0] = arr;        // Default value\n\n  Create arrays:\n  Array.from('hello')            -> ['h','e','l','l','o']\n  Array.from({length: 5}, (_,i) => i)  -> [0,1,2,3,4]\n  Array.of(1, 2, 3)              -> [1,2,3]\n  [...new Set(arr)]              Deduplicate\n"
+    }
+    fn s_objects() -> &'static str {
+        "  Object basics:\n  const obj = { key: 'val', fn() { return this.key; } };\n  obj.key = 'new';          Dot notation\n  obj['key'] = 'new';       Bracket notation (for dynamic keys)\n  delete obj.key;\n  'key' in obj;             Existence check (includes prototype)\n  Object.hasOwn(obj, 'key') Own property check (ES2022)\n\n  Shorthand and computed keys:\n  const x = 1, y = 2;\n  const point = { x, y };           Shorthand\n  const key = 'dynamic';\n  const obj = { [key]: 'val' };     Computed key\n  const obj = { [`prefix_${key}`]: 42 };\n\n  Destructuring:\n  const { a, b } = obj;\n  const { a: renamed } = obj;       Rename\n  const { a = 0 } = obj;           Default\n  const { a, ...rest } = obj;      Rest\n  function fn({ name, age = 0 }) { ... }  Parameter destructuring\n\n  Spread and merge:\n  const merged = { ...defaults, ...overrides };\n  const clone = { ...obj };         Shallow clone\n\n  Object utility methods:\n  Object.keys(obj)         Array of own enumerable keys\n  Object.values(obj)       Array of own enumerable values\n  Object.entries(obj)      Array of [key, value] pairs\n  Object.fromEntries(arr)  Pairs back to object\n  Object.assign(target, ...sources)  Shallow merge (mutates target)\n  Object.freeze(obj)       Make immutable (shallow)\n  Object.create(proto)     Create with specific prototype\n\n  Optional chaining (?.):\n  obj?.prop                undefined if obj is null/undefined\n  obj?.method?.()          Call only if method exists\n  arr?.[0]                 Index only if arr exists\n"
+    }
+    fn s_promises() -> &'static str {
+        "  Promise basics:\n  const p = new Promise((resolve, reject) => {\n      setTimeout(() => resolve('done'), 1000);\n  });\n  p.then(val => console.log(val))\n   .catch(err => console.error(err))\n   .finally(() => cleanup());\n\n  Promise combinators:\n  Promise.all([p1, p2, p3])          Resolves when all resolve; rejects on first rejection\n  Promise.allSettled([p1, p2])        Always resolves; array of {status, value/reason}\n  Promise.race([p1, p2])              First to settle (resolve or reject)\n  Promise.any([p1, p2])              First to resolve; AggregateError if all reject\n  Promise.resolve(val)               Already-resolved promise\n  Promise.reject(err)                Already-rejected promise\n\n  async/await (syntactic sugar over promises):\n  async function fetchData(url) {\n      try {\n          const resp = await fetch(url);\n          if (!resp.ok) throw new Error(`HTTP ${resp.status}`);\n          const data = await resp.json();\n          return data;\n      } catch (err) {\n          console.error('Failed:', err);\n          throw err;    // Re-throw so caller can handle\n      }\n  }\n\n  Parallel with async/await:\n  const [a, b] = await Promise.all([fetchA(), fetchB()]);\n\n  Top-level await (in ES modules or Node 14.8+ type:module):\n  const data = await fetch(url).then(r => r.json());\n\n  Sequential vs parallel:\n  // Sequential (each waits for previous):\n  for (const url of urls) { await fetch(url); }\n  // Parallel (all start at once):\n  await Promise.all(urls.map(url => fetch(url)));\n"
+    }
+    fn s_modules() -> &'static str {
+        "  ES Modules (ESM — .mjs, or .js with type:module):\n  export const value = 42;                Named export\n  export function greet() { ... }         Named export\n  export default class App { ... }        Default export\n  export { value, greet };                Re-export from current scope\n  export { foo as bar };                  Export with alias\n  export { value } from './other.js';     Re-export from another module\n  export * from './other.js';             Re-export all named\n\n  import:\n  import defaultExport from './mod.js';\n  import { name1, name2 } from './mod.js';\n  import { name as alias } from './mod.js';\n  import * as ns from './mod.js';         Namespace import\n  import defaultExport, { name } from './mod.js';\n  import './side-effects.js';             Side-effects only\n\n  Dynamic import (lazy load):\n  const mod = await import('./module.js');\n  mod.default();\n  const { name } = await import('./module.js');\n\n  CommonJS (Node.js default — .cjs):\n  const fs = require('fs');\n  const { join } = require('path');\n  module.exports = { value, greet };\n  module.exports = defaultExport;\n\n  ESM in Node.js:\n  Add to package.json:  \"type\": \"module\"\n  Use .mjs extension for ESM, .cjs for CommonJS\n  No __dirname/__filename — use:\n  import { fileURLToPath } from 'url';\n  const __filename = fileURLToPath(import.meta.url);\n  const __dirname = path.dirname(__filename);\n"
+    }
+    fn s_modern() -> &'static str {
+        "  Template literals:\n  `Hello ${name}!`          Interpolation\n  `Line 1\\nLine 2`          Multiline\n  String.raw`C:\\Users\\n`    Raw string (no escape processing)\n  tag`Hello ${name}`        Tagged template literal\n\n  Optional chaining (?.) and nullish coalescing (??):\n  obj?.prop?.nested         Safe property access\n  fn?.()                    Safe function call\n  arr?.[0]                  Safe index access\n  val ?? 'default'          Null/undefined fallback (not falsy)\n  val ??= 'default'         Assign if null/undefined\n  obj.prop ||= 'fallback'   Assign if falsy\n  obj.prop &&= transform()  Assign if truthy\n\n  Destructuring in loops:\n  for (const [key, val] of Object.entries(obj)) { ... }\n  for (const { name, age } of users) { ... }\n\n  Generators (function*):\n  function* count() {\n      yield 1;  yield 2;  yield 3;\n  }\n  const gen = count();\n  gen.next();  // { value: 1, done: false }\n  [...count()] // [1, 2, 3]\n\n  Symbols:\n  const id = Symbol('id');    Unique key\n  obj[id] = 42;               Not enumerable by Object.keys\n  Symbol.iterator             Well-known symbol for iterable protocol\n\n  WeakMap / WeakSet (GC-friendly):\n  const wm = new WeakMap();\n  wm.set(obj, data);          Key must be object; GC'd when obj unreachable\n\n  Proxy and Reflect:\n  const proxy = new Proxy(target, {\n      get(target, prop, receiver) { return Reflect.get(target, prop, receiver); },\n      set(target, prop, value) { return Reflect.set(target, prop, value); },\n  });\n"
+    }
+
+    type JsSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+    const SECTIONS: &[JsSection] = &[
+        (
+            "types",
+            &[
+                "type",
+                "typeof",
+                "coercion",
+                "truthy",
+                "falsy",
+                "null",
+                "undefined",
+                "equality",
+            ],
+            s_types,
+        ),
+        (
+            "functions",
+            &[
+                "function", "arrow", "closure", "iife", "rest", "spread", "default",
+            ],
+            s_functions,
+        ),
+        (
+            "arrays",
+            &[
+                "array",
+                "map",
+                "filter",
+                "reduce",
+                "flat",
+                "destructure",
+                "spread",
+            ],
+            s_arrays,
+        ),
+        (
+            "objects",
+            &[
+                "object",
+                "destructure",
+                "spread",
+                "optional-chaining",
+                "entries",
+                "keys",
+            ],
+            s_objects,
+        ),
+        (
+            "promises",
+            &[
+                "promise",
+                "async",
+                "await",
+                "then",
+                "catch",
+                "all",
+                "allsettled",
+            ],
+            s_promises,
+        ),
+        (
+            "modules",
+            &[
+                "module", "import", "export", "esm", "commonjs", "require", "dynamic",
+            ],
+            s_modules,
+        ),
+        (
+            "modern",
+            &[
+                "modern",
+                "template",
+                "nullish",
+                "generator",
+                "symbol",
+                "proxy",
+                "weakmap",
+            ],
+            s_modern,
+        ),
+    ];
+
+    let q = query.trim().to_lowercase();
+
+    if q.is_empty() || q == "help" || q == "list" {
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  hematite --js-ref <TOPIC>");
+        let _ = writeln!(out, "  Offline JavaScript (ES2022+) reference");
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  Topics:");
+        for &(name, aliases, _) in SECTIONS {
+            let _ = writeln!(out, "    {name:<12} ({})", aliases.join(", "));
+        }
+        let _ = writeln!(out, "\n  hematite --js-ref all   -- print everything");
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    if q == "all" {
+        let _ = writeln!(out, "{sep}");
+        for &(name, _, f) in SECTIONS {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+            let _ = writeln!(out, "");
+        }
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    let found: Vec<_> = SECTIONS
+        .iter()
+        .filter(|&&(name, aliases, _)| {
+            name.contains(q.as_str())
+                || aliases
+                    .iter()
+                    .any(|&a| a.contains(q.as_str()) || q.contains(a))
+        })
+        .collect();
+
+    if found.is_empty() {
+        let _ = writeln!(out, "  No topic found for '{}'.", query.trim());
+        let _ = writeln!(out, "  Run: hematite --js-ref help");
+    } else {
+        let _ = writeln!(out, "{sep}");
+        for &&(name, _, f) in &found {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+        }
+        let _ = writeln!(out, "{sep}");
+    }
+    out
+}

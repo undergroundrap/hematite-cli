@@ -7,15 +7,16 @@ use hematite::tools::math_util::{
     checksum_calc, chemistry_calc, chmod_calc, cipher_calc, color_calc, color_names_calc,
     combinatorics_calc, complex_calc, cron_calc, csv_calc, curl_calc, datetime_calc, diff_calc,
     docker_ref_calc, duration_calc, electrical_calc, encode_calc, escape_calc, find_calc,
-    fraction_calc, geometry_calc, git_ref_calc, gitignore_calc, grep_calc, hash_calc, headers_calc,
-    health_calc, http_calc, http_status_calc, id_gen_calc, ip_calc, jq_calc, json_calc,
-    json_path_calc, jwt_calc, kbd_calc, license_calc, lorem_calc, make_calc, markdown_calc,
-    matrix_calc, mime_calc, net_calc, nginx_calc, number_format, number_theory_calc, openssl_calc,
-    percent_calc, physics_calc, port_calc, prob_calc, regex_calc, regex_ref_calc, roman_calc,
-    sed_calc, semver_calc, set_calc, sort_viz, spark_calc, sql_fmt_calc, sql_ref_calc,
-    ssh_ref_calc, ssl_calc, stats_calc, string_dist, systemd_calc, table_calc, tar_calc,
-    template_calc, text_stats, timestamp_calc, toml_calc, trig_calc, tz_calc, url_calc, uuid_calc,
-    validate_calc, vim_calc, xml_calc, yaml_calc,
+    fraction_calc, geometry_calc, git_ref_calc, gitignore_calc, go_ref_calc, grep_calc, hash_calc,
+    headers_calc, health_calc, http_calc, http_status_calc, id_gen_calc, ip_calc, jq_calc,
+    js_ref_calc, json_calc, json_path_calc, jwt_calc, kbd_calc, license_calc, lorem_calc,
+    make_calc, markdown_calc, matrix_calc, mime_calc, net_calc, nginx_calc, number_format,
+    number_theory_calc, openssl_calc, percent_calc, physics_calc, port_calc, prob_calc,
+    python_ref_calc, regex_calc, regex_ref_calc, roman_calc, rust_ref_calc, sed_calc, semver_calc,
+    set_calc, sort_viz, spark_calc, sql_fmt_calc, sql_ref_calc, ssh_ref_calc, ssl_calc, stats_calc,
+    string_dist, systemd_calc, table_calc, tar_calc, template_calc, text_stats, timestamp_calc,
+    toml_calc, trig_calc, tz_calc, url_calc, uuid_calc, validate_calc, vim_calc, xml_calc,
+    yaml_calc,
 };
 
 // ─── Cipher tests ────────────────────────────────────────────────────────────
@@ -6761,5 +6762,505 @@ fn test_bash_ref_all() {
 #[test]
 fn test_bash_ref_unknown_topic() {
     let out = bash_ref_calc("foobar_xyz");
+    assert!(out.contains("No topic") || out.contains("Run:"), "{out}");
+}
+
+// ─── Wave 17: python-ref, rust-ref, go-ref, js-ref ───────────────────────────
+
+#[test]
+fn test_python_ref_help() {
+    let out = python_ref_calc("help");
+    assert!(out.contains("python") || out.contains("TOPIC"), "{out}");
+    assert!(out.contains("builtins"), "{out}");
+}
+
+#[test]
+fn test_python_ref_list() {
+    let out = python_ref_calc("list");
+    assert!(out.contains("strings"), "{out}");
+    assert!(out.contains("async"), "{out}");
+}
+
+#[test]
+fn test_python_ref_empty() {
+    let out = python_ref_calc("");
+    assert!(out.contains("TOPIC") || out.contains("Topics"), "{out}");
+}
+
+#[test]
+fn test_python_ref_builtins_topic() {
+    let out = python_ref_calc("builtins");
+    assert!(out.contains("len") || out.contains("print"), "{out}");
+    assert!(out.contains("sorted") || out.contains("enumerate"), "{out}");
+}
+
+#[test]
+fn test_python_ref_strings_topic() {
+    let out = python_ref_calc("strings");
+    assert!(
+        out.contains("f-string") || out.contains("fstring") || out.contains("f\""),
+        "{out}"
+    );
+    assert!(out.contains("split") || out.contains("strip"), "{out}");
+}
+
+#[test]
+fn test_python_ref_fstring_alias() {
+    let out = python_ref_calc("fstring");
+    assert!(out.contains("f\"") || out.contains("format"), "{out}");
+}
+
+#[test]
+fn test_python_ref_collections_topic() {
+    let out = python_ref_calc("collections");
+    assert!(out.contains("append") || out.contains("dict"), "{out}");
+    assert!(out.contains("Counter") || out.contains("deque"), "{out}");
+}
+
+#[test]
+fn test_python_ref_list_alias() {
+    let out = python_ref_calc("counter");
+    assert!(out.contains("Counter") || out.contains("deque"), "{out}");
+}
+
+#[test]
+fn test_python_ref_dict_alias() {
+    let out = python_ref_calc("dict");
+    assert!(out.contains("get") || out.contains("keys"), "{out}");
+}
+
+#[test]
+fn test_python_ref_comprehensions_topic() {
+    let out = python_ref_calc("comprehensions");
+    assert!(
+        out.contains("comprehension") || out.contains("listcomp") || out.contains("[expr"),
+        "{out}"
+    );
+    assert!(out.contains("Generator") || out.contains("Walrus"), "{out}");
+}
+
+#[test]
+fn test_python_ref_functions_topic() {
+    let out = python_ref_calc("functions");
+    assert!(out.contains("lambda") || out.contains("decorator"), "{out}");
+    assert!(out.contains("kwargs") || out.contains("*args"), "{out}");
+}
+
+#[test]
+fn test_python_ref_decorator_alias() {
+    let out = python_ref_calc("decorator");
+    assert!(out.contains("@") || out.contains("wraps"), "{out}");
+}
+
+#[test]
+fn test_python_ref_classes_topic() {
+    let out = python_ref_calc("classes");
+    assert!(out.contains("__init__") || out.contains("dunder"), "{out}");
+    assert!(
+        out.contains("dataclass") || out.contains("@dataclass"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_python_ref_dunder_alias() {
+    let out = python_ref_calc("dunder");
+    assert!(
+        out.contains("__init__") || out.contains("__repr__"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_python_ref_async_topic() {
+    let out = python_ref_calc("async");
+    assert!(out.contains("asyncio") || out.contains("await"), "{out}");
+    assert!(
+        out.contains("gather") || out.contains("create_task"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_python_ref_all() {
+    let out = python_ref_calc("all");
+    assert!(out.contains("lambda"), "{out}");
+    assert!(out.contains("__init__"), "{out}");
+    assert!(out.contains("asyncio") || out.contains("await"), "{out}");
+    assert!(out.contains("Counter") || out.contains("deque"), "{out}");
+}
+
+#[test]
+fn test_python_ref_unknown_topic() {
+    let out = python_ref_calc("foobar_xyz");
+    assert!(out.contains("No topic") || out.contains("Run:"), "{out}");
+}
+
+// ─── rust-ref tests ───────────────────────────────────────────────────────────
+
+#[test]
+fn test_rust_ref_help() {
+    let out = rust_ref_calc("help");
+    assert!(out.contains("rust") || out.contains("TOPIC"), "{out}");
+    assert!(out.contains("ownership"), "{out}");
+}
+
+#[test]
+fn test_rust_ref_list() {
+    let out = rust_ref_calc("list");
+    assert!(out.contains("traits"), "{out}");
+    assert!(out.contains("concurrency"), "{out}");
+}
+
+#[test]
+fn test_rust_ref_empty() {
+    let out = rust_ref_calc("");
+    assert!(out.contains("TOPIC") || out.contains("Topics"), "{out}");
+}
+
+#[test]
+fn test_rust_ref_ownership_topic() {
+    let out = rust_ref_calc("ownership");
+    assert!(out.contains("borrow") || out.contains("Borrow"), "{out}");
+    assert!(out.contains("lifetime") || out.contains("clone"), "{out}");
+}
+
+#[test]
+fn test_rust_ref_borrow_alias() {
+    let out = rust_ref_calc("borrow");
+    assert!(out.contains("&") || out.contains("borrow"), "{out}");
+}
+
+#[test]
+fn test_rust_ref_types_topic() {
+    let out = rust_ref_calc("types");
+    assert!(out.contains("Option") || out.contains("Result"), "{out}");
+    assert!(out.contains("struct") || out.contains("enum"), "{out}");
+}
+
+#[test]
+fn test_rust_ref_option_alias() {
+    let out = rust_ref_calc("option");
+    assert!(out.contains("Some") || out.contains("None"), "{out}");
+}
+
+#[test]
+fn test_rust_ref_traits_topic() {
+    let out = rust_ref_calc("traits");
+    assert!(out.contains("trait") || out.contains("impl"), "{out}");
+    assert!(out.contains("dyn") || out.contains("generic"), "{out}");
+}
+
+#[test]
+fn test_rust_ref_generic_alias() {
+    let out = rust_ref_calc("generic");
+    assert!(
+        out.contains("<T>") || out.contains("generic") || out.contains("bound"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_rust_ref_iterators_topic() {
+    let out = rust_ref_calc("iterators");
+    assert!(out.contains("map") || out.contains("filter"), "{out}");
+    assert!(out.contains("collect") || out.contains("fold"), "{out}");
+}
+
+#[test]
+fn test_rust_ref_collect_alias() {
+    let out = rust_ref_calc("collect");
+    assert!(out.contains("collect") || out.contains("Vec"), "{out}");
+}
+
+#[test]
+fn test_rust_ref_error_topic() {
+    let out = rust_ref_calc("error");
+    assert!(out.contains("Result") || out.contains("thiserror"), "{out}");
+    assert!(out.contains("anyhow") || out.contains("context"), "{out}");
+}
+
+#[test]
+fn test_rust_ref_concurrency_topic() {
+    let out = rust_ref_calc("concurrency");
+    assert!(out.contains("thread") || out.contains("Arc"), "{out}");
+    assert!(out.contains("Mutex") || out.contains("channel"), "{out}");
+}
+
+#[test]
+fn test_rust_ref_all() {
+    let out = rust_ref_calc("all");
+    assert!(out.contains("borrow") || out.contains("lifetime"), "{out}");
+    assert!(out.contains("trait"), "{out}");
+    assert!(out.contains("collect"), "{out}");
+    assert!(out.contains("Arc") || out.contains("Mutex"), "{out}");
+}
+
+#[test]
+fn test_rust_ref_unknown_topic() {
+    let out = rust_ref_calc("foobar_xyz");
+    assert!(out.contains("No topic") || out.contains("Run:"), "{out}");
+}
+
+// ─── go-ref tests ─────────────────────────────────────────────────────────────
+
+#[test]
+fn test_go_ref_help() {
+    let out = go_ref_calc("help");
+    assert!(out.contains("go") || out.contains("TOPIC"), "{out}");
+    assert!(
+        out.contains("goroutines") || out.contains("slices"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_go_ref_list() {
+    let out = go_ref_calc("list");
+    assert!(out.contains("basics"), "{out}");
+    assert!(out.contains("errors"), "{out}");
+}
+
+#[test]
+fn test_go_ref_empty() {
+    let out = go_ref_calc("");
+    assert!(out.contains("TOPIC") || out.contains("Topics"), "{out}");
+}
+
+#[test]
+fn test_go_ref_basics_topic() {
+    let out = go_ref_calc("basics");
+    assert!(out.contains("iota") || out.contains(":="), "{out}");
+    assert!(out.contains("const") || out.contains("var"), "{out}");
+}
+
+#[test]
+fn test_go_ref_iota_alias() {
+    let out = go_ref_calc("iota");
+    assert!(out.contains("iota") || out.contains("const"), "{out}");
+}
+
+#[test]
+fn test_go_ref_functions_topic() {
+    let out = go_ref_calc("functions");
+    assert!(out.contains("defer") || out.contains("variadic"), "{out}");
+    assert!(out.contains("panic") || out.contains("recover"), "{out}");
+}
+
+#[test]
+fn test_go_ref_defer_alias() {
+    let out = go_ref_calc("defer");
+    assert!(out.contains("defer") || out.contains("LIFO"), "{out}");
+}
+
+#[test]
+fn test_go_ref_slices_topic() {
+    let out = go_ref_calc("slices");
+    assert!(out.contains("append") || out.contains("make"), "{out}");
+    assert!(out.contains("copy") || out.contains("range"), "{out}");
+}
+
+#[test]
+fn test_go_ref_maps_topic() {
+    let out = go_ref_calc("maps");
+    assert!(out.contains("delete") || out.contains("make"), "{out}");
+    assert!(out.contains("existence") || out.contains("ok"), "{out}");
+}
+
+#[test]
+fn test_go_ref_interfaces_topic() {
+    let out = go_ref_calc("interfaces");
+    assert!(
+        out.contains("interface") || out.contains("type-assert"),
+        "{out}"
+    );
+    assert!(
+        out.contains("Type switch") || out.contains(".(type)"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_go_ref_goroutines_topic() {
+    let out = go_ref_calc("goroutines");
+    assert!(
+        out.contains("goroutine") || out.contains("channel"),
+        "{out}"
+    );
+    assert!(out.contains("WaitGroup") || out.contains("select"), "{out}");
+}
+
+#[test]
+fn test_go_ref_channel_alias() {
+    let out = go_ref_calc("channel");
+    assert!(out.contains("chan") || out.contains("channel"), "{out}");
+}
+
+#[test]
+fn test_go_ref_errors_topic() {
+    let out = go_ref_calc("errors");
+    assert!(
+        out.contains("errors.Is") || out.contains("errors.As"),
+        "{out}"
+    );
+    assert!(out.contains("fmt.Errorf") || out.contains("wrap"), "{out}");
+}
+
+#[test]
+fn test_go_ref_all() {
+    let out = go_ref_calc("all");
+    assert!(out.contains("iota") || out.contains(":="), "{out}");
+    assert!(out.contains("append"), "{out}");
+    assert!(
+        out.contains("WaitGroup") || out.contains("channel"),
+        "{out}"
+    );
+    assert!(
+        out.contains("errors.Is") || out.contains("errors.As"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_go_ref_unknown_topic() {
+    let out = go_ref_calc("foobar_xyz");
+    assert!(out.contains("No topic") || out.contains("Run:"), "{out}");
+}
+
+// ─── js-ref tests ─────────────────────────────────────────────────────────────
+
+#[test]
+fn test_js_ref_help() {
+    let out = js_ref_calc("help");
+    assert!(out.contains("js") || out.contains("TOPIC"), "{out}");
+    assert!(out.contains("promises"), "{out}");
+}
+
+#[test]
+fn test_js_ref_list() {
+    let out = js_ref_calc("list");
+    assert!(out.contains("modules"), "{out}");
+    assert!(out.contains("modern"), "{out}");
+}
+
+#[test]
+fn test_js_ref_empty() {
+    let out = js_ref_calc("");
+    assert!(out.contains("TOPIC") || out.contains("Topics"), "{out}");
+}
+
+#[test]
+fn test_js_ref_types_topic() {
+    let out = js_ref_calc("types");
+    assert!(out.contains("typeof") || out.contains("undefined"), "{out}");
+    assert!(out.contains("truthy") || out.contains("falsy"), "{out}");
+}
+
+#[test]
+fn test_js_ref_typeof_alias() {
+    let out = js_ref_calc("typeof");
+    assert!(out.contains("typeof") || out.contains("undefined"), "{out}");
+}
+
+#[test]
+fn test_js_ref_functions_topic() {
+    let out = js_ref_calc("functions");
+    assert!(out.contains("arrow") || out.contains("=>"), "{out}");
+    assert!(out.contains("closure") || out.contains("IIFE"), "{out}");
+}
+
+#[test]
+fn test_js_ref_arrow_alias() {
+    let out = js_ref_calc("arrow");
+    assert!(out.contains("=>") || out.contains("arrow"), "{out}");
+}
+
+#[test]
+fn test_js_ref_arrays_topic() {
+    let out = js_ref_calc("arrays");
+    assert!(out.contains("map") || out.contains("filter"), "{out}");
+    assert!(out.contains("reduce") || out.contains("flat"), "{out}");
+}
+
+#[test]
+fn test_js_ref_reduce_alias() {
+    let out = js_ref_calc("reduce");
+    assert!(
+        out.contains("reduce") || out.contains("accumulate"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_js_ref_objects_topic() {
+    let out = js_ref_calc("objects");
+    assert!(
+        out.contains("destructure") || out.contains("entries"),
+        "{out}"
+    );
+    assert!(out.contains("spread") || out.contains("..."), "{out}");
+}
+
+#[test]
+fn test_js_ref_optional_chaining_alias() {
+    let out = js_ref_calc("optional-chaining");
+    assert!(out.contains("?.") || out.contains("optional"), "{out}");
+}
+
+#[test]
+fn test_js_ref_promises_topic() {
+    let out = js_ref_calc("promises");
+    assert!(out.contains("Promise") || out.contains("async"), "{out}");
+    assert!(out.contains("await") || out.contains("then"), "{out}");
+}
+
+#[test]
+fn test_js_ref_async_alias() {
+    let out = js_ref_calc("async");
+    assert!(out.contains("async") || out.contains("await"), "{out}");
+}
+
+#[test]
+fn test_js_ref_modules_topic() {
+    let out = js_ref_calc("modules");
+    assert!(out.contains("import") || out.contains("export"), "{out}");
+    assert!(
+        out.contains("ESM") || out.contains("CommonJS") || out.contains("require"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_js_ref_esm_alias() {
+    let out = js_ref_calc("esm");
+    assert!(out.contains("import") || out.contains("export"), "{out}");
+}
+
+#[test]
+fn test_js_ref_modern_topic() {
+    let out = js_ref_calc("modern");
+    assert!(out.contains("template") || out.contains("nullish"), "{out}");
+    assert!(out.contains("generator") || out.contains("Proxy"), "{out}");
+}
+
+#[test]
+fn test_js_ref_nullish_alias() {
+    let out = js_ref_calc("nullish");
+    assert!(out.contains("??") || out.contains("nullish"), "{out}");
+}
+
+#[test]
+fn test_js_ref_all() {
+    let out = js_ref_calc("all");
+    assert!(out.contains("typeof"), "{out}");
+    assert!(out.contains("reduce"), "{out}");
+    assert!(out.contains("Promise") || out.contains("async"), "{out}");
+    assert!(out.contains("import") || out.contains("export"), "{out}");
+    assert!(out.contains("generator") || out.contains("Proxy"), "{out}");
+}
+
+#[test]
+fn test_js_ref_unknown_topic() {
+    let out = js_ref_calc("foobar_xyz");
     assert!(out.contains("No topic") || out.contains("Run:"), "{out}");
 }

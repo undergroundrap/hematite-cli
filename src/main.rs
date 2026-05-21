@@ -3872,6 +3872,46 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
 
+    if let Some(ref query) = cockpit.python_ref {
+        let result = hematite::tools::math_util::python_ref_calc(query.trim());
+        println!("{}", result.trim());
+        if cockpit.clipboard {
+            copy_to_clipboard(&result);
+            println!("Copied to clipboard.");
+        }
+        return Ok(());
+    }
+
+    if let Some(ref query) = cockpit.rust_ref {
+        let result = hematite::tools::math_util::rust_ref_calc(query.trim());
+        println!("{}", result.trim());
+        if cockpit.clipboard {
+            copy_to_clipboard(&result);
+            println!("Copied to clipboard.");
+        }
+        return Ok(());
+    }
+
+    if let Some(ref query) = cockpit.go_ref {
+        let result = hematite::tools::math_util::go_ref_calc(query.trim());
+        println!("{}", result.trim());
+        if cockpit.clipboard {
+            copy_to_clipboard(&result);
+            println!("Copied to clipboard.");
+        }
+        return Ok(());
+    }
+
+    if let Some(ref query) = cockpit.js_ref {
+        let result = hematite::tools::math_util::js_ref_calc(query.trim());
+        println!("{}", result.trim());
+        if cockpit.clipboard {
+            copy_to_clipboard(&result);
+            println!("Copied to clipboard.");
+        }
+        return Ok(());
+    }
+
     if let Some(ref query) = cockpit.lorem {
         let result = hematite::tools::math_util::lorem_calc(query.trim());
         println!("{}", result.trim());

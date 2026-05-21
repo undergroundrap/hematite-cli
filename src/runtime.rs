@@ -1055,6 +1055,10 @@ mod tests {
             openssl: None,
             nginx: None,
             bash_ref: None,
+            python_ref: None,
+            rust_ref: None,
+            go_ref: None,
+            js_ref: None,
             pdf_extract_helper: None,
             teleported_from: None,
         };

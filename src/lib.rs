@@ -1601,6 +1601,38 @@ pub struct CliCockpit {
     pub bash_ref: Option<String>,
 
     #[arg(
+        long = "python-ref",
+        help_heading = "Math & Science",
+        value_name = "TOPIC",
+        help = "Python 3 reference — offline cheatsheet. Topics: builtins, strings, collections, comprehensions, functions, classes, async. Commands: all = everything. Examples: hematite --python-ref strings | hematite --python-ref async | hematite --python-ref comprehensions"
+    )]
+    pub python_ref: Option<String>,
+
+    #[arg(
+        long = "rust-ref",
+        help_heading = "Math & Science",
+        value_name = "TOPIC",
+        help = "Rust language reference — offline cheatsheet. Topics: ownership, types, traits, iterators, error, concurrency. Commands: all = everything. Examples: hematite --rust-ref ownership | hematite --rust-ref traits | hematite --rust-ref error"
+    )]
+    pub rust_ref: Option<String>,
+
+    #[arg(
+        long = "go-ref",
+        help_heading = "Math & Science",
+        value_name = "TOPIC",
+        help = "Go language reference — offline cheatsheet. Topics: basics, functions, slices, maps, interfaces, goroutines, errors. Commands: all = everything. Examples: hematite --go-ref goroutines | hematite --go-ref interfaces | hematite --go-ref slices"
+    )]
+    pub go_ref: Option<String>,
+
+    #[arg(
+        long = "js-ref",
+        help_heading = "Math & Science",
+        value_name = "TOPIC",
+        help = "JavaScript (ES2022+) reference — offline cheatsheet. Topics: types, functions, arrays, objects, promises, modules, modern. Commands: all = everything. Examples: hematite --js-ref promises | hematite --js-ref modules | hematite --js-ref modern"
+    )]
+    pub js_ref: Option<String>,
+
+    #[arg(
         long,
         help_heading = "Math & Science",
         value_name = "QUERY",
