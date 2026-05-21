@@ -1507,6 +1507,38 @@ pub struct CliCockpit {
     #[arg(
         long,
         help_heading = "Math & Science",
+        value_name = "TOPIC",
+        help = "grep/ripgrep cheatsheet — offline reference covering flags, regex patterns, context, file filtering, ripgrep-specific features, and ready-to-use recipes. Topics: basics, patterns, context, files, ripgrep, advanced, one-liners. Commands: all = everything. Examples: hematite --grep patterns | hematite --grep ripgrep | hematite --grep one-liners"
+    )]
+    pub grep: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Math & Science",
+        value_name = "TOPIC",
+        help = "sed stream editor reference — offline cheatsheet for substitution, addresses, delete, insert, transform, multiline, and advanced scripting. Topics: basics, substitute, address, delete, insert, transform, multiline, advanced. Commands: all = everything. Examples: hematite --sed substitute | hematite --sed multiline | hematite --sed advanced"
+    )]
+    pub sed: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Math & Science",
+        value_name = "TOPIC",
+        help = "awk reference — offline cheatsheet for patterns, built-in variables, associative arrays, functions, I/O, and one-liners. Topics: basics, patterns, variables, arrays, functions, io, one-liners. Commands: all = everything. Examples: hematite --awk variables | hematite --awk arrays | hematite --awk one-liners"
+    )]
+    pub awk: Option<String>,
+
+    #[arg(
+        long = "ssh-ref",
+        help_heading = "Math & Science",
+        value_name = "TOPIC",
+        help = "SSH client and server reference — offline cheatsheet for connecting, key management, ~/.ssh/config, tunnels/forwarding, scp/rsync, agent, options, and hardening. Topics: connect, keys, config, tunnel, scp-rsync, agent, options, hardening. Commands: all = everything. Examples: hematite --ssh-ref tunnel | hematite --ssh-ref hardening | hematite --ssh-ref config"
+    )]
+    pub ssh_ref: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Math & Science",
         value_name = "QUERY",
         help = "Lorem ipsum generator — offline replacement for lipsum.com. Commands: (bare) or <N> = N paragraphs (default 1); words <N> = N words; sentences <N> = N sentences. Examples: hematite --lorem | hematite --lorem 3 | hematite --lorem 'words 50' | hematite --lorem 'sentences 5'"
     )]

@@ -3,17 +3,18 @@
 /// Covers known-value correctness, edge-case non-panics, and the newer
 /// matrix decomposition modes (QR, SVD, Cholesky).
 use hematite::tools::math_util::{
-    ascii_calc, ascii_table_calc, bitwise_calc, case_calc, chars_calc, checksum_calc,
+    ascii_calc, ascii_table_calc, awk_calc, bitwise_calc, case_calc, chars_calc, checksum_calc,
     chemistry_calc, cipher_calc, color_calc, color_names_calc, combinatorics_calc, complex_calc,
     cron_calc, csv_calc, curl_calc, datetime_calc, diff_calc, docker_ref_calc, duration_calc,
     electrical_calc, encode_calc, escape_calc, fraction_calc, geometry_calc, git_ref_calc,
-    gitignore_calc, hash_calc, headers_calc, health_calc, http_calc, http_status_calc, id_gen_calc,
-    ip_calc, jq_calc, json_calc, json_path_calc, jwt_calc, kbd_calc, license_calc, lorem_calc,
-    markdown_calc, matrix_calc, mime_calc, net_calc, number_format, number_theory_calc,
+    gitignore_calc, grep_calc, hash_calc, headers_calc, health_calc, http_calc, http_status_calc,
+    id_gen_calc, ip_calc, jq_calc, json_calc, json_path_calc, jwt_calc, kbd_calc, license_calc,
+    lorem_calc, markdown_calc, matrix_calc, mime_calc, net_calc, number_format, number_theory_calc,
     percent_calc, physics_calc, port_calc, prob_calc, regex_calc, regex_ref_calc, roman_calc,
-    semver_calc, set_calc, sort_viz, spark_calc, sql_fmt_calc, sql_ref_calc, ssl_calc, stats_calc,
-    string_dist, table_calc, template_calc, text_stats, timestamp_calc, toml_calc, trig_calc,
-    tz_calc, url_calc, uuid_calc, validate_calc, vim_calc, xml_calc, yaml_calc,
+    sed_calc, semver_calc, set_calc, sort_viz, spark_calc, sql_fmt_calc, sql_ref_calc,
+    ssh_ref_calc, ssl_calc, stats_calc, string_dist, table_calc, template_calc, text_stats,
+    timestamp_calc, toml_calc, trig_calc, tz_calc, url_calc, uuid_calc, validate_calc, vim_calc,
+    xml_calc, yaml_calc,
 };
 
 // ─── Cipher tests ────────────────────────────────────────────────────────────
@@ -5608,5 +5609,362 @@ fn test_jq_all_prints_all_sections() {
 #[test]
 fn test_jq_unknown_topic() {
     let out = jq_calc("foobar_xyz");
+    assert!(out.contains("No topic") || out.contains("help"), "{out}");
+}
+
+// ── Wave 14: grep_calc ────────────────────────────────────────────────────────
+
+#[test]
+fn test_grep_empty_shows_help() {
+    let out = grep_calc("");
+    assert!(out.contains("hematite --grep"), "{out}");
+    assert!(out.contains("patterns") || out.contains("ripgrep"), "{out}");
+}
+
+#[test]
+fn test_grep_basics_topic() {
+    let out = grep_calc("basics");
+    assert!(out.contains("-i") || out.contains("case"), "{out}");
+    assert!(out.contains("-r") || out.contains("-n"), "{out}");
+}
+
+#[test]
+fn test_grep_patterns_topic() {
+    let out = grep_calc("patterns");
+    assert!(out.contains("BRE") || out.contains("ERE"), "{out}");
+    assert!(out.contains("regex") || out.contains("PCRE"), "{out}");
+}
+
+#[test]
+fn test_grep_context_flags() {
+    let out = grep_calc("context");
+    assert!(out.contains("-A") || out.contains("-B"), "{out}");
+    assert!(out.contains("-C") || out.contains("After"), "{out}");
+}
+
+#[test]
+fn test_grep_files_topic() {
+    let out = grep_calc("files");
+    assert!(out.contains("recursive") || out.contains("-r"), "{out}");
+    assert!(out.contains("include") || out.contains("exclude"), "{out}");
+}
+
+#[test]
+fn test_grep_ripgrep_topic() {
+    let out = grep_calc("rg");
+    assert!(out.contains("rg ") || out.contains("ripgrep"), "{out}");
+    assert!(out.contains("gitignore") || out.contains("--type"), "{out}");
+}
+
+#[test]
+fn test_grep_one_liners_topic() {
+    let out = grep_calc("one-liners");
+    assert!(out.contains("TODO") || out.contains("email"), "{out}");
+}
+
+#[test]
+fn test_grep_all_prints_all_sections() {
+    let out = grep_calc("all");
+    assert!(out.contains("-i"), "{out}");
+    assert!(out.contains("BRE") || out.contains("ERE"), "{out}");
+    assert!(out.contains("rg ") || out.contains("ripgrep"), "{out}");
+}
+
+#[test]
+fn test_grep_unknown_topic() {
+    let out = grep_calc("foobar_xyz");
+    assert!(out.contains("No topic") || out.contains("help"), "{out}");
+}
+
+// ── Wave 14: sed_calc ─────────────────────────────────────────────────────────
+
+#[test]
+fn test_sed_empty_shows_help() {
+    let out = sed_calc("");
+    assert!(out.contains("hematite --sed"), "{out}");
+    assert!(
+        out.contains("substitute") || out.contains("address"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_sed_basics_topic() {
+    let out = sed_calc("basics");
+    assert!(out.contains("-i") || out.contains("in-place"), "{out}");
+    assert!(out.contains("-n") || out.contains("-e"), "{out}");
+}
+
+#[test]
+fn test_sed_substitute_topic() {
+    let out = sed_calc("substitute");
+    assert!(out.contains("s/"), "{out}");
+    assert!(out.contains("/g") || out.contains("global"), "{out}");
+}
+
+#[test]
+fn test_sed_address_topic() {
+    let out = sed_calc("address");
+    assert!(out.contains("range") || out.contains("addr"), "{out}");
+    assert!(out.contains("$") || out.contains("negate"), "{out}");
+}
+
+#[test]
+fn test_sed_delete_topic() {
+    let out = sed_calc("delete");
+    assert!(
+        out.contains("/d") || out.contains(" d ") || out.contains("command — delete"),
+        "{out}"
+    );
+    assert!(out.contains("blank") || out.contains("^$"), "{out}");
+}
+
+#[test]
+fn test_sed_insert_topic() {
+    let out = sed_calc("insert");
+    assert!(
+        out.contains(" i ") || out.contains(" a ") || out.contains("insert"),
+        "{out}"
+    );
+    assert!(out.contains("append") || out.contains("before"), "{out}");
+}
+
+#[test]
+fn test_sed_transform_topic() {
+    let out = sed_calc("transform");
+    assert!(
+        out.contains("y/") || out.contains("transliteration"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_sed_multiline_topic() {
+    let out = sed_calc("multiline");
+    assert!(
+        out.contains("hold") || out.contains("pattern space"),
+        "{out}"
+    );
+    assert!(out.contains(" N") || out.contains(" D"), "{out}");
+}
+
+#[test]
+fn test_sed_advanced_topic() {
+    let out = sed_calc("advanced");
+    assert!(
+        out.contains("branch") || out.contains(":label") || out.contains("label"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_sed_all_prints_all_sections() {
+    let out = sed_calc("all");
+    assert!(out.contains("s/"), "{out}");
+    assert!(
+        out.contains("hold") || out.contains("pattern space"),
+        "{out}"
+    );
+    assert!(out.contains("branch") || out.contains("label"), "{out}");
+}
+
+#[test]
+fn test_sed_unknown_topic() {
+    let out = sed_calc("foobar_xyz");
+    assert!(out.contains("No topic") || out.contains("help"), "{out}");
+}
+
+// ── Wave 14: awk_calc ─────────────────────────────────────────────────────────
+
+#[test]
+fn test_awk_empty_shows_help() {
+    let out = awk_calc("");
+    assert!(out.contains("hematite --awk"), "{out}");
+    assert!(
+        out.contains("variables") || out.contains("patterns"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_awk_basics_topic() {
+    let out = awk_calc("basics");
+    assert!(
+        out.contains("-F") || out.contains("field separator"),
+        "{out}"
+    );
+    assert!(out.contains("BEGIN") || out.contains("END"), "{out}");
+}
+
+#[test]
+fn test_awk_patterns_topic() {
+    let out = awk_calc("patterns");
+    assert!(out.contains("/regex/") || out.contains("regex"), "{out}");
+    assert!(out.contains("Range") || out.contains("range") || out.contains("NF"), "{out}");
+}
+
+#[test]
+fn test_awk_variables_topic() {
+    let out = awk_calc("variables");
+    assert!(out.contains("NF") || out.contains("NR"), "{out}");
+    assert!(out.contains("FS") || out.contains("OFS"), "{out}");
+}
+
+#[test]
+fn test_awk_arrays_topic() {
+    let out = awk_calc("arrays");
+    assert!(out.contains("arr[") || out.contains("associative"), "{out}");
+    assert!(out.contains("delete") || out.contains("for ("), "{out}");
+}
+
+#[test]
+fn test_awk_functions_topic() {
+    let out = awk_calc("functions");
+    assert!(out.contains("split(") || out.contains("substr("), "{out}");
+    assert!(out.contains("gsub(") || out.contains("sprintf"), "{out}");
+}
+
+#[test]
+fn test_awk_io_topic() {
+    let out = awk_calc("io");
+    assert!(out.contains("printf") || out.contains("print"), "{out}");
+    assert!(out.contains("getline") || out.contains("pipe"), "{out}");
+}
+
+#[test]
+fn test_awk_one_liners_topic() {
+    let out = awk_calc("one-liners");
+    assert!(out.contains("sum") || out.contains("{s+="), "{out}");
+    assert!(out.contains("dedup") || out.contains("seen"), "{out}");
+}
+
+#[test]
+fn test_awk_all_prints_all_sections() {
+    let out = awk_calc("all");
+    assert!(out.contains("BEGIN") || out.contains("END"), "{out}");
+    assert!(out.contains("NF") || out.contains("NR"), "{out}");
+    assert!(out.contains("arr[") || out.contains("associative"), "{out}");
+    assert!(out.contains("getline"), "{out}");
+}
+
+#[test]
+fn test_awk_unknown_topic() {
+    let out = awk_calc("foobar_xyz");
+    assert!(out.contains("No topic") || out.contains("help"), "{out}");
+}
+
+// ── Wave 14: ssh_ref_calc ─────────────────────────────────────────────────────
+
+#[test]
+fn test_ssh_ref_empty_shows_help() {
+    let out = ssh_ref_calc("");
+    assert!(out.contains("hematite --ssh-ref"), "{out}");
+    assert!(out.contains("tunnel") || out.contains("keys"), "{out}");
+}
+
+#[test]
+fn test_ssh_ref_connect_topic() {
+    let out = ssh_ref_calc("connect");
+    assert!(
+        out.contains("ssh user@host") || out.contains("user@host"),
+        "{out}"
+    );
+    assert!(out.contains("-p") || out.contains("port"), "{out}");
+}
+
+#[test]
+fn test_ssh_ref_keys_topic() {
+    let out = ssh_ref_calc("keys");
+    assert!(
+        out.contains("ssh-keygen") || out.contains("keygen"),
+        "{out}"
+    );
+    assert!(out.contains("ed25519") || out.contains("rsa"), "{out}");
+}
+
+#[test]
+fn test_ssh_ref_config_topic() {
+    let out = ssh_ref_calc("config");
+    assert!(
+        out.contains("Host ") || out.contains("~/.ssh/config"),
+        "{out}"
+    );
+    assert!(
+        out.contains("HostName") || out.contains("IdentityFile"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_ssh_ref_tunnel_topic() {
+    let out = ssh_ref_calc("tunnel");
+    assert!(out.contains("-L") || out.contains("local"), "{out}");
+    assert!(out.contains("-R") || out.contains("-D"), "{out}");
+}
+
+#[test]
+fn test_ssh_ref_scp_rsync_topic() {
+    let out = ssh_ref_calc("scp");
+    assert!(out.contains("scp ") || out.contains("secure copy"), "{out}");
+    assert!(out.contains("rsync") || out.contains("-avz"), "{out}");
+}
+
+#[test]
+fn test_ssh_ref_agent_topic() {
+    let out = ssh_ref_calc("agent");
+    assert!(
+        out.contains("ssh-agent") || out.contains("ssh-add"),
+        "{out}"
+    );
+    assert!(
+        out.contains("SSH_AUTH_SOCK") || out.contains("forwarding"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_ssh_ref_options_topic() {
+    let out = ssh_ref_calc("options");
+    assert!(
+        out.contains("ServerAliveInterval") || out.contains("keepalive"),
+        "{out}"
+    );
+    assert!(
+        out.contains("ControlMaster") || out.contains("BatchMode"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_ssh_ref_hardening_topic() {
+    let out = ssh_ref_calc("hardening");
+    assert!(
+        out.contains("PermitRootLogin") || out.contains("sshd"),
+        "{out}"
+    );
+    assert!(
+        out.contains("PasswordAuthentication") || out.contains("password"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_ssh_ref_all_prints_all_sections() {
+    let out = ssh_ref_calc("all");
+    assert!(
+        out.contains("ssh user@host") || out.contains("user@host"),
+        "{out}"
+    );
+    assert!(out.contains("ssh-keygen"), "{out}");
+    assert!(out.contains("-L") || out.contains("tunnel"), "{out}");
+    assert!(
+        out.contains("PermitRootLogin") || out.contains("sshd"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_ssh_ref_unknown_topic() {
+    let out = ssh_ref_calc("foobar_xyz");
     assert!(out.contains("No topic") || out.contains("help"), "{out}");
 }

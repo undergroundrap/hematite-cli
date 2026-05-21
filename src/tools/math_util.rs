@@ -31504,3 +31504,532 @@ pub fn jq_calc(query: &str) -> String {
     }
     out
 }
+
+// ─── Wave 14: grep, sed, awk, ssh-ref ─────────────────────────────────────────
+
+pub fn grep_calc(query: &str) -> String {
+    use std::fmt::Write as _;
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+
+    fn s_basics() -> &'static str {
+        "  grep 'pattern' file           Search for pattern in file\n  grep -i 'pattern' file         Case-insensitive\n  grep -r 'pattern' dir/          Recursive search\n  grep -l 'pattern' *.rs          List matching filenames only\n  grep -L 'pattern' *.rs          List non-matching filenames\n  grep -n 'pattern' file          Show line numbers\n  grep -c 'pattern' file          Count matching lines\n  grep -v 'pattern' file          Invert: lines NOT matching\n  grep -w 'pattern' file          Whole-word match only\n  grep -x 'pattern' file          Whole-line match only\n  grep -e 'pat1' -e 'pat2' file   Multiple patterns (OR)\n  grep -f patterns.txt file        Read patterns from file\n  grep -q 'pattern' file          Quiet: exit 0/1, no output\n  grep -m 5 'pattern' file         Stop after 5 matches\n  grep -o 'pattern' file           Print only matched part\n  grep -h 'pattern' dir/          Suppress filename prefix\n  grep -H 'pattern' file          Always show filename prefix\n"
+    }
+    fn s_patterns() -> &'static str {
+        "  BRE (Basic Regular Expressions — default grep):\n  .          Any single character\n  *          Zero or more of preceding\n  ^          Start of line\n  $          End of line\n  [abc]      Character class\n  [^abc]     Negated class\n  \\(..\\)    Grouping (BRE)\n  \\1         Back-reference to group 1\n  \\+         One or more (GNU extension)\n  \\?         Zero or one (GNU extension)\n  \\{n,m\\}   Repetition range (BRE)\n\n  ERE (Extended RE — grep -E or egrep):\n  +          One or more\n  ?          Zero or one\n  |          Alternation (OR)\n  (...)      Grouping (ERE)\n  {n,m}      Repetition range\n\n  PCRE (grep -P — Perl-compatible):\n  \\d  \\D     Digit / non-digit\n  \\w  \\W     Word char / non-word\n  \\s  \\S     Space / non-space\n  \\b  \\B     Word boundary / non-boundary\n  (?=...)    Lookahead\n  (?!...)    Negative lookahead\n  (?<=...)   Lookbehind\n  (?<!...)   Negative lookbehind\n  (?:...)    Non-capturing group\n\n  Useful anchors:\n  ^foo       Line starts with foo\n  foo$       Line ends with foo\n  ^$         Empty line\n  ^[[:space:]]*$  Blank or whitespace-only line\n"
+    }
+    fn s_context() -> &'static str {
+        "  -A N   Print N lines After the match\n  -B N   Print N lines Before the match\n  -C N   Print N lines of Context (before and after)\n  --     Separator between match groups (default: --)\n\n  Color:\n  --color=always   Always colorize matches\n  --color=auto     Colorize when outputting to terminal\n  --color=never    No color\n\n  grep vs egrep vs fgrep:\n  grep         BRE (backslash grouping, no +|?)\n  grep -E      ERE (same as egrep — extended patterns)\n  grep -F      Fixed strings — no regex, literal match (fgrep)\n  grep -P      PCRE (Perl-compatible, needs GNU grep)\n\n  Counting and stats:\n  grep -c 'pattern' file              Count matching lines\n  grep -c '' file                     Count total lines\n  grep -n 'pattern' file | wc -l      Same as -c\n  grep -o 'pattern' file | wc -l      Count total occurrences\n"
+    }
+    fn s_files() -> &'static str {
+        "  Recursive:\n  grep -r 'pattern' .               Search current directory\n  grep -r 'pattern' src/             Search src/ only\n  grep -rn 'pattern' .              Recursive with line numbers\n  grep -rl 'pattern' .              List matching files only\n\n  File type filtering:\n  grep -r --include='*.rs' 'pattern' .\n  grep -r --exclude='*.log' 'pattern' .\n  grep -r --exclude-dir='.git' 'pattern' .\n  grep -r --exclude-dir={'.git','node_modules'} 'pattern' .\n\n  Stdin:\n  cat file | grep 'pattern'          Pipe from stdin\n  command | grep -v '^$'             Strip blank lines from output\n  command | grep -E 'error|warn'     Filter by multiple words\n\n  Binary files:\n  grep -a 'pattern' binary.bin       Treat binary as text\n  grep -I 'pattern' *                Skip binary files (--binary-files=without-match)\n  grep -U 'pattern' file             Treat file as binary (no CR/LF conversion)\n"
+    }
+    fn s_ripgrep() -> &'static str {
+        "  rg 'pattern'                  Search recursively (respects .gitignore by default)\n  rg 'pattern' src/              Limit to directory\n  rg -i 'pattern'               Case-insensitive\n  rg -l 'pattern'               List matching files\n  rg -n 'pattern'               Show line numbers (default on)\n  rg -c 'pattern'               Count matches per file\n  rg -v 'pattern'               Invert match\n  rg -w 'pattern'               Whole word\n  rg -x 'pattern'               Whole line\n  rg -e 'p1' -e 'p2'           Multiple patterns\n  rg -F 'literal'               Fixed string (no regex)\n  rg -o 'pattern'               Print only matched part\n  rg -m 5 'pattern'             Max 5 matches per file\n\n  rg-specific flags:\n  rg -t rs 'pattern'            Only .rs files\n  rg -T rs 'pattern'            Exclude .rs files\n  rg --no-ignore 'pattern'      Search ignored files too\n  rg -u 'pattern'               --no-ignore (one -u: gitignore; two -u: hidden)\n  rg --hidden 'pattern'         Include hidden files/dirs\n  rg -g '*.toml' 'pattern'      Glob filter\n  rg -g '!*.log' 'pattern'      Exclude glob\n  rg -A 2 -B 2 'pattern'        Context lines\n  rg --json 'pattern'            JSON output for tooling\n  rg --stats 'pattern'           Show search statistics\n  rg -r '$1' '(pattern)'         Replace matched group in output\n  rg --passthru 'pattern'        Print all lines; highlight matches\n"
+    }
+    fn s_advanced() -> &'static str {
+        "  PCRE extras (grep -P):\n  grep -P '\\d{4}-\\d{2}-\\d{2}' file         ISO date pattern\n  grep -P '(?<=foo)bar' file               Match bar preceded by foo\n  grep -P '^(?!.*TODO).*$' file            Lines NOT containing TODO\n  grep -oP '(?<=href=\")[^\"]+' file         Extract href URLs\n  grep -oP '\\b\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\b' file  IPv4\n\n  Combining grep:\n  grep 'foo' file | grep 'bar'            AND: lines with both\n  grep -E 'foo|bar' file                  OR: lines with either\n  grep 'foo' file | grep -v 'bar'         foo but NOT bar\n\n  Null-separated output (for xargs):\n  grep -rl 'pattern' . | xargs grep -l 'other'\n  grep -rlZ 'pattern' . | xargs -0 sed -i 's/old/new/g'\n\n  Print specific columns:\n  grep -o 'pattern' file | sort | uniq -c | sort -rn\n\n  Process substitution:\n  grep 'pattern' <(command)\n  diff <(grep 'a' file) <(grep 'b' file)\n"
+    }
+    fn s_one_liners() -> &'static str {
+        "  Find all TODOs in codebase:\n  grep -rn 'TODO\\|FIXME\\|HACK\\|XXX' . --include='*.rs'\n\n  Count occurrences of each match:\n  grep -oE 'pattern' file | sort | uniq -c | sort -rn\n\n  Show only unique matching lines:\n  grep 'pattern' file | sort -u\n\n  Find files missing a pattern:\n  grep -rL 'Copyright' src/ --include='*.rs'\n\n  Extract email addresses:\n  grep -oE '[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}' file\n\n  Check if pattern exists (for scripting):\n  if grep -q 'pattern' file; then echo found; fi\n\n  Search and show surrounding function:\n  grep -n 'fn my_func' src/**/*.rs\n\n  Count blank lines:\n  grep -c '^$' file\n\n  Find long lines (over 100 chars):\n  grep -n '.\\{101\\}' file\n\n  Show lines with tabs:\n  grep -P '\\t' file\n\n  Find duplicate consecutive lines:\n  grep -n '\\(.*\\)\\n\\1' file\n"
+    }
+
+    type GrepSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+    const SECTIONS: &[GrepSection] = &[
+        (
+            "basics",
+            &["basics", "flags", "options", "case", "count", "list"],
+            s_basics,
+        ),
+        (
+            "patterns",
+            &["pattern", "regex", "bre", "ere", "pcre", "class", "anchor"],
+            s_patterns,
+        ),
+        (
+            "context",
+            &["context", "before", "after", "color", "egrep", "fgrep"],
+            s_context,
+        ),
+        (
+            "files",
+            &["files", "recursive", "include", "exclude", "binary"],
+            s_files,
+        ),
+        (
+            "ripgrep",
+            &["ripgrep", "rg", "gitignore", "type", "glob"],
+            s_ripgrep,
+        ),
+        (
+            "advanced",
+            &["advanced", "lookahead", "lookbehind", "pcre", "combining"],
+            s_advanced,
+        ),
+        (
+            "one-liners",
+            &["one-liner", "recipe", "examples", "todo", "email", "ip"],
+            s_one_liners,
+        ),
+    ];
+
+    let q = query.trim().to_lowercase();
+
+    if q.is_empty() || q == "help" || q == "list" {
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  hematite --grep <TOPIC>");
+        let _ = writeln!(out, "  Offline grep/ripgrep reference");
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  Topics:");
+        for &(name, aliases, _) in SECTIONS {
+            let _ = writeln!(out, "    {name:<12} ({})", aliases.join(", "));
+        }
+        let _ = writeln!(out, "\n  hematite --grep all   -- print everything");
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    if q == "all" {
+        let _ = writeln!(out, "{sep}");
+        for &(name, _, f) in SECTIONS {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+            let _ = writeln!(out, "");
+        }
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    let found: Vec<_> = SECTIONS
+        .iter()
+        .filter(|&&(name, aliases, _)| {
+            name.contains(q.as_str())
+                || aliases
+                    .iter()
+                    .any(|&a| a.contains(q.as_str()) || q.contains(a))
+        })
+        .collect();
+
+    if found.is_empty() {
+        let _ = writeln!(out, "  No topic found for '{}'.", query.trim());
+        let _ = writeln!(out, "  Run: hematite --grep help");
+    } else {
+        let _ = writeln!(out, "{sep}");
+        for &&(name, _, f) in &found {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+        }
+        let _ = writeln!(out, "{sep}");
+    }
+    out
+}
+
+pub fn sed_calc(query: &str) -> String {
+    use std::fmt::Write as _;
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+
+    fn s_basics() -> &'static str {
+        "  sed 'command' file              Run command on each line, print all\n  sed -n 'command' file           Suppress default print (use p to print)\n  sed -e 'cmd1' -e 'cmd2' file    Multiple commands\n  sed -f script.sed file          Read commands from file\n  sed -i 's/old/new/g' file       In-place edit (GNU sed)\n  sed -i.bak 's/old/new/g' file   In-place with .bak backup\n  sed -i '' 's/old/new/g' file    In-place, no backup (macOS sed)\n  sed -E 'command' file           Extended regex (ERE: +?|(){ })\n  sed -r 'command' file           Extended regex (GNU sed alias for -E)\n\n  Command structure:\n  [address]command[arguments]\n\n  Addresses:\n  (none)     All lines\n  N          Line N\n  $          Last line\n  /regex/    Lines matching regex\n  addr1,addr2  Range: from addr1 to addr2\n  addr1~step   Every step-th line starting at addr1 (GNU sed)\n  addr!      Negate: lines NOT matching address\n"
+    }
+    fn s_substitute() -> &'static str {
+        "  s/pattern/replacement/flags\n\n  Flags:\n  g      Replace all occurrences on the line (global)\n  N      Replace Nth occurrence only (e.g. s/x/y/2)\n  Ng     Replace from Nth occurrence onwards (e.g. s/x/y/2g)\n  i  I   Case-insensitive match (GNU sed)\n  p      Print line if substitution made (use with -n)\n  w file Write line to file if substitution made\n\n  Delimiter: any char after s — use when pattern has /\n  s|/usr/bin|/usr/local/bin|g      Use | as delimiter\n  s#http://old.com#https://new.com#g  Use # as delimiter\n\n  Back-references:\n  \\(group\\)    Capture group (BRE — default)\n  (group)      Capture group (ERE — with -E)\n  \\1 \\2 ...    Back-reference in replacement\n\n  Examples:\n  sed 's/foo/bar/'                 Replace first foo per line\n  sed 's/foo/bar/g'                Replace all foo globally\n  sed 's/foo/bar/gi'               Case-insensitive global\n  sed 's/^/  /'                    Indent every line 2 spaces\n  sed 's/[[:space:]]*$//'          Strip trailing whitespace\n  sed 's/^[[:space:]]*//'          Strip leading whitespace\n  sed -E 's/(foo)(bar)/\\2\\1/'     Swap two groups\n  sed 's/.*/[&]/'                  Wrap whole line in brackets (&=match)\n  sed 's/\\b\\(\\w\\)/\\u\\1/g'       Capitalize first letter of each word (GNU)\n  sed -E 's/[0-9]+/(&)/g'         Wrap every number in parens\n"
+    }
+    fn s_address() -> &'static str {
+        "  Line number:\n  sed '3s/foo/bar/'              Only line 3\n  sed '1,5s/foo/bar/'            Lines 1-5\n  sed '2,$s/foo/bar/'            Line 2 to end\n  sed '0~2s/foo/bar/'            Every even line (GNU)\n  sed '1~2s/foo/bar/'            Every odd line (GNU)\n\n  Regex address:\n  sed '/pattern/s/foo/bar/'      Lines matching /pattern/\n  sed '/start/,/end/s/foo/bar/'  Lines between start and end pattern\n  sed '/start/,/end/d'           Delete block between patterns\n\n  Negation (!):\n  sed '/pattern/!s/foo/bar/'     Lines NOT matching pattern\n  sed '1!d'                      Delete all lines except line 1\n  sed '/^#/!s/^/# /'             Comment out non-comment lines\n\n  First/last:\n  sed '1s/^/Header\\n/'           Insert header before line 1\n  sed '$a\\Footer'                 Append footer after last line (BRE)\n  sed -E '$a Footer'             Append footer (GNU ERE style)\n"
+    }
+    fn s_delete() -> &'static str {
+        "  d command — delete matching lines:\n  sed '/pattern/d'               Delete lines matching pattern\n  sed '/^$/d'                    Delete blank lines\n  sed '/^[[:space:]]*$/d'        Delete blank/whitespace-only lines\n  sed '/^#/d'                    Delete comment lines\n  sed '1d'                       Delete first line (header)\n  sed '$d'                       Delete last line\n  sed '1,3d'                     Delete lines 1-3\n  sed -n '10,20p'                Print only lines 10-20 (inverse delete)\n  sed '/start/,/end/d'           Delete block including boundary lines\n\n  q and Q — quit early:\n  sed '5q'                       Print first 5 lines then quit\n  sed -n '5p;5q'                 Print only line 5\n  sed '1,/pattern/!d'            Print from line 1 to first match of pattern\n"
+    }
+    fn s_insert() -> &'static str {
+        "  i command — insert text BEFORE addressed line:\n  sed '3i\\New line here'          Insert before line 3\n  sed '/pattern/i\\New line'       Insert before each matching line\n\n  a command — append text AFTER addressed line:\n  sed '3a\\New line here'          Append after line 3\n  sed '$a\\New line'               Append after last line\n  sed '/pattern/a\\New line'       Append after each matching line\n\n  c command — change (replace) addressed line:\n  sed '3c\\Replacement text'       Replace line 3 entirely\n  sed '/pattern/c\\New line'       Replace each matching line\n\n  GNU sed multiline insert (use \\n):\n  sed '/pattern/a\\Line 1\\nLine 2'  Append two lines after pattern\n\n  r and R — read file contents:\n  sed '/pattern/r file.txt'       Insert contents of file.txt after match\n  sed '3r file.txt'               Insert file.txt contents after line 3\n\n  w — write to file:\n  sed -n '/pattern/w output.txt'  Write matching lines to output.txt\n"
+    }
+    fn s_transform() -> &'static str {
+        "  y/source/dest/ — character transliteration (like tr):\n  sed 'y/abc/ABC/'               Translate a->A, b->B, c->C\n  sed 'y/abcdefghijklmnopqrstuvwxyz/ABCDEFGHIJKLMNOPQRSTUVWXYZ/'  Uppercase all\n  sed 'y/ABCDEFGHIJKLMNOPQRSTUVWXYZ/abcdefghijklmnopqrstuvwxyz/'  Lowercase all\n\n  = command — print line number:\n  sed -n '/pattern/='            Print line numbers of matching lines\n  sed '=' file | sed 'N;s/\\n/\\t/' Number all lines with tab separator\n\n  l command — unambiguous print (show non-printables):\n  sed -n 'l' file                Show line with escaped special chars\n\n  GNU sed case modification in replacement:\n  \\u     Uppercase next char       s/\\b./\\u&/g — capitalize words\n  \\l     Lowercase next char\n  \\U     Uppercase until \\E\n  \\L     Lowercase until \\E\n  \\E     End case conversion\n  sed 's/.*/\\U&/' file           Uppercase entire line\n  sed 's/.*/\\L&/' file           Lowercase entire line\n  sed -E 's/(^|\\s)(\\S)/\\1\\u\\2/g'  Title case\n"
+    }
+    fn s_multiline() -> &'static str {
+        "  Hold space commands (two-buffer model):\n  h     Copy pattern space to hold space\n  H     Append pattern space to hold space (with \\n)\n  g     Copy hold space to pattern space\n  G     Append hold space to pattern space (with \\n)\n  x     Exchange pattern space and hold space\n\n  Multiline commands:\n  N     Append next line to pattern space (with \\n separator)\n  P     Print up to first \\n in pattern space\n  D     Delete up to first \\n; restart cycle without reading new line\n\n  Common patterns:\n\n  Join continuation lines (lines ending with \\):\n  sed -n '/\\\\$/{N;s/\\\\\\n//;P;D}'\n\n  Remove newlines in a block:\n  sed '/start/,/end/{N;s/\\n/ /}'\n\n  Reverse lines in file (tac equivalent):\n  sed -n '1!G;h;$p'\n\n  Double-space a file:\n  sed 'G'\n\n  Number non-empty lines:\n  sed '/./=' file | sed '/./N;s/\\n/\\t/'\n\n  Delete trailing blank lines at end of file:\n  sed -e :a -e '/^\\n*$/{$d;N;ba}'\n"
+    }
+    fn s_advanced() -> &'static str {
+        "  Branch and label:\n  :label    Define label\n  b label   Branch unconditionally to label\n  b         Branch to end of script (skip rest)\n  t label   Branch to label if s/// succeeded since last t/read\n  T label   Branch to label if s/// did NOT succeed (GNU sed)\n\n  Loop until no more substitutions:\n  sed ':a;s/foo/bar/;ta'           Replace foo repeatedly until none left\n\n  Remove all HTML tags:\n  sed 's/<[^>]*>//g'\n\n  Extract between delimiters:\n  sed -n 's/.*<title>\\(.*\\)<\\/title>.*/\\1/p'\n  sed -n '/START/,/END/{ /START/d; /END/d; p }'\n\n  In-place for multiple files:\n  sed -i 's/old/new/g' *.rs\n  find . -name '*.rs' | xargs sed -i 's/old/new/g'\n  find . -name '*.rs' -exec sed -i 's/old/new/g' {} +\n\n  Dry-run check before in-place:\n  sed 's/old/new/g' file           Check output without modifying\n  diff <(sed 's/old/new/g' file) file  Diff before modifying\n"
+    }
+
+    type SedSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+    const SECTIONS: &[SedSection] = &[
+        (
+            "basics",
+            &["basics", "flags", "options", "syntax", "in-place"],
+            s_basics,
+        ),
+        (
+            "substitute",
+            &["substitute", "sub", "replace", "regex", "backref", "group"],
+            s_substitute,
+        ),
+        (
+            "address",
+            &["address", "range", "line", "negate", "step"],
+            s_address,
+        ),
+        (
+            "delete",
+            &["delete", "blank", "comment", "quit", "filter"],
+            s_delete,
+        ),
+        (
+            "insert",
+            &["insert", "append", "change", "add", "read", "write"],
+            s_insert,
+        ),
+        (
+            "transform",
+            &["transform", "translate", "case", "upper", "lower", "y-cmd"],
+            s_transform,
+        ),
+        (
+            "multiline",
+            &["multiline", "hold", "pattern", "space", "N", "D", "P"],
+            s_multiline,
+        ),
+        (
+            "advanced",
+            &["advanced", "branch", "label", "loop", "html", "find"],
+            s_advanced,
+        ),
+    ];
+
+    let q = query.trim().to_lowercase();
+
+    if q.is_empty() || q == "help" || q == "list" {
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  hematite --sed <TOPIC>");
+        let _ = writeln!(out, "  Offline sed stream editor reference");
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  Topics:");
+        for &(name, aliases, _) in SECTIONS {
+            let _ = writeln!(out, "    {name:<12} ({})", aliases.join(", "));
+        }
+        let _ = writeln!(out, "\n  hematite --sed all   -- print everything");
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    if q == "all" {
+        let _ = writeln!(out, "{sep}");
+        for &(name, _, f) in SECTIONS {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+            let _ = writeln!(out, "");
+        }
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    let found: Vec<_> = SECTIONS
+        .iter()
+        .filter(|&&(name, aliases, _)| {
+            name.contains(q.as_str())
+                || aliases
+                    .iter()
+                    .any(|&a| a.contains(q.as_str()) || q.contains(a))
+        })
+        .collect();
+
+    if found.is_empty() {
+        let _ = writeln!(out, "  No topic found for '{}'.", query.trim());
+        let _ = writeln!(out, "  Run: hematite --sed help");
+    } else {
+        let _ = writeln!(out, "{sep}");
+        for &&(name, _, f) in &found {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+        }
+        let _ = writeln!(out, "{sep}");
+    }
+    out
+}
+
+pub fn awk_calc(query: &str) -> String {
+    use std::fmt::Write as _;
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+
+    fn s_basics() -> &'static str {
+        "  awk 'program' file             Run program on each line of file\n  awk -F: 'program' file          Set field separator to :\n  awk -F'\\t' 'program' file       Tab separator\n  awk -F'[,;]' 'program' file     Multiple separators (regex)\n  awk -v VAR=val 'program' file   Set variable before run\n  awk -f script.awk file          Read program from file\n  awk -v OFS=',' '{$1=$1} 1'      Rebuild record with new OFS\n\n  Program structure:\n  'pattern { action }'            Run action when pattern matches\n  'BEGIN { action }'              Run once before first input line\n  'END { action }'                Run once after last input line\n  '{ action }'                    Run on every line (no pattern)\n  'pattern'                       Print matching lines (no action = print)\n\n  Quick examples:\n  awk '{print}' file              Print all lines (like cat)\n  awk '{print $1}' file           Print first field\n  awk '{print $NF}' file          Print last field\n  awk 'NR==5'                     Print line 5\n  awk 'NR>=10 && NR<=20'          Print lines 10-20\n  awk '/pattern/'                 Print lines matching pattern\n  awk '!/pattern/'                Print lines NOT matching\n  awk 'END{print NR}' file        Count lines (like wc -l)\n"
+    }
+    fn s_patterns() -> &'static str {
+        "  Regex patterns:\n  /regex/         Match lines where any field matches\n  !/regex/        Match lines NOT matching\n  $2 ~ /regex/    Field 2 matches regex\n  $2 !~ /regex/   Field 2 does not match\n\n  Comparison patterns:\n  $3 == \"foo\"     Field 3 equals foo\n  $3 != \"foo\"     Not equal\n  $1 > 100        Numeric greater than\n  $1 >= 100       Greater than or equal\n  $1 < 100        Less than\n  NF > 5          Lines with more than 5 fields\n  length($0) > 80 Lines longer than 80 chars\n\n  Compound patterns:\n  /foo/ && /bar/          Both patterns present\n  /foo/ || /bar/          Either pattern present\n  $1 == \"A\" && $2 > 10   Field conditions combined\n\n  Range pattern:\n  /start/,/end/           Process lines from start to end (inclusive)\n  /BEGIN/,/END/ { ... }   Block processing between markers\n\n  Special patterns:\n  BEGIN   { ... }         Initialize: set vars, print headers\n  END     { ... }         Finalize: print totals, summaries\n  BEGINFILE / ENDFILE     Per-file (GNU awk only)\n"
+    }
+    fn s_variables() -> &'static str {
+        "  Built-in variables:\n  $0           Entire current record (line)\n  $1 $2 ... $NF  Fields 1 to NF\n  NF           Number of fields in current record\n  NR           Total record number (across all files)\n  FNR          Record number within current file\n  FS           Input field separator (default: whitespace)\n  OFS          Output field separator (default: space)\n  RS           Input record separator (default: newline)\n  ORS          Output record separator (default: newline)\n  FILENAME     Name of current input file\n  ARGC / ARGV  Argument count / array\n  ENVIRON      Environment variables array\n\n  Modifying separators:\n  awk 'BEGIN{FS=\":\"; OFS=\",\"} {print $1,$3}' /etc/passwd\n  awk 'BEGIN{RS=\"\"; FS=\"\\n\"}'  Paragraph mode (empty RS)\n\n  Rebuilding record after field assignment:\n  awk '{$2=\"new\"; print}'       Modifying a field rebuilds $0 with OFS\n  awk -v OFS=, '{$1=$1; print}' Force rebuild with new OFS\n\n  User variables:\n  awk 'BEGIN{x=0} {x+=$1} END{print x}'   Sum first column\n  awk -v thresh=100 '$1 > thresh'           Use shell variable\n  awk -v n=$(wc -l < file) '...'            Pass computed shell value\n"
+    }
+    fn s_arrays() -> &'static str {
+        "  awk arrays are associative (hash maps):\n\n  Assign and access:\n  arr[key] = value\n  print arr[key]\n\n  Test membership:\n  if (key in arr) { ... }\n\n  Delete:\n  delete arr[key]\n  delete arr           Delete entire array\n\n  Iterate:\n  for (key in arr) { print key, arr[key] }\n\n  Multi-dimensional (simulated):\n  arr[$1,$2]++         Compound key\n  SUBSEP               Separator character (default \\034)\n  if (($1,$2) in arr)  Check compound key\n\n  Common patterns:\n\n  Count occurrences of field 1:\n  awk '{count[$1]++} END{for (k in count) print k, count[k]}'\n\n  Sum field 2 grouped by field 1:\n  awk '{sum[$1]+=$2} END{for (k in sum) print k, sum[k]}'\n\n  Deduplicate lines:\n  awk '!seen[$0]++'\n\n  Find duplicate lines:\n  awk '++seen[$0]==2'\n\n  Collect unique values of field 1:\n  awk '{vals[$1]=1} END{for (k in vals) print k}'\n\n  Sorted output (GNU awk):\n  awk 'BEGIN{PROCINFO[\"sorted_in\"]=\"@val_num_desc\"} {c[$1]++} END{for (k in c) print c[k], k}'\n"
+    }
+    fn s_functions() -> &'static str {
+        "  String functions:\n  length(s)              Length of string (or array)\n  substr(s, start, len)  Substring (1-indexed; len optional)\n  index(s, t)            Position of t in s (0 if not found)\n  split(s, arr, sep)     Split s into arr by sep; return count\n  sub(/re/, repl, s)     Replace first match in s (modifies s)\n  gsub(/re/, repl, s)    Replace all matches in s\n  match(s, /re/)         Set RSTART/RLENGTH; return start pos or 0\n  sprintf(fmt, ...)      Format string (like printf, returns string)\n  tolower(s)             Lowercase\n  toupper(s)             Uppercase\n  gensub(/re/, repl, how, s)  Return modified string (GNU awk)\n    how: \"g\"=all, \"G\"=all, \"1\"-\"N\"=Nth occurrence\n\n  Math functions:\n  int(x)     Truncate to integer\n  sqrt(x)    Square root\n  exp(x)     e^x\n  log(x)     Natural log\n  sin(x)     Sine (radians)\n  cos(x)     Cosine\n  atan2(y,x) Arc tangent\n  rand()     Random 0 <= x < 1\n  srand(n)   Seed random; returns previous seed\n\n  User-defined functions:\n  function name(params,    local_vars) {\n      statements\n      return value\n  }\n  Locals: extra trailing parameters (convention: indent them far right)\n"
+    }
+    fn s_io() -> &'static str {
+        "  print and printf:\n  print             Print $0 with ORS\n  print x, y        Print fields separated by OFS\n  printf \"%s\\t%d\\n\", $1, $2   Formatted output\n  print > \"file\"    Write to file (overwrite once, append each time)\n  print >> \"file\"   Append to file\n  print | \"cmd\"     Pipe output to command\n  print | \"sort -k2 -n\"  Sort output\n\n  getline:\n  getline                   Read next line into $0 (updates NR, NF)\n  getline var               Read next line into var\n  getline < \"file\"          Read from file into $0\n  getline var < \"file\"      Read from file into var\n  \"cmd\" | getline           Run cmd, read output into $0\n  \"cmd\" | getline var       Run cmd, read output into var\n  while ((getline line < \"file\") > 0) { ... }  Read file line by line\n\n  Close file/pipe:\n  close(\"file\")     Required before re-reading same file or re-running same cmd\n  close(\"cmd\")      Flush pipe and wait for command\n\n  System:\n  system(\"cmd\")     Run shell command; return exit code\n  OFMT              Format for printing numbers (default \"%.6g\")\n  CONVFMT           Internal number-to-string format\n"
+    }
+    fn s_one_liners() -> &'static str {
+        "  Sum a column:\n  awk '{s+=$1} END{print s}' file\n\n  Average a column:\n  awk '{s+=$1; n++} END{print s/n}' file\n\n  Min and max of a column:\n  awk 'NR==1{m=$1} {if($1<m)m=$1} END{print m}' file    # min\n  awk 'BEGIN{m=-1e308} {if($1>m)m=$1} END{print m}' file # max\n\n  Print specific columns (reorder):\n  awk '{print $3, $1, $2}' file\n\n  Print columns with custom separator:\n  awk -v OFS=',' '{print $1,$3,$5}' file\n\n  Skip header, process rest:\n  awk 'NR>1 {print $1}' file\n\n  Print last N lines (like tail -N):\n  awk '{lines[NR%N]=$0} END{for(i=NR+1;i<=NR+N;i++) print lines[i%N]}' N=5 file\n\n  Deduplicate lines (preserve order):\n  awk '!seen[$0]++' file\n\n  Count unique values in column 1:\n  awk '{c[$1]++} END{for(k in c) print c[k], k}' file | sort -rn\n\n  CSV: print column by header name:\n  awk -F, 'NR==1{for(i=1;i<=NF;i++) h[$i]=i} NR>1{print $(h[\"email\"])}' file.csv\n\n  Find lines where column 3 > 100:\n  awk -F, '$3 > 100' file.csv\n\n  Word count (like wc -w):\n  awk '{w+=NF} END{print w}'\n\n  Find duplicate lines:\n  awk 'seen[$0]++' file\n\n  Print lines between two patterns:\n  awk '/START/{f=1} f; /END/{f=0}' file\n"
+    }
+
+    type AwkSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+    const SECTIONS: &[AwkSection] = &[
+        (
+            "basics",
+            &["basics", "flags", "syntax", "begin", "end", "print"],
+            s_basics,
+        ),
+        (
+            "patterns",
+            &["pattern", "regex", "match", "range", "compare", "field"],
+            s_patterns,
+        ),
+        (
+            "variables",
+            &["variable", "NR", "NF", "FS", "OFS", "RS", "FILENAME"],
+            s_variables,
+        ),
+        (
+            "arrays",
+            &["array", "associative", "hash", "count", "group", "dedup"],
+            s_arrays,
+        ),
+        (
+            "functions",
+            &["function", "split", "substr", "gsub", "sprintf", "math"],
+            s_functions,
+        ),
+        (
+            "io",
+            &["io", "print", "printf", "getline", "pipe", "redirect"],
+            s_io,
+        ),
+        (
+            "one-liners",
+            &["one-liner", "recipe", "sum", "average", "csv", "examples"],
+            s_one_liners,
+        ),
+    ];
+
+    let q = query.trim().to_lowercase();
+
+    if q.is_empty() || q == "help" || q == "list" {
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  hematite --awk <TOPIC>");
+        let _ = writeln!(out, "  Offline awk reference");
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  Topics:");
+        for &(name, aliases, _) in SECTIONS {
+            let _ = writeln!(out, "    {name:<12} ({})", aliases.join(", "));
+        }
+        let _ = writeln!(out, "\n  hematite --awk all   -- print everything");
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    if q == "all" {
+        let _ = writeln!(out, "{sep}");
+        for &(name, _, f) in SECTIONS {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+            let _ = writeln!(out, "");
+        }
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    let found: Vec<_> = SECTIONS
+        .iter()
+        .filter(|&&(name, aliases, _)| {
+            name.contains(q.as_str())
+                || aliases
+                    .iter()
+                    .any(|&a| a.contains(q.as_str()) || q.contains(a))
+        })
+        .collect();
+
+    if found.is_empty() {
+        let _ = writeln!(out, "  No topic found for '{}'.", query.trim());
+        let _ = writeln!(out, "  Run: hematite --awk help");
+    } else {
+        let _ = writeln!(out, "{sep}");
+        for &&(name, _, f) in &found {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+        }
+        let _ = writeln!(out, "{sep}");
+    }
+    out
+}
+
+pub fn ssh_ref_calc(query: &str) -> String {
+    use std::fmt::Write as _;
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+
+    fn s_connect() -> &'static str {
+        "  ssh user@host                  Connect as user\n  ssh host                       Connect as current local user\n  ssh -p 2222 user@host          Non-default port\n  ssh -i ~/.ssh/id_rsa user@host  Specify identity file\n  ssh -v user@host               Verbose (debug connection)\n  ssh -vvv user@host             Very verbose\n  ssh -q user@host               Quiet (suppress banners)\n  ssh -t user@host 'cmd'         Force pseudo-TTY (needed for sudo, vim, etc.)\n  ssh -T user@host               Disable pseudo-TTY allocation\n  ssh user@host 'cmd'            Run single command and exit\n  ssh user@host 'cmd; cmd2'      Run multiple commands\n  ssh user@host 'bash -s' < local.sh  Run local script remotely\n  ssh user@host 'sudo cmd'       Run sudo remotely (may need -t)\n  ssh -A user@host               Forward agent to remote (for chained hops)\n  ssh -X user@host               Forward X11 display\n  ssh -Y user@host               Trusted X11 forwarding\n  ssh -C user@host               Enable compression\n  ssh -4 user@host               Force IPv4\n  ssh -6 user@host               Force IPv6\n  ssh user@host exit; echo $?    Check if host is reachable (exit code)\n"
+    }
+    fn s_keys() -> &'static str {
+        "  Key generation:\n  ssh-keygen -t ed25519 -C 'comment'     Generate Ed25519 key (recommended)\n  ssh-keygen -t rsa -b 4096 -C 'comment' Generate 4096-bit RSA key\n  ssh-keygen -t ecdsa -b 521             Generate ECDSA key\n  ssh-keygen -f ~/.ssh/mykey             Specify output file\n  ssh-keygen -p -f ~/.ssh/id_ed25519     Change passphrase on existing key\n\n  Default key files:\n  ~/.ssh/id_ed25519  ~/.ssh/id_ed25519.pub    Ed25519 (preferred)\n  ~/.ssh/id_rsa      ~/.ssh/id_rsa.pub         RSA\n  ~/.ssh/id_ecdsa    ~/.ssh/id_ecdsa.pub       ECDSA\n\n  Copy public key to server:\n  ssh-copy-id user@host                  Copy default key\n  ssh-copy-id -i ~/.ssh/mykey.pub user@host  Copy specific key\n  cat ~/.ssh/id_ed25519.pub | ssh user@host 'mkdir -p ~/.ssh && cat >> ~/.ssh/authorized_keys'\n\n  Key inspection:\n  ssh-keygen -l -f ~/.ssh/id_ed25519     Show fingerprint\n  ssh-keygen -l -v -f ~/.ssh/id_ed25519  Visual fingerprint (randomart)\n  ssh-keygen -y -f ~/.ssh/id_rsa         Derive public key from private key\n\n  known_hosts:\n  ssh-keygen -R hostname                 Remove host from known_hosts\n  ssh-keyscan -H hostname >> ~/.ssh/known_hosts  Add host key\n  ssh-keyscan -t ed25519 hostname        Fetch specific key type\n"
+    }
+    fn s_config() -> &'static str {
+        "  ~/.ssh/config — define connection shortcuts and defaults\n\n  Syntax:\n  Host <alias>              Alias (use: ssh <alias>)\n      HostName <real-host>  Actual hostname or IP\n      User <username>       Remote username\n      Port <N>              Port (default: 22)\n      IdentityFile <path>   Path to private key\n      IdentitiesOnly yes    Only use specified key (ignore agent)\n      ForwardAgent yes      Forward SSH agent\n      ProxyJump <jump-host> Hop through jump host\n      ServerAliveInterval 60   Keepalive every 60s\n      ServerAliveCountMax 3    Drop after 3 missed keepalives\n      StrictHostKeyChecking no  Disable host verification (dev only!)\n      AddKeysToAgent yes       Auto-add key to agent on first use\n      UseKeychain yes          macOS keychain integration\n      ControlMaster auto       Multiplexing: reuse connections\n      ControlPath /tmp/ssh-%r@%h:%p  Socket file for multiplexing\n      ControlPersist 10m       Keep master open 10 min after close\n      Compression yes          Enable compression\n      LogLevel QUIET           Suppress banners\n\n  Example:\n  Host prod\n      HostName 10.0.0.50\n      User deploy\n      IdentityFile ~/.ssh/prod_ed25519\n      ServerAliveInterval 60\n\n  Host bastion\n      HostName bastion.example.com\n      User ec2-user\n\n  Host internal-server\n      HostName 192.168.1.100\n      ProxyJump bastion\n"
+    }
+    fn s_tunnel() -> &'static str {
+        "  Local port forwarding (-L):\n  ssh -L localPort:remoteHost:remotePort user@sshHost\n  Access remoteHost:remotePort as localhost:localPort\n\n  Example — access remote DB on localhost:\n  ssh -L 5432:localhost:5432 user@prod-server\n  # Then connect psql to localhost:5432\n\n  Remote port forwarding (-R):\n  ssh -R remotePort:localHost:localPort user@sshHost\n  Expose local service through the SSH server\n\n  Example — expose local dev server to remote:\n  ssh -R 8080:localhost:3000 user@jump-server\n  # On jump-server: curl localhost:8080 reaches your local :3000\n\n  Dynamic SOCKS proxy (-D):\n  ssh -D 1080 user@host\n  # Configure browser to use SOCKS5 proxy at localhost:1080\n  # All browser traffic tunnels through host\n\n  Background tunnel (no interactive shell):\n  ssh -N -f -L 5432:localhost:5432 user@host\n    -N   No remote command (tunnel only)\n    -f   Background before executing\n\n  ProxyJump (hop through bastion):\n  ssh -J bastion user@internal-host\n  ssh -J user1@bastion:22 user2@target\n  # Or in ~/.ssh/config: ProxyJump bastion\n\n  Keep tunnel alive with autossh:\n  autossh -M 20000 -N -L 5432:localhost:5432 user@host\n"
+    }
+    fn s_scp_rsync() -> &'static str {
+        "  scp — secure copy:\n  scp file user@host:/remote/path/         Copy local to remote\n  scp user@host:/remote/file ./            Copy remote to local\n  scp -r dir/ user@host:/remote/           Recursive directory copy\n  scp -P 2222 file user@host:/path/        Non-default port\n  scp -i ~/.ssh/key file user@host:/path/  Specific identity\n  scp -C file user@host:/path/             Enable compression\n  scp -q file user@host:/path/             Quiet mode\n  scp user1@host1:/file user2@host2:/dir/  Between two remotes (via local)\n\n  rsync over SSH (preferred over scp for bulk transfers):\n  rsync -avz src/ user@host:/dest/         Archive, verbose, compress\n  rsync -avz --delete src/ user@host:/dst/ Sync (delete remote extras)\n  rsync -avz -e 'ssh -p 2222' src/ user@host:/dst/  Non-default port\n  rsync -avz --exclude='.git' src/ user@host:/dst/  Exclude patterns\n  rsync -avzn src/ user@host:/dst/         Dry run (--dry-run)\n  rsync -avz --progress src/ user@host:/dst/  Show per-file progress\n  rsync -avz --bwlimit=1000 src/ host:/dst/   Limit to 1 MB/s\n\n  sftp — interactive file transfer:\n  sftp user@host                  Open SFTP session\n  sftp> ls, cd, get, put, mkdir   SFTP commands\n  sftp> get remote_file local_file\n  sftp> put local_file remote_path\n  sftp -b batch_file user@host    Non-interactive batch mode\n"
+    }
+    fn s_agent() -> &'static str {
+        "  ssh-agent:\n  eval \"$(ssh-agent -s)\"         Start agent and set env vars\n  ssh-agent bash                  Start agent in new shell\n  echo $SSH_AUTH_SOCK             Check if agent is running\n\n  ssh-add:\n  ssh-add                        Add default keys (~/.ssh/id_*)\n  ssh-add ~/.ssh/mykey            Add specific key\n  ssh-add -l                     List loaded keys (fingerprints)\n  ssh-add -L                     List loaded keys (public keys)\n  ssh-add -d ~/.ssh/mykey         Remove specific key\n  ssh-add -D                     Remove all keys\n  ssh-add -t 3600 ~/.ssh/mykey    Add with 1h expiry\n  ssh-add -c ~/.ssh/mykey         Require confirmation on each use\n  ssh-add -K ~/.ssh/mykey         Add to macOS keychain\n\n  Agent forwarding:\n  ssh -A user@host                Forward agent to remote host\n  # In ~/.ssh/config: ForwardAgent yes\n  # On remote: $SSH_AUTH_SOCK should be set\n  # Use for: ssh from bastion to internal without copying keys\n\n  gpg-agent as ssh-agent (for YubiKey/hardware keys):\n  export SSH_AUTH_SOCK=$(gpgconf --list-dirs agent-ssh-socket)\n  gpgconf --launch gpg-agent\n\n  1Password SSH agent:\n  export SSH_AUTH_SOCK=~/Library/Group\\ Containers/2BUA8C4S2C.com.1password/t/agent.sock\n"
+    }
+    fn s_options() -> &'static str {
+        "  Common -o options (passed as -o Key=Value or in ~/.ssh/config):\n\n  ServerAliveInterval 60        Send keepalive every 60s\n  ServerAliveCountMax 3         Disconnect after 3 missed keepalives\n  ConnectTimeout 10             Connection timeout in seconds\n  StrictHostKeyChecking no      Skip host key verification (insecure!)\n  StrictHostKeyChecking accept-new  Auto-accept new, reject changed (safer)\n  UserKnownHostsFile /dev/null  Ignore known_hosts (for ephemeral hosts)\n  BatchMode yes                 Non-interactive (fail if password needed)\n  PasswordAuthentication no     Disable password auth (keys only)\n  PubkeyAuthentication yes      Enable public key auth (default)\n  ControlMaster auto            Multiplex: reuse existing connection\n  ControlPath /tmp/%r@%h:%p     Control socket path\n  ControlPersist 10m            Keep master alive 10 min\n  Compression yes               Enable compression\n  Ciphers chacha20-poly1305@openssh.com,aes256-gcm@openssh.com  Cipher order\n  MACs hmac-sha2-256-etm@openssh.com,hmac-sha2-512-etm@openssh.com\n  KexAlgorithms curve25519-sha256,diffie-hellman-group16-sha512\n  HostKeyAlgorithms ssh-ed25519,ecdsa-sha2-nistp256\n  LogLevel VERBOSE              Debug auth issues\n  RequestTTY yes                Always request TTY\n  ExitOnForwardFailure yes      Fail if port forwarding fails\n  AddKeysToAgent yes            Auto-add unlocked key to agent\n"
+    }
+    fn s_hardening() -> &'static str {
+        "  sshd_config hardening (server-side, /etc/ssh/sshd_config):\n\n  Port 2222                     Change from default 22\n  AddressFamily inet            IPv4 only\n  ListenAddress 0.0.0.0         Bind address\n\n  PermitRootLogin no            Disable direct root login\n  PermitRootLogin prohibit-password  Allow root with keys only\n  AllowUsers alice bob          Whitelist users\n  AllowGroups sshusers          Whitelist group\n\n  PubkeyAuthentication yes      Enable key auth\n  PasswordAuthentication no     Disable password auth (after keys work!)\n  AuthenticationMethods publickey  Require keys\n  ChallengeResponseAuthentication no\n  UsePAM yes                    Keep PAM for account/session\n\n  MaxAuthTries 3                Limit brute-force attempts\n  LoginGraceTime 20             Seconds to authenticate\n  MaxStartups 10:30:60          Throttle unauthenticated connections\n  MaxSessions 10                Max sessions per connection\n\n  X11Forwarding no              Disable X11 (if unused)\n  AllowTcpForwarding no         Disable port forwarding (if unused)\n  AllowAgentForwarding no       Disable agent forwarding (if unused)\n  PermitTunnel no               Disable tun device forwarding\n\n  ClientAliveInterval 300       Disconnect idle after 5 min\n  ClientAliveCountMax 2\n\n  Ciphers chacha20-poly1305@openssh.com,aes256-gcm@openssh.com\n  MACs hmac-sha2-512-etm@openssh.com,hmac-sha2-256-etm@openssh.com\n  KexAlgorithms curve25519-sha256,diffie-hellman-group16-sha512\n  HostKeyAlgorithms ssh-ed25519\n\n  After editing: sshd -t && systemctl reload sshd (test config first!)\n"
+    }
+
+    type SshSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+    const SECTIONS: &[SshSection] = &[
+        (
+            "connect",
+            &["connect", "login", "port", "verbose", "command", "ipv4"],
+            s_connect,
+        ),
+        (
+            "keys",
+            &["key", "keys", "keygen", "copy-id", "fingerprint", "known"],
+            s_keys,
+        ),
+        (
+            "config",
+            &["config", "alias", "multiplexing", "control", "keepalive"],
+            s_config,
+        ),
+        (
+            "tunnel",
+            &[
+                "tunnel", "forward", "local", "remote", "socks", "proxy", "jump",
+            ],
+            s_tunnel,
+        ),
+        (
+            "scp-rsync",
+            &[
+                "scp", "rsync", "sftp", "copy", "transfer", "upload", "download",
+            ],
+            s_scp_rsync,
+        ),
+        (
+            "agent",
+            &["agent", "add", "keychain", "forwarding", "1password"],
+            s_agent,
+        ),
+        (
+            "options",
+            &["option", "options", "-o", "timeout", "batch", "cipher"],
+            s_options,
+        ),
+        (
+            "hardening",
+            &[
+                "harden",
+                "hardening",
+                "sshd",
+                "security",
+                "root",
+                "password",
+            ],
+            s_hardening,
+        ),
+    ];
+
+    let q = query.trim().to_lowercase();
+
+    if q.is_empty() || q == "help" || q == "list" {
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  hematite --ssh-ref <TOPIC>");
+        let _ = writeln!(out, "  Offline SSH client and server reference");
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  Topics:");
+        for &(name, aliases, _) in SECTIONS {
+            let _ = writeln!(out, "    {name:<12} ({})", aliases.join(", "));
+        }
+        let _ = writeln!(out, "\n  hematite --ssh-ref all   -- print everything");
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    if q == "all" {
+        let _ = writeln!(out, "{sep}");
+        for &(name, _, f) in SECTIONS {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+            let _ = writeln!(out, "");
+        }
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    let found: Vec<_> = SECTIONS
+        .iter()
+        .filter(|&&(name, aliases, _)| {
+            name.contains(q.as_str())
+                || aliases
+                    .iter()
+                    .any(|&a| a.contains(q.as_str()) || q.contains(a))
+        })
+        .collect();
+
+    if found.is_empty() {
+        let _ = writeln!(out, "  No topic found for '{}'.", query.trim());
+        let _ = writeln!(out, "  Run: hematite --ssh-ref help");
+    } else {
+        let _ = writeln!(out, "{sep}");
+        for &&(name, _, f) in &found {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+        }
+        let _ = writeln!(out, "{sep}");
+    }
+    out
+}

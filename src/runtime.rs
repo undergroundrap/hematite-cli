@@ -1043,6 +1043,10 @@ mod tests {
             vim: None,
             curl: None,
             jq: None,
+            grep: None,
+            sed: None,
+            awk: None,
+            ssh_ref: None,
             pdf_extract_helper: None,
             teleported_from: None,
         };

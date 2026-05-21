@@ -3752,6 +3752,46 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
 
+    if let Some(ref query) = cockpit.grep {
+        let result = hematite::tools::math_util::grep_calc(query.trim());
+        println!("{}", result.trim());
+        if cockpit.clipboard {
+            copy_to_clipboard(&result);
+            println!("Copied to clipboard.");
+        }
+        return Ok(());
+    }
+
+    if let Some(ref query) = cockpit.sed {
+        let result = hematite::tools::math_util::sed_calc(query.trim());
+        println!("{}", result.trim());
+        if cockpit.clipboard {
+            copy_to_clipboard(&result);
+            println!("Copied to clipboard.");
+        }
+        return Ok(());
+    }
+
+    if let Some(ref query) = cockpit.awk {
+        let result = hematite::tools::math_util::awk_calc(query.trim());
+        println!("{}", result.trim());
+        if cockpit.clipboard {
+            copy_to_clipboard(&result);
+            println!("Copied to clipboard.");
+        }
+        return Ok(());
+    }
+
+    if let Some(ref query) = cockpit.ssh_ref {
+        let result = hematite::tools::math_util::ssh_ref_calc(query.trim());
+        println!("{}", result.trim());
+        if cockpit.clipboard {
+            copy_to_clipboard(&result);
+            println!("Copied to clipboard.");
+        }
+        return Ok(());
+    }
+
     if let Some(ref query) = cockpit.lorem {
         let result = hematite::tools::math_util::lorem_calc(query.trim());
         println!("{}", result.trim());
