@@ -1063,6 +1063,10 @@ mod tests {
             tmux: None,
             postgres: None,
             ts_ref: None,
+            ansible: None,
+            terraform: None,
+            npm: None,
+            git_adv: None,
             pdf_extract_helper: None,
             teleported_from: None,
         };

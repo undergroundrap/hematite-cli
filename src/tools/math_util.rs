@@ -34404,3 +34404,564 @@ pub fn ts_ref_calc(query: &str) -> String {
     }
     out
 }
+
+// ─── Wave 19: ansible, terraform, npm, git-adv ────────────────────────────────
+
+pub fn ansible_calc(query: &str) -> String {
+    use std::fmt::Write as _;
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+
+    fn s_inventory() -> &'static str {
+        "  INI format (hosts):\n  [webservers]\n  web1.example.com\n  web2.example.com ansible_user=ubuntu\n\n  [databases]\n  db1.example.com ansible_host=10.0.0.5 ansible_port=2222\n\n  [production:children]   Group of groups\n  webservers\n  databases\n\n  [all:vars]\n  ansible_python_interpreter=/usr/bin/python3\n\n  YAML format (inventory.yml):\n  all:\n    children:\n      webservers:\n        hosts:\n          web1:\n            ansible_host: 10.0.0.1\n          web2:\n            ansible_host: 10.0.0.2\n        vars:\n          http_port: 80\n      databases:\n        hosts:\n          db1:\n            ansible_host: 10.0.0.5\n\n  Pattern matching:\n  ansible all -m ping                 All hosts\n  ansible webservers -m ping          Group\n  ansible 'web*' -m ping             Glob\n  ansible 'webservers:databases' -m ping  Union\n  ansible 'webservers:&staging' -m ping   Intersection\n  ansible 'webservers:!web1' -m ping      Exclusion\n\n  ansible.cfg:\n  [defaults]\n  inventory = ./inventory\n  remote_user = ubuntu\n  private_key_file = ~/.ssh/id_rsa\n  host_key_checking = False\n  retry_files_enabled = False\n  stdout_callback = yaml\n"
+    }
+    fn s_playbooks() -> &'static str {
+        "  Playbook structure:\n  ---\n  - name: Configure web servers\n    hosts: webservers\n    become: true               # sudo\n    become_user: root\n    gather_facts: true\n    vars:\n      app_port: 8080\n    tasks:\n      - name: Install nginx\n        package:\n          name: nginx\n          state: present\n        notify: Restart nginx\n\n      - name: Deploy config\n        template:\n          src: nginx.conf.j2\n          dest: /etc/nginx/nginx.conf\n        notify: Restart nginx\n\n    handlers:\n      - name: Restart nginx\n        service:\n          name: nginx\n          state: restarted\n\n  Conditionals:\n  when: ansible_os_family == \"Debian\"\n  when: ansible_distribution in [\"Ubuntu\", \"Debian\"]\n  when: my_var is defined\n  when: my_var is not defined\n  when: result.rc != 0\n  when:\n    - condition1\n    - condition2\n\n  Loops:\n  loop: [\"pkg1\", \"pkg2\", \"pkg3\"]         (item = current)\n  loop: \"{{ packages }}\"\n  loop: \"{{ users | dict2items }}\"\n  with_items: \"{{ list }}\"               (older style; use loop)\n  with_dict: \"{{ dict }}\"\n  loop_control:\n    label: \"{{ item.name }}\"\n    pause: 1\n\n  Block / rescue / always:\n  - block:\n      - name: Try something risky\n        command: /might/fail\n    rescue:\n      - name: Handle failure\n        debug: msg=\"Failed, recovering\"\n    always:\n      - name: Always runs\n        debug: msg=\"Done either way\"\n\n  Tags:\n  tags: [install, nginx]\n  ansible-playbook site.yml --tags install\n  ansible-playbook site.yml --skip-tags debug\n"
+    }
+    fn s_modules() -> &'static str {
+        "  Package management:\n  package: name=nginx state=present          (generic, uses OS pm)\n  apt: name=nginx state=latest update_cache=yes\n  yum/dnf: name=nginx state=present\n  pip: name=requests version=2.28.0 virtualenv=/opt/venv\n\n  Service:\n  service: name=nginx state=started enabled=true\n  systemd: name=nginx state=restarted daemon_reload=true\n\n  Files:\n  copy: src=local.conf dest=/etc/app.conf owner=root group=root mode='0644'\n  template: src=app.conf.j2 dest=/etc/app.conf\n  file: path=/var/log/app state=directory mode='0755'\n  file: path=/tmp/old state=absent\n  file: src=/etc/app.conf dest=/etc/app-link.conf state=link\n  fetch: src=/var/log/app.log dest=./logs/ flat=yes\n  get_url: url=https://example.com/file.tar.gz dest=/tmp/ checksum=sha256:abc123\n  unarchive: src=app.tar.gz dest=/opt/ remote_src=no\n\n  Content:\n  lineinfile: path=/etc/hosts line='10.0.0.1 myhost' state=present\n  lineinfile: path=/etc/conf regexp='^PORT=' line='PORT=8080'\n  replace: path=/etc/conf regexp='old_val' replace='new_val'\n  blockinfile:\n    path: /etc/conf\n    marker: \"# {mark} MANAGED BLOCK\"\n    block: |\n      setting1=val1\n      setting2=val2\n\n  Users and system:\n  user: name=appuser shell=/bin/bash groups=sudo append=yes\n  group: name=appgroup state=present\n  authorized_key: user=deploy key=\"{{ lookup('file', 'id_rsa.pub') }}\"\n  cron: name=\"backup\" minute=\"0\" hour=\"3\" job=\"/opt/backup.sh\"\n\n  Commands (use sparingly — prefer idempotent modules):\n  command: /opt/app/setup.sh creates=/opt/app/.installed\n  shell: 'echo {{ var }} | grep pattern'\n  script: local_script.sh args\n  raw: apt-get install -y python3   (no Python on target)\n"
+    }
+    fn s_vars() -> &'static str {
+        "  Variable precedence (low to high):\n  1.  role defaults (defaults/main.yml)\n  2.  inventory file vars\n  3.  inventory group_vars/all\n  4.  inventory group_vars/<group>\n  5.  inventory host_vars/<host>\n  6.  play vars, vars_files\n  7.  task vars (only that task)\n  8.  register variables\n  9.  set_fact\n  10. extra vars (-e / --extra-vars)  [highest]\n\n  Defining vars:\n  vars:\n    app_port: 8080\n    db_host: \"{{ groups['databases'][0] }}\"\n  vars_files:\n    - vars/production.yml\n\n  group_vars/all.yml, group_vars/webservers.yml\n  host_vars/web1.yml\n\n  Register and use output:\n  - command: cat /etc/version\n    register: version_output\n  - debug: msg=\"Version is {{ version_output.stdout }}\"\n  - when: version_output.rc == 0\n\n  set_fact:\n  - set_fact:\n      my_var: \"{{ computed_value }}\"\n      cacheable: true\n\n  Magic variables:\n  inventory_hostname     Current host's inventory name\n  ansible_hostname       Actual hostname\n  ansible_host           Connection IP/hostname\n  ansible_user           Connection user\n  groups                 Dict of all groups and their hosts\n  group_names            List of groups current host belongs to\n  hostvars               Dict of all hosts' variables\n  hostvars['web1']['ansible_ip']\n  ansible_facts          Gathered system facts\n  ansible_facts['distribution']    # or ansible_distribution\n  playbook_dir           Directory of running playbook\n  role_path              Directory of current role\n\n  Filters:\n  {{ var | default('fallback') }}\n  {{ list | join(', ') }}\n  {{ var | upper | trim }}\n  {{ dict | dict2items }}\n  {{ items | items2dict }}\n  {{ var | to_json }}\n  {{ var | from_json }}\n  {{ path | basename }}\n  {{ path | dirname }}\n  {{ var | bool }}\n  {{ var | int }}\n"
+    }
+    fn s_roles() -> &'static str {
+        "  Role directory structure:\n  roles/\n    myrole/\n      tasks/main.yml        Entry point for tasks\n      handlers/main.yml     Handlers\n      templates/            Jinja2 templates (.j2)\n      files/                Static files\n      vars/main.yml         Variables (high precedence)\n      defaults/main.yml     Default variables (low precedence)\n      meta/main.yml         Role metadata and dependencies\n      README.md\n\n  Using roles in a playbook:\n  roles:\n    - myrole\n    - role: myrole\n      vars:\n        my_var: value\n      tags: setup\n\n  Dynamic includes:\n  - include_role: name=myrole    (dynamic; conditionals/loops apply)\n  - import_role: name=myrole     (static; processed at parse time)\n\n  Ansible Galaxy:\n  ansible-galaxy role init myrole          Create role scaffold\n  ansible-galaxy install author.rolename\n  ansible-galaxy install -r requirements.yml\n  ansible-galaxy list\n  ansible-galaxy remove author.rolename\n\n  requirements.yml:\n  ---\n  roles:\n    - name: geerlingguy.nginx\n      version: \"3.1.0\"\n    - src: https://github.com/user/role\n      version: main\n      name: custom_role\n\n  meta/main.yml:\n  ---\n  galaxy_info:\n    author: myname\n    description: My role\n    min_ansible_version: \"2.12\"\n  dependencies:\n    - role: common\n    - role: geerlingguy.nginx\n"
+    }
+    fn s_vault() -> &'static str {
+        "  Encrypt / decrypt files:\n  ansible-vault create secrets.yml\n  ansible-vault encrypt secrets.yml\n  ansible-vault decrypt secrets.yml\n  ansible-vault edit secrets.yml\n  ansible-vault view secrets.yml\n  ansible-vault rekey secrets.yml         (change password)\n\n  Encrypt a single string (for embedding in YAML):\n  ansible-vault encrypt_string 'mysecret' --name 'db_password'\n  # Outputs:\n  # db_password: !vault |\n  #   $ANSIBLE_VAULT;1.1;AES256\n  #   ...\n\n  Using vault in a playbook:\n  vars_files:\n    - secrets.yml\n  # Or inline:\n  db_password: !vault |\n    $ANSIBLE_VAULT;1.1;AES256\n    ...\n\n  Running with vault password:\n  ansible-playbook site.yml --ask-vault-pass\n  ansible-playbook site.yml --vault-password-file ~/.vault_pass\n  echo 'mypassword' > ~/.vault_pass && chmod 600 ~/.vault_pass\n\n  ansible.cfg:\n  [defaults]\n  vault_password_file = ~/.vault_pass\n\n  Multiple vault IDs (multiple passwords):\n  ansible-vault encrypt_string --vault-id dev@~/.vault_dev 'secret'\n  ansible-vault encrypt_string --vault-id prod@prompt 'secret'\n  ansible-playbook site.yml --vault-id dev@~/.vault_dev --vault-id prod@prompt\n"
+    }
+    fn s_cli() -> &'static str {
+        "  ansible-playbook:\n  ansible-playbook site.yml\n  ansible-playbook site.yml -i inventory/prod\n  ansible-playbook site.yml -l webservers          (--limit)\n  ansible-playbook site.yml -t deploy              (--tags)\n  ansible-playbook site.yml --skip-tags debug\n  ansible-playbook site.yml --check                (dry run)\n  ansible-playbook site.yml --diff                 (show diffs)\n  ansible-playbook site.yml --check --diff         (preview)\n  ansible-playbook site.yml -e \"env=prod version=2\"\n  ansible-playbook site.yml -e @vars/extra.yml\n  ansible-playbook site.yml --start-at-task=\"Deploy config\"\n  ansible-playbook site.yml --step                 (interactive)\n  ansible-playbook site.yml -v/-vv/-vvv/-vvvv      (verbosity)\n  ansible-playbook site.yml --syntax-check\n  ansible-playbook site.yml --list-tasks\n  ansible-playbook site.yml --list-hosts\n  ansible-playbook site.yml --list-tags\n  ansible-playbook site.yml -f 10                  (10 forks)\n\n  Ad-hoc commands:\n  ansible all -m ping\n  ansible webservers -m command -a 'uptime'\n  ansible webservers -m shell -a 'df -h'\n  ansible all -m setup                             (gather facts)\n  ansible all -m setup -a 'filter=ansible_distribution*'\n  ansible webservers -m package -a 'name=nginx state=present' -b\n  ansible webservers -m service -a 'name=nginx state=restarted' -b\n  ansible all -m copy -a 'src=file.txt dest=/tmp/file.txt'\n  ansible all -m shell -a 'echo hello' --one-line\n\n  Inventory commands:\n  ansible-inventory --list\n  ansible-inventory --graph\n  ansible-inventory --host web1\n\n  Config:\n  ansible-config list                   (all config options)\n  ansible-config dump                   (current effective config)\n  ansible-config view                   (ansible.cfg content)\n"
+    }
+
+    type AnsibleSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+    const SECTIONS: &[AnsibleSection] = &[
+        (
+            "inventory",
+            &["inventory", "hosts", "group", "pattern", "ini", "yaml-inv"],
+            s_inventory,
+        ),
+        (
+            "playbooks",
+            &[
+                "playbook", "task", "handler", "when", "loop", "block", "tag",
+            ],
+            s_playbooks,
+        ),
+        (
+            "modules",
+            &[
+                "module",
+                "package",
+                "service",
+                "copy",
+                "template",
+                "file",
+                "lineinfile",
+            ],
+            s_modules,
+        ),
+        (
+            "vars",
+            &[
+                "var", "vars", "register", "set_fact", "magic", "filter", "hostvars",
+            ],
+            s_vars,
+        ),
+        (
+            "roles",
+            &[
+                "role",
+                "galaxy",
+                "defaults",
+                "tasks",
+                "meta",
+                "include_role",
+            ],
+            s_roles,
+        ),
+        (
+            "vault",
+            &["vault", "encrypt", "decrypt", "secret", "password"],
+            s_vault,
+        ),
+        (
+            "cli",
+            &[
+                "cli",
+                "flags",
+                "ad-hoc",
+                "check",
+                "diff",
+                "limit",
+                "verbosity",
+            ],
+            s_cli,
+        ),
+    ];
+
+    let q = query.trim().to_lowercase();
+
+    if q.is_empty() || q == "help" || q == "list" {
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  hematite --ansible <TOPIC>");
+        let _ = writeln!(out, "  Offline Ansible reference");
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  Topics:");
+        for &(name, aliases, _) in SECTIONS {
+            let _ = writeln!(out, "    {name:<12} ({})", aliases.join(", "));
+        }
+        let _ = writeln!(out, "\n  hematite --ansible all   -- print everything");
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    if q == "all" {
+        let _ = writeln!(out, "{sep}");
+        for &(name, _, f) in SECTIONS {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+            let _ = writeln!(out, "");
+        }
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    let found: Vec<_> = SECTIONS
+        .iter()
+        .filter(|&&(name, aliases, _)| {
+            name.contains(q.as_str())
+                || aliases
+                    .iter()
+                    .any(|&a| a.contains(q.as_str()) || q.contains(a))
+        })
+        .collect();
+
+    if found.is_empty() {
+        let _ = writeln!(out, "  No topic found for '{}'.", query.trim());
+        let _ = writeln!(out, "  Run: hematite --ansible help");
+    } else {
+        let _ = writeln!(out, "{sep}");
+        for &&(name, _, f) in &found {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+        }
+        let _ = writeln!(out, "{sep}");
+    }
+    out
+}
+
+pub fn terraform_calc(query: &str) -> String {
+    use std::fmt::Write as _;
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+
+    fn s_workflow() -> &'static str {
+        "  Core workflow:\n  terraform init                   Download providers and modules\n  terraform init -upgrade          Upgrade providers to latest allowed\n  terraform init -backend-config=backend.hcl\n  terraform fmt                    Format code\n  terraform fmt -recursive         Format all subdirs\n  terraform validate               Check syntax and internal consistency\n  terraform plan                   Preview changes\n  terraform plan -out=tfplan       Save plan to file\n  terraform plan -target=aws_instance.web  Target specific resource\n  terraform plan -var-file=prod.tfvars\n  terraform plan -refresh-only     Show drift without planning changes\n  terraform apply                  Apply (prompts yes/no)\n  terraform apply -auto-approve    No prompt\n  terraform apply tfplan           Apply saved plan\n  terraform apply -target=aws_instance.web\n  terraform destroy                Destroy all resources\n  terraform destroy -target=aws_instance.web\n  terraform destroy -auto-approve\n\n  Other commands:\n  terraform show                   Show current state or plan\n  terraform show tfplan            Show saved plan\n  terraform providers              List required providers\n  terraform output                 Print output values\n  terraform output db_endpoint     Specific output\n  terraform output -json           JSON output\n  terraform refresh                Sync state with real infra (deprecated; use plan -refresh-only)\n  terraform version\n  terraform console                Interactive expression evaluator\n"
+    }
+    fn s_hcl() -> &'static str {
+        "  Resource:\n  resource \"aws_instance\" \"web\" {\n    ami           = \"ami-0c55b159cbfafe1f0\"\n    instance_type = \"t3.micro\"\n    tags = {\n      Name = \"WebServer\"\n    }\n    lifecycle {\n      create_before_destroy = true\n      prevent_destroy       = false\n      ignore_changes        = [tags[\"LastModified\"]]\n    }\n  }\n\n  Data source:\n  data \"aws_ami\" \"ubuntu\" {\n    most_recent = true\n    owners      = [\"099720109477\"]\n    filter {\n      name   = \"name\"\n      values = [\"ubuntu/images/hvm-ssd/ubuntu-*-22.04-amd64-server-*\"]\n    }\n  }\n  ami = data.aws_ami.ubuntu.id\n\n  Variables (see vars topic for full detail):\n  variable \"region\" {\n    type    = string\n    default = \"us-east-1\"\n  }\n  ami = var.ami_id\n\n  Outputs:\n  output \"instance_ip\" {\n    value       = aws_instance.web.public_ip\n    description = \"Public IP of web server\"\n    sensitive   = false\n  }\n\n  Locals:\n  locals {\n    common_tags = {\n      Project = var.project\n      Env     = var.environment\n    }\n    name_prefix = \"${var.project}-${var.environment}\"\n  }\n  tags = local.common_tags\n\n  Provider:\n  terraform {\n    required_version = \">= 1.5.0\"\n    required_providers {\n      aws = {\n        source  = \"hashicorp/aws\"\n        version = \"~> 5.0\"\n      }\n    }\n  }\n  provider \"aws\" {\n    region = var.region\n  }\n"
+    }
+    fn s_variables() -> &'static str {
+        "  Variable types:\n  string   number   bool\n  list(string)   list(number)\n  map(string)    map(any)\n  set(string)\n  object({ name = string, age = number })\n  tuple([string, number, bool])\n  any   (no type enforcement)\n\n  Variable block:\n  variable \"instance_count\" {\n    type        = number\n    default     = 1\n    description = \"Number of instances\"\n    sensitive   = false\n    validation {\n      condition     = var.instance_count > 0\n      error_message = \"Must be at least 1.\"\n    }\n  }\n\n  Providing values (precedence low to high):\n  1. default in variable block\n  2. terraform.tfvars           (auto-loaded)\n  3. terraform.tfvars.json      (auto-loaded)\n  4. *.auto.tfvars              (auto-loaded, alphabetical)\n  5. -var-file=custom.tfvars    (CLI flag)\n  6. -var=\"key=value\"           (CLI flag)\n  7. TF_VAR_name env var        (environment)\n\n  tfvars file (terraform.tfvars):\n  region         = \"us-west-2\"\n  instance_count = 3\n  tags = {\n    Env = \"prod\"\n  }\n\n  Sensitive variables:\n  variable \"db_password\" {\n    type      = string\n    sensitive = true\n  }\n  # Masked in plan/apply output; still stored in state (encrypt state!)\n\n  Referencing:\n  var.name\n  var.tags[\"Env\"]\n  var.list_var[0]\n  var.obj_var.field\n"
+    }
+    fn s_state() -> &'static str {
+        "  State file: terraform.tfstate (local) or remote backend\n\n  Remote backends (in terraform block):\n  backend \"s3\" {\n    bucket         = \"my-tf-state\"\n    key            = \"prod/terraform.tfstate\"\n    region         = \"us-east-1\"\n    dynamodb_table = \"terraform-locks\"\n    encrypt        = true\n  }\n  backend \"azurerm\" { ... }\n  backend \"gcs\" { ... }\n\n  State commands:\n  terraform state list                      List all resources\n  terraform state show aws_instance.web     Inspect resource state\n  terraform state mv old_name new_name      Rename resource\n  terraform state mv aws_instance.web module.web.aws_instance.web  Move to module\n  terraform state rm aws_instance.web       Remove from state (resource stays live)\n  terraform state pull                      Download remote state to stdout\n  terraform state push terraform.tfstate    Upload local state to backend\n  terraform state replace-provider old new  Replace provider source\n\n  Import existing infrastructure:\n  terraform import aws_instance.web i-1234567890abcdef0\n  # Must have matching resource block in config first\n  # TF 1.5+: import blocks in config:\n  import {\n    to = aws_instance.web\n    id = \"i-1234567890abcdef0\"\n  }\n\n  Workspaces:\n  terraform workspace new staging\n  terraform workspace select prod\n  terraform workspace list\n  terraform workspace show\n  terraform workspace delete staging\n  # In config: ${terraform.workspace}\n\n  Force-unlock (if locked by crashed run):\n  terraform force-unlock LOCK_ID\n"
+    }
+    fn s_modules() -> &'static str {
+        "  Module sources:\n  # Local path\n  source = \"./modules/vpc\"\n  # Terraform Registry\n  source  = \"terraform-aws-modules/vpc/aws\"\n  version = \"~> 5.0\"\n  # GitHub\n  source = \"github.com/org/repo\"\n  source = \"github.com/org/repo//subdir\"\n  source = \"github.com/org/repo?ref=v1.2.0\"\n  # Git generic\n  source = \"git::https://example.com/module.git?ref=main\"\n  # Mercurial, S3, GCS also supported\n\n  Calling a module:\n  module \"vpc\" {\n    source  = \"terraform-aws-modules/vpc/aws\"\n    version = \"~> 5.0\"\n    name    = \"my-vpc\"\n    cidr    = \"10.0.0.0/16\"\n    azs     = [\"us-east-1a\", \"us-east-1b\"]\n    private_subnets = [\"10.0.1.0/24\", \"10.0.2.0/24\"]\n    public_subnets  = [\"10.0.101.0/24\", \"10.0.102.0/24\"]\n    enable_nat_gateway = true\n  }\n\n  Accessing module outputs:\n  subnet_id = module.vpc.private_subnets[0]\n  vpc_id    = module.vpc.vpc_id\n\n  Module outputs (in module/outputs.tf):\n  output \"vpc_id\" {\n    value = aws_vpc.main.id\n  }\n\n  Module with count / for_each:\n  module \"servers\" {\n    source   = \"./modules/server\"\n    for_each = var.server_configs\n    name     = each.key\n    config   = each.value\n  }\n  # Access: module.servers[\"web\"].instance_ip\n"
+    }
+    fn s_expressions() -> &'static str {
+        "  String interpolation:\n  \"${var.name}-server\"\n  \"Hello, ${upper(var.name)}!\"\n\n  Conditional (ternary):\n  instance_type = var.env == \"prod\" ? \"t3.large\" : \"t3.micro\"\n\n  For expressions:\n  [for s in var.list : upper(s)]\n  [for s in var.list : s if s != \"\"]\n  {for k, v in var.map : k => upper(v)}\n  [for i, v in var.list : \"${i}: ${v}\"]\n\n  Splat expressions:\n  aws_instance.web[*].id          (list of all ids)\n  module.servers[*].instance_ip   (from for_each/count)\n\n  Dynamic blocks:\n  resource \"aws_security_group\" \"sg\" {\n    dynamic \"ingress\" {\n      for_each = var.ingress_rules\n      content {\n        from_port   = ingress.value.port\n        to_port     = ingress.value.port\n        protocol    = \"tcp\"\n        cidr_blocks = ingress.value.cidrs\n      }\n    }\n  }\n\n  Useful built-in functions:\n  lookup(map, key, default)          Map key with fallback\n  merge(map1, map2)                  Merge maps (right wins)\n  concat(list1, list2)               Join lists\n  flatten([[1,2],[3,4]])             Flatten nested lists\n  toset(list)                        Deduplicate list\n  length(list_or_string)\n  contains(list, value)\n  keys(map) / values(map)\n  element(list, index)               Wraps around\n  slice(list, start, end)\n  coalesce(val1, val2)               First non-null\n  try(expr, fallback)                Return fallback on error\n  templatefile(path, vars)           Render template file\n  file(path)                         Read file as string\n  base64encode(string)\n  jsonencode(value) / jsondecode(str)\n  yamlencode(value) / yamldecode(str)\n  format(\"%s-%d\", var.name, count.index)\n  formatlist(\"%s.domain.com\", var.names)\n"
+    }
+
+    type TfSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+    const SECTIONS: &[TfSection] = &[
+        (
+            "workflow",
+            &[
+                "workflow", "init", "plan", "apply", "destroy", "fmt", "validate",
+            ],
+            s_workflow,
+        ),
+        (
+            "hcl",
+            &[
+                "hcl",
+                "resource",
+                "data",
+                "output",
+                "locals",
+                "provider",
+                "lifecycle",
+            ],
+            s_hcl,
+        ),
+        (
+            "variables",
+            &[
+                "variable",
+                "variables",
+                "tfvars",
+                "sensitive",
+                "type",
+                "default",
+            ],
+            s_variables,
+        ),
+        (
+            "state",
+            &["state", "import", "backend", "workspace", "remote", "lock"],
+            s_state,
+        ),
+        (
+            "modules",
+            &[
+                "module",
+                "source",
+                "registry",
+                "registry-module",
+                "for_each",
+            ],
+            s_modules,
+        ),
+        (
+            "expressions",
+            &[
+                "expression",
+                "function",
+                "conditional",
+                "splat",
+                "dynamic",
+                "lookup",
+            ],
+            s_expressions,
+        ),
+    ];
+
+    let q = query.trim().to_lowercase();
+
+    if q.is_empty() || q == "help" || q == "list" {
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  hematite --terraform <TOPIC>");
+        let _ = writeln!(out, "  Offline Terraform / OpenTofu reference");
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  Topics:");
+        for &(name, aliases, _) in SECTIONS {
+            let _ = writeln!(out, "    {name:<14} ({})", aliases.join(", "));
+        }
+        let _ = writeln!(out, "\n  hematite --terraform all   -- print everything");
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    if q == "all" {
+        let _ = writeln!(out, "{sep}");
+        for &(name, _, f) in SECTIONS {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+            let _ = writeln!(out, "");
+        }
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    let found: Vec<_> = SECTIONS
+        .iter()
+        .filter(|&&(name, aliases, _)| {
+            name.contains(q.as_str())
+                || aliases
+                    .iter()
+                    .any(|&a| a.contains(q.as_str()) || q.contains(a))
+        })
+        .collect();
+
+    if found.is_empty() {
+        let _ = writeln!(out, "  No topic found for '{}'.", query.trim());
+        let _ = writeln!(out, "  Run: hematite --terraform help");
+    } else {
+        let _ = writeln!(out, "{sep}");
+        for &&(name, _, f) in &found {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+        }
+        let _ = writeln!(out, "{sep}");
+    }
+    out
+}
+
+pub fn npm_calc(query: &str) -> String {
+    use std::fmt::Write as _;
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+
+    fn s_install() -> &'static str {
+        "  npm install (or npm i):\n  npm install                    Install from package.json\n  npm install pkg                Add as dependency\n  npm install pkg@1.2.3          Specific version\n  npm install pkg@^1.2.3         Latest compatible minor\n  npm install pkg@latest\n  npm install -D pkg             devDependency (--save-dev)\n  npm install -g pkg             Global install\n  npm install -E pkg             Exact version (--save-exact)\n  npm install --legacy-peer-deps  Skip peer dep errors (v7+)\n  npm install --omit=dev         Production only (formerly --production)\n  npm ci                         Clean install from lockfile (CI use)\n\n  Equivalents:\n  npm  -> yarn -> pnpm\n  npm install    yarn          pnpm install\n  npm i pkg      yarn add pkg  pnpm add pkg\n  npm i -D pkg   yarn add -D   pnpm add -D\n  npm i -g pkg   yarn global add pkg  pnpm add -g\n  npm ci         yarn install --frozen-lockfile  pnpm install --frozen-lockfile\n\n  Remove / update:\n  npm uninstall pkg             Remove from node_modules + package.json\n  npm uninstall -g pkg\n  npm update                    Update all to latest compatible\n  npm update pkg\n  npm outdated                  Show outdated packages\n  npm prune                     Remove extraneous packages\n  npm dedupe                    Reduce duplication in tree\n\n  Security:\n  npm audit                     Show vulnerabilities\n  npm audit fix                 Auto-fix compatible vulnerabilities\n  npm audit fix --force         Force-fix (may break semver)\n  npm audit --json              Machine-readable output\n"
+    }
+    fn s_scripts() -> &'static str {
+        "  package.json scripts:\n  \"scripts\": {\n    \"start\":   \"node src/index.js\",\n    \"dev\":     \"nodemon src/index.js\",\n    \"build\":   \"tsc\",\n    \"test\":    \"jest\",\n    \"lint\":    \"eslint .\",\n    \"format\":  \"prettier --write .\",\n    \"clean\":   \"rimraf dist\",\n    \"prepare\": \"husky install\"\n  }\n\n  Lifecycle hooks (auto-run):\n  preinstall   install   postinstall\n  preuninstall  uninstall  postuninstall\n  pretest  test  posttest\n  prebuild  build  postbuild\n  prestart  start  poststart\n  prepare      (runs on install + npm publish)\n  prepublishOnly  (before npm publish only)\n\n  Run scripts:\n  npm run build\n  npm run test -- --watch        (-- passes args to script)\n  npm test                       (shortcut, no 'run')\n  npm start                      (shortcut)\n  npm stop\n\n  npx — run package without installing:\n  npx create-react-app myapp\n  npx tsc --version\n  npx pkg@version command        Run specific version\n  npx --yes pkg                  Auto-install if missing\n  npx -p pkg1 -p pkg2 cmd        Use multiple packages\n\n  Environment variables in scripts:\n  $npm_package_version            Package version\n  $npm_package_name               Package name\n  $npm_lifecycle_event            Current script name\n  $INIT_CWD                       Directory npm was invoked from\n  cross-env KEY=val npm run build (cross-platform env vars)\n"
+    }
+    fn s_packages() -> &'static str {
+        "  Publishing:\n  npm login                      Authenticate with registry\n  npm whoami                     Check current user\n  npm version patch              Bump 1.0.0 -> 1.0.1 + git tag\n  npm version minor              1.0.0 -> 1.1.0\n  npm version major              1.0.0 -> 2.0.0\n  npm version 2.3.4              Set exact version\n  npm pack                       Create .tgz tarball (dry-run publish)\n  npm publish                    Publish to registry\n  npm publish --access public    For scoped packages (@user/pkg)\n  npm publish --dry-run          Simulate without publishing\n  npm publish --tag beta         Publish under 'beta' tag\n\n  Dist-tags:\n  npm dist-tag add pkg@1.2.3 stable\n  npm dist-tag ls pkg\n  npm install pkg@stable         Install by tag\n\n  .npmignore / files field:\n  # .npmignore: excludes from npm pack (like .gitignore)\n  # Or in package.json:\n  \"files\": [\"dist\", \"src\", \"README.md\"]\n  # Always included: package.json, README, LICENSE, main file\n  # Always excluded: node_modules, .git, test files\n\n  Scoped packages:\n  npm init --scope=@myorg\n  npm install @myorg/pkg\n  npm publish --access public     Public scoped\n  npm publish --access restricted Private scoped (requires paid org)\n"
+    }
+    fn s_config() -> &'static str {
+        "  npm config:\n  npm config list                Show all config\n  npm config list -l             Show defaults too\n  npm config get registry\n  npm config set registry https://registry.npmjs.org/\n  npm config set prefix ~/.npm-global   (global install dir)\n  npm config delete key\n  npm config edit                Open .npmrc in editor\n\n  .npmrc file (project or ~/.npmrc):\n  registry=https://registry.npmjs.org/\n  @myorg:registry=https://npm.pkg.github.com\n  //npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}\n  save-exact=true\n  legacy-peer-deps=true\n  fund=false\n  audit=false\n\n  Cache:\n  npm cache verify               Verify cache integrity\n  npm cache clean --force        Clear cache\n  npm config get cache           Show cache location\n\n  Package-lock.json:\n  package-lock.json              Exact versions (commit this)\n  npm ci                         Installs from lockfile exactly (for CI)\n  npm install --package-lock-only  Update lockfile without node_modules\n\n  Inspect packages:\n  npm ls                         Dependency tree\n  npm ls --depth=0               Top-level only\n  npm ls pkg                     Check if pkg installed\n  npm info pkg                   Package metadata\n  npm info pkg versions          All versions\n  npm root                       node_modules path\n  npm root -g                    Global node_modules path\n  npm bin                        .bin directory\n  npm bin -g                     Global .bin directory\n"
+    }
+    fn s_workspaces() -> &'static str {
+        "  Monorepo workspaces (npm 7+):\n\n  package.json:\n  {\n    \"name\": \"my-monorepo\",\n    \"workspaces\": [\"packages/*\", \"apps/*\"]\n  }\n\n  Structure:\n  root/\n    package.json      (workspace root)\n    packages/\n      ui/package.json\n      utils/package.json\n    apps/\n      web/package.json\n      api/package.json\n\n  Install:\n  npm install               Hoists shared deps to root node_modules\n  # Each workspace gets its own node_modules only for conflicting versions\n\n  Run commands across workspaces:\n  npm run build --workspaces\n  npm run test --workspaces --if-present    (skip if script absent)\n  npm run build -w packages/ui              (single workspace)\n  npm run build -w ui -w utils             (multiple)\n\n  Install package into specific workspace:\n  npm install react -w packages/ui\n  npm install lodash -w packages/utils --save-dev\n\n  Cross-workspace dependencies:\n  # In apps/web/package.json:\n  \"dependencies\": {\n    \"@myorg/ui\": \"*\"\n  }\n  # '*' means use local workspace version\n\n  yarn workspaces equivalent:\n  yarn workspaces foreach run build\n  yarn workspace @myorg/ui add react\n\n  pnpm workspaces (pnpm-workspace.yaml):\n  packages:\n    - 'packages/*'\n    - 'apps/*'\n  pnpm -r run build    (-r = recursive)\n  pnpm -F ui run build  (-F = filter)\n"
+    }
+
+    type NpmSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+    const SECTIONS: &[NpmSection] = &[
+        (
+            "install",
+            &[
+                "install",
+                "uninstall",
+                "update",
+                "audit",
+                "ci",
+                "global",
+                "prune",
+            ],
+            s_install,
+        ),
+        (
+            "scripts",
+            &[
+                "script",
+                "scripts",
+                "run",
+                "npx",
+                "lifecycle",
+                "hook",
+                "start",
+            ],
+            s_scripts,
+        ),
+        (
+            "packages",
+            &[
+                "publish", "version", "pack", "dist-tag", "scope", "registry",
+            ],
+            s_packages,
+        ),
+        (
+            "config",
+            &[
+                "config", "npmrc", "cache", "lockfile", "registry", "inspect",
+            ],
+            s_config,
+        ),
+        (
+            "workspaces",
+            &["workspace", "monorepo", "hoisting", "pnpm", "yarn-ws"],
+            s_workspaces,
+        ),
+    ];
+
+    let q = query.trim().to_lowercase();
+
+    if q.is_empty() || q == "help" || q == "list" {
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  hematite --npm <TOPIC>");
+        let _ = writeln!(out, "  Offline npm / yarn / pnpm reference");
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  Topics:");
+        for &(name, aliases, _) in SECTIONS {
+            let _ = writeln!(out, "    {name:<12} ({})", aliases.join(", "));
+        }
+        let _ = writeln!(out, "\n  hematite --npm all   -- print everything");
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    if q == "all" {
+        let _ = writeln!(out, "{sep}");
+        for &(name, _, f) in SECTIONS {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+            let _ = writeln!(out, "");
+        }
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    let found: Vec<_> = SECTIONS
+        .iter()
+        .filter(|&&(name, aliases, _)| {
+            name.contains(q.as_str())
+                || aliases
+                    .iter()
+                    .any(|&a| a.contains(q.as_str()) || q.contains(a))
+        })
+        .collect();
+
+    if found.is_empty() {
+        let _ = writeln!(out, "  No topic found for '{}'.", query.trim());
+        let _ = writeln!(out, "  Run: hematite --npm help");
+    } else {
+        let _ = writeln!(out, "{sep}");
+        for &&(name, _, f) in &found {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+        }
+        let _ = writeln!(out, "{sep}");
+    }
+    out
+}
+
+pub fn git_adv_calc(query: &str) -> String {
+    use std::fmt::Write as _;
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+
+    fn s_rebase() -> &'static str {
+        "  Interactive rebase:\n  git rebase -i HEAD~3         Edit last 3 commits\n  git rebase -i <commit>^      From that commit onward\n  git rebase -i --root         All commits\n\n  Interactive commands (in editor):\n  pick    Use commit as-is\n  reword  Use commit; edit message\n  edit    Pause to amend commit\n  squash  Meld into previous commit; edit combined message\n  fixup   Meld into previous commit; discard this message\n  drop    Remove commit entirely\n  exec    Run shell command\n\n  --autosquash:\n  git commit --fixup=<hash>    Create fixup commit\n  git commit --squash=<hash>   Create squash commit\n  git rebase -i --autosquash HEAD~10  Auto-order fixup/squash commits\n\n  Rebase onto another branch:\n  git rebase main              Replay current branch on top of main\n  git rebase main feature      Replay feature on top of main\n  git rebase --onto new-base old-base branch\n  # Example: move commits from after 'old-base' to 'new-base'\n  git rebase --onto main feature~3 feature  # Take last 3 commits of feature\n\n  During rebase (conflict resolution):\n  git status                   See conflicted files\n  git add <resolved>           Mark resolved\n  git rebase --continue        Continue after resolving\n  git rebase --skip            Skip this commit\n  git rebase --abort           Cancel, return to pre-rebase state\n\n  --autostash (stash dirty working tree automatically):\n  git rebase -i --autostash HEAD~3\n\n  Rebase instead of merge (config):\n  git config pull.rebase true         Always rebase on pull\n  git pull --rebase                   One-time\n"
+    }
+    fn s_stash() -> &'static str {
+        "  Basic stash:\n  git stash                    Stash tracked changes + staged\n  git stash push -m \"WIP: feature\"  Named stash\n  git stash -u                 Include untracked files\n  git stash -a                 Include untracked + ignored\n\n  Partial stash:\n  git stash push -p            Interactive patch mode — choose hunks\n  git stash push -p -- file.rs Only stash specific file(s)\n\n  Viewing:\n  git stash list               All stashes (stash@{N})\n  git stash show               Diff of latest stash\n  git stash show stash@{2}     Diff of specific stash\n  git stash show -p            Full patch\n\n  Applying:\n  git stash pop                Apply latest + remove from stash\n  git stash apply              Apply latest, keep in stash\n  git stash apply stash@{2}    Apply specific stash\n  git stash pop --index        Also restore staged state\n\n  Branch from stash:\n  git stash branch feature-from-stash stash@{0}\n  # Creates branch at commit where stash was made, applies stash\n\n  Cleanup:\n  git stash drop               Remove latest stash\n  git stash drop stash@{2}     Remove specific stash\n  git stash clear              Remove ALL stashes (destructive)\n\n  Stash in another branch workflow:\n  git stash\n  git checkout other-branch\n  # do work\n  git checkout -\n  git stash pop\n"
+    }
+    fn s_bisect() -> &'static str {
+        "  Manual bisect:\n  git bisect start\n  git bisect bad                   Mark current commit as bad\n  git bisect good v2.0.0           Mark known-good commit/tag\n  # Git checks out midpoint\n  # Build/test, then:\n  git bisect good                  This commit is good\n  git bisect bad                   This commit is bad\n  # Repeat until git identifies the first bad commit\n  git bisect reset                 Return to original HEAD\n\n  Scripted bisect (automated):\n  git bisect start\n  git bisect bad HEAD\n  git bisect good v2.0.0\n  git bisect run ./test.sh\n  # test.sh exits 0 = good, exits non-zero = bad\n  # Exits 125 = skip this commit (untestable)\n  git bisect reset\n\n  Example test script:\n  #!/bin/sh\n  cargo test my_failing_test 2>/dev/null\n  # or: npm test --silent 2>/dev/null\n  # or: python -m pytest tests/test_foo.py -q 2>/dev/null\n\n  Skip commits (e.g. broken build unrelated to bug):\n  git bisect skip\n  git bisect skip v2.1..v2.3       Skip a range\n\n  Bisect log (for sharing or replaying):\n  git bisect log > bisect.log\n  git bisect replay bisect.log\n\n  View bisect progress:\n  git bisect log\n  git bisect visualize             Open gitk with bisect range\n"
+    }
+    fn s_worktree() -> &'static str {
+        "  Linked worktrees — multiple working trees from one repo:\n\n  Add a worktree:\n  git worktree add ../hotfix-v2 hotfix/v2.0\n  git worktree add ../review-pr42 pr42-branch\n  git worktree add -b newbranch ../new-dir origin/main\n  git worktree add --detach ../tmp abc1234   (detached HEAD)\n\n  List worktrees:\n  git worktree list\n  git worktree list --porcelain\n\n  Remove a worktree:\n  git worktree remove ../hotfix-v2       (must be clean)\n  git worktree remove --force ../dirty   (force remove)\n  git worktree prune                     Remove stale worktree records\n\n  Lock/unlock (keep on slow volume, prevent auto-prune):\n  git worktree lock ../hotfix-v2 --reason \"in use\"\n  git worktree unlock ../hotfix-v2\n\n  Key rules:\n  - Each branch can only be checked out in ONE worktree at a time\n  - All worktrees share the same .git directory (objects, refs)\n  - Great for: reviewing PRs, hotfixes without stashing, parallel builds\n\n  Bare repo + worktree workflow (advanced):\n  git clone --bare https://github.com/org/repo.git repo.git\n  cd repo.git\n  git worktree add ../main main\n  git worktree add ../feature feature-branch\n  # No 'main' checkout cluttering bare repo\n\n  Move a worktree:\n  git worktree move ../old-path ../new-path\n"
+    }
+    fn s_reflog() -> &'static str {
+        "  Reflog — local journal of all HEAD movements:\n\n  View reflog:\n  git reflog                       HEAD reflog\n  git reflog show main             main branch reflog\n  git reflog show --all            All refs\n  git reflog show stash            Stash reflog\n\n  Reflog format:\n  abc1234 HEAD@{0}: commit: my message\n  def5678 HEAD@{1}: rebase -i (finish): returning to refs/heads/main\n  ...\n\n  Recover lost commits:\n  # After bad reset / rebase:\n  git reflog                       Find the commit hash before disaster\n  git checkout abc1234             Inspect lost state\n  git branch recovered abc1234     Create branch from lost commit\n  git reset --hard abc1234         Restore branch to that point\n\n  Recover dropped stash:\n  git fsck --lost-found            Find dangling commits\n  git stash apply abc1234          Apply by hash\n\n  Common recovery patterns:\n  # Undo git reset --hard:\n  git reflog\n  git reset --hard HEAD@{1}        Go back one step\n\n  # Undo git commit --amend:\n  git reflog\n  git reset --soft HEAD@{1}        Restore pre-amend state + keep changes staged\n\n  # Undo rebase:\n  git reflog\n  git reset --hard ORIG_HEAD       ORIG_HEAD set automatically before rebase\n\n  Expiry:\n  git reflog expire --expire=90.days.ago --all\n  git gc --prune=90.days.ago       (GC prunes unreachable objects)\n  Default retention: 90 days (reachable), 30 days (unreachable)\n"
+    }
+    fn s_hooks() -> &'static str {
+        "  Hook location: .git/hooks/ (must be executable)\n  Shared hooks: git config core.hooksPath .githooks/\n\n  Client-side hooks:\n  pre-commit         Before commit (check lint, tests)\n  prepare-commit-msg Before editor opens (add ticket ID)\n  commit-msg         After msg entered (validate format)\n  post-commit        After commit (notifications)\n  pre-rebase         Before rebase\n  post-checkout      After checkout / worktree add\n  post-merge         After merge / pull\n  pre-push           Before push (run full tests)\n  pre-receive        (server-side) Before receiving push\n  update             (server-side) Per-branch push check\n  post-receive       (server-side) After push (CI trigger)\n\n  Exit codes: 0 = allow, non-zero = abort\n\n  Example pre-commit (lint + format):\n  #!/bin/sh\n  set -e\n  cargo fmt -- --check\n  cargo clippy -- -D warnings\n  cargo test\n\n  Example commit-msg (enforce conventional commits):\n  #!/bin/sh\n  msg=$(cat \"$1\")\n  pattern='^(feat|fix|chore|docs|refactor|test|ci)(\\([^)]+\\))?: .+'\n  if ! echo \"$msg\" | grep -qE \"$pattern\"; then\n    echo \"Commit message must follow: type(scope): description\"\n    exit 1\n  fi\n\n  Husky (JS ecosystem hook manager):\n  npm install --save-dev husky\n  npx husky init\n  echo 'npm test' > .husky/pre-push\n\n  pre-commit (Python ecosystem):\n  pip install pre-commit\n  # .pre-commit-config.yaml\n  pre-commit install\n  pre-commit run --all-files\n"
+    }
+
+    type GitAdvSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+    const SECTIONS: &[GitAdvSection] = &[
+        (
+            "rebase",
+            &[
+                "rebase",
+                "squash",
+                "fixup",
+                "autosquash",
+                "interactive",
+                "onto",
+            ],
+            s_rebase,
+        ),
+        (
+            "stash",
+            &["stash", "partial", "unstash", "wip", "shelf"],
+            s_stash,
+        ),
+        (
+            "bisect",
+            &["bisect", "binary-search", "regression", "scripted-bisect"],
+            s_bisect,
+        ),
+        (
+            "worktree",
+            &["worktree", "linked", "bare", "parallel", "multi-checkout"],
+            s_worktree,
+        ),
+        (
+            "reflog",
+            &["reflog", "recover", "lost", "undo", "orig_head", "dangling"],
+            s_reflog,
+        ),
+        (
+            "hooks",
+            &[
+                "hook",
+                "hooks",
+                "pre-commit",
+                "commit-msg",
+                "pre-push",
+                "husky",
+            ],
+            s_hooks,
+        ),
+    ];
+
+    let q = query.trim().to_lowercase();
+
+    if q.is_empty() || q == "help" || q == "list" {
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  hematite --git-adv <TOPIC>");
+        let _ = writeln!(out, "  Offline advanced Git reference");
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  Topics:");
+        for &(name, aliases, _) in SECTIONS {
+            let _ = writeln!(out, "    {name:<12} ({})", aliases.join(", "));
+        }
+        let _ = writeln!(out, "\n  hematite --git-adv all   -- print everything");
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    if q == "all" {
+        let _ = writeln!(out, "{sep}");
+        for &(name, _, f) in SECTIONS {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+            let _ = writeln!(out, "");
+        }
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    let found: Vec<_> = SECTIONS
+        .iter()
+        .filter(|&&(name, aliases, _)| {
+            name.contains(q.as_str())
+                || aliases
+                    .iter()
+                    .any(|&a| a.contains(q.as_str()) || q.contains(a))
+        })
+        .collect();
+
+    if found.is_empty() {
+        let _ = writeln!(out, "  No topic found for '{}'.", query.trim());
+        let _ = writeln!(out, "  Run: hematite --git-adv help");
+    } else {
+        let _ = writeln!(out, "{sep}");
+        for &&(name, _, f) in &found {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+        }
+        let _ = writeln!(out, "{sep}");
+    }
+    out
+}

@@ -3,20 +3,21 @@
 /// Covers known-value correctness, edge-case non-panics, and the newer
 /// matrix decomposition modes (QR, SVD, Cholesky).
 use hematite::tools::math_util::{
-    ascii_calc, ascii_table_calc, awk_calc, bash_ref_calc, bitwise_calc, case_calc, chars_calc,
-    checksum_calc, chemistry_calc, chmod_calc, cipher_calc, color_calc, color_names_calc,
-    combinatorics_calc, complex_calc, cron_calc, csv_calc, curl_calc, datetime_calc, diff_calc,
-    docker_ref_calc, duration_calc, electrical_calc, encode_calc, escape_calc, find_calc,
-    fraction_calc, geometry_calc, git_ref_calc, gitignore_calc, go_ref_calc, grep_calc, hash_calc,
-    headers_calc, health_calc, http_calc, http_status_calc, id_gen_calc, ip_calc, jq_calc,
-    js_ref_calc, json_calc, json_path_calc, jwt_calc, kbd_calc, kubectl_calc, license_calc,
-    lorem_calc, make_calc, markdown_calc, matrix_calc, mime_calc, net_calc, nginx_calc,
-    number_format, number_theory_calc, openssl_calc, percent_calc, physics_calc, port_calc,
-    postgres_calc, prob_calc, python_ref_calc, regex_calc, regex_ref_calc, roman_calc,
-    rust_ref_calc, sed_calc, semver_calc, set_calc, sort_viz, spark_calc, sql_fmt_calc,
-    sql_ref_calc, ssh_ref_calc, ssl_calc, stats_calc, string_dist, systemd_calc, table_calc,
-    tar_calc, template_calc, text_stats, timestamp_calc, tmux_calc, toml_calc, trig_calc,
-    ts_ref_calc, tz_calc, url_calc, uuid_calc, validate_calc, vim_calc, xml_calc, yaml_calc,
+    ansible_calc, ascii_calc, ascii_table_calc, awk_calc, bash_ref_calc, bitwise_calc, case_calc,
+    chars_calc, checksum_calc, chemistry_calc, chmod_calc, cipher_calc, color_calc,
+    color_names_calc, combinatorics_calc, complex_calc, cron_calc, csv_calc, curl_calc,
+    datetime_calc, diff_calc, docker_ref_calc, duration_calc, electrical_calc, encode_calc,
+    escape_calc, find_calc, fraction_calc, geometry_calc, git_adv_calc, git_ref_calc,
+    gitignore_calc, go_ref_calc, grep_calc, hash_calc, headers_calc, health_calc, http_calc,
+    http_status_calc, id_gen_calc, ip_calc, jq_calc, js_ref_calc, json_calc, json_path_calc,
+    jwt_calc, kbd_calc, kubectl_calc, license_calc, lorem_calc, make_calc, markdown_calc,
+    matrix_calc, mime_calc, net_calc, nginx_calc, npm_calc, number_format, number_theory_calc,
+    openssl_calc, percent_calc, physics_calc, port_calc, postgres_calc, prob_calc, python_ref_calc,
+    regex_calc, regex_ref_calc, roman_calc, rust_ref_calc, sed_calc, semver_calc, set_calc,
+    sort_viz, spark_calc, sql_fmt_calc, sql_ref_calc, ssh_ref_calc, ssl_calc, stats_calc,
+    string_dist, systemd_calc, table_calc, tar_calc, template_calc, terraform_calc, text_stats,
+    timestamp_calc, tmux_calc, toml_calc, trig_calc, ts_ref_calc, tz_calc, url_calc, uuid_calc,
+    validate_calc, vim_calc, xml_calc, yaml_calc,
 };
 
 // ─── Cipher tests ────────────────────────────────────────────────────────────
@@ -7855,4 +7856,621 @@ fn test_ts_ref_all() {
 fn test_ts_ref_unknown_topic() {
     let out = ts_ref_calc("foobar_xyz");
     assert!(out.contains("No topic") || out.contains("Run:"), "{out}");
+}
+
+// ─── Wave 19 Tests: ansible, terraform, npm, git-adv ─────────────────────────
+
+// ── ansible_calc ─────────────────────────────────────────────────────────────
+
+#[test]
+fn test_ansible_help_empty() {
+    let out = ansible_calc("");
+    assert!(out.contains("hematite --ansible") || out.contains("Topics"));
+}
+
+#[test]
+fn test_ansible_help_keyword() {
+    let out = ansible_calc("help");
+    assert!(out.contains("hematite --ansible") || out.contains("Topics"));
+}
+
+#[test]
+fn test_ansible_all() {
+    let out = ansible_calc("all");
+    assert!(out.contains("inventory") && out.contains("playbook") && out.contains("vault"));
+}
+
+#[test]
+fn test_ansible_inventory_topic() {
+    let out = ansible_calc("inventory");
+    assert!(out.contains("webservers") || out.contains("ansible_host"));
+    assert!(out.contains("INI") || out.contains("YAML") || out.contains("pattern"));
+}
+
+#[test]
+fn test_ansible_inventory_alias_hosts() {
+    let out = ansible_calc("hosts");
+    assert!(out.contains("webservers") || out.contains("ansible_host"));
+}
+
+#[test]
+fn test_ansible_inventory_alias_pattern() {
+    let out = ansible_calc("pattern");
+    assert!(out.contains("webservers") || out.contains("Intersection") || out.contains("Glob"));
+}
+
+#[test]
+fn test_ansible_playbooks_topic() {
+    let out = ansible_calc("playbooks");
+    assert!(out.contains("become") || out.contains("gather_facts"));
+    assert!(out.contains("handler") || out.contains("notify"));
+}
+
+#[test]
+fn test_ansible_playbooks_alias_when() {
+    let out = ansible_calc("when");
+    assert!(out.contains("when:") || out.contains("condition"));
+}
+
+#[test]
+fn test_ansible_playbooks_alias_loop() {
+    let out = ansible_calc("loop");
+    assert!(out.contains("loop:") || out.contains("with_items"));
+}
+
+#[test]
+fn test_ansible_playbooks_alias_block() {
+    let out = ansible_calc("block");
+    assert!(out.contains("rescue") || out.contains("always"));
+}
+
+#[test]
+fn test_ansible_modules_topic() {
+    let out = ansible_calc("modules");
+    assert!(out.contains("package") || out.contains("apt"));
+    assert!(out.contains("service") || out.contains("systemd"));
+}
+
+#[test]
+fn test_ansible_modules_alias_copy() {
+    let out = ansible_calc("copy");
+    assert!(out.contains("copy:") || out.contains("src=") || out.contains("dest="));
+}
+
+#[test]
+fn test_ansible_modules_alias_lineinfile() {
+    let out = ansible_calc("lineinfile");
+    assert!(out.contains("lineinfile:") || out.contains("path="));
+}
+
+#[test]
+fn test_ansible_vars_topic() {
+    let out = ansible_calc("vars");
+    assert!(out.contains("precedence") || out.contains("set_fact"));
+    assert!(out.contains("group_vars") || out.contains("host_vars"));
+}
+
+#[test]
+fn test_ansible_vars_alias_register() {
+    let out = ansible_calc("register");
+    assert!(out.contains("register:") || out.contains("register_output") || out.contains("stdout"));
+}
+
+#[test]
+fn test_ansible_vars_alias_magic() {
+    let out = ansible_calc("magic");
+    assert!(
+        out.contains("inventory_hostname")
+            || out.contains("hostvars")
+            || out.contains("ansible_facts")
+    );
+}
+
+#[test]
+fn test_ansible_vars_alias_filter() {
+    let out = ansible_calc("filter");
+    assert!(out.contains("default(") || out.contains("| upper") || out.contains("| join"));
+}
+
+#[test]
+fn test_ansible_roles_topic() {
+    let out = ansible_calc("roles");
+    assert!(out.contains("tasks/main.yml") || out.contains("defaults/main.yml"));
+    assert!(out.contains("galaxy") || out.contains("include_role") || out.contains("import_role"));
+}
+
+#[test]
+fn test_ansible_roles_alias_galaxy() {
+    let out = ansible_calc("galaxy");
+    assert!(out.contains("ansible-galaxy") || out.contains("requirements.yml"));
+}
+
+#[test]
+fn test_ansible_vault_topic() {
+    let out = ansible_calc("vault");
+    assert!(out.contains("ansible-vault") || out.contains("encrypt"));
+    assert!(out.contains("decrypt") || out.contains("vault_password"));
+}
+
+#[test]
+fn test_ansible_vault_alias_encrypt() {
+    let out = ansible_calc("encrypt");
+    assert!(out.contains("ansible-vault encrypt") || out.contains("encrypt_string"));
+}
+
+#[test]
+fn test_ansible_vault_alias_secret() {
+    let out = ansible_calc("secret");
+    assert!(out.contains("vault") || out.contains("encrypt") || out.contains("password"));
+}
+
+#[test]
+fn test_ansible_cli_topic() {
+    let out = ansible_calc("cli");
+    assert!(out.contains("ansible-playbook") || out.contains("--check"));
+    assert!(out.contains("ansible-inventory") || out.contains("ad-hoc") || out.contains("Ad-hoc"));
+}
+
+#[test]
+fn test_ansible_cli_alias_adhoc() {
+    let out = ansible_calc("ad-hoc");
+    assert!(out.contains("ansible all") || out.contains("-m ping") || out.contains("Ad-hoc"));
+}
+
+#[test]
+fn test_ansible_cli_alias_verbosity() {
+    let out = ansible_calc("verbosity");
+    assert!(out.contains("-vvv") || out.contains("verbosity") || out.contains("-v/"));
+}
+
+#[test]
+fn test_ansible_no_match() {
+    let out = ansible_calc("xyznotfound");
+    assert!(out.contains("No topic") || out.contains("hematite --ansible"));
+}
+
+// ── terraform_calc ────────────────────────────────────────────────────────────
+
+#[test]
+fn test_terraform_help_empty() {
+    let out = terraform_calc("");
+    assert!(out.contains("hematite --terraform") || out.contains("Topics"));
+}
+
+#[test]
+fn test_terraform_all() {
+    let out = terraform_calc("all");
+    assert!(out.contains("workflow") && out.contains("state") && out.contains("modules"));
+}
+
+#[test]
+fn test_terraform_workflow_topic() {
+    let out = terraform_calc("workflow");
+    assert!(out.contains("terraform init") || out.contains("terraform plan"));
+    assert!(out.contains("terraform apply") || out.contains("terraform destroy"));
+}
+
+#[test]
+fn test_terraform_workflow_alias_init() {
+    let out = terraform_calc("init");
+    assert!(out.contains("terraform init") || out.contains("Download providers"));
+}
+
+#[test]
+fn test_terraform_workflow_alias_apply() {
+    let out = terraform_calc("apply");
+    assert!(out.contains("terraform apply") || out.contains("auto-approve"));
+}
+
+#[test]
+fn test_terraform_workflow_alias_destroy() {
+    let out = terraform_calc("destroy");
+    assert!(out.contains("terraform destroy") || out.contains("Destroy"));
+}
+
+#[test]
+fn test_terraform_hcl_topic() {
+    let out = terraform_calc("hcl");
+    assert!(out.contains("resource") || out.contains("aws_instance"));
+    assert!(out.contains("data") || out.contains("locals") || out.contains("output"));
+}
+
+#[test]
+fn test_terraform_hcl_alias_resource() {
+    let out = terraform_calc("resource");
+    assert!(out.contains("resource \"") || out.contains("lifecycle"));
+}
+
+#[test]
+fn test_terraform_hcl_alias_lifecycle() {
+    let out = terraform_calc("lifecycle");
+    assert!(
+        out.contains("lifecycle")
+            || out.contains("create_before_destroy")
+            || out.contains("prevent_destroy")
+    );
+}
+
+#[test]
+fn test_terraform_variables_topic() {
+    let out = terraform_calc("variables");
+    assert!(out.contains("variable") || out.contains("tfvars"));
+    assert!(out.contains("sensitive") || out.contains("validation") || out.contains("TF_VAR_"));
+}
+
+#[test]
+fn test_terraform_variables_alias_tfvars() {
+    let out = terraform_calc("tfvars");
+    assert!(out.contains("tfvars") || out.contains("terraform.tfvars"));
+}
+
+#[test]
+fn test_terraform_variables_alias_sensitive() {
+    let out = terraform_calc("sensitive");
+    assert!(out.contains("sensitive") || out.contains("masked"));
+}
+
+#[test]
+fn test_terraform_state_topic() {
+    let out = terraform_calc("state");
+    assert!(out.contains("terraform state") || out.contains("terraform.tfstate"));
+    assert!(out.contains("backend") || out.contains("workspace") || out.contains("import"));
+}
+
+#[test]
+fn test_terraform_state_alias_import() {
+    let out = terraform_calc("import");
+    assert!(out.contains("terraform import") || out.contains("import {"));
+}
+
+#[test]
+fn test_terraform_state_alias_backend() {
+    let out = terraform_calc("backend");
+    assert!(out.contains("backend") || out.contains("s3") || out.contains("azurerm"));
+}
+
+#[test]
+fn test_terraform_state_alias_workspace() {
+    let out = terraform_calc("workspace");
+    assert!(out.contains("workspace") || out.contains("terraform.workspace"));
+}
+
+#[test]
+fn test_terraform_modules_topic() {
+    let out = terraform_calc("modules");
+    assert!(out.contains("source") || out.contains("module"));
+    assert!(out.contains("registry") || out.contains("github.com") || out.contains("for_each"));
+}
+
+#[test]
+fn test_terraform_modules_alias_source() {
+    let out = terraform_calc("source");
+    assert!(out.contains("source =") || out.contains("Local path") || out.contains("Registry"));
+}
+
+#[test]
+fn test_terraform_expressions_topic() {
+    let out = terraform_calc("expressions");
+    assert!(out.contains("interpolation") || out.contains("${") || out.contains("for_each"));
+    assert!(out.contains("dynamic") || out.contains("splat") || out.contains("lookup"));
+}
+
+#[test]
+fn test_terraform_expressions_alias_conditional() {
+    let out = terraform_calc("conditional");
+    assert!(out.contains("?") || out.contains("ternary") || out.contains("coalesce"));
+}
+
+#[test]
+fn test_terraform_expressions_alias_function() {
+    let out = terraform_calc("function");
+    assert!(out.contains("lookup(") || out.contains("merge(") || out.contains("concat("));
+}
+
+#[test]
+fn test_terraform_expressions_alias_dynamic() {
+    let out = terraform_calc("dynamic");
+    assert!(out.contains("dynamic") || out.contains("for_each") || out.contains("content {"));
+}
+
+#[test]
+fn test_terraform_no_match() {
+    let out = terraform_calc("xyznotfound");
+    assert!(out.contains("No topic") || out.contains("hematite --terraform"));
+}
+
+// ── npm_calc ─────────────────────────────────────────────────────────────────
+
+#[test]
+fn test_npm_help_empty() {
+    let out = npm_calc("");
+    assert!(out.contains("hematite --npm") || out.contains("Topics"));
+}
+
+#[test]
+fn test_npm_all() {
+    let out = npm_calc("all");
+    assert!(out.contains("install") && out.contains("scripts") && out.contains("workspaces"));
+}
+
+#[test]
+fn test_npm_install_topic() {
+    let out = npm_calc("install");
+    assert!(out.contains("npm install") || out.contains("npm i "));
+    assert!(out.contains("npm ci") || out.contains("devDependency") || out.contains("-D"));
+}
+
+#[test]
+fn test_npm_install_alias_audit() {
+    let out = npm_calc("audit");
+    assert!(out.contains("npm audit") || out.contains("vulnerabilities"));
+}
+
+#[test]
+fn test_npm_install_alias_global() {
+    let out = npm_calc("global");
+    assert!(out.contains("-g ") || out.contains("Global install") || out.contains("global add"));
+}
+
+#[test]
+fn test_npm_install_alias_ci() {
+    let out = npm_calc("ci");
+    assert!(out.contains("npm ci") || out.contains("lockfile") || out.contains("frozen"));
+}
+
+#[test]
+fn test_npm_scripts_topic() {
+    let out = npm_calc("scripts");
+    assert!(out.contains("npm run") || out.contains("\"scripts\""));
+    assert!(out.contains("npx") || out.contains("lifecycle") || out.contains("postinstall"));
+}
+
+#[test]
+fn test_npm_scripts_alias_npx() {
+    let out = npm_calc("npx");
+    assert!(out.contains("npx") || out.contains("without installing"));
+}
+
+#[test]
+fn test_npm_scripts_alias_lifecycle() {
+    let out = npm_calc("lifecycle");
+    assert!(out.contains("preinstall") || out.contains("postinstall") || out.contains("prepare"));
+}
+
+#[test]
+fn test_npm_packages_topic() {
+    let out = npm_calc("publish");
+    assert!(out.contains("npm publish") || out.contains("npm version"));
+}
+
+#[test]
+fn test_npm_packages_alias_version() {
+    let out = npm_calc("version");
+    assert!(out.contains("npm version") || out.contains("patch") || out.contains("minor"));
+}
+
+#[test]
+fn test_npm_packages_alias_scope() {
+    let out = npm_calc("scope");
+    assert!(out.contains("scoped") || out.contains("@myorg") || out.contains("--scope"));
+}
+
+#[test]
+fn test_npm_config_topic() {
+    let out = npm_calc("config");
+    assert!(out.contains("npm config") || out.contains(".npmrc"));
+    assert!(out.contains("registry") || out.contains("cache"));
+}
+
+#[test]
+fn test_npm_config_alias_npmrc() {
+    let out = npm_calc("npmrc");
+    assert!(out.contains(".npmrc") || out.contains("npmrc"));
+}
+
+#[test]
+fn test_npm_config_alias_cache() {
+    let out = npm_calc("cache");
+    assert!(out.contains("npm cache") || out.contains("cache location"));
+}
+
+#[test]
+fn test_npm_config_alias_lockfile() {
+    let out = npm_calc("lockfile");
+    assert!(
+        out.contains("package-lock.json") || out.contains("lockfile") || out.contains("npm ci")
+    );
+}
+
+#[test]
+fn test_npm_workspaces_topic() {
+    let out = npm_calc("workspaces");
+    assert!(out.contains("workspace") || out.contains("monorepo"));
+    assert!(out.contains("hoisting") || out.contains("--workspaces") || out.contains("packages/*"));
+}
+
+#[test]
+fn test_npm_workspaces_alias_monorepo() {
+    let out = npm_calc("monorepo");
+    assert!(out.contains("monorepo") || out.contains("workspace") || out.contains("packages/*"));
+}
+
+#[test]
+fn test_npm_workspaces_alias_pnpm() {
+    let out = npm_calc("pnpm");
+    assert!(out.contains("pnpm") || out.contains("-r run") || out.contains("-F "));
+}
+
+#[test]
+fn test_npm_no_match() {
+    let out = npm_calc("xyznotfound");
+    assert!(out.contains("No topic") || out.contains("hematite --npm"));
+}
+
+// ── git_adv_calc ──────────────────────────────────────────────────────────────
+
+#[test]
+fn test_git_adv_help_empty() {
+    let out = git_adv_calc("");
+    assert!(out.contains("hematite --git-adv") || out.contains("Topics"));
+}
+
+#[test]
+fn test_git_adv_all() {
+    let out = git_adv_calc("all");
+    assert!(out.contains("rebase") && out.contains("stash") && out.contains("reflog"));
+}
+
+#[test]
+fn test_git_adv_rebase_topic() {
+    let out = git_adv_calc("rebase");
+    assert!(out.contains("git rebase") || out.contains("interactive"));
+    assert!(out.contains("squash") || out.contains("fixup") || out.contains("--onto"));
+}
+
+#[test]
+fn test_git_adv_rebase_alias_squash() {
+    let out = git_adv_calc("squash");
+    assert!(out.contains("squash") || out.contains("fixup") || out.contains("Meld"));
+}
+
+#[test]
+fn test_git_adv_rebase_alias_fixup() {
+    let out = git_adv_calc("fixup");
+    assert!(out.contains("fixup") || out.contains("--fixup") || out.contains("autosquash"));
+}
+
+#[test]
+fn test_git_adv_rebase_alias_autosquash() {
+    let out = git_adv_calc("autosquash");
+    assert!(out.contains("autosquash") || out.contains("--autosquash"));
+}
+
+#[test]
+fn test_git_adv_rebase_alias_onto() {
+    let out = git_adv_calc("onto");
+    assert!(out.contains("--onto") || out.contains("onto"));
+}
+
+#[test]
+fn test_git_adv_stash_topic() {
+    let out = git_adv_calc("stash");
+    assert!(out.contains("git stash") || out.contains("stash push"));
+    assert!(out.contains("stash pop") || out.contains("stash apply"));
+}
+
+#[test]
+fn test_git_adv_stash_alias_partial() {
+    let out = git_adv_calc("partial");
+    assert!(out.contains("-p") || out.contains("patch mode") || out.contains("Interactive patch"));
+}
+
+#[test]
+fn test_git_adv_stash_alias_wip() {
+    let out = git_adv_calc("wip");
+    assert!(out.contains("stash") || out.contains("WIP") || out.contains("Named stash"));
+}
+
+#[test]
+fn test_git_adv_bisect_topic() {
+    let out = git_adv_calc("bisect");
+    assert!(
+        out.contains("git bisect") || out.contains("binary-search") || out.contains("bisect start")
+    );
+    assert!(out.contains("git bisect good") || out.contains("git bisect bad"));
+}
+
+#[test]
+fn test_git_adv_bisect_alias_regression() {
+    let out = git_adv_calc("regression");
+    assert!(out.contains("bisect") || out.contains("first bad commit"));
+}
+
+#[test]
+fn test_git_adv_bisect_alias_scripted() {
+    let out = git_adv_calc("scripted-bisect");
+    assert!(out.contains("git bisect run") || out.contains("test.sh") || out.contains("automated"));
+}
+
+#[test]
+fn test_git_adv_worktree_topic() {
+    let out = git_adv_calc("worktree");
+    assert!(out.contains("git worktree") || out.contains("linked"));
+    assert!(out.contains("worktree add") || out.contains("worktree list"));
+}
+
+#[test]
+fn test_git_adv_worktree_alias_bare() {
+    let out = git_adv_calc("bare");
+    assert!(out.contains("bare") || out.contains("--bare") || out.contains("Bare repo"));
+}
+
+#[test]
+fn test_git_adv_worktree_alias_parallel() {
+    let out = git_adv_calc("parallel");
+    assert!(out.contains("worktree") || out.contains("parallel") || out.contains("multiple"));
+}
+
+#[test]
+fn test_git_adv_reflog_topic() {
+    let out = git_adv_calc("reflog");
+    assert!(out.contains("git reflog") || out.contains("HEAD movements"));
+    assert!(out.contains("ORIG_HEAD") || out.contains("recover") || out.contains("lost"));
+}
+
+#[test]
+fn test_git_adv_reflog_alias_recover() {
+    let out = git_adv_calc("recover");
+    assert!(
+        out.contains("reflog")
+            || out.contains("lost commit")
+            || out.contains("git branch recovered")
+    );
+}
+
+#[test]
+fn test_git_adv_reflog_alias_lost() {
+    let out = git_adv_calc("lost");
+    assert!(out.contains("lost") || out.contains("reflog") || out.contains("dangling"));
+}
+
+#[test]
+fn test_git_adv_reflog_alias_orig_head() {
+    let out = git_adv_calc("orig_head");
+    assert!(
+        out.contains("ORIG_HEAD") || out.contains("before rebase") || out.contains("pre-rebase")
+    );
+}
+
+#[test]
+fn test_git_adv_reflog_alias_dangling() {
+    let out = git_adv_calc("dangling");
+    assert!(out.contains("dangling") || out.contains("fsck") || out.contains("lost"));
+}
+
+#[test]
+fn test_git_adv_hooks_topic() {
+    let out = git_adv_calc("hooks");
+    assert!(out.contains(".git/hooks") || out.contains("pre-commit"));
+    assert!(out.contains("pre-push") || out.contains("commit-msg") || out.contains("husky"));
+}
+
+#[test]
+fn test_git_adv_hooks_alias_pre_commit() {
+    let out = git_adv_calc("pre-commit");
+    assert!(
+        out.contains("pre-commit") || out.contains("pre_commit") || out.contains("pre-commit tool")
+    );
+}
+
+#[test]
+fn test_git_adv_hooks_alias_husky() {
+    let out = git_adv_calc("husky");
+    assert!(out.contains("husky") || out.contains("Husky"));
+}
+
+#[test]
+fn test_git_adv_no_match() {
+    let out = git_adv_calc("xyznotfound");
+    assert!(out.contains("No topic") || out.contains("hematite --git-adv"));
 }

@@ -1667,6 +1667,38 @@ pub struct CliCockpit {
     #[arg(
         long,
         help_heading = "Math & Science",
+        value_name = "TOPIC",
+        help = "Ansible reference — offline cheatsheet. Topics: inventory, playbooks, modules, vars, roles, vault, cli. Commands: all = everything. Examples: hematite --ansible playbooks | hematite --ansible modules | hematite --ansible vault"
+    )]
+    pub ansible: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Math & Science",
+        value_name = "TOPIC",
+        help = "Terraform / OpenTofu reference — offline cheatsheet. Topics: workflow, hcl, variables, state, modules, expressions. Commands: all = everything. Examples: hematite --terraform workflow | hematite --terraform state | hematite --terraform expressions"
+    )]
+    pub terraform: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Math & Science",
+        value_name = "TOPIC",
+        help = "npm / yarn / pnpm reference — offline cheatsheet. Topics: install, scripts, packages, config, workspaces. Commands: all = everything. Examples: hematite --npm install | hematite --npm scripts | hematite --npm workspaces"
+    )]
+    pub npm: Option<String>,
+
+    #[arg(
+        long = "git-adv",
+        help_heading = "Math & Science",
+        value_name = "TOPIC",
+        help = "Advanced Git reference — offline cheatsheet. Topics: rebase, stash, bisect, worktree, reflog, hooks. Commands: all = everything. Examples: hematite --git-adv rebase | hematite --git-adv stash | hematite --git-adv reflog"
+    )]
+    pub git_adv: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Math & Science",
         value_name = "QUERY",
         help = "Lorem ipsum generator — offline replacement for lipsum.com. Commands: (bare) or <N> = N paragraphs (default 1); words <N> = N words; sentences <N> = N sentences. Examples: hematite --lorem | hematite --lorem 3 | hematite --lorem 'words 50' | hematite --lorem 'sentences 5'"
     )]
