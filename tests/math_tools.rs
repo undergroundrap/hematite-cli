@@ -6,21 +6,22 @@ use hematite::tools::math_util::{
     algo_ref_calc, ansible_calc, ascii_calc, ascii_table_calc, awk_calc, bash_adv_calc,
     bash_ref_calc, bitwise_calc, case_calc, chars_calc, checksum_calc, chemistry_calc, chmod_calc,
     cipher_calc, cloud_ref_calc, color_calc, color_names_calc, combinatorics_calc, complex_calc,
-    cron_calc, css_ref_calc, csv_calc, curl_calc, datetime_calc, diff_calc, docker_adv_calc,
-    docker_ref_calc, duration_calc, electrical_calc, encode_calc, escape_calc, find_calc,
-    fraction_calc, geometry_calc, git_adv_calc, git_ref_calc, gitignore_calc, go_ref_calc,
-    grep_calc, hash_calc, headers_calc, health_calc, http_adv_calc, http_calc, http_status_calc,
-    id_gen_calc, ip_calc, jinja_calc, jq_calc, js_ref_calc, json_calc, json_path_calc, jwt_calc,
-    kbd_calc, kubectl_calc, license_calc, linux_adv_calc, lorem_calc, make_calc, makefile_calc,
-    markdown_calc, matrix_calc, mime_calc, net_calc, network_ref_calc, nginx_calc, npm_calc,
-    number_format, number_theory_calc, oop_ref_calc, openssl_calc, percent_calc, physics_calc,
-    port_calc, postgres_calc, prob_calc, python_data_calc, python_ref_calc, regex_adv_calc,
-    regex_calc, regex_ref_calc, roman_calc, rust_adv_calc, rust_ref_calc, security_ref_calc,
-    sed_calc, semver_calc, set_calc, sort_viz, spark_calc, sql_adv_calc, sql_fmt_calc,
-    sql_ref_calc, ssh_ref_calc, ssl_calc, stats_calc, string_dist, systemd_adv_calc, systemd_calc,
-    table_calc, tar_calc, template_calc, terraform_calc, text_stats, timestamp_calc, tmux_calc,
-    toml_calc, trig_calc, ts_ref_calc, typescript_adv_calc, tz_calc, unicode_ref_calc, url_calc,
-    uuid_calc, validate_calc, vim_adv_calc, vim_calc, xml_calc, yaml_calc,
+    cron_calc, crypto_ref_calc, css_ref_calc, csv_calc, curl_calc, datetime_calc, devops_ref_calc,
+    diff_calc, docker_adv_calc, docker_ref_calc, duration_calc, electrical_calc, encode_calc,
+    escape_calc, find_calc, fraction_calc, geometry_calc, git_adv_calc, git_ref_calc,
+    gitignore_calc, go_ref_calc, grep_calc, hash_calc, headers_calc, health_calc, http_adv_calc,
+    http_calc, http_headers_calc, http_status_calc, id_gen_calc, ip_calc, jinja_calc, jq_calc,
+    js_ref_calc, json_calc, json_path_calc, jwt_calc, kbd_calc, kubectl_calc, license_calc,
+    linux_adv_calc, lorem_calc, make_calc, makefile_calc, markdown_calc, matrix_calc, mime_calc,
+    net_calc, network_ref_calc, nginx_calc, npm_calc, number_format, number_theory_calc,
+    oop_ref_calc, openssl_calc, percent_calc, physics_calc, port_calc, postgres_calc, prob_calc,
+    python_data_calc, python_ref_calc, regex_adv_calc, regex_calc, regex_ref_calc, regex_test_calc,
+    roman_calc, rust_adv_calc, rust_ref_calc, security_ref_calc, sed_calc, semver_calc, set_calc,
+    sort_viz, spark_calc, sql_adv_calc, sql_fmt_calc, sql_ref_calc, ssh_ref_calc, ssl_calc,
+    stats_calc, string_dist, systemd_adv_calc, systemd_calc, table_calc, tar_calc, template_calc,
+    terraform_calc, text_stats, timestamp_calc, tmux_calc, toml_calc, trig_calc, ts_ref_calc,
+    typescript_adv_calc, tz_calc, unicode_ref_calc, url_calc, uuid_calc, validate_calc,
+    vim_adv_calc, vim_calc, xml_calc, yaml_calc,
 };
 
 // ─── Cipher tests ────────────────────────────────────────────────────────────
@@ -14058,4 +14059,1468 @@ fn unicode_ref_string_length_alias() {
 fn unicode_ref_no_panic_on_special_chars() {
     let _ = unicode_ref_calc("@#$%");
     let _ = unicode_ref_calc("   ");
+}
+
+// ── regex_test_calc ───────────────────────────────────────────────────────────
+
+#[test]
+fn regex_test_help_empty() {
+    let out = regex_test_calc("");
+    assert!(
+        out.contains("hematite --regex-tester"),
+        "help shown for empty query"
+    );
+}
+
+#[test]
+fn regex_test_help_unknown() {
+    let out = regex_test_calc("zzznomatch");
+    assert!(
+        out.contains("hematite --regex-tester"),
+        "help shown for unknown"
+    );
+}
+
+#[test]
+fn regex_test_all() {
+    let out = regex_test_calc("all");
+    assert!(
+        out.contains("^") || out.contains("anchor"),
+        "all has anchors"
+    );
+    assert!(
+        out.contains("greedy") || out.contains("quantifier"),
+        "all has quantifiers"
+    );
+    assert!(
+        out.contains("lookahead") || out.contains("group"),
+        "all has groups"
+    );
+    assert!(
+        out.contains("email") || out.contains("pattern"),
+        "all has patterns"
+    );
+}
+
+#[test]
+fn regex_test_anchors() {
+    let out = regex_test_calc("anchors");
+    assert!(out.contains("^") || out.contains("\\\\A"), "anchors has ^");
+    assert!(
+        out.contains("\\\\b") || out.contains("boundary"),
+        "anchors has word boundary"
+    );
+    assert!(
+        out.contains("multiline") || out.contains("\\\\Z"),
+        "anchors has multiline"
+    );
+}
+
+#[test]
+fn regex_test_anchor_alias() {
+    let out = regex_test_calc("anchor");
+    assert!(
+        out.contains("^") || out.contains("anchor"),
+        "anchor alias resolves"
+    );
+}
+
+#[test]
+fn regex_test_boundary_alias() {
+    let out = regex_test_calc("boundary");
+    assert!(
+        out.contains("\\\\b") || out.contains("boundary"),
+        "boundary alias resolves"
+    );
+}
+
+#[test]
+fn regex_test_multiline_alias() {
+    let out = regex_test_calc("multiline");
+    assert!(
+        out.contains("multiline") || out.contains("^"),
+        "multiline alias resolves"
+    );
+}
+
+#[test]
+fn regex_test_groups() {
+    let out = regex_test_calc("groups");
+    assert!(
+        out.contains("capturing") || out.contains("Capturing"),
+        "groups has capturing"
+    );
+    assert!(
+        out.contains("lookahead") || out.contains("(?="),
+        "groups has lookahead"
+    );
+    assert!(
+        out.contains("named") || out.contains("(?P<"),
+        "groups has named capture"
+    );
+}
+
+#[test]
+fn regex_test_capture_alias() {
+    let out = regex_test_calc("capture");
+    assert!(
+        out.contains("capturing") || out.contains("group"),
+        "capture alias resolves"
+    );
+}
+
+#[test]
+fn regex_test_lookahead_alias() {
+    let out = regex_test_calc("lookahead");
+    assert!(
+        out.contains("lookahead") || out.contains("(?="),
+        "lookahead alias resolves"
+    );
+}
+
+#[test]
+fn regex_test_lookbehind_alias() {
+    let out = regex_test_calc("lookbehind");
+    assert!(
+        out.contains("lookbehind") || out.contains("(?<="),
+        "lookbehind alias resolves"
+    );
+}
+
+#[test]
+fn regex_test_lookaround_alias() {
+    let out = regex_test_calc("lookaround");
+    assert!(
+        out.contains("lookahead") || out.contains("lookbehind"),
+        "lookaround alias resolves"
+    );
+}
+
+#[test]
+fn regex_test_named_alias() {
+    let out = regex_test_calc("named");
+    assert!(
+        out.contains("named") || out.contains("(?P<"),
+        "named alias resolves"
+    );
+}
+
+#[test]
+fn regex_test_quantifiers() {
+    let out = regex_test_calc("quantifiers");
+    assert!(
+        out.contains("greedy") || out.contains("Greedy"),
+        "quantifiers has greedy"
+    );
+    assert!(
+        out.contains("lazy") || out.contains(".*?"),
+        "quantifiers has lazy"
+    );
+    assert!(
+        out.contains("{n}") || out.contains("{n,m}"),
+        "quantifiers has interval"
+    );
+}
+
+#[test]
+fn regex_test_greedy_alias() {
+    let out = regex_test_calc("greedy");
+    assert!(
+        out.contains("greedy") || out.contains("Greedy"),
+        "greedy alias resolves"
+    );
+}
+
+#[test]
+fn regex_test_lazy_alias() {
+    let out = regex_test_calc("lazy");
+    assert!(
+        out.contains("lazy") || out.contains(".*?"),
+        "lazy alias resolves"
+    );
+}
+
+#[test]
+fn regex_test_repetition_alias() {
+    let out = regex_test_calc("repetition");
+    assert!(
+        out.contains("greedy") || out.contains("{n}"),
+        "repetition alias resolves"
+    );
+}
+
+#[test]
+fn regex_test_charclass() {
+    let out = regex_test_calc("charclass");
+    assert!(
+        out.contains("[abc]") || out.contains("character class"),
+        "charclass section present"
+    );
+    assert!(
+        out.contains("Shorthand") || out.contains("shorthand") || out.contains("\\d"),
+        "charclass has shorthand"
+    );
+    assert!(
+        out.contains("Unicode") || out.contains("\\p{"),
+        "charclass has unicode"
+    );
+}
+
+#[test]
+fn regex_test_bracket_alias() {
+    let out = regex_test_calc("bracket");
+    assert!(
+        out.contains("[abc]") || out.contains("bracket") || out.contains("class"),
+        "bracket alias resolves"
+    );
+}
+
+#[test]
+fn regex_test_shorthand_alias() {
+    let out = regex_test_calc("shorthand");
+    assert!(
+        out.contains("Shorthand") || out.contains("shorthand") || out.contains("\\d"),
+        "shorthand alias resolves"
+    );
+}
+
+#[test]
+fn regex_test_posix_alias() {
+    let out = regex_test_calc("posix");
+    assert!(
+        out.contains("POSIX") || out.contains("[:alpha:]"),
+        "posix alias resolves"
+    );
+}
+
+#[test]
+fn regex_test_flags() {
+    let out = regex_test_calc("flags");
+    assert!(
+        out.contains("case-insensitive") || out.contains("(?i)"),
+        "flags has case-insensitive"
+    );
+    assert!(
+        out.contains("DOTALL") || out.contains("dotall") || out.contains("(?s)"),
+        "flags has dotall"
+    );
+    assert!(
+        out.contains("verbose") || out.contains("(?x)"),
+        "flags has verbose"
+    );
+}
+
+#[test]
+fn regex_test_flag_alias() {
+    let out = regex_test_calc("flag");
+    assert!(
+        out.contains("(?i)") || out.contains("case"),
+        "flag alias resolves"
+    );
+}
+
+#[test]
+fn regex_test_case_alias() {
+    let out = regex_test_calc("case");
+    assert!(
+        out.contains("case") || out.contains("(?i)"),
+        "case alias resolves"
+    );
+}
+
+#[test]
+fn regex_test_dotall_alias() {
+    let out = regex_test_calc("dotall");
+    assert!(
+        out.contains("DOTALL") || out.contains("dotall") || out.contains("(?s)"),
+        "dotall alias resolves"
+    );
+}
+
+#[test]
+fn regex_test_patterns() {
+    let out = regex_test_calc("patterns");
+    assert!(
+        out.contains("email") || out.contains("Email"),
+        "patterns has email"
+    );
+    assert!(
+        out.contains("UUID") || out.contains("uuid"),
+        "patterns has UUID"
+    );
+    assert!(
+        out.contains("IPv4") || out.contains("IP address"),
+        "patterns has IP"
+    );
+}
+
+#[test]
+fn regex_test_email_alias() {
+    let out = regex_test_calc("email");
+    assert!(
+        out.contains("email") || out.contains("@"),
+        "email alias resolves"
+    );
+}
+
+#[test]
+fn regex_test_url_alias() {
+    let out = regex_test_calc("url");
+    assert!(
+        out.contains("https?") || out.contains("URL"),
+        "url alias resolves"
+    );
+}
+
+#[test]
+fn regex_test_ip_alias() {
+    let out = regex_test_calc("ip");
+    assert!(
+        out.contains("IPv4") || out.contains("25[0-5]"),
+        "ip alias resolves"
+    );
+}
+
+#[test]
+fn regex_test_uuid_alias() {
+    let out = regex_test_calc("uuid");
+    assert!(
+        out.contains("UUID") || out.contains("uuid") || out.contains("[0-9a-f]"),
+        "uuid alias resolves"
+    );
+}
+
+#[test]
+fn regex_test_password_alias() {
+    let out = regex_test_calc("password");
+    assert!(
+        out.contains("password") || out.contains("Password") || out.contains("strength"),
+        "password alias resolves"
+    );
+}
+
+#[test]
+fn regex_test_hex_alias() {
+    let out = regex_test_calc("hex");
+    assert!(
+        out.contains("hex") || out.contains("#") || out.contains("[0-9a-fA"),
+        "hex alias resolves"
+    );
+}
+
+#[test]
+fn regex_test_no_panic_special() {
+    let _ = regex_test_calc("@#$%");
+    let _ = regex_test_calc("   ");
+}
+
+// ── http_headers_calc ─────────────────────────────────────────────────────────
+
+#[test]
+fn http_headers_help_empty() {
+    let out = http_headers_calc("");
+    assert!(
+        out.contains("hematite --http-headers"),
+        "help shown for empty query"
+    );
+}
+
+#[test]
+fn http_headers_help_unknown() {
+    let out = http_headers_calc("zzznomatch");
+    assert!(
+        out.contains("hematite --http-headers"),
+        "help shown for unknown"
+    );
+}
+
+#[test]
+fn http_headers_all() {
+    let out = http_headers_calc("all");
+    assert!(
+        out.contains("Host:") || out.contains("User-Agent"),
+        "all has request headers"
+    );
+    assert!(
+        out.contains("Content-Type") || out.contains("ETag"),
+        "all has response headers"
+    );
+    assert!(
+        out.contains("CSP") || out.contains("HSTS"),
+        "all has security headers"
+    );
+    assert!(out.contains("CORS") || out.contains("cors"), "all has CORS");
+}
+
+#[test]
+fn http_headers_request() {
+    let out = http_headers_calc("request");
+    assert!(out.contains("Host:"), "request section has Host");
+    assert!(
+        out.contains("User-Agent") || out.contains("Accept"),
+        "request has Accept"
+    );
+    assert!(
+        out.contains("Authorization") || out.contains("Cookie"),
+        "request has auth headers"
+    );
+}
+
+#[test]
+fn http_headers_req_alias() {
+    let out = http_headers_calc("req");
+    assert!(
+        out.contains("Host:") || out.contains("User-Agent"),
+        "req alias resolves"
+    );
+}
+
+#[test]
+fn http_headers_accept_alias() {
+    let out = http_headers_calc("accept");
+    assert!(
+        out.contains("Accept") || out.contains("User-Agent"),
+        "accept alias resolves"
+    );
+}
+
+#[test]
+fn http_headers_user_agent_alias() {
+    let out = http_headers_calc("user-agent");
+    assert!(
+        out.contains("User-Agent") || out.contains("user-agent"),
+        "user-agent alias resolves"
+    );
+}
+
+#[test]
+fn http_headers_response() {
+    let out = http_headers_calc("response");
+    assert!(
+        out.contains("Content-Type") || out.contains("ETag"),
+        "response section present"
+    );
+    assert!(
+        out.contains("Cache-Control") || out.contains("Vary"),
+        "response has caching"
+    );
+    assert!(
+        out.contains("Set-Cookie") || out.contains("Location"),
+        "response has Set-Cookie"
+    );
+}
+
+#[test]
+fn http_headers_resp_alias() {
+    let out = http_headers_calc("resp");
+    assert!(
+        out.contains("Content-Type") || out.contains("ETag"),
+        "resp alias resolves"
+    );
+}
+
+#[test]
+fn http_headers_etag_alias() {
+    let out = http_headers_calc("etag");
+    assert!(
+        out.contains("ETag") || out.contains("etag"),
+        "etag alias resolves"
+    );
+}
+
+#[test]
+fn http_headers_set_cookie_alias() {
+    let out = http_headers_calc("set-cookie");
+    assert!(
+        out.contains("Set-Cookie") || out.contains("HttpOnly"),
+        "set-cookie alias resolves"
+    );
+}
+
+#[test]
+fn http_headers_security() {
+    let out = http_headers_calc("security");
+    assert!(
+        out.contains("HSTS") || out.contains("Strict-Transport"),
+        "security has HSTS"
+    );
+    assert!(
+        out.contains("CSP") || out.contains("Content-Security"),
+        "security has CSP"
+    );
+    assert!(
+        out.contains("nosniff") || out.contains("X-Content"),
+        "security has nosniff"
+    );
+}
+
+#[test]
+fn http_headers_hsts_alias() {
+    let out = http_headers_calc("hsts");
+    assert!(
+        out.contains("HSTS") || out.contains("Strict-Transport"),
+        "hsts alias resolves"
+    );
+}
+
+#[test]
+fn http_headers_csp_alias() {
+    let out = http_headers_calc("csp");
+    assert!(
+        out.contains("CSP") || out.contains("Content-Security"),
+        "csp alias resolves"
+    );
+}
+
+#[test]
+fn http_headers_x_frame_alias() {
+    let out = http_headers_calc("x-frame");
+    assert!(
+        out.contains("X-Frame") || out.contains("frame"),
+        "x-frame alias resolves"
+    );
+}
+
+#[test]
+fn http_headers_nosniff_alias() {
+    let out = http_headers_calc("nosniff");
+    assert!(
+        out.contains("nosniff") || out.contains("X-Content"),
+        "nosniff alias resolves"
+    );
+}
+
+#[test]
+fn http_headers_coop_alias() {
+    let out = http_headers_calc("coop");
+    assert!(
+        out.contains("COOP") || out.contains("Cross-Origin"),
+        "coop alias resolves"
+    );
+}
+
+#[test]
+fn http_headers_cors() {
+    let out = http_headers_calc("cors");
+    assert!(
+        out.contains("Access-Control") || out.contains("CORS"),
+        "cors section present"
+    );
+    assert!(
+        out.contains("Allow-Origin") || out.contains("preflight"),
+        "cors has Allow-Origin"
+    );
+    assert!(
+        out.contains("Allow-Methods") || out.contains("OPTIONS"),
+        "cors has methods"
+    );
+}
+
+#[test]
+fn http_headers_cross_origin_alias() {
+    let out = http_headers_calc("cross-origin");
+    assert!(
+        out.contains("CORS") || out.contains("Access-Control"),
+        "cross-origin alias resolves"
+    );
+}
+
+#[test]
+fn http_headers_preflight_alias() {
+    let out = http_headers_calc("preflight");
+    assert!(
+        out.contains("preflight") || out.contains("OPTIONS"),
+        "preflight alias resolves"
+    );
+}
+
+#[test]
+fn http_headers_allow_origin_alias() {
+    let out = http_headers_calc("allow-origin");
+    assert!(
+        out.contains("Allow-Origin") || out.contains("cors"),
+        "allow-origin alias resolves"
+    );
+}
+
+#[test]
+fn http_headers_auth() {
+    let out = http_headers_calc("auth");
+    assert!(
+        out.contains("Authorization") || out.contains("Bearer"),
+        "auth section present"
+    );
+    assert!(
+        out.contains("Basic") || out.contains("Digest"),
+        "auth has Basic"
+    );
+    assert!(
+        out.contains("Cookie") || out.contains("HttpOnly"),
+        "auth has Cookie"
+    );
+}
+
+#[test]
+fn http_headers_bearer_alias() {
+    let out = http_headers_calc("bearer");
+    assert!(
+        out.contains("Bearer") || out.contains("Authorization"),
+        "bearer alias resolves"
+    );
+}
+
+#[test]
+fn http_headers_jwt_alias() {
+    let out = http_headers_calc("jwt");
+    assert!(
+        out.contains("JWT") || out.contains("Bearer"),
+        "jwt alias resolves"
+    );
+}
+
+#[test]
+fn http_headers_oauth_alias() {
+    let out = http_headers_calc("oauth");
+    assert!(
+        out.contains("OAuth") || out.contains("oauth") || out.contains("Bearer"),
+        "oauth alias resolves"
+    );
+}
+
+#[test]
+fn http_headers_csrf_alias() {
+    let out = http_headers_calc("csrf");
+    assert!(
+        out.contains("CSRF") || out.contains("csrf") || out.contains("SameSite"),
+        "csrf alias resolves"
+    );
+}
+
+#[test]
+fn http_headers_cache() {
+    let out = http_headers_calc("cache");
+    assert!(
+        out.contains("Cache-Control") || out.contains("max-age"),
+        "cache section present"
+    );
+    assert!(
+        out.contains("no-store") || out.contains("immutable"),
+        "cache has no-store"
+    );
+    assert!(
+        out.contains("ETag") || out.contains("Vary"),
+        "cache has ETag"
+    );
+}
+
+#[test]
+fn http_headers_cache_control_alias() {
+    let out = http_headers_calc("cache-control");
+    assert!(
+        out.contains("Cache-Control") || out.contains("max-age"),
+        "cache-control alias resolves"
+    );
+}
+
+#[test]
+fn http_headers_max_age_alias() {
+    let out = http_headers_calc("max-age");
+    assert!(
+        out.contains("max-age") || out.contains("Cache-Control"),
+        "max-age alias resolves"
+    );
+}
+
+#[test]
+fn http_headers_cdn_alias() {
+    let out = http_headers_calc("cdn");
+    assert!(
+        out.contains("CDN") || out.contains("cdn") || out.contains("max-age"),
+        "cdn alias resolves"
+    );
+}
+
+#[test]
+fn http_headers_immutable_alias() {
+    let out = http_headers_calc("immutable");
+    assert!(
+        out.contains("immutable") || out.contains("Cache-Control"),
+        "immutable alias resolves"
+    );
+}
+
+#[test]
+fn http_headers_no_panic_special() {
+    let _ = http_headers_calc("@#$%");
+    let _ = http_headers_calc("   ");
+}
+
+// ── crypto_ref_calc ───────────────────────────────────────────────────────────
+
+#[test]
+fn crypto_ref_help_empty() {
+    let out = crypto_ref_calc("");
+    assert!(
+        out.contains("hematite --crypto-ref"),
+        "help shown for empty query"
+    );
+}
+
+#[test]
+fn crypto_ref_help_unknown() {
+    let out = crypto_ref_calc("zzznomatch");
+    assert!(
+        out.contains("hematite --crypto-ref"),
+        "help shown for unknown"
+    );
+}
+
+#[test]
+fn crypto_ref_all() {
+    let out = crypto_ref_calc("all");
+    assert!(
+        out.contains("AES") || out.contains("symmetric"),
+        "all has symmetric"
+    );
+    assert!(
+        out.contains("RSA") || out.contains("ECC"),
+        "all has asymmetric"
+    );
+    assert!(
+        out.contains("SHA-256") || out.contains("hash"),
+        "all has hashing"
+    );
+    assert!(
+        out.contains("certificate") || out.contains("PKI"),
+        "all has PKI"
+    );
+}
+
+#[test]
+fn crypto_ref_symmetric() {
+    let out = crypto_ref_calc("symmetric");
+    assert!(out.contains("AES"), "symmetric has AES");
+    assert!(
+        out.contains("GCM") || out.contains("ChaCha20"),
+        "symmetric has GCM"
+    );
+    assert!(
+        out.contains("Argon2") || out.contains("bcrypt") || out.contains("PBKDF2"),
+        "symmetric has KDF"
+    );
+}
+
+#[test]
+fn crypto_ref_aes_alias() {
+    let out = crypto_ref_calc("aes");
+    assert!(out.contains("AES"), "aes alias resolves");
+}
+
+#[test]
+fn crypto_ref_gcm_alias() {
+    let out = crypto_ref_calc("gcm");
+    assert!(
+        out.contains("GCM") || out.contains("AEAD"),
+        "gcm alias resolves"
+    );
+}
+
+#[test]
+fn crypto_ref_chacha20_alias() {
+    let out = crypto_ref_calc("chacha20");
+    assert!(
+        out.contains("ChaCha20") || out.contains("Poly1305"),
+        "chacha20 alias resolves"
+    );
+}
+
+#[test]
+fn crypto_ref_argon2_alias() {
+    let out = crypto_ref_calc("argon2");
+    assert!(
+        out.contains("Argon2") || out.contains("argon2"),
+        "argon2 alias resolves"
+    );
+}
+
+#[test]
+fn crypto_ref_bcrypt_alias() {
+    let out = crypto_ref_calc("bcrypt");
+    assert!(
+        out.contains("bcrypt") || out.contains("work factor"),
+        "bcrypt alias resolves"
+    );
+}
+
+#[test]
+fn crypto_ref_pbkdf2_alias() {
+    let out = crypto_ref_calc("pbkdf2");
+    assert!(
+        out.contains("PBKDF2") || out.contains("pbkdf2"),
+        "pbkdf2 alias resolves"
+    );
+}
+
+#[test]
+fn crypto_ref_asymmetric() {
+    let out = crypto_ref_calc("asymmetric");
+    assert!(out.contains("RSA"), "asymmetric has RSA");
+    assert!(
+        out.contains("ECC") || out.contains("ECDSA"),
+        "asymmetric has ECC"
+    );
+    assert!(
+        out.contains("Ed25519") || out.contains("Curve25519"),
+        "asymmetric has Ed25519"
+    );
+}
+
+#[test]
+fn crypto_ref_rsa_alias() {
+    let out = crypto_ref_calc("rsa");
+    assert!(out.contains("RSA"), "rsa alias resolves");
+}
+
+#[test]
+fn crypto_ref_ecc_alias() {
+    let out = crypto_ref_calc("ecc");
+    assert!(
+        out.contains("ECC") || out.contains("Elliptic"),
+        "ecc alias resolves"
+    );
+}
+
+#[test]
+fn crypto_ref_ed25519_alias() {
+    let out = crypto_ref_calc("ed25519");
+    assert!(
+        out.contains("Ed25519") || out.contains("EdDSA"),
+        "ed25519 alias resolves"
+    );
+}
+
+#[test]
+fn crypto_ref_pq_alias() {
+    let out = crypto_ref_calc("pq");
+    assert!(
+        out.contains("post-quantum") || out.contains("Post-Quantum") || out.contains("Kyber"),
+        "pq alias resolves"
+    );
+}
+
+#[test]
+fn crypto_ref_kyber_alias() {
+    let out = crypto_ref_calc("kyber");
+    assert!(
+        out.contains("Kyber") || out.contains("post-quantum"),
+        "kyber alias resolves"
+    );
+}
+
+#[test]
+fn crypto_ref_hashing() {
+    let out = crypto_ref_calc("hashing");
+    assert!(out.contains("SHA-256"), "hashing has SHA-256");
+    assert!(
+        out.contains("HMAC") || out.contains("MAC"),
+        "hashing has HMAC"
+    );
+    assert!(
+        out.contains("Argon2") || out.contains("bcrypt"),
+        "hashing has password hashing"
+    );
+}
+
+#[test]
+fn crypto_ref_sha256_alias() {
+    let out = crypto_ref_calc("sha256");
+    assert!(
+        out.contains("SHA-256") || out.contains("SHA"),
+        "sha256 alias resolves"
+    );
+}
+
+#[test]
+fn crypto_ref_blake3_alias() {
+    let out = crypto_ref_calc("blake3");
+    assert!(
+        out.contains("BLAKE3") || out.contains("blake3"),
+        "blake3 alias resolves"
+    );
+}
+
+#[test]
+fn crypto_ref_hmac_alias() {
+    let out = crypto_ref_calc("hmac");
+    assert!(
+        out.contains("HMAC") || out.contains("hmac"),
+        "hmac alias resolves"
+    );
+}
+
+#[test]
+fn crypto_ref_pki() {
+    let out = crypto_ref_calc("pki");
+    assert!(
+        out.contains("certificate") || out.contains("PKI"),
+        "pki section present"
+    );
+    assert!(
+        out.contains("DV") || out.contains("OV") || out.contains("EV"),
+        "pki has cert types"
+    );
+    assert!(
+        out.contains("OCSP") || out.contains("CRL"),
+        "pki has revocation"
+    );
+}
+
+#[test]
+fn crypto_ref_certificate_alias() {
+    let out = crypto_ref_calc("certificate");
+    assert!(
+        out.contains("certificate") || out.contains("X.509"),
+        "certificate alias resolves"
+    );
+}
+
+#[test]
+fn crypto_ref_x509_alias() {
+    let out = crypto_ref_calc("x509");
+    assert!(
+        out.contains("X.509") || out.contains("certificate"),
+        "x509 alias resolves"
+    );
+}
+
+#[test]
+fn crypto_ref_ocsp_alias() {
+    let out = crypto_ref_calc("ocsp");
+    assert!(
+        out.contains("OCSP") || out.contains("revocation"),
+        "ocsp alias resolves"
+    );
+}
+
+#[test]
+fn crypto_ref_pem_alias() {
+    let out = crypto_ref_calc("pem");
+    assert!(
+        out.contains("PEM") || out.contains("base64"),
+        "pem alias resolves"
+    );
+}
+
+#[test]
+fn crypto_ref_vulnerabilities() {
+    let out = crypto_ref_calc("vulnerabilities");
+    assert!(
+        out.contains("Padding") || out.contains("padding-oracle"),
+        "vulnerabilities has padding oracle"
+    );
+    assert!(
+        out.contains("timing") || out.contains("Timing"),
+        "vulnerabilities has timing attack"
+    );
+    assert!(
+        out.contains("nonce") || out.contains("Nonce"),
+        "vulnerabilities has nonce reuse"
+    );
+}
+
+#[test]
+fn crypto_ref_attack_alias() {
+    let out = crypto_ref_calc("attack");
+    assert!(
+        out.contains("Attack") || out.contains("attack") || out.contains("Vulnerab"),
+        "attack alias resolves"
+    );
+}
+
+#[test]
+fn crypto_ref_timing_alias() {
+    let out = crypto_ref_calc("timing");
+    assert!(
+        out.contains("timing") || out.contains("Timing"),
+        "timing alias resolves"
+    );
+}
+
+#[test]
+fn crypto_ref_padding_oracle_alias() {
+    let out = crypto_ref_calc("padding-oracle");
+    assert!(
+        out.contains("Padding") || out.contains("padding"),
+        "padding-oracle alias resolves"
+    );
+}
+
+#[test]
+fn crypto_ref_protocols() {
+    let out = crypto_ref_calc("protocols");
+    assert!(
+        out.contains("TLS") || out.contains("tls"),
+        "protocols has TLS"
+    );
+    assert!(
+        out.contains("SSH") || out.contains("ssh"),
+        "protocols has SSH"
+    );
+    assert!(
+        out.contains("JWT") || out.contains("jwt"),
+        "protocols has JWT"
+    );
+}
+
+#[test]
+fn crypto_ref_tls_alias() {
+    let out = crypto_ref_calc("tls");
+    assert!(
+        out.contains("TLS") || out.contains("tls"),
+        "tls alias resolves"
+    );
+}
+
+#[test]
+fn crypto_ref_ssh_alias() {
+    let out = crypto_ref_calc("ssh");
+    assert!(
+        out.contains("SSH") || out.contains("ssh"),
+        "ssh alias resolves"
+    );
+}
+
+#[test]
+fn crypto_ref_jwt_alias() {
+    let out = crypto_ref_calc("jwt");
+    assert!(
+        out.contains("JWT") || out.contains("Bearer"),
+        "jwt alias resolves"
+    );
+}
+
+#[test]
+fn crypto_ref_wireguard_alias() {
+    let out = crypto_ref_calc("wireguard");
+    assert!(
+        out.contains("WireGuard") || out.contains("wireguard"),
+        "wireguard alias resolves"
+    );
+}
+
+#[test]
+fn crypto_ref_no_panic_special() {
+    let _ = crypto_ref_calc("@#$%");
+    let _ = crypto_ref_calc("   ");
+}
+
+// ── devops_ref_calc ───────────────────────────────────────────────────────────
+
+#[test]
+fn devops_ref_help_empty() {
+    let out = devops_ref_calc("");
+    assert!(
+        out.contains("hematite --devops-ref"),
+        "help shown for empty query"
+    );
+}
+
+#[test]
+fn devops_ref_help_unknown() {
+    let out = devops_ref_calc("zzznomatch");
+    assert!(
+        out.contains("hematite --devops-ref"),
+        "help shown for unknown"
+    );
+}
+
+#[test]
+fn devops_ref_all() {
+    let out = devops_ref_calc("all");
+    assert!(
+        out.contains("pipeline") || out.contains("CI"),
+        "all has cicd"
+    );
+    assert!(
+        out.contains("Docker") || out.contains("Kubernetes"),
+        "all has containers"
+    );
+    assert!(
+        out.contains("Terraform") || out.contains("Ansible"),
+        "all has iac"
+    );
+    assert!(
+        out.contains("Prometheus") || out.contains("SLO"),
+        "all has monitoring"
+    );
+}
+
+#[test]
+fn devops_ref_cicd() {
+    let out = devops_ref_calc("cicd");
+    assert!(
+        out.contains("pipeline") || out.contains("CI"),
+        "cicd section present"
+    );
+    assert!(
+        out.contains("GitHub Actions") || out.contains("GitLab"),
+        "cicd has GitHub Actions"
+    );
+    assert!(
+        out.contains("canary") || out.contains("blue") || out.contains("Blue"),
+        "cicd has deployment strategies"
+    );
+}
+
+#[test]
+fn devops_ref_pipeline_alias() {
+    let out = devops_ref_calc("pipeline");
+    assert!(
+        out.contains("pipeline") || out.contains("CI"),
+        "pipeline alias resolves"
+    );
+}
+
+#[test]
+fn devops_ref_github_actions_alias() {
+    let out = devops_ref_calc("github-actions");
+    assert!(
+        out.contains("GitHub Actions") || out.contains("github-actions"),
+        "github-actions alias resolves"
+    );
+}
+
+#[test]
+fn devops_ref_deploy_alias() {
+    let out = devops_ref_calc("deploy");
+    assert!(
+        out.contains("deploy") || out.contains("Deploy"),
+        "deploy alias resolves"
+    );
+}
+
+#[test]
+fn devops_ref_canary_alias() {
+    let out = devops_ref_calc("canary");
+    assert!(
+        out.contains("canary") || out.contains("Canary"),
+        "canary alias resolves"
+    );
+}
+
+#[test]
+fn devops_ref_blue_green_alias() {
+    let out = devops_ref_calc("blue-green");
+    assert!(
+        out.contains("Blue") || out.contains("blue"),
+        "blue-green alias resolves"
+    );
+}
+
+#[test]
+fn devops_ref_gitops_alias() {
+    let out = devops_ref_calc("gitops");
+    assert!(
+        out.contains("GitOps") || out.contains("gitops") || out.contains("Argo"),
+        "gitops alias resolves"
+    );
+}
+
+#[test]
+fn devops_ref_containers() {
+    let out = devops_ref_calc("containers");
+    assert!(
+        out.contains("Docker") || out.contains("docker"),
+        "containers has Docker"
+    );
+    assert!(
+        out.contains("Kubernetes") || out.contains("kubectl"),
+        "containers has Kubernetes"
+    );
+    assert!(
+        out.contains("Helm") || out.contains("helm"),
+        "containers has Helm"
+    );
+}
+
+#[test]
+fn devops_ref_docker_alias() {
+    let out = devops_ref_calc("docker");
+    assert!(
+        out.contains("Docker") || out.contains("docker"),
+        "docker alias resolves"
+    );
+}
+
+#[test]
+fn devops_ref_kubernetes_alias() {
+    let out = devops_ref_calc("kubernetes");
+    assert!(
+        out.contains("Kubernetes") || out.contains("kubectl"),
+        "kubernetes alias resolves"
+    );
+}
+
+#[test]
+fn devops_ref_k8s_alias() {
+    let out = devops_ref_calc("k8s");
+    assert!(
+        out.contains("Kubernetes") || out.contains("kubectl") || out.contains("k8s"),
+        "k8s alias resolves"
+    );
+}
+
+#[test]
+fn devops_ref_kubectl_alias() {
+    let out = devops_ref_calc("kubectl");
+    assert!(
+        out.contains("kubectl") || out.contains("Kubernetes"),
+        "kubectl alias resolves"
+    );
+}
+
+#[test]
+fn devops_ref_helm_alias() {
+    let out = devops_ref_calc("helm");
+    assert!(
+        out.contains("helm") || out.contains("Helm"),
+        "helm alias resolves"
+    );
+}
+
+#[test]
+fn devops_ref_iac() {
+    let out = devops_ref_calc("iac");
+    assert!(
+        out.contains("Terraform") || out.contains("terraform"),
+        "iac has Terraform"
+    );
+    assert!(
+        out.contains("Ansible") || out.contains("ansible"),
+        "iac has Ansible"
+    );
+    assert!(
+        out.contains("Pulumi") || out.contains("pulumi"),
+        "iac has Pulumi"
+    );
+}
+
+#[test]
+fn devops_ref_terraform_alias() {
+    let out = devops_ref_calc("terraform");
+    assert!(
+        out.contains("terraform") || out.contains("Terraform"),
+        "terraform alias resolves"
+    );
+}
+
+#[test]
+fn devops_ref_ansible_alias() {
+    let out = devops_ref_calc("ansible");
+    assert!(
+        out.contains("Ansible") || out.contains("ansible") || out.contains("playbook"),
+        "ansible alias resolves"
+    );
+}
+
+#[test]
+fn devops_ref_pulumi_alias() {
+    let out = devops_ref_calc("pulumi");
+    assert!(
+        out.contains("Pulumi") || out.contains("pulumi"),
+        "pulumi alias resolves"
+    );
+}
+
+#[test]
+fn devops_ref_infrastructure_alias() {
+    let out = devops_ref_calc("infrastructure");
+    assert!(
+        out.contains("Terraform") || out.contains("infrastructure"),
+        "infrastructure alias resolves"
+    );
+}
+
+#[test]
+fn devops_ref_monitoring() {
+    let out = devops_ref_calc("monitoring");
+    assert!(
+        out.contains("Prometheus") || out.contains("Grafana"),
+        "monitoring has Prometheus"
+    );
+    assert!(
+        out.contains("SLO") || out.contains("SLI"),
+        "monitoring has SLO/SLI"
+    );
+    assert!(
+        out.contains("error budget") || out.contains("Golden"),
+        "monitoring has golden signals"
+    );
+}
+
+#[test]
+fn devops_ref_prometheus_alias() {
+    let out = devops_ref_calc("prometheus");
+    assert!(
+        out.contains("Prometheus") || out.contains("PromQL"),
+        "prometheus alias resolves"
+    );
+}
+
+#[test]
+fn devops_ref_sli_alias() {
+    let out = devops_ref_calc("sli");
+    assert!(
+        out.contains("SLI") || out.contains("SLO"),
+        "sli alias resolves"
+    );
+}
+
+#[test]
+fn devops_ref_slo_alias() {
+    let out = devops_ref_calc("slo");
+    assert!(
+        out.contains("SLO") || out.contains("SLI"),
+        "slo alias resolves"
+    );
+}
+
+#[test]
+fn devops_ref_alerting_alias() {
+    let out = devops_ref_calc("alerting");
+    assert!(
+        out.contains("alert") || out.contains("Alert"),
+        "alerting alias resolves"
+    );
+}
+
+#[test]
+fn devops_ref_golden_signals_alias() {
+    let out = devops_ref_calc("golden-signals");
+    assert!(
+        out.contains("Golden") || out.contains("Latency"),
+        "golden-signals alias resolves"
+    );
+}
+
+#[test]
+fn devops_ref_sre() {
+    let out = devops_ref_calc("sre");
+    assert!(
+        out.contains("error budget")
+            || out.contains("error-budget")
+            || out.contains("Error Budget"),
+        "sre has error budget"
+    );
+    assert!(out.contains("toil") || out.contains("Toil"), "sre has toil");
+    assert!(
+        out.contains("postmortem") || out.contains("Postmortem"),
+        "sre has postmortem"
+    );
+}
+
+#[test]
+fn devops_ref_error_budget_alias() {
+    let out = devops_ref_calc("error-budget");
+    assert!(
+        out.contains("error budget") || out.contains("Error Budget"),
+        "error-budget alias resolves"
+    );
+}
+
+#[test]
+fn devops_ref_toil_alias() {
+    let out = devops_ref_calc("toil");
+    assert!(
+        out.contains("toil") || out.contains("Toil"),
+        "toil alias resolves"
+    );
+}
+
+#[test]
+fn devops_ref_postmortem_alias() {
+    let out = devops_ref_calc("postmortem");
+    assert!(
+        out.contains("postmortem") || out.contains("Postmortem"),
+        "postmortem alias resolves"
+    );
+}
+
+#[test]
+fn devops_ref_incident_alias() {
+    let out = devops_ref_calc("incident");
+    assert!(
+        out.contains("incident") || out.contains("Incident"),
+        "incident alias resolves"
+    );
+}
+
+#[test]
+fn devops_ref_circuit_breaker_alias() {
+    let out = devops_ref_calc("circuit-breaker");
+    assert!(
+        out.contains("circuit breaker")
+            || out.contains("Circuit breaker")
+            || out.contains("Circuit Breaker"),
+        "circuit-breaker alias resolves"
+    );
+}
+
+#[test]
+fn devops_ref_security() {
+    let out = devops_ref_calc("security");
+    assert!(
+        out.contains("SAST") || out.contains("DAST"),
+        "security has SAST/DAST"
+    );
+    assert!(
+        out.contains("SLSA") || out.contains("supply-chain") || out.contains("Supply"),
+        "security has SLSA"
+    );
+    assert!(
+        out.contains("signing") || out.contains("cosign"),
+        "security has signing"
+    );
+}
+
+#[test]
+fn devops_ref_sast_alias() {
+    let out = devops_ref_calc("sast");
+    assert!(
+        out.contains("SAST") || out.contains("static"),
+        "sast alias resolves"
+    );
+}
+
+#[test]
+fn devops_ref_slsa_alias() {
+    let out = devops_ref_calc("slsa");
+    assert!(
+        out.contains("SLSA") || out.contains("slsa"),
+        "slsa alias resolves"
+    );
+}
+
+#[test]
+fn devops_ref_supply_chain_alias() {
+    let out = devops_ref_calc("supply-chain");
+    assert!(
+        out.contains("supply-chain") || out.contains("Supply") || out.contains("SLSA"),
+        "supply-chain alias resolves"
+    );
+}
+
+#[test]
+fn devops_ref_scanning_alias() {
+    let out = devops_ref_calc("scanning");
+    assert!(
+        out.contains("scan") || out.contains("Scan") || out.contains("Trivy"),
+        "scanning alias resolves"
+    );
+}
+
+#[test]
+fn devops_ref_no_panic_special() {
+    let _ = devops_ref_calc("@#$%");
+    let _ = devops_ref_calc("   ");
 }

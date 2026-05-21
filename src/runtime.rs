@@ -1087,6 +1087,10 @@ mod tests {
             bash_adv: None,
             network_ref: None,
             unicode_ref: None,
+            regex_tester: None,
+            http_headers: None,
+            crypto_ref: None,
+            devops_ref: None,
             pdf_extract_helper: None,
             teleported_from: None,
         };

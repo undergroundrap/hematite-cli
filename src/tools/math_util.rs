@@ -37993,3 +37993,1652 @@ pub fn unicode_ref_calc(query: &str) -> String {
     }
     out
 }
+
+// ── Wave 25 functions ─────────────────────────────────────────────────────────
+
+type RegexTestSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+
+fn s_regex_test_anchors() -> &'static str {
+    "\
+  Anchors & Boundaries:
+    ^          Start of string (or line in multiline mode)
+    $          End of string (or line in multiline mode)
+    \\A         Start of string (never line — Python/Java/Rust/.NET)
+    \\Z         End of string, before optional final newline (Python/Java/.NET)
+    \\z         Absolute end of string (no trailing newline — Ruby/Rust)
+    \\b         Word boundary — between \\w and \\W (or start/end)
+    \\B         Non-word boundary
+    \\<  \\>     Word boundary (vim/sed/grep — GNU extension)
+
+  Multiline mode (m flag):
+    ^ and $ match start/end of each line, not the whole string
+    \\A / \\Z remain anchored to the whole string regardless
+
+  Examples:
+    ^hello$      — full line match
+    \\bword\\b     — whole word match
+    ^\\s*#        — lines starting with optional whitespace then #
+    \\d+$         — number at end of line
+    \\A\\d{4}\\Z   — exactly 4 digits (Python raw string)
+    (?m)^item    — 'item' at start of any line (PCRE inline flag)
+
+  Practical patterns:
+    (?i)^https?:// — URL start, case-insensitive
+    (?m)^\\s*$      — blank or whitespace-only lines
+    \\bv\\d+\\.\\d+  — version numbers like v1.23
+"
+}
+
+fn s_regex_test_groups() -> &'static str {
+    "\
+  Capturing & Non-Capturing Groups:
+    (abc)        — Capturing group — stored in $1, \\1, group(1)
+    (?:abc)      — Non-capturing group — grouping without capture
+    (?P<name>)   — Named capture (Python/PCRE) — accessed as group('name')
+    (?<name>)    — Named capture (JS/Rust/.NET/Go) — accessed as name
+    \\k<name>     — Backreference to named group
+    \\1  \\2       — Numeric backreference
+
+  Lookaround (zero-width):
+    (?=abc)      — Positive lookahead — followed by abc
+    (?!abc)      — Negative lookahead — not followed by abc
+    (?<=abc)     — Positive lookbehind — preceded by abc (PCRE/Python/.NET)
+    (?<!abc)     — Negative lookbehind — not preceded by abc
+    Note: Go (regexp) does NOT support lookaround
+    Rust (regex crate) does NOT support lookaround by default (use fancy-regex)
+
+  Alternation:
+    a|b          — match a or b
+    (?:cat|dog)s — match 'cats' or 'dogs' (non-capturing group)
+    (yes|no|maybe) — capturing alternation
+
+  Atomic groups / Possessive (PCRE only):
+    (?>abc)      — atomic group — no backtracking
+    \\w++         — possessive quantifier (Java/PCRE2)
+
+  Examples:
+    (\\d{4})-(\\d{2})-(\\d{2})   — date with capture groups
+    (?P<year>\\d{4})-(?P<month>\\d{2})-(?P<day>\\d{2}) — named date
+    (?<=\\$)\\d+\\.\\d{2}         — price without the dollar sign
+    (?i)(?:foo|bar)baz           — case-insensitive, non-capturing
+"
+}
+
+fn s_regex_test_quantifiers() -> &'static str {
+    "\
+  Quantifiers:
+    *            — 0 or more (greedy)
+    +            — 1 or more (greedy)
+    ?            — 0 or 1 (greedy)
+    {n}          — exactly n times
+    {n,}         — n or more times
+    {n,m}        — between n and m times (inclusive)
+
+  Greedy vs Lazy vs Possessive:
+    .*           — greedy: matches as much as possible
+    .*?          — lazy: matches as little as possible
+    .*+          — possessive: greedy, no backtracking (PCRE/Java)
+
+  Examples — greedy vs lazy:
+    <.+>         greedy: matches '<a>text</a>'  (whole thing)
+    <.+?>        lazy: matches '<a>' then '</a>' separately
+    \"[^\"]*\"   — better: match quoted string without backtracking issue
+
+  Common mistakes:
+    .* at end    — slow due to excessive backtracking
+    (.+)+        — catastrophic backtracking (ReDoS vulnerability)
+    (?:a+)+      — same ReDoS pattern — avoid nested quantifiers on same chars
+
+  Interval limits (by engine):
+    PCRE/Python/JS: {n,m} up to ~65535
+    .NET: {n,m} up to 2^31-1
+    Go: {n,m} up to 1000 (compile error beyond)
+
+  Practical:
+    \\s+          — one or more whitespace
+    \\d{1,3}     — 1-3 digits
+    [a-z]{2,}    — 2+ lowercase letters
+    .{0,50}?     — lazy match up to 50 chars
+"
+}
+
+fn s_regex_test_charclass() -> &'static str {
+    "\
+  Character Classes:
+    [abc]        — any of a, b, or c
+    [^abc]       — not a, b, or c (negated class)
+    [a-z]        — lowercase a through z
+    [A-Za-z0-9]  — alphanumeric
+    [\\x41-\\x5A] — A-Z via hex codepoints
+
+  Shorthand classes:
+    \\d           — digit [0-9]
+    \\D           — non-digit [^0-9]
+    \\w           — word char [A-Za-z0-9_]
+    \\W           — non-word char
+    \\s           — whitespace [ \\t\\r\\n\\f\\v]
+    \\S           — non-whitespace
+    \\h           — horizontal whitespace (PCRE — [ \\t])
+    \\v           — vertical whitespace (PCRE — [\\n\\r\\f])
+
+  POSIX classes (grep/sed/PCRE):
+    [:alpha:]    — [A-Za-z]
+    [:digit:]    — [0-9]
+    [:alnum:]    — [A-Za-z0-9]
+    [:space:]    — [ \\t\\r\\n\\f\\v]
+    [:upper:]    — [A-Z]
+    [:lower:]    — [a-z]
+    [:punct:]    — punctuation
+
+  Unicode properties (\\p{} — Python/Rust/PCRE/.NET):
+    \\p{L}        — any Unicode letter
+    \\p{Lu}       — uppercase letter
+    \\p{N}        — any number
+    \\p{Emoji}    — emoji (PCRE2/ECMAScript 2018+)
+    \\P{L}        — NOT a letter
+
+  Special inside []:
+    ]  ^  -  \\   — escape with \\ or position carefully
+    [-abc]       — literal hyphen at start
+    [abc-]       — literal hyphen at end
+    [\\^abc]     — literal caret
+
+  Examples:
+    [A-Za-z_][A-Za-z0-9_]* — valid identifier
+    [^\\r\\n]{1,80}         — line up to 80 chars
+    [\\u0080-\\uFFFF]       — non-ASCII characters
+"
+}
+
+fn s_regex_test_flags() -> &'static str {
+    "\
+  Regex Flags / Modifiers:
+    i   — case-insensitive  (all engines)
+    m   — multiline: ^ and $ match line boundaries  (all engines)
+    s   — DOTALL / singleline: . matches \\n  (PCRE/Python/JS/Rust)
+    x   — extended / verbose: allow whitespace and comments  (PCRE/Python/Rust)
+    g   — global: find all matches, not just first  (JS, sed)
+    u   — Unicode mode  (JS: proper Unicode handling)
+    v   — Unicode sets mode  (JS ES2024: set operations in [...])
+
+  Inline flag syntax (most engines):
+    (?i)pattern        — flag active from this point
+    (?i:pattern)       — flag scoped to group only
+    (?im)pattern       — multiple flags
+    (?-i)pattern       — turn flag OFF (PCRE/Python)
+
+  Per-engine flag API:
+    Python:   re.compile(r'...', re.I | re.M | re.S)
+    JS:       /pattern/gims  or  new RegExp('pattern', 'gi')
+    Rust:     RegexBuilder::new(r'...').case_insensitive(true).multi_line(true)
+    Go:       regexp.MustCompile('(?i)...')  (inline flags only)
+    .NET:     Regex.Match(s, p, RegexOptions.IgnoreCase | RegexOptions.Multiline)
+    Java:     Pattern.compile('...', Pattern.CASE_INSENSITIVE | Pattern.DOTALL)
+
+  x (verbose) mode example:
+    (?x)
+    (?P<year>  \\d{4} )  # year
+    -
+    (?P<month> \\d{2} )  # month
+    -
+    (?P<day>   \\d{2} )  # day
+
+  Useful combos:
+    (?is)      — case-insensitive + dotall (match across newlines)
+    (?ms)      — multiline + dotall
+    (?ix)      — case-insensitive + verbose
+"
+}
+
+fn s_regex_test_patterns() -> &'static str {
+    "\
+  Common Regex Patterns:
+  Email (simplified — RFC-compliant is impractical):
+    [a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}
+
+  URL:
+    https?://[^\\s/$.?#].[^\\s]*
+    (?:https?|ftp)://[\\w\\-]+(\\.[\\w\\-]+)+(/[\\w\\-._~:/?#\\[\\]@!$&'()*+,;=%]*)?
+
+  IPv4 address:
+    (?:(?:25[0-5]|2[0-4]\\d|[01]?\\d\\d?)\\.){3}(?:25[0-5]|2[0-4]\\d|[01]?\\d\\d?)
+
+  IPv6 (simplified):
+    ([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}
+
+  ISO 8601 date:
+    \\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\\d|3[01])
+
+  Time (HH:MM:SS):
+    (?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d
+
+  UUID:
+    [0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}
+
+  Semantic version:
+    v?(?:0|[1-9]\\d*)\\.(?:0|[1-9]\\d*)\\.(?:0|[1-9]\\d*)(?:-[\\w.]+)?(?:\\+[\\w.]+)?
+
+  Credit card (no spaces):
+    (?:4\\d{12}(?:\\d{3})?|5[1-5]\\d{14}|3[47]\\d{13}|3(?:0[0-5]|[68]\\d)\\d{11})
+
+  Password strength (≥8 chars, upper, lower, digit, special):
+    (?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[^a-zA-Z\\d]).{8,}
+
+  Hex color:
+    #(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})\\b
+
+  Slug:
+    [a-z0-9]+(?:-[a-z0-9]+)*
+
+  Markdown code block:
+    ```[\\w]*\\n[\\s\\S]*?```
+
+  ReDoS-safe alternatives:
+    Use [^...] instead of .* inside groups
+    Possessive or atomic groups where supported
+    Consider regex alternatives: parser libraries, split()
+"
+}
+
+const REGEX_TEST_SECTIONS: &[RegexTestSection] = &[
+    (
+        "anchors",
+        &[
+            "anchor",
+            "boundary",
+            "start",
+            "end",
+            "word-boundary",
+            "multiline",
+            "\\b",
+        ],
+        s_regex_test_anchors,
+    ),
+    (
+        "groups",
+        &[
+            "group",
+            "capture",
+            "lookahead",
+            "lookbehind",
+            "lookaround",
+            "named",
+            "backreference",
+            "alternation",
+            "non-capturing",
+        ],
+        s_regex_test_groups,
+    ),
+    (
+        "quantifiers",
+        &[
+            "quantifier",
+            "greedy",
+            "lazy",
+            "repetition",
+            "possessive",
+            "count",
+        ],
+        s_regex_test_quantifiers,
+    ),
+    (
+        "charclass",
+        &[
+            "charclass",
+            "character-class",
+            "bracket",
+            "shorthand",
+            "unicode-prop",
+            "posix",
+        ],
+        s_regex_test_charclass,
+    ),
+    (
+        "flags",
+        &[
+            "flag",
+            "modifier",
+            "case",
+            "case-insensitive",
+            "dotall",
+            "verbose",
+            "global",
+        ],
+        s_regex_test_flags,
+    ),
+    (
+        "patterns",
+        &[
+            "pattern",
+            "email",
+            "url",
+            "ip",
+            "date",
+            "uuid",
+            "password",
+            "hex",
+            "common",
+            "practical",
+        ],
+        s_regex_test_patterns,
+    ),
+];
+
+/// Regex reference — anchors, groups, quantifiers, character classes, flags, common patterns.
+pub fn regex_test_calc(query: &str) -> String {
+    use std::fmt::Write;
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+    let _ = writeln!(out, "{}", sep);
+    let _ = writeln!(out, "  Regex Reference");
+    let _ = writeln!(out, "{}", sep);
+
+    let q = query.trim().to_ascii_lowercase();
+
+    if q.is_empty() || q == "help" || q == "list" {
+        let _ = writeln!(
+            out,
+            "  Topics: anchors, groups, quantifiers, charclass, flags, patterns"
+        );
+        let _ = writeln!(out, "  Commands: all = all topics");
+        let _ = writeln!(out, "  Run: hematite --regex-tester <topic>");
+        let _ = writeln!(out, "{}", sep);
+        return out;
+    }
+
+    if q == "all" {
+        let _ = writeln!(out, "{}", sep);
+        for &(name, _, f) in REGEX_TEST_SECTIONS {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+        }
+        let _ = writeln!(out, "{}", sep);
+        return out;
+    }
+
+    let found: Vec<_> = REGEX_TEST_SECTIONS
+        .iter()
+        .filter(|&&(name, aliases, _)| {
+            name.contains(q.as_str())
+                || aliases
+                    .iter()
+                    .any(|&a| a.contains(q.as_str()) || q.contains(a))
+        })
+        .collect();
+
+    if found.is_empty() {
+        let _ = writeln!(out, "  No topic found for '{}'.", query.trim());
+        let _ = writeln!(out, "  Run: hematite --regex-tester help");
+    } else {
+        let _ = writeln!(out, "{}", sep);
+        for &&(name, _, f) in &found {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+        }
+        let _ = writeln!(out, "{}", sep);
+    }
+    out
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+type HttpHeaderSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+
+fn s_http_headers_request() -> &'static str {
+    "\
+  Common Request Headers:
+    Host: example.com                  — target host (required in HTTP/1.1)
+    User-Agent: Mozilla/5.0 ...        — client identification
+    Accept: text/html,application/json — acceptable response media types
+    Accept-Language: en-US,en;q=0.9   — preferred language
+    Accept-Encoding: gzip, deflate, br — supported compression
+    Accept-Charset: utf-8              — preferred charset (rarely needed)
+    Content-Type: application/json     — body MIME type (POST/PUT/PATCH)
+    Content-Length: 348                — byte length of body
+    Transfer-Encoding: chunked         — chunked body (no Content-Length)
+    Authorization: Bearer <token>      — auth credential
+    Cookie: session=abc123; theme=dark — cookies from browser
+    Referer: https://example.com/page  — referring page URL
+    Origin: https://example.com        — origin for CORS preflight
+    Connection: keep-alive             — control connection lifecycle
+    Upgrade-Insecure-Requests: 1       — prefer HTTPS
+    If-None-Match: \"686897696a7c876b\" — conditional GET via ETag
+    If-Modified-Since: Wed, 21 Oct 2015 07:28:00 GMT — conditional GET by date
+    Range: bytes=0-1023                — partial content request
+    Expect: 100-continue               — check if server accepts before sending body
+    X-Forwarded-For: 203.0.113.195     — client IP behind proxy
+    X-Request-ID: f45d-...             — distributed tracing identifier
+
+  Fetch metadata headers (modern browsers):
+    Sec-Fetch-Site: same-origin|cross-site|none
+    Sec-Fetch-Mode: navigate|cors|no-cors|same-origin|websocket
+    Sec-Fetch-Dest: document|script|image|fetch|empty
+    Sec-Fetch-User: ?1
+"
+}
+
+fn s_http_headers_response() -> &'static str {
+    "\
+  Common Response Headers:
+    Content-Type: text/html; charset=utf-8  — media type and encoding
+    Content-Length: 1234                    — byte size of body
+    Content-Encoding: gzip                  — compression applied
+    Transfer-Encoding: chunked              — chunked streaming
+    Date: Mon, 27 Jul 2009 12:28:53 GMT    — response timestamp
+    Last-Modified: Tue, 15 Nov 1994 12:45:26 GMT — resource change time
+    ETag: \"737060cd8c284d8af7ad3082f209582d\" — resource version tag
+    Location: https://example.com/new      — redirect target
+    Server: nginx/1.25.0                   — server software (consider hiding)
+    Set-Cookie: id=a3fWa; Path=/; Secure; HttpOnly; SameSite=Strict
+    Vary: Accept-Encoding, Accept-Language — caching variance signal
+    WWW-Authenticate: Bearer realm=\"api\" — auth challenge
+    Retry-After: 120                       — rate limit cooldown (seconds)
+    X-Request-ID: abc-123                  — correlation ID echo
+    Link: </api/2>; rel=\"next\"           — pagination / preload hints
+    Alt-Svc: h3=\":443\"; ma=86400        — HTTP/3 QUIC upgrade hint
+
+  Caching headers:
+    Cache-Control: no-store                — never cache (sensitive data)
+    Cache-Control: no-cache                — revalidate before use
+    Cache-Control: max-age=3600            — cache for 1 hour
+    Cache-Control: max-age=31536000, immutable — long-term static assets
+    Cache-Control: private, max-age=600   — per-user cache, 10 min
+    Expires: Thu, 01 Jan 1970 00:00:00 GMT — hard expire (legacy)
+    Pragma: no-cache                       — HTTP/1.0 no-cache (legacy)
+"
+}
+
+fn s_http_headers_security() -> &'static str {
+    "\
+  Security Response Headers:
+  Strict-Transport-Security (HSTS):
+    Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
+    — Forces HTTPS for all requests; preload submits to browser preload list
+
+  Content-Security-Policy (CSP):
+    Content-Security-Policy: default-src 'self'; script-src 'self' 'nonce-abc'; object-src 'none'
+    Content-Security-Policy: default-src 'none'; img-src *; media-src cdn.example.com
+    — Restrict which resources can load; prevent XSS injection
+    Report-Only mode: Content-Security-Policy-Report-Only: ...; report-uri /csp-report
+
+  X-Frame-Options (legacy — use CSP frame-ancestors instead):
+    X-Frame-Options: DENY                  — block all framing
+    X-Frame-Options: SAMEORIGIN           — allow same-origin frames only
+
+  X-Content-Type-Options:
+    X-Content-Type-Options: nosniff
+    — Prevent MIME sniffing; respect declared Content-Type
+
+  Referrer-Policy:
+    Referrer-Policy: no-referrer                      — never send Referer
+    Referrer-Policy: strict-origin-when-cross-origin  — recommended default
+    Referrer-Policy: same-origin                      — only for same-origin
+
+  Permissions-Policy (formerly Feature-Policy):
+    Permissions-Policy: camera=(), microphone=(), geolocation=(self)
+    — Control access to browser features per origin
+
+  Cross-Origin headers (COOP/COEP/CORP):
+    Cross-Origin-Opener-Policy: same-origin           — isolate browsing context
+    Cross-Origin-Embedder-Policy: require-corp         — require CORP on subresources
+    Cross-Origin-Resource-Policy: same-site           — restrict cross-site loading
+    — Together enable SharedArrayBuffer and precise timers (required for Wasm threads)
+
+  Security audit checklist:
+    Run: hematite --security-ref to cross-reference OWASP/CVE recommendations
+"
+}
+
+fn s_http_headers_cors() -> &'static str {
+    "\
+  CORS (Cross-Origin Resource Sharing) Headers:
+  Preflight request (OPTIONS):
+    Origin: https://app.example.com
+    Access-Control-Request-Method: POST
+    Access-Control-Request-Headers: Content-Type, Authorization
+
+  Preflight response:
+    Access-Control-Allow-Origin: https://app.example.com   — or * for public APIs
+    Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS
+    Access-Control-Allow-Headers: Content-Type, Authorization, X-Custom-Header
+    Access-Control-Allow-Credentials: true                 — needed for cookies/auth
+    Access-Control-Max-Age: 86400                          — preflight cache (seconds)
+
+  Actual request response:
+    Access-Control-Allow-Origin: https://app.example.com
+    Access-Control-Expose-Headers: X-Custom-Header, Content-Disposition
+    — Non-standard headers must be explicitly exposed to JS
+
+  CORS rules:
+    * wildcard cannot be used with credentials=true
+    Always validate Origin server-side — don't just echo it back
+    Preflight is sent for non-simple requests: non-GET/POST, non-standard headers, JSON body
+    Simple methods: GET, POST, HEAD with simple content types
+
+  Common CORS errors:
+    'Cross-Origin Request Blocked' — check Allow-Origin matches exactly
+    Missing Vary: Origin           — needed when serving different origins
+    Credentials blocked            — must set Allow-Credentials + exact origin
+"
+}
+
+fn s_http_headers_auth() -> &'static str {
+    "\
+  Authentication Headers:
+  Request:
+    Authorization: Basic dXNlcjpwYXNz         — base64(user:pass) — HTTPS only
+    Authorization: Bearer eyJhbGc...           — JWT or opaque token
+    Authorization: Digest username=\"...\", realm=\"...\", nonce=\"...\", uri=\"...\"
+    Authorization: AWS4-HMAC-SHA256 Credential=... — AWS SigV4
+    X-API-Key: sk-live-...                     — common custom header for API keys
+
+  Response challenges:
+    WWW-Authenticate: Basic realm=\"admin\"
+    WWW-Authenticate: Bearer realm=\"api\",error=\"invalid_token\"
+
+  OAuth 2.0 flow headers:
+    POST /token with:
+      Content-Type: application/x-www-form-urlencoded
+      Body: grant_type=authorization_code&code=...&redirect_uri=...
+    Access token use:
+      Authorization: Bearer <access_token>
+
+  Cookie-based auth:
+    Set-Cookie: session=abc123; Secure; HttpOnly; SameSite=Strict; Path=/; Max-Age=3600
+    Secure     — HTTPS only
+    HttpOnly   — not accessible to JavaScript (XSS mitigation)
+    SameSite=Strict — no cross-site sending (CSRF mitigation)
+    SameSite=Lax    — allows top-level navigation cross-site
+
+  CSRF protection:
+    X-CSRF-Token: <token>             — double-submit cookie pattern
+    Origin + Referer validation       — server-side check
+    SameSite cookies                  — modern browser protection
+
+  HATEOAS / API versioning:
+    Accept: application/vnd.api+json
+    X-API-Version: 2024-01
+    API-Version: 3
+"
+}
+
+fn s_http_headers_cache() -> &'static str {
+    "\
+  Caching Strategy Reference:
+  Cache-Control directives:
+    no-store                — never cache (bank pages, personal data)
+    no-cache                — cache but revalidate before serving
+    private                 — user-specific, no shared cache
+    public                  — any cache can store
+    max-age=N               — fresh for N seconds
+    s-maxage=N              — override max-age for shared caches only
+    must-revalidate         — never serve stale when expired
+    proxy-revalidate        — shared cache must revalidate
+    stale-while-revalidate=N — serve stale while fetching fresh in background
+    stale-if-error=N        — serve stale if upstream error for N seconds
+    immutable               — content will never change (hash in URL)
+
+  Strategy presets:
+    HTML (no versioning):  Cache-Control: no-cache
+    HTML + CDN:            Cache-Control: private, no-cache, no-store
+    CSS/JS (hashed URL):   Cache-Control: max-age=31536000, immutable
+    API responses:         Cache-Control: no-store, no-cache
+    User-specific:         Cache-Control: private, max-age=300
+    CDN-shared asset:      Cache-Control: public, max-age=86400, s-maxage=604800
+
+  Validation:
+    ETag: \"33a64df551425fcc55e\"     — strong validator (default)
+    ETag: W/\"0815\"               — weak validator (semantic equivalence)
+    If-None-Match: \"33a64df...\"   — conditional GET → 304 Not Modified
+    If-Modified-Since: <date>    — conditional GET by date
+
+  Vary header:
+    Vary: Accept-Encoding    — cache separate copies per encoding
+    Vary: Accept-Language    — separate per language
+    Vary: *                  — never share cached version (kills CDN caching)
+
+  CDN-specific:
+    Surrogate-Control: max-age=3600   — Varnish/Fastly CDN TTL
+    CDN-Cache-Control: max-age=7200  — Cloudflare-specific override
+    Cdn-Tag: product-123             — Cloudflare cache tag for purging
+"
+}
+
+const HTTP_HEADER_SECTIONS: &[HttpHeaderSection] = &[
+    (
+        "request",
+        &[
+            "request",
+            "req",
+            "accept",
+            "referer",
+            "origin",
+            "if-none-match",
+            "user-agent",
+            "fetch-metadata",
+        ],
+        s_http_headers_request,
+    ),
+    (
+        "response",
+        &[
+            "response",
+            "resp",
+            "set-cookie",
+            "etag",
+            "content-type",
+            "server",
+            "vary",
+            "location",
+            "caching",
+        ],
+        s_http_headers_response,
+    ),
+    (
+        "security",
+        &[
+            "security",
+            "hsts",
+            "csp",
+            "content-security-policy",
+            "x-frame",
+            "nosniff",
+            "coop",
+            "coep",
+            "corp",
+            "permissions-policy",
+            "referrer",
+        ],
+        s_http_headers_security,
+    ),
+    (
+        "cors",
+        &[
+            "cors",
+            "cross-origin",
+            "preflight",
+            "allow-origin",
+            "allow-methods",
+            "allow-credentials",
+        ],
+        s_http_headers_cors,
+    ),
+    (
+        "auth",
+        &[
+            "auth",
+            "authorization",
+            "bearer",
+            "basic",
+            "jwt",
+            "oauth",
+            "cookie",
+            "csrf",
+            "api-key",
+        ],
+        s_http_headers_auth,
+    ),
+    (
+        "cache",
+        &[
+            "cache",
+            "cache-control",
+            "max-age",
+            "no-store",
+            "stale",
+            "etag-cache",
+            "cdn",
+            "immutable",
+        ],
+        s_http_headers_cache,
+    ),
+];
+
+/// HTTP headers reference — request, response, security, CORS, auth, caching.
+pub fn http_headers_calc(query: &str) -> String {
+    use std::fmt::Write;
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+    let _ = writeln!(out, "{}", sep);
+    let _ = writeln!(out, "  HTTP Headers Reference");
+    let _ = writeln!(out, "{}", sep);
+
+    let q = query.trim().to_ascii_lowercase();
+
+    if q.is_empty() || q == "help" || q == "list" {
+        let _ = writeln!(
+            out,
+            "  Topics: request, response, security, cors, auth, cache"
+        );
+        let _ = writeln!(out, "  Commands: all = all topics");
+        let _ = writeln!(out, "  Run: hematite --http-headers <topic>");
+        let _ = writeln!(out, "{}", sep);
+        return out;
+    }
+
+    if q == "all" {
+        let _ = writeln!(out, "{}", sep);
+        for &(name, _, f) in HTTP_HEADER_SECTIONS {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+        }
+        let _ = writeln!(out, "{}", sep);
+        return out;
+    }
+
+    let found: Vec<_> = HTTP_HEADER_SECTIONS
+        .iter()
+        .filter(|&&(name, aliases, _)| {
+            name.contains(q.as_str())
+                || aliases
+                    .iter()
+                    .any(|&a| a.contains(q.as_str()) || q.contains(a))
+        })
+        .collect();
+
+    if found.is_empty() {
+        let _ = writeln!(out, "  No topic found for '{}'.", query.trim());
+        let _ = writeln!(out, "  Run: hematite --http-headers help");
+    } else {
+        let _ = writeln!(out, "{}", sep);
+        for &&(name, _, f) in &found {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+        }
+        let _ = writeln!(out, "{}", sep);
+    }
+    out
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+type CryptoSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+
+fn s_crypto_symmetric() -> &'static str {
+    "\
+  Symmetric Encryption:
+  AES (Advanced Encryption Standard):
+    Key sizes: 128, 192, 256 bits
+    Block size: 128 bits (16 bytes)
+    Modes:
+      ECB — never use: identical blocks → identical ciphertext
+      CBC — IV required; parallelizable decryption; padding oracle risk
+      CTR — counter mode; stream cipher; no padding; parallelizable both ways
+      GCM — preferred: authenticated encryption (AEAD); 96-bit nonce; 128-bit tag
+      SIV — nonce-misuse resistant; good when nonce randomness is uncertain
+    Best practice: AES-256-GCM; random 12-byte nonce per message
+
+  ChaCha20-Poly1305:
+    Stream cipher + Poly1305 MAC (AEAD)
+    256-bit key, 96-bit nonce, 128-bit tag
+    Faster than AES on devices without AES-NI hardware
+    RFC 8439; preferred in TLS 1.3 on mobile
+
+  Key derivation from passwords (never store raw passwords):
+    Argon2id: winner of PHC; preferred; configurable memory/time/parallelism
+    bcrypt: widely deployed; work factor 2^N; 72-byte input limit (careful!)
+    scrypt: memory-hard; N=32768, r=8, p=1 is common baseline
+    PBKDF2: FIPS-approved; use SHA-256; ≥600,000 iterations (2023 OWASP)
+
+  Key comparison (constant-time — prevent timing attacks):
+    Python:  hmac.compare_digest(a, b)
+    Go:      subtle.ConstantTimeCompare(a, b)
+    Rust:    ring::constant_time::verify_slices_are_equal(a, b)
+
+  Random number generation (cryptographically secure):
+    Python:  secrets.token_bytes(32)
+    Go:      crypto/rand.Read(buf)
+    Rust:    rand::rngs::OsRng (from rand crate)
+    JS/Node: crypto.randomBytes(32)
+"
+}
+
+fn s_crypto_asymmetric() -> &'static str {
+    "\
+  Asymmetric (Public-Key) Cryptography:
+  RSA:
+    Key sizes: 2048 (minimum), 3072 (recommended), 4096 (high security)
+    Padding: OAEP (encryption), PSS (signatures) — PKCS#1 v1.5 is legacy, avoid
+    Use for: key exchange, digital signatures, certificates
+    Slow for bulk data — use to wrap a symmetric key (hybrid encryption)
+    PKCS#1: raw RSA; PKCS#8: private key format; SubjectPublicKeyInfo: public key format
+
+  Elliptic Curve Cryptography (ECC):
+    ECDSA: digital signatures; widely deployed in TLS/code signing
+      Nonces must be random — Sony PS3 breach: reused nonce → private key leaked
+    ECDH: key exchange (ECDHE in TLS for forward secrecy)
+    Curves:
+      P-256 (secp256r1)  — NIST; widely supported; TLS default
+      P-384 (secp384r1)  — stronger; used by NSA Suite B
+      P-521 (secp521r1)  — overkill for most use cases
+      secp256k1           — Bitcoin; NOT recommended for general use
+      Curve25519         — Bernstein; fast; immune to timing attacks; preferred
+
+  EdDSA (Ed25519 / Ed448):
+    Signatures only (not key exchange directly — use X25519 for DH)
+    Ed25519: 128-bit security, 32-byte key, 64-byte signature, fast, deterministic
+    No nonce requirement (deterministic) — prevents ECDSA nonce reuse bugs
+    Preferred for SSH keys, code signing, JWTs (alg: EdDSA)
+    Widely supported: OpenSSH 6.5+, TLS 1.3, libsodium, AWS KMS
+
+  Key exchange:
+    ECDHE (TLS): ephemeral Diffie-Hellman for perfect forward secrecy
+    X25519: Curve25519 DH; used in TLS 1.3, WireGuard, Signal
+    Hybrid: combine classical (ECDH) + post-quantum (Kyber) for PQ transition
+
+  Post-Quantum:
+    CRYSTALS-Kyber (ML-KEM) — NIST selected key encapsulation
+    CRYSTALS-Dilithium (ML-DSA) — NIST selected signature scheme
+    SPHINCS+ — hash-based signatures; stateless; larger but very conservative
+    OpenSSL 3.x and BoringSSL support hybrid PQ modes; TLS 1.3 X25519+Kyber in Chrome
+"
+}
+
+fn s_crypto_hashing() -> &'static str {
+    "\
+  Cryptographic Hash Functions:
+  One-way digests:
+    MD5          — 128-bit; broken for collision; DO NOT use for security
+    SHA-1        — 160-bit; deprecated (collision found 2017); avoid
+    SHA-256      — 256-bit; 32-byte output; widely used; secure
+    SHA-384      — 384-bit; truncated SHA-512; good for HMAC
+    SHA-512      — 512-bit; 64-byte output; fastest on 64-bit CPUs with AVX2
+    SHA-3 (Keccak) — different internal structure from SHA-2; FIPS 202
+    BLAKE3       — very fast; 256-bit; parallelizable; secure; not yet FIPS
+    BLAKE2b      — predecessor to BLAKE3; 512-bit; widely deployed (e.g., Zig)
+
+  MAC (Message Authentication Code):
+    HMAC-SHA256: HMAC(key, message) — widely used; secure; add key rotation plan
+    Poly1305: MAC paired with ChaCha20; no padding; very fast
+    AES-GCM tag: 128-bit AEAD tag; implicit MAC
+    SipHash: fast non-cryptographic MAC for hash tables (DoS protection)
+    NEVER use hash(key || message) — length extension attack
+
+  Password hashing (MUST be slow):
+    Argon2id  — preferred; memory-hard; OWASP recommended; m=64MB,t=3,p=4
+    bcrypt    — work factor 12-14; 72-byte input truncation bug exists
+    scrypt    — N=32768, r=8, p=1 baseline; no length limit issue
+    PBKDF2    — FIPS; needs ≥600K iterations with SHA-256 per OWASP 2023
+    SHA-256 alone — NEVER use for passwords; instantly GPU-crackable
+
+  Content addressing:
+    Git uses SHA-1 (transitioning to SHA-256 in git 2.39+)
+    Docker image layers: SHA-256 of layer tar
+    BitTorrent: SHA-1 (legacy) → SHA-256 (BitTorrent v2)
+
+  Checksums (integrity, not security):
+    CRC-32, CRC-64: error detection only; not cryptographic
+    Adler-32: fast; zlib headers
+    xxHash: extremely fast non-cryptographic hash; good for caching
+"
+}
+
+fn s_crypto_pki() -> &'static str {
+    "\
+  PKI, Certificates & TLS:
+  X.509 Certificate fields:
+    Subject: CN=example.com, O=Acme Corp, C=US
+    Issuer: CN=Let's Encrypt Authority X3
+    Serial Number: unique per CA
+    Validity: NotBefore / NotAfter dates
+    Subject Alternative Names (SAN): DNS:example.com, DNS:*.example.com
+    Key Usage: Digital Signature, Key Encipherment
+    Extended Key Usage: TLS Web Server Authentication (1.3.6.1.5.5.7.3.1)
+    Basic Constraints: CA:FALSE (leaf) or CA:TRUE with path length
+
+  Certificate types:
+    DV (Domain Validated) — automated; Let's Encrypt, ZeroSSL; minutes
+    OV (Org Validated) — manual identity check; shows org in cert; days
+    EV (Extended Validation) — strongest; green bar (deprecated in modern browsers)
+    Wildcard: *.example.com — covers one subdomain level
+    SAN/Multi-domain: covers multiple distinct domains
+
+  Certificate chain:
+    Root CA (self-signed) → Intermediate CA → Leaf cert
+    Browsers trust root CAs via built-in stores (Mozilla, Apple, Microsoft, Google)
+    Let's Encrypt root: ISRG Root X1 (RSA-4096) and ISRG Root X2 (EC P-384)
+
+  Revocation:
+    CRL (Certificate Revocation List) — periodic download; slow
+    OCSP (Online Certificate Status Protocol) — real-time check; privacy concerns
+    OCSP Stapling — server includes OCSP response; privacy-preserving; recommended
+
+  Key formats:
+    PEM: base64 with -----BEGIN ... ----- headers; most common
+    DER: binary; same as PEM but decoded; used in Java
+    PKCS#12 / PFX: bundle of cert + key + chain; password protected
+    JWK: JSON Web Key; used in OAuth/OIDC ecosystems
+
+  OpenSSL quick reference:
+    openssl x509 -in cert.pem -noout -text   — view certificate details
+    openssl s_client -connect host:443 -showcerts  — inspect TLS chain
+    openssl verify -CAfile ca.pem cert.pem   — verify certificate chain
+    openssl req -newkey rsa:4096 -keyout key.pem -out csr.pem  — generate CSR
+"
+}
+
+fn s_crypto_vulns() -> &'static str {
+    "\
+  Common Cryptographic Vulnerabilities:
+  Padding Oracle (CBC mode):
+    Attack: modify ciphertext byte by byte, observe padding errors → decrypt
+    Example: POODLE (SSLv3), Lucky 13 (TLS CBC)
+    Fix: use authenticated encryption (AES-GCM); constant-time padding check
+
+  Nonce/IV Reuse:
+    AES-GCM: reusing nonce + key exposes keystream AND authentication key
+    ECDSA: reusing signature nonce leaks private key (PS3 breach 2010)
+    Fix: use random nonce per message; or nonce-misuse-resistant mode (AES-SIV, XSalsa20)
+
+  Length Extension Attack:
+    Affects: SHA-1, SHA-256, MD5 with Merkle-Damgård construction
+    hash(key||msg) can be extended without knowing key
+    Fix: use HMAC; use SHA-3; use BLAKE2/BLAKE3
+
+  Timing Attacks:
+    Comparing secrets with == leaks timing information
+    Fix: constant-time comparison (hmac.compare_digest, subtle.ConstantTimeCompare)
+    Also applies to: password comparison, MAC verification, ECDSA verify
+
+  Downgrade Attacks:
+    BEAST (forced SSLv3/CBC), POODLE, DROWN (SSLv2)
+    Fix: TLS 1.2+ minimum; disable TLS_FALLBACK_SCSV not sufficient alone
+
+  Key Management Failures:
+    Hardcoded keys in source code — never; use secrets manager
+    Insufficient key rotation — rotate symmetric keys ≥annually
+    Missing key revocation — revoke on compromise immediately
+    Key derivation mistakes — use HKDF for key derivation from secrets
+
+  Weak Random:
+    Math.random() — NOT cryptographic; predictable; never use for secrets
+    time-seeded PRNG — predictable
+    Fix: OS CSPRNG (crypto/rand, secrets, OsRng, crypto.randomBytes)
+
+  CWE References:
+    CWE-326: Inadequate Encryption Strength
+    CWE-327: Use of Broken Crypto Algorithm
+    CWE-328: Reversible One-Way Hash
+    CWE-330: Use of Insufficiently Random Values
+    CWE-916: Use of Password Hash With Insufficient Computational Effort
+"
+}
+
+fn s_crypto_protocols() -> &'static str {
+    "\
+  Cryptographic Protocols:
+  TLS 1.3 (RFC 8446 — 2018):
+    1-RTT handshake (vs 2-RTT in TLS 1.2)
+    0-RTT resumption (replay risk — use for non-sensitive idempotent requests only)
+    Mandatory forward secrecy (ECDHE / DHE only)
+    Cipher suites: TLS_AES_128_GCM_SHA256, TLS_AES_256_GCM_SHA384, TLS_CHACHA20_POLY1305_SHA256
+    Removed: RSA key exchange, CBC suites, RC4, 3DES, MD5/SHA-1 in certs, renegotiation
+    SNI (Server Name Indication): encrypted in TLS 1.3 draft ECH
+
+  TLS configuration checklist:
+    Minimum version: TLS 1.2 (TLS 1.3 preferred)
+    Disable SSLv2, SSLv3, TLS 1.0, TLS 1.1
+    HSTS with preload
+    OCSP stapling enabled
+    Certificate chain complete
+    Check: ssllabs.com/ssltest (A+ target)
+
+  SSH:
+    Key types (in preference order): Ed25519, ECDSA P-256, RSA-4096
+    Generate: ssh-keygen -t ed25519 -C \"email\"
+    Disable: PasswordAuthentication yes in sshd_config (use keys only)
+    Key exchange in modern SSH: curve25519-sha256
+
+  JWT (JSON Web Tokens):
+    Header.Payload.Signature — base64url encoded
+    Algorithm choices:
+      HS256 — HMAC; symmetric; server-side secret
+      RS256 — RSA signature; public key distribution easy
+      ES256 — ECDSA P-256; smaller signatures than RSA
+      EdDSA — Ed25519; most efficient; growing support
+    Pitfall: alg:none attack — always validate algorithm server-side
+    Pitfall: HS256 with public key — attacker sets alg=HS256, uses public key as secret
+    Claims: iss, sub, aud, exp, nbf, iat, jti
+    exp validation critical — check server-side, not just client-side
+
+  WireGuard:
+    Uses: Curve25519 ECDH, ChaCha20-Poly1305, BLAKE2s, SipHash24
+    Extremely minimal codebase (~4000 lines) vs OpenVPN/IPsec
+    In-kernel implementation; cryptographically opinionated
+"
+}
+
+const CRYPTO_SECTIONS: &[CryptoSection] = &[
+    (
+        "symmetric",
+        &[
+            "symmetric",
+            "aes",
+            "chacha20",
+            "gcm",
+            "cbc",
+            "stream-cipher",
+            "block-cipher",
+            "kdf",
+            "argon2",
+            "bcrypt",
+            "scrypt",
+            "pbkdf2",
+        ],
+        s_crypto_symmetric,
+    ),
+    (
+        "asymmetric",
+        &[
+            "asymmetric",
+            "rsa",
+            "ecc",
+            "ecdsa",
+            "ecdh",
+            "ed25519",
+            "curve25519",
+            "public-key",
+            "post-quantum",
+            "pq",
+            "kyber",
+        ],
+        s_crypto_asymmetric,
+    ),
+    (
+        "hashing",
+        &[
+            "hashing",
+            "hash",
+            "sha",
+            "sha256",
+            "sha512",
+            "blake",
+            "blake3",
+            "hmac",
+            "mac",
+            "password-hash",
+            "digest",
+        ],
+        s_crypto_hashing,
+    ),
+    (
+        "pki",
+        &[
+            "pki",
+            "certificate",
+            "x509",
+            "tls-cert",
+            "ca",
+            "chain",
+            "ocsp",
+            "crl",
+            "revocation",
+            "openssl",
+            "pem",
+            "pkcs",
+        ],
+        s_crypto_pki,
+    ),
+    (
+        "vulnerabilities",
+        &[
+            "vulnerabilities",
+            "vuln",
+            "attack",
+            "padding-oracle",
+            "nonce-reuse",
+            "timing",
+            "downgrade",
+            "weak",
+            "cwe",
+        ],
+        s_crypto_vulns,
+    ),
+    (
+        "protocols",
+        &[
+            "protocols",
+            "tls",
+            "ssh",
+            "jwt",
+            "wireguard",
+            "tls13",
+            "handshake",
+            "cipher-suite",
+        ],
+        s_crypto_protocols,
+    ),
+];
+
+/// Cryptography reference — symmetric, asymmetric, hashing, PKI, vulnerabilities, protocols.
+pub fn crypto_ref_calc(query: &str) -> String {
+    use std::fmt::Write;
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+    let _ = writeln!(out, "{}", sep);
+    let _ = writeln!(out, "  Cryptography Reference");
+    let _ = writeln!(out, "{}", sep);
+
+    let q = query.trim().to_ascii_lowercase();
+
+    if q.is_empty() || q == "help" || q == "list" {
+        let _ = writeln!(
+            out,
+            "  Topics: symmetric, asymmetric, hashing, pki, vulnerabilities, protocols"
+        );
+        let _ = writeln!(out, "  Commands: all = all topics");
+        let _ = writeln!(out, "  Run: hematite --crypto-ref <topic>");
+        let _ = writeln!(out, "{}", sep);
+        return out;
+    }
+
+    if q == "all" {
+        let _ = writeln!(out, "{}", sep);
+        for &(name, _, f) in CRYPTO_SECTIONS {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+        }
+        let _ = writeln!(out, "{}", sep);
+        return out;
+    }
+
+    let found: Vec<_> = CRYPTO_SECTIONS
+        .iter()
+        .filter(|&&(name, aliases, _)| {
+            name.contains(q.as_str())
+                || aliases
+                    .iter()
+                    .any(|&a| a.contains(q.as_str()) || q.contains(a))
+        })
+        .collect();
+
+    if found.is_empty() {
+        let _ = writeln!(out, "  No topic found for '{}'.", query.trim());
+        let _ = writeln!(out, "  Run: hematite --crypto-ref help");
+    } else {
+        let _ = writeln!(out, "{}", sep);
+        for &&(name, _, f) in &found {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+        }
+        let _ = writeln!(out, "{}", sep);
+    }
+    out
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+type DevopsSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+
+fn s_devops_cicd() -> &'static str {
+    "\
+  CI/CD Pipeline Reference:
+  Pipeline stages (typical):
+    Source → Build → Test → Scan → Package → Deploy → Verify → Monitor
+
+  GitHub Actions:
+    .github/workflows/ci.yml
+    on: [push, pull_request]
+    jobs:
+      build:
+        runs-on: ubuntu-latest
+        steps:
+          - uses: actions/checkout@v4
+          - uses: actions/setup-node@v4
+            with: { node-version: '20' }
+          - run: npm ci && npm test
+    Secrets: github.com → Settings → Secrets → Actions
+    Environments: production gate with manual approval
+
+  GitLab CI (.gitlab-ci.yml):
+    stages: [build, test, deploy]
+    build-job:
+      stage: build
+      script: [docker build -t $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA .]
+    deploy-prod:
+      stage: deploy
+      environment: production
+      when: manual
+      only: [main]
+
+  Pipeline best practices:
+    Fail fast: lint/typecheck before expensive tests
+    Parallelize: independent jobs run in parallel
+    Cache dependencies: actions/cache, GitLab cache:
+    Artifact promotion: same binary through all environments
+    Immutable tags: use git SHA, not 'latest'
+    Branch protection: require CI green before merge
+    SLSA provenance: sign artifacts (sigstore/cosign)
+
+  Trunk-based development:
+    Short-lived feature branches (< 1 day ideally)
+    Feature flags for unfinished features
+    Continuous integration means daily merge to main
+    Avoid: long-running feature branches → merge hell
+
+  Deployment strategies:
+    Blue/Green — two environments; switch traffic; instant rollback
+    Canary — route N% to new version; increase gradually
+    Rolling — replace instances one at a time
+    Recreate — stop all, deploy all (downtime; simple)
+    GitOps — git as source of truth; Argo CD / Flux reconcile
+"
+}
+
+fn s_devops_containers() -> &'static str {
+    "\
+  Container Orchestration:
+  Docker best practices:
+    Multi-stage builds: separate build and runtime stages
+    Non-root user: USER 1001 (not root inside container)
+    Immutable tags: pin base image SHA — FROM ubuntu@sha256:...
+    .dockerignore: exclude .git, node_modules, build artifacts
+    Layer ordering: COPY package.json → RUN npm ci → COPY src/
+    Health check: HEALTHCHECK --interval=30s CMD curl -f http://localhost/ || exit 1
+
+  Kubernetes patterns:
+    Pod: smallest deployable unit; 1 container usually
+    Deployment: manages ReplicaSet; rolling updates; rollback
+    Service: stable DNS + IP for pod group; ClusterIP / NodePort / LoadBalancer
+    Ingress: HTTP routing to services; TLS termination; path-based routing
+    ConfigMap: non-sensitive configuration; mounted as env or volume
+    Secret: base64-encoded (not encrypted by default — use sealed-secrets or Vault)
+    PersistentVolume: durable storage independent of pod lifecycle
+
+  Key kubectl commands:
+    kubectl get pods -n namespace -o wide
+    kubectl describe pod <name>
+    kubectl logs <pod> --previous (crashed containers)
+    kubectl exec -it <pod> -- /bin/sh
+    kubectl rollout status deployment/<name>
+    kubectl rollout undo deployment/<name>
+    kubectl scale deployment/<name> --replicas=3
+    kubectl top pods --sort-by=memory
+
+  Resource requests and limits:
+    resources:
+      requests: { cpu: 100m, memory: 128Mi }   — guaranteed
+      limits: { cpu: 500m, memory: 512Mi }      — maximum
+    1000m = 1 CPU core; 1Mi = 1 mebibyte
+    OOM kill happens when memory limit exceeded
+    CPU throttling (not kill) when CPU limit exceeded
+
+  Helm:
+    helm install my-app ./chart --set image.tag=v1.2.3
+    helm upgrade --install my-app ./chart -f values-prod.yaml
+    helm rollback my-app 1
+    helm template ./chart > rendered.yaml  — dry run inspection
+"
+}
+
+fn s_devops_iac() -> &'static str {
+    "\
+  Infrastructure as Code:
+  Terraform:
+    terraform init      — initialize providers and modules
+    terraform plan      — preview changes (always review before apply)
+    terraform apply     — create/update infrastructure
+    terraform destroy   — tear down (DANGEROUS: confirm target)
+    terraform fmt       — format HCL files
+    terraform validate  — check configuration syntax
+
+    State: stored in terraform.tfstate — NEVER commit to git
+    Remote state: S3 + DynamoDB lock (AWS) or Terraform Cloud
+    Workspaces: separate state per environment (dev/staging/prod)
+    Modules: reusable infrastructure components
+    Import: terraform import aws_instance.server i-1234567890
+
+  Pulumi (code-first IaC):
+    pulumi up    — preview and deploy
+    pulumi stack — manage environments
+    Supports: Python, TypeScript, Go, .NET, Java
+    State: Pulumi Cloud or self-managed (S3)
+
+  Ansible:
+    Agentless: SSH-based; push model
+    Playbook (YAML): list of plays → tasks
+    - name: Deploy app
+      hosts: webservers
+      tasks:
+        - name: Install nginx
+          apt: name=nginx state=present
+        - name: Start nginx
+          service: name=nginx state=started enabled=yes
+    Idempotent: safe to run multiple times
+    Vault: ansible-vault encrypt secrets.yml
+
+  IaC best practices:
+    Immutable infrastructure: replace, don't patch
+    All infra in code — no manual console changes
+    Module versioning: pin module versions
+    Policy as code: OPA/Sentinel for guardrails
+    Drift detection: run plan on schedule; alert on drift
+    Secret management: Vault / AWS Secrets Manager / Azure Key Vault
+    Tagging strategy: Env, Owner, CostCenter, Project on all resources
+"
+}
+
+fn s_devops_monitoring() -> &'static str {
+    "\
+  Monitoring & Observability:
+  The Three Pillars:
+    Metrics   — numerical measurements over time (Prometheus, Datadog)
+    Logs      — timestamped records of events (Loki, ELK, CloudWatch)
+    Traces    — request flows across services (Jaeger, Zipkin, X-Ray)
+
+  Prometheus:
+    pull-based: scrapes /metrics endpoints
+    PromQL examples:
+      rate(http_requests_total[5m])             — req/sec last 5 min
+      histogram_quantile(0.99, rate(http_request_duration_seconds_bucket[5m]))
+                                                — p99 latency
+      sum(rate(errors_total[5m])) by (service)  — errors by service
+      1 - avg(up)                               — % of targets down
+    Alert: Alertmanager routes to PagerDuty/Slack/email
+    Grafana: dashboards backed by PromQL
+
+  SLI / SLO / SLA:
+    SLI: measurable metric (error rate, latency p99)
+    SLO: target (e.g. 99.9% success rate over 30 days)
+    SLA: contractual commitment; penalty for breach
+    Error budget: 1 - SLO = budget for unreliability
+      99.9% SLO → 43.8 min/month error budget
+      99.99% SLO → 4.38 min/month error budget
+
+  Golden Signals (Google SRE):
+    Latency  — time to serve request (separate good vs error)
+    Traffic  — demand: requests/sec, transactions/sec
+    Errors   — rate of failed requests (explicit 5xx + implicit timeouts)
+    Saturation — resource utilization approaching limit (CPU, disk, queue depth)
+
+  USE Method (for resources):
+    Utilization, Saturation, Errors — per resource (CPU, memory, disk, NIC)
+
+  Alerting principles:
+    Alert on symptoms, not causes (page on SLO breach, not CPU > 80%)
+    Every alert must be actionable — no alert without a runbook
+    Alert fatigue: silence noisy alerts; fix root cause
+    Pages ≠ tickets: only wake someone up for user-impacting issues
+
+  Logging best practices:
+    Structured JSON: { timestamp, level, msg, traceId, userId }
+    Never log secrets, PII, credentials
+    Log levels: ERROR (page), WARN (ticket), INFO (ops), DEBUG (dev)
+    Correlation IDs: propagate X-Request-ID through service calls
+"
+}
+
+fn s_devops_sre() -> &'static str {
+    "\
+  SRE Principles & Practices:
+  Error Budgets:
+    Reliability work vs feature work governed by error budget
+    If budget spent: freeze features, focus on reliability
+    If budget plentiful: accept more risk, move faster
+
+  Toil reduction:
+    Toil: manual, repetitive, automatable, scales with traffic
+    Goal: < 50% of SRE time on toil
+    Automate: on-call runbooks → playbooks → auto-remediation
+
+  On-call best practices:
+    Runbooks for every alert — linked from alert annotation
+    Blameless postmortems: focus on systems, not people
+    Incident command: IC, comms lead, scribe, subject experts
+    5 Whys: dig to root cause, not symptoms
+
+  Postmortem template:
+    Date / Duration / Impact / Root Cause
+    Timeline (UTC)
+    Contributing factors
+    Action items (owner, due date)
+    Detection gap / Prevention gap
+
+  Reliability patterns:
+    Circuit breaker: fail fast on downstream degradation
+    Retry with backoff: exponential + jitter to prevent thundering herd
+    Bulkhead: isolate failures — separate thread pools per service
+    Timeouts: always set; default is forever (bad)
+    Rate limiting: protect services from overload; client-side + server-side
+    Health endpoints: /health (liveness), /ready (readiness for traffic)
+    Chaos engineering: inject failures in production (Netflix Simian Army)
+
+  Capacity planning:
+    Load test: k6, Locust, Gatling, Artillery
+    Headroom: provision for 2× peak + 30% headroom
+    Autoscaling: HPA (CPU/custom metrics), KEDA (event-driven), Karpenter
+    Cost vs reliability: spot instances for fault-tolerant workloads
+
+  GitOps / CD practices:
+    Argo CD / Flux: git reconciliation loop
+    Progressive delivery: Argo Rollouts, Flagger (canary + analysis)
+    Feature flags: LaunchDarkly, Flipt, Flagsmith (decouple deploy from release)
+"
+}
+
+fn s_devops_security() -> &'static str {
+    "\
+  DevSecOps & Supply Chain Security:
+  Shift-left security:
+    SAST: static analysis in CI (CodeQL, semgrep, Bandit for Python)
+    DAST: dynamic testing against running app (OWASP ZAP, Burp Suite)
+    SCA: dependency scanning (Dependabot, Snyk, OWASP Dependency-Check)
+    Secrets scanning: git-secrets, detect-secrets, TruffleHog
+    Container scanning: Trivy, Grype, Clair, Docker Scout
+
+  SLSA (Supply-chain Levels for Software Artifacts):
+    L1: build scripts checked in; provenance generated
+    L2: hosted build platform; signed provenance
+    L3: hardened build platform; non-falsifiable provenance
+    L4: hermetic, reproducible builds
+    Use: sigstore/cosign for signing container images
+         rekor transparency log for artifact provenance
+
+  Dependency management:
+    Pin exact versions in lock files (package-lock.json, Cargo.lock)
+    Audit: npm audit, cargo audit, pip-audit, trivy fs .
+    Renovate / Dependabot: automated dependency PRs
+    Vendoring: copy deps into repo for air-gapped builds
+
+  Secret management in CI/CD:
+    Never hardcode secrets in code or CI YAML
+    GitHub Secrets / GitLab CI Variables / Vault Agent
+    Short-lived credentials: OIDC → cloud IAM (no long-lived keys)
+      GitHub Actions → AWS (aws-actions/configure-aws-credentials)
+    Rotation: rotate secrets ≤ 90 days; detect leaks with secret scanning
+
+  Network security:
+    Kubernetes NetworkPolicy: default-deny, allow-listed ingress/egress
+    Service mesh: mTLS between services (Istio, Linkerd, Consul Connect)
+    Admission control: OPA Gatekeeper, Kyverno — enforce policy in k8s
+    Image signing: cosign sign --key=... image@sha256:...
+    RBAC: least-privilege; separate service accounts per deployment
+"
+}
+
+const DEVOPS_SECTIONS: &[DevopsSection] = &[
+    (
+        "cicd",
+        &[
+            "cicd",
+            "ci-cd",
+            "pipeline",
+            "github-actions",
+            "gitlab-ci",
+            "deployment",
+            "deploy",
+            "blue-green",
+            "canary",
+            "trunk",
+            "gitops",
+        ],
+        s_devops_cicd,
+    ),
+    (
+        "containers",
+        &[
+            "containers",
+            "docker",
+            "kubernetes",
+            "k8s",
+            "kubectl",
+            "helm",
+            "pod",
+            "deployment-k8s",
+            "ingress",
+            "configmap",
+        ],
+        s_devops_containers,
+    ),
+    (
+        "iac",
+        &[
+            "iac",
+            "terraform",
+            "pulumi",
+            "ansible",
+            "infrastructure",
+            "cloudformation",
+            "infra-as-code",
+        ],
+        s_devops_iac,
+    ),
+    (
+        "monitoring",
+        &[
+            "monitoring",
+            "observability",
+            "prometheus",
+            "grafana",
+            "metrics",
+            "logs",
+            "traces",
+            "sli",
+            "slo",
+            "sla",
+            "alerting",
+            "golden-signals",
+        ],
+        s_devops_monitoring,
+    ),
+    (
+        "sre",
+        &[
+            "sre",
+            "reliability",
+            "error-budget",
+            "toil",
+            "postmortem",
+            "incident",
+            "on-call",
+            "circuit-breaker",
+            "chaos",
+            "capacity",
+        ],
+        s_devops_sre,
+    ),
+    (
+        "security",
+        &[
+            "security",
+            "devsecops",
+            "sast",
+            "dast",
+            "sca",
+            "slsa",
+            "secrets",
+            "supply-chain",
+            "scanning",
+            "signing",
+        ],
+        s_devops_security,
+    ),
+];
+
+/// DevOps reference — CI/CD, containers/k8s, IaC, monitoring/SRE, DevSecOps.
+pub fn devops_ref_calc(query: &str) -> String {
+    use std::fmt::Write;
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+    let _ = writeln!(out, "{}", sep);
+    let _ = writeln!(out, "  DevOps Reference");
+    let _ = writeln!(out, "{}", sep);
+
+    let q = query.trim().to_ascii_lowercase();
+
+    if q.is_empty() || q == "help" || q == "list" {
+        let _ = writeln!(
+            out,
+            "  Topics: cicd, containers, iac, monitoring, sre, security"
+        );
+        let _ = writeln!(out, "  Commands: all = all topics");
+        let _ = writeln!(out, "  Run: hematite --devops-ref <topic>");
+        let _ = writeln!(out, "{}", sep);
+        return out;
+    }
+
+    if q == "all" {
+        let _ = writeln!(out, "{}", sep);
+        for &(name, _, f) in DEVOPS_SECTIONS {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+        }
+        let _ = writeln!(out, "{}", sep);
+        return out;
+    }
+
+    let found: Vec<_> = DEVOPS_SECTIONS
+        .iter()
+        .filter(|&&(name, aliases, _)| {
+            name.contains(q.as_str())
+                || aliases
+                    .iter()
+                    .any(|&a| a.contains(q.as_str()) || q.contains(a))
+        })
+        .collect();
+
+    if found.is_empty() {
+        let _ = writeln!(out, "  No topic found for '{}'.", query.trim());
+        let _ = writeln!(out, "  Run: hematite --devops-ref help");
+    } else {
+        let _ = writeln!(out, "{}", sep);
+        for &&(name, _, f) in &found {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+        }
+        let _ = writeln!(out, "{}", sep);
+    }
+    out
+}

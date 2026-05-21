@@ -1857,6 +1857,38 @@ pub struct CliCockpit {
     pub unicode_ref: Option<String>,
 
     #[arg(
+        long = "regex-tester",
+        help_heading = "Developer Reference",
+        value_name = "TOPIC",
+        help = "Regex reference — anchors, groups, quantifiers, character classes, flags, common patterns. Topics: anchors, groups, quantifiers, charclass, flags, patterns. Commands: all = everything. Examples: hematite --regex-tester anchors | hematite --regex-tester patterns | hematite --regex-tester groups"
+    )]
+    pub regex_tester: Option<String>,
+
+    #[arg(
+        long = "http-headers",
+        help_heading = "Developer Reference",
+        value_name = "TOPIC",
+        help = "HTTP headers reference — request, response, security, CORS, auth, caching. Topics: request, response, security, cors, auth, cache. Commands: all = everything. Examples: hematite --http-headers security | hematite --http-headers cors | hematite --http-headers cache"
+    )]
+    pub http_headers: Option<String>,
+
+    #[arg(
+        long = "crypto-ref",
+        help_heading = "Developer Reference",
+        value_name = "TOPIC",
+        help = "Cryptography reference — symmetric, asymmetric, hashing, PKI, vulnerabilities, protocols. Topics: symmetric, asymmetric, hashing, pki, vulnerabilities, protocols. Commands: all = everything. Examples: hematite --crypto-ref hashing | hematite --crypto-ref asymmetric | hematite --crypto-ref pki"
+    )]
+    pub crypto_ref: Option<String>,
+
+    #[arg(
+        long = "devops-ref",
+        help_heading = "Developer Reference",
+        value_name = "TOPIC",
+        help = "DevOps reference — CI/CD, containers/k8s, IaC, monitoring, SRE, DevSecOps. Topics: cicd, containers, iac, monitoring, sre, security. Commands: all = everything. Examples: hematite --devops-ref cicd | hematite --devops-ref monitoring | hematite --devops-ref sre"
+    )]
+    pub devops_ref: Option<String>,
+
+    #[arg(
         long,
         help_heading = "Math & Science",
         value_name = "QUERY",
