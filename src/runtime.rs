@@ -1075,6 +1075,10 @@ mod tests {
             linux_adv: None,
             security_ref: None,
             cloud_ref: None,
+            regex_adv: None,
+            sql_adv: None,
+            vim_adv: None,
+            python_data: None,
             pdf_extract_helper: None,
             teleported_from: None,
         };

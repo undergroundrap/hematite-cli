@@ -36125,3 +36125,599 @@ pub fn cloud_ref_calc(query: &str) -> String {
     }
     out
 }
+
+// ─── Wave 22: regex-adv, sql-adv, vim-adv, python-data ───────────────────────
+
+pub fn regex_adv_calc(query: &str) -> String {
+    use std::fmt::Write as _;
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+
+    fn s_lookaround() -> &'static str {
+        "  Lookahead and lookbehind (zero-width assertions):\n\n  Positive lookahead  (?=...)   Match if followed by ...\n  Negative lookahead  (?!...)   Match if NOT followed by ...\n  Positive lookbehind (?<=...)  Match if preceded by ...\n  Negative lookbehind (?<!...)  Match if NOT preceded by ...\n\n  Examples:\n  \\d+(?= dollars)       Numbers followed by ' dollars' (number captured)\n  \\d+(?! dollars)       Numbers NOT followed by ' dollars'\n  (?<=\\$)\\d+            Numbers preceded by '$'\n  (?<!\\$)\\d+            Numbers NOT preceded by '$'\n\n  Password validation (all rules in one regex):\n  ^(?=.*[A-Z])(?=.*[a-z])(?=.*\\d)(?=.*[!@#$%]).{8,}$\n  # Must have uppercase, lowercase, digit, special char, min 8 chars\n\n  Word with specific suffix (not captured):\n  \\w+(?=ing\\b)          Matches 'walk' in 'walking'\n\n  Variable names not followed by '(':\n  [a-zA-Z_]\\w*(?!\\s*\\()  Identifiers that aren't function calls\n\n  Lookbehind gotchas:\n  - In PCRE/Python/JS(v2): lookbehind can be variable length\n  - In Python re (not regex): lookbehind must be fixed width\n  - In RE2/Go: NO lookbehind at all\n  - In Java: fixed-width lookbehind only\n\n  Atomic lookahead (PCRE/Python regex lib):\n  (?>...)    Once matched, never backtracks into group\n  Prevents catastrophic backtracking on ambiguous patterns.\n"
+    }
+    fn s_groups() -> &'static str {
+        "  Group types:\n\n  (...)         Capturing group — $1 / \\1 / match.group(1)\n  (?:...)       Non-capturing group — grouping without capture overhead\n  (?P<name>...) Named group (Python/PCRE) — match['name'] or \\k<name>\n  (?<name>...)  Named group (JS/PCRE2/.NET)\n  (?P=name)     Backreference by name (Python)\n  \\k<name>      Backreference by name (JS/PCRE2)\n  \\1, \\2        Numbered backreference\n  $1, $2        Replacement backreference (sed, JS .replace, etc.)\n\n  Named groups examples:\n  # Python\n  import re\n  m = re.match(r'(?P<year>\\d{4})-(?P<month>\\d{2})-(?P<day>\\d{2})', '2024-01-15')\n  m.group('year')   # '2024'\n  m.groupdict()     # {'year': '2024', 'month': '01', 'day': '15'}\n\n  Backreference (match repeated word):\n  \\b(\\w+)\\s+\\1\\b      Finds doubled words: 'the the', 'is is'\n\n  Non-capturing vs named (prefer named for readability):\n  (?:\\d{4})-(?:\\d{2})  Hard to read with many groups\n  (?P<year>\\d{4})-(?P<month>\\d{2})  Self-documenting\n\n  Branch reset groups (PCRE2/PHP/Perl):\n  (?|(a)|(b)|(c))  Each alternative resets to group 1\n\n  Conditional (PCRE/Perl):\n  (?(1)yes|no)  If group 1 matched, use 'yes' pattern, else 'no'\n"
+    }
+    fn s_flavors() -> &'static str {
+        "  Regex flavor comparison:\n\n  Feature           PCRE   Python  RE2/Go  JS(ES2018)  .NET  Java\n  Lookahead         YES    YES     NO      YES         YES   YES\n  Lookbehind        YES    fixed   NO      YES(v2)     YES   fixed\n  Backreferences    YES    YES     NO      YES         YES   YES\n  Named groups      YES    YES     YES     YES         YES   YES\n  Atomic groups     YES    regex*  NO      NO          YES   NO\n  Possessive quant  YES    regex*  NO      NO          NO    YES\n  Unicode props     YES    YES     YES     YES         YES   YES\n  * requires 'regex' package (not built-in re)\n\n  RE2 / Go — safe regex (no catastrophic backtracking):\n  Linear time guarantee; no lookaround, backrefs, or recursion\n  import regexp\n  re := regexp.MustCompile(`(?i)\\b\\w+@\\w+\\.\\w+\\b`)\n\n  Python 're' vs 'regex' module:\n  re:    built-in; PCRE-like but fixed-width lookbehind\n  regex: pip install regex; full PCRE2; Unicode scripts; atomic groups\n\n  JavaScript (ES2018+):\n  Named groups: /(?<year>\\d{4})/\n  Lookbehind: /(?<=@)\\w+/  (ES2018)\n  Dotall flag: /./s  (dot matches newline)\n  Unicode mode: /./u  (enables Unicode properties)\n  /\\p{Script=Latin}/u  Unicode property escape\n\n  Flags cheatsheet:\n  i   Case-insensitive\n  g   Global (all matches, not just first)\n  m   Multiline (^ and $ match line boundaries)\n  s   Dotall (dot matches \\n)\n  x   Extended / verbose (ignore whitespace + allow # comments)\n  u   Unicode mode (JS/Python)\n"
+    }
+    fn s_quantifiers() -> &'static str {
+        "  Greedy vs lazy vs possessive:\n\n  Greedy (default) — match as MUCH as possible:\n  *    0 or more\n  +    1 or more\n  ?    0 or 1\n  {n,m} n to m\n  '<.+>' on '<a>text</a>' → matches entire string (greedy)\n\n  Lazy — match as LITTLE as possible (add ?):\n  *?   0 or more, minimal\n  +?   1 or more, minimal\n  ??   0 or 1, prefer 0\n  {n,m}?  minimal\n  '<.+?>' on '<a>text</a>' → matches '<a>' only\n\n  Possessive (PCRE/Java/Python regex) — greedy, no backtrack:\n  *+   0 or more, possessive\n  ++   1 or more, possessive\n  ?+   0 or 1, possessive\n  {n,m}+  possessive\n  Prevents catastrophic backtracking; use when backtrack is never needed.\n\n  Catastrophic backtracking example:\n  Pattern: (a+)+ on 'aaaaaab'  (NFA engines only)\n  Exponential time — never match; tries all combinations.\n  Fix: (a+)+ → a+  or use atomic (?>a+)+  or possessive a++\n\n  Anchors:\n  ^    Start of string (or line in multiline mode)\n  $    End of string (before optional \\n) (or line in multiline)\n  \\A   Start of string only (ignore multiline flag)\n  \\Z   End of string only (before optional \\n)\n  \\z   Absolute end of string\n  \\b   Word boundary (\\w/\\W transition)\n  \\B   Non-word boundary\n  \\G   Start of previous match (useful for iterative matching)\n"
+    }
+    fn s_charclass() -> &'static str {
+        "  Character class details:\n\n  [abc]      Match a, b, or c\n  [^abc]     NOT a, b, or c\n  [a-z]      Range a through z\n  [a-zA-Z0-9_]  Alphanumeric + underscore (= \\w)\n\n  Intersection (Java / PCRE2 / Python regex):\n  [\\w&&[^aeiou]]    Word chars that are NOT vowels\n\n  Subtraction:\n  [a-z&&[^m-r]]     a-z minus m-r\n\n  POSIX classes (in []): [:alpha:] [:digit:] [:space:] [:upper:] [:lower:]\n  Supported in PCRE, awk, grep -E. Not in Python or JS natively.\n\n  Unicode properties:\n  \\p{L}      Any letter (Unicode)\n  \\p{Lu}     Uppercase letter\n  \\p{Nd}     Decimal digit\n  \\p{Zs}     Space separator\n  \\p{Script=Latin}\n  \\p{Block=CJK_Unified_Ideographs}\n  \\P{...}    Negation (non-matching)\n\n  Shorthand classes:\n  \\d = [0-9]   (ASCII) / [\\p{Nd}] (Unicode mode)\n  \\w = [a-zA-Z0-9_]   (ASCII) / Unicode-aware in some flavors\n  \\s = [ \\t\\n\\r\\f\\v]  whitespace\n  \\D \\W \\S    Negations\n  \\h          Horizontal whitespace (PCRE)\n  \\v          Vertical whitespace (PCRE)\n  \\R          Any line break (\\n, \\r\\n, \\r, etc.) (PCRE)\n"
+    }
+    fn s_patterns() -> &'static str {
+        "  Common real-world regex patterns:\n\n  Email (simplified — real email is complex):\n  [a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}\n\n  URL:\n  https?://[^\\s/$.?#].[^\\s]*\n\n  IPv4:\n  (?:(?:25[0-5]|2[0-4]\\d|[01]?\\d\\d?)\\.){3}(?:25[0-5]|2[0-4]\\d|[01]?\\d\\d?)\n\n  IPv6 (abbreviated):\n  ([0-9a-fA-F]{0,4}:){2,7}[0-9a-fA-F]{0,4}\n\n  ISO 8601 date:\n  \\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\\d|3[01])\n\n  Semantic version:\n  (?P<major>0|[1-9]\\d*)\\.(?P<minor>0|[1-9]\\d*)\\.(?P<patch>0|[1-9]\\d*)(?:-(?P<pre>[\\w.]+))?(?:\\+(?P<build>[\\w.]+))?\n\n  Hex color:\n  #(?:[0-9a-fA-F]{3}){1,2}\n\n  Credit card (Visa/MC — format only):\n  (?:4\\d{12}(?:\\d{3})?|5[1-5]\\d{14})\n\n  Slug:\n  ^[a-z0-9]+(?:-[a-z0-9]+)*$\n\n  JWT:\n  [A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\n\n  Repeated word:\n  \\b(\\w+)\\s+\\1\\b\n\n  Strip HTML tags:\n  <[^>]+>\n\n  Extract JSON string value:\n  \"key\":\\s*\"([^\"]*)\"\n\n  ANSI escape codes:\n  \\x1b\\[[0-9;]*m\n\n  Trim leading/trailing whitespace:\n  ^\\s+|\\s+$   (replace with '')\n\n  Match blank lines:\n  ^\\s*$\n\n  sed: delete blank lines:\n  sed '/^\\s*$/d' file\n  grep -v '^\\s*$' file\n"
+    }
+
+    type RegexAdvSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+    const SECTIONS: &[RegexAdvSection] = &[
+        (
+            "lookaround",
+            &[
+                "lookaround",
+                "lookahead",
+                "lookbehind",
+                "assertion",
+                "zero-width",
+            ],
+            s_lookaround,
+        ),
+        (
+            "groups",
+            &[
+                "group",
+                "groups",
+                "named",
+                "capturing",
+                "backreference",
+                "conditional",
+            ],
+            s_groups,
+        ),
+        (
+            "flavors",
+            &[
+                "flavor",
+                "flavors",
+                "pcre",
+                "re2",
+                "javascript",
+                "python-re",
+                "dotnet",
+            ],
+            s_flavors,
+        ),
+        (
+            "quantifiers",
+            &[
+                "quantifier",
+                "greedy",
+                "lazy",
+                "possessive",
+                "backtrack",
+                "anchor",
+            ],
+            s_quantifiers,
+        ),
+        (
+            "charclass",
+            &[
+                "charclass",
+                "class",
+                "unicode",
+                "posix",
+                "shorthand",
+                "property",
+            ],
+            s_charclass,
+        ),
+        (
+            "patterns",
+            &[
+                "pattern", "email", "url", "ipv4", "date", "semver", "slug", "common",
+            ],
+            s_patterns,
+        ),
+    ];
+
+    let q = query.trim().to_lowercase();
+
+    if q.is_empty() || q == "help" || q == "list" {
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  hematite --regex-adv <TOPIC>");
+        let _ = writeln!(out, "  Offline advanced regex reference");
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  Topics:");
+        for &(name, aliases, _) in SECTIONS {
+            let _ = writeln!(out, "    {name:<12} ({})", aliases.join(", "));
+        }
+        let _ = writeln!(out, "\n  hematite --regex-adv all   -- print everything");
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    if q == "all" {
+        let _ = writeln!(out, "{sep}");
+        for &(name, _, f) in SECTIONS {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+            let _ = writeln!(out, "");
+        }
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    let found: Vec<_> = SECTIONS
+        .iter()
+        .filter(|&&(name, aliases, _)| {
+            name.contains(q.as_str())
+                || aliases
+                    .iter()
+                    .any(|&a| a.contains(q.as_str()) || q.contains(a))
+        })
+        .collect();
+
+    if found.is_empty() {
+        let _ = writeln!(out, "  No topic found for '{}'.", query.trim());
+        let _ = writeln!(out, "  Run: hematite --regex-adv help");
+    } else {
+        let _ = writeln!(out, "{sep}");
+        for &&(name, _, f) in &found {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+        }
+        let _ = writeln!(out, "{sep}");
+    }
+    out
+}
+
+pub fn sql_adv_calc(query: &str) -> String {
+    use std::fmt::Write as _;
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+
+    fn s_window() -> &'static str {
+        "  Window functions (OVER clause):\n\n  Syntax:\n  func() OVER (\n    [PARTITION BY col1, col2]\n    [ORDER BY col3 DESC]\n    [ROWS|RANGE BETWEEN ... AND ...]\n  )\n\n  Ranking:\n  ROW_NUMBER()         Unique 1-N per partition\n  RANK()               Gaps after ties (1,1,3)\n  DENSE_RANK()         No gaps after ties (1,1,2)\n  NTILE(4)             Divide into N buckets (1-4)\n  PERCENT_RANK()       (rank-1)/(rows-1)  [0.0-1.0]\n  CUME_DIST()          Cumulative distribution [0.0-1.0]\n\n  Offset:\n  LAG(col, n, default)   Value n rows before current\n  LEAD(col, n, default)  Value n rows after current\n  FIRST_VALUE(col)       First value in window frame\n  LAST_VALUE(col)        Last value (needs ROWS BETWEEN ... UNBOUNDED)\n  NTH_VALUE(col, 2)      Nth value in frame\n\n  Aggregate as window:\n  SUM(amount) OVER (PARTITION BY dept ORDER BY date\n    ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)\n  -- Running total per department\n\n  AVG(salary) OVER (PARTITION BY dept)\n  -- Department average alongside each row\n\n  Frame specs:\n  ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW  (running total)\n  ROWS BETWEEN 2 PRECEDING AND CURRENT ROW          (rolling 3-row)\n  ROWS BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING\n  RANGE BETWEEN INTERVAL '7 days' PRECEDING AND CURRENT ROW  (date-based)\n\n  Example — top salesperson per region:\n  SELECT * FROM (\n    SELECT name, region, sales,\n      RANK() OVER (PARTITION BY region ORDER BY sales DESC) AS rnk\n    FROM employees\n  ) t WHERE rnk = 1;\n"
+    }
+    fn s_cte() -> &'static str {
+        "  CTEs (Common Table Expressions):\n\n  Basic:\n  WITH active_users AS (\n    SELECT id, name FROM users WHERE active = true\n  ),\n  recent_orders AS (\n    SELECT user_id, COUNT(*) AS order_count\n    FROM orders\n    WHERE created_at > NOW() - INTERVAL '30 days'\n    GROUP BY user_id\n  )\n  SELECT u.name, COALESCE(o.order_count, 0) AS orders\n  FROM active_users u\n  LEFT JOIN recent_orders o ON u.id = o.user_id;\n\n  Recursive CTE:\n  WITH RECURSIVE org_tree AS (\n    -- Base case: top-level managers\n    SELECT id, name, manager_id, 1 AS depth\n    FROM employees WHERE manager_id IS NULL\n\n    UNION ALL\n\n    -- Recursive case: their reports\n    SELECT e.id, e.name, e.manager_id, t.depth + 1\n    FROM employees e\n    JOIN org_tree t ON e.manager_id = t.id\n    WHERE t.depth < 10  -- safety limit\n  )\n  SELECT * FROM org_tree ORDER BY depth, name;\n\n  Other recursive uses:\n  - Traverse graphs / trees\n  - Generate date series (with anchor of first date)\n  - Path finding in adjacency list tables\n\n  Materialized CTEs (PostgreSQL 12+):\n  WITH data AS MATERIALIZED (\n    SELECT * FROM big_table WHERE ...\n  ) ...;\n  -- Forces CTE to be computed once (not inlined)\n  -- Default in PG12+: optimizer chooses to inline or not\n  WITH data AS NOT MATERIALIZED (...) ...;\n  -- Force inline\n"
+    }
+    fn s_indexes() -> &'static str {
+        "  Index types:\n  B-tree    Default; good for =, <, >, BETWEEN, LIKE 'prefix%'\n  Hash      Only equality (=); faster than B-tree for pure =\n  GIN       Full-text search, arrays, JSONB keys/values\n  GiST      Geometric types, full-text, range types\n  BRIN      Block Range — huge tables with natural sort order (time-series)\n  Partial   Index on subset of rows (WHERE clause)\n  Covering  Includes extra columns (INCLUDE) — index-only scan\n\n  CREATE INDEX CONCURRENTLY idx_name ON tbl(col);\n  -- CONCURRENTLY: no table lock; slower but safe in production\n\n  Partial index:\n  CREATE INDEX idx_active ON users(email) WHERE active = true;\n  -- Only indexes active users; smaller, faster\n\n  Covering index (PostgreSQL 11+):\n  CREATE INDEX idx_cov ON orders(user_id) INCLUDE (total, created_at);\n  -- Query can be satisfied from index alone\n\n  Composite index — column order matters:\n  CREATE INDEX idx_comp ON orders(user_id, status, created_at);\n  -- Useful for: user_id=? AND status=?\n  -- Useful for: user_id=? ORDER BY created_at\n  -- NOT useful for: status=? alone (can't skip first column)\n\n  Index selectivity:\n  High selectivity (few matches per value) = good index candidate\n  Low selectivity (e.g. boolean) = often not worth indexing alone\n\n  When indexes hurt:\n  - Small tables (seq scan faster)\n  - Heavy write tables (index maintenance cost)\n  - Low-selectivity columns used alone\n\n  Maintenance:\n  VACUUM ANALYZE tablename;    Update stats + reclaim space\n  REINDEX INDEX idx_name;      Rebuild bloated index\n  SELECT * FROM pg_stat_user_indexes WHERE idx_scan = 0;  Unused indexes\n"
+    }
+    fn s_explain() -> &'static str {
+        "  EXPLAIN / EXPLAIN ANALYZE:\n\n  PostgreSQL:\n  EXPLAIN SELECT * FROM orders WHERE user_id = 5;\n  EXPLAIN (ANALYZE, BUFFERS, FORMAT TEXT) SELECT ...;\n  EXPLAIN (ANALYZE, FORMAT JSON) SELECT ...;   (for pgMustard / explain.dalibo.com)\n\n  Key node types to recognize:\n  Seq Scan          Full table scan — check if this is intentional\n  Index Scan        Uses index; fetches heap rows\n  Index Only Scan   Covering index — no heap fetch (fastest)\n  Bitmap Heap Scan  Index narrows candidates; then heap fetch in block order\n  Hash Join         Builds hash table on smaller relation\n  Nested Loop       For each row in outer, scan inner — fast with index\n  Merge Join        Both inputs sorted; efficient for large sorted joins\n  Sort              Explicit sort; check if adding index removes it\n  Hash              Build phase of hash join\n  Aggregate         GROUP BY / aggregate functions\n  Limit             Stop after N rows\n\n  Reading output:\n  cost=0.00..123.45   startup..total cost (arbitrary units)\n  rows=1000           estimated rows\n  width=42            avg row width bytes\n  actual time=0.1..5.2  real ms (ANALYZE only)\n  loops=3             how many times node executed\n  Buffers: shared hit=100 read=20   cache hits vs disk reads\n\n  Slow query checklist:\n  1. Is there a Seq Scan on a large table? Add index.\n  2. Are estimated rows << actual rows? Run ANALYZE (stale stats).\n  3. Nested Loop with large outer set? May need a Hash Join hint.\n  4. Are buffers: read high? Data not in cache; consider pg_prewarm.\n  5. High actual loops? Cartesian product lurking?\n  6. Is a Sort avoidable with an index on ORDER BY column?\n\n  MySQL EXPLAIN:\n  EXPLAIN SELECT ...;\n  EXPLAIN FORMAT=JSON SELECT ...;\n  Key columns: type (ALL=bad), key, rows, Extra (Using index = good)\n"
+    }
+    fn s_transactions() -> &'static str {
+        "  Transaction control:\n  BEGIN; / START TRANSACTION;\n  COMMIT;\n  ROLLBACK;\n  SAVEPOINT sp1;\n  ROLLBACK TO SAVEPOINT sp1;\n  RELEASE SAVEPOINT sp1;\n\n  Isolation levels (weakest to strongest):\n  READ UNCOMMITTED   Dirty reads allowed (MySQL only; PG treats as READ COMMITTED)\n  READ COMMITTED     No dirty reads; non-repeatable reads possible (PG default)\n  REPEATABLE READ    Same row returns same value; phantom reads possible in most DBs\n                     (MySQL InnoDB: no phantoms; PG: serialization anomaly possible)\n  SERIALIZABLE       Fully isolated; transactions appear to run serially\n\n  SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;\n  SET SESSION CHARACTERISTICS AS TRANSACTION ISOLATION LEVEL READ COMMITTED;\n\n  Locking:\n  SELECT ... FOR UPDATE             Row-level exclusive lock\n  SELECT ... FOR UPDATE SKIP LOCKED Skip already-locked rows (queue pattern)\n  SELECT ... FOR UPDATE NOWAIT      Fail immediately if locked\n  SELECT ... FOR SHARE              Shared lock (block updates, allow reads)\n  LOCK TABLE tbl IN EXCLUSIVE MODE\n  LOCK TABLE tbl IN SHARE MODE\n\n  Deadlock prevention:\n  - Always acquire locks in the same order\n  - Keep transactions short\n  - Use SELECT ... FOR UPDATE to pre-lock before update\n  - Monitor: pg_locks, pg_stat_activity\n\n  Advisory locks (PostgreSQL — application-level):\n  SELECT pg_try_advisory_lock(12345);    Non-blocking; returns bool\n  SELECT pg_advisory_lock(12345);        Blocking\n  SELECT pg_advisory_unlock(12345);\n  SELECT pg_advisory_xact_lock(12345);   Released at transaction end\n"
+    }
+    fn s_json_sql() -> &'static str {
+        "  PostgreSQL JSONB operators:\n  column->'key'          Get JSON field (returns JSON)\n  column->>'key'         Get JSON field as text\n  column#>'{a,b}'        Get nested: {\"a\":{\"b\":\"val\"}}\n  column#>>'{a,b}'       Get nested as text\n  column @> '{\"key\":1}'  Contains (uses GIN index)\n  column <@ '{\"key\":1}'  Is contained by\n  column ? 'key'         Key exists\n  column ?| ARRAY['a','b']  Any key exists\n  column ?& ARRAY['a','b']  All keys exist\n  column || '{\"c\":3}'    Concatenate/merge\n  column - 'key'         Delete key\n  column #- '{a,b}'      Delete nested path\n  jsonb_set(col, '{key}', '\"newval\"')\n  jsonb_strip_nulls(col)\n\n  Index JSONB:\n  CREATE INDEX idx_gin ON tbl USING GIN (data);\n  CREATE INDEX idx_gin_ops ON tbl USING GIN (data jsonb_path_ops);\n  -- jsonb_path_ops: smaller, only supports @> not ? operators\n\n  JSON aggregation:\n  json_agg(expr)              Aggregate rows into JSON array\n  json_object_agg(key, value) Aggregate into JSON object\n  jsonb_agg / jsonb_object_agg\n  json_build_object('key', val, 'key2', val2)\n  json_build_array(val1, val2)\n  row_to_json(row)\n\n  MySQL JSON:\n  JSON_EXTRACT(col, '$.key')\n  col->>'$.key'              (shorthand)\n  JSON_SET(col, '$.key', val)\n  JSON_ARRAY_APPEND(col, '$.arr', val)\n  JSON_CONTAINS(col, '\"val\"', '$.key')\n"
+    }
+
+    type SqlAdvSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+    const SECTIONS: &[SqlAdvSection] = &[
+        (
+            "window",
+            &[
+                "window",
+                "rank",
+                "row_number",
+                "lag",
+                "lead",
+                "partition",
+                "frame",
+            ],
+            s_window,
+        ),
+        (
+            "cte",
+            &["cte", "with", "recursive", "common-table", "materialized"],
+            s_cte,
+        ),
+        (
+            "indexes",
+            &[
+                "index",
+                "indexes",
+                "btree",
+                "gin",
+                "partial",
+                "covering",
+                "composite",
+            ],
+            s_indexes,
+        ),
+        (
+            "explain",
+            &[
+                "explain",
+                "analyze",
+                "query-plan",
+                "seq-scan",
+                "index-scan",
+                "slow",
+            ],
+            s_explain,
+        ),
+        (
+            "transactions",
+            &[
+                "transaction",
+                "isolation",
+                "lock",
+                "deadlock",
+                "savepoint",
+                "advisory",
+            ],
+            s_transactions,
+        ),
+        (
+            "json",
+            &[
+                "json", "jsonb", "json-ops", "contains", "gin-json", "json-agg",
+            ],
+            s_json_sql,
+        ),
+    ];
+
+    let q = query.trim().to_lowercase();
+
+    if q.is_empty() || q == "help" || q == "list" {
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  hematite --sql-adv <TOPIC>");
+        let _ = writeln!(out, "  Offline advanced SQL reference");
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  Topics:");
+        for &(name, aliases, _) in SECTIONS {
+            let _ = writeln!(out, "    {name:<14} ({})", aliases.join(", "));
+        }
+        let _ = writeln!(out, "\n  hematite --sql-adv all   -- print everything");
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    if q == "all" {
+        let _ = writeln!(out, "{sep}");
+        for &(name, _, f) in SECTIONS {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+            let _ = writeln!(out, "");
+        }
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    let found: Vec<_> = SECTIONS
+        .iter()
+        .filter(|&&(name, aliases, _)| {
+            name.contains(q.as_str())
+                || aliases
+                    .iter()
+                    .any(|&a| a.contains(q.as_str()) || q.contains(a))
+        })
+        .collect();
+
+    if found.is_empty() {
+        let _ = writeln!(out, "  No topic found for '{}'.", query.trim());
+        let _ = writeln!(out, "  Run: hematite --sql-adv help");
+    } else {
+        let _ = writeln!(out, "{sep}");
+        for &&(name, _, f) in &found {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+        }
+        let _ = writeln!(out, "{sep}");
+    }
+    out
+}
+
+pub fn vim_adv_calc(query: &str) -> String {
+    use std::fmt::Write as _;
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+
+    fn s_registers() -> &'static str {
+        "  Registers — named clipboard slots:\n\n  Access: \"<reg>y  yank into reg    \"<reg>p  paste from reg\n\n  Special registers:\n  \"\"     Unnamed — last yank/delete (default paste)\n  \"0     Last YANK only (not delete) — safe yank register\n  \"1-\"9  Numbered — recent deletes (1=latest, shifts on each delete)\n  \"-     Small delete (less than one line)\n  \"a-\"z  Named — explicit; use uppercase to APPEND: \"Ayy appends line\n  \"+     System clipboard (X11 selection / Windows clipboard)\n  \"*     Primary selection (X11 middle-click / same as + on Windows/Mac)\n  \"_     Black hole — discard without affecting other registers\n  \"/     Last search pattern\n  \".     Last inserted text\n  \"%     Current filename\n  \"#     Alternate filename\n  \":     Last command-line command\n  \"=     Expression register — type expression after prompt\n\n  Useful workflows:\n  \"0p    Paste last yank (not overwritten by dd)\n  \"+p    Paste from system clipboard\n  \"+y    Copy to system clipboard\n  \"_d    Delete without clobbering unnamed register\n  :reg   Show all registers\n  :reg a b +   Show specific registers\n\n  Clipboard in Neovim (requires xclip/xsel/wl-clipboard on Linux):\n  vim.opt.clipboard = 'unnamedplus'  -- auto-sync + register\n"
+    }
+    fn s_macros() -> &'static str {
+        "  Macros — record and replay keystrokes:\n\n  Record: q<reg>  (e.g. qa to record into 'a')\n  Stop:   q\n  Play:   @<reg>  (e.g. @a)\n  Repeat: @@      (repeat last macro)\n  N times: 10@a\n\n  Workflow — add semicolon to end of 100 lines:\n  qa               Start recording into 'a'\n  A;<Esc>          Append semicolon, exit insert\n  j                Move down one line\n  q                Stop recording\n  99@a             Repeat 99 more times\n\n  Edit a macro:\n  :let @a = '<C-r><C-r>a'   (insert raw contents in command line)\n  \"ap                        (paste register to buffer, edit, then)\n  \"ayy                       (yank back into register)\n\n  Recursive macros (self-calling):\n  qbq              Clear register b (record empty macro first)\n  qb ...steps... @b q  (macro calls itself)\n  -- Runs until it fails (e.g. hits end of file on j)\n\n  Global command (apply to matching lines):\n  :g/pattern/normal @a     Run macro on every matching line\n  :g/^$/d                  Delete blank lines\n  :g/TODO/yank A           Append all TODO lines to register a\n  :g!/pattern/d            Delete lines NOT matching pattern\n  :v/pattern/d             (same as g!)\n\n  Substitution with expression:\n  :%s/\\d\\+/\\=submatch(0)*2/g   Double all numbers in file\n"
+    }
+    fn s_excommands() -> &'static str {
+        "  Ex commands — the : command line:\n\n  Ranges:\n  :5          Line 5\n  :5,10       Lines 5 to 10\n  :.          Current line\n  :$          Last line\n  :%          Entire file (= 1,$)\n  :'a,'b      From mark a to mark b\n  :/pat/      Next line matching pattern\n  :.,/pat/    Current line to next match\n\n  Common operations on ranges:\n  :5,10d             Delete lines 5-10\n  :5,10y             Yank lines 5-10\n  :5,10move 20       Move lines 5-10 after line 20\n  :5,10copy 20       Copy lines 5-10 after line 20\n  :5,10join          Join lines 5-10\n  :5,10s/old/new/g   Substitute on lines 5-10\n  :%s/old/new/gc     Global substitute with confirmation\n  :%s/\\s\\+$//        Strip trailing whitespace\n  :g/pattern/d       Delete all matching lines\n\n  File operations:\n  :e filename        Edit file\n  :e!                Reload from disk (discard changes)\n  :r filename        Read file into buffer below cursor\n  :r !command        Insert command output below cursor\n  :w filename        Write to filename\n  :w >>filename      Append to filename\n  :saveas newname\n  :!cmd              Run shell command\n  :.!cmd             Replace current line with command output\n  :%!python3 -m json.tool   Pretty-print JSON via external command\n\n  Windows and buffers:\n  :ls / :buffers     List open buffers\n  :b N / :b name     Switch to buffer\n  :bd                Delete buffer\n  :sp / :vsp         Horizontal / vertical split\n  :new / :vnew       New split with empty buffer\n  :tabnew / :tabc    New tab / close tab\n  :windo %s/old/new  Apply to all windows\n"
+    }
+    fn s_motions() -> &'static str {
+        "  Text objects (use with operators d, c, y, v):\n  iw  inner word           aw  a word (includes space)\n  iW  inner WORD           aW  a WORD\n  is  inner sentence       as  a sentence\n  ip  inner paragraph      ap  a paragraph\n  i(  inner parens         a(  a parens (includes brackets)\n  i[  inner brackets       a[\n  i{  inner braces         a{\n  i\"  inner double-quote   a\"\n  i'  inner single-quote   a'\n  i`  inner backtick       a`\n  it  inner HTML tag       at  a tag (with <tag>)\n\n  Plugin text objects (with vim-surround / nvim-surround):\n  cs\"'       Change surrounding \" to '\n  ds\"        Delete surrounding \"\n  ys motion \"  Add surrounding \" around motion\n  ysiw(      Wrap word with parens\n\n  Useful normal mode motions:\n  H/M/L      Top/Middle/Bottom of screen\n  gg/G       First/last line\n  5gg / 5G   Line 5\n  zz/zt/zb   Center/top/bottom cursor line on screen\n  %          Jump to matching bracket\n  [[ / ]]    Prev/next function/section\n  [m / ]m    Prev/next method (some language plugins)\n  gd         Go to definition (native; ctags or LSP better)\n  K          Hover docs (with LSP)\n  gi         Go to last insert location\n  g;         Go to last change location (changelist)\n  Ctrl-o/i   Jump backward/forward in jump list\n  :jumps     Show jump list\n  :changes   Show change list\n\n  Marks:\n  ma         Set mark 'a' at cursor\n  'a         Jump to line of mark 'a'\n  `a         Jump to exact position of mark 'a'\n  '. / `.    Last change location\n  '' / ``    Last jump location\n  :marks     List all marks\n"
+    }
+    fn s_folds() -> &'static str {
+        "  Folding:\n  zo / zc    Open / close fold under cursor\n  zO / zC    Open / close all folds recursively\n  za         Toggle fold\n  zA         Toggle fold recursively\n  zr / zm    Reduce / more folds (one level across file)\n  zR / zM    Open all / close all folds in file\n  zf motion  Create fold manually (foldmethod=manual)\n  zd / zD    Delete fold / all folds at cursor\n  zE         Eliminate all folds\n  [z / ]z    Move to start / end of current fold\n  zj / zk    Move to next / prev fold\n\n  Fold methods (set foldmethod=...):\n  manual     Default; you create with zf\n  indent     Fold by indentation level (Python-friendly)\n  syntax     Fold by syntax regions\n  expr       Fold by foldexpr function\n  marker     Fold between {{{ and }}} markers\n  diff       Fold unchanged diff regions\n\n  Quickfix list:\n  :make / :grep / :vimgrep   Populate quickfix\n  :copen / :cclose           Open/close quickfix window\n  :cnext / :cprev            Next/prev item\n  :cfirst / :clast\n  :cc N                      Jump to item N\n  :cdo %s/old/new/g | update  Apply to every quickfix file\n\n  Location list (per-window quickfix):\n  :lopen / :lclose\n  :lnext / :lprev\n  :lfirst / :llast\n\n  Neovim Telescope / fzf-lua equivalents:\n  :Telescope quickfix\n  :Telescope diagnostics\n"
+    }
+    fn s_config() -> &'static str {
+        "  Essential vimrc / init.lua settings:\n\n  Vimscript (.vimrc):\n  set number relativenumber\n  set tabstop=4 shiftwidth=4 expandtab\n  set smartindent\n  set wrap linebreak\n  set ignorecase smartcase\n  set hlsearch incsearch\n  set clipboard=unnamedplus\n  set undofile undodir=~/.vim/undo\n  set scrolloff=8\n  set signcolumn=yes\n  set updatetime=100\n  set termguicolors\n  colorscheme habamax\n\n  Lua (Neovim init.lua):\n  vim.opt.number = true\n  vim.opt.relativenumber = true\n  vim.opt.tabstop = 4\n  vim.opt.shiftwidth = 4\n  vim.opt.expandtab = true\n  vim.opt.clipboard = 'unnamedplus'\n  vim.opt.undofile = true\n  vim.opt.scrolloff = 8\n  vim.opt.termguicolors = true\n  vim.keymap.set('n', '<leader>ff', ':Telescope find_files<CR>')\n  vim.keymap.set('i', 'jk', '<Esc>')\n\n  autocmd (Vimscript):\n  autocmd BufWritePre * %s/\\s\\+$//e   (strip trailing whitespace)\n  autocmd FileType python setlocal tabstop=4 shiftwidth=4\n  autocmd BufNewFile,BufRead *.tsx setfiletype typescriptreact\n\n  autocmd (Lua):\n  vim.api.nvim_create_autocmd('BufWritePre', {\n    pattern = '*',\n    callback = function()\n      vim.cmd([[%s/\\s\\+$//e]])\n    end,\n  })\n"
+    }
+
+    type VimAdvSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+    const SECTIONS: &[VimAdvSection] = &[
+        (
+            "registers",
+            &[
+                "register",
+                "registers",
+                "clipboard",
+                "yank",
+                "black-hole",
+                "expression",
+            ],
+            s_registers,
+        ),
+        (
+            "macros",
+            &[
+                "macro",
+                "macros",
+                "record",
+                "replay",
+                "global-cmd",
+                "recursive",
+            ],
+            s_macros,
+        ),
+        (
+            "excommands",
+            &[
+                "ex",
+                "excommand",
+                "range",
+                "global",
+                "substitute",
+                "buffer",
+                "split",
+            ],
+            s_excommands,
+        ),
+        (
+            "motions",
+            &[
+                "motion",
+                "text-object",
+                "mark",
+                "jump",
+                "surround",
+                "fold-move",
+            ],
+            s_motions,
+        ),
+        (
+            "folds",
+            &["fold", "folds", "quickfix", "location", "foldmethod"],
+            s_folds,
+        ),
+        (
+            "config",
+            &["config", "vimrc", "init-lua", "autocmd", "keymap", "option"],
+            s_config,
+        ),
+    ];
+
+    let q = query.trim().to_lowercase();
+
+    if q.is_empty() || q == "help" || q == "list" {
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  hematite --vim-adv <TOPIC>");
+        let _ = writeln!(out, "  Offline advanced Vim / Neovim reference");
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  Topics:");
+        for &(name, aliases, _) in SECTIONS {
+            let _ = writeln!(out, "    {name:<12} ({})", aliases.join(", "));
+        }
+        let _ = writeln!(out, "\n  hematite --vim-adv all   -- print everything");
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    if q == "all" {
+        let _ = writeln!(out, "{sep}");
+        for &(name, _, f) in SECTIONS {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+            let _ = writeln!(out, "");
+        }
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    let found: Vec<_> = SECTIONS
+        .iter()
+        .filter(|&&(name, aliases, _)| {
+            name.contains(q.as_str())
+                || aliases
+                    .iter()
+                    .any(|&a| a.contains(q.as_str()) || q.contains(a))
+        })
+        .collect();
+
+    if found.is_empty() {
+        let _ = writeln!(out, "  No topic found for '{}'.", query.trim());
+        let _ = writeln!(out, "  Run: hematite --vim-adv help");
+    } else {
+        let _ = writeln!(out, "{sep}");
+        for &&(name, _, f) in &found {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+        }
+        let _ = writeln!(out, "{sep}");
+    }
+    out
+}
+
+pub fn python_data_calc(query: &str) -> String {
+    use std::fmt::Write as _;
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+
+    fn s_pandas() -> &'static str {
+        "  pandas essentials:\n  import pandas as pd\n\n  Load:\n  df = pd.read_csv('file.csv')\n  df = pd.read_csv('file.csv', parse_dates=['date'], index_col='id')\n  df = pd.read_json('file.json')\n  df = pd.read_excel('file.xlsx', sheet_name='Sheet1')\n  df = pd.read_parquet('file.parquet')\n  df = pd.read_sql('SELECT * FROM tbl', conn)\n  df = pd.DataFrame({'a': [1,2], 'b': [3,4]})\n\n  Inspect:\n  df.head(10) / df.tail(5)\n  df.shape           (rows, cols)\n  df.dtypes\n  df.info()          Column types + null counts\n  df.describe()      Stats for numeric cols\n  df.value_counts('col')\n  df.nunique()       Unique count per column\n  df.isnull().sum()  Null count per column\n\n  Select:\n  df['col']          Series\n  df[['a','b']]      DataFrame with two columns\n  df.loc[row, col]   Label-based (accepts slices, bool arrays)\n  df.iloc[0, 1]      Position-based\n  df.loc[df['a'] > 5]\n  df.query('a > 5 and b < 10')\n\n  Transform:\n  df['new'] = df['a'] + df['b']\n  df.assign(ratio=lambda x: x['a'] / x['b'])\n  df.rename(columns={'old': 'new'})\n  df.drop(columns=['col'])\n  df.drop_duplicates(subset=['id'])\n  df.fillna(0) / df.fillna(method='ffill')\n  df.dropna(subset=['col'])\n  df.astype({'col': 'int64'})\n  df['col'].str.strip().str.lower()\n  df['date'].dt.year / .month / .day\n  df.sort_values('col', ascending=False)\n  df.reset_index(drop=True)\n  df.set_index('id')\n\n  Aggregate:\n  df.groupby('col').agg({'a': 'sum', 'b': 'mean'})\n  df.groupby('col').size().reset_index(name='count')\n  df.pivot_table(values='sales', index='region', columns='month', aggfunc='sum', fill_value=0)\n\n  Merge / join:\n  pd.merge(df1, df2, on='id', how='left')\n  pd.concat([df1, df2], ignore_index=True)\n\n  Save:\n  df.to_csv('out.csv', index=False)\n  df.to_parquet('out.parquet')\n  df.to_json('out.json', orient='records', lines=True)\n"
+    }
+    fn s_numpy() -> &'static str {
+        "  numpy essentials:\n  import numpy as np\n\n  Create arrays:\n  np.array([1, 2, 3])\n  np.zeros((3, 4))          3x4 float zeros\n  np.ones((3, 4))\n  np.full((3, 4), 7)\n  np.eye(3)                 3x3 identity\n  np.arange(0, 10, 2)       [0, 2, 4, 6, 8]\n  np.linspace(0, 1, 5)      [0, 0.25, 0.5, 0.75, 1.0]\n  np.random.seed(42)\n  np.random.rand(3, 4)      Uniform [0,1)\n  np.random.randn(3, 4)     Standard normal\n  np.random.randint(0, 10, (3, 4))\n\n  Shape / dtype:\n  arr.shape / arr.ndim / arr.size\n  arr.dtype\n  arr.astype(np.float32)\n  arr.reshape(2, 6)         Change shape (same data)\n  arr.flatten()             1D copy\n  arr.ravel()               1D view (if possible)\n  arr.T                     Transpose\n  np.expand_dims(arr, 0)    Add axis\n  arr[np.newaxis, :]        Same\n\n  Indexing:\n  arr[1, 2]                 Element at row 1, col 2\n  arr[1:3, 0:2]             Slice\n  arr[[0, 2], :]            Fancy indexing\n  arr[arr > 5]              Boolean mask\n  np.where(arr > 5, arr, 0) Conditional replace\n\n  Math:\n  np.sum(arr, axis=0)       Column sums\n  np.mean / np.std / np.min / np.max\n  np.dot(a, b)              Matrix multiply (also @)\n  a @ b                     Matrix multiply operator\n  np.linalg.inv(mat)\n  np.linalg.eig(mat)\n  np.linalg.norm(vec)\n  np.clip(arr, 0, 1)        Clamp values\n  np.unique(arr)\n  np.sort(arr, axis=0)\n  np.argsort(arr)           Indices that would sort arr\n  np.concatenate([a, b], axis=0)\n  np.vstack([a, b])         Stack vertically\n  np.hstack([a, b])         Stack horizontally\n"
+    }
+    fn s_stdlib() -> &'static str {
+        "  Python stdlib data tools (no pip required):\n\n  pathlib — modern file paths:\n  from pathlib import Path\n  p = Path('data/input.csv')\n  p.exists() / p.is_file() / p.is_dir()\n  p.suffix / p.stem / p.name / p.parent\n  p.read_text() / p.read_bytes()\n  p.write_text('content')\n  list(p.parent.glob('*.csv'))\n  list(Path('.').rglob('*.py'))\n  p.mkdir(parents=True, exist_ok=True)\n  p.rename('new.csv') / p.unlink()\n  p / 'subdir' / 'file.txt'   (path joining)\n\n  csv — read/write CSV:\n  import csv\n  with open('file.csv', newline='') as f:\n      reader = csv.DictReader(f)\n      for row in reader:\n          print(row['col'])\n\n  with open('out.csv', 'w', newline='') as f:\n      writer = csv.DictWriter(f, fieldnames=['a','b'])\n      writer.writeheader()\n      writer.writerow({'a': 1, 'b': 2})\n\n  json — serialize/deserialize:\n  import json\n  data = json.loads(text)\n  text = json.dumps(data, indent=2, default=str)\n  with open('f.json') as f: data = json.load(f)\n  with open('f.json', 'w') as f: json.dump(data, f, indent=2)\n\n  collections:\n  from collections import Counter, defaultdict, OrderedDict, deque, namedtuple\n  Counter('abracadabra').most_common(3)\n  defaultdict(list)  defaultdict(int)\n  deque(maxlen=1000)  # fixed-size queue\n  Point = namedtuple('Point', ['x', 'y'])\n\n  itertools:\n  from itertools import chain, islice, groupby, product, combinations, permutations\n  list(chain([1,2],[3,4]))     # [1,2,3,4]\n  list(islice(gen, 10))        # first 10 from generator\n  {k: list(v) for k,v in groupby(sorted_list, key=lambda x: x['cat'])}\n"
+    }
+    fn s_matplotlib() -> &'static str {
+        "  matplotlib quick plots:\n  import matplotlib.pyplot as plt\n  import numpy as np\n\n  Basic:\n  plt.plot(x, y, label='line', color='steelblue', linewidth=2)\n  plt.scatter(x, y, c='red', s=50, alpha=0.6)\n  plt.bar(categories, values, color='steelblue')\n  plt.barh(categories, values)\n  plt.hist(data, bins=30, edgecolor='black')\n  plt.boxplot([data1, data2], labels=['A','B'])\n  plt.pie(sizes, labels=labels, autopct='%1.1f%%')\n\n  Customization:\n  plt.xlabel('X Label') / plt.ylabel('Y Label')\n  plt.title('My Chart')\n  plt.legend(loc='upper right')\n  plt.xlim(0, 100) / plt.ylim(0, 50)\n  plt.xticks(rotation=45)\n  plt.grid(True, alpha=0.3)\n  plt.tight_layout()\n\n  Multiple subplots:\n  fig, axes = plt.subplots(2, 3, figsize=(12, 8))\n  axes[0, 0].plot(x, y)\n  axes[0, 1].scatter(x, y)\n  fig.suptitle('Overview')\n\n  Styles and colormaps:\n  plt.style.use('seaborn-v0_8')    or 'ggplot', 'bmh', 'dark_background'\n  plt.cm.viridis / plt.cm.RdYlGn   colormaps\n  plt.colorbar()                    add colorbar\n\n  Save / show:\n  plt.savefig('chart.png', dpi=150, bbox_inches='tight')\n  plt.savefig('chart.svg')\n  plt.show()\n  plt.close()  / plt.clf()         close / clear figure\n\n  pandas-integrated plotting:\n  df['col'].hist(bins=20)\n  df.plot(x='date', y='value', kind='line', figsize=(10,4))\n  df.plot.scatter(x='a', y='b', c='c', colormap='viridis')\n  df.plot.box()\n  df.corr().style.background_gradient(cmap='coolwarm')\n"
+    }
+    fn s_wrangling() -> &'static str {
+        "  Common data wrangling patterns:\n\n  Melt wide to long:\n  df.melt(id_vars=['id'], value_vars=['jan','feb','mar'],\n          var_name='month', value_name='sales')\n\n  Pivot long to wide:\n  df.pivot(index='id', columns='month', values='sales')\n\n  Explode list column:\n  df.explode('tags').reset_index(drop=True)\n\n  Apply custom function:\n  df['col'].apply(lambda x: x.strip().title())\n  df.apply(lambda row: row['a'] + row['b'], axis=1)\n\n  Rolling / expanding:\n  df['rolling_avg'] = df['value'].rolling(window=7).mean()\n  df['cumsum'] = df['value'].expanding().sum()\n\n  Date ranges and resampling:\n  dates = pd.date_range('2024-01-01', periods=365, freq='D')\n  df = df.set_index('date').resample('W').sum()\n  df.resample('ME').agg({'sales': 'sum', 'orders': 'count'})\n\n  Categorical dtype (saves memory, enables ordering):\n  df['status'] = pd.Categorical(df['status'],\n      categories=['low','med','high'], ordered=True)\n  df.sort_values('status')   # sorts by category order\n\n  Memory optimization:\n  df.memory_usage(deep=True).sum() / 1024**2   # MB\n  for col in df.select_dtypes('object').columns:\n      if df[col].nunique() / len(df) < 0.5:\n          df[col] = df[col].astype('category')\n  df[int_cols] = df[int_cols].apply(pd.to_numeric, downcast='integer')\n\n  Quick EDA one-liner (requires ydata-profiling or sweetviz):\n  # pip install ydata-profiling\n  from ydata_profiling import ProfileReport\n  ProfileReport(df).to_file('report.html')\n"
+    }
+
+    type PyDataSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+    const SECTIONS: &[PyDataSection] = &[
+        (
+            "pandas",
+            &[
+                "pandas",
+                "dataframe",
+                "groupby",
+                "merge",
+                "pivot",
+                "read_csv",
+                "fillna",
+            ],
+            s_pandas,
+        ),
+        (
+            "numpy",
+            &[
+                "numpy", "array", "ndarray", "reshape", "dot", "linalg", "random",
+            ],
+            s_numpy,
+        ),
+        (
+            "stdlib",
+            &[
+                "stdlib",
+                "pathlib",
+                "csv-mod",
+                "json-mod",
+                "collections",
+                "itertools",
+            ],
+            s_stdlib,
+        ),
+        (
+            "plotting",
+            &[
+                "plot",
+                "matplotlib",
+                "chart",
+                "histogram",
+                "scatter",
+                "subplot",
+                "viz",
+            ],
+            s_matplotlib,
+        ),
+        (
+            "wrangling",
+            &[
+                "wrangle",
+                "melt",
+                "explode",
+                "rolling",
+                "resample",
+                "categorical",
+                "eda",
+            ],
+            s_wrangling,
+        ),
+    ];
+
+    let q = query.trim().to_lowercase();
+
+    if q.is_empty() || q == "help" || q == "list" {
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  hematite --python-data <TOPIC>");
+        let _ = writeln!(
+            out,
+            "  Offline Python data toolkit — pandas, numpy, matplotlib, stdlib"
+        );
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  Topics:");
+        for &(name, aliases, _) in SECTIONS {
+            let _ = writeln!(out, "    {name:<12} ({})", aliases.join(", "));
+        }
+        let _ = writeln!(out, "\n  hematite --python-data all   -- print everything");
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    if q == "all" {
+        let _ = writeln!(out, "{sep}");
+        for &(name, _, f) in SECTIONS {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+            let _ = writeln!(out, "");
+        }
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    let found: Vec<_> = SECTIONS
+        .iter()
+        .filter(|&&(name, aliases, _)| {
+            name.contains(q.as_str())
+                || aliases
+                    .iter()
+                    .any(|&a| a.contains(q.as_str()) || q.contains(a))
+        })
+        .collect();
+
+    if found.is_empty() {
+        let _ = writeln!(out, "  No topic found for '{}'.", query.trim());
+        let _ = writeln!(out, "  Run: hematite --python-data help");
+    } else {
+        let _ = writeln!(out, "{sep}");
+        for &&(name, _, f) in &found {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+        }
+        let _ = writeln!(out, "{sep}");
+    }
+    out
+}

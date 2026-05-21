@@ -13,12 +13,13 @@ use hematite::tools::math_util::{
     json_path_calc, jwt_calc, kbd_calc, kubectl_calc, license_calc, linux_adv_calc, lorem_calc,
     make_calc, makefile_calc, markdown_calc, matrix_calc, mime_calc, net_calc, nginx_calc,
     npm_calc, number_format, number_theory_calc, openssl_calc, percent_calc, physics_calc,
-    port_calc, postgres_calc, prob_calc, python_ref_calc, regex_calc, regex_ref_calc, roman_calc,
-    rust_ref_calc, security_ref_calc, sed_calc, semver_calc, set_calc, sort_viz, spark_calc,
-    sql_fmt_calc, sql_ref_calc, ssh_ref_calc, ssl_calc, stats_calc, string_dist, systemd_adv_calc,
-    systemd_calc, table_calc, tar_calc, template_calc, terraform_calc, text_stats, timestamp_calc,
-    tmux_calc, toml_calc, trig_calc, ts_ref_calc, tz_calc, url_calc, uuid_calc, validate_calc,
-    vim_calc, xml_calc, yaml_calc,
+    port_calc, postgres_calc, prob_calc, python_data_calc, python_ref_calc, regex_adv_calc,
+    regex_calc, regex_ref_calc, roman_calc, rust_ref_calc, security_ref_calc, sed_calc,
+    semver_calc, set_calc, sort_viz, spark_calc, sql_adv_calc, sql_fmt_calc, sql_ref_calc,
+    ssh_ref_calc, ssl_calc, stats_calc, string_dist, systemd_adv_calc, systemd_calc, table_calc,
+    tar_calc, template_calc, terraform_calc, text_stats, timestamp_calc, tmux_calc, toml_calc,
+    trig_calc, ts_ref_calc, tz_calc, url_calc, uuid_calc, validate_calc, vim_adv_calc, vim_calc,
+    xml_calc, yaml_calc,
 };
 
 // ─── Cipher tests ────────────────────────────────────────────────────────────
@@ -9813,4 +9814,1318 @@ fn test_cloud_ref_k8s_cloud_alias_storage_class() {
 fn test_cloud_ref_no_match() {
     let out = cloud_ref_calc("xyznotfound");
     assert!(out.contains("No topic") || out.contains("hematite --cloud-ref"));
+}
+
+// ── regex_adv_calc ────────────────────────────────────────────────────────────
+
+#[test]
+fn regex_adv_help_empty() {
+    let out = regex_adv_calc("");
+    assert!(
+        out.contains("hematite --regex-adv"),
+        "help shown for empty query"
+    );
+    assert!(out.contains("lookaround"));
+    assert!(out.contains("patterns"));
+}
+
+#[test]
+fn regex_adv_all() {
+    let out = regex_adv_calc("all");
+    assert!(out.contains("Lookahead"), "all includes lookaround content");
+    assert!(
+        out.contains("capturing group"),
+        "all includes groups content"
+    );
+    assert!(
+        out.contains("possessive"),
+        "all includes quantifiers content"
+    );
+    assert!(
+        out.contains("Character class") || out.contains("[abc]"),
+        "all includes charclass content"
+    );
+    assert!(out.contains("email"), "all includes patterns content");
+}
+
+#[test]
+fn regex_adv_lookaround() {
+    let out = regex_adv_calc("lookaround");
+    assert!(
+        out.contains("(?="),
+        "lookaround section has positive lookahead"
+    );
+    assert!(
+        out.contains("(?!"),
+        "lookaround section has negative lookahead"
+    );
+    assert!(out.contains("(?<="), "lookaround section has lookbehind");
+    assert!(
+        out.contains("(?<!"),
+        "lookaround section has negative lookbehind"
+    );
+    assert!(
+        out.contains("zero-width") || out.contains("Password"),
+        "content present"
+    );
+}
+
+#[test]
+fn regex_adv_lookahead_alias() {
+    let out = regex_adv_calc("lookahead");
+    assert!(
+        out.contains("(?="),
+        "lookahead alias resolves to lookaround section"
+    );
+}
+
+#[test]
+fn regex_adv_lookbehind_alias() {
+    let out = regex_adv_calc("lookbehind");
+    assert!(
+        out.contains("(?<="),
+        "lookbehind alias resolves to lookaround section"
+    );
+}
+
+#[test]
+fn regex_adv_groups() {
+    let out = regex_adv_calc("groups");
+    assert!(out.contains("capturing group"), "groups section present");
+    assert!(
+        out.contains("Non-capturing"),
+        "non-capturing group in section"
+    );
+    assert!(
+        out.contains("Named group") || out.contains("(?P<"),
+        "named groups present"
+    );
+    assert!(
+        out.contains("backreference") || out.contains("\\1"),
+        "backrefs present"
+    );
+}
+
+#[test]
+fn regex_adv_named_alias() {
+    let out = regex_adv_calc("named");
+    assert!(
+        out.contains("(?P<"),
+        "named alias resolves to groups section"
+    );
+}
+
+#[test]
+fn regex_adv_capturing_alias() {
+    let out = regex_adv_calc("capturing");
+    assert!(out.contains("capturing group"), "capturing alias works");
+}
+
+#[test]
+fn regex_adv_backreference_alias() {
+    let out = regex_adv_calc("backreference");
+    assert!(
+        out.contains("\\1") || out.contains("backreference"),
+        "backreference alias works"
+    );
+}
+
+#[test]
+fn regex_adv_flavors() {
+    let out = regex_adv_calc("flavors");
+    assert!(out.contains("PCRE"), "flavors section has PCRE");
+    assert!(
+        out.contains("RE2") || out.contains("Go"),
+        "flavors section has RE2/Go"
+    );
+    assert!(out.contains("Python"), "flavors section has Python");
+    assert!(
+        out.contains("JavaScript") || out.contains("ES2018"),
+        "flavors section has JS"
+    );
+}
+
+#[test]
+fn regex_adv_pcre_alias() {
+    let out = regex_adv_calc("pcre");
+    assert!(out.contains("PCRE"), "pcre alias resolves to flavors");
+}
+
+#[test]
+fn regex_adv_re2_alias() {
+    let out = regex_adv_calc("re2");
+    assert!(
+        out.contains("RE2") || out.contains("Linear time"),
+        "re2 alias resolves to flavors"
+    );
+}
+
+#[test]
+fn regex_adv_quantifiers() {
+    let out = regex_adv_calc("quantifiers");
+    assert!(out.contains("Greedy"), "quantifiers section has greedy");
+    assert!(
+        out.contains("Lazy") || out.contains("lazy"),
+        "quantifiers section has lazy"
+    );
+    assert!(
+        out.contains("possessive") || out.contains("Possessive"),
+        "possessive quantifiers present"
+    );
+    assert!(
+        out.contains("catastrophic") || out.contains("backtrack"),
+        "backtracking info present"
+    );
+}
+
+#[test]
+fn regex_adv_greedy_alias() {
+    let out = regex_adv_calc("greedy");
+    assert!(out.contains("Greedy"), "greedy alias works");
+}
+
+#[test]
+fn regex_adv_lazy_alias() {
+    let out = regex_adv_calc("lazy");
+    assert!(
+        out.contains("Lazy") || out.contains("lazy"),
+        "lazy alias works"
+    );
+}
+
+#[test]
+fn regex_adv_anchor_alias() {
+    let out = regex_adv_calc("anchor");
+    assert!(
+        out.contains("\\A") || out.contains("\\b") || out.contains("Start of string"),
+        "anchor alias works"
+    );
+}
+
+#[test]
+fn regex_adv_charclass() {
+    let out = regex_adv_calc("charclass");
+    assert!(
+        out.contains("[abc]") || out.contains("[^abc]"),
+        "charclass section has basic class syntax"
+    );
+    assert!(out.contains("\\p{"), "unicode properties present");
+    assert!(out.contains("POSIX"), "POSIX classes mentioned");
+    assert!(
+        out.contains("\\d") || out.contains("\\w"),
+        "shorthand classes present"
+    );
+}
+
+#[test]
+fn regex_adv_unicode_alias() {
+    let out = regex_adv_calc("unicode");
+    assert!(
+        out.contains("\\p{"),
+        "unicode alias resolves to charclass section"
+    );
+}
+
+#[test]
+fn regex_adv_posix_alias() {
+    let out = regex_adv_calc("posix");
+    assert!(out.contains("POSIX"), "posix alias works");
+}
+
+#[test]
+fn regex_adv_patterns() {
+    let out = regex_adv_calc("patterns");
+    assert!(
+        out.contains("Email") || out.contains("email"),
+        "patterns section has email"
+    );
+    assert!(
+        out.contains("IPv4") || out.contains("ipv4"),
+        "patterns section has IPv4"
+    );
+    assert!(
+        out.contains("semver") || out.contains("Semantic version"),
+        "semver pattern present"
+    );
+    assert!(
+        out.contains("JWT") || out.contains("slug"),
+        "JWT or slug present"
+    );
+}
+
+#[test]
+fn regex_adv_email_alias() {
+    let out = regex_adv_calc("email");
+    assert!(
+        out.contains("Email") || out.contains("email"),
+        "email alias resolves to patterns"
+    );
+}
+
+#[test]
+fn regex_adv_url_alias() {
+    let out = regex_adv_calc("url");
+    assert!(
+        out.contains("https") || out.contains("URL"),
+        "url alias resolves to patterns"
+    );
+}
+
+#[test]
+fn regex_adv_ipv4_alias() {
+    let out = regex_adv_calc("ipv4");
+    assert!(
+        out.contains("IPv4") || out.contains("25[0-5]"),
+        "ipv4 alias works"
+    );
+}
+
+#[test]
+fn regex_adv_semver_alias() {
+    let out = regex_adv_calc("semver");
+    assert!(
+        out.contains("semver") || out.contains("Semantic"),
+        "semver alias works"
+    );
+}
+
+#[test]
+fn regex_adv_not_found() {
+    let out = regex_adv_calc("xyznotfound123");
+    assert!(
+        out.contains("No topic found"),
+        "unknown query returns not-found message"
+    );
+}
+
+// ── sql_adv_calc ──────────────────────────────────────────────────────────────
+
+#[test]
+fn sql_adv_help_empty() {
+    let out = sql_adv_calc("");
+    assert!(
+        out.contains("hematite --sql-adv"),
+        "help shown for empty query"
+    );
+    assert!(out.contains("window"));
+    assert!(out.contains("cte"));
+    assert!(out.contains("transactions"));
+}
+
+#[test]
+fn sql_adv_all() {
+    let out = sql_adv_calc("all");
+    assert!(out.contains("ROW_NUMBER"), "all includes window content");
+    assert!(
+        out.contains("RECURSIVE"),
+        "all includes recursive CTE content"
+    );
+    assert!(out.contains("CONCURRENTLY"), "all includes index content");
+    assert!(out.contains("EXPLAIN"), "all includes explain content");
+    assert!(
+        out.contains("ISOLATION"),
+        "all includes transaction content"
+    );
+    assert!(
+        out.contains("JSONB") || out.contains("jsonb"),
+        "all includes json content"
+    );
+}
+
+#[test]
+fn sql_adv_window() {
+    let out = sql_adv_calc("window");
+    assert!(out.contains("ROW_NUMBER"), "window section has ROW_NUMBER");
+    assert!(out.contains("RANK"), "window section has RANK");
+    assert!(out.contains("LAG"), "window section has LAG");
+    assert!(out.contains("LEAD"), "window section has LEAD");
+    assert!(out.contains("PARTITION"), "window section has PARTITION BY");
+    assert!(out.contains("OVER"), "window section has OVER clause");
+}
+
+#[test]
+fn sql_adv_rank_alias() {
+    let out = sql_adv_calc("rank");
+    assert!(
+        out.contains("RANK"),
+        "rank alias resolves to window section"
+    );
+}
+
+#[test]
+fn sql_adv_row_number_alias() {
+    let out = sql_adv_calc("row_number");
+    assert!(out.contains("ROW_NUMBER"), "row_number alias works");
+}
+
+#[test]
+fn sql_adv_lag_alias() {
+    let out = sql_adv_calc("lag");
+    assert!(out.contains("LAG"), "lag alias works");
+}
+
+#[test]
+fn sql_adv_partition_alias() {
+    let out = sql_adv_calc("partition");
+    assert!(out.contains("PARTITION"), "partition alias works");
+}
+
+#[test]
+fn sql_adv_cte() {
+    let out = sql_adv_calc("cte");
+    assert!(out.contains("WITH"), "cte section has WITH keyword");
+    assert!(out.contains("RECURSIVE"), "cte section has recursive CTE");
+    assert!(
+        out.contains("MATERIALIZED") || out.contains("materialized"),
+        "materialized CTE present"
+    );
+    assert!(
+        out.contains("Base case") || out.contains("UNION ALL"),
+        "recursive structure present"
+    );
+}
+
+#[test]
+fn sql_adv_recursive_alias() {
+    let out = sql_adv_calc("recursive");
+    assert!(
+        out.contains("RECURSIVE"),
+        "recursive alias resolves to cte section"
+    );
+}
+
+#[test]
+fn sql_adv_with_alias() {
+    let out = sql_adv_calc("with");
+    assert!(out.contains("WITH"), "with alias works");
+}
+
+#[test]
+fn sql_adv_materialized_alias() {
+    let out = sql_adv_calc("materialized");
+    assert!(
+        out.contains("MATERIALIZED") || out.contains("materialized"),
+        "materialized alias works"
+    );
+}
+
+#[test]
+fn sql_adv_indexes() {
+    let out = sql_adv_calc("indexes");
+    assert!(
+        out.contains("B-tree") || out.contains("btree"),
+        "indexes section has B-tree"
+    );
+    assert!(out.contains("GIN"), "indexes section has GIN");
+    assert!(
+        out.contains("CONCURRENTLY"),
+        "indexes section has CONCURRENTLY"
+    );
+    assert!(
+        out.contains("Partial") || out.contains("partial"),
+        "partial index present"
+    );
+    assert!(
+        out.contains("INCLUDE") || out.contains("Covering"),
+        "covering index present"
+    );
+}
+
+#[test]
+fn sql_adv_btree_alias() {
+    let out = sql_adv_calc("btree");
+    assert!(
+        out.contains("B-tree") || out.contains("btree"),
+        "btree alias resolves to indexes"
+    );
+}
+
+#[test]
+fn sql_adv_gin_alias() {
+    let out = sql_adv_calc("gin");
+    assert!(out.contains("GIN"), "gin alias works");
+}
+
+#[test]
+fn sql_adv_partial_alias() {
+    let out = sql_adv_calc("partial");
+    assert!(
+        out.contains("Partial") || out.contains("partial"),
+        "partial alias works"
+    );
+}
+
+#[test]
+fn sql_adv_covering_alias() {
+    let out = sql_adv_calc("covering");
+    assert!(
+        out.contains("INCLUDE") || out.contains("Covering"),
+        "covering alias works"
+    );
+}
+
+#[test]
+fn sql_adv_explain() {
+    let out = sql_adv_calc("explain");
+    assert!(out.contains("EXPLAIN"), "explain section has EXPLAIN");
+    assert!(
+        out.contains("Seq Scan"),
+        "explain section has Seq Scan node"
+    );
+    assert!(out.contains("Index Scan"), "explain section has Index Scan");
+    assert!(out.contains("Hash Join"), "explain section has Hash Join");
+    assert!(
+        out.contains("slow query") || out.contains("checklist"),
+        "slow query checklist present"
+    );
+}
+
+#[test]
+fn sql_adv_seq_scan_alias() {
+    let out = sql_adv_calc("seq-scan");
+    assert!(
+        out.contains("Seq Scan"),
+        "seq-scan alias resolves to explain section"
+    );
+}
+
+#[test]
+fn sql_adv_slow_alias() {
+    let out = sql_adv_calc("slow");
+    assert!(
+        out.contains("slow query") || out.contains("checklist") || out.contains("ANALYZE"),
+        "slow alias works"
+    );
+}
+
+#[test]
+fn sql_adv_transactions() {
+    let out = sql_adv_calc("transactions");
+    assert!(
+        out.contains("BEGIN") || out.contains("COMMIT"),
+        "transactions section has BEGIN/COMMIT"
+    );
+    assert!(out.contains("ISOLATION LEVEL"), "isolation levels present");
+    assert!(
+        out.contains("SERIALIZABLE"),
+        "SERIALIZABLE isolation present"
+    );
+    assert!(out.contains("FOR UPDATE"), "locking present");
+    assert!(out.contains("SAVEPOINT"), "savepoint present");
+}
+
+#[test]
+fn sql_adv_isolation_alias() {
+    let out = sql_adv_calc("isolation");
+    assert!(
+        out.contains("ISOLATION LEVEL"),
+        "isolation alias resolves to transactions section"
+    );
+}
+
+#[test]
+fn sql_adv_lock_alias() {
+    let out = sql_adv_calc("lock");
+    assert!(
+        out.contains("FOR UPDATE") || out.contains("LOCK"),
+        "lock alias works"
+    );
+}
+
+#[test]
+fn sql_adv_deadlock_alias() {
+    let out = sql_adv_calc("deadlock");
+    assert!(
+        out.contains("Deadlock") || out.contains("deadlock"),
+        "deadlock alias works"
+    );
+}
+
+#[test]
+fn sql_adv_savepoint_alias() {
+    let out = sql_adv_calc("savepoint");
+    assert!(out.contains("SAVEPOINT"), "savepoint alias works");
+}
+
+#[test]
+fn sql_adv_advisory_alias() {
+    let out = sql_adv_calc("advisory");
+    assert!(
+        out.contains("advisory") || out.contains("pg_advisory"),
+        "advisory alias works"
+    );
+}
+
+#[test]
+fn sql_adv_json() {
+    let out = sql_adv_calc("json");
+    assert!(
+        out.contains("JSONB") || out.contains("->"),
+        "json section has JSONB operators"
+    );
+    assert!(
+        out.contains("->>"),
+        "json section has text extraction operator"
+    );
+    assert!(out.contains("@>"), "json section has contains operator");
+    assert!(
+        out.contains("json_agg") || out.contains("JSON aggregation"),
+        "json aggregation present"
+    );
+}
+
+#[test]
+fn sql_adv_jsonb_alias() {
+    let out = sql_adv_calc("jsonb");
+    assert!(
+        out.contains("JSONB") || out.contains("->"),
+        "jsonb alias resolves to json section"
+    );
+}
+
+#[test]
+fn sql_adv_contains_alias() {
+    let out = sql_adv_calc("contains");
+    assert!(out.contains("@>"), "contains alias works");
+}
+
+#[test]
+fn sql_adv_not_found() {
+    let out = sql_adv_calc("xyznotfound123");
+    assert!(
+        out.contains("No topic found"),
+        "unknown query returns not-found message"
+    );
+}
+
+// ── vim_adv_calc ──────────────────────────────────────────────────────────────
+
+#[test]
+fn vim_adv_help_empty() {
+    let out = vim_adv_calc("");
+    assert!(
+        out.contains("hematite --vim-adv"),
+        "help shown for empty query"
+    );
+    assert!(out.contains("registers"));
+    assert!(out.contains("macros"));
+    assert!(out.contains("config"));
+}
+
+#[test]
+fn vim_adv_all() {
+    let out = vim_adv_calc("all");
+    assert!(
+        out.contains("system clipboard") || out.contains("unnamed"),
+        "all includes registers content"
+    );
+    assert!(
+        out.contains("Record") || out.contains("record"),
+        "all includes macros content"
+    );
+    assert!(
+        out.contains("Ex commands") || out.contains("RANGE") || out.contains("Ranges"),
+        "all includes excommands content"
+    );
+    assert!(
+        out.contains("text object") || out.contains("Text object"),
+        "all includes motions content"
+    );
+    assert!(
+        out.contains("foldmethod") || out.contains("fold method"),
+        "all includes folds content"
+    );
+    assert!(
+        out.contains("vimrc") || out.contains("init.lua"),
+        "all includes config content"
+    );
+}
+
+#[test]
+fn vim_adv_registers() {
+    let out = vim_adv_calc("registers");
+    assert!(
+        out.contains("Unnamed") || out.contains("unnamed"),
+        "registers section has unnamed register"
+    );
+    assert!(
+        out.contains("system clipboard") || out.contains("clipboard"),
+        "clipboard register present"
+    );
+    assert!(
+        out.contains("Black hole") || out.contains("\"_"),
+        "black hole register present"
+    );
+    assert!(
+        out.contains("\"0") || out.contains("last yank"),
+        "yank register present"
+    );
+    assert!(out.contains(":reg"), "registers listing command present");
+}
+
+#[test]
+fn vim_adv_clipboard_alias() {
+    let out = vim_adv_calc("clipboard");
+    assert!(
+        out.contains("clipboard") || out.contains("\"+"),
+        "clipboard alias resolves to registers"
+    );
+}
+
+#[test]
+fn vim_adv_yank_alias() {
+    let out = vim_adv_calc("yank");
+    assert!(
+        out.contains("yank") || out.contains("Yank"),
+        "yank alias resolves to registers"
+    );
+}
+
+#[test]
+fn vim_adv_black_hole_alias() {
+    let out = vim_adv_calc("black-hole");
+    assert!(
+        out.contains("Black hole") || out.contains("\"_"),
+        "black-hole alias works"
+    );
+}
+
+#[test]
+fn vim_adv_macros() {
+    let out = vim_adv_calc("macros");
+    assert!(
+        out.contains("Record") || out.contains("record"),
+        "macros section has record info"
+    );
+    assert!(
+        out.contains("@a") || out.contains("@<reg>"),
+        "macro replay syntax present"
+    );
+    assert!(
+        out.contains("recursive") || out.contains("Recursive"),
+        "recursive macros mentioned"
+    );
+    assert!(
+        out.contains(":g/") || out.contains("Global command"),
+        "global command present"
+    );
+}
+
+#[test]
+fn vim_adv_record_alias() {
+    let out = vim_adv_calc("record");
+    assert!(
+        out.contains("Record") || out.contains("record"),
+        "record alias resolves to macros"
+    );
+}
+
+#[test]
+fn vim_adv_replay_alias() {
+    let out = vim_adv_calc("replay");
+    assert!(
+        out.contains("Play") || out.contains("@a") || out.contains("repeat"),
+        "replay alias works"
+    );
+}
+
+#[test]
+fn vim_adv_recursive_alias() {
+    let out = vim_adv_calc("recursive");
+    assert!(
+        out.contains("Recursive") || out.contains("recursive"),
+        "recursive alias resolves to macros"
+    );
+}
+
+#[test]
+fn vim_adv_global_cmd_alias() {
+    let out = vim_adv_calc("global-cmd");
+    assert!(
+        out.contains(":g/") || out.contains("Global command"),
+        "global-cmd alias works"
+    );
+}
+
+#[test]
+fn vim_adv_excommands() {
+    let out = vim_adv_calc("ex");
+    assert!(
+        out.contains("Ranges") || out.contains("range"),
+        "excommands section has ranges"
+    );
+    assert!(
+        out.contains(":%") || out.contains("Entire file"),
+        "full file range present"
+    );
+    assert!(out.contains(":g/"), "global command in excommands");
+    assert!(
+        out.contains(":w") || out.contains(":windo"),
+        "write command present"
+    );
+    assert!(
+        out.contains(":ls") || out.contains("buffers"),
+        "buffer listing present"
+    );
+}
+
+#[test]
+fn vim_adv_range_alias() {
+    let out = vim_adv_calc("range");
+    assert!(
+        out.contains("Ranges") || out.contains("range"),
+        "range alias resolves to excommands"
+    );
+}
+
+#[test]
+fn vim_adv_substitute_alias() {
+    let out = vim_adv_calc("substitute");
+    assert!(
+        out.contains(":s/") || out.contains("Substitute") || out.contains("substitute"),
+        "substitute alias works"
+    );
+}
+
+#[test]
+fn vim_adv_buffer_alias() {
+    let out = vim_adv_calc("buffer");
+    assert!(
+        out.contains(":ls") || out.contains("buffer") || out.contains("buffers"),
+        "buffer alias works"
+    );
+}
+
+#[test]
+fn vim_adv_split_alias() {
+    let out = vim_adv_calc("split");
+    assert!(
+        out.contains(":sp") || out.contains(":vsp") || out.contains("split"),
+        "split alias works"
+    );
+}
+
+#[test]
+fn vim_adv_motions() {
+    let out = vim_adv_calc("motions");
+    assert!(
+        out.contains("iw") || out.contains("inner word"),
+        "motions section has text objects"
+    );
+    assert!(
+        out.contains("H/M/L") || out.contains("Top/Middle"),
+        "screen motions present"
+    );
+    assert!(
+        out.contains("Ctrl-o") || out.contains("jump list"),
+        "jump list navigation present"
+    );
+    assert!(
+        out.contains("marks") || out.contains(":marks"),
+        "marks present"
+    );
+}
+
+#[test]
+fn vim_adv_text_object_alias() {
+    let out = vim_adv_calc("text-object");
+    assert!(
+        out.contains("iw") || out.contains("inner"),
+        "text-object alias resolves to motions"
+    );
+}
+
+#[test]
+fn vim_adv_mark_alias() {
+    let out = vim_adv_calc("mark");
+    assert!(
+        out.contains(":marks") || out.contains("mark 'a'") || out.contains("Mark"),
+        "mark alias works"
+    );
+}
+
+#[test]
+fn vim_adv_jump_alias() {
+    let out = vim_adv_calc("jump");
+    assert!(
+        out.contains("jump") || out.contains("Ctrl-o"),
+        "jump alias works"
+    );
+}
+
+#[test]
+fn vim_adv_folds() {
+    let out = vim_adv_calc("folds");
+    assert!(
+        out.contains("zo") || out.contains("Open fold"),
+        "folds section has fold open"
+    );
+    assert!(
+        out.contains("zc") || out.contains("close fold"),
+        "folds section has fold close"
+    );
+    assert!(out.contains("foldmethod"), "fold methods present");
+    assert!(
+        out.contains("quickfix") || out.contains(":copen"),
+        "quickfix list present"
+    );
+}
+
+#[test]
+fn vim_adv_fold_alias() {
+    let out = vim_adv_calc("fold");
+    assert!(
+        out.contains("zo") || out.contains("Open fold"),
+        "fold alias resolves to folds section"
+    );
+}
+
+#[test]
+fn vim_adv_quickfix_alias() {
+    let out = vim_adv_calc("quickfix");
+    assert!(
+        out.contains(":copen") || out.contains("quickfix"),
+        "quickfix alias works"
+    );
+}
+
+#[test]
+fn vim_adv_foldmethod_alias() {
+    let out = vim_adv_calc("foldmethod");
+    assert!(out.contains("foldmethod"), "foldmethod alias works");
+}
+
+#[test]
+fn vim_adv_config() {
+    let out = vim_adv_calc("config");
+    assert!(
+        out.contains("vimrc") || out.contains(".vimrc"),
+        "config section has vimrc"
+    );
+    assert!(out.contains("init.lua"), "config section has init.lua");
+    assert!(
+        out.contains("autocmd") || out.contains("vim.opt"),
+        "config settings present"
+    );
+    assert!(
+        out.contains("keymap") || out.contains("vim.keymap"),
+        "keymap config present"
+    );
+}
+
+#[test]
+fn vim_adv_vimrc_alias() {
+    let out = vim_adv_calc("vimrc");
+    assert!(
+        out.contains("vimrc") || out.contains(".vimrc"),
+        "vimrc alias resolves to config"
+    );
+}
+
+#[test]
+fn vim_adv_init_lua_alias() {
+    let out = vim_adv_calc("init-lua");
+    assert!(out.contains("init.lua"), "init-lua alias works");
+}
+
+#[test]
+fn vim_adv_autocmd_alias() {
+    let out = vim_adv_calc("autocmd");
+    assert!(out.contains("autocmd"), "autocmd alias works");
+}
+
+#[test]
+fn vim_adv_keymap_alias() {
+    let out = vim_adv_calc("keymap");
+    assert!(
+        out.contains("keymap") || out.contains("vim.keymap"),
+        "keymap alias works"
+    );
+}
+
+#[test]
+fn vim_adv_not_found() {
+    let out = vim_adv_calc("xyznotfound123");
+    assert!(
+        out.contains("No topic found"),
+        "unknown query returns not-found message"
+    );
+}
+
+// ── python_data_calc ──────────────────────────────────────────────────────────
+
+#[test]
+fn python_data_help_empty() {
+    let out = python_data_calc("");
+    assert!(
+        out.contains("hematite --python-data"),
+        "help shown for empty query"
+    );
+    assert!(out.contains("pandas"));
+    assert!(out.contains("numpy"));
+    assert!(out.contains("wrangling"));
+}
+
+#[test]
+fn python_data_all() {
+    let out = python_data_calc("all");
+    assert!(
+        out.contains("read_csv") || out.contains("pd.read_csv"),
+        "all includes pandas content"
+    );
+    assert!(
+        out.contains("np.array") || out.contains("zeros"),
+        "all includes numpy content"
+    );
+    assert!(
+        out.contains("pathlib") || out.contains("Path"),
+        "all includes stdlib content"
+    );
+    assert!(
+        out.contains("plt.plot") || out.contains("matplotlib"),
+        "all includes plotting content"
+    );
+    assert!(
+        out.contains("melt") || out.contains("rolling"),
+        "all includes wrangling content"
+    );
+}
+
+#[test]
+fn python_data_pandas() {
+    let out = python_data_calc("pandas");
+    assert!(
+        out.contains("pd.read_csv") || out.contains("read_csv"),
+        "pandas section has read_csv"
+    );
+    assert!(
+        out.contains("df.head") || out.contains("head("),
+        "pandas section has head"
+    );
+    assert!(out.contains("groupby"), "pandas section has groupby");
+    assert!(
+        out.contains("merge") || out.contains("pd.merge"),
+        "pandas section has merge"
+    );
+    assert!(
+        out.contains("fillna") || out.contains("dropna"),
+        "null handling present"
+    );
+}
+
+#[test]
+fn python_data_dataframe_alias() {
+    let out = python_data_calc("dataframe");
+    assert!(
+        out.contains("read_csv") || out.contains("groupby"),
+        "dataframe alias resolves to pandas"
+    );
+}
+
+#[test]
+fn python_data_groupby_alias() {
+    let out = python_data_calc("groupby");
+    assert!(out.contains("groupby"), "groupby alias works");
+}
+
+#[test]
+fn python_data_merge_alias() {
+    let out = python_data_calc("merge");
+    assert!(
+        out.contains("merge") || out.contains("pd.merge"),
+        "merge alias works"
+    );
+}
+
+#[test]
+fn python_data_pivot_alias() {
+    let out = python_data_calc("pivot");
+    assert!(
+        out.contains("pivot_table") || out.contains("pivot"),
+        "pivot alias works"
+    );
+}
+
+#[test]
+fn python_data_fillna_alias() {
+    let out = python_data_calc("fillna");
+    assert!(out.contains("fillna"), "fillna alias works");
+}
+
+#[test]
+fn python_data_numpy() {
+    let out = python_data_calc("numpy");
+    assert!(
+        out.contains("np.array") || out.contains("np.zeros"),
+        "numpy section has array creation"
+    );
+    assert!(out.contains("reshape"), "numpy section has reshape");
+    assert!(
+        out.contains("np.dot") || out.contains("np.linalg"),
+        "numpy section has linear algebra"
+    );
+    assert!(
+        out.contains("Boolean mask") || out.contains("arr[arr"),
+        "boolean indexing present"
+    );
+    assert!(
+        out.contains("np.random") || out.contains("random.seed"),
+        "random arrays present"
+    );
+}
+
+#[test]
+fn python_data_array_alias() {
+    let out = python_data_calc("array");
+    assert!(
+        out.contains("np.array") || out.contains("zeros"),
+        "array alias resolves to numpy"
+    );
+}
+
+#[test]
+fn python_data_ndarray_alias() {
+    let out = python_data_calc("ndarray");
+    assert!(
+        out.contains("ndim") || out.contains("reshape") || out.contains("zeros"),
+        "ndarray alias works"
+    );
+}
+
+#[test]
+fn python_data_reshape_alias() {
+    let out = python_data_calc("reshape");
+    assert!(out.contains("reshape"), "reshape alias works");
+}
+
+#[test]
+fn python_data_linalg_alias() {
+    let out = python_data_calc("linalg");
+    assert!(
+        out.contains("linalg") || out.contains("np.linalg"),
+        "linalg alias works"
+    );
+}
+
+#[test]
+fn python_data_random_alias() {
+    let out = python_data_calc("random");
+    assert!(
+        out.contains("np.random") || out.contains("random.seed"),
+        "random alias works"
+    );
+}
+
+#[test]
+fn python_data_stdlib() {
+    let out = python_data_calc("stdlib");
+    assert!(
+        out.contains("pathlib") || out.contains("Path"),
+        "stdlib section has pathlib"
+    );
+    assert!(
+        out.contains("csv") || out.contains("DictReader"),
+        "stdlib section has csv module"
+    );
+    assert!(
+        out.contains("json.loads") || out.contains("json.dumps"),
+        "stdlib section has json module"
+    );
+    assert!(
+        out.contains("Counter") || out.contains("defaultdict"),
+        "stdlib section has collections"
+    );
+    assert!(
+        out.contains("itertools") || out.contains("chain"),
+        "stdlib section has itertools"
+    );
+}
+
+#[test]
+fn python_data_pathlib_alias() {
+    let out = python_data_calc("pathlib");
+    assert!(
+        out.contains("pathlib") || out.contains("Path"),
+        "pathlib alias resolves to stdlib"
+    );
+}
+
+#[test]
+fn python_data_collections_alias() {
+    let out = python_data_calc("collections");
+    assert!(
+        out.contains("Counter") || out.contains("defaultdict"),
+        "collections alias works"
+    );
+}
+
+#[test]
+fn python_data_itertools_alias() {
+    let out = python_data_calc("itertools");
+    assert!(
+        out.contains("itertools") || out.contains("chain"),
+        "itertools alias works"
+    );
+}
+
+#[test]
+fn python_data_csv_mod_alias() {
+    let out = python_data_calc("csv-mod");
+    assert!(
+        out.contains("csv") || out.contains("DictReader"),
+        "csv-mod alias works"
+    );
+}
+
+#[test]
+fn python_data_json_mod_alias() {
+    let out = python_data_calc("json-mod");
+    assert!(
+        out.contains("json.loads") || out.contains("json.dumps"),
+        "json-mod alias works"
+    );
+}
+
+#[test]
+fn python_data_plotting() {
+    let out = python_data_calc("plotting");
+    assert!(
+        out.contains("plt.plot") || out.contains("matplotlib"),
+        "plotting section has matplotlib"
+    );
+    assert!(
+        out.contains("plt.scatter") || out.contains("scatter"),
+        "scatter plot present"
+    );
+    assert!(
+        out.contains("plt.hist") || out.contains("hist("),
+        "histogram present"
+    );
+    assert!(
+        out.contains("subplots") || out.contains("fig, axes"),
+        "subplots present"
+    );
+    assert!(
+        out.contains("savefig") || out.contains("plt.savefig"),
+        "save figure present"
+    );
+}
+
+#[test]
+fn python_data_matplotlib_alias() {
+    let out = python_data_calc("matplotlib");
+    assert!(
+        out.contains("matplotlib") || out.contains("plt.plot"),
+        "matplotlib alias resolves to plotting"
+    );
+}
+
+#[test]
+fn python_data_chart_alias() {
+    let out = python_data_calc("chart");
+    assert!(
+        out.contains("plt.plot") || out.contains("bar"),
+        "chart alias works"
+    );
+}
+
+#[test]
+fn python_data_histogram_alias() {
+    let out = python_data_calc("histogram");
+    assert!(out.contains("hist"), "histogram alias works");
+}
+
+#[test]
+fn python_data_scatter_alias() {
+    let out = python_data_calc("scatter");
+    assert!(out.contains("scatter"), "scatter alias works");
+}
+
+#[test]
+fn python_data_subplot_alias() {
+    let out = python_data_calc("subplot");
+    assert!(
+        out.contains("subplots") || out.contains("axes"),
+        "subplot alias works"
+    );
+}
+
+#[test]
+fn python_data_viz_alias() {
+    let out = python_data_calc("viz");
+    assert!(
+        out.contains("plt") || out.contains("matplotlib"),
+        "viz alias works"
+    );
+}
+
+#[test]
+fn python_data_wrangling() {
+    let out = python_data_calc("wrangling");
+    assert!(out.contains("melt"), "wrangling section has melt");
+    assert!(out.contains("explode"), "wrangling section has explode");
+    assert!(
+        out.contains("rolling") || out.contains("rolling_avg"),
+        "wrangling section has rolling"
+    );
+    assert!(out.contains("resample"), "wrangling section has resample");
+    assert!(
+        out.contains("Categorical") || out.contains("categorical"),
+        "categorical dtype present"
+    );
+    assert!(
+        out.contains("memory") || out.contains("Memory"),
+        "memory optimization present"
+    );
+}
+
+#[test]
+fn python_data_melt_alias() {
+    let out = python_data_calc("melt");
+    assert!(out.contains("melt"), "melt alias resolves to wrangling");
+}
+
+#[test]
+fn python_data_explode_alias() {
+    let out = python_data_calc("explode");
+    assert!(out.contains("explode"), "explode alias works");
+}
+
+#[test]
+fn python_data_rolling_alias() {
+    let out = python_data_calc("rolling");
+    assert!(out.contains("rolling"), "rolling alias works");
+}
+
+#[test]
+fn python_data_resample_alias() {
+    let out = python_data_calc("resample");
+    assert!(out.contains("resample"), "resample alias works");
+}
+
+#[test]
+fn python_data_categorical_alias() {
+    let out = python_data_calc("categorical");
+    assert!(
+        out.contains("Categorical") || out.contains("category"),
+        "categorical alias works"
+    );
+}
+
+#[test]
+fn python_data_eda_alias() {
+    let out = python_data_calc("eda");
+    assert!(
+        out.contains("EDA") || out.contains("ProfileReport") || out.contains("memory"),
+        "eda alias works"
+    );
+}
+
+#[test]
+fn python_data_not_found() {
+    let out = python_data_calc("xyznotfound123");
+    assert!(
+        out.contains("No topic found"),
+        "unknown query returns not-found message"
+    );
 }

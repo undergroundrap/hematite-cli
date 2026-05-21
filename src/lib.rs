@@ -1761,6 +1761,38 @@ pub struct CliCockpit {
     pub cloud_ref: Option<String>,
 
     #[arg(
+        long = "regex-adv",
+        help_heading = "Developer Reference",
+        value_name = "TOPIC",
+        help = "Advanced regex reference — lookaround, groups, flavors, quantifiers, charclass, common patterns. Topics: lookaround, groups, flavors, quantifiers, charclass, patterns. Commands: all = everything. Examples: hematite --regex-adv lookahead | hematite --regex-adv groups | hematite --regex-adv patterns"
+    )]
+    pub regex_adv: Option<String>,
+
+    #[arg(
+        long = "sql-adv",
+        help_heading = "Developer Reference",
+        value_name = "TOPIC",
+        help = "Advanced SQL reference — window functions, CTEs, indexes, EXPLAIN, transactions, JSONB. Topics: window, cte, indexes, explain, transactions, json. Commands: all = everything. Examples: hematite --sql-adv window | hematite --sql-adv cte | hematite --sql-adv indexes"
+    )]
+    pub sql_adv: Option<String>,
+
+    #[arg(
+        long = "vim-adv",
+        help_heading = "Developer Reference",
+        value_name = "TOPIC",
+        help = "Advanced Vim / Neovim reference — registers, macros, ex commands, motions, folds, config. Topics: registers, macros, excommands, motions, folds, config. Commands: all = everything. Examples: hematite --vim-adv registers | hematite --vim-adv macros | hematite --vim-adv motions"
+    )]
+    pub vim_adv: Option<String>,
+
+    #[arg(
+        long = "python-data",
+        help_heading = "Developer Reference",
+        value_name = "TOPIC",
+        help = "Python data toolkit — pandas, numpy, matplotlib, stdlib, data wrangling. Topics: pandas, numpy, stdlib, plotting, wrangling. Commands: all = everything. Examples: hematite --python-data pandas | hematite --python-data numpy | hematite --python-data wrangling"
+    )]
+    pub python_data: Option<String>,
+
+    #[arg(
         long,
         help_heading = "Math & Science",
         value_name = "QUERY",
