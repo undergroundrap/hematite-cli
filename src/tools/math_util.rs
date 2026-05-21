@@ -41087,3 +41087,1846 @@ pub fn db_design_calc(query: &str) -> String {
     }
     out
 }
+
+// ── Wave 27 functions ─────────────────────────────────────────────────────────
+
+type PerfSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+
+fn s_perf_profiling() -> &'static str {
+    "\
+  Profiling Tools:
+  Linux:
+    perf stat -e cycles,instructions,cache-misses ./app  — hardware counters
+    perf record -g ./app && perf report               — CPU profile + call graph
+    perf top                                          — live CPU hot spots
+    flamegraph.pl (Brendan Gregg): perf → flame graph
+    eBPF tools (bpftrace, BCC):
+      profile-bpfcc -F 99 -p <pid> 10                — CPU profile via eBPF
+      offcputime-bpfcc -p <pid> 5                     — off-CPU time (I/O, sleep)
+      funclatency 'kernel:vfs_read'                   — function latency histogram
+
+  Linux perf: perf stat command output:
+    cycles:u                 CPU cycles in user mode
+    instructions:u           Instructions retired
+    IPC = instructions/cycles  (<1 = memory-bound, >2 = good)
+    cache-misses             L3 cache misses (expensive: ~100 cycles each)
+    branch-misses            Mispredicted branches (~15 cycle penalty)
+
+  Rust:
+    cargo build --release --timings    — compile time profiling
+    criterion crate: statistical microbenchmarks with regression detection
+    flamegraph crate: cargo flamegraph
+    heaptrack: heap allocation profiler (Linux)
+    valgrind --tool=callgrind ./app && kcachegrind
+
+  Go:
+    go test -bench=. -cpuprofile cpu.prof
+    go tool pprof cpu.prof
+    pprof: top, list, web (SVG flame graph), peek
+    runtime/pprof or net/http/pprof for production profiling
+    go tool trace trace.out  — goroutine/GC trace
+
+  Python:
+    cProfile + pstats: python -m cProfile -o out.stats app.py
+    snakeviz out.stats  — interactive flame graph
+    memory_profiler: @profile decorator, mprof run
+    line_profiler: @profile with kernprof -l -v
+
+  Node.js:
+    node --prof app.js && node --prof-process isolate-*.log
+    clinic.js: clinic doctor, clinic flame, clinic bubbleprof
+    0x: flamegraph generation
+
+  Java/JVM:
+    async-profiler: low-overhead; flame graphs; allocation profiling
+    JFR + JMC (Java Flight Recorder + Mission Control): built-in, low overhead
+    VisualVM / JConsole: GUI profilers
+    -XX:+PrintGCDetails -Xlog:gc*:file=gc.log  — GC logging
+"
+}
+
+fn s_perf_memory() -> &'static str {
+    "\
+  Memory Analysis:
+  Linux memory anatomy:
+    VSZ (Virtual Size) — all mapped memory; usually much larger than RSS
+    RSS (Resident Set Size) — physical RAM in use; shared libraries counted once per process
+    PSS (Proportional SS) — RSS but shared libs divided among sharing processes
+    /proc/<pid>/smaps   — detailed per-mapping breakdown
+    /proc/<pid>/status  — VmRSS, VmPeak, VmSwap
+
+  Memory leak detection:
+    Valgrind: valgrind --leak-check=full --track-origins=yes ./app
+    AddressSanitizer (ASan): compile with -fsanitize=address,leak
+    LeakSanitizer (LSan): standalone; ASAN_OPTIONS=detect_leaks=1
+    heaptrack (Linux): full heap allocation tracking with flamegraph
+
+  Heap analysis:
+    gdb: info proc mappings; malloc_info (glibc)
+    jemalloc prof: link libjemalloc with MALLOC_CONF=prof:true
+    tcmalloc heap profiler: HEAPPROFILE=/tmp/myheap ./app
+    Go: runtime.MemStats; GODEBUG=gctrace=1
+
+  Memory pressure indicators:
+    /proc/meminfo:
+      MemAvailable — available RAM without swapping
+      Cached       — page cache (reclaimable under pressure)
+      Dirty        — pages waiting to be written to disk
+      SwapUsed     — active swap usage (non-zero = pressure)
+    vmstat 1: swpd, si (swap in), so (swap out)
+    sar -r 1     — memory utilization over time
+    free -h      — quick snapshot
+
+  Out-of-Memory (OOM):
+    dmesg | grep -i 'oom|killed'  — OOM kill events
+    /var/log/syslog: OOM killer log with scores
+    OOM score: /proc/<pid>/oom_score (higher = more likely to be killed)
+    oom_score_adj: /proc/<pid>/oom_score_adj (-1000 to 1000; -1000 = never kill)
+    vm.overcommit_memory = 2 — strict: fail allocation if committed > physical+swap
+
+  Container memory:
+    docker stats         — live memory usage per container
+    /sys/fs/cgroup/memory/docker/<id>/memory.usage_in_bytes
+    Memory limits: docker run --memory=512m --memory-swap=512m  (no swap)
+    OOM kill in containers: docker events | grep oom
+"
+}
+
+fn s_perf_benchmarking() -> &'static str {
+    "\
+  Benchmarking Methodology:
+  Principles:
+    Measure, don't guess — profile before optimizing
+    Warm up before measuring — JIT compilation, CPU frequency scaling, caches
+    Control environment — disable turbo boost, CPU frequency scaling, NUMA effects
+    Statistical rigor — run multiple iterations; report mean + stddev + p99
+    One variable at a time — change one thing, measure, repeat
+
+  Linux benchmark setup:
+    sudo cpupower frequency-set -g performance    — disable freq scaling
+    echo 1 | sudo tee /sys/devices/system/cpu/cpufreq/boost  — disable turbo
+    taskset -c 0 ./benchmark                      — pin to CPU 0
+    numactl --cpunodebind=0 --membind=0 ./app     — NUMA node pinning
+
+  Tools by category:
+    HTTP load testing:
+      wrk: wrk -t12 -c400 -d30s https://api.example.com/
+      hey: hey -n 10000 -c 100 https://api.example.com/
+      k6: scripted scenarios; thresholds; ramp-up; metrics
+      locust: Python; distributed; UI; real user workflows
+      artillery: YAML scenarios; plugins; AWS Lambda backend
+
+    Disk I/O:
+      fio: fio --name=test --rw=randread --bs=4k --size=1G
+      dd: dd if=/dev/zero of=test bs=1M count=1024 oflag=dsync
+      ioping: ioping -c 100 .  — latency and IOPS
+
+    Network:
+      iperf3 -s / iperf3 -c <host>   — TCP/UDP throughput
+      qperf: RDMA and TCP performance
+      ping -i 0.001 host             — high-frequency latency
+
+  Latency percentiles — what matters:
+    p50: median; 50% of requests
+    p95: 95th percentile; most users experience
+    p99: 99th percentile; tail latency; SLO target
+    p999: 1-in-1000; infrastructure and SLA decisions
+    max: worst case; noisy; not reliable for SLOs
+    Histograms beat averages: average hides bimodal distributions
+
+  Little's Law:
+    L = λ × W  (L=concurrency, λ=throughput, W=latency)
+    If latency doubles, concurrency needed doubles for same throughput
+    Queueing theory: as utilization approaches 100%, latency → ∞
+
+  Amdahl's Law:
+    Speedup(n) = 1 / (S + (1-S)/n)
+    S = serial fraction; n = number of processors
+    If 5% serial → max speedup = 20× regardless of cores
+    Identify serial bottlenecks before scaling hardware
+"
+}
+
+fn s_perf_web() -> &'static str {
+    "\
+  Web Performance & Core Web Vitals:
+  Core Web Vitals (Google ranking signals):
+    LCP (Largest Contentful Paint) — loading
+      Good: < 2.5s  |  Needs Improvement: 2.5-4s  |  Poor: > 4s
+      Largest element: img, video poster, text block
+      Improve: preload hero image, reduce server response, serve AVIF/WebP
+
+    FID → INP (Interaction to Next Paint) — interactivity (2024)
+      Good: < 200ms  |  Needs Improvement: 200-500ms  |  Poor: > 500ms
+      Improve: break up long tasks, defer non-critical JS, Web Workers
+
+    CLS (Cumulative Layout Shift) — visual stability
+      Good: < 0.1  |  Needs Improvement: 0.1-0.25  |  Poor: > 0.25
+      Cause: images/iframes without dimensions, late-injected content
+      Improve: set width/height attributes, reserve space for dynamic content
+
+  Performance budget:
+    Total page weight: < 300KB (3G), < 1MB (4G)
+    JavaScript: < 200KB compressed per route (parse + execute cost)
+    Images: serve WebP/AVIF; lazy load below the fold
+    Fonts: subset; preload critical; font-display: swap
+
+  Metrics and tooling:
+    Lighthouse: audits + scores; CI integration (lighthouse-ci)
+    PageSpeed Insights: real user data (CrUX) + lab data
+    WebPageTest: waterfall; multi-step; video; network throttling
+    Chrome DevTools: Performance tab; Coverage tab; Network waterfall
+    RUM (Real User Monitoring): window.performance, PerformanceObserver
+      Navigation Timing: loadEventEnd, domContentLoadedEventEnd
+      Resource Timing: per-resource start/end/transfer size
+
+  Critical rendering path:
+    1. DNS lookup + TCP connect + TLS handshake
+    2. HTTP request → first byte (TTFB)
+    3. HTML parse → build DOM
+    4. CSS parse → build CSSOM → render tree
+    5. Layout (reflow) → Paint → Composite
+    Blocking resources: <link rel=stylesheet> and <script> without defer/async
+
+  Optimization techniques:
+    Code splitting: load only the JS needed per route
+    Tree shaking: remove unused exports (webpack/rollup/esbuild)
+    HTTP/2 push / preload: <link rel=preload as=script href=...>
+    Service Worker: cache-first strategies for repeat visits
+    CDN: serve from edge; reduce TTFB for global users
+    Compression: Brotli (br) > gzip; set Accept-Encoding
+    Critical CSS: inline above-the-fold CSS; async load rest
+"
+}
+
+fn s_perf_database() -> &'static str {
+    "\
+  Database Performance:
+  Query analysis:
+    EXPLAIN ANALYZE (PostgreSQL):
+      Seq Scan → need index
+      High 'rows' estimate vs actual → stale statistics → ANALYZE
+      Hash Join vs Nested Loop: hash join preferred for large sets
+      Sort → might benefit from index on ORDER BY columns
+
+    EXPLAIN (MySQL):
+      type: ALL=table scan; index=index scan; range=range; ref=lookup; const=PK
+      Extra: 'Using filesort' (slow) | 'Using index' (covering) | 'Using temporary'
+
+    Slow query log:
+      PostgreSQL: log_min_duration_statement = 1000  — log queries > 1s
+      MySQL: slow_query_log = ON; long_query_time = 1
+      pg_stat_statements: top N slow queries with total time
+
+  Index strategies:
+    Composite index column order: put equality columns first, range last
+    SELECT a, b WHERE a=? ORDER BY b → index on (a, b)
+    Avoid index on columns used in functions: lower(email) → use generated column
+    Partial index: WHERE deleted_at IS NULL — smaller, faster
+    Reindex bloated index: REINDEX INDEX CONCURRENTLY idx_name
+
+  Connection and pool tuning:
+    PostgreSQL max_connections (default 100) — each costs ~5MB RAM
+    PgBouncer transaction mode: 1000 app connections → 20 DB connections
+    Connection pool sizing: (cores × 2) + effective_spindle_count
+    Statement timeout: SET statement_timeout = '30s'  — kill runaway queries
+    Lock timeout: SET lock_timeout = '5s'  — fail fast if lock unavailable
+
+  Caching layers:
+    Application cache: in-process (LRU); invalidation complexity
+    Redis / Memcached: shared cache; consistent across instances
+    Read replica: offload read traffic; accepts replication lag
+    Materialized views: pre-computed query results (refresh on schedule or trigger)
+    Database query cache: MySQL 5.7 removed; PostgreSQL has no query cache
+
+  PostgreSQL-specific tuning:
+    shared_buffers = 25% RAM            — buffer cache for hot data
+    work_mem = RAM / (max_connections × 4)  — sort/hash per operation
+    effective_cache_size = 75% RAM     — planner hint for total cache
+    wal_level, synchronous_commit = off — asynchronous commits (risk: ~1 WAL segment loss)
+    checkpoint_completion_target = 0.9 — spread checkpoint I/O
+    autovacuum_vacuum_scale_factor = 0.05  — vacuum when 5% rows dead (default 20%)
+"
+}
+
+fn s_perf_optimization() -> &'static str {
+    "\
+  Optimization Patterns:
+  CPU optimization:
+    Algorithmic first: O(n²) → O(n log n) beats any constant factor
+    Cache locality: access memory sequentially; struct-of-arrays vs array-of-structs
+    Branch prediction: sort data, put likely cases first
+    SIMD: auto-vectorization (compile with -march=native); intrinsics as last resort
+    Lock-free: atomic operations, MPSC queues, lock-free data structures
+    Async I/O: avoid blocking threads on I/O; use epoll/io_uring (Linux), IOCP (Windows)
+
+  Memory optimization:
+    Reduce allocations: pool allocators, arena allocators, reuse buffers
+    Minimize copies: zero-copy I/O (sendfile, splice), move semantics
+    Compact data structures: pack structs, avoid padding, use bitfields
+    Memory mapping: mmap large files instead of reading into heap
+    Huge pages: 2MB pages reduce TLB misses for large working sets
+
+  I/O optimization:
+    Batching: send/receive in bulk; fewer syscalls; fewer round trips
+    Buffering: stdio buffering; explicit buffer sizes for network I/O
+    Direct I/O (O_DIRECT): bypass page cache for controlled buffering
+    io_uring (Linux 5.1+): async I/O with minimal syscall overhead
+    Disk: sequential reads/writes >> random; align to sector size
+
+  Concurrency optimization:
+    Reduce contention: partition data; per-CPU structures; lock striping
+    Work stealing: tokio/rayon automatically balance load
+    Backpressure: bound queues; apply pressure upstream when overwhelmed
+    Actor model: Actix, Erlang/OTP — message-passing avoids shared state
+
+  Language-specific:
+    Rust: zero-cost abstractions; profile with cargo-flamegraph
+    Go: escape analysis (go build -gcflags='-m'); GOGC=off for benchmarks
+    Python: NumPy/Cython for hot loops; multiprocessing > threading (GIL)
+    JVM: -server flag; G1GC or ZGC; off-heap for large caches (Direct ByteBuffer)
+    JS/V8: avoid deoptimization; monomorphic functions; hidden class stability
+
+  Classic rules:
+    1. Make it work correctly first
+    2. Profile — find the actual bottleneck (often not where you think)
+    3. Fix the algorithm (O() improvement beats micro-optimization)
+    4. Fix data structures and access patterns (cache locality)
+    5. Optimize the hot path (where 90% of time is spent)
+    6. Parallelize (only after single-threaded is fast)
+"
+}
+
+const PERF_SECTIONS: &[PerfSection] = &[
+    (
+        "profiling",
+        &[
+            "profiling",
+            "profiler",
+            "flamegraph",
+            "perf",
+            "criterion",
+            "pprof",
+            "cprofile",
+            "ebpf",
+            "heaptrack",
+        ],
+        s_perf_profiling,
+    ),
+    (
+        "memory",
+        &[
+            "memory",
+            "leak",
+            "oom",
+            "heap",
+            "valgrind",
+            "asan",
+            "rss",
+            "vmstat",
+            "container-memory",
+        ],
+        s_perf_memory,
+    ),
+    (
+        "benchmarking",
+        &[
+            "benchmarking",
+            "benchmark",
+            "latency",
+            "throughput",
+            "wrk",
+            "k6",
+            "locust",
+            "fio",
+            "percentile",
+            "p99",
+            "amdahl",
+            "littles-law",
+        ],
+        s_perf_benchmarking,
+    ),
+    (
+        "web",
+        &[
+            "web",
+            "core-web-vitals",
+            "lcp",
+            "cls",
+            "inp",
+            "lighthouse",
+            "render",
+            "ttfb",
+            "budget",
+        ],
+        s_perf_web,
+    ),
+    (
+        "database",
+        &[
+            "database",
+            "query",
+            "slow-query",
+            "explain",
+            "index",
+            "connection-pool",
+            "pgbouncer",
+            "shared-buffers",
+            "vacuum",
+        ],
+        s_perf_database,
+    ),
+    (
+        "optimization",
+        &[
+            "optimization",
+            "optimize",
+            "cpu",
+            "simd",
+            "io",
+            "concurrency",
+            "cache-locality",
+            "batch",
+            "zero-copy",
+        ],
+        s_perf_optimization,
+    ),
+];
+
+/// Performance engineering reference — profiling, memory, benchmarking, web vitals, DB, optimization.
+pub fn perf_ref_calc(query: &str) -> String {
+    use std::fmt::Write;
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+    let _ = writeln!(out, "{}", sep);
+    let _ = writeln!(out, "  Performance Engineering Reference");
+    let _ = writeln!(out, "{}", sep);
+
+    let q = query.trim().to_ascii_lowercase();
+
+    if q.is_empty() || q == "help" || q == "list" {
+        let _ = writeln!(
+            out,
+            "  Topics: profiling, memory, benchmarking, web, database, optimization"
+        );
+        let _ = writeln!(out, "  Commands: all = all topics");
+        let _ = writeln!(out, "  Run: hematite --perf-ref <topic>");
+        let _ = writeln!(out, "{}", sep);
+        return out;
+    }
+
+    if q == "all" {
+        let _ = writeln!(out, "{}", sep);
+        for &(name, _, f) in PERF_SECTIONS {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+        }
+        let _ = writeln!(out, "{}", sep);
+        return out;
+    }
+
+    let found: Vec<_> = PERF_SECTIONS
+        .iter()
+        .filter(|&&(name, aliases, _)| {
+            name.contains(q.as_str())
+                || aliases
+                    .iter()
+                    .any(|&a| a.contains(q.as_str()) || q.contains(a))
+        })
+        .collect();
+
+    if found.is_empty() {
+        let _ = writeln!(out, "  No topic found for '{}'.", query.trim());
+        let _ = writeln!(out, "  Run: hematite --perf-ref help");
+    } else {
+        let _ = writeln!(out, "{}", sep);
+        for &&(name, _, f) in &found {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+        }
+        let _ = writeln!(out, "{}", sep);
+    }
+    out
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+type DockerComposeSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+
+fn s_docker_compose_basics() -> &'static str {
+    "\
+  Docker Compose Basics:
+  File: docker-compose.yml (v2, no 'version' key needed in Compose v2+)
+
+  Minimal service:
+    services:
+      web:
+        image: nginx:1.25-alpine
+        ports:
+          - '8080:80'
+        environment:
+          - NODE_ENV=production
+        volumes:
+          - ./html:/usr/share/nginx/html:ro
+
+  Essential commands:
+    docker compose up -d              — start in background
+    docker compose up --build -d     — rebuild images first
+    docker compose down              — stop and remove containers
+    docker compose down -v           — also remove named volumes
+    docker compose logs -f web       — follow logs for service
+    docker compose ps                — list service status
+    docker compose exec web sh       — shell into running container
+    docker compose run web sh        — one-off run (new container)
+    docker compose restart web       — restart specific service
+    docker compose pull              — pull latest images
+    docker compose config            — validate and show merged config
+
+  Build configuration:
+    services:
+      app:
+        build:
+          context: .
+          dockerfile: Dockerfile.prod
+          args:
+            BUILD_VERSION: ${VERSION:-dev}
+          target: production   — multi-stage build target
+          cache_from:
+            - myapp:cache
+
+  Environment variables:
+    .env file: auto-loaded; COMPOSE_PROJECT_NAME, PORT, etc.
+    environment: list or map syntax
+    env_file: - .env.production
+    ${VAR:-default}: fallback value
+    secrets: mount from Docker secrets or files (production pattern)
+
+  Service dependencies:
+    depends_on:
+      db:
+        condition: service_healthy   — wait for health check
+      redis:
+        condition: service_started   — just started (default)
+"
+}
+
+fn s_docker_compose_networking() -> &'static str {
+    "\
+  Networking & Volumes:
+  Networks:
+    services:
+      web:
+        networks:
+          - frontend
+          - backend
+      db:
+        networks:
+          - backend
+    networks:
+      frontend:
+        driver: bridge
+      backend:
+        driver: bridge
+        internal: true       — no external connectivity
+
+    Use external network: networks: { name: my-net, external: true }
+    DNS: services reach each other by service name (web, db, redis)
+    Aliases: networks: { backend: { aliases: [api] } }
+
+  Volumes:
+    Named volume (persists across down):
+      volumes:
+        - db-data:/var/lib/postgresql/data
+    volumes:
+      db-data:
+        driver: local
+
+    Bind mount (host path):
+      - ./src:/app/src:ro          — read-only
+      - /var/log:/logs             — absolute path
+
+    tmpfs (in-memory):
+      tmpfs:
+        - /tmp
+        - /run
+
+    Volume options:
+      volumes:
+        - type: bind
+          source: ./data
+          target: /data
+          bind:
+            propagation: rprivate
+
+  Port mapping:
+    '8080:80'                     — host:container
+    '127.0.0.1:8080:80'          — localhost only (more secure)
+    '80'                          — random host port
+    target: 80, published: 8080, protocol: tcp
+
+  Expose vs ports:
+    expose: ['80', '443']    — only to other services; not to host
+    ports: ['8080:80']       — exposed to host
+"
+}
+
+fn s_docker_compose_health() -> &'static str {
+    "\
+  Health Checks & Restart Policies:
+  Health check:
+    services:
+      db:
+        image: postgres:16
+        healthcheck:
+          test: ['CMD-SHELL', 'pg_isready -U postgres']
+          interval: 10s
+          timeout: 5s
+          retries: 5
+          start_period: 30s   — grace period before first check
+
+    Redis health check:
+      test: ['CMD', 'redis-cli', 'ping']
+
+    Web/HTTP health check:
+      test: ['CMD-SHELL', 'curl -f http://localhost/health || exit 1']
+
+    Disable inherited health check:
+      healthcheck:
+        disable: true
+
+  depends_on with health:
+    services:
+      app:
+        depends_on:
+          db:
+            condition: service_healthy
+          redis:
+            condition: service_healthy
+
+  Restart policies:
+    restart: 'no'             — default; never restart
+    restart: always           — always restart (including on reboot)
+    restart: on-failure       — restart on non-zero exit
+    restart: unless-stopped   — restart always except manual stop
+
+  Resource limits (Compose v2):
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+  Profiles (selective startup):
+    services:
+      app:
+        profiles: []          — always started (no profile)
+      debug-tools:
+        profiles: ['debug']
+      e2e:
+        profiles: ['testing']
+    docker compose --profile debug up
+    docker compose --profile testing run e2e
+"
+}
+
+fn s_docker_compose_production() -> &'static str {
+    "\
+  Production Patterns & Override Files:
+  Override files (layered config):
+    docker-compose.yml           — base config
+    docker-compose.override.yml  — auto-merged for dev (dev overrides)
+    docker-compose.prod.yml      — explicit prod overrides
+
+    docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+
+  Dev vs prod example:
+    base (docker-compose.yml):
+      services:
+        app:
+          image: myapp:${VERSION:-latest}
+          environment:
+            - DB_URL=postgresql://db/myapp
+
+    dev (docker-compose.override.yml):
+      services:
+        app:
+          build: .
+          volumes:
+            - .:/app   — hot reload
+          ports:
+            - '3000:3000'
+
+    prod (docker-compose.prod.yml):
+      services:
+        app:
+          restart: always
+          deploy:
+            resources:
+              limits: { memory: 1G }
+
+  Secrets (production):
+    services:
+      app:
+        secrets:
+          - db_password
+    secrets:
+      db_password:
+        file: ./secrets/db_password.txt
+    Mounted at: /run/secrets/db_password
+
+  Init containers (run-once):
+    services:
+      migrate:
+        image: myapp
+        command: python manage.py migrate
+        depends_on:
+          db:
+            condition: service_healthy
+    docker compose run --rm migrate
+
+  X-extensions and anchors (YAML):
+    x-defaults: &defaults
+      restart: always
+      logging:
+        driver: json-file
+        options:
+          max-size: '10m'
+          max-file: '3'
+    services:
+      web:
+        <<: *defaults
+        image: nginx:alpine
+"
+}
+
+fn s_docker_compose_logging() -> &'static str {
+    "\
+  Logging & Monitoring:
+  Logging drivers:
+    logging:
+      driver: json-file       — default; saved to host disk
+      options:
+        max-size: '10m'       — rotate at 10MB
+        max-file: '3'         — keep 3 rotated files
+
+    driver: syslog
+      options:
+        syslog-address: 'tcp://logserver:514'
+
+    driver: gelf              — Graylog Extended Log Format
+      options:
+        gelf-address: 'udp://logserver:12201'
+
+    driver: fluentd
+      options:
+        fluentd-address: 'localhost:24224'
+
+    driver: none              — discard all logs (quiet containers)
+
+  Viewing logs:
+    docker compose logs                — all services
+    docker compose logs -f             — follow all
+    docker compose logs -f --since 1h  — last hour
+    docker compose logs -n 50 web      — last 50 lines of web
+    docker logs --timestamps <container>
+
+  Container labels (metadata):
+    labels:
+      - 'com.mycompany.app=myapp'
+      - 'com.mycompany.version=${VERSION}'
+      - 'traefik.enable=true'
+      - 'traefik.http.routers.web.rule=Host(`app.example.com`)'
+
+  Common Compose + Traefik pattern:
+    services:
+      traefik:
+        image: traefik:v3.0
+        command:
+          - --providers.docker=true
+          - --providers.docker.exposedbydefault=false
+          - --entrypoints.web.address=:80
+        ports:
+          - '80:80'
+        volumes:
+          - /var/run/docker.sock:/var/run/docker.sock:ro
+
+      app:
+        labels:
+          - 'traefik.enable=true'
+          - 'traefik.http.routers.app.rule=Host(`app.local`)'
+
+  Compose watch (hot reload in development):
+    develop:
+      watch:
+        - action: sync
+          path: ./src
+          target: /app/src
+        - action: rebuild
+          path: package.json
+    docker compose watch
+"
+}
+
+fn s_docker_compose_tips() -> &'static str {
+    "\
+  Tips, Gotchas & Best Practices:
+  Security:
+    Run as non-root: user: '1001:1001' in service definition
+    Read-only filesystem: read_only: true (add tmpfs for /tmp, /run)
+    Drop capabilities: cap_drop: [ALL]; add back only what's needed
+    Security opt: security_opt: [no-new-privileges:true]
+    Secrets via files or secrets: key, NOT environment variables (visible in ps)
+
+  Performance:
+    Layer caching order: stable layers first (base image, deps) → code last
+    Use .dockerignore: exclude .git, node_modules, build outputs
+    Multi-stage builds: separate build and runtime stages
+    Alpine base images: smaller attack surface, faster pulls
+
+  Common gotchas:
+    Container names vs hostnames: service name is the DNS hostname
+    .env is for Compose variables; env_file is for app environment
+    Volumes don't auto-update on docker compose up (need -v to recreate)
+    depends_on does NOT wait for service to be ready — use healthchecks
+    Ports conflict: check 'Address already in use' with ss -tlnp | grep PORT
+    CMD vs ENTRYPOINT: Compose 'command' overrides CMD; 'entrypoint' overrides ENTRYPOINT
+
+  Compose v2 changes from v1:
+    CLI: docker compose (space) not docker-compose (hyphen)
+    No 'version' key required in compose.yml
+    docker-compose.yml OR compose.yml (Compose v2 prefers compose.yml)
+    depends_on condition: service_healthy requires healthcheck defined
+
+  Debugging:
+    docker compose exec app env | sort     — inspect container env
+    docker compose exec db psql -U postgres
+    docker network ls && docker network inspect <name>
+    docker volume ls && docker volume inspect <name>
+    docker inspect <container>             — full metadata JSON
+    docker compose config                  — merged/resolved config
+
+  Environment variable precedence (highest to lowest):
+    1. Values set on command line: -e VAR=val
+    2. Service environment: map in compose file
+    3. Shell environment variables
+    4. .env file
+    5. Image ENV instructions in Dockerfile
+"
+}
+
+const DOCKER_COMPOSE_SECTIONS: &[DockerComposeSection] = &[
+    (
+        "basics",
+        &[
+            "basics",
+            "service",
+            "build",
+            "command",
+            "compose",
+            "up",
+            "down",
+            "ports",
+            "environment",
+        ],
+        s_docker_compose_basics,
+    ),
+    (
+        "networking",
+        &[
+            "networking",
+            "network",
+            "volume",
+            "volumes",
+            "dns",
+            "alias",
+            "bind-mount",
+            "tmpfs",
+            "expose",
+        ],
+        s_docker_compose_networking,
+    ),
+    (
+        "health",
+        &[
+            "health",
+            "healthcheck",
+            "restart",
+            "depends_on",
+            "condition",
+            "profiles",
+            "resources",
+            "limits",
+        ],
+        s_docker_compose_health,
+    ),
+    (
+        "production",
+        &[
+            "production",
+            "prod",
+            "override",
+            "secrets",
+            "anchor",
+            "yaml",
+            "init",
+            "layered",
+        ],
+        s_docker_compose_production,
+    ),
+    (
+        "logging",
+        &[
+            "logging",
+            "logs",
+            "driver",
+            "labels",
+            "traefik",
+            "watch",
+            "fluentd",
+            "json-file",
+        ],
+        s_docker_compose_logging,
+    ),
+    (
+        "tips",
+        &[
+            "tips",
+            "security",
+            "gotchas",
+            "debugging",
+            "best-practices",
+            "non-root",
+            "read-only",
+            "precedence",
+        ],
+        s_docker_compose_tips,
+    ),
+];
+
+/// Docker Compose reference — services, networking, volumes, health checks, production, logging.
+pub fn docker_compose_calc(query: &str) -> String {
+    use std::fmt::Write;
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+    let _ = writeln!(out, "{}", sep);
+    let _ = writeln!(out, "  Docker Compose Reference");
+    let _ = writeln!(out, "{}", sep);
+
+    let q = query.trim().to_ascii_lowercase();
+
+    if q.is_empty() || q == "help" || q == "list" {
+        let _ = writeln!(
+            out,
+            "  Topics: basics, networking, health, production, logging, tips"
+        );
+        let _ = writeln!(out, "  Commands: all = all topics");
+        let _ = writeln!(out, "  Run: hematite --docker-compose <topic>");
+        let _ = writeln!(out, "{}", sep);
+        return out;
+    }
+
+    if q == "all" {
+        let _ = writeln!(out, "{}", sep);
+        for &(name, _, f) in DOCKER_COMPOSE_SECTIONS {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+        }
+        let _ = writeln!(out, "{}", sep);
+        return out;
+    }
+
+    let found: Vec<_> = DOCKER_COMPOSE_SECTIONS
+        .iter()
+        .filter(|&&(name, aliases, _)| {
+            name.contains(q.as_str())
+                || aliases
+                    .iter()
+                    .any(|&a| a.contains(q.as_str()) || q.contains(a))
+        })
+        .collect();
+
+    if found.is_empty() {
+        let _ = writeln!(out, "  No topic found for '{}'.", query.trim());
+        let _ = writeln!(out, "  Run: hematite --docker-compose help");
+    } else {
+        let _ = writeln!(out, "{}", sep);
+        for &&(name, _, f) in &found {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+        }
+        let _ = writeln!(out, "{}", sep);
+    }
+    out
+}
+
+// ── Wave 27 extra functions ────────────────────────────────────────────────────
+
+type WasmSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+
+fn s_wasm_format() -> &'static str {
+    "\
+  WebAssembly Text Format (WAT):
+  Basic structure:
+    (module
+      (import \"env\" \"memory\" (memory 1))
+      (func $add (param $a i32) (param $b i32) (result i32)
+        local.get $a
+        local.get $b
+        i32.add)
+      (export \"add\" (func $add)))
+
+  Value types:
+    i32, i64   — integers (most arithmetic is i32)
+    f32, f64   — floating point
+    v128       — SIMD vector (128-bit)
+    funcref    — reference to a function
+    externref  — opaque host reference
+
+  Instructions (stack machine):
+    local.get $x   — push local variable
+    local.set $x   — pop to local variable
+    local.tee $x   — set + keep on stack
+    i32.const 42   — push literal
+    i32.add / sub / mul / div_s
+    i32.eq / ne / lt_s / gt_s / le_s / ge_s
+    i32.load / i32.store  — memory access
+
+  Control flow:
+    block ... end       — breakable block
+    loop ... end        — loop (br branches back to start)
+    if ... else ... end — conditional
+    br $label           — break/branch
+    br_if $label        — conditional branch
+    return              — early return
+    unreachable         — trap (like panic)
+    call $func          — direct function call
+    call_indirect       — indirect via table
+
+  Module sections:
+    types, imports, functions, tables, memories,
+    globals, exports, start, elements, code, data
+"
+}
+
+fn s_wasm_memory() -> &'static str {
+    "\
+  Memory Model:
+  Linear memory:
+    Single contiguous byte array; grows in 64KB pages
+    (memory 1)         — 1 page = 64KB minimum
+    (memory 1 16)      — initial 1 page, max 16 pages
+    memory.grow N      — grow by N pages; returns old size or -1
+    memory.size        — current page count
+
+  Memory access:
+    i32.load  offset=0 align=4    — 4-byte aligned read
+    i32.load8_s                   — sign-extend 1 byte
+    i32.load8_u                   — zero-extend 1 byte
+    i32.store offset=0 align=4    — 4-byte write
+    All addresses are byte offsets from memory start
+
+  Multi-memory (Wasm MVP: one memory):
+    Single export name 'memory' is the convention
+    JavaScript: instance.exports.memory
+    SharedArrayBuffer: memory.buffer can be shared with Workers
+
+  JavaScript interop:
+    const mem = new WebAssembly.Memory({ initial: 1 });
+    const view = new Uint8Array(mem.buffer);
+    view[0] = 65;  // write 'A' at offset 0
+    // pass strings: write UTF-8 bytes → call wasm fn with pointer+length
+
+  Memory layout conventions:
+    Stack grows downward from __stack_pointer global
+    Heap managed by allocator (wee_alloc, dlmalloc, mimalloc)
+    Static data in data section
+    No separate stack/heap — all in one linear memory
+
+  WASI memory:
+    __wasi_fd_read / __wasi_fd_write operate on iovec structs in memory
+    All host calls use memory offsets, not host pointers
+"
+}
+
+fn s_wasm_wasi() -> &'static str {
+    "\
+  WASI (WebAssembly System Interface):
+  What it is:
+    Portable syscall API for wasm outside the browser
+    Spec: wasi.dev — WASI Preview 1 (stable), Preview 2 (component model)
+    Security: capability-based — explicit preopened directory grants
+
+  WASI Preview 1 imports:
+    wasi_snapshot_preview1::fd_write
+    wasi_snapshot_preview1::fd_read
+    wasi_snapshot_preview1::proc_exit
+    wasi_snapshot_preview1::environ_get / environ_sizes_get
+    wasi_snapshot_preview1::args_get / args_sizes_get
+    wasi_snapshot_preview1::path_open
+    wasi_snapshot_preview1::clock_time_get
+
+  Runtimes:
+    wasmtime  — Bytecode Alliance reference; --dir for filesystem grant
+      wasmtime run --dir=. app.wasm -- arg1 arg2
+    wasmer    — flexible backends (LLVM, Cranelift, Singlepass)
+    WasmEdge  — cloud-native; supports POSIX sockets
+    wasm3     — tiny interpreter; embedded targets
+    Node.js   — experimental WASI via wasi module
+
+  Running WASI:
+    wasmtime app.wasm                  — basic execution
+    wasmtime --dir=. app.wasm         — allow CWD access
+    wasmtime --env HOME=/tmp app.wasm — set env variable
+    wasmer run app.wasm               — wasmer runtime
+
+  Security model:
+    No filesystem access by default
+    Each --dir grants access to one host directory
+    --allow-unknown-imports for missing imports
+    Sandbox: no network, no signals (Preview 1)
+    Preview 2: networking via WASI sockets proposal
+"
+}
+
+fn s_wasm_pack() -> &'static str {
+    "\
+  wasm-pack (Rust → Wasm):
+  Install: cargo install wasm-pack
+  Targets:
+    wasm-pack build --target bundler   — webpack/rollup/vite (default)
+    wasm-pack build --target nodejs    — require() in Node.js
+    wasm-pack build --target web       — <script type=module> in browser
+    wasm-pack build --target no-modules — no ES modules
+
+  Cargo.toml setup:
+    [lib]
+    crate-type = ['cdylib']
+
+    [dependencies]
+    wasm-bindgen = '0.2'
+
+    [profile.release]
+    opt-level = 's'        — optimize for size
+    lto = true
+    strip = true
+
+  wasm-bindgen annotations:
+    use wasm_bindgen::prelude::*;
+    #[wasm_bindgen]
+    pub fn greet(name: &str) -> String {
+        format!(\"Hello, {}!\", name)
+    }
+    #[wasm_bindgen(start)]  — run on module init
+    pub fn main() {}
+    #[wasm_bindgen(js_name = myJsFunc)]  — custom JS name
+
+  JavaScript interop types:
+    &str / String            — automatically serialized
+    JsValue                  — opaque JS value
+    &[u8] / Vec<u8>          — Uint8Array
+    js_sys::Array            — JS Array
+    js_sys::Object           — JS Object
+    web_sys::HtmlElement     — DOM element (web target)
+
+  Bundle size tips:
+    wasm-opt -Oz (binaryen) — strip debug info + optimize
+    console_error_panic_hook — better panic messages in browser
+    wee_alloc — smaller allocator (~1KB vs ~10KB for default)
+"
+}
+
+fn s_wasm_wabt() -> &'static str {
+    "\
+  wabt — WebAssembly Binary Toolkit:
+  Install: apt install wabt / brew install wabt / scoop install wabt
+
+  Core tools:
+    wat2wasm file.wat -o file.wasm  — assemble text → binary
+    wasm2wat file.wasm -o file.wat  — disassemble binary → text
+    wasm-validate file.wasm         — validate binary
+    wasm-strip file.wasm -o stripped.wasm  — remove debug sections
+    wasm-objdump -x file.wasm       — object info (sections, imports, exports)
+    wasm-objdump -d file.wasm       — disassemble with addresses
+    wasm-interp file.wasm --run-all-exports  — run functions
+
+  Inspection commands:
+    wasm-objdump -h file.wasm      — section headers
+    wasm-objdump -x file.wasm      — imports and exports
+    wasm-objdump -d file.wasm      — function bodies
+    wasm-objdump --section=code    — specific section
+
+  Size analysis:
+    twiggy top -n 20 file.wasm     — top 20 functions by size
+    twiggy monos file.wasm         — monomorphization bloat
+    twiggy paths file.wasm ::my_func  — why a function is included
+
+  Optimization (binaryen):
+    wasm-opt -O3 file.wasm -o opt.wasm      — aggressive optimization
+    wasm-opt -Oz file.wasm -o small.wasm    — optimize for size
+    wasm-opt --strip-debug file.wasm        — remove debug sections
+    wasm-opt --vacuum file.wasm             — remove dead code
+
+  Debugging:
+    wasm-decompile file.wasm        — pseudo-C decompilation
+    Source maps: emitted by emscripten, rust/wasm-pack with debug profile
+    Browser DevTools: Firefox/Chrome both support wasm debugging
+    DWARF debug info: supported by wasm-pack --dev and emscripten -g
+"
+}
+
+fn s_wasm_component() -> &'static str {
+    "\
+  Component Model & Advanced Usage:
+  Component Model (Wasm 2.0):
+    WIT (Wasm Interface Type) definitions:
+      package example:greet;
+      world greeter {
+        export greet: func(name: string) -> string;
+      }
+    Components compose across languages (Rust, Python, JS, C)
+    cargo component build (cargo-component crate)
+    wasmtime::component::Component and Linker in Rust
+
+  Threads (Wasm Threads proposal):
+    Requires SharedArrayBuffer + COOP/COEP headers
+    wasm-pack: no default support; use Atomics + postMessage
+    wasmtime --wasm-features threads
+
+  SIMD (Wasm SIMD — v128):
+    v128.load / v128.store
+    i32x4.add / f32x4.mul / i8x16.shuffle
+    Auto-vectorized by clang/rustc with -C target-feature=+simd128
+
+  Emscripten (C/C++ → Wasm):
+    emcc app.c -o app.html                — HTML + JS + wasm
+    emcc app.c -o app.wasm -s STANDALONE_WASM
+    emcc -O3 --closure 1                  — optimize + minify JS
+    -s EXPORTED_FUNCTIONS=['_main','_add']
+    -s ALLOW_MEMORY_GROWTH=1
+
+  AssemblyScript (TypeScript → Wasm):
+    npm install --save-dev assemblyscript
+    npx asinit .
+    npm run asbuild
+    Syntax: TypeScript-like with explicit types; no GC
+
+  Use cases:
+    CPU-intensive browser code (image/video processing, crypto, ML inference)
+    Portable plugins (Extism, waPC, Wazero)
+    Edge computing (Fastly Compute, Cloudflare Workers WASM)
+    Embedded scripting (replace Lua with WASM module)
+    Universal binaries: compile once, run anywhere with WASI
+"
+}
+
+const WASM_SECTIONS: &[WasmSection] = &[
+    (
+        "format",
+        &[
+            "format",
+            "wat",
+            "text",
+            "syntax",
+            "instruction",
+            "stack",
+            "module",
+            "type",
+            "section",
+        ],
+        s_wasm_format,
+    ),
+    (
+        "memory",
+        &[
+            "memory",
+            "linear",
+            "page",
+            "pointer",
+            "heap",
+            "stack-ptr",
+            "buffer",
+            "sharedarraybuffer",
+        ],
+        s_wasm_memory,
+    ),
+    (
+        "wasi",
+        &[
+            "wasi",
+            "wasmtime",
+            "wasmer",
+            "runtime",
+            "syscall",
+            "capability",
+            "sandbox",
+            "fd",
+        ],
+        s_wasm_wasi,
+    ),
+    (
+        "wasm-pack",
+        &[
+            "wasm-pack",
+            "wasm-bindgen",
+            "rust",
+            "bundler",
+            "target",
+            "jsvlaue",
+            "cdylib",
+            "wee_alloc",
+        ],
+        s_wasm_pack,
+    ),
+    (
+        "wabt",
+        &[
+            "wabt",
+            "wat2wasm",
+            "wasm2wat",
+            "objdump",
+            "validate",
+            "binaryen",
+            "wasm-opt",
+            "twiggy",
+            "decompile",
+        ],
+        s_wasm_wabt,
+    ),
+    (
+        "component",
+        &[
+            "component",
+            "wit",
+            "threads",
+            "simd",
+            "emscripten",
+            "assemblyscript",
+            "edge",
+            "plugin",
+            "wasm2",
+        ],
+        s_wasm_component,
+    ),
+];
+
+/// WebAssembly reference — WAT format, memory model, WASI, wasm-pack, wabt, component model.
+pub fn wasm_ref_calc(query: &str) -> String {
+    use std::fmt::Write;
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+    let _ = writeln!(out, "{}", sep);
+    let _ = writeln!(out, "  WebAssembly (Wasm) Reference");
+    let _ = writeln!(out, "{}", sep);
+
+    let q = query.trim().to_ascii_lowercase();
+
+    if q.is_empty() || q == "help" || q == "list" {
+        let _ = writeln!(
+            out,
+            "  Topics: format, memory, wasi, wasm-pack, wabt, component"
+        );
+        let _ = writeln!(out, "  Commands: all = all topics");
+        let _ = writeln!(out, "  Run: hematite --wasm-ref <topic>");
+        let _ = writeln!(out, "{}", sep);
+        return out;
+    }
+
+    if q == "all" {
+        let _ = writeln!(out, "{}", sep);
+        for &(name, _, f) in WASM_SECTIONS {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+        }
+        let _ = writeln!(out, "{}", sep);
+        return out;
+    }
+
+    let found: Vec<_> = WASM_SECTIONS
+        .iter()
+        .filter(|&&(name, aliases, _)| {
+            name.contains(q.as_str())
+                || aliases
+                    .iter()
+                    .any(|&a| a.contains(q.as_str()) || q.contains(a))
+        })
+        .collect();
+
+    if found.is_empty() {
+        let _ = writeln!(out, "  No topic found for '{}'.", query.trim());
+        let _ = writeln!(out, "  Run: hematite --wasm-ref help");
+    } else {
+        let _ = writeln!(out, "{}", sep);
+        for &&(name, _, f) in &found {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+        }
+        let _ = writeln!(out, "{}", sep);
+    }
+    out
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+type A11ySection = (&'static str, &'static [&'static str], fn() -> &'static str);
+
+fn s_a11y_wcag() -> &'static str {
+    "\
+  WCAG 2.1 / 2.2 — Core Principles (POUR):
+  Perceivable:
+    1.1 Text Alternatives: alt text for images, captions for video
+    1.2 Time-based Media: captions (A), audio description (AA), sign lang (AAA)
+    1.3 Adaptable: content works without color, shape, size cues
+    1.4 Distinguishable:
+      1.4.1  Color alone not used to convey info (A)
+      1.4.3  Contrast ratio ≥ 4.5:1 normal text, 3:1 large text (AA)
+      1.4.4  Resize up to 200% without loss of content (AA)
+      1.4.10 Reflow: no horizontal scroll at 320px width (AA)
+      1.4.11 Non-text contrast ≥ 3:1 for UI components (AA)
+      1.4.12 Text spacing: line-height 1.5×, letter 0.12em, word 0.16em (AA)
+      1.4.13 Content on hover/focus can be dismissed, hoverable, persistent (AA)
+
+  Operable:
+    2.1 Keyboard accessible: all functionality available without mouse
+    2.2 Enough time: no time limits, or user can extend
+    2.3 Seizures: no flashing > 3× per second
+    2.4 Navigable:
+      2.4.1  Skip links (bypass blocks) (A)
+      2.4.2  Page title (A)
+      2.4.3  Focus order — meaningful sequence (A)
+      2.4.4  Link purpose clear from context (A)
+      2.4.7  Focus visible — keyboard focus indicator (AA)
+      2.4.11 Focus appearance: ≥ 2px outline, 3:1 contrast (WCAG 2.2 AA)
+    2.5 Input modalities:
+      2.5.3  Label in name (AA) — visible label matches accessible name
+
+  Understandable:
+    3.1 Readable: lang attribute on <html>
+    3.2 Predictable: no unexpected context changes on focus/input
+    3.3 Input assistance: error identification, labels, suggestions
+
+  Robust:
+    4.1 Compatible: valid HTML, name/role/value for all UI components
+    4.1.2  Name, Role, Value: custom widgets must have ARIA roles/states
+    4.1.3  Status messages: announced without focus (live regions)
+"
+}
+
+fn s_a11y_aria() -> &'static str {
+    "\
+  ARIA (Accessible Rich Internet Applications):
+  Core attributes:
+    role          — widget role: button, dialog, listbox, slider, tab, tree...
+    aria-label    — accessible name (overrides visible text)
+    aria-labelledby — name from another element's id
+    aria-describedby — additional description (longer hint/error text)
+    aria-hidden   — hide from AT (true = completely hidden)
+    aria-live     — announce dynamically: off | polite | assertive
+    aria-atomic   — announce entire region on change
+    aria-expanded — true/false for collapsible widgets
+    aria-selected — selected state for tabs/options
+    aria-checked  — checked state for checkboxes/radio
+    aria-disabled — disabled state (still focusable, unlike HTML disabled)
+    aria-required — required field indicator
+    aria-invalid  — error state: false | true | grammar | spelling
+    aria-haspopup — button/etc. opens a popup: menu | listbox | tree | dialog
+
+  Landmark roles (prefer native HTML elements):
+    banner      → <header>      — site header
+    navigation  → <nav>         — nav links
+    main        → <main>        — main content (one per page)
+    complementary → <aside>     — tangential content
+    contentinfo → <footer>      — site footer
+    search      → <search>      — search landmark (new HTML element)
+    form        → <form> with accessible name
+    region      → <section> with accessible name
+
+  Widget patterns (ARIA Authoring Practices Guide):
+    Button: role=button, Enter + Space to activate
+    Dialog: role=dialog, aria-modal=true, focus management required
+    Combobox: role=combobox, aria-expanded, aria-controls listbox
+    Listbox: role=listbox, role=option, aria-selected
+    Slider: role=slider, aria-valuenow, aria-valuemin, aria-valuemax
+    Tabs: role=tablist > role=tab; aria-selected; role=tabpanel
+    Tree: role=tree > role=treeitem, aria-expanded on parents
+    Menu: role=menu > role=menuitem, arrow key navigation
+
+  Rules of ARIA:
+    1. Use native HTML elements first (don't add role=button to <div>)
+    2. Don't change native semantics (don't add role=heading to <button>)
+    3. All interactive ARIA controls must be keyboard operable
+    4. Don't use role=presentation on focusable elements
+    5. All interactive elements must have an accessible name
+"
+}
+
+fn s_a11y_keyboard() -> &'static str {
+    "\
+  Keyboard Navigation:
+  Standard keyboard patterns:
+    Tab / Shift+Tab     — move between interactive elements
+    Enter               — activate links and buttons
+    Space               — activate buttons, checkboxes, listbox options
+    Arrow keys          — navigate within a widget (tabs, menu, slider, radio)
+    Escape              — close dialogs, menus, popups
+    Home / End          — first/last item in a list widget
+    Page Up / Page Down — scroll or move by larger increments in sliders
+
+  Focus management:
+    Modal dialog opens → focus moves to first focusable element or dialog itself
+    Dialog closes → focus returns to triggering element
+    Page route change (SPA) → focus moves to <h1> or page container
+    Infinite scroll → maintain DOM order; don't displace focused element
+    aria-activedescendant → manage focus in composites (listbox, grid)
+
+  Skip links:
+    <a href='#main-content' class='skip-link'>Skip to main content</a>
+    Visible on focus: .skip-link:focus { position: static; }
+    First interactive element on every page
+    Additional: Skip to navigation, Skip to footer
+
+  Focus trapping (modals):
+    On open: find all focusable elements in dialog
+    On Tab at last element: wrap to first
+    On Shift+Tab at first: wrap to last
+    Focusable selectors: a[href], button:not(:disabled), input:not(:disabled),
+      select, textarea, [tabindex]:not([tabindex='-1'])
+
+  tabindex:
+    tabindex='0'  — in natural tab order
+    tabindex='-1' — focusable by script, not by Tab
+    tabindex > 0  — avoid; forces unnatural tab order
+    Roving tabindex: only one item in a group has tabindex=0;
+      others have tabindex=-1; arrow keys set the active item
+
+  CSS focus styles:
+    :focus-visible  — shows only on keyboard focus (not mouse click)
+    outline: 2px solid #005fcc;  — visible, 3:1 contrast
+    outline-offset: 2px;
+    Never: outline: none (without :focus-visible alternative)
+"
+}
+
+fn s_a11y_contrast() -> &'static str {
+    "\
+  Color Contrast & Visual Design:
+  Contrast ratios (WCAG 2.1):
+    Normal text (< 18pt / < 14pt bold):
+      AA: 4.5:1   |   AAA: 7:1
+    Large text (≥ 18pt / ≥ 14pt bold):
+      AA: 3:1     |   AAA: 4.5:1
+    UI components and graphical objects:
+      AA: 3:1 (non-text contrast — 1.4.11)
+
+  Calculating contrast ratio:
+    Relative luminance L = 0.2126 R + 0.7152 G + 0.0722 B
+    (where R, G, B are linearized sRGB)
+    Ratio = (L_lighter + 0.05) / (L_darker + 0.05)
+    White on black: 21:1; black on white: 21:1
+
+  Tools:
+    Browser DevTools: Firefox / Chrome Accessibility panel shows ratio
+    axe DevTools / WAVE: automated contrast checks
+    Colour Contrast Analyser (TPGi): desktop app; eyedropper
+    WebAIM Contrast Checker: webaim.org/resources/contrastchecker/
+    Who Can Use (whocanuse.com): simulate with visual impairments
+
+  Color blindness types and affected colors:
+    Deuteranopia / Protanopia (~8% men): red/green confusion
+    Tritanopia (~0.01%): blue/yellow confusion
+    Design rule: never use color alone — add icons, patterns, labels
+
+  Accessible color patterns:
+    Error state: red color + ✗ icon + 'Error:' text prefix
+    Success: green color + ✓ icon + 'Success:' text prefix
+    Required: asterisk (*) + text 'required' in legend/label
+    Placeholder text: must meet contrast too (often fails)
+
+  Dark mode / forced colors:
+    prefers-color-scheme: dark — honor user OS preference
+    forced-colors: active — high contrast mode (Windows)
+      Use color: ButtonText; background: ButtonFace; system colors
+    color-scheme: light dark — tell browser to adapt scrollbars etc.
+"
+}
+
+fn s_a11y_screen_readers() -> &'static str {
+    "\
+  Screen Readers & AT Testing:
+  Major screen readers:
+    NVDA (Windows, free) + Chrome/Firefox  — most used in surveys
+    JAWS (Windows, paid) + Chrome/Edge     — enterprise; most feature-rich
+    VoiceOver (macOS/iOS, built-in) + Safari
+    TalkBack (Android, built-in) + Chrome
+    Narrator (Windows, built-in) + Edge
+
+  VoiceOver (macOS) shortcuts:
+    VO = Ctrl + Option
+    VO + A         — start reading
+    VO + →         — next item
+    VO + H         — next heading
+    VO + J         — next link
+    VO + U         — rotor
+    VO + F8        — voices and speech settings
+
+  NVDA (Windows) shortcuts:
+    NVDA + N       — open NVDA menu
+    H / Shift+H    — next/prev heading
+    L / Shift+L    — next/prev list
+    B / Shift+B    — next/prev button
+    F / Shift+F    — next/prev form field
+    Insert + F7    — elements list (links/headings/landmarks)
+    Insert + Space — browse/interact mode toggle
+
+  What screen readers announce:
+    Role: 'button', 'link', 'heading level 2', 'checkbox checked'
+    Name: text content, aria-label, aria-labelledby, alt text
+    Value: 'slider 50 percent', 'selected', 'expanded', 'required'
+    State changes: via aria-live regions or focus movement
+
+  Common screen reader issues:
+    Empty buttons/links: icon-only with no aria-label
+    Form fields with no label (placeholder only)
+    Custom dropdowns with no keyboard/ARIA support
+    Modals that don't trap focus or announce role=dialog
+    Dynamic content updated without live region announcement
+    Images missing alt text or with redundant 'image of...'
+    Tables without headers (<th scope=col/row>)
+
+  Automated vs manual testing:
+    Automated (axe, WAVE, Lighthouse): finds ~30-40% of issues
+    Manual keyboard testing: Tab, arrow keys, Enter, Space, Escape
+    Screen reader testing: NVDA+Chrome + VoiceOver+Safari minimum
+    User testing with AT users: the gold standard
+"
+}
+
+fn s_a11y_testing() -> &'static str {
+    "\
+  Accessibility Testing Tools:
+  Automated (CI-friendly):
+    axe-core (Deque): npm install axe-core; axe(document)
+    @axe-core/react: react-specific integration
+    @axe-core/playwright: Playwright test integration
+    lighthouse --accessibility: via CLI or CI
+    jest-axe: expect(results).toHaveNoViolations()
+    pa11y: CLI tool for automated accessibility audits
+    WAVE API: wavy server-side checks
+
+  Browser extensions:
+    axe DevTools (Deque, free/paid) — Chrome/Firefox
+    WAVE Evaluation Tool — Chrome/Firefox
+    Accessibility Insights (Microsoft) — Chrome; guided assessment
+
+  Linting (development):
+    eslint-plugin-jsx-a11y — React/JSX static analysis
+    eslint-plugin-vuejs-accessibility — Vue
+    @angular-eslint/eslint-plugin — Angular templates
+    Rules: alt-text, aria-role, no-autofocus, label-has-associated-control
+
+  HTML validation:
+    W3C Nu Validator: validator.w3.org — catch structural errors
+    HTML errors often cause AT confusion
+
+  Testing checklist:
+    □ Keyboard-only navigation test (no mouse)
+    □ Focus visible at all times
+    □ All images have alt text (decorative: alt='')
+    □ All form inputs have associated <label>
+    □ Color contrast ≥ 4.5:1 for text
+    □ No content only conveyed by color
+    □ Skip navigation link present
+    □ Page has <title>
+    □ Language attribute on <html>
+    □ Headings in logical order (h1 → h2 → h3)
+    □ Tables have <th> and scope
+    □ Dynamic content uses aria-live
+    □ Modals trap focus; return focus on close
+    □ Screen reader test: NVDA+Chrome + VoiceOver+Safari
+    □ Zoom to 200%: no content lost
+"
+}
+
+const A11Y_SECTIONS: &[A11ySection] = &[
+    (
+        "wcag",
+        &[
+            "wcag",
+            "guidelines",
+            "principle",
+            "pour",
+            "perceivable",
+            "operable",
+            "understandable",
+            "robust",
+            "contrast-ratio",
+            "reflow",
+        ],
+        s_a11y_wcag,
+    ),
+    (
+        "aria",
+        &[
+            "aria",
+            "role",
+            "aria-label",
+            "aria-live",
+            "landmark",
+            "dialog",
+            "listbox",
+            "widget",
+            "composite",
+        ],
+        s_a11y_aria,
+    ),
+    (
+        "keyboard",
+        &[
+            "keyboard",
+            "focus",
+            "tab",
+            "skip",
+            "tabindex",
+            "trap",
+            "roving",
+            "focus-visible",
+            "navigation",
+        ],
+        s_a11y_keyboard,
+    ),
+    (
+        "contrast",
+        &[
+            "contrast",
+            "color",
+            "colour",
+            "colorblind",
+            "luminance",
+            "ratio",
+            "dark-mode",
+            "forced-colors",
+            "wcag-color",
+        ],
+        s_a11y_contrast,
+    ),
+    (
+        "screen-readers",
+        &[
+            "screen-reader",
+            "screen-readers",
+            "nvda",
+            "jaws",
+            "voiceover",
+            "talkback",
+            "narrator",
+            "assistive",
+            "announce",
+        ],
+        s_a11y_screen_readers,
+    ),
+    (
+        "testing",
+        &[
+            "testing",
+            "axe",
+            "wave",
+            "lighthouse",
+            "jest-axe",
+            "pa11y",
+            "checklist",
+            "audit",
+            "eslint-plugin-jsx-a11y",
+        ],
+        s_a11y_testing,
+    ),
+];
+
+/// Web accessibility reference — WCAG 2.1/2.2, ARIA, keyboard nav, contrast, screen readers, testing.
+pub fn accessibility_calc(query: &str) -> String {
+    use std::fmt::Write;
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+    let _ = writeln!(out, "{}", sep);
+    let _ = writeln!(out, "  Web Accessibility (a11y) Reference");
+    let _ = writeln!(out, "{}", sep);
+
+    let q = query.trim().to_ascii_lowercase();
+
+    if q.is_empty() || q == "help" || q == "list" {
+        let _ = writeln!(
+            out,
+            "  Topics: wcag, aria, keyboard, contrast, screen-readers, testing"
+        );
+        let _ = writeln!(out, "  Commands: all = all topics");
+        let _ = writeln!(out, "  Run: hematite --accessibility <topic>");
+        let _ = writeln!(out, "{}", sep);
+        return out;
+    }
+
+    if q == "all" {
+        let _ = writeln!(out, "{}", sep);
+        for &(name, _, f) in A11Y_SECTIONS {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+        }
+        let _ = writeln!(out, "{}", sep);
+        return out;
+    }
+
+    let found: Vec<_> = A11Y_SECTIONS
+        .iter()
+        .filter(|&&(name, aliases, _)| {
+            name.contains(q.as_str())
+                || aliases
+                    .iter()
+                    .any(|&a| a.contains(q.as_str()) || q.contains(a))
+        })
+        .collect();
+
+    if found.is_empty() {
+        let _ = writeln!(out, "  No topic found for '{}'.", query.trim());
+        let _ = writeln!(out, "  Run: hematite --accessibility help");
+    } else {
+        let _ = writeln!(out, "{}", sep);
+        for &&(name, _, f) in &found {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+        }
+        let _ = writeln!(out, "{}", sep);
+    }
+    out
+}

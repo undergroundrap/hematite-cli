@@ -1914,6 +1914,38 @@ pub struct CliCockpit {
 
     #[arg(
         long,
+        help_heading = "Developer Toolkit",
+        value_name = "TOPIC",
+        help = "Performance engineering reference — profiling, memory, benchmarking, web vitals, DB, optimization. Topics: profiling, memory, benchmarking, web, database, optimization. Commands: all = everything. Examples: hematite --perf-ref profiling | hematite --perf-ref memory | hematite --perf-ref benchmarking"
+    )]
+    pub perf_ref: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Developer Toolkit",
+        value_name = "TOPIC",
+        help = "Docker Compose reference — services, networking, volumes, health checks, production, logging. Topics: basics, networking, health, production, logging, tips. Commands: all = everything. Examples: hematite --docker-compose basics | hematite --docker-compose health | hematite --docker-compose production"
+    )]
+    pub docker_compose: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Developer Toolkit",
+        value_name = "TOPIC",
+        help = "WebAssembly reference — WAT format, memory model, WASI, wasm-pack, wabt, component model. Topics: format, memory, wasi, wasm-pack, wabt, component. Commands: all = everything. Examples: hematite --wasm-ref format | hematite --wasm-ref wasi | hematite --wasm-ref wasm-pack"
+    )]
+    pub wasm_ref: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Developer Toolkit",
+        value_name = "TOPIC",
+        help = "Web accessibility (a11y) reference — WCAG 2.1/2.2, ARIA, keyboard nav, contrast, screen readers, testing. Topics: wcag, aria, keyboard, contrast, screen-readers, testing. Commands: all = everything. Examples: hematite --accessibility aria | hematite --accessibility keyboard | hematite --accessibility contrast"
+    )]
+    pub accessibility: Option<String>,
+
+    #[arg(
+        long,
         help_heading = "Math & Science",
         value_name = "QUERY",
         help = "Lorem ipsum generator — offline replacement for lipsum.com. Commands: (bare) or <N> = N paragraphs (default 1); words <N> = N words; sentences <N> = N sentences. Examples: hematite --lorem | hematite --lorem 3 | hematite --lorem 'words 50' | hematite --lorem 'sentences 5'"

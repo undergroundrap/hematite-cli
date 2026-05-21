@@ -1094,6 +1094,10 @@ mod tests {
             linux_sys: None,
             api_design: None,
             db_design: None,
+            perf_ref: None,
+            docker_compose: None,
+            wasm_ref: None,
+            accessibility: None,
             pdf_extract_helper: None,
             teleported_from: None,
         };

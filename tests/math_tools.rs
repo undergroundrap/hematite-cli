@@ -3,26 +3,26 @@
 /// Covers known-value correctness, edge-case non-panics, and the newer
 /// matrix decomposition modes (QR, SVD, Cholesky).
 use hematite::tools::math_util::{
-    algo_ref_calc, ansible_calc, api_design_calc, ascii_calc, ascii_table_calc, awk_calc,
-    bash_adv_calc, bash_ref_calc, bitwise_calc, case_calc, chars_calc, checksum_calc,
+    accessibility_calc, algo_ref_calc, ansible_calc, api_design_calc, ascii_calc, ascii_table_calc,
+    awk_calc, bash_adv_calc, bash_ref_calc, bitwise_calc, case_calc, chars_calc, checksum_calc,
     chemistry_calc, chmod_calc, cipher_calc, cloud_ref_calc, color_calc, color_names_calc,
     combinatorics_calc, complex_calc, cron_calc, crypto_ref_calc, css_ref_calc, csv_calc,
     curl_calc, datetime_calc, db_design_calc, devops_ref_calc, diff_calc, docker_adv_calc,
-    docker_ref_calc, duration_calc, electrical_calc, encode_calc, escape_calc, find_calc,
-    fraction_calc, geometry_calc, git_adv_calc, git_ref_calc, gitignore_calc, go_ref_calc,
-    grep_calc, hash_calc, headers_calc, health_calc, http_adv_calc, http_calc, http_headers_calc,
-    http_status_calc, id_gen_calc, ip_calc, jinja_calc, jq_calc, js_ref_calc, json_calc,
-    json_path_calc, jwt_calc, kbd_calc, kubectl_calc, license_calc, linux_adv_calc, linux_sys_calc,
-    lorem_calc, make_calc, makefile_calc, markdown_calc, matrix_calc, mime_calc, net_calc,
-    network_ref_calc, nginx_calc, npm_calc, number_format, number_theory_calc, oop_ref_calc,
-    openssl_calc, percent_calc, physics_calc, port_calc, postgres_calc, prob_calc,
-    python_data_calc, python_ref_calc, regex_adv_calc, regex_calc, regex_ref_calc, regex_test_calc,
-    roman_calc, rust_adv_calc, rust_ref_calc, security_ref_calc, sed_calc, semver_calc, set_calc,
-    sort_viz, spark_calc, sql_adv_calc, sql_fmt_calc, sql_ref_calc, ssh_ref_calc, ssl_calc,
-    stats_calc, string_dist, systemd_adv_calc, systemd_calc, table_calc, tar_calc, template_calc,
-    terraform_calc, text_stats, timestamp_calc, tmux_calc, toml_calc, trig_calc, ts_ref_calc,
-    typescript_adv_calc, tz_calc, unicode_ref_calc, url_calc, uuid_calc, validate_calc,
-    vim_adv_calc, vim_calc, xml_calc, yaml_calc,
+    docker_compose_calc, docker_ref_calc, duration_calc, electrical_calc, encode_calc, escape_calc,
+    find_calc, fraction_calc, geometry_calc, git_adv_calc, git_ref_calc, gitignore_calc,
+    go_ref_calc, grep_calc, hash_calc, headers_calc, health_calc, http_adv_calc, http_calc,
+    http_headers_calc, http_status_calc, id_gen_calc, ip_calc, jinja_calc, jq_calc, js_ref_calc,
+    json_calc, json_path_calc, jwt_calc, kbd_calc, kubectl_calc, license_calc, linux_adv_calc,
+    linux_sys_calc, lorem_calc, make_calc, makefile_calc, markdown_calc, matrix_calc, mime_calc,
+    net_calc, network_ref_calc, nginx_calc, npm_calc, number_format, number_theory_calc,
+    oop_ref_calc, openssl_calc, percent_calc, perf_ref_calc, physics_calc, port_calc,
+    postgres_calc, prob_calc, python_data_calc, python_ref_calc, regex_adv_calc, regex_calc,
+    regex_ref_calc, regex_test_calc, roman_calc, rust_adv_calc, rust_ref_calc, security_ref_calc,
+    sed_calc, semver_calc, set_calc, sort_viz, spark_calc, sql_adv_calc, sql_fmt_calc,
+    sql_ref_calc, ssh_ref_calc, ssl_calc, stats_calc, string_dist, systemd_adv_calc, systemd_calc,
+    table_calc, tar_calc, template_calc, terraform_calc, text_stats, timestamp_calc, tmux_calc,
+    toml_calc, trig_calc, ts_ref_calc, typescript_adv_calc, tz_calc, unicode_ref_calc, url_calc,
+    uuid_calc, validate_calc, vim_adv_calc, vim_calc, wasm_ref_calc, xml_calc, yaml_calc,
 };
 
 // ─── Cipher tests ────────────────────────────────────────────────────────────
@@ -16682,4 +16682,729 @@ fn db_design_zero_downtime_alias() {
 fn db_design_no_panic_special() {
     let _ = db_design_calc("@#$%");
     let _ = db_design_calc("   ");
+}
+
+// ── perf_ref_calc ─────────────────────────────────────────────────────────────
+
+#[test]
+fn perf_ref_empty() {
+    let out = perf_ref_calc("");
+    assert!(out.contains("profiling") || out.contains("Profiling"));
+    assert!(out.contains("Topics") || out.contains("topics"));
+}
+
+#[test]
+fn perf_ref_nomatch() {
+    let out = perf_ref_calc("zzznomatch");
+    assert!(out.contains("No topic found") || out.contains("no topic"));
+}
+
+#[test]
+fn perf_ref_all() {
+    let out = perf_ref_calc("all");
+    assert!(out.contains("profiling") || out.contains("Profiling"));
+    assert!(out.contains("memory") || out.contains("Memory"));
+    assert!(out.contains("benchmarking") || out.contains("Benchmarking"));
+    assert!(out.contains("web") || out.contains("Web"));
+    assert!(out.contains("database") || out.contains("Database"));
+    assert!(out.contains("optimization") || out.contains("Optimization"));
+}
+
+#[test]
+fn perf_ref_profiling() {
+    let out = perf_ref_calc("profiling");
+    assert!(out.contains("perf") || out.contains("Profiling"));
+    assert!(out.contains("flamegraph") || out.contains("Flamegraph") || out.contains("flamegraph"));
+}
+
+#[test]
+fn perf_ref_profiler_alias() {
+    let out = perf_ref_calc("profiler");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("perf") || out.contains("criterion") || out.contains("Profiling"));
+}
+
+#[test]
+fn perf_ref_ebpf_alias() {
+    let out = perf_ref_calc("ebpf");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("eBPF") || out.contains("bpftrace") || out.contains("profiling"));
+}
+
+#[test]
+fn perf_ref_memory() {
+    let out = perf_ref_calc("memory");
+    assert!(out.contains("RSS") || out.contains("Memory") || out.contains("memory"));
+    assert!(out.contains("leak") || out.contains("Leak") || out.contains("VSZ"));
+}
+
+#[test]
+fn perf_ref_oom_alias() {
+    let out = perf_ref_calc("oom");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("OOM") || out.contains("oom_score") || out.contains("Memory"));
+}
+
+#[test]
+fn perf_ref_valgrind_alias() {
+    let out = perf_ref_calc("valgrind");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("Valgrind") || out.contains("valgrind") || out.contains("leak"));
+}
+
+#[test]
+fn perf_ref_benchmarking() {
+    let out = perf_ref_calc("benchmarking");
+    assert!(out.contains("Benchmarking") || out.contains("benchmark") || out.contains("wrk"));
+}
+
+#[test]
+fn perf_ref_latency_alias() {
+    let out = perf_ref_calc("latency");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("p99") || out.contains("latency") || out.contains("Latency"));
+}
+
+#[test]
+fn perf_ref_amdahl_alias() {
+    let out = perf_ref_calc("amdahl");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("Amdahl") || out.contains("speedup") || out.contains("serial"));
+}
+
+#[test]
+fn perf_ref_fio_alias() {
+    let out = perf_ref_calc("fio");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("fio") || out.contains("Disk") || out.contains("bench"));
+}
+
+#[test]
+fn perf_ref_web() {
+    let out = perf_ref_calc("web");
+    assert!(
+        out.contains("LCP")
+            || out.contains("CLS")
+            || out.contains("Web Vitals")
+            || out.contains("INP")
+    );
+}
+
+#[test]
+fn perf_ref_lcp_alias() {
+    let out = perf_ref_calc("lcp");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("LCP") || out.contains("Largest") || out.contains("Paint"));
+}
+
+#[test]
+fn perf_ref_lighthouse_alias() {
+    let out = perf_ref_calc("lighthouse");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("Lighthouse") || out.contains("lighthouse") || out.contains("audit"));
+}
+
+#[test]
+fn perf_ref_database() {
+    let out = perf_ref_calc("database");
+    assert!(
+        out.contains("EXPLAIN")
+            || out.contains("index")
+            || out.contains("PostgreSQL")
+            || out.contains("connection")
+    );
+}
+
+#[test]
+fn perf_ref_slow_query_alias() {
+    let out = perf_ref_calc("slow-query");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("slow") || out.contains("query") || out.contains("log"));
+}
+
+#[test]
+fn perf_ref_pgbouncer_alias() {
+    let out = perf_ref_calc("pgbouncer");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("PgBouncer") || out.contains("pgbouncer") || out.contains("pool"));
+}
+
+#[test]
+fn perf_ref_optimization() {
+    let out = perf_ref_calc("optimization");
+    assert!(
+        out.contains("Optimization") || out.contains("optimization") || out.contains("Algorithm")
+    );
+}
+
+#[test]
+fn perf_ref_simd_alias() {
+    let out = perf_ref_calc("simd");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("SIMD") || out.contains("vector") || out.contains("simd"));
+}
+
+#[test]
+fn perf_ref_zero_copy_alias() {
+    let out = perf_ref_calc("zero-copy");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("zero-copy") || out.contains("sendfile") || out.contains("copy"));
+}
+
+#[test]
+fn perf_ref_edge_cases() {
+    let _ = perf_ref_calc("@#$%");
+    let _ = perf_ref_calc("   ");
+}
+
+// ── docker_compose_calc ───────────────────────────────────────────────────────
+
+#[test]
+fn docker_compose_empty() {
+    let out = docker_compose_calc("");
+    assert!(out.contains("basics") || out.contains("networking") || out.contains("Topics"));
+}
+
+#[test]
+fn docker_compose_nomatch() {
+    let out = docker_compose_calc("zzznomatch");
+    assert!(out.contains("No topic found") || out.contains("no topic"));
+}
+
+#[test]
+fn docker_compose_all() {
+    let out = docker_compose_calc("all");
+    assert!(out.contains("basics") || out.contains("Basics"));
+    assert!(out.contains("networking") || out.contains("Networking"));
+    assert!(out.contains("health") || out.contains("Health"));
+    assert!(out.contains("production") || out.contains("Production"));
+    assert!(out.contains("logging") || out.contains("Logging"));
+    assert!(out.contains("tips") || out.contains("Tips"));
+}
+
+#[test]
+fn docker_compose_basics() {
+    let out = docker_compose_calc("basics");
+    assert!(
+        out.contains("docker compose") || out.contains("compose up") || out.contains("service")
+    );
+}
+
+#[test]
+fn docker_compose_service_alias() {
+    let out = docker_compose_calc("service");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("service") || out.contains("image") || out.contains("ports"));
+}
+
+#[test]
+fn docker_compose_up_alias() {
+    let out = docker_compose_calc("up");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("up") || out.contains("compose") || out.contains("build"));
+}
+
+#[test]
+fn docker_compose_networking() {
+    let out = docker_compose_calc("networking");
+    assert!(out.contains("network") || out.contains("Network") || out.contains("DNS"));
+}
+
+#[test]
+fn docker_compose_volume_alias() {
+    let out = docker_compose_calc("volume");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("volume") || out.contains("Volume") || out.contains("bind"));
+}
+
+#[test]
+fn docker_compose_dns_alias() {
+    let out = docker_compose_calc("dns");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("DNS") || out.contains("service name") || out.contains("alias"));
+}
+
+#[test]
+fn docker_compose_bind_mount_alias() {
+    let out = docker_compose_calc("bind-mount");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("bind") || out.contains("Bind") || out.contains("mount"));
+}
+
+#[test]
+fn docker_compose_health() {
+    let out = docker_compose_calc("health");
+    assert!(
+        out.contains("healthcheck") || out.contains("Healthcheck") || out.contains("pg_isready")
+    );
+}
+
+#[test]
+fn docker_compose_healthcheck_alias() {
+    let out = docker_compose_calc("healthcheck");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("healthcheck") || out.contains("test") || out.contains("interval"));
+}
+
+#[test]
+fn docker_compose_restart_alias() {
+    let out = docker_compose_calc("restart");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("restart") || out.contains("always") || out.contains("on-failure"));
+}
+
+#[test]
+fn docker_compose_profiles_alias() {
+    let out = docker_compose_calc("profiles");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("profile") || out.contains("profiles") || out.contains("debug"));
+}
+
+#[test]
+fn docker_compose_production() {
+    let out = docker_compose_calc("production");
+    assert!(out.contains("prod") || out.contains("Production") || out.contains("override"));
+}
+
+#[test]
+fn docker_compose_override_alias() {
+    let out = docker_compose_calc("override");
+    assert!(!out.contains("No topic found"));
+    assert!(
+        out.contains("override") || out.contains("Override") || out.contains("docker-compose.yml")
+    );
+}
+
+#[test]
+fn docker_compose_secrets_alias() {
+    let out = docker_compose_calc("secrets");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("secret") || out.contains("Secret") || out.contains("/run/secrets"));
+}
+
+#[test]
+fn docker_compose_logging() {
+    let out = docker_compose_calc("logging");
+    assert!(out.contains("driver") || out.contains("json-file") || out.contains("Logging"));
+}
+
+#[test]
+fn docker_compose_logs_alias() {
+    let out = docker_compose_calc("logs");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("logs") || out.contains("follow") || out.contains("driver"));
+}
+
+#[test]
+fn docker_compose_traefik_alias() {
+    let out = docker_compose_calc("traefik");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("traefik") || out.contains("Traefik") || out.contains("label"));
+}
+
+#[test]
+fn docker_compose_tips() {
+    let out = docker_compose_calc("tips");
+    assert!(
+        out.contains("security")
+            || out.contains("Security")
+            || out.contains("gotcha")
+            || out.contains("Gotcha")
+    );
+}
+
+#[test]
+fn docker_compose_security_alias() {
+    let out = docker_compose_calc("security");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("non-root") || out.contains("read_only") || out.contains("cap_drop"));
+}
+
+#[test]
+fn docker_compose_debugging_alias() {
+    let out = docker_compose_calc("debugging");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("debug") || out.contains("inspect") || out.contains("exec"));
+}
+
+#[test]
+fn docker_compose_edge_cases() {
+    let _ = docker_compose_calc("@#$%");
+    let _ = docker_compose_calc("   ");
+}
+
+// ── wasm_ref_calc ─────────────────────────────────────────────────────────────
+
+#[test]
+fn wasm_ref_empty() {
+    let out = wasm_ref_calc("");
+    assert!(out.contains("format") || out.contains("memory") || out.contains("Topics"));
+}
+
+#[test]
+fn wasm_ref_nomatch() {
+    let out = wasm_ref_calc("zzznomatch");
+    assert!(out.contains("No topic found") || out.contains("no topic"));
+}
+
+#[test]
+fn wasm_ref_all() {
+    let out = wasm_ref_calc("all");
+    assert!(out.contains("format") || out.contains("Format"));
+    assert!(out.contains("memory") || out.contains("Memory"));
+    assert!(out.contains("wasi") || out.contains("WASI"));
+    assert!(out.contains("wasm-pack") || out.contains("wasm_pack"));
+    assert!(out.contains("wabt") || out.contains("WABT") || out.contains("wat2wasm"));
+    assert!(out.contains("component") || out.contains("Component"));
+}
+
+#[test]
+fn wasm_ref_format() {
+    let out = wasm_ref_calc("format");
+    assert!(out.contains("WAT") || out.contains("module") || out.contains("instruction"));
+}
+
+#[test]
+fn wasm_ref_wat_alias() {
+    let out = wasm_ref_calc("wat");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("WAT") || out.contains("module") || out.contains("text"));
+}
+
+#[test]
+fn wasm_ref_instruction_alias() {
+    let out = wasm_ref_calc("instruction");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("local.get") || out.contains("i32") || out.contains("stack"));
+}
+
+#[test]
+fn wasm_ref_memory() {
+    let out = wasm_ref_calc("memory");
+    assert!(
+        out.contains("linear")
+            || out.contains("Linear")
+            || out.contains("page")
+            || out.contains("64KB")
+    );
+}
+
+#[test]
+fn wasm_ref_linear_alias() {
+    let out = wasm_ref_calc("linear");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("linear") || out.contains("memory") || out.contains("page"));
+}
+
+#[test]
+fn wasm_ref_heap_alias() {
+    let out = wasm_ref_calc("heap");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("heap") || out.contains("Heap") || out.contains("alloc"));
+}
+
+#[test]
+fn wasm_ref_wasi() {
+    let out = wasm_ref_calc("wasi");
+    assert!(out.contains("WASI") || out.contains("wasmtime") || out.contains("syscall"));
+}
+
+#[test]
+fn wasm_ref_wasmtime_alias() {
+    let out = wasm_ref_calc("wasmtime");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("wasmtime") || out.contains("WASI") || out.contains("runtime"));
+}
+
+#[test]
+fn wasm_ref_sandbox_alias() {
+    let out = wasm_ref_calc("sandbox");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("sandbox") || out.contains("capability") || out.contains("dir"));
+}
+
+#[test]
+fn wasm_ref_wasm_pack() {
+    let out = wasm_ref_calc("wasm-pack");
+    assert!(out.contains("wasm-pack") || out.contains("wasm-bindgen") || out.contains("cdylib"));
+}
+
+#[test]
+fn wasm_ref_rust_alias() {
+    let out = wasm_ref_calc("rust");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("wasm-pack") || out.contains("wasm_bindgen") || out.contains("cdylib"));
+}
+
+#[test]
+fn wasm_ref_bundler_alias() {
+    let out = wasm_ref_calc("bundler");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("bundler") || out.contains("webpack") || out.contains("wasm-pack"));
+}
+
+#[test]
+fn wasm_ref_wabt() {
+    let out = wasm_ref_calc("wabt");
+    assert!(out.contains("wat2wasm") || out.contains("wasm2wat") || out.contains("wabt"));
+}
+
+#[test]
+fn wasm_ref_wat2wasm_alias() {
+    let out = wasm_ref_calc("wat2wasm");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("wat2wasm") || out.contains("assemble") || out.contains("binary"));
+}
+
+#[test]
+fn wasm_ref_wasm_opt_alias() {
+    let out = wasm_ref_calc("wasm-opt");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("wasm-opt") || out.contains("binaryen") || out.contains("optim"));
+}
+
+#[test]
+fn wasm_ref_twiggy_alias() {
+    let out = wasm_ref_calc("twiggy");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("twiggy") || out.contains("size") || out.contains("monos"));
+}
+
+#[test]
+fn wasm_ref_component() {
+    let out = wasm_ref_calc("component");
+    assert!(out.contains("Component") || out.contains("WIT") || out.contains("compose"));
+}
+
+#[test]
+fn wasm_ref_wit_alias() {
+    let out = wasm_ref_calc("wit");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("WIT") || out.contains("component") || out.contains("interface"));
+}
+
+#[test]
+fn wasm_ref_emscripten_alias() {
+    let out = wasm_ref_calc("emscripten");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("Emscripten") || out.contains("emcc") || out.contains("C/C"));
+}
+
+#[test]
+fn wasm_ref_edge_cases() {
+    let _ = wasm_ref_calc("@#$%");
+    let _ = wasm_ref_calc("   ");
+}
+
+// ── accessibility_calc ────────────────────────────────────────────────────────
+
+#[test]
+fn accessibility_empty() {
+    let out = accessibility_calc("");
+    assert!(out.contains("wcag") || out.contains("WCAG") || out.contains("Topics"));
+}
+
+#[test]
+fn accessibility_nomatch() {
+    let out = accessibility_calc("zzznomatch");
+    assert!(out.contains("No topic found") || out.contains("no topic"));
+}
+
+#[test]
+fn accessibility_all() {
+    let out = accessibility_calc("all");
+    assert!(out.contains("WCAG") || out.contains("wcag"));
+    assert!(out.contains("ARIA") || out.contains("aria"));
+    assert!(out.contains("keyboard") || out.contains("Keyboard"));
+    assert!(out.contains("contrast") || out.contains("Contrast"));
+    assert!(out.contains("screen") || out.contains("Screen"));
+    assert!(out.contains("testing") || out.contains("Testing"));
+}
+
+#[test]
+fn accessibility_wcag() {
+    let out = accessibility_calc("wcag");
+    assert!(out.contains("WCAG") || out.contains("POUR") || out.contains("Perceivable"));
+}
+
+#[test]
+fn accessibility_pour_alias() {
+    let out = accessibility_calc("pour");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("Perceivable") || out.contains("Operable") || out.contains("POUR"));
+}
+
+#[test]
+fn accessibility_guidelines_alias() {
+    let out = accessibility_calc("guidelines");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("WCAG") || out.contains("guideline") || out.contains("criterion"));
+}
+
+#[test]
+fn accessibility_contrast_ratio_alias() {
+    let out = accessibility_calc("contrast-ratio");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("4.5") || out.contains("contrast") || out.contains("ratio"));
+}
+
+#[test]
+fn accessibility_aria() {
+    let out = accessibility_calc("aria");
+    assert!(out.contains("aria-label") || out.contains("role") || out.contains("ARIA"));
+}
+
+#[test]
+fn accessibility_role_alias() {
+    let out = accessibility_calc("role");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("role") || out.contains("ARIA") || out.contains("landmark"));
+}
+
+#[test]
+fn accessibility_aria_label_alias() {
+    let out = accessibility_calc("aria-label");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("aria-label") || out.contains("name") || out.contains("accessible"));
+}
+
+#[test]
+fn accessibility_landmark_alias() {
+    let out = accessibility_calc("landmark");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("banner") || out.contains("navigation") || out.contains("main"));
+}
+
+#[test]
+fn accessibility_dialog_alias() {
+    let out = accessibility_calc("dialog");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("dialog") || out.contains("modal") || out.contains("ARIA"));
+}
+
+#[test]
+fn accessibility_keyboard() {
+    let out = accessibility_calc("keyboard");
+    assert!(out.contains("Tab") || out.contains("focus") || out.contains("keyboard"));
+}
+
+#[test]
+fn accessibility_focus_alias() {
+    let out = accessibility_calc("focus");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("focus") || out.contains("Tab") || out.contains("tabindex"));
+}
+
+#[test]
+fn accessibility_tabindex_alias() {
+    let out = accessibility_calc("tabindex");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("tabindex") || out.contains("roving") || out.contains("natural"));
+}
+
+#[test]
+fn accessibility_skip_alias() {
+    let out = accessibility_calc("skip");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("Skip") || out.contains("skip") || out.contains("main content"));
+}
+
+#[test]
+fn accessibility_trap_alias() {
+    let out = accessibility_calc("trap");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("trap") || out.contains("modal") || out.contains("focus"));
+}
+
+#[test]
+fn accessibility_contrast() {
+    let out = accessibility_calc("contrast");
+    assert!(
+        out.contains("4.5")
+            || out.contains("contrast")
+            || out.contains("luminance")
+            || out.contains("ratio")
+    );
+}
+
+#[test]
+fn accessibility_color_alias() {
+    let out = accessibility_calc("color");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("contrast") || out.contains("color") || out.contains("colorblind"));
+}
+
+#[test]
+fn accessibility_dark_mode_alias() {
+    let out = accessibility_calc("dark-mode");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("dark") || out.contains("prefers-color-scheme") || out.contains("forced"));
+}
+
+#[test]
+fn accessibility_screen_readers() {
+    let out = accessibility_calc("screen-readers");
+    assert!(
+        out.contains("NVDA")
+            || out.contains("VoiceOver")
+            || out.contains("JAWS")
+            || out.contains("screen reader")
+    );
+}
+
+#[test]
+fn accessibility_nvda_alias() {
+    let out = accessibility_calc("nvda");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("NVDA") || out.contains("screen reader") || out.contains("Windows"));
+}
+
+#[test]
+fn accessibility_voiceover_alias() {
+    let out = accessibility_calc("voiceover");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("VoiceOver") || out.contains("macOS") || out.contains("Safari"));
+}
+
+#[test]
+fn accessibility_testing() {
+    let out = accessibility_calc("testing");
+    assert!(
+        out.contains("axe")
+            || out.contains("WAVE")
+            || out.contains("Lighthouse")
+            || out.contains("checklist")
+    );
+}
+
+#[test]
+fn accessibility_axe_alias() {
+    let out = accessibility_calc("axe");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("axe") || out.contains("Deque") || out.contains("automated"));
+}
+
+#[test]
+fn accessibility_checklist_alias() {
+    let out = accessibility_calc("checklist");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("checklist") || out.contains("alt text") || out.contains("label"));
+}
+
+#[test]
+fn accessibility_eslint_alias() {
+    let out = accessibility_calc("eslint-plugin-jsx-a11y");
+    assert!(!out.contains("No topic found"));
+    assert!(
+        out.contains("eslint")
+            || out.contains("jsx")
+            || out.contains("linting")
+            || out.contains("Linting")
+    );
+}
+
+#[test]
+fn accessibility_edge_cases() {
+    let _ = accessibility_calc("@#$%");
+    let _ = accessibility_calc("   ");
 }
