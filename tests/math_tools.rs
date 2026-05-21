@@ -9,14 +9,14 @@ use hematite::tools::math_util::{
     docker_ref_calc, duration_calc, electrical_calc, encode_calc, escape_calc, find_calc,
     fraction_calc, geometry_calc, git_ref_calc, gitignore_calc, go_ref_calc, grep_calc, hash_calc,
     headers_calc, health_calc, http_calc, http_status_calc, id_gen_calc, ip_calc, jq_calc,
-    js_ref_calc, json_calc, json_path_calc, jwt_calc, kbd_calc, license_calc, lorem_calc,
-    make_calc, markdown_calc, matrix_calc, mime_calc, net_calc, nginx_calc, number_format,
-    number_theory_calc, openssl_calc, percent_calc, physics_calc, port_calc, prob_calc,
-    python_ref_calc, regex_calc, regex_ref_calc, roman_calc, rust_ref_calc, sed_calc, semver_calc,
-    set_calc, sort_viz, spark_calc, sql_fmt_calc, sql_ref_calc, ssh_ref_calc, ssl_calc, stats_calc,
-    string_dist, systemd_calc, table_calc, tar_calc, template_calc, text_stats, timestamp_calc,
-    toml_calc, trig_calc, tz_calc, url_calc, uuid_calc, validate_calc, vim_calc, xml_calc,
-    yaml_calc,
+    js_ref_calc, json_calc, json_path_calc, jwt_calc, kbd_calc, kubectl_calc, license_calc,
+    lorem_calc, make_calc, markdown_calc, matrix_calc, mime_calc, net_calc, nginx_calc,
+    number_format, number_theory_calc, openssl_calc, percent_calc, physics_calc, port_calc,
+    postgres_calc, prob_calc, python_ref_calc, regex_calc, regex_ref_calc, roman_calc,
+    rust_ref_calc, sed_calc, semver_calc, set_calc, sort_viz, spark_calc, sql_fmt_calc,
+    sql_ref_calc, ssh_ref_calc, ssl_calc, stats_calc, string_dist, systemd_calc, table_calc,
+    tar_calc, template_calc, text_stats, timestamp_calc, tmux_calc, toml_calc, trig_calc,
+    ts_ref_calc, tz_calc, url_calc, uuid_calc, validate_calc, vim_calc, xml_calc, yaml_calc,
 };
 
 // ─── Cipher tests ────────────────────────────────────────────────────────────
@@ -7262,5 +7262,597 @@ fn test_js_ref_all() {
 #[test]
 fn test_js_ref_unknown_topic() {
     let out = js_ref_calc("foobar_xyz");
+    assert!(out.contains("No topic") || out.contains("Run:"), "{out}");
+}
+
+// ─── Wave 18: kubectl, tmux, postgres, ts-ref ─────────────────────────────────
+
+#[test]
+fn test_kubectl_help() {
+    let out = kubectl_calc("help");
+    assert!(out.contains("kubectl") || out.contains("TOPIC"), "{out}");
+    assert!(out.contains("pods"), "{out}");
+}
+
+#[test]
+fn test_kubectl_empty() {
+    let out = kubectl_calc("");
+    assert!(out.contains("TOPIC") || out.contains("Topics"), "{out}");
+}
+
+#[test]
+fn test_kubectl_basics_topic() {
+    let out = kubectl_calc("basics");
+    assert!(
+        out.contains("get nodes") || out.contains("cluster-info"),
+        "{out}"
+    );
+    assert!(
+        out.contains("namespace") || out.contains("context"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_kubectl_get_alias() {
+    let out = kubectl_calc("get");
+    assert!(
+        out.contains("kubectl get") || out.contains("describe"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_kubectl_pods_topic() {
+    let out = kubectl_calc("pods");
+    assert!(out.contains("logs") || out.contains("exec"), "{out}");
+    assert!(
+        out.contains("port-forward") || out.contains("copy"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_kubectl_logs_alias() {
+    let out = kubectl_calc("logs");
+    assert!(out.contains("kubectl logs") || out.contains("-f"), "{out}");
+}
+
+#[test]
+fn test_kubectl_exec_alias() {
+    let out = kubectl_calc("exec");
+    assert!(out.contains("kubectl exec") || out.contains("-it"), "{out}");
+}
+
+#[test]
+fn test_kubectl_deployments_topic() {
+    let out = kubectl_calc("deployments");
+    assert!(out.contains("rollout") || out.contains("scale"), "{out}");
+    assert!(out.contains("replicas") || out.contains("image"), "{out}");
+}
+
+#[test]
+fn test_kubectl_rollout_alias() {
+    let out = kubectl_calc("rollout");
+    assert!(out.contains("rollout") || out.contains("undo"), "{out}");
+}
+
+#[test]
+fn test_kubectl_services_topic() {
+    let out = kubectl_calc("services");
+    assert!(
+        out.contains("ClusterIP") || out.contains("LoadBalancer"),
+        "{out}"
+    );
+    assert!(out.contains("ingress") || out.contains("expose"), "{out}");
+}
+
+#[test]
+fn test_kubectl_config_topic() {
+    let out = kubectl_calc("config");
+    assert!(
+        out.contains("configmap") || out.contains("ConfigMap") || out.contains("secret"),
+        "{out}"
+    );
+    assert!(
+        out.contains("label") || out.contains("RBAC") || out.contains("rbac"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_kubectl_secret_alias() {
+    let out = kubectl_calc("secret");
+    assert!(out.contains("secret") || out.contains("base64"), "{out}");
+}
+
+#[test]
+fn test_kubectl_yaml_topic() {
+    let out = kubectl_calc("yaml");
+    assert!(out.contains("apiVersion") || out.contains("kind"), "{out}");
+    assert!(
+        out.contains("Deployment") || out.contains("containers"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_kubectl_advanced_topic() {
+    let out = kubectl_calc("advanced");
+    assert!(
+        out.contains("jsonpath") || out.contains("JSONPath") || out.contains("jq"),
+        "{out}"
+    );
+    assert!(
+        out.contains("kustomize") || out.contains("field-selector"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_kubectl_all() {
+    let out = kubectl_calc("all");
+    assert!(out.contains("rollout"), "{out}");
+    assert!(
+        out.contains("ClusterIP") || out.contains("LoadBalancer"),
+        "{out}"
+    );
+    assert!(out.contains("apiVersion") || out.contains("kind"), "{out}");
+    assert!(
+        out.contains("jsonpath") || out.contains("kustomize"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_kubectl_unknown_topic() {
+    let out = kubectl_calc("foobar_xyz");
+    assert!(out.contains("No topic") || out.contains("Run:"), "{out}");
+}
+
+// ─── tmux tests ───────────────────────────────────────────────────────────────
+
+#[test]
+fn test_tmux_help() {
+    let out = tmux_calc("help");
+    assert!(out.contains("tmux") || out.contains("TOPIC"), "{out}");
+    assert!(out.contains("sessions"), "{out}");
+}
+
+#[test]
+fn test_tmux_empty() {
+    let out = tmux_calc("");
+    assert!(out.contains("TOPIC") || out.contains("Topics"), "{out}");
+}
+
+#[test]
+fn test_tmux_sessions_topic() {
+    let out = tmux_calc("sessions");
+    assert!(
+        out.contains("attach") || out.contains("new-session") || out.contains("new -s"),
+        "{out}"
+    );
+    assert!(out.contains("detach") || out.contains("kill"), "{out}");
+}
+
+#[test]
+fn test_tmux_attach_alias() {
+    let out = tmux_calc("attach");
+    assert!(out.contains("attach") || out.contains("session"), "{out}");
+}
+
+#[test]
+fn test_tmux_windows_topic() {
+    let out = tmux_calc("windows");
+    assert!(
+        out.contains("new-window") || out.contains("rename"),
+        "{out}"
+    );
+    assert!(
+        out.contains("^b c") || out.contains("^b ,") || out.contains("layout"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_tmux_panes_topic() {
+    let out = tmux_calc("panes");
+    assert!(out.contains("split") || out.contains("resize"), "{out}");
+    assert!(
+        out.contains("zoom") || out.contains("^b z") || out.contains("navigate"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_tmux_split_alias() {
+    let out = tmux_calc("split");
+    assert!(out.contains("split") || out.contains("%"), "{out}");
+}
+
+#[test]
+fn test_tmux_copy_mode_topic() {
+    let out = tmux_calc("copy-mode");
+    assert!(out.contains("copy") || out.contains("paste"), "{out}");
+    assert!(
+        out.contains("clipboard") || out.contains("buffer") || out.contains("vi"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_tmux_clipboard_alias() {
+    let out = tmux_calc("clipboard");
+    assert!(out.contains("clipboard") || out.contains("copy"), "{out}");
+}
+
+#[test]
+fn test_tmux_config_topic() {
+    let out = tmux_calc("config");
+    assert!(out.contains("prefix") || out.contains("tmux.conf"), "{out}");
+    assert!(
+        out.contains("mouse") || out.contains("color") || out.contains("status"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_tmux_scripting_topic() {
+    let out = tmux_calc("scripting");
+    assert!(
+        out.contains("send-keys") || out.contains("bind-key"),
+        "{out}"
+    );
+    assert!(out.contains("run-shell") || out.contains("format"), "{out}");
+}
+
+#[test]
+fn test_tmux_all() {
+    let out = tmux_calc("all");
+    assert!(
+        out.contains("attach") || out.contains("new-session") || out.contains("new -s"),
+        "{out}"
+    );
+    assert!(out.contains("split"), "{out}");
+    assert!(out.contains("prefix") || out.contains("tmux.conf"), "{out}");
+    assert!(out.contains("send-keys"), "{out}");
+}
+
+#[test]
+fn test_tmux_unknown_topic() {
+    let out = tmux_calc("foobar_xyz");
+    assert!(out.contains("No topic") || out.contains("Run:"), "{out}");
+}
+
+// ─── postgres tests ───────────────────────────────────────────────────────────
+
+#[test]
+fn test_postgres_help() {
+    let out = postgres_calc("help");
+    assert!(out.contains("postgres") || out.contains("TOPIC"), "{out}");
+    assert!(out.contains("psql"), "{out}");
+}
+
+#[test]
+fn test_postgres_empty() {
+    let out = postgres_calc("");
+    assert!(out.contains("TOPIC") || out.contains("Topics"), "{out}");
+}
+
+#[test]
+fn test_postgres_psql_topic() {
+    let out = postgres_calc("psql");
+    assert!(
+        out.contains("\\l") || out.contains("\\dt") || out.contains("backslash"),
+        "{out}"
+    );
+    assert!(
+        out.contains("\\timing") || out.contains("\\copy") || out.contains("\\q"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_postgres_meta_alias() {
+    let out = postgres_calc("meta");
+    assert!(
+        out.contains("\\l") || out.contains("\\dt") || out.contains("\\d"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_postgres_tables_topic() {
+    let out = postgres_calc("tables");
+    assert!(
+        out.contains("CREATE TABLE") || out.contains("BIGSERIAL"),
+        "{out}"
+    );
+    assert!(
+        out.contains("ALTER TABLE") || out.contains("TIMESTAMPTZ"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_postgres_index_alias() {
+    let out = postgres_calc("index");
+    assert!(
+        out.contains("CREATE INDEX") || out.contains("CONCURRENTLY"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_postgres_queries_topic() {
+    let out = postgres_calc("queries");
+    assert!(out.contains("CTE") || out.contains("WITH "), "{out}");
+    assert!(
+        out.contains("WINDOW") || out.contains("OVER") || out.contains("RANK"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_postgres_cte_alias() {
+    let out = postgres_calc("cte");
+    assert!(
+        out.contains("WITH ") || out.contains("CTE") || out.contains("RECURSIVE"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_postgres_window_alias() {
+    let out = postgres_calc("window");
+    assert!(
+        out.contains("OVER") || out.contains("PARTITION") || out.contains("RANK"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_postgres_upsert_alias() {
+    let out = postgres_calc("upsert");
+    assert!(
+        out.contains("ON CONFLICT") || out.contains("UPSERT"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_postgres_admin_topic() {
+    let out = postgres_calc("admin");
+    assert!(out.contains("pg_dump") || out.contains("VACUUM"), "{out}");
+    assert!(
+        out.contains("GRANT") || out.contains("role") || out.contains("ROLE"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_postgres_backup_alias() {
+    let out = postgres_calc("backup");
+    assert!(
+        out.contains("pg_dump") || out.contains("pg_restore"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_postgres_json_topic() {
+    let out = postgres_calc("json");
+    assert!(out.contains("JSONB") || out.contains("jsonb"), "{out}");
+    assert!(
+        out.contains("->>") || out.contains("@>") || out.contains("jsonb_build"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_postgres_jsonb_alias() {
+    let out = postgres_calc("jsonb");
+    assert!(out.contains("JSONB") || out.contains("jsonb"), "{out}");
+}
+
+#[test]
+fn test_postgres_performance_topic() {
+    let out = postgres_calc("performance");
+    assert!(out.contains("EXPLAIN") || out.contains("Seq Scan"), "{out}");
+    assert!(
+        out.contains("shared_buffers") || out.contains("work_mem"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_postgres_explain_alias() {
+    let out = postgres_calc("explain");
+    assert!(out.contains("EXPLAIN") || out.contains("ANALYZE"), "{out}");
+}
+
+#[test]
+fn test_postgres_all() {
+    let out = postgres_calc("all");
+    assert!(out.contains("\\dt") || out.contains("\\l"), "{out}");
+    assert!(out.contains("OVER") || out.contains("RANK"), "{out}");
+    assert!(out.contains("pg_dump"), "{out}");
+    assert!(out.contains("JSONB") || out.contains("jsonb"), "{out}");
+    assert!(out.contains("EXPLAIN"), "{out}");
+}
+
+#[test]
+fn test_postgres_unknown_topic() {
+    let out = postgres_calc("foobar_xyz");
+    assert!(out.contains("No topic") || out.contains("Run:"), "{out}");
+}
+
+// ─── ts-ref tests ─────────────────────────────────────────────────────────────
+
+#[test]
+fn test_ts_ref_help() {
+    let out = ts_ref_calc("help");
+    assert!(out.contains("TypeScript") || out.contains("TOPIC"), "{out}");
+    assert!(out.contains("generics"), "{out}");
+}
+
+#[test]
+fn test_ts_ref_empty() {
+    let out = ts_ref_calc("");
+    assert!(out.contains("TOPIC") || out.contains("Topics"), "{out}");
+}
+
+#[test]
+fn test_ts_ref_types_topic() {
+    let out = ts_ref_calc("types");
+    assert!(out.contains("unknown") || out.contains("never"), "{out}");
+    assert!(
+        out.contains("union") || out.contains("intersection") || out.contains("tuple"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_ts_ref_union_alias() {
+    let out = ts_ref_calc("union");
+    assert!(out.contains("union") || out.contains("|"), "{out}");
+}
+
+#[test]
+fn test_ts_ref_interfaces_topic() {
+    let out = ts_ref_calc("interfaces");
+    assert!(
+        out.contains("interface") || out.contains("extends"),
+        "{out}"
+    );
+    assert!(
+        out.contains("index") || out.contains("callable") || out.contains("implements"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_ts_ref_extends_alias() {
+    let out = ts_ref_calc("extends");
+    assert!(
+        out.contains("extends") || out.contains("interface"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_ts_ref_generics_topic() {
+    let out = ts_ref_calc("generics");
+    assert!(
+        out.contains("constraint") || out.contains("extends"),
+        "{out}"
+    );
+    assert!(
+        out.contains("conditional") || out.contains("infer") || out.contains("mapped"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_ts_ref_infer_alias() {
+    let out = ts_ref_calc("infer");
+    assert!(out.contains("infer") || out.contains("ReturnType"), "{out}");
+}
+
+#[test]
+fn test_ts_ref_functions_topic() {
+    let out = ts_ref_calc("functions");
+    assert!(out.contains("overload") || out.contains("async"), "{out}");
+    assert!(out.contains("never") || out.contains("optional"), "{out}");
+}
+
+#[test]
+fn test_ts_ref_overload_alias() {
+    let out = ts_ref_calc("overload");
+    assert!(
+        out.contains("overload") || out.contains("function process"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_ts_ref_utility_topic() {
+    let out = ts_ref_calc("utility");
+    assert!(out.contains("Partial") || out.contains("Omit"), "{out}");
+    assert!(
+        out.contains("ReturnType") || out.contains("Parameters"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_ts_ref_partial_alias() {
+    let out = ts_ref_calc("partial");
+    assert!(out.contains("Partial") || out.contains("optional"), "{out}");
+}
+
+#[test]
+fn test_ts_ref_omit_alias() {
+    let out = ts_ref_calc("omit");
+    assert!(out.contains("Omit") || out.contains("Pick"), "{out}");
+}
+
+#[test]
+fn test_ts_ref_narrowing_topic() {
+    let out = ts_ref_calc("narrowing");
+    assert!(
+        out.contains("typeof") || out.contains("instanceof"),
+        "{out}"
+    );
+    assert!(
+        out.contains("discriminated") || out.contains("predicate") || out.contains("satisfies"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_ts_ref_discriminated_alias() {
+    let out = ts_ref_calc("discriminated");
+    assert!(
+        out.contains("discriminated") || out.contains("kind"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_ts_ref_config_topic() {
+    let out = ts_ref_calc("config");
+    assert!(out.contains("tsconfig") || out.contains("strict"), "{out}");
+    assert!(
+        out.contains("paths") || out.contains("target") || out.contains("module"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_ts_ref_strict_alias() {
+    let out = ts_ref_calc("strict");
+    assert!(
+        out.contains("strict") || out.contains("noImplicit"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_ts_ref_all() {
+    let out = ts_ref_calc("all");
+    assert!(out.contains("unknown") || out.contains("never"), "{out}");
+    assert!(out.contains("infer") || out.contains("mapped"), "{out}");
+    assert!(out.contains("Partial") || out.contains("Omit"), "{out}");
+    assert!(
+        out.contains("discriminated") || out.contains("satisfies"),
+        "{out}"
+    );
+    assert!(out.contains("tsconfig") || out.contains("strict"), "{out}");
+}
+
+#[test]
+fn test_ts_ref_unknown_topic() {
+    let out = ts_ref_calc("foobar_xyz");
     assert!(out.contains("No topic") || out.contains("Run:"), "{out}");
 }

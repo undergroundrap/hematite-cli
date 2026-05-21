@@ -1059,6 +1059,10 @@ mod tests {
             rust_ref: None,
             go_ref: None,
             js_ref: None,
+            kubectl: None,
+            tmux: None,
+            postgres: None,
+            ts_ref: None,
             pdf_extract_helper: None,
             teleported_from: None,
         };

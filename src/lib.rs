@@ -1635,6 +1635,38 @@ pub struct CliCockpit {
     #[arg(
         long,
         help_heading = "Math & Science",
+        value_name = "TOPIC",
+        help = "kubectl / Kubernetes reference — offline cheatsheet. Topics: basics, pods, deployments, services, config, yaml, advanced. Commands: all = everything. Examples: hematite --kubectl pods | hematite --kubectl deployments | hematite --kubectl yaml"
+    )]
+    pub kubectl: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Math & Science",
+        value_name = "TOPIC",
+        help = "tmux reference — offline cheatsheet. Topics: sessions, windows, panes, copy-mode, config, scripting. Commands: all = everything. Examples: hematite --tmux panes | hematite --tmux copy-mode | hematite --tmux config"
+    )]
+    pub tmux: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Math & Science",
+        value_name = "TOPIC",
+        help = "PostgreSQL reference — offline cheatsheet. Topics: psql, tables, queries, admin, json, performance. Commands: all = everything. Examples: hematite --postgres queries | hematite --postgres json | hematite --postgres performance"
+    )]
+    pub postgres: Option<String>,
+
+    #[arg(
+        long = "ts-ref",
+        help_heading = "Math & Science",
+        value_name = "TOPIC",
+        help = "TypeScript reference — offline cheatsheet. Topics: types, interfaces, generics, functions, utility, narrowing, config. Commands: all = everything. Examples: hematite --ts-ref generics | hematite --ts-ref utility | hematite --ts-ref narrowing"
+    )]
+    pub ts_ref: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Math & Science",
         value_name = "QUERY",
         help = "Lorem ipsum generator — offline replacement for lipsum.com. Commands: (bare) or <N> = N paragraphs (default 1); words <N> = N words; sentences <N> = N sentences. Examples: hematite --lorem | hematite --lorem 3 | hematite --lorem 'words 50' | hematite --lorem 'sentences 5'"
     )]

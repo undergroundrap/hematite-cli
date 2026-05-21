@@ -33769,3 +33769,638 @@ pub fn js_ref_calc(query: &str) -> String {
     }
     out
 }
+
+// ─── Wave 18: kubectl, tmux, postgres, ts-ref ─────────────────────────────────
+
+pub fn kubectl_calc(query: &str) -> String {
+    use std::fmt::Write as _;
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+
+    fn s_basics() -> &'static str {
+        "  Cluster info:\n  kubectl version --short\n  kubectl cluster-info\n  kubectl get nodes\n  kubectl get nodes -o wide\n  kubectl top nodes\n\n  Namespaces:\n  kubectl get namespaces\n  kubectl create namespace dev\n  kubectl config set-context --current --namespace=dev\n  kubectl get all -n kube-system\n  kubectl get all --all-namespaces   (or -A)\n\n  Contexts:\n  kubectl config get-contexts\n  kubectl config use-context my-cluster\n  kubectl config current-context\n  kubectl config view\n  kubectl config set-context --current --namespace=staging\n\n  Get resources:\n  kubectl get pods\n  kubectl get pods -o wide             (show node, IP)\n  kubectl get pods -o yaml             (full YAML)\n  kubectl get pods -o json | jq '.items[].metadata.name'\n  kubectl get pods -w                  (watch for changes)\n  kubectl get pods --sort-by=.metadata.creationTimestamp\n  kubectl get pods -l app=nginx        (label selector)\n  kubectl get pod <name> -o jsonpath='{.status.podIP}'\n\n  Describe / explain:\n  kubectl describe pod <name>\n  kubectl describe node <name>\n  kubectl explain pod.spec\n  kubectl explain deployment.spec.template\n\n  Apply and delete:\n  kubectl apply -f manifest.yaml\n  kubectl apply -f ./dir/              (all YAML in dir)\n  kubectl apply -k ./kustomize/        (kustomize)\n  kubectl delete -f manifest.yaml\n  kubectl delete pod <name>\n  kubectl delete pod <name> --grace-period=0 --force\n"
+    }
+    fn s_pods() -> &'static str {
+        "  Pod logs:\n  kubectl logs <pod>\n  kubectl logs <pod> -c <container>    (multi-container pod)\n  kubectl logs <pod> -f                (follow/stream)\n  kubectl logs <pod> --previous        (crashed container)\n  kubectl logs <pod> --tail=100\n  kubectl logs -l app=nginx --all-containers=true\n\n  Exec into pod:\n  kubectl exec -it <pod> -- bash\n  kubectl exec -it <pod> -- sh         (if no bash)\n  kubectl exec -it <pod> -c <container> -- bash\n  kubectl exec <pod> -- cat /etc/config.yaml\n  kubectl exec <pod> -- env            (list env vars)\n\n  Port forwarding:\n  kubectl port-forward pod/<name> 8080:80\n  kubectl port-forward svc/<service> 8080:80\n  kubectl port-forward deployment/<name> 8080:80\n\n  Run temporary pods:\n  kubectl run -it --rm debug --image=busybox -- sh\n  kubectl run -it --rm debug --image=curlimages/curl -- sh\n  kubectl run nginx --image=nginx --port=80\n\n  Copy files:\n  kubectl cp <pod>:/etc/config.yaml ./config.yaml\n  kubectl cp ./local.yaml <pod>:/tmp/local.yaml\n  kubectl cp <pod>:/var/log/ ./logs/ -c <container>\n\n  Debug:\n  kubectl debug -it <pod> --image=busybox --target=<container>\n  kubectl debug node/<node-name> -it --image=busybox\n\n  Events:\n  kubectl get events --sort-by=.lastTimestamp\n  kubectl get events -n kube-system\n  kubectl get events --field-selector=involvedObject.name=<pod>\n"
+    }
+    fn s_deployments() -> &'static str {
+        "  Create and update:\n  kubectl create deployment nginx --image=nginx:1.21 --replicas=3\n  kubectl set image deployment/nginx nginx=nginx:1.22\n  kubectl set env deployment/nginx APP_ENV=production\n  kubectl patch deployment nginx -p '{\"spec\":{\"replicas\":5}}'\n\n  Scale:\n  kubectl scale deployment nginx --replicas=5\n  kubectl autoscale deployment nginx --min=2 --max=10 --cpu-percent=80\n  kubectl get hpa\n\n  Rollout management:\n  kubectl rollout status deployment/nginx\n  kubectl rollout history deployment/nginx\n  kubectl rollout history deployment/nginx --revision=2\n  kubectl rollout undo deployment/nginx\n  kubectl rollout undo deployment/nginx --to-revision=2\n  kubectl rollout pause deployment/nginx\n  kubectl rollout resume deployment/nginx\n  kubectl rollout restart deployment/nginx\n\n  Resource limits (in YAML):\n  resources:\n    requests:\n      cpu: \"100m\"\n      memory: \"128Mi\"\n    limits:\n      cpu: \"500m\"\n      memory: \"512Mi\"\n\n  Strategy:\n  strategy:\n    type: RollingUpdate\n    rollingUpdate:\n      maxSurge: 1\n      maxUnavailable: 0\n\n  Useful queries:\n  kubectl get deployment nginx -o jsonpath='{.spec.replicas}'\n  kubectl get deployments -o wide\n  kubectl top pods --sort-by=memory\n  kubectl top pods -l app=nginx\n"
+    }
+    fn s_services() -> &'static str {
+        "  Service types:\n  ClusterIP    Internal only (default)\n  NodePort     Exposes on each node's IP at a static port (30000-32767)\n  LoadBalancer Cloud provider LB; exposes externally\n  ExternalName DNS alias to external service\n\n  Create services:\n  kubectl expose deployment nginx --port=80 --type=ClusterIP\n  kubectl expose deployment nginx --port=80 --type=NodePort\n  kubectl expose deployment nginx --port=80 --type=LoadBalancer\n  kubectl create service clusterip my-svc --tcp=80:8080\n\n  Inspect:\n  kubectl get svc\n  kubectl get svc -o wide\n  kubectl describe svc nginx\n  kubectl get endpoints nginx\n\n  Ingress:\n  kubectl get ingress\n  kubectl describe ingress my-ingress\n  kubectl get ingress -A\n\n  Ingress YAML:\n  apiVersion: networking.k8s.io/v1\n  kind: Ingress\n  metadata:\n    name: my-ingress\n    annotations:\n      nginx.ingress.kubernetes.io/rewrite-target: /\n  spec:\n    rules:\n    - host: app.example.com\n      http:\n        paths:\n        - path: /api\n          pathType: Prefix\n          backend:\n            service:\n              name: api-svc\n              port:\n                number: 8080\n\n  DNS inside cluster:\n  <service>.<namespace>.svc.cluster.local\n  nginx.default.svc.cluster.local\n"
+    }
+    fn s_config() -> &'static str {
+        "  ConfigMaps:\n  kubectl create configmap app-config --from-literal=KEY=value\n  kubectl create configmap app-config --from-file=config.yaml\n  kubectl create configmap app-config --from-env-file=.env\n  kubectl get configmap app-config -o yaml\n  kubectl edit configmap app-config\n\n  Secrets:\n  kubectl create secret generic db-secret \\\n    --from-literal=password=mysecret\n  kubectl create secret generic tls-secret \\\n    --from-file=tls.crt --from-file=tls.key\n  kubectl create secret docker-registry regcred \\\n    --docker-server=... --docker-username=... --docker-password=...\n  kubectl get secret db-secret -o jsonpath='{.data.password}' | base64 -d\n\n  RBAC:\n  kubectl get clusterroles\n  kubectl get rolebindings -n default\n  kubectl create clusterrolebinding admin-binding \\\n    --clusterrole=cluster-admin --user=admin@example.com\n  kubectl auth can-i create pods\n  kubectl auth can-i create pods --as=system:serviceaccount:default:my-sa\n\n  Service accounts:\n  kubectl create serviceaccount my-sa\n  kubectl get serviceaccounts\n\n  Labels and annotations:\n  kubectl label pod <pod> env=prod\n  kubectl label pod <pod> env-           (remove label)\n  kubectl annotate pod <pod> team=backend\n  kubectl get pods -l env=prod,app=nginx\n  kubectl get pods -l 'env in (prod,staging)'\n"
+    }
+    fn s_yaml() -> &'static str {
+        "  Pod manifest:\n  apiVersion: v1\n  kind: Pod\n  metadata:\n    name: my-pod\n    labels:\n      app: my-app\n  spec:\n    containers:\n    - name: app\n      image: nginx:1.21\n      ports:\n      - containerPort: 80\n      env:\n      - name: ENV_VAR\n        value: \"hello\"\n      - name: SECRET_VAL\n        valueFrom:\n          secretKeyRef:\n            name: my-secret\n            key: password\n      resources:\n        requests: { cpu: 100m, memory: 128Mi }\n        limits:   { cpu: 500m, memory: 512Mi }\n      livenessProbe:\n        httpGet: { path: /healthz, port: 80 }\n        initialDelaySeconds: 3\n        periodSeconds: 10\n      readinessProbe:\n        httpGet: { path: /ready, port: 80 }\n        initialDelaySeconds: 5\n\n  Deployment manifest:\n  apiVersion: apps/v1\n  kind: Deployment\n  metadata:\n    name: my-app\n  spec:\n    replicas: 3\n    selector:\n      matchLabels:\n        app: my-app\n    template:\n      metadata:\n        labels:\n          app: my-app\n      spec:\n        containers:\n        - name: app\n          image: my-app:1.0\n          ports:\n          - containerPort: 8080\n\n  Service manifest:\n  apiVersion: v1\n  kind: Service\n  metadata:\n    name: my-svc\n  spec:\n    selector:\n      app: my-app\n    ports:\n    - protocol: TCP\n      port: 80\n      targetPort: 8080\n    type: ClusterIP\n"
+    }
+    fn s_advanced() -> &'static str {
+        "  JSONPath queries:\n  kubectl get pods -o jsonpath='{.items[*].metadata.name}'\n  kubectl get pods -o jsonpath='{range .items[*]}{.metadata.name}\\t{.status.phase}\\n{end}'\n  kubectl get nodes -o jsonpath='{.items[*].status.addresses[?(@.type==\"InternalIP\")].address}'\n\n  Custom columns:\n  kubectl get pods -o custom-columns=NAME:.metadata.name,STATUS:.status.phase,NODE:.spec.nodeName\n\n  Field selectors:\n  kubectl get pods --field-selector=status.phase=Running\n  kubectl get pods --field-selector=spec.nodeName=node01\n\n  Kustomize:\n  kubectl apply -k ./overlays/prod\n  kubectl diff -k ./overlays/prod\n  kustomize build ./overlays/prod | kubectl apply -f -\n\n  Useful one-liners:\n  # Delete all evicted pods\n  kubectl get pods --all-namespaces -o json | jq -r '.items[] | select(.status.reason==\"Evicted\") | .metadata.namespace + \" \" + .metadata.name' | xargs -n2 kubectl delete pod -n\n  # Restart all deployments in a namespace\n  kubectl rollout restart deployment -n staging\n  # Watch pod logs as they start\n  kubectl get events -w --field-selector reason=BackOff\n  # Get all images running in cluster\n  kubectl get pods -A -o jsonpath='{range .items[*]}{.spec.containers[*].image}\\n{end}' | sort | uniq\n\n  Namespaced resource management:\n  kubectl api-resources --namespaced=true\n  kubectl get all -n <namespace>\n  kubectl delete all --all -n staging   (careful!)\n"
+    }
+
+    type KubectlSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+    const SECTIONS: &[KubectlSection] = &[
+        (
+            "basics",
+            &[
+                "basic",
+                "get",
+                "describe",
+                "apply",
+                "delete",
+                "context",
+                "namespace",
+            ],
+            s_basics,
+        ),
+        (
+            "pods",
+            &[
+                "pod",
+                "pods",
+                "logs",
+                "exec",
+                "port-forward",
+                "copy",
+                "debug",
+            ],
+            s_pods,
+        ),
+        (
+            "deployments",
+            &[
+                "deploy",
+                "deployment",
+                "scale",
+                "rollout",
+                "image",
+                "replicas",
+            ],
+            s_deployments,
+        ),
+        (
+            "services",
+            &[
+                "service",
+                "svc",
+                "ingress",
+                "expose",
+                "clusterip",
+                "loadbalancer",
+            ],
+            s_services,
+        ),
+        (
+            "config",
+            &[
+                "config",
+                "configmap",
+                "secret",
+                "rbac",
+                "label",
+                "annotation",
+                "sa",
+            ],
+            s_config,
+        ),
+        (
+            "yaml",
+            &[
+                "yaml",
+                "manifest",
+                "template",
+                "probe",
+                "liveness",
+                "readiness",
+            ],
+            s_yaml,
+        ),
+        (
+            "advanced",
+            &[
+                "advanced",
+                "jsonpath",
+                "kustomize",
+                "field-selector",
+                "custom-columns",
+            ],
+            s_advanced,
+        ),
+    ];
+
+    let q = query.trim().to_lowercase();
+
+    if q.is_empty() || q == "help" || q == "list" {
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  hematite --kubectl <TOPIC>");
+        let _ = writeln!(out, "  Offline kubectl / Kubernetes reference");
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  Topics:");
+        for &(name, aliases, _) in SECTIONS {
+            let _ = writeln!(out, "    {name:<14} ({})", aliases.join(", "));
+        }
+        let _ = writeln!(out, "\n  hematite --kubectl all   -- print everything");
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    if q == "all" {
+        let _ = writeln!(out, "{sep}");
+        for &(name, _, f) in SECTIONS {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+            let _ = writeln!(out, "");
+        }
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    let found: Vec<_> = SECTIONS
+        .iter()
+        .filter(|&&(name, aliases, _)| {
+            name.contains(q.as_str())
+                || aliases
+                    .iter()
+                    .any(|&a| a.contains(q.as_str()) || q.contains(a))
+        })
+        .collect();
+
+    if found.is_empty() {
+        let _ = writeln!(out, "  No topic found for '{}'.", query.trim());
+        let _ = writeln!(out, "  Run: hematite --kubectl help");
+    } else {
+        let _ = writeln!(out, "{sep}");
+        for &&(name, _, f) in &found {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+        }
+        let _ = writeln!(out, "{sep}");
+    }
+    out
+}
+
+pub fn tmux_calc(query: &str) -> String {
+    use std::fmt::Write as _;
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+
+    fn s_sessions() -> &'static str {
+        "  Default prefix key: Ctrl+b  (shown as ^b below)\n\n  Session commands (from shell):\n  tmux                            Start new unnamed session\n  tmux new -s mysession           New named session\n  tmux new -s work -d             New detached session\n  tmux attach                     Attach to last session\n  tmux attach -t mysession        Attach to named session\n  tmux ls                         List sessions\n  tmux kill-session -t mysession  Kill named session\n  tmux kill-server                Kill all sessions\n  tmux rename-session -t old new  Rename session\n  tmux has-session -t mysession   Check if session exists (exit 0/1)\n  tmux switch-client -t mysession  Switch to session without detach\n\n  Inside tmux:\n  ^b d        Detach from session\n  ^b s        Interactive session picker\n  ^b $        Rename current session\n  ^b (        Switch to previous session\n  ^b )        Switch to next session\n  ^b L        Switch to last used session\n\n  Grouped sessions (share windows):\n  tmux new-session -t mysession   New session sharing mysession's windows\n\n  Scripted layout (in shell):\n  tmux new-session -d -s dev -x 220 -y 50\n  tmux send-keys -t dev 'vim .' Enter\n  tmux split-window -h -t dev\n  tmux send-keys -t dev 'npm run dev' Enter\n  tmux attach -t dev\n"
+    }
+    fn s_windows() -> &'static str {
+        "  Inside tmux (prefix = ^b):\n  ^b c        Create new window\n  ^b ,        Rename current window\n  ^b &        Kill current window (prompts)\n  ^b n        Next window\n  ^b p        Previous window\n  ^b l        Last (most recently used) window\n  ^b 0-9      Switch to window by number\n  ^b '        Prompt for window index to switch to\n  ^b f        Find window by name (search)\n  ^b w        Interactive window picker (tree view)\n  ^b .        Move window (prompt for index)\n  ^b :swap-window -s 2 -t 3   Swap windows 2 and 3\n\n  From command line:\n  tmux new-window -t mysession -n mywindow\n  tmux select-window -t mysession:1\n  tmux select-window -t mysession:mywindow\n  tmux rename-window -t mysession:1 'editor'\n  tmux kill-window -t mysession:1\n  tmux move-window -s src:1 -t dst:3\n  tmux list-windows -t mysession\n\n  Window layout with panes:\n  ^b :new-window -n layout\n  ^b :split-window -h    Vertical split\n  ^b :split-window -v    Horizontal split\n  ^b :select-layout even-horizontal  (or vertical, tiled, main-horizontal, main-vertical)\n"
+    }
+    fn s_panes() -> &'static str {
+        "  Splitting:\n  ^b %        Split vertically (left/right)\n  ^b \"        Split horizontally (top/bottom)\n  ^b :split-window -h -p 30    Split, right pane 30% width\n  ^b :split-window -v -p 20    Split, bottom pane 20% height\n\n  Navigation:\n  ^b Arrow    Move to pane in that direction\n  ^b o        Cycle to next pane\n  ^b ;        Switch to last active pane\n  ^b q        Show pane numbers (press number to jump)\n  ^b {        Swap pane with previous\n  ^b }        Swap pane with next\n  ^b :swap-pane -s 0 -t 1     Swap by index\n\n  Resize:\n  ^b :resize-pane -D 5        Down 5 lines\n  ^b :resize-pane -U 5        Up 5 lines\n  ^b :resize-pane -L 10       Left 10 cols\n  ^b :resize-pane -R 10       Right 10 cols\n  ^b Alt+Arrow                Resize in direction (1 unit)\n  ^b :resize-pane -t 1 -x 80  Set pane 1 width to 80\n\n  Zoom / close:\n  ^b z        Toggle zoom (fullscreen current pane)\n  ^b x        Kill current pane (prompts)\n  ^b !        Break pane into its own window\n  ^b :join-pane -s 2:1 -t 1:0 Move pane from win 2 to win 1\n\n  Layouts:\n  ^b Space                    Cycle through preset layouts\n  ^b :select-layout tiled     Equal-size grid\n  ^b :select-layout main-horizontal  Large top pane + row below\n  ^b :select-layout even-vertical    Equal height columns\n"
+    }
+    fn s_copy_mode() -> &'static str {
+        "  Enter copy mode:\n  ^b [        Enter copy mode (vi or emacs based on mode-keys)\n  ^b PageUp   Enter copy mode and scroll up\n  q           Exit copy mode\n\n  Enable vi mode in config:  set-window-option -g mode-keys vi\n\n  Navigation (vi mode):\n  h j k l     Move cursor\n  w b e       Word forward/back/end\n  g G         Top / bottom of scrollback\n  / ?         Search forward / backward\n  n N         Next / previous search match\n  Ctrl+f/b    Page down / up\n  Ctrl+d/u    Half-page down / up\n\n  Selection and copy (vi mode):\n  v           Begin selection\n  V           Begin line selection\n  Ctrl+v      Begin rectangle selection\n  y           Copy selection to tmux paste buffer\n  Enter       Copy and exit (default keybind)\n\n  Paste:\n  ^b ]        Paste from tmux paste buffer\n  ^b :choose-buffer     Browse paste buffers\n  ^b :show-buffer       Show buffer content\n  ^b :save-buffer ~/buf.txt   Save buffer to file\n\n  System clipboard integration:\n  # In ~/.tmux.conf (macOS):\n  bind-key -T copy-mode-vi y send-keys -X copy-pipe-and-cancel 'pbcopy'\n  # Linux (xclip):\n  bind-key -T copy-mode-vi y send-keys -X copy-pipe-and-cancel 'xclip -in -selection clipboard'\n  # Linux (wl-clipboard Wayland):\n  bind-key -T copy-mode-vi y send-keys -X copy-pipe-and-cancel 'wl-copy'\n"
+    }
+    fn s_config() -> &'static str {
+        "  Config file: ~/.tmux.conf\n  Reload config:  ^b :source-file ~/.tmux.conf\n\n  Prefix key:\n  unbind C-b\n  set-option -g prefix C-a\n  bind-key C-a send-prefix\n\n  Mouse support:\n  set -g mouse on            (tmux 2.1+; drag to resize, click to select)\n\n  Colors and appearance:\n  set -g default-terminal \"screen-256color\"\n  set -ag terminal-overrides \",xterm-256color:RGB\"\n  set -g status-style 'bg=#333333 fg=#aaaaaa'\n  set -g window-status-current-style 'fg=white bold'\n  set -g pane-border-style 'fg=#555555'\n  set -g pane-active-border-style 'fg=#00aaff'\n\n  Status bar:\n  set -g status-position top\n  set -g status-left '#[fg=green]#S #[fg=white]| '\n  set -g status-right '#[fg=cyan]%H:%M #[fg=white]%Y-%m-%d'\n  set -g status-interval 5             (refresh every 5 sec)\n\n  Useful settings:\n  set -g history-limit 50000           (scrollback buffer)\n  set -g display-time 3000             (message display ms)\n  set -s escape-time 0                 (remove ESC delay for vim)\n  set -g base-index 1                  (windows start at 1)\n  setw -g pane-base-index 1\n  set -g renumber-windows on           (auto renumber on close)\n  setw -g automatic-rename on\n  bind r source-file ~/.tmux.conf \\; display 'Reloaded!'\n\n  Better splits:\n  bind | split-window -h -c '#{pane_current_path}'\n  bind - split-window -v -c '#{pane_current_path}'\n  unbind '\"'\n  unbind %\n"
+    }
+    fn s_scripting() -> &'static str {
+        "  Send keys to panes:\n  tmux send-keys -t mysession:0.0 'ls -la' Enter\n  tmux send-keys -t 1 'git status' Enter     (target current session, window 1)\n  tmux send-keys -t .1 'echo hi' Enter       (current session, pane 1)\n\n  Tmux command mode (inside tmux):\n  ^b :           Open command prompt\n  ^b :source-file ~/.tmux.conf\n  ^b :set -g mouse on\n  ^b :list-keys\n  ^b :list-commands\n  ^b :show-options -g       (global options)\n  ^b :show-window-options   (window options)\n\n  Custom key bindings (in config):\n  bind-key r source-file ~/.tmux.conf \\; display 'Reloaded!'\n  bind-key h select-pane -L\n  bind-key j select-pane -D\n  bind-key k select-pane -U\n  bind-key l select-pane -R\n  bind-key R respawn-pane -k     (restart pane)\n\n  Run shell commands:\n  tmux run-shell 'notify-send done'\n  ^b :run-shell 'echo #{pane_current_path}'\n\n  Variables / formats:\n  #{session_name}    #{window_index}   #{pane_index}\n  #{pane_current_path}    #{pane_current_command}\n  #{client_width}  #{client_height}\n\n  Useful one-liners:\n  tmux list-sessions -F '#{session_name}'\n  tmux list-panes -a -F '#{session_name}:#{window_name} #{pane_current_command}'\n  tmux kill-session -a    (kill all sessions except current)\n"
+    }
+
+    type TmuxSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+    const SECTIONS: &[TmuxSection] = &[
+        (
+            "sessions",
+            &[
+                "session", "attach", "detach", "create", "kill", "rename", "switch",
+            ],
+            s_sessions,
+        ),
+        (
+            "windows",
+            &["window", "rename", "navigate", "picker", "layout", "swap"],
+            s_windows,
+        ),
+        (
+            "panes",
+            &[
+                "pane",
+                "split",
+                "resize",
+                "zoom",
+                "navigate",
+                "vertical",
+                "horizontal",
+            ],
+            s_panes,
+        ),
+        (
+            "copy-mode",
+            &["copy", "paste", "clipboard", "scroll", "search", "vi-mode"],
+            s_copy_mode,
+        ),
+        (
+            "config",
+            &[
+                "config",
+                "conf",
+                "prefix",
+                "mouse",
+                "statusbar",
+                "colors",
+                "reload",
+            ],
+            s_config,
+        ),
+        (
+            "scripting",
+            &[
+                "scripting",
+                "send-keys",
+                "bind-key",
+                "format",
+                "run-shell",
+                "variable",
+            ],
+            s_scripting,
+        ),
+    ];
+
+    let q = query.trim().to_lowercase();
+
+    if q.is_empty() || q == "help" || q == "list" {
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  hematite --tmux <TOPIC>");
+        let _ = writeln!(out, "  Offline tmux reference");
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  Topics:");
+        for &(name, aliases, _) in SECTIONS {
+            let _ = writeln!(out, "    {name:<12} ({})", aliases.join(", "));
+        }
+        let _ = writeln!(out, "\n  hematite --tmux all   -- print everything");
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    if q == "all" {
+        let _ = writeln!(out, "{sep}");
+        for &(name, _, f) in SECTIONS {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+            let _ = writeln!(out, "");
+        }
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    let found: Vec<_> = SECTIONS
+        .iter()
+        .filter(|&&(name, aliases, _)| {
+            name.contains(q.as_str())
+                || aliases
+                    .iter()
+                    .any(|&a| a.contains(q.as_str()) || q.contains(a))
+        })
+        .collect();
+
+    if found.is_empty() {
+        let _ = writeln!(out, "  No topic found for '{}'.", query.trim());
+        let _ = writeln!(out, "  Run: hematite --tmux help");
+    } else {
+        let _ = writeln!(out, "{sep}");
+        for &&(name, _, f) in &found {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+        }
+        let _ = writeln!(out, "{sep}");
+    }
+    out
+}
+
+pub fn postgres_calc(query: &str) -> String {
+    use std::fmt::Write as _;
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+
+    fn s_psql() -> &'static str {
+        "  Connect:\n  psql -U postgres -d mydb\n  psql -h localhost -p 5432 -U admin -d mydb\n  psql \"postgresql://user:pass@host:5432/dbname\"\n  psql -U postgres -c \"SELECT version();\"\n\n  Meta-commands (backslash commands):\n  \\l  or \\list            List databases\n  \\c  mydb                Connect to database\n  \\dt                     List tables in current schema\n  \\dt schema.*            List tables in schema\n  \\d  tablename           Describe table (columns, indexes)\n  \\d+ tablename           Verbose describe\n  \\dn                     List schemas\n  \\df                     List functions\n  \\dv                     List views\n  \\di                     List indexes\n  \\ds                     List sequences\n  \\du  or \\dg             List users/roles\n  \\e                      Open query in $EDITOR\n  \\i  file.sql            Execute SQL file\n  \\o  output.txt          Send output to file (\\o to stop)\n  \\timing                 Toggle query timing\n  \\x                      Toggle expanded output (vertical rows)\n  \\x auto                 Auto expanded output\n  \\pset null '(null)'     Display NULLs visibly\n  \\copy table FROM 'file' WITH (FORMAT csv, HEADER true)\n  \\copy (SELECT ...) TO 'file' WITH (FORMAT csv, HEADER true)\n  \\q  or \\quit            Exit psql\n  \\!  command             Run shell command\n  \\?                      List meta-commands\n  \\h  SELECT              Help on SQL command\n"
+    }
+    fn s_tables() -> &'static str {
+        "  Data types:\n  SERIAL / BIGSERIAL          Auto-increment integer / bigint\n  INTEGER / BIGINT            4 / 8 byte integer\n  NUMERIC(p, s)               Exact decimal\n  FLOAT / DOUBLE PRECISION    Inexact float\n  BOOLEAN                     true / false\n  TEXT                        Unlimited string (preferred)\n  VARCHAR(n)                  Limited string\n  CHAR(n)                     Fixed-length string\n  BYTEA                       Binary data\n  TIMESTAMP                   No timezone\n  TIMESTAMPTZ                 With timezone (prefer this)\n  DATE / TIME\n  UUID                        Use gen_random_uuid() (pg 13+)\n  JSONB                       Binary JSON (indexed, preferred)\n  JSON                        Text JSON (no indexing)\n  ARRAY                       e.g. TEXT[], INTEGER[]\n\n  CREATE TABLE:\n  CREATE TABLE users (\n    id         BIGSERIAL PRIMARY KEY,\n    email      TEXT        NOT NULL UNIQUE,\n    name       TEXT        NOT NULL,\n    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),\n    metadata   JSONB\n  );\n\n  ALTER TABLE:\n  ALTER TABLE users ADD COLUMN age INTEGER;\n  ALTER TABLE users DROP COLUMN age;\n  ALTER TABLE users ALTER COLUMN name SET NOT NULL;\n  ALTER TABLE users ALTER COLUMN name TYPE VARCHAR(255);\n  ALTER TABLE users RENAME COLUMN name TO full_name;\n  ALTER TABLE users RENAME TO customers;\n\n  Constraints:\n  PRIMARY KEY (id)\n  UNIQUE (email)\n  NOT NULL\n  DEFAULT NOW()\n  CHECK (age > 0)\n  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE\n  REFERENCES users(id) ON DELETE SET NULL ON UPDATE CASCADE\n\n  Indexes:\n  CREATE INDEX idx_users_email ON users(email);\n  CREATE UNIQUE INDEX idx_users_email ON users(email);\n  CREATE INDEX idx_users_meta ON users USING GIN(metadata);\n  CREATE INDEX idx_partial ON users(email) WHERE active = true;\n  DROP INDEX CONCURRENTLY idx_users_email;  (non-blocking)\n  CREATE INDEX CONCURRENTLY idx_name ON users(name);  (no lock)\n"
+    }
+    fn s_queries() -> &'static str {
+        "  CTEs (Common Table Expressions):\n  WITH recent AS (\n    SELECT * FROM orders\n    WHERE created_at > NOW() - INTERVAL '7 days'\n  ),\n  totals AS (\n    SELECT user_id, SUM(amount) AS total\n    FROM recent\n    GROUP BY user_id\n  )\n  SELECT u.name, t.total\n  FROM users u\n  JOIN totals t ON t.user_id = u.id\n  ORDER BY t.total DESC;\n\n  Recursive CTE:\n  WITH RECURSIVE nums AS (\n    SELECT 1 AS n\n    UNION ALL\n    SELECT n + 1 FROM nums WHERE n < 10\n  )\n  SELECT * FROM nums;\n\n  Window functions:\n  SELECT name, salary,\n    RANK()       OVER (PARTITION BY dept ORDER BY salary DESC),\n    DENSE_RANK() OVER (PARTITION BY dept ORDER BY salary DESC),\n    ROW_NUMBER() OVER (ORDER BY salary DESC),\n    LAG(salary)  OVER (PARTITION BY dept ORDER BY salary) AS prev_salary,\n    LEAD(salary) OVER (PARTITION BY dept ORDER BY salary) AS next_salary,\n    SUM(salary)  OVER (PARTITION BY dept) AS dept_total,\n    AVG(salary)  OVER (PARTITION BY dept ROWS BETWEEN 2 PRECEDING AND CURRENT ROW)\n  FROM employees;\n\n  UPSERT:\n  INSERT INTO users (email, name)\n  VALUES ('a@b.com', 'Alice')\n  ON CONFLICT (email) DO UPDATE\n    SET name = EXCLUDED.name, updated_at = NOW();\n\n  INSERT ... ON CONFLICT DO NOTHING;\n\n  RETURNING:\n  INSERT INTO users (email) VALUES ('a@b.com') RETURNING id, created_at;\n  UPDATE users SET name = 'Bob' WHERE id = 1 RETURNING *;\n  DELETE FROM users WHERE id = 1 RETURNING *;\n\n  Lateral joins:\n  SELECT u.name, latest.created_at\n  FROM users u\n  CROSS JOIN LATERAL (\n    SELECT created_at FROM orders\n    WHERE user_id = u.id\n    ORDER BY created_at DESC LIMIT 1\n  ) latest;\n"
+    }
+    fn s_admin() -> &'static str {
+        "  Users and roles:\n  CREATE USER alice WITH PASSWORD 'secret';\n  CREATE ROLE readonly;\n  GRANT SELECT ON ALL TABLES IN SCHEMA public TO readonly;\n  GRANT readonly TO alice;\n  GRANT ALL PRIVILEGES ON DATABASE mydb TO alice;\n  ALTER USER alice WITH SUPERUSER;\n  ALTER USER alice WITH PASSWORD 'newpass';\n  REVOKE SELECT ON users FROM alice;\n  DROP USER alice;\n  \\du                        (list roles in psql)\n\n  Backup and restore:\n  pg_dump mydb > mydb.sql                Plain SQL\n  pg_dump -Fc mydb > mydb.dump           Custom format (preferred)\n  pg_dump -Fc -Z9 mydb > mydb.dump       Max compression\n  pg_dump -t users mydb > users.sql      Single table\n  pg_dumpall > all_databases.sql         All databases\n\n  pg_restore -d mydb mydb.dump           Restore custom format\n  pg_restore -d mydb -j 4 mydb.dump      Parallel restore (4 workers)\n  psql mydb < mydb.sql                   Restore plain SQL\n\n  Maintenance:\n  VACUUM users;                  Reclaim dead row space\n  VACUUM ANALYZE users;          Vacuum + update statistics\n  VACUUM FULL users;             Full rewrite (locks table)\n  ANALYZE users;                 Update statistics only\n  REINDEX TABLE users;\n  CLUSTER users USING idx_users_email;  (physical reorder)\n\n  Monitoring:\n  SELECT * FROM pg_stat_activity;       Active connections\n  SELECT * FROM pg_stat_user_tables;    Table I/O stats\n  SELECT * FROM pg_stat_user_indexes;   Index usage\n  SELECT pid, query, state, wait_event FROM pg_stat_activity WHERE state != 'idle';\n  SELECT pg_size_pretty(pg_database_size('mydb'));\n  SELECT pg_size_pretty(pg_total_relation_size('users'));\n  SELECT pg_size_pretty(pg_indexes_size('users'));\n"
+    }
+    fn s_json() -> &'static str {
+        "  JSONB operators:\n  col->'key'           Get JSON object field (returns JSON)\n  col->>'key'          Get as TEXT\n  col#>'{a,b}'         Path get (returns JSON): {\"a\":{\"b\":1}} -> 1\n  col#>>'{a,b}'        Path get as TEXT\n  col @> '{\"k\":\"v\"}'  Contains (left has all of right)\n  col <@ '{\"k\":\"v\"}'  Is contained by\n  col ? 'key'          Key exists\n  col ?| ARRAY['a','b'] Any key exists\n  col ?& ARRAY['a','b'] All keys exist\n  col || '{\"c\":3}'     Concatenate / merge\n  col - 'key'          Remove key\n  col - ARRAY['a','b'] Remove multiple keys\n  col #- '{a,b}'       Remove by path\n\n  Functions:\n  jsonb_build_object('key', val, 'key2', val2)\n  jsonb_build_array(1, 2, 3)\n  jsonb_agg(expr)                 Aggregate rows into JSON array\n  jsonb_object_agg(key, val)      Aggregate into JSON object\n  jsonb_each(col)                 Expand to (key, value) rows\n  jsonb_array_elements(col)       Expand array to rows\n  jsonb_array_length(col)\n  jsonb_typeof(col)               'object', 'array', 'string', etc.\n  jsonb_pretty(col)\n  jsonb_set(col, '{a,b}', '\"new\"', true)  Set path (create if missing)\n  jsonb_strip_nulls(col)\n  row_to_json(row)                Convert row to JSON\n  json_agg(row) / jsonb_agg(row)  Aggregate rows\n\n  Indexing JSONB:\n  CREATE INDEX idx_gin ON events USING GIN(data);\n  CREATE INDEX idx_gin_ops ON events USING GIN(data jsonb_path_ops);\n  CREATE INDEX idx_expr ON events ((data->>'event_type'));\n"
+    }
+    fn s_performance() -> &'static str {
+        "  EXPLAIN ANALYZE:\n  EXPLAIN SELECT * FROM users WHERE email = 'a@b.com';\n  EXPLAIN ANALYZE SELECT * FROM users WHERE email = 'a@b.com';\n  EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) SELECT ...;\n\n  Key plan nodes:\n  Seq Scan         Full table scan (bad on large tables without LIMIT)\n  Index Scan       Uses index (good)\n  Index Only Scan  All data from index alone (best)\n  Bitmap Heap Scan Index for row IDs, then table (good for ranges)\n  Hash Join        Build hash table for smaller side\n  Nested Loop      Good for small tables or index joins\n  Merge Join       Good for pre-sorted data\n\n  Missing index signals:\n  Seq Scan + high rows    -> consider index on filter column\n  EXPLAIN shows rows off by 10x+  -> run ANALYZE\n\n  pg_stat_statements (enable in postgresql.conf):\n  shared_preload_libraries = 'pg_stat_statements'\n  CREATE EXTENSION pg_stat_statements;\n  SELECT query, calls, mean_exec_time, total_exec_time\n  FROM pg_stat_statements\n  ORDER BY total_exec_time DESC LIMIT 20;\n\n  Key postgresql.conf settings:\n  shared_buffers = 25% of RAM         (hot data cache)\n  work_mem = 64MB                     (per sort/hash)\n  maintenance_work_mem = 256MB        (VACUUM, index build)\n  effective_cache_size = 75% of RAM   (planner hint)\n  max_connections = 100               (use pgBouncer for pooling)\n  random_page_cost = 1.1              (for SSD; default 4.0)\n  enable_seqscan = off               (force index use for testing)\n\n  Slow query detection:\n  log_min_duration_statement = 1000  (log queries > 1 sec, in ms)\n  log_slow_query: see pg_stat_activity for currently running\n\n  Index types:\n  B-tree      Default; equality and range; sortable\n  GIN         Full-text, arrays, JSONB containment\n  GiST        Geometric, full-text, range types\n  BRIN        Sequential data (timestamps, IDs); very small\n  Hash        Equality only; rarely useful\n"
+    }
+
+    type PgSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+    const SECTIONS: &[PgSection] = &[
+        (
+            "psql",
+            &["psql", "meta", "connect", "backslash", "copy", "timing"],
+            s_psql,
+        ),
+        (
+            "tables",
+            &[
+                "table",
+                "create",
+                "alter",
+                "column",
+                "constraint",
+                "index",
+                "type",
+            ],
+            s_tables,
+        ),
+        (
+            "queries",
+            &[
+                "query",
+                "cte",
+                "window",
+                "upsert",
+                "returning",
+                "lateral",
+                "join",
+            ],
+            s_queries,
+        ),
+        (
+            "admin",
+            &[
+                "admin", "user", "role", "grant", "backup", "restore", "vacuum",
+            ],
+            s_admin,
+        ),
+        (
+            "json",
+            &["json", "jsonb", "operator", "gin", "path", "aggregate"],
+            s_json,
+        ),
+        (
+            "performance",
+            &[
+                "performance",
+                "explain",
+                "analyze",
+                "index",
+                "stat",
+                "slow",
+                "tune",
+            ],
+            s_performance,
+        ),
+    ];
+
+    let q = query.trim().to_lowercase();
+
+    if q.is_empty() || q == "help" || q == "list" {
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  hematite --postgres <TOPIC>");
+        let _ = writeln!(out, "  Offline PostgreSQL reference");
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  Topics:");
+        for &(name, aliases, _) in SECTIONS {
+            let _ = writeln!(out, "    {name:<14} ({})", aliases.join(", "));
+        }
+        let _ = writeln!(out, "\n  hematite --postgres all   -- print everything");
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    if q == "all" {
+        let _ = writeln!(out, "{sep}");
+        for &(name, _, f) in SECTIONS {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+            let _ = writeln!(out, "");
+        }
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    let found: Vec<_> = SECTIONS
+        .iter()
+        .filter(|&&(name, aliases, _)| {
+            name.contains(q.as_str())
+                || aliases
+                    .iter()
+                    .any(|&a| a.contains(q.as_str()) || q.contains(a))
+        })
+        .collect();
+
+    if found.is_empty() {
+        let _ = writeln!(out, "  No topic found for '{}'.", query.trim());
+        let _ = writeln!(out, "  Run: hematite --postgres help");
+    } else {
+        let _ = writeln!(out, "{sep}");
+        for &&(name, _, f) in &found {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+        }
+        let _ = writeln!(out, "{sep}");
+    }
+    out
+}
+
+pub fn ts_ref_calc(query: &str) -> String {
+    use std::fmt::Write as _;
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+
+    fn s_types() -> &'static str {
+        "  Primitive types:\n  string  number  boolean  null  undefined  symbol  bigint\n  any     (opt-out of type checking — avoid)\n  unknown (safe any — must narrow before use)\n  never   (impossible type — exhaustive checks, unreachable)\n  void    (function returns nothing meaningful)\n  object  (any non-primitive — rarely useful directly)\n\n  Literal types:\n  type Dir = 'left' | 'right' | 'up' | 'down';\n  type Bit = 0 | 1;\n  type Config = { readonly mode: 'strict' };\n\n  Union and intersection:\n  type ID = string | number;            Union: either\n  type Named = { name: string };\n  type Aged  = { age: number };\n  type Person = Named & Aged;           Intersection: both\n\n  Type aliases vs interfaces:\n  type Point = { x: number; y: number };   Alias — can be union/intersection\n  interface Point { x: number; y: number } Interface — can extend/implement\n  type StringOrNum = string | number;      Only type alias can do this\n  interface Dog extends Animal { bark(): void }  Interfaces support extends\n\n  Tuples:\n  type Pair  = [string, number];\n  type Named = [name: string, age: number];  Named tuple elements\n  type Rest  = [first: string, ...rest: number[]];\n  const p: Pair = ['hello', 42];\n\n  Enums (use const enum for no runtime overhead):\n  enum Direction { Up, Down, Left, Right }      // 0,1,2,3\n  enum Status { Active = 'ACTIVE', Inactive = 'INACTIVE' }\n  const enum Bit { Zero = 0, One = 1 }          // Inlined at compile time\n"
+    }
+    fn s_interfaces() -> &'static str {
+        "  Interface definition:\n  interface User {\n    id: number;\n    name: string;\n    email?: string;               // Optional\n    readonly createdAt: Date;     // Immutable after creation\n    greet(): string;              // Method signature\n    greet(name: string): string;  // Overloaded method\n  }\n\n  Index signatures (dynamic keys):\n  interface StringMap {\n    [key: string]: string;        // Any string key -> string value\n  }\n  interface Indexed {\n    [index: number]: string;      // Number index -> string\n    length: number;               // Can mix named and index\n  }\n\n  Extending interfaces:\n  interface Animal { name: string }\n  interface Dog extends Animal { bark(): void }\n  interface ServiceDog extends Dog, Worker { job: string }  // Multiple\n\n  Implementing:\n  class MyUser implements User {\n    id = 1;\n    name = 'Alice';\n    greet() { return `Hi, ${this.name}`; }\n  }\n\n  Declaration merging (interfaces only — type aliases can't):\n  interface Window { myCustomProp: string; }  // Extends existing Window\n\n  Callable and construct signatures:\n  interface Formatter {\n    (value: string): string;           // Callable\n  }\n  interface Constructor {\n    new (name: string): User;          // Constructable\n  }\n\n  interface vs type — use interface when:\n  - Defining object shapes that may be extended or implemented\n  - Library public APIs (declaration merging is useful)\n  Use type when:\n  - Union types, intersections, tuple types, mapped types\n  - Aliases for primitives or complex computed types\n"
+    }
+    fn s_generics() -> &'static str {
+        "  Basic generics:\n  function identity<T>(arg: T): T { return arg; }\n  function first<T>(arr: T[]): T | undefined { return arr[0]; }\n  const wrap = <T>(val: T): { value: T } => ({ value: val });\n\n  Generic constraints:\n  function getLength<T extends { length: number }>(arg: T): number {\n    return arg.length;\n  }\n  function getKey<T, K extends keyof T>(obj: T, key: K): T[K] {\n    return obj[key];\n  }\n\n  Generic defaults:\n  interface Box<T = string> { value: T }\n  const b: Box = { value: 'hi' };  // T defaults to string\n\n  Conditional types:\n  type IsString<T> = T extends string ? true : false;\n  type Flatten<T> = T extends Array<infer Item> ? Item : T;\n  type UnpackPromise<T> = T extends Promise<infer U> ? U : T;\n  type NonNullable<T> = T extends null | undefined ? never : T;\n\n  Mapped types:\n  type Optional<T> = { [K in keyof T]?: T[K] };\n  type Readonly<T> = { readonly [K in keyof T]: T[K] };\n  type Nullable<T> = { [K in keyof T]: T[K] | null };\n  type Stringify<T> = { [K in keyof T]: string };\n  // Remapping with as:\n  type Getters<T> = { [K in keyof T as `get${Capitalize<string & K>}`]: () => T[K] };\n\n  Template literal types:\n  type EventName = `on${Capitalize<string>}`;\n  type CSSProp = `${string}-${string}`;\n  type Route<T extends string> = `/api/${T}`;\n\n  infer in conditional types:\n  type ReturnType<T> = T extends (...args: any[]) => infer R ? R : never;\n  type PromiseType<T> = T extends Promise<infer U> ? U : never;\n  type FirstArg<T> = T extends (first: infer F, ...rest: any[]) => any ? F : never;\n"
+    }
+    fn s_functions() -> &'static str {
+        "  Function type annotations:\n  function add(a: number, b: number): number { return a + b; }\n  const add = (a: number, b: number): number => a + b;\n  const add: (a: number, b: number) => number = (a, b) => a + b;\n\n  Optional and default params:\n  function greet(name: string, greeting?: string): string {\n    return `${greeting ?? 'Hello'}, ${name}!`;\n  }\n  function greet(name: string, greeting = 'Hello'): string { ... }\n\n  Rest params:\n  function sum(...nums: number[]): number { return nums.reduce((a,b) => a+b, 0); }\n\n  Overloads:\n  function process(x: string): string;\n  function process(x: number): number;\n  function process(x: string | number): string | number {\n    return typeof x === 'string' ? x.toUpperCase() : x * 2;\n  }\n\n  this parameter (fake first param, removed at compile time):\n  function onClick(this: HTMLElement, event: MouseEvent) {\n    console.log(this.id);\n  }\n\n  Generic functions with arrow syntax (TSX caveat):\n  // In .tsx: <T,> needed to distinguish from JSX\n  const identity = <T,>(arg: T): T => arg;\n\n  Async functions:\n  async function fetchUser(id: number): Promise<User> {\n    const resp = await fetch(`/api/users/${id}`);\n    return resp.json() as Promise<User>;\n  }\n\n  never for exhaustive checks:\n  function assertNever(x: never): never {\n    throw new Error('Unexpected value: ' + x);\n  }\n  // In switch: add 'default: assertNever(val)' to catch missing cases\n"
+    }
+    fn s_utility() -> &'static str {
+        "  Built-in utility types:\n\n  Object manipulation:\n  Partial<T>            All properties optional\n  Required<T>           All properties required\n  Readonly<T>           All properties readonly\n  Pick<T, K>            Keep only keys K from T\n  Omit<T, K>            Remove keys K from T\n  Record<K, V>          Object type with keys K and values V\n\n  Type extraction:\n  ReturnType<T>         Return type of function type T\n  Parameters<T>         Tuple of parameter types of T\n  ConstructorParameters<T>  Tuple of constructor parameter types\n  InstanceType<T>       Instance type of constructor T\n  ThisParameterType<T>  Type of 'this' parameter\n\n  Union manipulation:\n  Exclude<T, U>         Members of T not assignable to U\n  Extract<T, U>         Members of T assignable to U\n  NonNullable<T>        Remove null and undefined from T\n\n  String manipulation (template literal):\n  Uppercase<S>  Lowercase<S>  Capitalize<S>  Uncapitalize<S>\n\n  Awaited<T>            Recursively unwrap Promise type\n\n  Examples:\n  type UserPreview = Pick<User, 'id' | 'name' | 'email'>;\n  type CreateUserDTO = Omit<User, 'id' | 'createdAt'>;\n  type PartialUser = Partial<User>;\n  type Config = Record<string, string | number | boolean>;\n  type FnReturn = ReturnType<typeof myFunction>;\n  type FnArgs = Parameters<typeof myFunction>;\n  type OnlyStrings = Extract<string | number | boolean, string>;\n  type WithoutNull = NonNullable<string | null | undefined>;  // string\n\n  Deep partial (manual):\n  type DeepPartial<T> = { [K in keyof T]?: T[K] extends object ? DeepPartial<T[K]> : T[K] };\n"
+    }
+    fn s_narrowing() -> &'static str {
+        "  typeof narrowing:\n  if (typeof val === 'string') { val.toUpperCase(); }\n  if (typeof val === 'number') { val.toFixed(2); }\n\n  instanceof narrowing:\n  if (err instanceof Error) { console.log(err.message); }\n  if (widget instanceof HTMLInputElement) { widget.value; }\n\n  in operator:\n  if ('bark' in animal) { animal.bark(); }  // duck typing\n\n  Discriminated unions (best pattern):\n  type Shape =\n    | { kind: 'circle';  radius: number }\n    | { kind: 'rect';    width: number; height: number };\n\n  function area(s: Shape): number {\n    switch (s.kind) {\n      case 'circle': return Math.PI * s.radius ** 2;\n      case 'rect':   return s.width * s.height;\n    }\n  }\n\n  Type predicates (user-defined type guards):\n  function isString(val: unknown): val is string {\n    return typeof val === 'string';\n  }\n  function isDog(animal: Animal): animal is Dog {\n    return (animal as Dog).bark !== undefined;\n  }\n\n  Assertion functions (throw if wrong type):\n  function assertDefined<T>(val: T | null | undefined): asserts val is T {\n    if (val == null) throw new Error('Expected defined value');\n  }\n\n  Non-null assertion (use sparingly):\n  const el = document.getElementById('root')!;\n  const len = str!.length;   // Tell TS it's not null/undefined\n\n  Satisfies operator (TS 4.9+):\n  const palette = {\n    red: [255, 0, 0],\n    green: '#00ff00',\n  } satisfies Record<string, string | number[]>;\n  // Each property retains its literal type, not widened\n"
+    }
+    fn s_config() -> &'static str {
+        "  tsconfig.json key options:\n\n  Compiler options:\n  \"target\": \"ES2022\"          Output JS version\n  \"module\": \"ESNext\"          Module system (CommonJS | ESNext | NodeNext)\n  \"moduleResolution\": \"bundler\" | \"NodeNext\"  Resolve strategy\n  \"lib\": [\"ES2022\", \"DOM\"]   Type definitions to include\n  \"outDir\": \"./dist\"          Output directory\n  \"rootDir\": \"./src\"          Source root\n  \"declaration\": true          Emit .d.ts files\n  \"sourceMap\": true            Emit .map files\n  \"composite\": true            Project references\n\n  Type checking:\n  \"strict\": true               Enables all strict checks (recommended)\n  Individually: noImplicitAny, strictNullChecks, strictFunctionTypes,\n    strictBindCallApply, strictPropertyInitialization,\n    noImplicitThis, alwaysStrict, useUnknownInCatchVariables\n\n  \"noUncheckedIndexedAccess\": true   arr[n] is T | undefined\n  \"exactOptionalPropertyTypes\": true  Don't allow undefined for optional\n  \"noImplicitReturns\": true\n  \"noFallthroughCasesInSwitch\": true\n  \"noUnusedLocals\": true\n  \"noUnusedParameters\": true\n\n  Path aliases:\n  \"baseUrl\": \".\"\n  \"paths\": {\n    \"@/*\": [\"./src/*\"],\n    \"@utils/*\": [\"./src/utils/*\"]\n  }\n\n  Includes / excludes:\n  \"include\": [\"src\", \"tests\"]\n  \"exclude\": [\"node_modules\", \"dist\", \"**/*.test.ts\"]\n  \"files\": [\"src/main.ts\"]     (exact list; overrides include)\n\n  Project references:\n  \"references\": [{\"path\": \"../shared\"}]\n\n  Node.js recommended preset:\n  \"module\": \"NodeNext\", \"moduleResolution\": \"NodeNext\", \"target\": \"ES2022\"\n  \"strict\": true, \"noUncheckedIndexedAccess\": true\n"
+    }
+
+    type TsSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+    const SECTIONS: &[TsSection] = &[
+        (
+            "types",
+            &[
+                "type",
+                "primitive",
+                "union",
+                "intersection",
+                "literal",
+                "tuple",
+                "enum",
+            ],
+            s_types,
+        ),
+        (
+            "interfaces",
+            &[
+                "interface",
+                "extends",
+                "implements",
+                "index-signature",
+                "merge",
+                "callable",
+            ],
+            s_interfaces,
+        ),
+        (
+            "generics",
+            &[
+                "generic",
+                "constraint",
+                "conditional",
+                "mapped",
+                "infer",
+                "template-literal",
+            ],
+            s_generics,
+        ),
+        (
+            "functions",
+            &[
+                "function",
+                "overload",
+                "optional",
+                "rest-param",
+                "async",
+                "never",
+                "this",
+            ],
+            s_functions,
+        ),
+        (
+            "utility",
+            &[
+                "utility",
+                "partial",
+                "omit",
+                "pick",
+                "record",
+                "returntype",
+                "parameters",
+            ],
+            s_utility,
+        ),
+        (
+            "narrowing",
+            &[
+                "narrowing",
+                "typeof",
+                "instanceof",
+                "discriminated",
+                "predicate",
+                "satisfies",
+            ],
+            s_narrowing,
+        ),
+        (
+            "config",
+            &[
+                "config", "tsconfig", "strict", "target", "module", "paths", "compiler",
+            ],
+            s_config,
+        ),
+    ];
+
+    let q = query.trim().to_lowercase();
+
+    if q.is_empty() || q == "help" || q == "list" {
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  hematite --ts-ref <TOPIC>");
+        let _ = writeln!(out, "  Offline TypeScript reference");
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  Topics:");
+        for &(name, aliases, _) in SECTIONS {
+            let _ = writeln!(out, "    {name:<12} ({})", aliases.join(", "));
+        }
+        let _ = writeln!(out, "\n  hematite --ts-ref all   -- print everything");
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    if q == "all" {
+        let _ = writeln!(out, "{sep}");
+        for &(name, _, f) in SECTIONS {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+            let _ = writeln!(out, "");
+        }
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    let found: Vec<_> = SECTIONS
+        .iter()
+        .filter(|&&(name, aliases, _)| {
+            name.contains(q.as_str())
+                || aliases
+                    .iter()
+                    .any(|&a| a.contains(q.as_str()) || q.contains(a))
+        })
+        .collect();
+
+    if found.is_empty() {
+        let _ = writeln!(out, "  No topic found for '{}'.", query.trim());
+        let _ = writeln!(out, "  Run: hematite --ts-ref help");
+    } else {
+        let _ = writeln!(out, "{sep}");
+        for &&(name, _, f) in &found {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+        }
+        let _ = writeln!(out, "{sep}");
+    }
+    out
+}
