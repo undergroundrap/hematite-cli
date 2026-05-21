@@ -1539,6 +1539,38 @@ pub struct CliCockpit {
     #[arg(
         long,
         help_heading = "Math & Science",
+        value_name = "TOPIC",
+        help = "tar command reference — offline cheatsheet for creating, extracting, listing, compression options (gzip/bzip2/xz/zstd), and advanced usage (incremental, pipes, split). Topics: basics, create, extract, compress, advanced. Commands: all = everything. Examples: hematite --tar create | hematite --tar compress | hematite --tar advanced"
+    )]
+    pub tar: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Math & Science",
+        value_name = "TOPIC",
+        help = "find command reference — offline cheatsheet for name/path/type/time/size/permission filtering, -exec actions, -prune exclusions, and one-liner recipes. Topics: basics, by-type, by-time, by-size, by-perm, actions, prune, one-liners. Commands: all = everything. Examples: hematite --find actions | hematite --find by-time | hematite --find one-liners"
+    )]
+    pub find: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Math & Science",
+        value_name = "TOPIC",
+        help = "systemd reference — offline cheatsheet for systemctl, journalctl, service management, timers, unit files, boot analysis, and targets. Topics: service, status, logs, analyze, timers, units, targets. Commands: all = everything. Examples: hematite --systemd logs | hematite --systemd timers | hematite --systemd units"
+    )]
+    pub systemd: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Math & Science",
+        value_name = "TOPIC",
+        help = "GNU Make / Makefile reference — offline cheatsheet for variables, rules, pattern rules, functions, conditionals, and automatic variables. Topics: basics, variables, rules, patterns, functions, conditionals, special. Commands: all = everything. Examples: hematite --make variables | hematite --make patterns | hematite --make special"
+    )]
+    pub make: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Math & Science",
         value_name = "QUERY",
         help = "Lorem ipsum generator — offline replacement for lipsum.com. Commands: (bare) or <N> = N paragraphs (default 1); words <N> = N words; sentences <N> = N sentences. Examples: hematite --lorem | hematite --lorem 3 | hematite --lorem 'words 50' | hematite --lorem 'sentences 5'"
     )]

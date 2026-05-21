@@ -6,15 +6,15 @@ use hematite::tools::math_util::{
     ascii_calc, ascii_table_calc, awk_calc, bitwise_calc, case_calc, chars_calc, checksum_calc,
     chemistry_calc, cipher_calc, color_calc, color_names_calc, combinatorics_calc, complex_calc,
     cron_calc, csv_calc, curl_calc, datetime_calc, diff_calc, docker_ref_calc, duration_calc,
-    electrical_calc, encode_calc, escape_calc, fraction_calc, geometry_calc, git_ref_calc,
-    gitignore_calc, grep_calc, hash_calc, headers_calc, health_calc, http_calc, http_status_calc,
-    id_gen_calc, ip_calc, jq_calc, json_calc, json_path_calc, jwt_calc, kbd_calc, license_calc,
-    lorem_calc, markdown_calc, matrix_calc, mime_calc, net_calc, number_format, number_theory_calc,
-    percent_calc, physics_calc, port_calc, prob_calc, regex_calc, regex_ref_calc, roman_calc,
-    sed_calc, semver_calc, set_calc, sort_viz, spark_calc, sql_fmt_calc, sql_ref_calc,
-    ssh_ref_calc, ssl_calc, stats_calc, string_dist, table_calc, template_calc, text_stats,
-    timestamp_calc, toml_calc, trig_calc, tz_calc, url_calc, uuid_calc, validate_calc, vim_calc,
-    xml_calc, yaml_calc,
+    electrical_calc, encode_calc, escape_calc, find_calc, fraction_calc, geometry_calc,
+    git_ref_calc, gitignore_calc, grep_calc, hash_calc, headers_calc, health_calc, http_calc,
+    http_status_calc, id_gen_calc, ip_calc, jq_calc, json_calc, json_path_calc, jwt_calc, kbd_calc,
+    license_calc, lorem_calc, make_calc, markdown_calc, matrix_calc, mime_calc, net_calc,
+    number_format, number_theory_calc, percent_calc, physics_calc, port_calc, prob_calc,
+    regex_calc, regex_ref_calc, roman_calc, sed_calc, semver_calc, set_calc, sort_viz, spark_calc,
+    sql_fmt_calc, sql_ref_calc, ssh_ref_calc, ssl_calc, stats_calc, string_dist, systemd_calc,
+    table_calc, tar_calc, template_calc, text_stats, timestamp_calc, toml_calc, trig_calc, tz_calc,
+    url_calc, uuid_calc, validate_calc, vim_calc, xml_calc, yaml_calc,
 };
 
 // ─── Cipher tests ────────────────────────────────────────────────────────────
@@ -5800,7 +5800,10 @@ fn test_awk_basics_topic() {
 fn test_awk_patterns_topic() {
     let out = awk_calc("patterns");
     assert!(out.contains("/regex/") || out.contains("regex"), "{out}");
-    assert!(out.contains("Range") || out.contains("range") || out.contains("NF"), "{out}");
+    assert!(
+        out.contains("Range") || out.contains("range") || out.contains("NF"),
+        "{out}"
+    );
 }
 
 #[test]
@@ -5966,5 +5969,362 @@ fn test_ssh_ref_all_prints_all_sections() {
 #[test]
 fn test_ssh_ref_unknown_topic() {
     let out = ssh_ref_calc("foobar_xyz");
+    assert!(out.contains("No topic") || out.contains("help"), "{out}");
+}
+
+// ── Wave 15: tar_calc ─────────────────────────────────────────────────────────
+
+#[test]
+fn test_tar_empty_shows_help() {
+    let out = tar_calc("");
+    assert!(out.contains("hematite --tar"), "{out}");
+    assert!(out.contains("create") || out.contains("extract"), "{out}");
+}
+
+#[test]
+fn test_tar_basics_topic() {
+    let out = tar_calc("basics");
+    assert!(out.contains("czf") || out.contains("xzf"), "{out}");
+    assert!(out.contains("-z") || out.contains("gzip"), "{out}");
+}
+
+#[test]
+fn test_tar_create_topic() {
+    let out = tar_calc("create");
+    assert!(out.contains("tar c") || out.contains("czf"), "{out}");
+    assert!(
+        out.contains("--exclude") || out.contains("exclude"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_tar_extract_topic() {
+    let out = tar_calc("extract");
+    assert!(out.contains("tar x") || out.contains("xzf"), "{out}");
+    assert!(
+        out.contains("-C") || out.contains("strip-components"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_tar_compress_gzip_alias() {
+    let out = tar_calc("gzip");
+    assert!(out.contains("gzip") || out.contains(".tar.gz"), "{out}");
+    assert!(out.contains("bzip2") || out.contains("xz"), "{out}");
+}
+
+#[test]
+fn test_tar_compress_zstd_alias() {
+    let out = tar_calc("zstd");
+    assert!(out.contains("zstd") || out.contains(".tar.zst"), "{out}");
+}
+
+#[test]
+fn test_tar_advanced_topic() {
+    let out = tar_calc("advanced");
+    assert!(
+        out.contains("incremental") || out.contains("--listed-incremental"),
+        "{out}"
+    );
+    assert!(out.contains("split") || out.contains("pipe"), "{out}");
+}
+
+#[test]
+fn test_tar_all_prints_all_sections() {
+    let out = tar_calc("all");
+    assert!(out.contains("czf") || out.contains("xzf"), "{out}");
+    assert!(out.contains("--exclude"), "{out}");
+    assert!(
+        out.contains("incremental") || out.contains("--listed-incremental"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_tar_unknown_topic() {
+    let out = tar_calc("foobar_xyz");
+    assert!(out.contains("No topic") || out.contains("help"), "{out}");
+}
+
+// ── Wave 15: find_calc ────────────────────────────────────────────────────────
+
+#[test]
+fn test_find_empty_shows_help() {
+    let out = find_calc("");
+    assert!(out.contains("hematite --find"), "{out}");
+    assert!(out.contains("by-type") || out.contains("actions"), "{out}");
+}
+
+#[test]
+fn test_find_basics_topic() {
+    let out = find_calc("basics");
+    assert!(out.contains("-name") || out.contains("-iname"), "{out}");
+    assert!(
+        out.contains("-maxdepth") || out.contains("mindepth"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_find_by_type_topic() {
+    let out = find_calc("type");
+    assert!(out.contains("-type f") || out.contains("-type d"), "{out}");
+    assert!(out.contains("-type l") || out.contains("symlink"), "{out}");
+}
+
+#[test]
+fn test_find_by_time_topic() {
+    let out = find_calc("mtime");
+    assert!(out.contains("-mtime") || out.contains("mtime"), "{out}");
+    assert!(out.contains("-newer") || out.contains("newer"), "{out}");
+}
+
+#[test]
+fn test_find_by_size_topic() {
+    let out = find_calc("size");
+    assert!(out.contains("-size") || out.contains("size"), "{out}");
+    assert!(out.contains("+10M") || out.contains("Megabyte"), "{out}");
+}
+
+#[test]
+fn test_find_by_perm_topic() {
+    let out = find_calc("perm");
+    assert!(out.contains("-perm") || out.contains("SUID"), "{out}");
+    assert!(out.contains("4000") || out.contains("world"), "{out}");
+}
+
+#[test]
+fn test_find_actions_topic() {
+    let out = find_calc("actions");
+    assert!(out.contains("-exec") || out.contains("exec"), "{out}");
+    assert!(out.contains("xargs") || out.contains("-delete"), "{out}");
+}
+
+#[test]
+fn test_find_prune_topic() {
+    let out = find_calc("prune");
+    assert!(out.contains("-prune") || out.contains("prune"), "{out}");
+    assert!(
+        out.contains("node_modules") || out.contains(".git"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_find_one_liners_topic() {
+    let out = find_calc("one-liners");
+    assert!(out.contains("find") && out.contains("mtime"), "{out}");
+}
+
+#[test]
+fn test_find_all_prints_all_sections() {
+    let out = find_calc("all");
+    assert!(out.contains("-name"), "{out}");
+    assert!(out.contains("-type f"), "{out}");
+    assert!(out.contains("-exec"), "{out}");
+    assert!(out.contains("-prune") || out.contains("prune"), "{out}");
+}
+
+#[test]
+fn test_find_unknown_topic() {
+    let out = find_calc("foobar_xyz");
+    assert!(out.contains("No topic") || out.contains("help"), "{out}");
+}
+
+// ── Wave 15: systemd_calc ─────────────────────────────────────────────────────
+
+#[test]
+fn test_systemd_empty_shows_help() {
+    let out = systemd_calc("");
+    assert!(out.contains("hematite --systemd"), "{out}");
+    assert!(out.contains("service") || out.contains("logs"), "{out}");
+}
+
+#[test]
+fn test_systemd_service_topic() {
+    let out = systemd_calc("service");
+    assert!(
+        out.contains("systemctl start") || out.contains("start"),
+        "{out}"
+    );
+    assert!(out.contains("enable") || out.contains("disable"), "{out}");
+}
+
+#[test]
+fn test_systemd_status_topic() {
+    let out = systemd_calc("status");
+    assert!(
+        out.contains("systemctl status") || out.contains("is-active"),
+        "{out}"
+    );
+    assert!(
+        out.contains("list-units") || out.contains("failed"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_systemd_logs_topic() {
+    let out = systemd_calc("logs");
+    assert!(
+        out.contains("journalctl") || out.contains("journal"),
+        "{out}"
+    );
+    assert!(out.contains("-f") || out.contains("follow"), "{out}");
+}
+
+#[test]
+fn test_systemd_journalctl_alias() {
+    let out = systemd_calc("journalctl");
+    assert!(out.contains("journalctl"), "{out}");
+    assert!(out.contains("--since") || out.contains("-u "), "{out}");
+}
+
+#[test]
+fn test_systemd_analyze_topic() {
+    let out = systemd_calc("analyze");
+    assert!(
+        out.contains("systemd-analyze") || out.contains("analyze"),
+        "{out}"
+    );
+    assert!(out.contains("blame") || out.contains("critical"), "{out}");
+}
+
+#[test]
+fn test_systemd_timers_topic() {
+    let out = systemd_calc("timers");
+    assert!(out.contains("OnCalendar") || out.contains("timer"), "{out}");
+    assert!(
+        out.contains("Persistent") || out.contains("oneshot"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_systemd_units_topic() {
+    let out = systemd_calc("units");
+    assert!(
+        out.contains("daemon-reload") || out.contains("unit"),
+        "{out}"
+    );
+    assert!(
+        out.contains("ExecStart") || out.contains("drop-in") || out.contains("override"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_systemd_targets_topic() {
+    let out = systemd_calc("targets");
+    assert!(
+        out.contains("multi-user.target") || out.contains("graphical.target"),
+        "{out}"
+    );
+    assert!(out.contains("reboot") || out.contains("poweroff"), "{out}");
+}
+
+#[test]
+fn test_systemd_all_prints_all_sections() {
+    let out = systemd_calc("all");
+    assert!(out.contains("systemctl start"), "{out}");
+    assert!(out.contains("journalctl"), "{out}");
+    assert!(out.contains("systemd-analyze"), "{out}");
+    assert!(out.contains("OnCalendar") || out.contains("timer"), "{out}");
+}
+
+#[test]
+fn test_systemd_unknown_topic() {
+    let out = systemd_calc("foobar_xyz");
+    assert!(out.contains("No topic") || out.contains("help"), "{out}");
+}
+
+// ── Wave 15: make_calc ────────────────────────────────────────────────────────
+
+#[test]
+fn test_make_empty_shows_help() {
+    let out = make_calc("");
+    assert!(out.contains("hematite --make"), "{out}");
+    assert!(out.contains("variables") || out.contains("rules"), "{out}");
+}
+
+#[test]
+fn test_make_basics_topic() {
+    let out = make_calc("basics");
+    assert!(out.contains(".PHONY") || out.contains("phony"), "{out}");
+    assert!(
+        out.contains("-n") || out.contains("dry run") || out.contains("dry-run"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_make_variables_topic() {
+    let out = make_calc("variables");
+    assert!(out.contains(":=") || out.contains("?="), "{out}");
+    assert!(out.contains("CC") || out.contains("CFLAGS"), "{out}");
+}
+
+#[test]
+fn test_make_rules_topic() {
+    let out = make_calc("rules");
+    assert!(
+        out.contains("recipe") || out.contains("prerequisite"),
+        "{out}"
+    );
+    assert!(out.contains("$@") || out.contains("$<"), "{out}");
+}
+
+#[test]
+fn test_make_patterns_topic() {
+    let out = make_calc("patterns");
+    assert!(out.contains("%.o") || out.contains("pattern"), "{out}");
+    assert!(out.contains("implicit") || out.contains("VPATH"), "{out}");
+}
+
+#[test]
+fn test_make_functions_topic() {
+    let out = make_calc("functions");
+    assert!(
+        out.contains("$(subst") || out.contains("$(patsubst"),
+        "{out}"
+    );
+    assert!(
+        out.contains("$(wildcard") || out.contains("$(shell"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_make_conditionals_topic() {
+    let out = make_calc("conditionals");
+    assert!(out.contains("ifeq") || out.contains("ifdef"), "{out}");
+    assert!(out.contains("endif") || out.contains("include"), "{out}");
+}
+
+#[test]
+fn test_make_special_topic() {
+    let out = make_calc("special");
+    assert!(out.contains("$@") || out.contains("$<"), "{out}");
+    assert!(
+        out.contains(".PHONY") || out.contains(".DELETE_ON_ERROR"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_make_all_prints_all_sections() {
+    let out = make_calc("all");
+    assert!(out.contains(".PHONY"), "{out}");
+    assert!(out.contains(":=") || out.contains("?="), "{out}");
+    assert!(out.contains("%.o"), "{out}");
+    assert!(out.contains("ifeq") || out.contains("ifdef"), "{out}");
+    assert!(out.contains("$@"), "{out}");
+}
+
+#[test]
+fn test_make_unknown_topic() {
+    let out = make_calc("foobar_xyz");
     assert!(out.contains("No topic") || out.contains("help"), "{out}");
 }

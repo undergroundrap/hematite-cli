@@ -32033,3 +32033,584 @@ pub fn ssh_ref_calc(query: &str) -> String {
     }
     out
 }
+
+// ─── Wave 15: tar, find, systemd, make ────────────────────────────────────────
+
+pub fn tar_calc(query: &str) -> String {
+    use std::fmt::Write as _;
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+
+    fn s_basics() -> &'static str {
+        "  Core flags:\n  c   Create archive\n  x   Extract archive\n  t   List/Test archive contents\n  v   Verbose (show filenames)\n  f   File (next arg is archive name) — almost always required\n  z   gzip compression (.tar.gz / .tgz)\n  j   bzip2 compression (.tar.bz2)\n  J   xz compression (.tar.xz)\n  a   Auto-detect compression from extension\n  p   Preserve permissions\n  P   Preserve absolute paths (removes leading /)\n  C   Change to directory before operating\n  --  End of flags\n\n  Minimum useful forms:\n  tar czf archive.tar.gz dir/    Create gzipped archive of dir/\n  tar xzf archive.tar.gz         Extract gzipped archive here\n  tar tzf archive.tar.gz         List gzipped archive contents\n  tar xzf archive.tar.gz -C /tmp Extract into /tmp\n\n  Note: GNU tar auto-detects compression on extract, so -z/-j/-J are optional:\n  tar xf archive.tar.gz          Works for any compressed format\n  tar xf archive.tar.bz2         Same — auto-detected\n"
+    }
+    fn s_create() -> &'static str {
+        "  Create archive:\n  tar cf archive.tar file1 file2 dir/    Uncompressed\n  tar czf archive.tar.gz dir/             gzip compressed\n  tar cjf archive.tar.bz2 dir/            bzip2 compressed\n  tar cJf archive.tar.xz dir/             xz compressed\n  tar caf archive.tar.zst dir/            zstd (if available)\n  tar cf - dir/ | gzip > archive.tar.gz   Pipe to gzip\n\n  Exclude files:\n  tar czf archive.tar.gz dir/ --exclude='*.log'\n  tar czf archive.tar.gz dir/ --exclude='dir/cache'\n  tar czf archive.tar.gz dir/ --exclude-vcs          Skip .git, .svn, etc.\n  tar czf archive.tar.gz dir/ --exclude-vcs-ignores  Also use .gitignore rules\n  tar czf archive.tar.gz dir/ -X excludes.txt        Read exclusions from file\n\n  Add to existing archive (uncompressed only):\n  tar rf archive.tar newfile\n  tar uf archive.tar newfile       Only if newfile is newer\n\n  Create from stdin file list:\n  find . -name '*.rs' | tar czf src.tar.gz -T -\n  find . -mtime -1 | tar czf recent.tar.gz -T -       Files changed in 24h\n\n  Preserve everything:\n  tar czpf archive.tar.gz --same-owner dir/   Preserve owner/group\n  tar czpf archive.tar.gz --numeric-owner dir/ Store UID/GID numerically\n"
+    }
+    fn s_extract() -> &'static str {
+        "  Extract all:\n  tar xf archive.tar.gz               Extract here (auto-detect compression)\n  tar xf archive.tar.gz -C /target/   Extract into /target/\n  tar xvf archive.tar.gz              Extract with verbose file list\n  tar xf archive.tar.bz2              bzip2 auto-detected\n  tar xf archive.tar.xz               xz auto-detected\n\n  Extract specific files:\n  tar xf archive.tar.gz path/to/file         Extract one file\n  tar xf archive.tar.gz 'path/*'             Extract by glob (quote to prevent shell expansion)\n  tar xf archive.tar.gz --wildcards '*.conf' Extract all .conf files\n  tar xf archive.tar.gz --wildcards --no-anchored '*.conf'  Search all dirs\n\n  Strip leading directories:\n  tar xf archive.tar.gz --strip-components=1  Remove top-level dir\n  tar xf archive.tar.gz --strip-components=2  Remove two levels\n\n  Keep existing files:\n  tar xf archive.tar.gz --keep-old-files     Skip if file exists\n  tar xf archive.tar.gz --skip-old-files     Skip silently (no error)\n  tar xf archive.tar.gz --overwrite          Always overwrite (default)\n\n  Dry run (list without extracting):\n  tar tf archive.tar.gz              List without extracting\n  tar tvf archive.tar.gz             List with permissions and sizes\n"
+    }
+    fn s_compress() -> &'static str {
+        "  Compression comparison:\n  Format   Flag  Ext           Speed    Ratio  Use case\n  gzip     -z    .tar.gz       fast     medium  Default choice\n  bzip2    -j    .tar.bz2      slow     good    Better compression, legacy\n  xz       -J    .tar.xz       very slow best   Maximum compression\n  zstd     -I    .tar.zst      fast     good    Modern default (if available)\n  lz4      -I    .tar.lz4      fastest  low     Speed-critical pipelines\n  lzop           .tar.lzo      fast     medium  Embedded systems\n\n  Compression level (gzip/xz/zstd):\n  tar -czf --options gzip:compression-level=9 archive.tar.gz dir/  # gzip level 9\n  tar cJf archive.tar.xz --options xz:compression-level=9 dir/    # xz max\n  XZ_OPT=-9 tar cJf archive.tar.xz dir/                            # via env\n  GZIP=-9 tar czf archive.tar.gz dir/                              # gzip via env\n\n  Zstandard (zstd) — modern favorite:\n  tar -I zstd -cf archive.tar.zst dir/     Create zstd archive\n  tar -I zstd -xf archive.tar.zst          Extract zstd archive\n  tar -I 'zstd -19' -cf archive.tar.zst dir/  Max compression\n  tar -I 'zstd -T0' -cf archive.tar.zst dir/  Multi-threaded\n"
+    }
+    fn s_advanced() -> &'static str {
+        "  Incremental backups:\n  tar czf backup-full.tar.gz --listed-incremental=snapshot.snar dir/\n  tar czf backup-inc.tar.gz  --listed-incremental=snapshot.snar dir/\n    First run: snapshot.snar is created (full backup)\n    Second run: only changed files added (incremental)\n\n  Newer-than backup:\n  tar czf backup.tar.gz --newer='2024-01-01' dir/   Files modified since date\n  tar czf backup.tar.gz --newer=reference.file dir/  Files newer than this file\n\n  Split large archive:\n  tar czf - dir/ | split -b 2G - archive.tar.gz.part\n  cat archive.tar.gz.part* | tar xzf -\n\n  Pipe between hosts:\n  tar czf - dir/ | ssh user@host 'tar xzf - -C /remote/'\n  ssh user@host 'tar czf - /remote/dir' | tar xzf - -C /local/\n\n  Transform paths on create:\n  tar czf archive.tar.gz --transform='s,^,prefix/,' dir/  Add prefix\n  tar czf archive.tar.gz --transform='s/old/new/' dir/    Rename in archive\n\n  Verify archive integrity:\n  tar tvf archive.tar.gz > /dev/null    List = verify readable (no checksum)\n  tar df archive.tar.gz                 Diff archive vs filesystem\n\n  Show archive summary:\n  tar tzvf archive.tar.gz | tail -1     Show last entry (often total)\n  tar tf archive.tar.gz | wc -l         Count files\n"
+    }
+
+    type TarSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+    const SECTIONS: &[TarSection] = &[
+        (
+            "basics",
+            &["basics", "flags", "core", "syntax", "auto"],
+            s_basics,
+        ),
+        (
+            "create",
+            &["create", "compress", "exclude", "add", "list-files"],
+            s_create,
+        ),
+        (
+            "extract",
+            &["extract", "unpack", "strip", "keep", "overwrite"],
+            s_extract,
+        ),
+        (
+            "compress",
+            &["gzip", "bzip2", "xz", "zstd", "zst", "level", "lz4"],
+            s_compress,
+        ),
+        (
+            "advanced",
+            &[
+                "advanced",
+                "incremental",
+                "backup",
+                "pipe",
+                "split",
+                "transform",
+                "verify",
+            ],
+            s_advanced,
+        ),
+    ];
+
+    let q = query.trim().to_lowercase();
+
+    if q.is_empty() || q == "help" || q == "list" {
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  hematite --tar <TOPIC>");
+        let _ = writeln!(out, "  Offline tar command reference");
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  Topics:");
+        for &(name, aliases, _) in SECTIONS {
+            let _ = writeln!(out, "    {name:<12} ({})", aliases.join(", "));
+        }
+        let _ = writeln!(out, "\n  hematite --tar all   -- print everything");
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    if q == "all" {
+        let _ = writeln!(out, "{sep}");
+        for &(name, _, f) in SECTIONS {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+            let _ = writeln!(out, "");
+        }
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    let found: Vec<_> = SECTIONS
+        .iter()
+        .filter(|&&(name, aliases, _)| {
+            name.contains(q.as_str())
+                || aliases
+                    .iter()
+                    .any(|&a| a.contains(q.as_str()) || q.contains(a))
+        })
+        .collect();
+
+    if found.is_empty() {
+        let _ = writeln!(out, "  No topic found for '{}'.", query.trim());
+        let _ = writeln!(out, "  Run: hematite --tar help");
+    } else {
+        let _ = writeln!(out, "{sep}");
+        for &&(name, _, f) in &found {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+        }
+        let _ = writeln!(out, "{sep}");
+    }
+    out
+}
+
+pub fn find_calc(query: &str) -> String {
+    use std::fmt::Write as _;
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+
+    fn s_basics() -> &'static str {
+        "  find [path...] [expression]\n\n  find .                     Find everything under current dir\n  find . -name 'foo'         Exact filename match\n  find . -name '*.rs'        Glob: all .rs files (quote to avoid shell expansion)\n  find . -iname '*.RS'       Case-insensitive name match\n  find . -path '*/src/*.rs'  Match full path with glob\n  find . -ipath '*/src/*.rs' Case-insensitive path match\n  find . -regex '.*\\.rs$'   POSIX regex on full path\n  find . -iregex '.*\\.rs$'  Case-insensitive regex\n\n  Depth control:\n  find . -maxdepth 1         Only current directory (no subdirs)\n  find . -maxdepth 2         Current + one level of subdirs\n  find . -mindepth 2         Skip top-level entries\n  find . -mindepth 2 -maxdepth 4  Constrained depth range\n\n  Combine with logical operators:\n  find . -name '*.rs' -name '*test*'        AND (implicit)\n  find . \\( -name '*.rs' -o -name '*.toml' \\)  OR (must quote parens)\n  find . -not -name '*.log'                 NOT\n  find . ! -name '*.log'                    NOT (shorthand)\n"
+    }
+    fn s_by_type() -> &'static str {
+        "  -type TYPE:\n  f   Regular file\n  d   Directory\n  l   Symbolic link\n  p   Named pipe (FIFO)\n  s   Socket\n  b   Block device\n  c   Character device\n\n  Examples:\n  find . -type f              All regular files\n  find . -type d              All directories\n  find . -type l              All symlinks\n  find . -type f -name '*.rs' Regular files matching *.rs\n\n  Symlink handling:\n  find -L . -type f           Follow symlinks (treat targets as real files)\n  find -P . -type l           Never follow symlinks (default)\n  find -H . -type l           Follow symlinks only in command-line args\n\n  File status:\n  find . -empty               Empty files and directories\n  find . -type f -empty       Empty files only\n  find . -type d -empty       Empty directories only\n  find . -links 1             Files with exactly 1 hard link\n  find . -links +1            Files with more than 1 hard link (hard links)\n"
+    }
+    fn s_by_time() -> &'static str {
+        "  Time tests (N = days, +N = more than N, -N = less than N):\n  -mtime N     Modified time: N*24h ago\n  -atime N     Access time: N*24h ago\n  -ctime N     Status change time: N*24h ago\n\n  Examples:\n  find . -mtime -1            Modified within last 24 hours\n  find . -mtime +30           Modified more than 30 days ago\n  find . -mtime +7 -mtime -30 Modified 7-30 days ago\n  find . -atime +90           Not accessed in 90+ days (cleanup candidates)\n\n  Minute precision (-mmin, -amin, -cmin):\n  find . -mmin -60            Modified in last 60 minutes\n  find . -mmin +120           Modified more than 2 hours ago\n\n  Newer-than reference:\n  find . -newer reference.txt              Modified after reference.txt\n  find . -newer /tmp/checkpoint            Modified since checkpoint\n  find . -newermm reference.txt            Modification time > reference mod time\n  find . -newermt '2024-01-15 12:00:00'   Modified after this timestamp (GNU)\n  find . -newermt '2024-01-15'             Modified after this date\n  find . -newerat '2024-01-15'             Accessed after this date\n  find . -newerct '2024-01-15'             Status changed after this date\n"
+    }
+    fn s_by_size() -> &'static str {
+        "  -size N[cwbkMG]:\n  c   Bytes\n  w   2-byte words\n  b   512-byte blocks (default)\n  k   Kilobytes (1024 bytes)\n  M   Megabytes\n  G   Gigabytes\n\n  Examples:\n  find . -size +10M           Files larger than 10 MB\n  find . -size -1k            Files smaller than 1 KB\n  find . -size +1M -size -100M  Files between 1 MB and 100 MB\n  find . -size 0              Empty files (0 blocks)\n  find . -size 0c             Empty files (0 bytes, exact)\n  find . -type f -size +100M  Large regular files (cleanup targets)\n\n  By owner:\n  find . -user alice          Files owned by user alice\n  find . -group staff         Files owned by group staff\n  find . -uid 1000            Files owned by UID 1000\n  find . -gid 1000            Files owned by GID 1000\n  find . -nouser              Files with no valid owner (orphaned)\n  find . -nogroup             Files with no valid group\n"
+    }
+    fn s_by_perm() -> &'static str {
+        "  -perm MODE:\n  find . -perm 644            Exactly permission 644\n  find . -perm -644           At least permissions 644 (all bits set)\n  find . -perm /644           Any of the permission bits set\n  find . -perm /o=w           Other-writable (any write bit for others)\n  find . -perm -u+x           User-executable bit set\n  find . -perm /a+x           Any execute bit set (user, group, or other)\n\n  Security-relevant permission searches:\n  find / -perm -4000 -type f  SUID files (run as owner)\n  find / -perm -2000 -type f  SGID files (run as group)\n  find / -perm -4000 -o -perm -2000  All SUID or SGID\n  find . -perm -o+w -type f   World-writable files\n  find . -perm -o+w -type d   World-writable directories\n  find . -perm 777            Full rwxrwxrwx files\n\n  Combining with owner:\n  find / -perm -4000 -user root -type f   SUID root binaries\n"
+    }
+    fn s_actions() -> &'static str {
+        "  -print           Print full path (default action)\n  -print0          Print paths separated by null (safe for xargs -0)\n  -ls              Like ls -dils for each match\n  -delete          Delete matching files (use -depth with directories!)\n\n  -exec:\n  find . -name '*.log' -exec rm {} \\;        Run once per file\n  find . -name '*.log' -exec rm {} +         Batch: run once with all files\n  find . -name '*.rs' -exec grep -l 'TODO' {} +  Grep all at once (faster)\n\n  -execdir (safer — runs in file's directory):\n  find . -name '*.sh' -execdir chmod +x {} \\;\n\n  xargs pipeline:\n  find . -name '*.log' -print0 | xargs -0 rm      Null-delimited (handles spaces)\n  find . -name '*.rs' -print0 | xargs -0 grep 'TODO'\n  find . -name '*.txt' | xargs -P4 -I{} cp {} /backup/  Parallel copy\n\n  -ok (interactive confirmation):\n  find . -name '*.bak' -ok rm {} \\;          Confirm each deletion\n\n  Delete empty directories:\n  find . -type d -empty -delete\n  find . -depth -type d -empty -delete       Process deepest first\n"
+    }
+    fn s_prune() -> &'static str {
+        "  -prune stops find from descending into a directory:\n\n  Skip .git directory:\n  find . -name '.git' -prune -o -name '*.rs' -print\n  find . -not -path './.git/*' -name '*.rs'    Simpler alternative\n\n  Skip multiple directories:\n  find . \\( -name '.git' -o -name 'node_modules' -o -name 'target' \\) -prune \\\n       -o -name '*.rs' -print\n\n  Skip hidden directories:\n  find . -name '.*' -prune -o -print\n  find . -not -path '*/.*'              Simpler: skip anything with /. in path\n\n  Only search specific directories:\n  find . -path './src' -prune -o -name '*.rs' -print  Only in ./src\n\n  Prune with -maxdepth (often simpler):\n  find . -maxdepth 3 -name '*.rs'      Max 3 levels, no prune needed\n\n  Note on operator precedence:\n  The pattern: PRUNE_EXPR -prune -o FIND_EXPR -print\n  reads as: if PRUNE_EXPR then prune, else if FIND_EXPR then print\n"
+    }
+    fn s_one_liners() -> &'static str {
+        "  Find and delete old logs:\n  find /var/log -name '*.log' -mtime +30 -delete\n\n  Find large files:\n  find / -type f -size +100M 2>/dev/null | sort\n\n  Find recently modified source files:\n  find . -name '*.rs' -mtime -1\n\n  Find duplicate filenames (different dirs):\n  find . -type f -printf '%f\\n' | sort | uniq -d\n\n  Count files by extension:\n  find . -type f | sed 's/.*\\.//' | sort | uniq -c | sort -rn\n\n  Find and replace in all matching files:\n  find . -name '*.rs' -exec sed -i 's/old/new/g' {} +\n\n  Find broken symlinks:\n  find . -type l ! -exec test -e {} \\; -print\n\n  Find world-writable files (security audit):\n  find / -perm -o+w -not -type l 2>/dev/null\n\n  Find SUID/SGID binaries:\n  find / -perm -4000 -o -perm -2000 2>/dev/null\n\n  Disk usage of directories (top 10):\n  find . -type d -exec du -sh {} + 2>/dev/null | sort -rh | head -10\n\n  Find and archive recently changed files:\n  find . -mtime -7 -type f | tar czf weekly-changes.tar.gz -T -\n\n  Copy directory structure without files:\n  find src -type d | xargs -I{} mkdir -p dest/{}\n"
+    }
+
+    type FindSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+    const SECTIONS: &[FindSection] = &[
+        (
+            "basics",
+            &["basics", "name", "path", "depth", "glob", "regex", "logic"],
+            s_basics,
+        ),
+        (
+            "by-type",
+            &["type", "file", "dir", "symlink", "empty", "links"],
+            s_by_type,
+        ),
+        (
+            "by-time",
+            &["time", "mtime", "atime", "newer", "recent", "minutes"],
+            s_by_time,
+        ),
+        (
+            "by-size",
+            &[
+                "size",
+                "large",
+                "small",
+                "owner",
+                "user",
+                "group",
+                "perm-size",
+            ],
+            s_by_size,
+        ),
+        (
+            "by-perm",
+            &["perm", "permission", "suid", "sgid", "world", "writable"],
+            s_by_perm,
+        ),
+        (
+            "actions",
+            &["action", "exec", "delete", "xargs", "print", "ok"],
+            s_actions,
+        ),
+        (
+            "prune",
+            &["prune", "exclude", "skip", "ignore", "node_modules", "git"],
+            s_prune,
+        ),
+        (
+            "one-liners",
+            &[
+                "one-liner",
+                "recipe",
+                "examples",
+                "log",
+                "audit",
+                "duplicate",
+            ],
+            s_one_liners,
+        ),
+    ];
+
+    let q = query.trim().to_lowercase();
+
+    if q.is_empty() || q == "help" || q == "list" {
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  hematite --find <TOPIC>");
+        let _ = writeln!(out, "  Offline find command reference");
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  Topics:");
+        for &(name, aliases, _) in SECTIONS {
+            let _ = writeln!(out, "    {name:<12} ({})", aliases.join(", "));
+        }
+        let _ = writeln!(out, "\n  hematite --find all   -- print everything");
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    if q == "all" {
+        let _ = writeln!(out, "{sep}");
+        for &(name, _, f) in SECTIONS {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+            let _ = writeln!(out, "");
+        }
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    let found: Vec<_> = SECTIONS
+        .iter()
+        .filter(|&&(name, aliases, _)| {
+            name.contains(q.as_str())
+                || aliases
+                    .iter()
+                    .any(|&a| a.contains(q.as_str()) || q.contains(a))
+        })
+        .collect();
+
+    if found.is_empty() {
+        let _ = writeln!(out, "  No topic found for '{}'.", query.trim());
+        let _ = writeln!(out, "  Run: hematite --find help");
+    } else {
+        let _ = writeln!(out, "{sep}");
+        for &&(name, _, f) in &found {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+        }
+        let _ = writeln!(out, "{sep}");
+    }
+    out
+}
+
+pub fn systemd_calc(query: &str) -> String {
+    use std::fmt::Write as _;
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+
+    fn s_service() -> &'static str {
+        "  Service lifecycle:\n  systemctl start   nginx        Start a service\n  systemctl stop    nginx        Stop a service\n  systemctl restart nginx        Stop then start\n  systemctl reload  nginx        Reload config without stopping (if supported)\n  systemctl reload-or-restart nginx  Reload if possible, else restart\n  systemctl condrestart nginx   Restart only if currently running\n  systemctl try-restart nginx   Same as condrestart\n\n  Enable/disable at boot:\n  systemctl enable  nginx        Enable at boot (creates symlink)\n  systemctl disable nginx        Disable at boot\n  systemctl enable --now nginx   Enable AND start immediately\n  systemctl disable --now nginx  Disable AND stop immediately\n  systemctl mask    nginx        Completely disable (blocks manual start too)\n  systemctl unmask  nginx        Remove mask\n\n  Re-read unit files after editing:\n  systemctl daemon-reload        REQUIRED after editing any .service file\n\n  Isolate a target (switch mode):\n  systemctl isolate multi-user.target\n  systemctl isolate rescue.target\n  systemctl set-default graphical.target\n  systemctl get-default\n"
+    }
+    fn s_status() -> &'static str {
+        "  Status and query:\n  systemctl status nginx           Detailed status (last 10 log lines)\n  systemctl status nginx -n 50     Last 50 log lines\n  systemctl status nginx --no-pager  No pager (for scripts)\n  systemctl is-active  nginx       Exit 0 if active, else non-zero\n  systemctl is-enabled nginx       Exit 0 if enabled\n  systemctl is-failed  nginx       Exit 0 if failed\n  systemctl is-system-running      Overall system state\n\n  List units:\n  systemctl list-units                       All loaded units\n  systemctl list-units --type=service        Services only\n  systemctl list-units --state=failed        Failed units\n  systemctl list-units --state=running       Running units\n  systemctl list-unit-files                  All unit files + enabled state\n  systemctl list-unit-files --type=service   Service unit files\n  systemctl list-unit-files --state=enabled  Only enabled\n\n  Show unit properties:\n  systemctl show nginx                       All properties\n  systemctl show nginx --property=MainPID    One property\n  systemctl cat nginx                        Print unit file content\n  systemctl edit nginx                       Edit override (creates drop-in)\n  systemctl edit --full nginx                Edit full unit file copy\n\n  Dependencies:\n  systemctl list-dependencies nginx          What nginx requires\n  systemctl list-dependencies --reverse nginx  What requires nginx\n"
+    }
+    fn s_logs() -> &'static str {
+        "  journalctl — query systemd journal:\n\n  Basic queries:\n  journalctl                           All logs (oldest first)\n  journalctl -f                        Follow (tail -f equivalent)\n  journalctl -n 100                    Last 100 lines\n  journalctl -r                        Reverse: newest first\n  journalctl -e                        Jump to end\n  journalctl -b                        Since last boot\n  journalctl -b -1                     Previous boot\n  journalctl -b -2                     Boot before that\n  journalctl --list-boots              Show all recorded boots\n\n  Filter by unit:\n  journalctl -u nginx                  Logs for nginx.service\n  journalctl -u nginx -f               Follow nginx logs\n  journalctl -u nginx -n 50            Last 50 nginx lines\n  journalctl -u nginx -b               Nginx logs since boot\n\n  Filter by time:\n  journalctl --since '2024-01-15'\n  journalctl --since '2024-01-15 12:00:00'\n  journalctl --since '1 hour ago'\n  journalctl --since yesterday\n  journalctl --since '09:00' --until '10:30'\n\n  Filter by priority:\n  journalctl -p err                    Errors and above\n  journalctl -p warning                Warnings and above\n  journalctl -p 0..3                   emerg through err\n  Priorities: 0=emerg 1=alert 2=crit 3=err 4=warning 5=notice 6=info 7=debug\n\n  Output formats:\n  journalctl -o json-pretty -u nginx   JSON output\n  journalctl -o cat -u nginx           Plain message only\n  journalctl -o short-iso -u nginx     ISO timestamps\n  journalctl --no-pager -u nginx       No pager (for scripts)\n"
+    }
+    fn s_analyze() -> &'static str {
+        "  Boot time analysis:\n  systemd-analyze                    Total boot time summary\n  systemd-analyze time               Time split: firmware + loader + kernel + userspace\n  systemd-analyze blame              List units by startup time (slowest first)\n  systemd-analyze critical-chain     Show critical boot path (slowest chain)\n  systemd-analyze critical-chain nginx.service  Chain for specific unit\n  systemd-analyze plot > boot.svg    Generate SVG boot timeline\n  systemd-analyze plot | display     Display SVG directly (needs ImageMagick)\n\n  Unit verification:\n  systemd-analyze verify nginx.service    Check unit file for errors\n  systemd-analyze security nginx.service  Security score for service\n  systemd-analyze security              Security scores for all loaded services\n\n  System conditions:\n  systemd-analyze condition ConditionKernelVersion='>= 5.10'\n\n  Resource usage:\n  systemd-cgtop                      Real-time cgroup resource usage\n  systemd-cgtop -d 2                 Refresh every 2 seconds\n\n  Failed units quick check:\n  systemctl --failed                 List failed units\n  systemctl reset-failed             Clear failed state for all units\n  systemctl reset-failed nginx       Clear failed state for nginx\n"
+    }
+    fn s_timers() -> &'static str {
+        "  List active timers:\n  systemctl list-timers              All timers: next/last trigger\n  systemctl list-timers --all        Including inactive timers\n\n  Timer unit structure (example: /etc/systemd/system/cleanup.timer):\n  [Unit]\n  Description=Daily cleanup\n\n  [Timer]\n  OnCalendar=daily\n  OnCalendar=*-*-* 03:00:00         Specific time (3am daily)\n  OnCalendar=Mon *-*-* 06:00:00     Monday mornings\n  OnCalendar=*-*-1 00:00:00         First of every month\n  Persistent=true                   Run if missed while system was off\n  RandomizedDelaySec=1h             Randomize up to 1 hour\n  AccuracySec=1s                    Wake up precision (default 1min)\n\n  Monotonic timers (relative to boot/activation):\n  OnBootSec=10min                   10 minutes after boot\n  OnActiveSec=1h                    1 hour after unit activation\n  OnStartupSec=5min                 5 min after systemd start\n  OnUnitActiveSec=1h                1 hour after service last ran\n\n  Corresponding service file (cleanup.service):\n  [Unit]\n  Description=Cleanup service\n\n  [Service]\n  Type=oneshot\n  ExecStart=/usr/local/bin/cleanup.sh\n\n  Activate timer:\n  systemctl enable --now cleanup.timer\n  systemctl start cleanup.timer      Start without enabling\n"
+    }
+    fn s_units() -> &'static str {
+        "  Unit file locations (priority: highest first):\n  /etc/systemd/system/           Admin-managed units (override packaged)\n  /run/systemd/system/           Runtime units\n  /usr/lib/systemd/system/       Package-provided units (don't edit these)\n\n  Drop-in overrides (preferred over editing packaged units):\n  systemctl edit nginx            Creates /etc/systemd/system/nginx.service.d/override.conf\n  systemctl edit --full nginx     Full copy in /etc/systemd/system/nginx.service\n\n  Common [Service] section directives:\n  Type=simple|forking|notify|oneshot|idle|exec\n  ExecStart=/usr/bin/nginx -g 'daemon off;'\n  ExecStop=/bin/kill -s QUIT $MAINPID\n  ExecReload=/bin/kill -s HUP $MAINPID\n  Restart=always|on-failure|on-abnormal|unless-stopped\n  RestartSec=5s\n  User=nginx\n  Group=nginx\n  WorkingDirectory=/var/www\n  EnvironmentFile=-/etc/nginx/env          - prefix = ignore if missing\n  Environment=FOO=bar\n  LimitNOFILE=65536                        Raise file descriptor limit\n  PrivateTmp=true                          Isolated /tmp\n  ProtectSystem=strict                     Read-only /usr and /boot\n  ProtectHome=true                         No access to /home, /root\n  NoNewPrivileges=true                     Can't gain new privileges\n\n  Reread after editing:\n  systemctl daemon-reload                  ALWAYS run after editing unit files\n"
+    }
+    fn s_targets() -> &'static str {
+        "  Targets (runlevel equivalents):\n  poweroff.target      Halt and power off         (runlevel 0)\n  rescue.target        Single-user rescue mode    (runlevel 1)\n  multi-user.target    Multi-user, no GUI         (runlevel 3)\n  graphical.target     Multi-user + GUI           (runlevel 5)\n  reboot.target        Reboot                     (runlevel 6)\n  emergency.target     Emergency shell (minimal)  (S)\n  sleep.target         Suspend\n  hibernate.target     Hibernate\n  hybrid-sleep.target  Hibernate + suspend\n\n  Shutdown and reboot:\n  systemctl poweroff                    Power off\n  systemctl reboot                      Reboot\n  systemctl suspend                     Suspend to RAM\n  systemctl hibernate                   Hibernate to disk\n  systemctl hybrid-sleep                Both suspend + hibernate\n  shutdown -h +10                       Shutdown in 10 minutes (wall message)\n  shutdown -r 02:00                     Reboot at 02:00\n  shutdown -c                           Cancel pending shutdown\n\n  Wall messages:\n  wall 'System rebooting in 5 minutes for maintenance'\n\n  Emergency/rescue:\n  systemctl rescue                      Switch to rescue mode\n  systemctl emergency                   Switch to emergency mode\n  systemctl default                     Return to default target\n"
+    }
+
+    type SdSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+    const SECTIONS: &[SdSection] = &[
+        (
+            "service",
+            &[
+                "service", "start", "stop", "restart", "enable", "disable", "mask",
+            ],
+            s_service,
+        ),
+        (
+            "status",
+            &[
+                "status", "list", "active", "failed", "enabled", "show", "cat",
+            ],
+            s_status,
+        ),
+        (
+            "logs",
+            &[
+                "log",
+                "logs",
+                "journalctl",
+                "journal",
+                "follow",
+                "since",
+                "boot",
+            ],
+            s_logs,
+        ),
+        (
+            "analyze",
+            &[
+                "analyze",
+                "blame",
+                "boot",
+                "performance",
+                "slow",
+                "critical",
+            ],
+            s_analyze,
+        ),
+        (
+            "timers",
+            &["timer", "timers", "cron", "schedule", "calendar", "oneshot"],
+            s_timers,
+        ),
+        (
+            "units",
+            &[
+                "unit",
+                "units",
+                "dropin",
+                "override",
+                "service-file",
+                "directive",
+            ],
+            s_units,
+        ),
+        (
+            "targets",
+            &[
+                "target", "targets", "runlevel", "reboot", "poweroff", "shutdown",
+            ],
+            s_targets,
+        ),
+    ];
+
+    let q = query.trim().to_lowercase();
+
+    if q.is_empty() || q == "help" || q == "list" {
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  hematite --systemd <TOPIC>");
+        let _ = writeln!(out, "  Offline systemd / systemctl / journalctl reference");
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  Topics:");
+        for &(name, aliases, _) in SECTIONS {
+            let _ = writeln!(out, "    {name:<12} ({})", aliases.join(", "));
+        }
+        let _ = writeln!(out, "\n  hematite --systemd all   -- print everything");
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    if q == "all" {
+        let _ = writeln!(out, "{sep}");
+        for &(name, _, f) in SECTIONS {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+            let _ = writeln!(out, "");
+        }
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    let found: Vec<_> = SECTIONS
+        .iter()
+        .filter(|&&(name, aliases, _)| {
+            name.contains(q.as_str())
+                || aliases
+                    .iter()
+                    .any(|&a| a.contains(q.as_str()) || q.contains(a))
+        })
+        .collect();
+
+    if found.is_empty() {
+        let _ = writeln!(out, "  No topic found for '{}'.", query.trim());
+        let _ = writeln!(out, "  Run: hematite --systemd help");
+    } else {
+        let _ = writeln!(out, "{sep}");
+        for &&(name, _, f) in &found {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+        }
+        let _ = writeln!(out, "{sep}");
+    }
+    out
+}
+
+pub fn make_calc(query: &str) -> String {
+    use std::fmt::Write as _;
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+
+    fn s_basics() -> &'static str {
+        "  Running make:\n  make                    Run first/default target\n  make target             Run specific target\n  make -f other.mk        Use different Makefile\n  make -C dir/            Change to dir then run\n  make -n                 Dry run: print commands without running\n  make -p                 Print all rules and variable values\n  make -k                 Keep going after errors\n  make -j4                Parallel execution (4 jobs)\n  make -j                 Max parallelism (as many as possible)\n  make -s                 Silent: suppress command echo\n  make --trace            Print each rule as it is evaluated\n  make VARIABLE=value     Override variable on command line\n\n  Minimal Makefile structure:\n  target: prerequisite1 prerequisite2\n  \\trecipe command\n  \\tmore commands\n\n  Rules:\n  - Target = file to build (or phony name)\n  - Prerequisites = dependencies (rerun if newer than target)\n  - Recipe = commands to run (MUST start with a real TAB, not spaces!)\n\n  .PHONY declaration:\n  .PHONY: all clean test install\n  all: build test\n  clean:\n  \\trm -rf target/\n  .PHONY prevents conflicts with files named 'clean', 'all', etc.\n"
+    }
+    fn s_variables() -> &'static str {
+        "  Assignment operators:\n  VAR = value       Recursive: re-evaluated each time VAR is used\n  VAR := value      Simply expanded: evaluated immediately (preferred)\n  VAR ::= value     Posix form of :=\n  VAR ?= value      Assign only if VAR is not already set\n  VAR += value      Append to existing value\n  VAR != cmd        Assign output of shell command (GNU make)\n  override VAR = v  Override command-line value\n\n  Using variables:\n  $(VAR)            Expand variable (single chars can use $X)\n  ${VAR}            Alternative syntax\n\n  Built-in variables:\n  CC         C compiler (default: cc)\n  CXX        C++ compiler (default: g++)\n  CFLAGS     C compiler flags\n  CXXFLAGS   C++ compiler flags\n  LDFLAGS    Linker flags\n  MAKE       Path to make binary (use when calling make recursively)\n  MAKEFLAGS  Flags passed to make\n  MAKEFILE_LIST  List of makefiles being parsed\n  CURDIR     Current working directory\n  SHELL      Shell used for recipes (default: /bin/sh)\n\n  Environment:\n  Variables from environment are available but overridden by Makefile\n  make -e makes environment override Makefile\n  export VAR := value  Export variable to child processes\n"
+    }
+    fn s_rules() -> &'static str {
+        "  Explicit rule:\n  output.o: input.c header.h\n  \\t$(CC) $(CFLAGS) -c -o $@ $<\n\n  Multiple targets:\n  foo.o bar.o: common.h    Both depend on common.h\n\n  Recipe details:\n  @cmd     Suppress echo of cmd (@ prefix)\n  -cmd     Ignore errors from cmd (- prefix)\n  +cmd     Run even with -n (dry run)\n  cmd;\\    Continue next line (backslash continuation)\n  cmd && \\\n  cmd2     Chain commands (each recipe line is a new shell)\n\n  Force recipe in new shell context:\n  .ONESHELL:           All recipe lines run in one shell instance\n\n  Double-colon rules (multiple independent rules for same target):\n  foo:: a.o\n  \\t$(CC) -o $@ $^\n  foo:: b.o\n  \\t$(CC) -o $@ $^\n\n  Order-only prerequisites (rebuild if missing but not if newer):\n  output: normal-dep | order-only-dep\n  \\trecipe\n  Use for directories: mkdir -p $(OUTDIR) as order-only prerequisite.\n"
+    }
+    fn s_patterns() -> &'static str {
+        "  Pattern rules (% = stem wildcard):\n  %.o: %.c           Compile any .c to .o\n  \\t$(CC) -c -o $@ $<\n\n  Static pattern rules (limit which targets match):\n  OBJS = foo.o bar.o baz.o\n  $(OBJS): %.o: %.c\n  \\t$(CC) -c -o $@ $<\n\n  Built-in implicit rules (always available):\n  %.o: %.c   $(CC) $(CPPFLAGS) $(CFLAGS) -c -o $@ $<\n  %.o: %.cc  $(CXX) $(CPPFLAGS) $(CXXFLAGS) -c -o $@ $<\n  %: %.o     $(CC) $(LDFLAGS) $^ $(LOADLIBES) $(LDLIBS) -o $@\n\n  Cancel implicit rule (empty recipe):\n  %.o: %.s ;         No implicit rule for this pattern\n\n  VPATH — search directories for prerequisites:\n  VPATH = src:include    Search src/ and include/ for missing files\n  vpath %.c src          Search src/ for .c files only\n  vpath %.h include      Search include/ for .h files only\n"
+    }
+    fn s_functions() -> &'static str {
+        "  Text functions:\n  $(subst from,to,text)          Replace all occurrences\n  $(patsubst pat,repl,text)      Pattern substitution\n  $(strip text)                  Remove leading/trailing whitespace\n  $(findstring find,text)        Return find if it's in text, else empty\n  $(filter pattern,text)         Keep words matching pattern\n  $(filter-out pattern,text)     Remove words matching pattern\n  $(sort list)                   Sort and remove duplicates\n  $(word n,text)                 Return Nth word\n  $(words text)                  Count words\n  $(firstword text)              First word\n  $(lastword text)               Last word\n  $(dir names)                   Directory part (with trailing /)\n  $(notdir names)                File part (strip directory)\n  $(suffix names)                Extension (.c, .o, etc.)\n  $(basename names)              Strip extension\n  $(addsuffix suf,names)         Add suffix to each word\n  $(addprefix pre,names)         Add prefix to each word\n  $(join list1,list2)            Pairwise join\n  $(wildcard pattern)            Glob expansion\n\n  Shell and control:\n  $(shell cmd)                   Run shell cmd, return output\n  $(error msg)                   Print error and abort\n  $(warning msg)                 Print warning and continue\n  $(info msg)                    Print info and continue\n  $(call func,arg1,arg2)         Call user-defined function\n  $(eval $(call template,args))  Evaluate generated makefile text\n\n  Shorthand substitution:\n  SRC = foo.c bar.c\n  OBJ = $(SRC:.c=.o)             foo.o bar.o\n  OBJ = $(patsubst %.c,%.o,$(SRC))  Equivalent\n"
+    }
+    fn s_conditionals() -> &'static str {
+        "  Makefile conditionals:\n  ifeq ($(VAR),value)\n    # applies if VAR equals value\n  else ifeq ($(VAR),other)\n    # applies if VAR equals other\n  else\n    # default\n  endif\n\n  ifneq ($(VAR),value)         Not-equal conditional\n  ifdef VAR                    True if VAR is defined (even empty)\n  ifndef VAR                   True if VAR is not defined\n\n  Comparison of expanded values:\n  ifeq ($(OS),Windows_NT)      Cross-platform check\n  ifeq ($(CC),clang)           Check compiler\n\n  Function conditionals (usable inside recipes/variables):\n  $(if condition,then,else)    If non-empty condition: use then, else else\n  $(or a,b,c)                  Return first non-empty\n  $(and a,b,c)                 Return last if all non-empty, else empty\n\n  Platform detection pattern:\n  UNAME := $(shell uname)\n  ifeq ($(UNAME),Darwin)\n    PLATFORM := macos\n  else ifeq ($(UNAME),Linux)\n    PLATFORM := linux\n  else\n    PLATFORM := windows\n  endif\n\n  Include other Makefiles:\n  include config.mk            Error if missing\n  -include config.mk           Silently skip if missing\n  sinclude config.mk           Same as -include\n"
+    }
+    fn s_special() -> &'static str {
+        "  Automatic variables (inside recipe — resolved per rule):\n  $@    Target name\n  $<    First prerequisite\n  $^    All prerequisites (deduplicated)\n  $+    All prerequisites (with duplicates)\n  $?    Prerequisites newer than target\n  $*    Stem matched by % in a pattern rule\n  $(@D) Directory part of $@\n  $(@F) File part of $@\n  $(<D) Directory part of $<\n  $(<F) File part of $<\n\n  Special targets:\n  .PHONY: all clean test       Declare phony targets\n  .DEFAULT: target             Run if no rule found\n  .PRECIOUS: %.o               Don't delete intermediate files\n  .INTERMEDIATE: %.tmp         Mark as intermediate (deleted after use)\n  .SECONDARY:                  Keep all intermediate files\n  .DELETE_ON_ERROR:            Delete target if recipe fails\n  .SILENT: target              Don't echo recipe commands\n  .IGNORE: target              Ignore errors from recipe\n  .NOTPARALLEL:                Disable parallel execution\n  .ONESHELL:                   Run all recipe lines in one shell\n  .EXPORT_ALL_VARIABLES:       Export all vars to child processes\n\n  Useful patterns:\n  MAKEFLAGS += --no-print-directory   Quieter recursive make output\n  ifeq ($(V),1)\\n  Q =\\nelse\\n  Q = @\\nendif\\n  $(Q)$(CC) ...   Verbose mode: make V=1\n"
+    }
+
+    type MakeSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+    const SECTIONS: &[MakeSection] = &[
+        (
+            "basics",
+            &["basics", "run", "phony", "syntax", "tab", "dry-run"],
+            s_basics,
+        ),
+        (
+            "variables",
+            &[
+                "variable",
+                "variables",
+                "assign",
+                "override",
+                "export",
+                "env",
+            ],
+            s_variables,
+        ),
+        (
+            "rules",
+            &[
+                "rule",
+                "rules",
+                "recipe",
+                "target",
+                "depend",
+                "prerequisite",
+            ],
+            s_rules,
+        ),
+        (
+            "patterns",
+            &["pattern", "implicit", "stem", "vpath", "built-in"],
+            s_patterns,
+        ),
+        (
+            "functions",
+            &[
+                "function",
+                "functions",
+                "subst",
+                "patsubst",
+                "wildcard",
+                "shell",
+                "filter",
+            ],
+            s_functions,
+        ),
+        (
+            "conditionals",
+            &[
+                "conditional",
+                "ifeq",
+                "ifdef",
+                "ifndef",
+                "include",
+                "platform",
+            ],
+            s_conditionals,
+        ),
+        (
+            "special",
+            &[
+                "special",
+                "automatic",
+                "dollar",
+                "phony-targets",
+                "delete",
+                "silent",
+            ],
+            s_special,
+        ),
+    ];
+
+    let q = query.trim().to_lowercase();
+
+    if q.is_empty() || q == "help" || q == "list" {
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  hematite --make <TOPIC>");
+        let _ = writeln!(out, "  Offline GNU Make / Makefile reference");
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  Topics:");
+        for &(name, aliases, _) in SECTIONS {
+            let _ = writeln!(out, "    {name:<14} ({})", aliases.join(", "));
+        }
+        let _ = writeln!(out, "\n  hematite --make all   -- print everything");
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    if q == "all" {
+        let _ = writeln!(out, "{sep}");
+        for &(name, _, f) in SECTIONS {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+            let _ = writeln!(out, "");
+        }
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    let found: Vec<_> = SECTIONS
+        .iter()
+        .filter(|&&(name, aliases, _)| {
+            name.contains(q.as_str())
+                || aliases
+                    .iter()
+                    .any(|&a| a.contains(q.as_str()) || q.contains(a))
+        })
+        .collect();
+
+    if found.is_empty() {
+        let _ = writeln!(out, "  No topic found for '{}'.", query.trim());
+        let _ = writeln!(out, "  Run: hematite --make help");
+    } else {
+        let _ = writeln!(out, "{sep}");
+        for &&(name, _, f) in &found {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+        }
+        let _ = writeln!(out, "{sep}");
+    }
+    out
+}

@@ -1047,6 +1047,10 @@ mod tests {
             sed: None,
             awk: None,
             ssh_ref: None,
+            tar: None,
+            find: None,
+            systemd: None,
+            make: None,
             pdf_extract_helper: None,
             teleported_from: None,
         };
