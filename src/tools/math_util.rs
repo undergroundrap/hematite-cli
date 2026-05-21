@@ -36721,3 +36721,647 @@ pub fn python_data_calc(query: &str) -> String {
     }
     out
 }
+
+// ─── Wave 23: css-ref, rust-adv, algo-ref, oop-ref ───────────────────────────
+
+pub fn css_ref_calc(query: &str) -> String {
+    use std::fmt::Write as _;
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+
+    fn s_selectors() -> &'static str {
+        "  CSS selectors:\n\n  Basic:\n  *             Universal — matches everything\n  div           Type selector\n  .class        Class selector\n  #id           ID selector\n  div, p        Group (or)\n\n  Combinators:\n  div p         Descendant (any depth)\n  div > p       Direct child only\n  h1 + p        Adjacent sibling (immediately after)\n  h1 ~ p        General sibling (all after)\n\n  Attribute selectors:\n  [attr]        Has attribute\n  [attr='val']  Exact match\n  [attr^='val'] Starts with\n  [attr$='val'] Ends with\n  [attr*='val'] Contains substring\n  [attr~='val'] Word in space-separated list\n  [attr|='val'] Starts with val or val-\n\n  Pseudo-classes:\n  :hover :focus :active :visited :link\n  :first-child :last-child :nth-child(n) :nth-child(2n+1)\n  :only-child :empty :not(selector)\n  :is(h1, h2, h3)   Forgiving selector group\n  :where(h1, h2)    Zero-specificity version of :is\n  :has(img)         Parent selector (CSS Selectors 4)\n  :focus-within     Any descendant has focus\n  :focus-visible    Keyboard-focused (not mouse)\n  :checked :disabled :enabled :required :optional\n  :valid :invalid :placeholder-shown\n\n  Pseudo-elements:\n  ::before ::after   Insert content around element\n  ::first-line ::first-letter\n  ::placeholder      Placeholder text styling\n  ::selection        User text selection\n  ::marker           List item marker\n  ::backdrop         Behind dialog/fullscreen element\n\n  Specificity (0,0,0,0 format — wins highest):\n  Inline style        1,0,0,0\n  ID                  0,1,0,0\n  Class/attr/pseudo   0,0,1,0\n  Element/pseudo-el   0,0,0,1\n  !important          Overrides all (avoid)\n  :where()            Always 0,0,0,0 (safe low-specificity)\n"
+    }
+    fn s_flexbox() -> &'static str {
+        "  Flexbox — one-dimensional layout:\n\n  Container (display: flex or inline-flex):\n  flex-direction: row | column | row-reverse | column-reverse\n  flex-wrap: nowrap | wrap | wrap-reverse\n  flex-flow: <direction> <wrap>   (shorthand)\n  justify-content: flex-start | flex-end | center |\n      space-between | space-around | space-evenly\n  align-items: stretch | flex-start | flex-end | center | baseline\n  align-content: (multi-line) flex-start|center|space-between|stretch\n  gap: 1rem;          row-gap + column-gap shorthand\n  row-gap / column-gap\n\n  Items:\n  flex: <grow> <shrink> <basis>   (shorthand)\n  flex: 1           = 1 1 0%     (equal share, shrink)\n  flex: auto        = 1 1 auto   (size based on content, flexible)\n  flex: none        = 0 0 auto   (rigid, don't grow or shrink)\n  flex-grow:   0 = no grow;  1 = take available space\n  flex-shrink: 0 = no shrink; 1 = shrink proportionally\n  flex-basis: auto | 0 | 200px  (starting size before growing)\n  align-self:  override align-items for this item\n  order: <integer>  (default 0; negative = earlier)\n  min-width: 0;     Fix flex item overflow with long text\n\n  Common patterns:\n  /* Sticky footer */\n  body { display:flex; flex-direction:column; min-height:100vh; }\n  main { flex: 1; }\n\n  /* Center anything */\n  .parent { display:flex; justify-content:center; align-items:center; }\n\n  /* Holy grail layout (header/footer + 3 cols) */\n  .container { display:flex; flex-direction:column; }\n  .main      { display:flex; flex:1; }\n  nav, aside { flex: 0 0 200px; }\n  article    { flex: 1; }\n\n  /* Equal columns, no gaps */\n  .grid { display:flex; flex-wrap:wrap; }\n  .col  { flex: 1 1 250px; }\n"
+    }
+    fn s_grid() -> &'static str {
+        "  CSS Grid — two-dimensional layout:\n\n  Container:\n  display: grid | inline-grid\n  grid-template-columns: 200px 1fr 2fr\n  grid-template-columns: repeat(3, 1fr)\n  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr))\n  grid-template-rows: auto 1fr auto\n  grid-template-areas:\n    'header header'\n    'nav    main  '\n    'footer footer';\n  gap: 1rem;        (row-gap + column-gap)\n  grid-auto-flow: row | column | dense\n  grid-auto-rows: minmax(100px, auto)\n  justify-items: start | end | center | stretch\n  align-items:   start | end | center | stretch\n  justify-content: start|center|space-between  (whole grid in container)\n  align-content:   start|center|space-between\n\n  Items:\n  grid-column: 1 / 3         (start / end line)\n  grid-column: 1 / span 2    (start / span N)\n  grid-row: 2 / 4\n  grid-area: header          (named area from template)\n  grid-area: 1 / 1 / 3 / 3   (row-start / col-start / row-end / col-end)\n  justify-self / align-self  (override container defaults)\n\n  Functions and values:\n  fr unit     Fraction of available space\n  minmax(min, max)  e.g. minmax(100px, 1fr)\n  auto-fill   Fill as many tracks as fit; may leave empty tracks\n  auto-fit    Same but collapses empty tracks to 0\n  fit-content(200px)  Clamp track to max of content or 200px\n\n  Responsive grid (no media queries needed):\n  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));\n  /* Cards wrap automatically; min 250px wide */\n\n  Named lines:\n  grid-template-columns: [start] 1fr [mid] 1fr [end];\n  .item { grid-column: start / mid; }\n"
+    }
+    fn s_animations() -> &'static str {
+        "  CSS Transitions:\n  transition: property duration timing-function delay;\n  transition: all 0.3s ease;\n  transition: color 0.2s ease, transform 0.3s ease-out;\n\n  Timing functions:\n  ease         cubic-bezier(0.25, 0.1, 0.25, 1)\n  ease-in      cubic-bezier(0.42, 0, 1, 1)\n  ease-out     cubic-bezier(0, 0, 0.58, 1)\n  ease-in-out  cubic-bezier(0.42, 0, 0.58, 1)\n  linear\n  steps(4, end)   Jump in 4 discrete steps\n  cubic-bezier(x1, y1, x2, y2)   Custom\n\n  CSS Animations:\n  @keyframes slide-in {\n    from { transform: translateX(-100%); opacity: 0; }\n    to   { transform: translateX(0);     opacity: 1; }\n  }\n  /* or use percentages: 0%, 25%, 100% */\n\n  animation: name duration timing fill-mode;\n  animation: slide-in 0.4s ease-out forwards;\n  animation-name / animation-duration / animation-timing-function\n  animation-delay / animation-iteration-count / animation-direction\n  animation-fill-mode: none | forwards | backwards | both\n  animation-play-state: running | paused\n\n  Transform functions:\n  translateX(px) translateY(px) translate(x, y) translate3d(x,y,z)\n  scale(n)  scaleX(n)  scaleY(n)\n  rotate(deg)  rotateX(deg)  rotateY(deg)  rotate3d(x,y,z,deg)\n  skew(x, y)  skewX / skewY\n  matrix(a,b,c,d,tx,ty)\n  perspective(n)  (set on parent for 3D children)\n\n  Performance tips:\n  Only animate: transform, opacity  (GPU composited, no layout/paint)\n  Avoid animating: width/height, top/left, margin (causes layout)\n  will-change: transform;  (hint browser to promote to own layer)\n  Use @media (prefers-reduced-motion: reduce) { ... } for accessibility\n"
+    }
+    fn s_variables() -> &'static str {
+        "  CSS Custom Properties (variables):\n\n  Define:\n  :root {\n    --color-primary: #3b82f6;\n    --spacing-base: 1rem;\n    --font-size-lg: clamp(1.25rem, 2vw, 1.5rem);\n  }\n\n  Use:\n  .button { background: var(--color-primary); }\n  .button { padding: var(--spacing-base, 1rem); }  /* fallback value */\n  .button { color: var(--text, var(--fallback, black)); }  /* nested fallback */\n\n  Override in scope:\n  .dark { --color-primary: #60a5fa; }  /* Only affects .dark and children */\n  .card { --spacing-base: 0.5rem; }\n\n  JavaScript access:\n  getComputedStyle(el).getPropertyValue('--color-primary').trim()\n  el.style.setProperty('--color-primary', '#ff0000')\n\n  calc():\n  width: calc(100% - 2rem);\n  font-size: calc(1rem + 0.5vw);\n  margin: calc(var(--spacing) * 2);\n  Supports: + - * /   (spaces required around + and -)\n\n  clamp(min, preferred, max):\n  font-size: clamp(1rem, 2.5vw, 2rem);  /* Responsive without media query */\n  width: clamp(300px, 50%, 800px);\n\n  min() / max():\n  width: min(100%, 600px);     Never wider than 600px\n  font-size: max(1rem, 2vw);   At least 1rem\n\n  Viewport units:\n  vw vh  vmin vmax   (viewport width/height, smaller/larger)\n  svh lvh dvh        (small/large/dynamic viewport — mobile bars)\n  cqw cqh            (container query units, requires container-type)\n\n  Environment variables:\n  padding: env(safe-area-inset-top);   (iOS notch / status bar)\n"
+    }
+    fn s_responsive() -> &'static str {
+        "  Responsive design:\n\n  Media query syntax:\n  @media (max-width: 768px) { ... }       Mobile first: avoid this\n  @media (min-width: 768px) { ... }       Mobile first: add styles up\n  @media (min-width: 48rem) { ... }       rem-based (scales with font)\n  @media screen and (min-width: 768px) { ... }\n  @media (min-width: 768px) and (max-width: 1024px) { ... }\n  @media (orientation: landscape) { ... }\n  @media (prefers-color-scheme: dark) { ... }\n  @media (prefers-reduced-motion: reduce) { ... }\n  @media (hover: hover) { ... }           Has hover capability (non-touch)\n\n  Common breakpoints (Bootstrap-style):\n  sm: 576px   md: 768px   lg: 992px   xl: 1200px   xxl: 1400px\n\n  Tailwind breakpoints:\n  sm: 640px   md: 768px   lg: 1024px   xl: 1280px   2xl: 1536px\n\n  Fluid typography without media queries:\n  font-size: clamp(1rem, 0.875rem + 0.5vw, 1.25rem);\n\n  Container queries (modern, Chrome 105+):\n  .card-container { container-type: inline-size; container-name: card; }\n  @container card (min-width: 400px) {\n    .card-title { font-size: 1.5rem; }\n  }\n  @container (min-width: 600px) { ... }   (unnamed)\n\n  Logical properties (for RTL/LTR support):\n  margin-inline: 1rem     = margin-left + margin-right\n  margin-block: 1rem      = margin-top + margin-bottom\n  padding-inline-start    = padding-left in LTR\n  inset-inline-start      = left in LTR\n  border-start-start-radius = top-left in LTR\n\n  :has() responsive tricks:\n  .container:has(> .sidebar) .main { width: calc(100% - 250px); }\n  form:has(:invalid) button[type=submit] { opacity: 0.5; }\n"
+    }
+
+    type CssSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+    const SECTIONS: &[CssSection] = &[
+        (
+            "selectors",
+            &[
+                "selector",
+                "selectors",
+                "specificity",
+                "pseudo",
+                "attribute",
+                "combinator",
+                "nth",
+            ],
+            s_selectors,
+        ),
+        (
+            "flexbox",
+            &[
+                "flex",
+                "flexbox",
+                "justify",
+                "align",
+                "flex-direction",
+                "flex-wrap",
+                "gap",
+            ],
+            s_flexbox,
+        ),
+        (
+            "grid",
+            &[
+                "grid",
+                "template",
+                "areas",
+                "fr-unit",
+                "auto-fill",
+                "auto-fit",
+                "minmax",
+            ],
+            s_grid,
+        ),
+        (
+            "animations",
+            &[
+                "animation",
+                "transition",
+                "keyframe",
+                "transform",
+                "timing",
+                "translate",
+            ],
+            s_animations,
+        ),
+        (
+            "variables",
+            &[
+                "variable",
+                "custom-prop",
+                "calc",
+                "clamp",
+                "min-max",
+                "env",
+                "viewport",
+            ],
+            s_variables,
+        ),
+        (
+            "responsive",
+            &[
+                "responsive",
+                "media-query",
+                "breakpoint",
+                "container-query",
+                "fluid",
+                "logical",
+            ],
+            s_responsive,
+        ),
+    ];
+
+    let q = query.trim().to_lowercase();
+
+    if q.is_empty() || q == "help" || q == "list" {
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  hematite --css-ref <TOPIC>");
+        let _ = writeln!(
+            out,
+            "  Offline CSS reference — selectors, flexbox, grid, animations, variables"
+        );
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  Topics:");
+        for &(name, aliases, _) in SECTIONS {
+            let _ = writeln!(out, "    {name:<12} ({})", aliases.join(", "));
+        }
+        let _ = writeln!(out, "\n  hematite --css-ref all   -- print everything");
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    if q == "all" {
+        let _ = writeln!(out, "{sep}");
+        for &(name, _, f) in SECTIONS {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+            let _ = writeln!(out, "");
+        }
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    let found: Vec<_> = SECTIONS
+        .iter()
+        .filter(|&&(name, aliases, _)| {
+            name.contains(q.as_str())
+                || aliases
+                    .iter()
+                    .any(|&a| a.contains(q.as_str()) || q.contains(a))
+        })
+        .collect();
+
+    if found.is_empty() {
+        let _ = writeln!(out, "  No topic found for '{}'.", query.trim());
+        let _ = writeln!(out, "  Run: hematite --css-ref help");
+    } else {
+        let _ = writeln!(out, "{sep}");
+        for &&(name, _, f) in &found {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+        }
+        let _ = writeln!(out, "{sep}");
+    }
+    out
+}
+
+pub fn rust_adv_calc(query: &str) -> String {
+    use std::fmt::Write as _;
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+
+    fn s_lifetimes() -> &'static str {
+        "  Lifetimes:\n\n  Basic syntax:\n  fn longest<'a>(x: &'a str, y: &'a str) -> &'a str { ... }\n  struct Excerpt<'a> { text: &'a str }\n  impl<'a> Excerpt<'a> { fn level(&self) -> i32 { ... } }\n\n  Lifetime elision rules (compiler infers these):\n  1. Each &T input gets its own lifetime parameter\n  2. If exactly one input lifetime, it's assigned to all outputs\n  3. If &self / &mut self is an input, its lifetime is assigned to output\n\n  'static — lives for the entire program:\n  let s: &'static str = \"hello\";      (string literals are 'static)\n  fn needs_static<T: 'static>(t: T)  (T contains no non-static refs)\n  Box<dyn Error + 'static>           (no borrowed data in trait object)\n\n  Lifetime bounds:\n  fn print<T: Display + 'a>(t: &'a T)  T must outlive 'a\n  where T: 'b                           T outlives 'b\n  &'b T requires T: 'b  (implied)\n\n  Named lifetime parameters in structs:\n  struct Parser<'src> {\n      input: &'src str,\n      pos: usize,\n  }\n\n  Multiple lifetimes:\n  fn first_word<'a, 'b>(s: &'a str, _sep: &'b str) -> &'a str { ... }\n  // Output borrows from 'a only, 'b is independent\n\n  Higher-ranked trait bounds (HRTB):\n  fn apply<F>(f: F) where F: for<'a> Fn(&'a str) -> &'a str { ... }\n  // F works for any lifetime 'a, not a specific one\n\n  Common lifetime errors:\n  - 'does not live long enough': return ref to local variable\n  - 'lifetime mismatch': returning ref from one param when another expected\n  - Fix: return owned value, use Arc/Rc, or restructure ownership\n"
+    }
+    fn s_traits() -> &'static str {
+        "  Traits, generics, and type system:\n\n  Trait definition:\n  trait Summary {\n      fn summarize(&self) -> String;           // required\n      fn preview(&self) -> String {            // default implementation\n          format!(\"{}...\", &self.summarize()[..50])\n      }\n  }\n\n  Trait bounds:\n  fn notify(item: &impl Summary) { ... }      // impl Trait syntax\n  fn notify<T: Summary>(item: &T) { ... }     // generic syntax\n  fn notify<T: Summary + Display>(item: &T)   // multiple bounds\n  fn notify<T>(item: &T) where T: Summary + Display + Clone  // where clause\n\n  Return impl Trait:\n  fn make_summary() -> impl Summary { ... }   // opaque return type\n  // Caller doesn't know concrete type; useful for closures / iterators\n\n  Associated types vs generics:\n  trait Container { type Item; fn get(&self) -> &Self::Item; }\n  // Associated type: one impl per type (cleaner API)\n  trait Container<T> { fn get(&self) -> &T; }\n  // Generic: multiple impls per type possible\n\n  Blanket implementations:\n  impl<T: Display> ToString for T { ... }   // impl for ALL Display types\n  impl<T: Clone + Debug> Printable for T\n\n  dyn Trait (trait objects — dynamic dispatch):\n  let shapes: Vec<Box<dyn Shape>> = vec![Box::new(Circle), Box::new(Rect)];\n  fn draw(s: &dyn Shape) { s.draw(); }\n  // Requires: trait is 'object safe' (no Self return, no generics)\n  // Runtime cost: vtable lookup per call\n\n  impl Trait vs dyn Trait:\n  impl Trait  — monomorphized, zero-cost, single concrete type\n  dyn Trait   — heap allocated, vtable, accepts any type\n\n  Derive macros:\n  #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]\n  #[derive(Serialize, Deserialize)]  // serde\n\n  Operator overloading:\n  impl std::ops::Add for Vector { type Output = Vector; fn add(self, rhs: Vector) -> Vector { ... } }\n  Common: Add Sub Mul Div Neg Index IndexMut Deref DerefMut Display Debug\n\n  const generics:\n  struct Array<T, const N: usize>([T; N]);\n  fn zeros<const N: usize>() -> [f64; N] { [0.0; N] }\n"
+    }
+    fn s_async() -> &'static str {
+        "  Async / await:\n\n  Basics:\n  async fn fetch() -> Result<String, Error> {\n      let resp = reqwest::get(url).await?;\n      resp.text().await\n  }\n  // async fn returns impl Future<Output = T>\n\n  Running async code:\n  // Tokio (most common runtime)\n  #[tokio::main]\n  async fn main() { fetch().await.unwrap(); }\n\n  // Tokio test\n  #[tokio::test]\n  async fn test_fetch() { ... }\n\n  // Block from sync context\n  let result = tokio::runtime::Runtime::new().unwrap().block_on(fetch());\n\n  Spawning tasks (concurrency):\n  let handle = tokio::spawn(async { heavy_work().await });\n  let result = handle.await.unwrap();  // JoinHandle\n\n  Run futures concurrently:\n  let (a, b) = tokio::join!(task_a(), task_b());\n  let result = tokio::select! {\n      r = task_a() => r,\n      r = task_b() => r,  // whichever completes first\n  };\n\n  Channels:\n  let (tx, mut rx) = tokio::sync::mpsc::channel::<i32>(32);\n  tokio::spawn(async move { tx.send(42).await.unwrap(); });\n  while let Some(val) = rx.recv().await { println!(\"{val}\"); }\n\n  Shared state:\n  let state = Arc::new(Mutex::new(HashMap::new()));\n  let s = Arc::clone(&state);\n  tokio::spawn(async move { s.lock().await.insert(k, v); });\n\n  Streams (async iterators):\n  use tokio_stream::StreamExt;\n  while let Some(item) = stream.next().await { ... }\n\n  Common pitfalls:\n  - Don't block in async: avoid std::thread::sleep / blocking I/O\n  - Use tokio::time::sleep(Duration::from_secs(1)).await instead\n  - Don't hold Mutex across await points (deadlock risk)\n  - Use tokio::sync::Mutex not std::sync::Mutex in async code\n  - .await only works inside async functions / async blocks\n"
+    }
+    fn s_iterators() -> &'static str {
+        "  Iterator trait and adapters:\n\n  Implementing Iterator:\n  struct Counter { count: u32 }\n  impl Iterator for Counter {\n      type Item = u32;\n      fn next(&mut self) -> Option<Self::Item> {\n          self.count += 1;\n          if self.count <= 5 { Some(self.count) } else { None }\n      }\n  }\n\n  Common adapters (lazy — only run on consume):\n  .map(|x| x * 2)\n  .filter(|x| x > &0)\n  .filter_map(|x| if x > 0 { Some(x) } else { None })\n  .flat_map(|x| vec![x, x * 2])      Flatten one level\n  .flatten()                          Flatten nested iterables\n  .take(n) / .skip(n)\n  .take_while(|x| x < &10)\n  .skip_while(|x| x < &0)\n  .enumerate()                        (index, item) pairs\n  .zip(other_iter)                    Pair up two iterators\n  .chain(other_iter)                  Concatenate\n  .peekable()                         Peek at next without consuming\n  .step_by(n)                         Every Nth item\n  .rev()                              Reverse (requires DoubleEndedIterator)\n  .cloned() / .copied()               &T -> T\n  .inspect(|x| dbg!(x))              Debug without consuming\n\n  Consumers (trigger evaluation):\n  .collect::<Vec<_>>()\n  .collect::<HashMap<_, _>>()\n  .sum::<i32>() / .product::<i32>()\n  .count()\n  .min() / .max() / .min_by_key() / .max_by_key()\n  .fold(init, |acc, x| acc + x)\n  .reduce(|acc, x| acc + x)          No init; returns Option\n  .any(|x| x > 0) / .all(|x| x > 0)\n  .find(|x| *x > 5) / .position(|x| *x > 5)\n  .for_each(|x| println!(\"{x}\"))\n  .last()\n  .nth(n)                             Skip to Nth item\n  .partition(|x| x > &0)             (Vec<T>, Vec<T>)\n  .unzip()                            (Vec<A>, Vec<B>) from (A,B) pairs\n\n  IntoIterator:\n  for x in vec { ... }  calls vec.into_iter()\n  for x in &vec         calls vec.iter()         (&T)\n  for x in &mut vec     calls vec.iter_mut()     (&mut T)\n"
+    }
+    fn s_macros() -> &'static str {
+        "  Macros:\n\n  Declarative macros (macro_rules!):\n  macro_rules! my_vec {\n      () => { Vec::new() };\n      ($($x:expr),+ $(,)?) => {           // one or more exprs\n          { let mut v = Vec::new(); $(v.push($x);)+ v }\n      };\n  }\n  my_vec![1, 2, 3];  // expands at compile time\n\n  Fragment specifiers:\n  $e:expr    Expression\n  $t:ty      Type\n  $i:ident   Identifier\n  $l:literal Literal value\n  $p:pat     Pattern\n  $s:stmt    Statement\n  $b:block   Block { }\n  $m:meta    Attribute content\n  $tt:tt     Token tree (any single token or group)\n\n  Repetition:\n  $($x:expr),*   Zero or more, comma-separated\n  $($x:expr),+   One or more\n  $($x:expr)?    Optional\n  $(...)* / $(...)+ in expansion mirrors the pattern\n\n  Common built-in macros:\n  println!(\"{}\", x)  eprintln!  print!  eprint!\n  format!(\"{}+{}\", a, b)    -> String\n  vec![1, 2, 3]\n  dbg!(expr)               Prints file/line/value to stderr, returns expr\n  assert!(cond) / assert_eq!(a, b) / assert_ne!(a, b)\n  panic!(\"msg\")  todo!()  unimplemented!()  unreachable!()\n  include_str!(\"file.txt\") / include_bytes!(\"file.bin\")\n  env!(\"CARGO_PKG_VERSION\")   Compile-time env var\n  concat!(\"a\", \"b\")          \"ab\" at compile time\n  cfg!(feature = \"ssl\")      Compile-time bool condition\n\n  Procedural macros (separate crate, more powerful):\n  #[derive(MyDerive)]   Derive macro\n  #[my_attribute]       Attribute macro (any item)\n  my_proc_macro!(...)  Function-like macro\n  Typical crates: syn (parse Rust AST), quote (generate tokens), proc-macro2\n"
+    }
+    fn s_errors() -> &'static str {
+        "  Error handling patterns:\n\n  Result / Option fundamentals:\n  Result<T, E>   Ok(T) | Err(E)\n  Option<T>      Some(T) | None\n  ? operator: unwrap-or-propagate (only in fn returning Result/Option)\n\n  Combinators:\n  .map(|v| v + 1)            Transform Ok/Some value\n  .map_err(|e| MyErr(e))     Transform error\n  .and_then(|v| another(v))  Chain fallible ops\n  .or_else(|e| recover(e))   Chain fallback on error\n  .unwrap_or(default)        Extract or default\n  .unwrap_or_else(|| ...)    Extract or compute default\n  .unwrap_or_default()       Extract or T::default()\n  .ok()                      Result<T,E> -> Option<T>\n  .ok_or(err)                Option<T> -> Result<T,E>\n  .ok_or_else(|| err)        Lazy version\n  .is_ok() / .is_err() / .is_some() / .is_none()\n\n  Custom error types with thiserror:\n  use thiserror::Error;\n  #[derive(Debug, Error)]\n  enum AppError {\n      #[error(\"IO error: {0}\")]\n      Io(#[from] std::io::Error),\n      #[error(\"Parse error: {msg}\")]\n      Parse { msg: String },\n      #[error(\"Not found: {0}\")]\n      NotFound(String),\n  }\n  // #[from] auto-implements From<std::io::Error> for AppError\n\n  anyhow (application-level, boxed errors):\n  use anyhow::{Context, Result, bail, ensure, anyhow};\n  fn run() -> anyhow::Result<()> {\n      let f = std::fs::read_to_string(\"x\").context(\"reading config\")?;\n      ensure!(!f.is_empty(), \"config is empty\");\n      bail!(\"unexpected state: {}\", f);\n      Err(anyhow!(\"ad-hoc error\"))\n  }\n\n  Convert between error types:\n  .map_err(|e| e.to_string())?    Box<dyn Error> catch-all\n  impl From<IoError> for MyError  Manual conversion (? uses From)\n\n  Idioms:\n  let val = option.expect(\"descriptive msg\");  // panic if None\n  let val = result?;                            // propagate error\n  if let Some(x) = option { ... }              // non-panicking unwrap\n  let Some(x) = option else { return; };       // let-else (1.65+)\n"
+    }
+
+    type RustAdvSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+    const SECTIONS: &[RustAdvSection] = &[
+        (
+            "lifetimes",
+            &[
+                "lifetime",
+                "lifetimes",
+                "borrow",
+                "static",
+                "hrtb",
+                "elision",
+            ],
+            s_lifetimes,
+        ),
+        (
+            "traits",
+            &[
+                "trait",
+                "traits",
+                "generic",
+                "generics",
+                "dyn",
+                "blanket",
+                "associated",
+            ],
+            s_traits,
+        ),
+        (
+            "async",
+            &[
+                "async", "await", "future", "tokio", "spawn", "channel", "stream",
+            ],
+            s_async,
+        ),
+        (
+            "iterators",
+            &[
+                "iterator", "iter", "map", "filter", "fold", "collect", "chain", "zip",
+            ],
+            s_iterators,
+        ),
+        (
+            "macros",
+            &[
+                "macro",
+                "macros",
+                "macro_rules",
+                "declarative",
+                "proc-macro",
+                "derive",
+            ],
+            s_macros,
+        ),
+        (
+            "errors",
+            &[
+                "error",
+                "errors",
+                "result",
+                "option",
+                "thiserror",
+                "anyhow",
+                "question",
+            ],
+            s_errors,
+        ),
+    ];
+
+    let q = query.trim().to_lowercase();
+
+    if q.is_empty() || q == "help" || q == "list" {
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  hematite --rust-adv <TOPIC>");
+        let _ = writeln!(out, "  Offline advanced Rust reference — lifetimes, traits, async, iterators, macros, errors");
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  Topics:");
+        for &(name, aliases, _) in SECTIONS {
+            let _ = writeln!(out, "    {name:<12} ({})", aliases.join(", "));
+        }
+        let _ = writeln!(out, "\n  hematite --rust-adv all   -- print everything");
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    if q == "all" {
+        let _ = writeln!(out, "{sep}");
+        for &(name, _, f) in SECTIONS {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+            let _ = writeln!(out, "");
+        }
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    let found: Vec<_> = SECTIONS
+        .iter()
+        .filter(|&&(name, aliases, _)| {
+            name.contains(q.as_str())
+                || aliases
+                    .iter()
+                    .any(|&a| a.contains(q.as_str()) || q.contains(a))
+        })
+        .collect();
+
+    if found.is_empty() {
+        let _ = writeln!(out, "  No topic found for '{}'.", query.trim());
+        let _ = writeln!(out, "  Run: hematite --rust-adv help");
+    } else {
+        let _ = writeln!(out, "{sep}");
+        for &&(name, _, f) in &found {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+        }
+        let _ = writeln!(out, "{sep}");
+    }
+    out
+}
+
+pub fn algo_ref_calc(query: &str) -> String {
+    use std::fmt::Write as _;
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+
+    fn s_complexity() -> &'static str {
+        "  Big O complexity cheatsheet:\n\n  Notation:  O(1) < O(log n) < O(n) < O(n log n) < O(n²) < O(2^n) < O(n!)\n\n  Data structure operations:\n  Array / Slice\n    Access: O(1)  Search: O(n)  Insert/Delete end: O(1)  mid: O(n)\n  Linked List\n    Access: O(n)  Search: O(n)  Insert/Delete head: O(1)  tail*: O(1)\n  Hash Map / Hash Set\n    Average  Access/Insert/Delete/Search: O(1)\n    Worst    O(n)  (hash collisions)\n  Binary Search Tree (balanced: AVL, RB)\n    Access/Search/Insert/Delete: O(log n) avg+worst\n  Unbalanced BST: O(n) worst\n  Heap (Binary)\n    Peek: O(1)  Insert: O(log n)  Delete-min/max: O(log n)  Build: O(n)\n  Stack / Queue: Push/Pop/Enqueue/Dequeue: O(1)\n  Trie\n    Search/Insert/Delete: O(m) where m = key length\n  Graph (V vertices, E edges)\n    BFS/DFS: O(V + E)   Dijkstra (heap): O((V+E) log V)\n    Bellman-Ford: O(VE)  Floyd-Warshall: O(V³)\n    Topological sort: O(V + E)  Prim MST: O(E log V)\n\n  Sorting:\n  Quicksort       O(n log n) avg  O(n²) worst  in-place  NOT stable\n  Mergesort       O(n log n) all  O(n) space    stable\n  Heapsort        O(n log n) all  O(1) space    NOT stable\n  Timsort         O(n log n) / O(n) best   stable  (Python/Java default)\n  Insertion sort  O(n²) avg  O(n) best (nearly sorted)  stable\n  Counting sort   O(n + k) where k = range  (integers only)\n  Radix sort      O(nk) where k = digits    (integers only)\n\n  Space complexity:\n  Most recursive algorithms: O(depth) stack space\n  DFS recursive: O(V) stack   BFS queue: O(V)\n  DP memoization: O(states)   DP tabulation: same, iterative\n"
+    }
+    fn s_sorting() -> &'static str {
+        "  Sorting algorithms — when to use what:\n\n  Quicksort:\n  Average O(n log n), worst O(n²) on already-sorted with bad pivot\n  Fix: random pivot, or 3-way partition for many duplicates\n  In-place; excellent cache performance\n  Use: default general-purpose sort when stability not needed\n\n  Mergesort:\n  O(n log n) guaranteed; stable; O(n) extra space\n  Preferred for: linked lists (no random access), stable requirement,\n                 external sort (data doesn't fit in RAM)\n\n  Heapsort:\n  O(n log n) guaranteed; in-place; NOT stable\n  Use: when guaranteed O(n log n) and O(1) space both required\n  Worse cache behavior than quicksort in practice\n\n  Insertion sort:\n  O(n²) general; O(n) for nearly-sorted input\n  Excellent for small N (n < 20); used as base case in Timsort\n  Stable; in-place; simple implementation\n\n  Counting sort:\n  O(n + k); k = range of values; requires integers in known range\n  Use: age/grade data, character frequencies, bounded integers\n\n  Radix sort:\n  O(nk); k = number of digits; processes digit by digit\n  Non-comparative; stable; good for large arrays of integers/strings\n\n  Quickselect (find kth element):\n  O(n) average; O(n²) worst; in-place\n  Used for median-of-medians, top-k problems\n\n  Dutch National Flag (3-way partition):\n  Sort array with only 3 distinct values in O(n) one pass\n  Lomuto / Hoare partition variants\n\n  Standard library sorts:\n  Python: Timsort (stable, adaptive mergesort + insertion)\n  Rust:   slice::sort = Timsort (stable)  slice::sort_unstable = pattern-defeating quicksort\n  Java:   Arrays.sort (primitive) = dual-pivot quicksort; (objects) = Timsort\n  C++:    std::sort = introsort (quicksort + heapsort fallback + insertion)\n  Go:     sort.Slice = pdqsort (pattern-defeating quicksort)\n"
+    }
+    fn s_trees() -> &'static str {
+        "  Tree algorithms:\n\n  BST operations (average O(log n) balanced, O(n) skewed):\n  Search:   compare at each node, go left/right\n  Insert:   search to null position, insert\n  Delete:   leaf: remove; one child: bypass; two children: replace with\n            in-order successor (leftmost of right subtree)\n\n  Traversals:\n  Pre-order:   root → left → right    (serialize tree, prefix expression)\n  In-order:    left → root → right    (sorted order from BST)\n  Post-order:  left → right → root    (delete tree, postfix expression)\n  Level-order: BFS queue              (find shortest path, serialize by level)\n\n  Iterative in-order (stack, no recursion):\n  stack=[]; node=root\n  while node or stack:\n      while node: stack.push(node); node=node.left\n      node=stack.pop(); visit(node); node=node.right\n\n  Height / depth:\n  Height = max depth of any leaf from root\n  h = 1 + max(height(left), height(right))\n  Balanced: |height(left) - height(right)| <= 1  (AVL condition)\n\n  Self-balancing trees:\n  AVL tree:     Strictly balanced (|bf| <= 1); faster lookup than RB\n  Red-Black:    Less strict; faster insert/delete; used in std libs\n  B-tree:       Multi-way; minimizes disk seeks; used in databases/filesystems\n  B+ tree:      Data only in leaves; leaves linked; B-tree variant for DBs\n\n  Trie (prefix tree):\n  Each node = one character; root = empty\n  Insert 'cat': root->'c'->'a'->'t'(is_word=true)\n  Search: O(m) where m=word length; Space: O(ALPHABET_SIZE * N * m)\n  Uses: autocomplete, IP routing, spell-check, prefix matching\n\n  Segment tree:\n  Range queries (sum/min/max over subarray) + point updates: O(log n)\n  Build: O(n); Space: O(n)\n  Fenwick tree (BIT): simpler; prefix sums only; O(log n) query+update\n"
+    }
+    fn s_graphs() -> &'static str {
+        "  Graph algorithms:\n\n  Representations:\n  Adjacency matrix: O(V²) space; O(1) edge check; dense graphs\n  Adjacency list:   O(V+E) space; O(degree) neighbor iteration; sparse graphs\n  Edge list:        O(E) space; good for Kruskal's MST\n\n  BFS (shortest path in unweighted graph):\n  queue = deque([start]); visited = {start}\n  while queue:\n      node = queue.popleft(); process(node)\n      for neighbor in adj[node]:\n          if neighbor not in visited:\n              visited.add(neighbor); queue.append(neighbor)\n  Time: O(V+E)  Space: O(V)\n\n  DFS (topological sort, cycle detection, connected components):\n  def dfs(node):\n      visited.add(node); pre(node)\n      for neighbor in adj[node]:\n          if neighbor not in visited: dfs(neighbor)\n      post(node)   # post-order = reverse topological order\n  Time: O(V+E)  Stack: O(V)\n\n  Topological sort (Kahn's algorithm, iterative):\n  Compute in-degree for each node\n  Queue all nodes with in-degree 0\n  While queue: pop node, add to order, decrement neighbors' in-degree\n  If order has all V nodes: valid; else: cycle exists\n\n  Dijkstra (shortest path, non-negative weights):\n  heap = [(0, start)]; dist = {start: 0}\n  while heap:\n      d, u = heappop(heap)\n      if d > dist[u]: continue   # stale entry\n      for v, w in adj[u]:\n          if dist[u] + w < dist.get(v, inf):\n              dist[v] = dist[u] + w; heappush(heap, (dist[v], v))\n  Time: O((V+E) log V)\n\n  Union-Find (Disjoint Set Union):\n  find(x): path compression   union(x,y): rank/size union\n  Kruskal's MST: sort edges by weight, union if different components\n  Time: O(E log E) for Kruskal with sorting\n\n  Floyd-Warshall (all-pairs shortest paths):\n  dp[i][j] = min path from i to j; O(V³); handles negative weights (no neg cycles)\n  Bellman-Ford: single source, negative weights OK, O(VE)\n"
+    }
+    fn s_dp() -> &'static str {
+        "  Dynamic Programming patterns:\n\n  Two approaches:\n  Memoization (top-down):  Recursion + cache; natural to write; O(states) space\n  Tabulation (bottom-up):  Fill table iteratively; no recursion overhead; often space-optimizable\n\n  Classic DP problems:\n\n  0/1 Knapsack — can take item or not:\n  dp[i][w] = max(dp[i-1][w], dp[i-1][w-wt[i]] + val[i])\n  O(nW) time and space; optimize to O(W) with rolling array\n\n  Longest Common Subsequence (LCS):\n  dp[i][j] = dp[i-1][j-1]+1 if s1[i]==s2[j], else max(dp[i-1][j], dp[i][j-1])\n  O(mn) time and space\n\n  Longest Increasing Subsequence (LIS):\n  O(n²) DP: dp[i] = max(dp[j]+1) for j<i where arr[j]<arr[i]\n  O(n log n) patience sorting: binary search + tails array\n\n  Edit Distance (Levenshtein):\n  dp[i][j] = 0 if s1[i]==s2[j], else 1+min(dp[i-1][j], dp[i][j-1], dp[i-1][j-1])\n\n  Coin Change (min coins for amount):\n  dp[a] = min(dp[a-coin]+1) for coin in coins\n  Initialize dp[0]=0, rest=infinity; O(amount * coins)\n\n  Matrix Chain Multiplication:\n  dp[i][j] = min cost to multiply matrices i..j\n  O(n³) time; interval DP pattern\n\n  DP on trees:\n  Compute dp at leaves first, propagate to root\n  Often: dp[node][state] = best answer for subtree rooted at node\n\n  State design tips:\n  - Identify what changes between subproblems (index, remaining capacity, etc.)\n  - Think: 'what info do I need to solve this subproblem optimally?'\n  - Optimal substructure: solution contains optimal solutions to subproblems\n  - Overlapping subproblems: same subproblem recurs (otherwise just recursion)\n"
+    }
+    fn s_patterns() -> &'static str {
+        "  Algorithmic problem-solving patterns:\n\n  Sliding Window:\n  Fixed window: two pointers distance N apart, slide both\n  Variable window: expand right, shrink left when condition violated\n  Use: max sum subarray of size k, longest substring without repeat\n  O(n) — each element added/removed at most once\n\n  Two Pointers:\n  Sorted array, search for pair/triplet summing to target\n  left=0, right=n-1; move based on sum vs target\n  Use: 2Sum (sorted), 3Sum, remove duplicates, Dutch flag partition\n\n  Fast/Slow Pointers (Floyd's):\n  slow moves 1 step; fast moves 2 steps\n  Cycle detection in linked list: meet = cycle exists\n  Find cycle start: reset one pointer to head, move both 1 step until meet\n  Find middle of list: when fast reaches end, slow is at middle\n\n  Binary Search variants:\n  Standard: lo=0 hi=n-1; mid=(lo+hi)//2; O(log n)\n  Left-most: find first position where condition is true\n  Right-most: find last position\n  On answer: binary search the answer space (not array index)\n    e.g. 'minimum max distance' — binary search the answer\n\n  Prefix Sum:\n  prefix[i] = sum of arr[0..i-1]\n  Range sum [l,r] = prefix[r+1] - prefix[l]  O(1) after O(n) build\n  2D prefix sum: range rect query O(1)\n\n  Monotonic Stack:\n  Next greater element: stack stores indices of 'unresolved' elements\n  Pop when current element is greater; O(n) total\n  Use: next greater/smaller, histogram largest rectangle, daily temperatures\n\n  Backtracking:\n  Build solution incrementally; abandon (backtrack) if invalid\n  Permutations/combinations/subsets: choose, explore, unchoose\n  Prune early with constraint checks\n\n  Divide and Conquer:\n  Split into independent subproblems, solve recursively, combine\n  Mergesort, Quicksort, Karatsuba, FFT, Closest Pair of Points\n"
+    }
+
+    type AlgoSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+    const SECTIONS: &[AlgoSection] = &[
+        (
+            "complexity",
+            &[
+                "complexity",
+                "big-o",
+                "bigo",
+                "time",
+                "space",
+                "notation",
+                "cheatsheet",
+            ],
+            s_complexity,
+        ),
+        (
+            "sorting",
+            &[
+                "sort",
+                "sorting",
+                "quicksort",
+                "mergesort",
+                "heapsort",
+                "timsort",
+            ],
+            s_sorting,
+        ),
+        (
+            "trees",
+            &[
+                "tree",
+                "trees",
+                "bst",
+                "trie",
+                "traversal",
+                "segment",
+                "avl",
+                "rbtree",
+            ],
+            s_trees,
+        ),
+        (
+            "graphs",
+            &[
+                "graph",
+                "graphs",
+                "bfs",
+                "dfs",
+                "dijkstra",
+                "topological",
+                "union-find",
+            ],
+            s_graphs,
+        ),
+        (
+            "dp",
+            &[
+                "dp", "dynamic", "memoize", "tabulate", "knapsack", "lcs", "lis", "edit",
+            ],
+            s_dp,
+        ),
+        (
+            "patterns",
+            &[
+                "pattern",
+                "sliding-window",
+                "two-pointer",
+                "binary-search",
+                "prefix-sum",
+                "backtrack",
+            ],
+            s_patterns,
+        ),
+    ];
+
+    let q = query.trim().to_lowercase();
+
+    if q.is_empty() || q == "help" || q == "list" {
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  hematite --algo-ref <TOPIC>");
+        let _ = writeln!(out, "  Offline algorithm & data structure reference");
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  Topics:");
+        for &(name, aliases, _) in SECTIONS {
+            let _ = writeln!(out, "    {name:<12} ({})", aliases.join(", "));
+        }
+        let _ = writeln!(out, "\n  hematite --algo-ref all   -- print everything");
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    if q == "all" {
+        let _ = writeln!(out, "{sep}");
+        for &(name, _, f) in SECTIONS {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+            let _ = writeln!(out, "");
+        }
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    let found: Vec<_> = SECTIONS
+        .iter()
+        .filter(|&&(name, aliases, _)| {
+            name.contains(q.as_str())
+                || aliases
+                    .iter()
+                    .any(|&a| a.contains(q.as_str()) || q.contains(a))
+        })
+        .collect();
+
+    if found.is_empty() {
+        let _ = writeln!(out, "  No topic found for '{}'.", query.trim());
+        let _ = writeln!(out, "  Run: hematite --algo-ref help");
+    } else {
+        let _ = writeln!(out, "{sep}");
+        for &&(name, _, f) in &found {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+        }
+        let _ = writeln!(out, "{sep}");
+    }
+    out
+}
+
+pub fn oop_ref_calc(query: &str) -> String {
+    use std::fmt::Write as _;
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+
+    fn s_creational() -> &'static str {
+        "  Creational patterns — object creation:\n\n  Factory Method:\n  Define interface for creating objects; subclass decides which class to instantiate.\n  When: don't know ahead of time which class to instantiate; decouple creation from use.\n  // Python example\n  class Button:  # abstract\n      def render(self): ...\n  class WindowsButton(Button): def render(self): return 'Win button'\n  class MacButton(Button):     def render(self): return 'Mac button'\n  def make_button(os) -> Button:\n      return WindowsButton() if os == 'win' else MacButton()\n\n  Abstract Factory:\n  Factory of factories — creates families of related objects.\n  When: system needs families of objects (UI themes, cross-platform widgets).\n  GUIFactory -> createButton() + createCheckbox()\n  WindowsFactory, MacFactory both implement GUIFactory\n\n  Builder:\n  Separate construction from representation; build complex objects step-by-step.\n  When: constructor has many optional params; different representations needed.\n  Pizza.builder().size('large').cheese(True).pepperoni(True).build()\n  Fluent interface; common in test fixtures, query builders, config objects.\n  In Rust: #[derive(Builder)] via the 'derive_builder' crate.\n\n  Singleton:\n  Ensure only one instance; global access point.\n  When: logging, config, connection pool, registry.\n  Pitfall: global state, hard to test. Prefer dependency injection when possible.\n  Thread-safe in Rust: lazy_static! or once_cell::sync::Lazy.\n  static CONFIG: Lazy<Config> = Lazy::new(|| Config::load());\n\n  Prototype:\n  Clone existing object instead of creating from scratch.\n  When: object creation is expensive; varies little from existing ones.\n  Rust: derive Clone / implement Clone manually.\n  Python: import copy; copy.deepcopy(original)\n\n  Object Pool:\n  Reuse expensive-to-create objects (DB connections, thread pools).\n  Borrow from pool, return when done; pool maintains ready objects.\n"
+    }
+    fn s_structural() -> &'static str {
+        "  Structural patterns — object composition:\n\n  Adapter:\n  Wrap incompatible interface to make it compatible.\n  When: integrating third-party library with incompatible interface.\n  class EuropeanSocket:  def voltage(self): return 220\n  class USAdapter:\n      def __init__(self, s): self.socket = s\n      def voltage(self): return self.socket.voltage() / 2\n\n  Decorator:\n  Attach additional behavior without subclassing. Wraps object in wrapper.\n  When: add features dynamically; open/closed principle over subclassing.\n  @app.route('/') @login_required @cached(ttl=300) def index(): ...\n  Python decorators are language-level; also used in OOP (logging, auth, caching).\n  Rust: newtype wrapper pattern; middleware in Axum/Tower.\n\n  Facade:\n  Simplified interface to a complex subsystem.\n  When: hide complexity; provide high-level API over multiple components.\n  class HomeTheater:  # Facade\n      def watch_movie(self):\n          self.projector.on(); self.amplifier.volume(5); self.dvd.play()\n\n  Proxy:\n  Placeholder object controlling access to another object.\n  Types: Virtual (lazy init), Protection (access control), Remote (network), Logging.\n  When: lazy loading heavy objects; access control; caching; logging.\n\n  Composite:\n  Treat individual objects and compositions uniformly (tree structure).\n  When: part-whole hierarchies (file system, UI trees, org charts).\n  Component (leaf or composite) both implement same interface.\n  draw() works on both a single Shape and a Group of Shapes.\n\n  Bridge:\n  Decouple abstraction from implementation so both can vary independently.\n  When: avoid permanent binding; both abstraction and impl should be extensible.\n  Shape (abstraction) uses DrawingAPI (implementation).\n  Circle and Square both work with RasterAPI and VectorAPI without coupling.\n\n  Flyweight:\n  Share common state among many fine-grained objects to save memory.\n  When: many objects with shared intrinsic state (characters in text editor, particles).\n  Extrinsic state (position, color) stays outside; intrinsic (shape, glyph) is shared.\n"
+    }
+    fn s_behavioral() -> &'static str {
+        "  Behavioral patterns — object communication:\n\n  Observer (Event / Pub-Sub):\n  One-to-many dependency; when object changes, all dependents notified.\n  Subject.subscribe(observer); Subject.notify() calls observer.update()\n  When: event systems, MVC (model notifies views), reactive streams.\n  Python: event emitters; JS: EventEmitter / addEventListener.\n\n  Strategy:\n  Define family of algorithms; encapsulate each; make interchangeable.\n  When: swap algorithms at runtime; eliminate conditionals on algorithm type.\n  Sorter(strategy=QuickSort).sort(data)  vs  Sorter(strategy=MergeSort).sort(data)\n  Replace big if/elif chains on 'type' with polymorphism.\n\n  Command:\n  Encapsulate request as object — supports undo, queue, logging.\n  When: undo/redo; queued operations; transactions; menu actions.\n  editor.execute(PasteCommand(clipboard))\n  editor.undo()   # command stores enough to reverse itself\n\n  Template Method:\n  Define skeleton algorithm in base class; subclasses fill in steps.\n  When: invariant parts of algorithm stay in base; variable parts overridden.\n  class Report:\n      def generate(self):  # template\n          self.header(); self.body(); self.footer()\n      def body(self): raise NotImplementedError  # hook\n\n  State:\n  Object changes behavior when internal state changes. Looks like it changed class.\n  When: object behavior depends heavily on state; many conditional branches on state.\n  TrafficLight: Red/Yellow/Green each implement next_state() + on_enter()\n\n  Chain of Responsibility:\n  Pass request along chain of handlers; each decides to handle or forward.\n  When: middleware pipelines (HTTP), logging handlers, approval workflows.\n  LogHandler -> FileHandler -> EmailHandler (each tries or passes on)\n\n  Iterator:\n  Sequential access to aggregate without exposing internals.\n  Language-level in Python (for x in obj), Rust (for x in iter), Java (Iterable).\n\n  Mediator:\n  Central hub handles communication between components (decouples them).\n  When: many-to-many dependencies; chat room, air traffic control, event bus.\n\n  Visitor:\n  Add operations to objects without modifying them. Double dispatch.\n  When: add many unrelated operations to object hierarchy; compiler AST passes.\n"
+    }
+    fn s_solid() -> &'static str {
+        "  SOLID principles:\n\n  S — Single Responsibility Principle (SRP):\n  A class should have only ONE reason to change.\n  Bad:  UserManager handles auth + email + DB persistence\n  Good: AuthService, EmailService, UserRepository — separate classes\n  'Reason to change' = stakeholder whose requirements might change\n\n  O — Open/Closed Principle (OCP):\n  Open for extension, closed for modification.\n  Add new behavior by adding new code, not changing existing code.\n  Bad:  if shape=='circle': ...  elif shape=='rect': ...  (must edit for each new shape)\n  Good: Each shape implements draw(); client calls shape.draw() polymorphically\n  Abstractions + polymorphism are the mechanism.\n\n  L — Liskov Substitution Principle (LSP):\n  Subtypes must be substitutable for their base types.\n  If S extends T, code using T must work with S without knowing it.\n  Bad:  Square extends Rectangle but breaks setWidth/setHeight invariant\n  Rule: pre-conditions can only weaken; post-conditions can only strengthen.\n  Violations: throw unexpected exceptions; ignore parameters; skip behaviors.\n\n  I — Interface Segregation Principle (ISP):\n  No client should depend on methods it doesn't use.\n  Bad:  one fat interface: Animal with fly(), swim(), run() — penguin forced to stub fly()\n  Good: Flyable, Swimmable, Runnable — classes implement only what they need\n  Prefer many small interfaces over one large one.\n\n  D — Dependency Inversion Principle (DIP):\n  High-level modules should not depend on low-level modules. Both should depend on abstractions.\n  Bad:  OrderService creates MySQLRepository directly (coupled to implementation)\n  Good: OrderService depends on RepositoryTrait; MySQLRepo and MockRepo both implement it\n  Dependency injection (DI) is the mechanism: pass dependencies from outside.\n  Enables testing (inject mock), swapping implementations, and parallel dev.\n"
+    }
+    fn s_composition() -> &'static str {
+        "  Composition over inheritance:\n\n  Inheritance pitfalls:\n  - Tight coupling: subclass depends on superclass internals\n  - Fragile base class: change super breaks all subs\n  - Gorilla/banana problem: wanted banana, got gorilla holding banana\n  - Only one parent class (most languages)\n\n  Composition:\n  class Duck:\n      def __init__(self):\n          self.fly_behavior = FlyWithWings()   # composed behavior\n          self.quack_behavior = Quack()\n      def perform_fly(self): self.fly_behavior.fly()\n  duck.fly_behavior = FlyNoWay()   # swap at runtime!\n\n  Mixins (Python):\n  class LogMixin:\n      def log(self, msg): print(f'[{self.__class__.__name__}] {msg}')\n  class MyService(LogMixin, BaseService): ...\n  No state in mixins; pure behavior injection.\n\n  Traits (Rust):\n  Compose behavior via traits, not inheritance.\n  impl Drawable for Circle  impl Resizable for Circle\n  fn draw_all(items: &[Box<dyn Drawable>])  (polymorphism via trait objects)\n\n  Entity-Component-System (ECS) — games / simulation:\n  Entity: just an ID\n  Component: pure data (Position, Velocity, Health)\n  System: logic operating on entities with specific components\n  Extreme composition: behavior = combination of attached components.\n  Rust: hecs, bevy_ecs; C++: EnTT\n\n  Delegation:\n  Forward method calls to a contained object.\n  Python: __getattr__ fallback; Kotlin: 'by' keyword delegates interface.\n  class LoggingList:\n      def __init__(self, inner): self._inner = inner\n      def append(self, x): self.log(x); self._inner.append(x)\n      def __getattr__(self, name): return getattr(self._inner, name)\n"
+    }
+    fn s_antipatterns() -> &'static str {
+        "  Common OOP anti-patterns:\n\n  God Object / God Class:\n  One class knows too much and does too much. Violates SRP.\n  Symptom: class with 50+ methods, imported everywhere.\n  Fix: decompose into smaller focused classes; apply SRP.\n\n  Anemic Domain Model:\n  Domain classes are just data containers (getters/setters); logic lives in services.\n  Objects don't enforce their own invariants. Not real OOP.\n  Fix: move business rules into the domain object.\n\n  Sequential Coupling:\n  Methods must be called in a specific order, but this isn't enforced.\n  client.connect(); client.login(); client.send()   // wrong order = crash\n  Fix: encapsulate sequence in a workflow method or state machine.\n\n  Yo-Yo Problem:\n  Deep, fragmented inheritance hierarchy requiring jumping between classes to understand.\n  Fix: flatten hierarchy; prefer composition.\n\n  Feature Envy:\n  Method uses data from another class more than its own class.\n  Symptom: method calls other.getX(), other.getY(), other.getZ() repeatedly.\n  Fix: move the method to the class it envies (tell, don't ask).\n\n  Primitive Obsession:\n  Using primitives (String, int) where a domain object would be clearer.\n  Bad:  void setPhone(String phone)  — no validation, no semantic meaning\n  Good: void setPhone(PhoneNumber phone)\n\n  Shotgun Surgery:\n  One change requires modifications in many unrelated places.\n  Opposite of God Object: responsibility too spread out.\n  Fix: consolidate related behavior (move toward cohesion).\n\n  Leaky Abstraction:\n  Abstraction exposes implementation details (SQL in business layer, etc.).\n\n  Tell, Don't Ask:\n  Don't ask object for data then operate on it externally.\n  Bad:  if account.getBalance() > amount: account.debit(amount)\n  Good: account.debit(amount)  // account checks internally\n"
+    }
+
+    type OopSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+    const SECTIONS: &[OopSection] = &[
+        (
+            "creational",
+            &[
+                "creational",
+                "factory",
+                "builder",
+                "singleton",
+                "prototype",
+                "pool",
+            ],
+            s_creational,
+        ),
+        (
+            "structural",
+            &[
+                "structural",
+                "adapter",
+                "decorator",
+                "facade",
+                "proxy",
+                "composite",
+                "bridge",
+            ],
+            s_structural,
+        ),
+        (
+            "behavioral",
+            &[
+                "behavioral",
+                "observer",
+                "strategy",
+                "command",
+                "template",
+                "state",
+                "chain",
+            ],
+            s_behavioral,
+        ),
+        (
+            "solid",
+            &[
+                "solid",
+                "srp",
+                "ocp",
+                "lsp",
+                "isp",
+                "dip",
+                "dependency",
+                "inversion",
+            ],
+            s_solid,
+        ),
+        (
+            "composition",
+            &[
+                "composition",
+                "mixin",
+                "delegation",
+                "ecs",
+                "trait-obj",
+                "inherit",
+            ],
+            s_composition,
+        ),
+        (
+            "antipatterns",
+            &[
+                "antipattern",
+                "god-object",
+                "anemic",
+                "envy",
+                "primitive",
+                "shotgun",
+                "leaky",
+            ],
+            s_antipatterns,
+        ),
+    ];
+
+    let q = query.trim().to_lowercase();
+
+    if q.is_empty() || q == "help" || q == "list" {
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  hematite --oop-ref <TOPIC>");
+        let _ = writeln!(
+            out,
+            "  Offline OOP design patterns reference — GoF patterns, SOLID, composition"
+        );
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  Topics:");
+        for &(name, aliases, _) in SECTIONS {
+            let _ = writeln!(out, "    {name:<14} ({})", aliases.join(", "));
+        }
+        let _ = writeln!(out, "\n  hematite --oop-ref all   -- print everything");
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    if q == "all" {
+        let _ = writeln!(out, "{sep}");
+        for &(name, _, f) in SECTIONS {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+            let _ = writeln!(out, "");
+        }
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    let found: Vec<_> = SECTIONS
+        .iter()
+        .filter(|&&(name, aliases, _)| {
+            name.contains(q.as_str())
+                || aliases
+                    .iter()
+                    .any(|&a| a.contains(q.as_str()) || q.contains(a))
+        })
+        .collect();
+
+    if found.is_empty() {
+        let _ = writeln!(out, "  No topic found for '{}'.", query.trim());
+        let _ = writeln!(out, "  Run: hematite --oop-ref help");
+    } else {
+        let _ = writeln!(out, "{sep}");
+        for &&(name, _, f) in &found {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+        }
+        let _ = writeln!(out, "{sep}");
+    }
+    out
+}

@@ -1793,6 +1793,38 @@ pub struct CliCockpit {
     pub python_data: Option<String>,
 
     #[arg(
+        long = "css-ref",
+        help_heading = "Developer Reference",
+        value_name = "TOPIC",
+        help = "CSS reference — selectors, flexbox, grid, animations, custom properties, responsive. Topics: selectors, flexbox, grid, animations, variables, responsive. Commands: all = everything. Examples: hematite --css-ref flexbox | hematite --css-ref grid | hematite --css-ref selectors"
+    )]
+    pub css_ref: Option<String>,
+
+    #[arg(
+        long = "rust-adv",
+        help_heading = "Developer Reference",
+        value_name = "TOPIC",
+        help = "Advanced Rust reference — lifetimes, traits/generics, async/await, iterators, macros, error handling. Topics: lifetimes, traits, async, iterators, macros, errors. Commands: all = everything. Examples: hematite --rust-adv lifetimes | hematite --rust-adv async | hematite --rust-adv errors"
+    )]
+    pub rust_adv: Option<String>,
+
+    #[arg(
+        long = "algo-ref",
+        help_heading = "Developer Reference",
+        value_name = "TOPIC",
+        help = "Algorithm and data structure reference — Big O cheatsheet, sorting, trees, graphs, DP, problem patterns. Topics: complexity, sorting, trees, graphs, dp, patterns. Commands: all = everything. Examples: hematite --algo-ref complexity | hematite --algo-ref dp | hematite --algo-ref patterns"
+    )]
+    pub algo_ref: Option<String>,
+
+    #[arg(
+        long = "oop-ref",
+        help_heading = "Developer Reference",
+        value_name = "TOPIC",
+        help = "OOP design patterns reference — GoF creational/structural/behavioral, SOLID, composition vs inheritance. Topics: creational, structural, behavioral, solid, composition, antipatterns. Commands: all = everything. Examples: hematite --oop-ref solid | hematite --oop-ref creational | hematite --oop-ref behavioral"
+    )]
+    pub oop_ref: Option<String>,
+
+    #[arg(
         long,
         help_heading = "Math & Science",
         value_name = "QUERY",

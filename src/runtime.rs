@@ -1079,6 +1079,10 @@ mod tests {
             sql_adv: None,
             vim_adv: None,
             python_data: None,
+            css_ref: None,
+            rust_adv: None,
+            algo_ref: None,
+            oop_ref: None,
             pdf_extract_helper: None,
             teleported_from: None,
         };

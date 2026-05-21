@@ -3,23 +3,23 @@
 /// Covers known-value correctness, edge-case non-panics, and the newer
 /// matrix decomposition modes (QR, SVD, Cholesky).
 use hematite::tools::math_util::{
-    ansible_calc, ascii_calc, ascii_table_calc, awk_calc, bash_ref_calc, bitwise_calc, case_calc,
-    chars_calc, checksum_calc, chemistry_calc, chmod_calc, cipher_calc, cloud_ref_calc, color_calc,
-    color_names_calc, combinatorics_calc, complex_calc, cron_calc, csv_calc, curl_calc,
-    datetime_calc, diff_calc, docker_adv_calc, docker_ref_calc, duration_calc, electrical_calc,
-    encode_calc, escape_calc, find_calc, fraction_calc, geometry_calc, git_adv_calc, git_ref_calc,
-    gitignore_calc, go_ref_calc, grep_calc, hash_calc, headers_calc, health_calc, http_adv_calc,
-    http_calc, http_status_calc, id_gen_calc, ip_calc, jinja_calc, jq_calc, js_ref_calc, json_calc,
-    json_path_calc, jwt_calc, kbd_calc, kubectl_calc, license_calc, linux_adv_calc, lorem_calc,
-    make_calc, makefile_calc, markdown_calc, matrix_calc, mime_calc, net_calc, nginx_calc,
-    npm_calc, number_format, number_theory_calc, openssl_calc, percent_calc, physics_calc,
-    port_calc, postgres_calc, prob_calc, python_data_calc, python_ref_calc, regex_adv_calc,
-    regex_calc, regex_ref_calc, roman_calc, rust_ref_calc, security_ref_calc, sed_calc,
-    semver_calc, set_calc, sort_viz, spark_calc, sql_adv_calc, sql_fmt_calc, sql_ref_calc,
-    ssh_ref_calc, ssl_calc, stats_calc, string_dist, systemd_adv_calc, systemd_calc, table_calc,
-    tar_calc, template_calc, terraform_calc, text_stats, timestamp_calc, tmux_calc, toml_calc,
-    trig_calc, ts_ref_calc, tz_calc, url_calc, uuid_calc, validate_calc, vim_adv_calc, vim_calc,
-    xml_calc, yaml_calc,
+    algo_ref_calc, ansible_calc, ascii_calc, ascii_table_calc, awk_calc, bash_ref_calc,
+    bitwise_calc, case_calc, chars_calc, checksum_calc, chemistry_calc, chmod_calc, cipher_calc,
+    cloud_ref_calc, color_calc, color_names_calc, combinatorics_calc, complex_calc, cron_calc,
+    css_ref_calc, csv_calc, curl_calc, datetime_calc, diff_calc, docker_adv_calc, docker_ref_calc,
+    duration_calc, electrical_calc, encode_calc, escape_calc, find_calc, fraction_calc,
+    geometry_calc, git_adv_calc, git_ref_calc, gitignore_calc, go_ref_calc, grep_calc, hash_calc,
+    headers_calc, health_calc, http_adv_calc, http_calc, http_status_calc, id_gen_calc, ip_calc,
+    jinja_calc, jq_calc, js_ref_calc, json_calc, json_path_calc, jwt_calc, kbd_calc, kubectl_calc,
+    license_calc, linux_adv_calc, lorem_calc, make_calc, makefile_calc, markdown_calc, matrix_calc,
+    mime_calc, net_calc, nginx_calc, npm_calc, number_format, number_theory_calc, oop_ref_calc,
+    openssl_calc, percent_calc, physics_calc, port_calc, postgres_calc, prob_calc,
+    python_data_calc, python_ref_calc, regex_adv_calc, regex_calc, regex_ref_calc, roman_calc,
+    rust_adv_calc, rust_ref_calc, security_ref_calc, sed_calc, semver_calc, set_calc, sort_viz,
+    spark_calc, sql_adv_calc, sql_fmt_calc, sql_ref_calc, ssh_ref_calc, ssl_calc, stats_calc,
+    string_dist, systemd_adv_calc, systemd_calc, table_calc, tar_calc, template_calc,
+    terraform_calc, text_stats, timestamp_calc, tmux_calc, toml_calc, trig_calc, ts_ref_calc,
+    tz_calc, url_calc, uuid_calc, validate_calc, vim_adv_calc, vim_calc, xml_calc, yaml_calc,
 };
 
 // ─── Cipher tests ────────────────────────────────────────────────────────────
@@ -11124,6 +11124,1786 @@ fn python_data_eda_alias() {
 #[test]
 fn python_data_not_found() {
     let out = python_data_calc("xyznotfound123");
+    assert!(
+        out.contains("No topic found"),
+        "unknown query returns not-found message"
+    );
+}
+
+// ── css_ref_calc ──────────────────────────────────────────────────────────────
+
+#[test]
+fn css_ref_help_empty() {
+    let out = css_ref_calc("");
+    assert!(
+        out.contains("hematite --css-ref"),
+        "help shown for empty query"
+    );
+    assert!(out.contains("selectors"));
+    assert!(out.contains("flexbox"));
+    assert!(out.contains("grid"));
+}
+
+#[test]
+fn css_ref_all() {
+    let out = css_ref_calc("all");
+    assert!(
+        out.contains("specificity") || out.contains("pseudo"),
+        "all has selectors content"
+    );
+    assert!(
+        out.contains("flex-direction") || out.contains("justify-content"),
+        "all has flexbox content"
+    );
+    assert!(
+        out.contains("grid-template") || out.contains("fr unit"),
+        "all has grid content"
+    );
+    assert!(
+        out.contains("keyframe") || out.contains("animation"),
+        "all has animation content"
+    );
+    assert!(
+        out.contains("--color") || out.contains("clamp"),
+        "all has variables content"
+    );
+    assert!(
+        out.contains("media") || out.contains("breakpoint"),
+        "all has responsive content"
+    );
+}
+
+#[test]
+fn css_ref_selectors() {
+    let out = css_ref_calc("selectors");
+    assert!(
+        out.contains("specificity") || out.contains("Specificity"),
+        "selectors section has specificity"
+    );
+    assert!(
+        out.contains(":hover") || out.contains("pseudo"),
+        "pseudo-classes present"
+    );
+    assert!(
+        out.contains("::before") || out.contains("pseudo-element"),
+        "pseudo-elements present"
+    );
+    assert!(
+        out.contains("[attr") || out.contains("attribute"),
+        "attribute selectors present"
+    );
+    assert!(
+        out.contains(":nth-child") || out.contains("nth"),
+        "nth-child present"
+    );
+}
+
+#[test]
+fn css_ref_specificity_alias() {
+    let out = css_ref_calc("specificity");
+    assert!(
+        out.contains("specificity") || out.contains("Specificity"),
+        "specificity alias resolves to selectors"
+    );
+}
+
+#[test]
+fn css_ref_pseudo_alias() {
+    let out = css_ref_calc("pseudo");
+    assert!(
+        out.contains(":hover") || out.contains("::before"),
+        "pseudo alias works"
+    );
+}
+
+#[test]
+fn css_ref_nth_alias() {
+    let out = css_ref_calc("nth");
+    assert!(
+        out.contains(":nth-child") || out.contains("nth"),
+        "nth alias works"
+    );
+}
+
+#[test]
+fn css_ref_attribute_alias() {
+    let out = css_ref_calc("attribute");
+    assert!(
+        out.contains("[attr") || out.contains("attribute"),
+        "attribute alias works"
+    );
+}
+
+#[test]
+fn css_ref_combinator_alias() {
+    let out = css_ref_calc("combinator");
+    assert!(
+        out.contains("Descendant") || out.contains("Direct child") || out.contains(" > "),
+        "combinator alias works"
+    );
+}
+
+#[test]
+fn css_ref_flexbox() {
+    let out = css_ref_calc("flexbox");
+    assert!(
+        out.contains("flex-direction"),
+        "flexbox section has flex-direction"
+    );
+    assert!(
+        out.contains("justify-content"),
+        "flexbox section has justify-content"
+    );
+    assert!(
+        out.contains("align-items"),
+        "flexbox section has align-items"
+    );
+    assert!(
+        out.contains("flex-grow") || out.contains("flex-shrink"),
+        "flex item properties present"
+    );
+    assert!(
+        out.contains("flex: 1") || out.contains("flex:1"),
+        "flex shorthand present"
+    );
+}
+
+#[test]
+fn css_ref_flex_alias() {
+    let out = css_ref_calc("flex");
+    assert!(
+        out.contains("flex-direction") || out.contains("justify-content"),
+        "flex alias resolves to flexbox"
+    );
+}
+
+#[test]
+fn css_ref_justify_alias() {
+    let out = css_ref_calc("justify");
+    assert!(out.contains("justify-content"), "justify alias works");
+}
+
+#[test]
+fn css_ref_align_alias() {
+    let out = css_ref_calc("align");
+    assert!(out.contains("align-items"), "align alias works");
+}
+
+#[test]
+fn css_ref_gap_alias() {
+    let out = css_ref_calc("gap");
+    assert!(out.contains("gap"), "gap alias works");
+}
+
+#[test]
+fn css_ref_grid() {
+    let out = css_ref_calc("grid");
+    assert!(
+        out.contains("grid-template-columns"),
+        "grid section has grid-template-columns"
+    );
+    assert!(
+        out.contains("grid-template-areas") || out.contains("template-areas"),
+        "grid areas present"
+    );
+    assert!(out.contains("fr"), "fr unit present");
+    assert!(
+        out.contains("auto-fill") || out.contains("auto-fit"),
+        "auto-fill/fit present"
+    );
+    assert!(out.contains("minmax"), "minmax present");
+}
+
+#[test]
+fn css_ref_template_alias() {
+    let out = css_ref_calc("template");
+    assert!(
+        out.contains("grid-template") || out.contains("template"),
+        "template alias works"
+    );
+}
+
+#[test]
+fn css_ref_fr_unit_alias() {
+    let out = css_ref_calc("fr-unit");
+    assert!(out.contains("fr"), "fr-unit alias works");
+}
+
+#[test]
+fn css_ref_minmax_alias() {
+    let out = css_ref_calc("minmax");
+    assert!(out.contains("minmax"), "minmax alias works");
+}
+
+#[test]
+fn css_ref_auto_fill_alias() {
+    let out = css_ref_calc("auto-fill");
+    assert!(out.contains("auto-fill"), "auto-fill alias works");
+}
+
+#[test]
+fn css_ref_animations() {
+    let out = css_ref_calc("animations");
+    assert!(
+        out.contains("@keyframes") || out.contains("keyframe"),
+        "animations section has keyframes"
+    );
+    assert!(out.contains("transition"), "transitions present");
+    assert!(
+        out.contains("animation-fill-mode") || out.contains("fill-mode"),
+        "fill-mode present"
+    );
+    assert!(
+        out.contains("transform") || out.contains("translate"),
+        "transforms present"
+    );
+    assert!(
+        out.contains("ease") || out.contains("timing"),
+        "timing functions present"
+    );
+}
+
+#[test]
+fn css_ref_keyframe_alias() {
+    let out = css_ref_calc("keyframe");
+    assert!(
+        out.contains("@keyframes") || out.contains("keyframe"),
+        "keyframe alias works"
+    );
+}
+
+#[test]
+fn css_ref_transition_alias() {
+    let out = css_ref_calc("transition");
+    assert!(out.contains("transition"), "transition alias works");
+}
+
+#[test]
+fn css_ref_transform_alias() {
+    let out = css_ref_calc("transform");
+    assert!(
+        out.contains("transform") || out.contains("translate"),
+        "transform alias works"
+    );
+}
+
+#[test]
+fn css_ref_timing_alias() {
+    let out = css_ref_calc("timing");
+    assert!(
+        out.contains("ease") || out.contains("timing"),
+        "timing alias works"
+    );
+}
+
+#[test]
+fn css_ref_variables() {
+    let out = css_ref_calc("variables");
+    assert!(
+        out.contains("--color") || out.contains("custom propert"),
+        "variables section has custom properties"
+    );
+    assert!(out.contains("var("), "var() function present");
+    assert!(out.contains("calc("), "calc() present");
+    assert!(out.contains("clamp("), "clamp() present");
+    assert!(
+        out.contains("env(") || out.contains("safe-area"),
+        "env() present"
+    );
+}
+
+#[test]
+fn css_ref_custom_prop_alias() {
+    let out = css_ref_calc("custom-prop");
+    assert!(
+        out.contains("var(") || out.contains("--color"),
+        "custom-prop alias works"
+    );
+}
+
+#[test]
+fn css_ref_calc_alias() {
+    let out = css_ref_calc("calc");
+    assert!(out.contains("calc("), "calc alias works");
+}
+
+#[test]
+fn css_ref_clamp_alias() {
+    let out = css_ref_calc("clamp");
+    assert!(out.contains("clamp("), "clamp alias works");
+}
+
+#[test]
+fn css_ref_viewport_alias() {
+    let out = css_ref_calc("viewport");
+    assert!(
+        out.contains("vw") || out.contains("vh") || out.contains("viewport"),
+        "viewport alias works"
+    );
+}
+
+#[test]
+fn css_ref_responsive() {
+    let out = css_ref_calc("responsive");
+    assert!(
+        out.contains("@media"),
+        "responsive section has media queries"
+    );
+    assert!(
+        out.contains("min-width") || out.contains("max-width"),
+        "width breakpoints present"
+    );
+    assert!(
+        out.contains("container") || out.contains("@container"),
+        "container queries present"
+    );
+    assert!(
+        out.contains("breakpoint") || out.contains("576px"),
+        "breakpoints present"
+    );
+    assert!(
+        out.contains("prefers-color-scheme") || out.contains("dark"),
+        "dark mode media query present"
+    );
+}
+
+#[test]
+fn css_ref_media_query_alias() {
+    let out = css_ref_calc("media-query");
+    assert!(out.contains("@media"), "media-query alias works");
+}
+
+#[test]
+fn css_ref_breakpoint_alias() {
+    let out = css_ref_calc("breakpoint");
+    assert!(
+        out.contains("breakpoint") || out.contains("576px"),
+        "breakpoint alias works"
+    );
+}
+
+#[test]
+fn css_ref_container_query_alias() {
+    let out = css_ref_calc("container-query");
+    assert!(
+        out.contains("@container") || out.contains("container"),
+        "container-query alias works"
+    );
+}
+
+#[test]
+fn css_ref_fluid_alias() {
+    let out = css_ref_calc("fluid");
+    assert!(
+        out.contains("clamp") || out.contains("fluid"),
+        "fluid alias works"
+    );
+}
+
+#[test]
+fn css_ref_not_found() {
+    let out = css_ref_calc("xyznotfound123");
+    assert!(
+        out.contains("No topic found"),
+        "unknown query returns not-found message"
+    );
+}
+
+// ── rust_adv_calc ─────────────────────────────────────────────────────────────
+
+#[test]
+fn rust_adv_help_empty() {
+    let out = rust_adv_calc("");
+    assert!(
+        out.contains("hematite --rust-adv"),
+        "help shown for empty query"
+    );
+    assert!(out.contains("lifetimes"));
+    assert!(out.contains("traits"));
+    assert!(out.contains("async"));
+}
+
+#[test]
+fn rust_adv_all() {
+    let out = rust_adv_calc("all");
+    assert!(
+        out.contains("elision") || out.contains("'static"),
+        "all has lifetimes content"
+    );
+    assert!(
+        out.contains("Blanket") || out.contains("blanket") || out.contains("Associated") || out.contains("associated"),
+        "all has traits content"
+    );
+    assert!(
+        out.contains("tokio") || out.contains("await"),
+        "all has async content"
+    );
+    assert!(
+        out.contains("flat_map") || out.contains("collect"),
+        "all has iterators content"
+    );
+    assert!(
+        out.contains("macro_rules") || out.contains("proc-macro"),
+        "all has macros content"
+    );
+    assert!(
+        out.contains("thiserror") || out.contains("anyhow"),
+        "all has errors content"
+    );
+}
+
+#[test]
+fn rust_adv_lifetimes() {
+    let out = rust_adv_calc("lifetimes");
+    assert!(
+        out.contains("'a") || out.contains("lifetime"),
+        "lifetimes section has syntax"
+    );
+    assert!(
+        out.contains("elision") || out.contains("Elision"),
+        "lifetime elision rules present"
+    );
+    assert!(out.contains("'static"), "'static lifetime present");
+    assert!(
+        out.contains("HRTB") || out.contains("higher-ranked") || out.contains("for<'a>"),
+        "HRTB present"
+    );
+}
+
+#[test]
+fn rust_adv_lifetime_alias() {
+    let out = rust_adv_calc("lifetime");
+    assert!(
+        out.contains("'a") || out.contains("lifetime"),
+        "lifetime alias resolves to lifetimes section"
+    );
+}
+
+#[test]
+fn rust_adv_borrow_alias() {
+    let out = rust_adv_calc("borrow");
+    assert!(
+        out.contains("lifetime") || out.contains("'a"),
+        "borrow alias works"
+    );
+}
+
+#[test]
+fn rust_adv_static_alias() {
+    let out = rust_adv_calc("static");
+    assert!(out.contains("'static"), "static alias works");
+}
+
+#[test]
+fn rust_adv_elision_alias() {
+    let out = rust_adv_calc("elision");
+    assert!(
+        out.contains("elision") || out.contains("Elision"),
+        "elision alias works"
+    );
+}
+
+#[test]
+fn rust_adv_hrtb_alias() {
+    let out = rust_adv_calc("hrtb");
+    assert!(
+        out.contains("for<'a>") || out.contains("higher-ranked") || out.contains("HRTB"),
+        "hrtb alias works"
+    );
+}
+
+#[test]
+fn rust_adv_traits() {
+    let out = rust_adv_calc("traits");
+    assert!(
+        out.contains("impl Summary") || out.contains("trait Summary"),
+        "traits section has trait def"
+    );
+    assert!(
+        out.contains("where") || out.contains("trait bound"),
+        "trait bounds present"
+    );
+    assert!(
+        out.contains("dyn Trait") || out.contains("dyn "),
+        "dyn Trait present"
+    );
+    assert!(
+        out.contains("blanket") || out.contains("Blanket"),
+        "blanket implementations present"
+    );
+    assert!(
+        out.contains("associated type") || out.contains("type Item"),
+        "associated types present"
+    );
+}
+
+#[test]
+fn rust_adv_trait_alias() {
+    let out = rust_adv_calc("trait");
+    assert!(
+        out.contains("trait") || out.contains("impl"),
+        "trait alias resolves to traits section"
+    );
+}
+
+#[test]
+fn rust_adv_generic_alias() {
+    let out = rust_adv_calc("generic");
+    assert!(
+        out.contains("generic") || out.contains("<T>"),
+        "generic alias works"
+    );
+}
+
+#[test]
+fn rust_adv_dyn_alias() {
+    let out = rust_adv_calc("dyn");
+    assert!(
+        out.contains("dyn Trait") || out.contains("dyn "),
+        "dyn alias works"
+    );
+}
+
+#[test]
+fn rust_adv_blanket_alias() {
+    let out = rust_adv_calc("blanket");
+    assert!(
+        out.contains("blanket") || out.contains("Blanket"),
+        "blanket alias works"
+    );
+}
+
+#[test]
+fn rust_adv_associated_alias() {
+    let out = rust_adv_calc("associated");
+    assert!(
+        out.contains("associated") || out.contains("type Item"),
+        "associated alias works"
+    );
+}
+
+#[test]
+fn rust_adv_async() {
+    let out = rust_adv_calc("async");
+    assert!(
+        out.contains("async fn") || out.contains("await"),
+        "async section has async/await"
+    );
+    assert!(
+        out.contains("tokio") || out.contains("Tokio"),
+        "Tokio runtime present"
+    );
+    assert!(
+        out.contains("spawn") || out.contains("tokio::spawn"),
+        "spawning tasks present"
+    );
+    assert!(
+        out.contains("channel") || out.contains("mpsc"),
+        "channels present"
+    );
+    assert!(
+        out.contains("join!") || out.contains("select!"),
+        "concurrency macros present"
+    );
+}
+
+#[test]
+fn rust_adv_await_alias() {
+    let out = rust_adv_calc("await");
+    assert!(
+        out.contains("await") || out.contains(".await"),
+        "await alias works"
+    );
+}
+
+#[test]
+fn rust_adv_future_alias() {
+    let out = rust_adv_calc("future");
+    assert!(
+        out.contains("Future") || out.contains("async"),
+        "future alias works"
+    );
+}
+
+#[test]
+fn rust_adv_tokio_alias() {
+    let out = rust_adv_calc("tokio");
+    assert!(
+        out.contains("tokio") || out.contains("Tokio"),
+        "tokio alias works"
+    );
+}
+
+#[test]
+fn rust_adv_spawn_alias() {
+    let out = rust_adv_calc("spawn");
+    assert!(
+        out.contains("spawn") || out.contains("tokio::spawn"),
+        "spawn alias works"
+    );
+}
+
+#[test]
+fn rust_adv_channel_alias() {
+    let out = rust_adv_calc("channel");
+    assert!(
+        out.contains("channel") || out.contains("mpsc"),
+        "channel alias works"
+    );
+}
+
+#[test]
+fn rust_adv_stream_alias() {
+    let out = rust_adv_calc("stream");
+    assert!(
+        out.contains("Stream") || out.contains("stream"),
+        "stream alias works"
+    );
+}
+
+#[test]
+fn rust_adv_iterators() {
+    let out = rust_adv_calc("iterators");
+    assert!(
+        out.contains("Iterator") || out.contains("impl Iterator"),
+        "iterators section has Iterator trait"
+    );
+    assert!(
+        out.contains("flat_map") || out.contains("filter_map"),
+        "adapters present"
+    );
+    assert!(
+        out.contains("collect") || out.contains("fold"),
+        "consumers present"
+    );
+    assert!(
+        out.contains("enumerate") || out.contains("zip"),
+        "utility adapters present"
+    );
+    assert!(
+        out.contains("IntoIterator") || out.contains("into_iter"),
+        "IntoIterator present"
+    );
+}
+
+#[test]
+fn rust_adv_iterator_alias() {
+    let out = rust_adv_calc("iterator");
+    assert!(
+        out.contains("Iterator") || out.contains("impl Iterator"),
+        "iterator alias works"
+    );
+}
+
+#[test]
+fn rust_adv_iter_alias() {
+    let out = rust_adv_calc("iter");
+    assert!(
+        out.contains("Iterator") || out.contains(".iter()"),
+        "iter alias works"
+    );
+}
+
+#[test]
+fn rust_adv_map_alias() {
+    let out = rust_adv_calc("map");
+    assert!(
+        out.contains(".map(") || out.contains("map(|"),
+        "map alias works"
+    );
+}
+
+#[test]
+fn rust_adv_filter_alias() {
+    let out = rust_adv_calc("filter");
+    assert!(out.contains(".filter("), "filter alias works");
+}
+
+#[test]
+fn rust_adv_fold_alias() {
+    let out = rust_adv_calc("fold");
+    assert!(
+        out.contains(".fold(") || out.contains("fold(init"),
+        "fold alias works"
+    );
+}
+
+#[test]
+fn rust_adv_collect_alias() {
+    let out = rust_adv_calc("collect");
+    assert!(out.contains(".collect"), "collect alias works");
+}
+
+#[test]
+fn rust_adv_macros() {
+    let out = rust_adv_calc("macros");
+    assert!(
+        out.contains("macro_rules!"),
+        "macros section has macro_rules!"
+    );
+    assert!(
+        out.contains("$e:expr") || out.contains(":expr"),
+        "fragment specifiers present"
+    );
+    assert!(
+        out.contains("dbg!") || out.contains("assert_eq!"),
+        "built-in macros present"
+    );
+    assert!(
+        out.contains("proc") || out.contains("proc-macro"),
+        "proc macros mentioned"
+    );
+    assert!(
+        out.contains("repetition") || out.contains("Repetition") || out.contains("$($x"),
+        "repetition present"
+    );
+}
+
+#[test]
+fn rust_adv_macro_alias() {
+    let out = rust_adv_calc("macro");
+    assert!(
+        out.contains("macro_rules!") || out.contains("macro"),
+        "macro alias works"
+    );
+}
+
+#[test]
+fn rust_adv_macro_rules_alias() {
+    let out = rust_adv_calc("macro_rules");
+    assert!(out.contains("macro_rules!"), "macro_rules alias works");
+}
+
+#[test]
+fn rust_adv_declarative_alias() {
+    let out = rust_adv_calc("declarative");
+    assert!(
+        out.contains("macro_rules!") || out.contains("declarative"),
+        "declarative alias works"
+    );
+}
+
+#[test]
+fn rust_adv_proc_macro_alias() {
+    let out = rust_adv_calc("proc-macro");
+    assert!(
+        out.contains("proc") || out.contains("Procedural"),
+        "proc-macro alias works"
+    );
+}
+
+#[test]
+fn rust_adv_derive_alias() {
+    let out = rust_adv_calc("derive");
+    assert!(
+        out.contains("derive") || out.contains("#[derive"),
+        "derive alias works"
+    );
+}
+
+#[test]
+fn rust_adv_errors() {
+    let out = rust_adv_calc("errors");
+    assert!(
+        out.contains("Result") || out.contains("Option"),
+        "errors section has Result/Option"
+    );
+    assert!(
+        out.contains("thiserror") || out.contains("thiserror"),
+        "thiserror present"
+    );
+    assert!(
+        out.contains("anyhow") || out.contains("anyhow"),
+        "anyhow present"
+    );
+    assert!(
+        out.contains("? operator") || out.contains("?"),
+        "? operator present"
+    );
+    assert!(
+        out.contains(".map_err(") || out.contains("map_err"),
+        "error mapping present"
+    );
+}
+
+#[test]
+fn rust_adv_error_alias() {
+    let out = rust_adv_calc("error");
+    assert!(
+        out.contains("Result") || out.contains("Error"),
+        "error alias works"
+    );
+}
+
+#[test]
+fn rust_adv_result_alias() {
+    let out = rust_adv_calc("result");
+    assert!(
+        out.contains("Result") || out.contains("Ok("),
+        "result alias works"
+    );
+}
+
+#[test]
+fn rust_adv_option_alias() {
+    let out = rust_adv_calc("option");
+    assert!(
+        out.contains("Option") || out.contains("Some("),
+        "option alias works"
+    );
+}
+
+#[test]
+fn rust_adv_thiserror_alias() {
+    let out = rust_adv_calc("thiserror");
+    assert!(out.contains("thiserror"), "thiserror alias works");
+}
+
+#[test]
+fn rust_adv_anyhow_alias() {
+    let out = rust_adv_calc("anyhow");
+    assert!(out.contains("anyhow"), "anyhow alias works");
+}
+
+#[test]
+fn rust_adv_not_found() {
+    let out = rust_adv_calc("xyznotfound123");
+    assert!(
+        out.contains("No topic found"),
+        "unknown query returns not-found message"
+    );
+}
+
+// ── algo_ref_calc ─────────────────────────────────────────────────────────────
+
+#[test]
+fn algo_ref_help_empty() {
+    let out = algo_ref_calc("");
+    assert!(
+        out.contains("hematite --algo-ref"),
+        "help shown for empty query"
+    );
+    assert!(out.contains("complexity"));
+    assert!(out.contains("sorting"));
+    assert!(out.contains("graphs"));
+}
+
+#[test]
+fn algo_ref_all() {
+    let out = algo_ref_calc("all");
+    assert!(
+        out.contains("O(log n)") || out.contains("Big O"),
+        "all has complexity content"
+    );
+    assert!(
+        out.contains("Quicksort") || out.contains("Mergesort"),
+        "all has sorting content"
+    );
+    assert!(
+        out.contains("BST") || out.contains("traversal"),
+        "all has trees content"
+    );
+    assert!(
+        out.contains("BFS") || out.contains("DFS"),
+        "all has graphs content"
+    );
+    assert!(
+        out.contains("Knapsack") || out.contains("memoiz"),
+        "all has dp content"
+    );
+    assert!(
+        out.contains("sliding") || out.contains("two pointer") || out.contains("Two Pointer"),
+        "all has patterns content"
+    );
+}
+
+#[test]
+fn algo_ref_complexity() {
+    let out = algo_ref_calc("complexity");
+    assert!(
+        out.contains("O(1)") || out.contains("O(log n)"),
+        "complexity section has Big O"
+    );
+    assert!(
+        out.contains("Hash Map") || out.contains("HashMap"),
+        "hash map complexity present"
+    );
+    assert!(
+        out.contains("Heap") || out.contains("Binary Heap"),
+        "heap complexity present"
+    );
+    assert!(
+        out.contains("Quicksort") || out.contains("O(n log n)"),
+        "sorting complexity present"
+    );
+    assert!(
+        out.contains("Space") || out.contains("space"),
+        "space complexity present"
+    );
+}
+
+#[test]
+fn algo_ref_big_o_alias() {
+    let out = algo_ref_calc("big-o");
+    assert!(
+        out.contains("O(1)") || out.contains("O(log n)"),
+        "big-o alias resolves to complexity"
+    );
+}
+
+#[test]
+fn algo_ref_bigo_alias() {
+    let out = algo_ref_calc("bigo");
+    assert!(
+        out.contains("O(1)") || out.contains("Big O"),
+        "bigo alias works"
+    );
+}
+
+#[test]
+fn algo_ref_time_alias() {
+    let out = algo_ref_calc("time");
+    assert!(
+        out.contains("O(1)") || out.contains("time"),
+        "time alias works"
+    );
+}
+
+#[test]
+fn algo_ref_notation_alias() {
+    let out = algo_ref_calc("notation");
+    assert!(
+        out.contains("O(1)") || out.contains("notation"),
+        "notation alias works"
+    );
+}
+
+#[test]
+fn algo_ref_cheatsheet_alias() {
+    let out = algo_ref_calc("cheatsheet");
+    assert!(
+        out.contains("O(1)") || out.contains("O(log n)"),
+        "cheatsheet alias works"
+    );
+}
+
+#[test]
+fn algo_ref_sorting() {
+    let out = algo_ref_calc("sorting");
+    assert!(out.contains("Quicksort"), "sorting section has Quicksort");
+    assert!(out.contains("Mergesort"), "sorting section has Mergesort");
+    assert!(
+        out.contains("Heapsort") || out.contains("Timsort"),
+        "other sorts present"
+    );
+    assert!(
+        out.contains("stable") || out.contains("Stable"),
+        "stability mentioned"
+    );
+    assert!(
+        out.contains("in-place") || out.contains("in-place"),
+        "in-place mentioned"
+    );
+}
+
+#[test]
+fn algo_ref_sort_alias() {
+    let out = algo_ref_calc("sort");
+    assert!(
+        out.contains("Quicksort") || out.contains("Mergesort"),
+        "sort alias resolves to sorting"
+    );
+}
+
+#[test]
+fn algo_ref_quicksort_alias() {
+    let out = algo_ref_calc("quicksort");
+    assert!(out.contains("Quicksort"), "quicksort alias works");
+}
+
+#[test]
+fn algo_ref_mergesort_alias() {
+    let out = algo_ref_calc("mergesort");
+    assert!(out.contains("Mergesort"), "mergesort alias works");
+}
+
+#[test]
+fn algo_ref_heapsort_alias() {
+    let out = algo_ref_calc("heapsort");
+    assert!(out.contains("Heapsort"), "heapsort alias works");
+}
+
+#[test]
+fn algo_ref_timsort_alias() {
+    let out = algo_ref_calc("timsort");
+    assert!(out.contains("Timsort"), "timsort alias works");
+}
+
+#[test]
+fn algo_ref_trees() {
+    let out = algo_ref_calc("trees");
+    assert!(
+        out.contains("BST") || out.contains("Binary Search Tree"),
+        "trees section has BST"
+    );
+    assert!(
+        out.contains("traversal") || out.contains("Pre-order"),
+        "traversals present"
+    );
+    assert!(out.contains("Trie") || out.contains("trie"), "trie present");
+    assert!(
+        out.contains("AVL") || out.contains("Red-Black") || out.contains("RB"),
+        "balanced trees mentioned"
+    );
+    assert!(
+        out.contains("height") || out.contains("Height"),
+        "height/depth present"
+    );
+}
+
+#[test]
+fn algo_ref_tree_alias() {
+    let out = algo_ref_calc("tree");
+    assert!(
+        out.contains("BST") || out.contains("traversal"),
+        "tree alias resolves to trees section"
+    );
+}
+
+#[test]
+fn algo_ref_bst_alias() {
+    let out = algo_ref_calc("bst");
+    assert!(
+        out.contains("BST") || out.contains("Binary Search Tree"),
+        "bst alias works"
+    );
+}
+
+#[test]
+fn algo_ref_trie_alias() {
+    let out = algo_ref_calc("trie");
+    assert!(
+        out.contains("Trie") || out.contains("trie"),
+        "trie alias works"
+    );
+}
+
+#[test]
+fn algo_ref_traversal_alias() {
+    let out = algo_ref_calc("traversal");
+    assert!(
+        out.contains("Pre-order") || out.contains("In-order"),
+        "traversal alias works"
+    );
+}
+
+#[test]
+fn algo_ref_avl_alias() {
+    let out = algo_ref_calc("avl");
+    assert!(out.contains("AVL"), "avl alias works");
+}
+
+#[test]
+fn algo_ref_graphs() {
+    let out = algo_ref_calc("graphs");
+    assert!(out.contains("BFS"), "graphs section has BFS");
+    assert!(out.contains("DFS"), "graphs section has DFS");
+    assert!(out.contains("Dijkstra"), "graphs section has Dijkstra");
+    assert!(
+        out.contains("topological") || out.contains("Topological"),
+        "topological sort present"
+    );
+    assert!(
+        out.contains("Union-Find") || out.contains("union-find") || out.contains("Disjoint"),
+        "union-find present"
+    );
+}
+
+#[test]
+fn algo_ref_graph_alias() {
+    let out = algo_ref_calc("graph");
+    assert!(
+        out.contains("BFS") || out.contains("DFS"),
+        "graph alias resolves to graphs section"
+    );
+}
+
+#[test]
+fn algo_ref_bfs_alias() {
+    let out = algo_ref_calc("bfs");
+    assert!(out.contains("BFS"), "bfs alias works");
+}
+
+#[test]
+fn algo_ref_dfs_alias() {
+    let out = algo_ref_calc("dfs");
+    assert!(out.contains("DFS"), "dfs alias works");
+}
+
+#[test]
+fn algo_ref_dijkstra_alias() {
+    let out = algo_ref_calc("dijkstra");
+    assert!(out.contains("Dijkstra"), "dijkstra alias works");
+}
+
+#[test]
+fn algo_ref_topological_alias() {
+    let out = algo_ref_calc("topological");
+    assert!(
+        out.contains("topological") || out.contains("Topological"),
+        "topological alias works"
+    );
+}
+
+#[test]
+fn algo_ref_union_find_alias() {
+    let out = algo_ref_calc("union-find");
+    assert!(
+        out.contains("Union-Find") || out.contains("union-find") || out.contains("Disjoint"),
+        "union-find alias works"
+    );
+}
+
+#[test]
+fn algo_ref_dp() {
+    let out = algo_ref_calc("dp");
+    assert!(
+        out.contains("Memoization") || out.contains("memoiz"),
+        "dp section has memoization"
+    );
+    assert!(
+        out.contains("Tabulation") || out.contains("tabul"),
+        "tabulation present"
+    );
+    assert!(
+        out.contains("Knapsack") || out.contains("knapsack"),
+        "knapsack problem present"
+    );
+    assert!(
+        out.contains("LCS") || out.contains("Longest Common"),
+        "LCS present"
+    );
+    assert!(
+        out.contains("Edit Distance") || out.contains("Levenshtein"),
+        "edit distance present"
+    );
+}
+
+#[test]
+fn algo_ref_dynamic_alias() {
+    let out = algo_ref_calc("dynamic");
+    assert!(
+        out.contains("Memoization") || out.contains("memoiz"),
+        "dynamic alias resolves to dp section"
+    );
+}
+
+#[test]
+fn algo_ref_memoize_alias() {
+    let out = algo_ref_calc("memoize");
+    assert!(
+        out.contains("Memoization") || out.contains("memoiz"),
+        "memoize alias works"
+    );
+}
+
+#[test]
+fn algo_ref_knapsack_alias() {
+    let out = algo_ref_calc("knapsack");
+    assert!(
+        out.contains("Knapsack") || out.contains("knapsack"),
+        "knapsack alias works"
+    );
+}
+
+#[test]
+fn algo_ref_lcs_alias() {
+    let out = algo_ref_calc("lcs");
+    assert!(
+        out.contains("LCS") || out.contains("Common Subsequence"),
+        "lcs alias works"
+    );
+}
+
+#[test]
+fn algo_ref_lis_alias() {
+    let out = algo_ref_calc("lis");
+    assert!(
+        out.contains("LIS") || out.contains("Increasing Subsequence"),
+        "lis alias works"
+    );
+}
+
+#[test]
+fn algo_ref_edit_alias() {
+    let out = algo_ref_calc("edit");
+    assert!(
+        out.contains("Edit Distance") || out.contains("Levenshtein"),
+        "edit alias works"
+    );
+}
+
+#[test]
+fn algo_ref_patterns() {
+    let out = algo_ref_calc("patterns");
+    assert!(
+        out.contains("Sliding Window") || out.contains("sliding"),
+        "patterns section has sliding window"
+    );
+    assert!(
+        out.contains("Two Pointer") || out.contains("two pointer"),
+        "two pointers present"
+    );
+    assert!(
+        out.contains("Binary Search") || out.contains("binary search"),
+        "binary search variants present"
+    );
+    assert!(
+        out.contains("Prefix Sum") || out.contains("prefix sum"),
+        "prefix sum present"
+    );
+    assert!(
+        out.contains("Backtracking") || out.contains("backtrack"),
+        "backtracking present"
+    );
+}
+
+#[test]
+fn algo_ref_sliding_window_alias() {
+    let out = algo_ref_calc("sliding-window");
+    assert!(
+        out.contains("Sliding Window") || out.contains("sliding"),
+        "sliding-window alias works"
+    );
+}
+
+#[test]
+fn algo_ref_two_pointer_alias() {
+    let out = algo_ref_calc("two-pointer");
+    assert!(
+        out.contains("Two Pointer") || out.contains("two pointer"),
+        "two-pointer alias works"
+    );
+}
+
+#[test]
+fn algo_ref_binary_search_alias() {
+    let out = algo_ref_calc("binary-search");
+    assert!(
+        out.contains("Binary Search") || out.contains("binary search"),
+        "binary-search alias works"
+    );
+}
+
+#[test]
+fn algo_ref_prefix_sum_alias() {
+    let out = algo_ref_calc("prefix-sum");
+    assert!(
+        out.contains("Prefix Sum") || out.contains("prefix sum"),
+        "prefix-sum alias works"
+    );
+}
+
+#[test]
+fn algo_ref_backtrack_alias() {
+    let out = algo_ref_calc("backtrack");
+    assert!(
+        out.contains("Backtracking") || out.contains("backtrack"),
+        "backtrack alias works"
+    );
+}
+
+#[test]
+fn algo_ref_not_found() {
+    let out = algo_ref_calc("xyznotfound123");
+    assert!(
+        out.contains("No topic found"),
+        "unknown query returns not-found message"
+    );
+}
+
+// ── oop_ref_calc ──────────────────────────────────────────────────────────────
+
+#[test]
+fn oop_ref_help_empty() {
+    let out = oop_ref_calc("");
+    assert!(
+        out.contains("hematite --oop-ref"),
+        "help shown for empty query"
+    );
+    assert!(out.contains("creational"));
+    assert!(out.contains("solid"));
+    assert!(out.contains("behavioral"));
+}
+
+#[test]
+fn oop_ref_all() {
+    let out = oop_ref_calc("all");
+    assert!(
+        out.contains("Factory") || out.contains("factory"),
+        "all has creational content"
+    );
+    assert!(
+        out.contains("Adapter") || out.contains("Decorator"),
+        "all has structural content"
+    );
+    assert!(
+        out.contains("Observer") || out.contains("Strategy"),
+        "all has behavioral content"
+    );
+    assert!(
+        out.contains("Single Responsibility") || out.contains("SRP"),
+        "all has SOLID content"
+    );
+    assert!(
+        out.contains("Mixin") || out.contains("composition"),
+        "all has composition content"
+    );
+    assert!(
+        out.contains("God Object") || out.contains("antipattern"),
+        "all has antipatterns content"
+    );
+}
+
+#[test]
+fn oop_ref_creational() {
+    let out = oop_ref_calc("creational");
+    assert!(
+        out.contains("Factory") || out.contains("factory"),
+        "creational section has Factory"
+    );
+    assert!(
+        out.contains("Builder") || out.contains("builder"),
+        "Builder pattern present"
+    );
+    assert!(
+        out.contains("Singleton") || out.contains("singleton"),
+        "Singleton present"
+    );
+    assert!(
+        out.contains("Prototype") || out.contains("clone"),
+        "Prototype present"
+    );
+}
+
+#[test]
+fn oop_ref_factory_alias() {
+    let out = oop_ref_calc("factory");
+    assert!(
+        out.contains("Factory") || out.contains("factory"),
+        "factory alias resolves to creational"
+    );
+}
+
+#[test]
+fn oop_ref_builder_alias() {
+    let out = oop_ref_calc("builder");
+    assert!(
+        out.contains("Builder") || out.contains("builder"),
+        "builder alias works"
+    );
+}
+
+#[test]
+fn oop_ref_singleton_alias() {
+    let out = oop_ref_calc("singleton");
+    assert!(
+        out.contains("Singleton") || out.contains("singleton"),
+        "singleton alias works"
+    );
+}
+
+#[test]
+fn oop_ref_prototype_alias() {
+    let out = oop_ref_calc("prototype");
+    assert!(
+        out.contains("Prototype") || out.contains("clone"),
+        "prototype alias works"
+    );
+}
+
+#[test]
+fn oop_ref_pool_alias() {
+    let out = oop_ref_calc("pool");
+    assert!(
+        out.contains("Pool") || out.contains("pool"),
+        "pool alias works"
+    );
+}
+
+#[test]
+fn oop_ref_structural() {
+    let out = oop_ref_calc("structural");
+    assert!(
+        out.contains("Adapter") || out.contains("adapter"),
+        "structural section has Adapter"
+    );
+    assert!(
+        out.contains("Decorator") || out.contains("decorator"),
+        "Decorator present"
+    );
+    assert!(
+        out.contains("Facade") || out.contains("facade"),
+        "Facade present"
+    );
+    assert!(
+        out.contains("Proxy") || out.contains("proxy"),
+        "Proxy present"
+    );
+    assert!(
+        out.contains("Composite") || out.contains("composite"),
+        "Composite present"
+    );
+}
+
+#[test]
+fn oop_ref_adapter_alias() {
+    let out = oop_ref_calc("adapter");
+    assert!(
+        out.contains("Adapter") || out.contains("adapter"),
+        "adapter alias resolves to structural"
+    );
+}
+
+#[test]
+fn oop_ref_decorator_alias() {
+    let out = oop_ref_calc("decorator");
+    assert!(
+        out.contains("Decorator") || out.contains("decorator"),
+        "decorator alias works"
+    );
+}
+
+#[test]
+fn oop_ref_facade_alias() {
+    let out = oop_ref_calc("facade");
+    assert!(
+        out.contains("Facade") || out.contains("facade"),
+        "facade alias works"
+    );
+}
+
+#[test]
+fn oop_ref_proxy_alias() {
+    let out = oop_ref_calc("proxy");
+    assert!(
+        out.contains("Proxy") || out.contains("proxy"),
+        "proxy alias works"
+    );
+}
+
+#[test]
+fn oop_ref_composite_alias() {
+    let out = oop_ref_calc("composite");
+    assert!(
+        out.contains("Composite") || out.contains("composite"),
+        "composite alias works"
+    );
+}
+
+#[test]
+fn oop_ref_bridge_alias() {
+    let out = oop_ref_calc("bridge");
+    assert!(
+        out.contains("Bridge") || out.contains("bridge"),
+        "bridge alias works"
+    );
+}
+
+#[test]
+fn oop_ref_behavioral() {
+    let out = oop_ref_calc("behavioral");
+    assert!(
+        out.contains("Observer") || out.contains("observer"),
+        "behavioral section has Observer"
+    );
+    assert!(
+        out.contains("Strategy") || out.contains("strategy"),
+        "Strategy present"
+    );
+    assert!(
+        out.contains("Command") || out.contains("command"),
+        "Command present"
+    );
+    assert!(
+        out.contains("State") || out.contains("state"),
+        "State present"
+    );
+    assert!(
+        out.contains("Chain") || out.contains("chain"),
+        "Chain of Responsibility present"
+    );
+}
+
+#[test]
+fn oop_ref_observer_alias() {
+    let out = oop_ref_calc("observer");
+    assert!(
+        out.contains("Observer") || out.contains("observer"),
+        "observer alias resolves to behavioral"
+    );
+}
+
+#[test]
+fn oop_ref_strategy_alias() {
+    let out = oop_ref_calc("strategy");
+    assert!(
+        out.contains("Strategy") || out.contains("strategy"),
+        "strategy alias works"
+    );
+}
+
+#[test]
+fn oop_ref_command_alias() {
+    let out = oop_ref_calc("command");
+    assert!(
+        out.contains("Command") || out.contains("command"),
+        "command alias works"
+    );
+}
+
+#[test]
+fn oop_ref_template_alias() {
+    let out = oop_ref_calc("template");
+    assert!(
+        out.contains("Template") || out.contains("template"),
+        "template alias works"
+    );
+}
+
+#[test]
+fn oop_ref_state_alias() {
+    let out = oop_ref_calc("state");
+    assert!(
+        out.contains("State") || out.contains("state"),
+        "state alias works"
+    );
+}
+
+#[test]
+fn oop_ref_chain_alias() {
+    let out = oop_ref_calc("chain");
+    assert!(
+        out.contains("Chain") || out.contains("chain"),
+        "chain alias works"
+    );
+}
+
+#[test]
+fn oop_ref_solid() {
+    let out = oop_ref_calc("solid");
+    assert!(
+        out.contains("Single Responsibility") || out.contains("SRP"),
+        "SOLID section has SRP"
+    );
+    assert!(
+        out.contains("Open/Closed") || out.contains("OCP"),
+        "OCP present"
+    );
+    assert!(out.contains("Liskov") || out.contains("LSP"), "LSP present");
+    assert!(
+        out.contains("Interface Segregation") || out.contains("ISP"),
+        "ISP present"
+    );
+    assert!(
+        out.contains("Dependency Inversion") || out.contains("DIP"),
+        "DIP present"
+    );
+}
+
+#[test]
+fn oop_ref_srp_alias() {
+    let out = oop_ref_calc("srp");
+    assert!(
+        out.contains("Single Responsibility") || out.contains("SRP"),
+        "srp alias resolves to solid"
+    );
+}
+
+#[test]
+fn oop_ref_ocp_alias() {
+    let out = oop_ref_calc("ocp");
+    assert!(
+        out.contains("Open/Closed") || out.contains("OCP"),
+        "ocp alias works"
+    );
+}
+
+#[test]
+fn oop_ref_lsp_alias() {
+    let out = oop_ref_calc("lsp");
+    assert!(
+        out.contains("Liskov") || out.contains("LSP"),
+        "lsp alias works"
+    );
+}
+
+#[test]
+fn oop_ref_isp_alias() {
+    let out = oop_ref_calc("isp");
+    assert!(
+        out.contains("Interface Segregation") || out.contains("ISP"),
+        "isp alias works"
+    );
+}
+
+#[test]
+fn oop_ref_dip_alias() {
+    let out = oop_ref_calc("dip");
+    assert!(
+        out.contains("Dependency Inversion") || out.contains("DIP"),
+        "dip alias works"
+    );
+}
+
+#[test]
+fn oop_ref_dependency_alias() {
+    let out = oop_ref_calc("dependency");
+    assert!(
+        out.contains("Dependency") || out.contains("DIP"),
+        "dependency alias works"
+    );
+}
+
+#[test]
+fn oop_ref_composition() {
+    let out = oop_ref_calc("composition");
+    assert!(
+        out.contains("Mixin") || out.contains("mixin"),
+        "composition section has mixins"
+    );
+    assert!(
+        out.contains("delegation") || out.contains("Delegation"),
+        "delegation present"
+    );
+    assert!(
+        out.contains("ECS") || out.contains("Entity-Component"),
+        "ECS pattern present"
+    );
+    assert!(
+        out.contains("inherit") || out.contains("Inherit"),
+        "inheritance comparison present"
+    );
+}
+
+#[test]
+fn oop_ref_mixin_alias() {
+    let out = oop_ref_calc("mixin");
+    assert!(
+        out.contains("Mixin") || out.contains("mixin"),
+        "mixin alias resolves to composition"
+    );
+}
+
+#[test]
+fn oop_ref_delegation_alias() {
+    let out = oop_ref_calc("delegation");
+    assert!(
+        out.contains("delegation") || out.contains("Delegation"),
+        "delegation alias works"
+    );
+}
+
+#[test]
+fn oop_ref_ecs_alias() {
+    let out = oop_ref_calc("ecs");
+    assert!(
+        out.contains("ECS") || out.contains("Entity-Component"),
+        "ecs alias works"
+    );
+}
+
+#[test]
+fn oop_ref_inherit_alias() {
+    let out = oop_ref_calc("inherit");
+    assert!(
+        out.contains("inherit") || out.contains("Inherit"),
+        "inherit alias works"
+    );
+}
+
+#[test]
+fn oop_ref_antipatterns() {
+    let out = oop_ref_calc("antipatterns");
+    assert!(
+        out.contains("God Object") || out.contains("God Class"),
+        "antipatterns section has God Object"
+    );
+    assert!(
+        out.contains("Anemic") || out.contains("anemic"),
+        "Anemic Domain Model present"
+    );
+    assert!(
+        out.contains("Feature Envy") || out.contains("envy"),
+        "Feature Envy present"
+    );
+    assert!(
+        out.contains("Primitive Obsession") || out.contains("primitive"),
+        "Primitive Obsession present"
+    );
+    assert!(
+        out.contains("Shotgun") || out.contains("shotgun"),
+        "Shotgun Surgery present"
+    );
+}
+
+#[test]
+fn oop_ref_god_object_alias() {
+    let out = oop_ref_calc("god-object");
+    assert!(
+        out.contains("God Object") || out.contains("God Class"),
+        "god-object alias resolves to antipatterns"
+    );
+}
+
+#[test]
+fn oop_ref_anemic_alias() {
+    let out = oop_ref_calc("anemic");
+    assert!(
+        out.contains("Anemic") || out.contains("anemic"),
+        "anemic alias works"
+    );
+}
+
+#[test]
+fn oop_ref_envy_alias() {
+    let out = oop_ref_calc("envy");
+    assert!(
+        out.contains("Feature Envy") || out.contains("envy"),
+        "envy alias works"
+    );
+}
+
+#[test]
+fn oop_ref_primitive_alias() {
+    let out = oop_ref_calc("primitive");
+    assert!(
+        out.contains("Primitive Obsession") || out.contains("primitive"),
+        "primitive alias works"
+    );
+}
+
+#[test]
+fn oop_ref_shotgun_alias() {
+    let out = oop_ref_calc("shotgun");
+    assert!(
+        out.contains("Shotgun") || out.contains("shotgun"),
+        "shotgun alias works"
+    );
+}
+
+#[test]
+fn oop_ref_leaky_alias() {
+    let out = oop_ref_calc("leaky");
+    assert!(
+        out.contains("Leaky") || out.contains("leaky"),
+        "leaky alias works"
+    );
+}
+
+#[test]
+fn oop_ref_not_found() {
+    let out = oop_ref_calc("xyznotfound123");
     assert!(
         out.contains("No topic found"),
         "unknown query returns not-found message"
