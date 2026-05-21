@@ -1444,6 +1444,38 @@ pub struct CliCockpit {
         long,
         help_heading = "Math & Science",
         value_name = "QUERY",
+        help = "HTTP status code reference — offline replacement for httpstatuses.com. Lookup by code (404), by name (not-found), or by category (4xx, 5xx, client, server, success, redirect). Commands: all = full list. Examples: hematite --http-status 404 | hematite --http-status 4xx | hematite --http-status service-unavailable"
+    )]
+    pub http_status: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Math & Science",
+        value_name = "TOPIC",
+        help = "Git command reference — offline replacement for daily git-scm.com lookups. Topics: init, config, stage, commit, branch, checkout, merge, rebase, remote, stash, log, reset, tag, diff, clean, bisect, worktree, aliases. Commands: all = everything. Examples: hematite --git-ref rebase | hematite --git-ref stash | hematite --git-ref reset"
+    )]
+    pub git_ref: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Math & Science",
+        value_name = "QUERY",
+        help = "CSS named color reference — offline replacement for MDN color lookups. Lookup by name (cornflowerblue), by hex (#6495ED), or by category (red, green, blue, purple, pink, brown, gray, white). Shows hex, rgb(), and hsl() for every result. Examples: hematite --color-names tomato | hematite --color-names \"#FF6347\" | hematite --color-names blue"
+    )]
+    pub color_names: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Math & Science",
+        value_name = "TOPIC",
+        help = "Docker command reference — offline replacement for Docker docs daily lookups. Topics: build, run, container, exec, volumes, network, compose, registry, prune, dockerfile. Commands: all = everything. Examples: hematite --docker-ref run | hematite --docker-ref compose | hematite --docker-ref dockerfile"
+    )]
+    pub docker_ref: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Math & Science",
+        value_name = "QUERY",
         help = "Lorem ipsum generator — offline replacement for lipsum.com. Commands: (bare) or <N> = N paragraphs (default 1); words <N> = N words; sentences <N> = N sentences. Examples: hematite --lorem | hematite --lorem 3 | hematite --lorem 'words 50' | hematite --lorem 'sentences 5'"
     )]
     pub lorem: Option<String>,

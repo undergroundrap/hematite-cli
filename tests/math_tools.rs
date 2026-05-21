@@ -4,15 +4,16 @@
 /// matrix decomposition modes (QR, SVD, Cholesky).
 use hematite::tools::math_util::{
     ascii_calc, ascii_table_calc, bitwise_calc, case_calc, chars_calc, checksum_calc,
-    chemistry_calc, cipher_calc, color_calc, combinatorics_calc, complex_calc, cron_calc, csv_calc,
-    datetime_calc, diff_calc, duration_calc, electrical_calc, encode_calc, escape_calc,
-    fraction_calc, geometry_calc, gitignore_calc, hash_calc, headers_calc, health_calc, http_calc,
-    id_gen_calc, ip_calc, json_calc, json_path_calc, jwt_calc, kbd_calc, license_calc, lorem_calc,
-    markdown_calc, matrix_calc, mime_calc, net_calc, number_format, number_theory_calc,
-    percent_calc, physics_calc, port_calc, prob_calc, regex_calc, regex_ref_calc, roman_calc,
-    semver_calc, set_calc, sort_viz, spark_calc, sql_fmt_calc, ssl_calc, stats_calc, string_dist,
-    table_calc, template_calc, text_stats, timestamp_calc, toml_calc, trig_calc, tz_calc, url_calc,
-    uuid_calc, validate_calc, xml_calc, yaml_calc,
+    chemistry_calc, cipher_calc, color_calc, color_names_calc, combinatorics_calc, complex_calc,
+    cron_calc, csv_calc, datetime_calc, diff_calc, docker_ref_calc, duration_calc, electrical_calc,
+    encode_calc, escape_calc, fraction_calc, geometry_calc, git_ref_calc, gitignore_calc,
+    hash_calc, headers_calc, health_calc, http_calc, http_status_calc, id_gen_calc, ip_calc,
+    json_calc, json_path_calc, jwt_calc, kbd_calc, license_calc, lorem_calc, markdown_calc,
+    matrix_calc, mime_calc, net_calc, number_format, number_theory_calc, percent_calc,
+    physics_calc, port_calc, prob_calc, regex_calc, regex_ref_calc, roman_calc, semver_calc,
+    set_calc, sort_viz, spark_calc, sql_fmt_calc, ssl_calc, stats_calc, string_dist, table_calc,
+    template_calc, text_stats, timestamp_calc, toml_calc, trig_calc, tz_calc, url_calc, uuid_calc,
+    validate_calc, xml_calc, yaml_calc,
 };
 
 // ─── Cipher tests ────────────────────────────────────────────────────────────
@@ -4846,4 +4847,377 @@ fn test_id_gen_two_uuids_differ() {
             "ID b must be UUID format: {id_b}"
         );
     }
+}
+
+// ── Wave 12: http_status_calc ─────────────────────────────────────────────────
+
+#[test]
+fn test_http_status_empty_shows_help() {
+    let out = http_status_calc("");
+    assert!(out.contains("hematite --http-status"), "{out}");
+    assert!(out.contains("4xx"), "{out}");
+}
+
+#[test]
+fn test_http_status_lookup_200() {
+    let out = http_status_calc("200");
+    assert!(out.contains("200"), "{out}");
+    assert!(out.contains("OK"), "{out}");
+}
+
+#[test]
+fn test_http_status_lookup_404() {
+    let out = http_status_calc("404");
+    assert!(out.contains("404"), "{out}");
+    assert!(
+        out.contains("Not Found") || out.contains("not-found"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_http_status_lookup_500() {
+    let out = http_status_calc("500");
+    assert!(out.contains("500"), "{out}");
+    assert!(
+        out.contains("Internal Server Error") || out.contains("internal"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_http_status_lookup_418_teapot() {
+    let out = http_status_calc("418");
+    assert!(out.contains("418"), "{out}");
+    assert!(out.contains("Teapot") || out.contains("teapot"), "{out}");
+}
+
+#[test]
+fn test_http_status_lookup_by_name() {
+    let out = http_status_calc("not-found");
+    assert!(out.contains("404"), "{out}");
+}
+
+#[test]
+fn test_http_status_category_4xx() {
+    let out = http_status_calc("4xx");
+    assert!(out.contains("400") || out.contains("404"), "{out}");
+    assert!(!out.contains("200"), "{out}");
+    assert!(!out.contains("500"), "{out}");
+}
+
+#[test]
+fn test_http_status_category_5xx() {
+    let out = http_status_calc("5xx");
+    assert!(out.contains("500"), "{out}");
+    assert!(out.contains("503"), "{out}");
+    assert!(!out.contains("200"), "{out}");
+}
+
+#[test]
+fn test_http_status_category_success() {
+    let out = http_status_calc("success");
+    assert!(out.contains("200"), "{out}");
+    assert!(out.contains("201"), "{out}");
+    assert!(!out.contains("404"), "{out}");
+}
+
+#[test]
+fn test_http_status_category_redirect() {
+    let out = http_status_calc("redirect");
+    assert!(out.contains("301"), "{out}");
+    assert!(out.contains("302"), "{out}");
+    assert!(!out.contains("200"), "{out}");
+}
+
+#[test]
+fn test_http_status_all_lists_many_codes() {
+    let out = http_status_calc("all");
+    assert!(out.contains("200"), "{out}");
+    assert!(out.contains("404"), "{out}");
+    assert!(out.contains("500"), "{out}");
+    assert!(out.contains("418"), "{out}");
+}
+
+#[test]
+fn test_http_status_unknown_code() {
+    let out = http_status_calc("999");
+    assert!(out.contains("not found") || out.contains("999"), "{out}");
+}
+
+#[test]
+fn test_http_status_keyword_search() {
+    let out = http_status_calc("rate");
+    assert!(out.contains("429") || out.contains("Too Many"), "{out}");
+}
+
+// ── Wave 12: git_ref_calc ─────────────────────────────────────────────────────
+
+#[test]
+fn test_git_ref_empty_shows_help() {
+    let out = git_ref_calc("");
+    assert!(out.contains("hematite --git-ref"), "{out}");
+    assert!(out.contains("rebase"), "{out}");
+}
+
+#[test]
+fn test_git_ref_commit_topic() {
+    let out = git_ref_calc("commit");
+    assert!(out.contains("git commit"), "{out}");
+    assert!(out.contains("--amend"), "{out}");
+}
+
+#[test]
+fn test_git_ref_rebase_topic() {
+    let out = git_ref_calc("rebase");
+    assert!(out.contains("git rebase"), "{out}");
+    assert!(out.contains("-i"), "{out}");
+}
+
+#[test]
+fn test_git_ref_stash_topic() {
+    let out = git_ref_calc("stash");
+    assert!(out.contains("git stash"), "{out}");
+    assert!(out.contains("pop"), "{out}");
+}
+
+#[test]
+fn test_git_ref_remote_by_alias() {
+    let out = git_ref_calc("push");
+    assert!(out.contains("git push"), "{out}");
+    assert!(out.contains("origin"), "{out}");
+}
+
+#[test]
+fn test_git_ref_log_topic() {
+    let out = git_ref_calc("log");
+    assert!(out.contains("git log"), "{out}");
+    assert!(out.contains("--oneline"), "{out}");
+}
+
+#[test]
+fn test_git_ref_reset_topic() {
+    let out = git_ref_calc("reset");
+    assert!(out.contains("git reset"), "{out}");
+    assert!(out.contains("--hard"), "{out}");
+}
+
+#[test]
+fn test_git_ref_tag_topic() {
+    let out = git_ref_calc("tag");
+    assert!(out.contains("git tag"), "{out}");
+    assert!(out.contains("annotated") || out.contains("-a"), "{out}");
+}
+
+#[test]
+fn test_git_ref_aliases_topic() {
+    let out = git_ref_calc("aliases");
+    assert!(out.contains("alias"), "{out}");
+    assert!(out.contains("--global"), "{out}");
+}
+
+#[test]
+fn test_git_ref_all_prints_all_sections() {
+    let out = git_ref_calc("all");
+    assert!(out.contains("git commit"), "{out}");
+    assert!(out.contains("git rebase"), "{out}");
+    assert!(out.contains("git stash"), "{out}");
+    assert!(out.contains("git log"), "{out}");
+}
+
+#[test]
+fn test_git_ref_unknown_topic() {
+    let out = git_ref_calc("foobar_xyz");
+    assert!(out.contains("No topic") || out.contains("help"), "{out}");
+}
+
+#[test]
+fn test_git_ref_branch_topic() {
+    let out = git_ref_calc("branch");
+    assert!(out.contains("git branch"), "{out}");
+    assert!(out.contains("-d") || out.contains("-D"), "{out}");
+}
+
+// ── Wave 12: color_names_calc ─────────────────────────────────────────────────
+
+#[test]
+fn test_color_names_empty_shows_help() {
+    let out = color_names_calc("");
+    assert!(out.contains("hematite --color-names"), "{out}");
+    assert!(
+        out.contains("Categories") || out.contains("category"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_color_names_exact_lookup() {
+    let out = color_names_calc("tomato");
+    assert!(out.contains("tomato"), "{out}");
+    assert!(out.contains("#FF6347"), "{out}");
+    assert!(out.contains("rgb("), "{out}");
+    assert!(out.contains("hsl("), "{out}");
+}
+
+#[test]
+fn test_color_names_hex_lookup() {
+    let out = color_names_calc("#FF6347");
+    assert!(out.contains("tomato"), "{out}");
+}
+
+#[test]
+fn test_color_names_hex_without_hash() {
+    let out = color_names_calc("FF0000");
+    assert!(out.contains("red") || out.contains("#FF0000"), "{out}");
+}
+
+#[test]
+fn test_color_names_category_red() {
+    let out = color_names_calc("red");
+    assert!(out.contains("tomato") || out.contains("crimson"), "{out}");
+}
+
+#[test]
+fn test_color_names_category_blue() {
+    let out = color_names_calc("blue");
+    assert!(out.contains("navy") || out.contains("royalblue"), "{out}");
+}
+
+#[test]
+fn test_color_names_category_gray() {
+    let out = color_names_calc("gray");
+    assert!(out.contains("silver") || out.contains("gainsboro"), "{out}");
+    assert!(out.contains("black"), "{out}");
+}
+
+#[test]
+fn test_color_names_partial_search() {
+    let out = color_names_calc("cornflower");
+    assert!(out.contains("cornflowerblue"), "{out}");
+    assert!(out.contains("#6495ED"), "{out}");
+}
+
+#[test]
+fn test_color_names_all_shows_many() {
+    let out = color_names_calc("all");
+    assert!(out.contains("red"), "{out}");
+    assert!(out.contains("navy"), "{out}");
+    assert!(out.contains("gold"), "{out}");
+    assert!(out.contains("white"), "{out}");
+}
+
+#[test]
+fn test_color_names_unknown() {
+    let out = color_names_calc("ultravioletmaroon");
+    assert!(
+        out.contains("No color found") || out.contains("Try"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_color_names_hsl_values_present() {
+    let out = color_names_calc("red");
+    // red category listing should include HSL values
+    assert!(out.contains("hsl("), "{out}");
+}
+
+#[test]
+fn test_color_names_white_lookup() {
+    let out = color_names_calc("white");
+    // "white" is a category name AND a color name; should show #FFFFFF
+    assert!(out.contains("#FFFFFF") || out.contains("FFFFFF"), "{out}");
+}
+
+// ── Wave 12: docker_ref_calc ──────────────────────────────────────────────────
+
+#[test]
+fn test_docker_ref_empty_shows_help() {
+    let out = docker_ref_calc("");
+    assert!(out.contains("hematite --docker-ref"), "{out}");
+    assert!(out.contains("compose"), "{out}");
+}
+
+#[test]
+fn test_docker_ref_build_topic() {
+    let out = docker_ref_calc("build");
+    assert!(out.contains("docker build"), "{out}");
+    assert!(out.contains("--no-cache") || out.contains("-t"), "{out}");
+}
+
+#[test]
+fn test_docker_ref_run_topic() {
+    let out = docker_ref_calc("run");
+    assert!(out.contains("docker run"), "{out}");
+    assert!(out.contains("-p") || out.contains("port"), "{out}");
+}
+
+#[test]
+fn test_docker_ref_exec_by_alias() {
+    let out = docker_ref_calc("logs");
+    assert!(out.contains("docker logs"), "{out}");
+    assert!(out.contains("-f"), "{out}");
+}
+
+#[test]
+fn test_docker_ref_compose_topic() {
+    let out = docker_ref_calc("compose");
+    assert!(out.contains("docker compose"), "{out}");
+    assert!(out.contains("up") || out.contains("down"), "{out}");
+}
+
+#[test]
+fn test_docker_ref_volumes_topic() {
+    let out = docker_ref_calc("volumes");
+    assert!(out.contains("docker volume"), "{out}");
+    assert!(out.contains("prune") || out.contains("create"), "{out}");
+}
+
+#[test]
+fn test_docker_ref_network_topic() {
+    let out = docker_ref_calc("network");
+    assert!(out.contains("docker network"), "{out}");
+    assert!(out.contains("bridge") || out.contains("create"), "{out}");
+}
+
+#[test]
+fn test_docker_ref_prune_topic() {
+    let out = docker_ref_calc("prune");
+    assert!(
+        out.contains("docker system prune") || out.contains("prune"),
+        "{out}"
+    );
+    assert!(out.contains("image") || out.contains("container"), "{out}");
+}
+
+#[test]
+fn test_docker_ref_dockerfile_topic() {
+    let out = docker_ref_calc("dockerfile");
+    assert!(out.contains("FROM"), "{out}");
+    assert!(out.contains("RUN") || out.contains("COPY"), "{out}");
+    assert!(out.contains("WORKDIR") || out.contains("ENV"), "{out}");
+}
+
+#[test]
+fn test_docker_ref_all_prints_all_sections() {
+    let out = docker_ref_calc("all");
+    assert!(out.contains("docker build"), "{out}");
+    assert!(out.contains("docker compose"), "{out}");
+    assert!(out.contains("FROM"), "{out}");
+}
+
+#[test]
+fn test_docker_ref_registry_topic() {
+    let out = docker_ref_calc("registry");
+    assert!(
+        out.contains("docker push") || out.contains("docker pull"),
+        "{out}"
+    );
+    assert!(out.contains("login") || out.contains("Docker Hub"), "{out}");
+}
+
+#[test]
+fn test_docker_ref_unknown_topic() {
+    let out = docker_ref_calc("foobar_xyz");
+    assert!(out.contains("No topic") || out.contains("help"), "{out}");
 }

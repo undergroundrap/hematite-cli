@@ -29834,3 +29834,1080 @@ pub fn id_gen_calc(query: &str) -> String {
     }
     out
 }
+
+// ─── Wave 12: http-status, git-ref, color-names, docker-ref ──────────────────
+
+pub fn http_status_calc(query: &str) -> String {
+    use std::fmt::Write as _;
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+
+    // (code, name, short-description, notes)
+    const CODES: &[(u16, &str, &str, &str)] = &[
+        // 1xx
+        (
+            100,
+            "continue",
+            "Continue",
+            "Server received request headers; client should proceed to send body",
+        ),
+        (
+            101,
+            "switching-protocols",
+            "Switching Protocols",
+            "Server is switching to protocol requested in Upgrade header",
+        ),
+        (
+            102,
+            "processing",
+            "Processing",
+            "WebDAV: request received, processing not complete",
+        ),
+        (
+            103,
+            "early-hints",
+            "Early Hints",
+            "Hints for preloading resources before final response",
+        ),
+        // 2xx
+        (200, "ok", "OK", "Standard success response"),
+        (
+            201,
+            "created",
+            "Created",
+            "Resource created; Location header points to new resource",
+        ),
+        (
+            202,
+            "accepted",
+            "Accepted",
+            "Request accepted for processing; not yet completed",
+        ),
+        (
+            203,
+            "non-authoritative",
+            "Non-Authoritative Information",
+            "Response from a transforming proxy, not origin",
+        ),
+        (
+            204,
+            "no-content",
+            "No Content",
+            "Success but no response body (common for DELETE, PUT)",
+        ),
+        (
+            205,
+            "reset-content",
+            "Reset Content",
+            "Client should reset the document view",
+        ),
+        (
+            206,
+            "partial-content",
+            "Partial Content",
+            "Range request fulfilled; response is part of the resource",
+        ),
+        (
+            207,
+            "multi-status",
+            "Multi-Status",
+            "WebDAV: multiple status codes in XML body",
+        ),
+        (
+            208,
+            "already-reported",
+            "Already Reported",
+            "WebDAV: members already enumerated in earlier binding",
+        ),
+        (
+            226,
+            "im-used",
+            "IM Used",
+            "Delta encoding applied; response is result of instance manipulation",
+        ),
+        // 3xx
+        (
+            300,
+            "multiple-choices",
+            "Multiple Choices",
+            "Multiple representations available; client should choose",
+        ),
+        (
+            301,
+            "moved-permanently",
+            "Moved Permanently",
+            "Resource URL has changed permanently; update bookmarks",
+        ),
+        (
+            302,
+            "found",
+            "Found",
+            "Temporary redirect; use original URL for future requests",
+        ),
+        (
+            303,
+            "see-other",
+            "See Other",
+            "GET the response at the Location URI",
+        ),
+        (
+            304,
+            "not-modified",
+            "Not Modified",
+            "Cached version still valid; no body in response",
+        ),
+        (
+            305,
+            "use-proxy",
+            "Use Proxy",
+            "Deprecated: must access resource through proxy",
+        ),
+        (
+            307,
+            "temporary-redirect",
+            "Temporary Redirect",
+            "Temporary redirect; repeat request with same method",
+        ),
+        (
+            308,
+            "permanent-redirect",
+            "Permanent Redirect",
+            "Permanent redirect; repeat with same method (unlike 301)",
+        ),
+        // 4xx
+        (
+            400,
+            "bad-request",
+            "Bad Request",
+            "Malformed syntax, invalid request, or invalid framing",
+        ),
+        (
+            401,
+            "unauthorized",
+            "Unauthorized",
+            "Authentication required; WWW-Authenticate header present",
+        ),
+        (
+            402,
+            "payment-required",
+            "Payment Required",
+            "Reserved; sometimes used for paywalled content",
+        ),
+        (
+            403,
+            "forbidden",
+            "Forbidden",
+            "Server understood but refuses to authorize; different from 401",
+        ),
+        (
+            404,
+            "not-found",
+            "Not Found",
+            "Resource not found; may also mask 403 for security",
+        ),
+        (
+            405,
+            "method-not-allowed",
+            "Method Not Allowed",
+            "HTTP method not supported for this resource",
+        ),
+        (
+            406,
+            "not-acceptable",
+            "Not Acceptable",
+            "No content matching Accept headers",
+        ),
+        (
+            407,
+            "proxy-auth-required",
+            "Proxy Authentication Required",
+            "Client must authenticate with the proxy first",
+        ),
+        (
+            408,
+            "request-timeout",
+            "Request Timeout",
+            "Server timed out waiting for the request",
+        ),
+        (
+            409,
+            "conflict",
+            "Conflict",
+            "Request conflicts with current state of resource",
+        ),
+        (
+            410,
+            "gone",
+            "Gone",
+            "Resource permanently deleted; no forwarding address",
+        ),
+        (
+            411,
+            "length-required",
+            "Length Required",
+            "Content-Length header required but not provided",
+        ),
+        (
+            412,
+            "precondition-failed",
+            "Precondition Failed",
+            "Conditional request precondition evaluated to false",
+        ),
+        (
+            413,
+            "content-too-large",
+            "Content Too Large",
+            "Request body exceeds server limit (was: Payload Too Large)",
+        ),
+        (
+            414,
+            "uri-too-long",
+            "URI Too Long",
+            "Request URI longer than server is willing to process",
+        ),
+        (
+            415,
+            "unsupported-media",
+            "Unsupported Media Type",
+            "Media type in Content-Type not supported by server",
+        ),
+        (
+            416,
+            "range-not-satisfiable",
+            "Range Not Satisfiable",
+            "Range in Range header cannot be satisfied",
+        ),
+        (
+            417,
+            "expectation-failed",
+            "Expectation Failed",
+            "Expect header requirement cannot be met",
+        ),
+        (
+            418,
+            "im-a-teapot",
+            "I'm a Teapot",
+            "April Fools RFC 2324; Hyper Text Coffee Pot Control Protocol",
+        ),
+        (
+            421,
+            "misdirected-request",
+            "Misdirected Request",
+            "Request directed at server unable to produce a response",
+        ),
+        (
+            422,
+            "unprocessable-content",
+            "Unprocessable Content",
+            "Well-formed but semantically erroneous (was: Unprocessable Entity)",
+        ),
+        (423, "locked", "Locked", "WebDAV: resource is locked"),
+        (
+            424,
+            "failed-dependency",
+            "Failed Dependency",
+            "WebDAV: previous request failed causing this to fail",
+        ),
+        (
+            425,
+            "too-early",
+            "Too Early",
+            "Server unwilling to risk processing replayed request",
+        ),
+        (
+            426,
+            "upgrade-required",
+            "Upgrade Required",
+            "Client should switch to protocol specified in Upgrade header",
+        ),
+        (
+            428,
+            "precondition-required",
+            "Precondition Required",
+            "Origin server requires request to be conditional",
+        ),
+        (
+            429,
+            "too-many-requests",
+            "Too Many Requests",
+            "Rate limited; check Retry-After header",
+        ),
+        (
+            431,
+            "headers-too-large",
+            "Request Header Fields Too Large",
+            "Headers too large; reduce and retry",
+        ),
+        (
+            451,
+            "unavailable-legal",
+            "Unavailable For Legal Reasons",
+            "Content blocked due to legal demand (e.g. GDPR, DMCA)",
+        ),
+        // 5xx
+        (
+            500,
+            "internal-server-error",
+            "Internal Server Error",
+            "Generic server-side failure; check server logs",
+        ),
+        (
+            501,
+            "not-implemented",
+            "Not Implemented",
+            "Server does not support the functionality required",
+        ),
+        (
+            502,
+            "bad-gateway",
+            "Bad Gateway",
+            "Upstream server returned invalid response",
+        ),
+        (
+            503,
+            "service-unavailable",
+            "Service Unavailable",
+            "Server temporarily unavailable; often maintenance or overload",
+        ),
+        (
+            504,
+            "gateway-timeout",
+            "Gateway Timeout",
+            "Upstream server did not respond in time",
+        ),
+        (
+            505,
+            "http-version",
+            "HTTP Version Not Supported",
+            "HTTP version not supported by server",
+        ),
+        (
+            506,
+            "variant-also-neg",
+            "Variant Also Negotiates",
+            "Transparent content negotiation results in circular reference",
+        ),
+        (
+            507,
+            "insufficient-storage",
+            "Insufficient Storage",
+            "WebDAV: server cannot store representation to complete request",
+        ),
+        (
+            508,
+            "loop-detected",
+            "Loop Detected",
+            "WebDAV: infinite loop detected while processing request",
+        ),
+        (
+            510,
+            "not-extended",
+            "Not Extended",
+            "Further extensions required for server to fulfil request",
+        ),
+        (
+            511,
+            "network-auth-required",
+            "Network Authentication Required",
+            "Client must authenticate with the network",
+        ),
+    ];
+
+    let q = query.trim().to_lowercase();
+
+    if q.is_empty() || q == "help" || q == "list" {
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  hematite --http-status <CODE|NAME|CATEGORY>");
+        let _ = writeln!(out, "  Offline HTTP status code reference");
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  Lookup by code:      hematite --http-status 404");
+        let _ = writeln!(
+            out,
+            "  Lookup by name:      hematite --http-status not-found"
+        );
+        let _ = writeln!(out, "  Category filter:     hematite --http-status 4xx");
+        let _ = writeln!(out, "  Categories:          1xx  2xx  3xx  4xx  5xx");
+        let _ = writeln!(
+            out,
+            "               also:  info  success  redirect  client  server"
+        );
+        let _ = writeln!(out, "  All codes:           hematite --http-status all");
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    // Single code lookup
+    if let Ok(n) = q.parse::<u16>() {
+        if let Some(&(code, name, short, note)) = CODES.iter().find(|&&(c, _, _, _)| c == n) {
+            let _ = writeln!(out, "{sep}");
+            let _ = writeln!(out, "  {code}  {short}");
+            let _ = writeln!(out, "  Name:  {name}");
+            let _ = writeln!(out, "  Note:  {note}");
+            let _ = writeln!(out, "{sep}");
+        } else {
+            let _ = writeln!(out, "  Status code {n} not found.");
+        }
+        return out;
+    }
+
+    // Category filter
+    let cat_filter: Option<Box<dyn Fn(u16) -> bool>> = match q.as_str() {
+        "1xx" | "info" | "informational" => Some(Box::new(|c| (100..200).contains(&c))),
+        "2xx" | "success" | "ok" => Some(Box::new(|c| (200..300).contains(&c))),
+        "3xx" | "redirect" | "redirection" => Some(Box::new(|c| (300..400).contains(&c))),
+        "4xx" | "client" | "client-error" => Some(Box::new(|c| (400..500).contains(&c))),
+        "5xx" | "server" | "server-error" => Some(Box::new(|c| (500..600).contains(&c))),
+        "all" => Some(Box::new(|_| true)),
+        _ => None,
+    };
+
+    if let Some(f) = cat_filter {
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(
+            out,
+            "  {:>3}  {:<35} {}",
+            "Code", "Short Name", "Description"
+        );
+        let _ = writeln!(out, "  {}", "─".repeat(55));
+        for &(code, _name, short, _note) in CODES.iter().filter(|&&(c, _, _, _)| f(c)) {
+            let _ = writeln!(out, "  {code:>3}  {short}");
+        }
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    // Name / keyword search
+    let found: Vec<_> = CODES
+        .iter()
+        .filter(|&&(_, name, short, note)| {
+            name.contains(q.as_str())
+                || short.to_lowercase().contains(q.as_str())
+                || note.to_lowercase().contains(q.as_str())
+        })
+        .collect();
+
+    if found.is_empty() {
+        let _ = writeln!(out, "  No match for '{}'.", query.trim());
+        let _ = writeln!(
+            out,
+            "  Try a code number, name, or category (4xx, server, etc.)"
+        );
+    } else {
+        let _ = writeln!(out, "{sep}");
+        for &&(code, name, short, note) in &found {
+            let _ = writeln!(out, "  {code}  {short}");
+            let _ = writeln!(out, "       {name}");
+            let _ = writeln!(out, "       {note}");
+            let _ = writeln!(out, "");
+        }
+        let _ = writeln!(out, "{sep}");
+    }
+    out
+}
+
+pub fn git_ref_calc(query: &str) -> String {
+    use std::fmt::Write as _;
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+
+    fn s_init() -> &'static str {
+        "  git init                    Initialize new repo in current directory\n  git init <dir>              Initialize repo in <dir>\n  git clone <url>             Clone remote repo\n  git clone <url> <dir>       Clone into specific directory\n  git clone --depth 1 <url>   Shallow clone (latest commit only)\n  git clone --branch <b> <url>  Clone specific branch\n"
+    }
+    fn s_config() -> &'static str {
+        "  git config --global user.name  \"Name\"      Set global username\n  git config --global user.email \"you@example.com\"  Set global email\n  git config --global core.editor vim          Set default editor\n  git config --global init.defaultBranch main  Default branch name\n  git config --list                            Show all config\n  git config --local <key> <val>               Workspace-only override\n  .git/config   local   ~/.gitconfig   global   /etc/gitconfig   system\n"
+    }
+    fn s_stage() -> &'static str {
+        "  git status                  Show working tree status\n  git add <file>              Stage a file\n  git add .                   Stage all changes\n  git add -p                  Interactive staging (patch mode)\n  git restore --staged <file> Unstage a file (keep changes)\n  git diff                    Unstaged changes\n  git diff --staged           Staged changes (what will be committed)\n  git diff HEAD               All changes vs last commit\n"
+    }
+    fn s_commit() -> &'static str {
+        "  git commit -m \"msg\"           Commit staged changes\n  git commit -am \"msg\"          Stage tracked files + commit\n  git commit --amend            Amend last commit (staged changes + message)\n  git commit --amend --no-edit  Amend last commit without editing message\n  git commit --allow-empty -m \"msg\"  Empty commit (useful for CI triggers)\n  Conventional Commits: feat|fix|docs|style|refactor|test|chore: <subject>\n"
+    }
+    fn s_branch() -> &'static str {
+        "  git branch                   List local branches\n  git branch -a                List all branches (local + remote)\n  git branch <name>            Create branch at HEAD\n  git branch <name> <sha>      Create branch at specific commit\n  git branch -d <name>         Delete merged branch\n  git branch -D <name>         Force-delete branch\n  git branch -m <old> <new>    Rename branch\n  git branch --merged          List branches merged into current\n  git branch --no-merged       List branches not yet merged\n"
+    }
+    fn s_checkout() -> &'static str {
+        "  git switch <branch>          Switch to existing branch (modern)\n  git switch -c <branch>       Create and switch to new branch\n  git switch -                 Switch to previous branch\n  git checkout <branch>        Switch branch (classic)\n  git checkout -b <branch>     Create and switch (classic)\n  git checkout <sha>           Detached HEAD at commit\n  git checkout <sha> -- <file> Restore specific file from commit\n  git restore <file>           Discard working tree changes (modern)\n"
+    }
+    fn s_merge() -> &'static str {
+        "  git merge <branch>           Merge branch into current (fast-forward if possible)\n  git merge --no-ff <branch>   Always create merge commit\n  git merge --squash <branch>  Squash all commits into one staged change\n  git merge --abort            Abort in-progress merge\n  git mergetool                Launch configured merge tool\n  git log --merges             Show merge commits only\n"
+    }
+    fn s_rebase() -> &'static str {
+        "  git rebase <branch>          Rebase current onto <branch>\n  git rebase -i HEAD~<N>       Interactive rebase last N commits\n  git rebase -i <sha>          Interactive rebase from <sha>\n  git rebase --onto <b> <old>  Move commits from <old> to <b>\n  git rebase --continue        Continue after resolving conflict\n  git rebase --skip            Skip current conflicting commit\n  git rebase --abort           Abort and restore original branch\n  Interactive actions: pick  reword  edit  squash  fixup  drop\n"
+    }
+    fn s_remote() -> &'static str {
+        "  git remote -v                List remotes with URLs\n  git remote add <name> <url>  Add remote\n  git remote remove <name>     Remove remote\n  git remote rename <old> <new> Rename remote\n  git fetch                    Download objects from all remotes\n  git fetch <remote>           Download from specific remote\n  git pull                     Fetch + merge (or rebase if configured)\n  git pull --rebase            Fetch + rebase\n  git push                     Push current branch to upstream\n  git push -u origin <branch>  Push + set upstream tracking\n  git push --force-with-lease  Safe force push (fails if remote changed)\n  git push origin :<branch>    Delete remote branch\n"
+    }
+    fn s_stash() -> &'static str {
+        "  git stash                    Stash current changes\n  git stash push -m \"label\"    Stash with label\n  git stash list               List all stashes\n  git stash pop                Apply latest stash + remove from list\n  git stash apply stash@{N}    Apply specific stash (keep in list)\n  git stash drop stash@{N}     Delete specific stash\n  git stash clear              Delete all stashes\n  git stash show -p stash@{N}  Show stash as patch\n  git stash branch <name>      Create branch from stash\n"
+    }
+    fn s_log() -> &'static str {
+        "  git log                      Full log\n  git log --oneline            One commit per line\n  git log --graph --oneline    ASCII branch graph\n  git log --all --oneline      All refs (branches, tags)\n  git log -p                   Log with diffs\n  git log --author=\"name\"      Filter by author\n  git log --since=\"2 weeks\"    Filter by date\n  git log --grep=\"pattern\"     Filter by commit message\n  git log <file>               Log for a specific file\n  git log -S \"string\"          Pickaxe: commits that changed the string\n  git shortlog -sn             Contributor summary by commit count\n"
+    }
+    fn s_reset() -> &'static str {
+        "  git reset HEAD~1             Undo last commit, keep changes staged\n  git reset --soft HEAD~1      Undo last commit, keep changes staged\n  git reset --mixed HEAD~1     Undo last commit, keep changes unstaged\n  git reset --hard HEAD~1      Undo last commit, discard all changes\n  git reset <file>             Unstage file (keep working tree)\n  git revert <sha>             Create new commit that undoes <sha>\n  git revert --no-commit <sha> Stage the revert without committing\n  DANGER: --hard discards uncommitted work permanently\n"
+    }
+    fn s_tag() -> &'static str {
+        "  git tag                      List tags\n  git tag <name>               Create lightweight tag at HEAD\n  git tag -a <name> -m \"msg\"   Create annotated tag\n  git tag -a <name> <sha>      Tag specific commit\n  git push origin <tag>        Push specific tag\n  git push origin --tags       Push all tags\n  git tag -d <name>            Delete local tag\n  git push origin :refs/tags/<name>  Delete remote tag\n  git describe --tags          Describe current commit relative to nearest tag\n"
+    }
+    fn s_diff() -> &'static str {
+        "  git diff                     Unstaged vs working tree\n  git diff --staged            Staged vs last commit\n  git diff HEAD                All changes vs last commit\n  git diff <sha1>..<sha2>      Between two commits\n  git diff <branch>            Current vs other branch\n  git diff <branch>..<branch>  Between two branches\n  git diff --stat              Summary of changed files\n  git diff --name-only         Only file names\n  git diff -w                  Ignore whitespace\n  git show <sha>               Show a single commit diff\n"
+    }
+    fn s_clean() -> &'static str {
+        "  git clean -n                 Dry run: list files to be removed\n  git clean -f                 Remove untracked files\n  git clean -fd                Remove untracked files + directories\n  git clean -fX                Remove only gitignored files\n  git clean -fdx               Remove untracked + gitignored\n  git rm <file>                Remove file from index + working tree\n  git rm --cached <file>       Remove from index only (keep on disk)\n"
+    }
+    fn s_bisect() -> &'static str {
+        "  git bisect start             Begin binary search for regression\n  git bisect bad               Mark current commit as bad\n  git bisect good <sha>        Mark known-good commit\n  git bisect run <cmd>         Automate: run cmd (exit 0=good, 1=bad)\n  git bisect reset             End bisect session\n"
+    }
+    fn s_worktree() -> &'static str {
+        "  git worktree add <path> <branch>   Add linked working tree\n  git worktree add -b <branch> <path>  Create new branch in worktree\n  git worktree list                    List all worktrees\n  git worktree remove <path>           Remove a linked worktree\n  git worktree prune                   Prune stale worktree records\n  Each worktree has its own working tree + index; shares objects database\n"
+    }
+    fn s_aliases() -> &'static str {
+        "  Useful global aliases (add to ~/.gitconfig):\n\n  git config --global alias.st status\n  git config --global alias.co checkout\n  git config --global alias.br branch\n  git config --global alias.lg \"log --oneline --graph --all --decorate\"\n  git config --global alias.undo \"reset HEAD~1 --mixed\"\n  git config --global alias.wip \"commit -am WIP\"\n  git config --global alias.unstage \"restore --staged\"\n  git config --global alias.aliases \"config --get-regexp alias\"\n"
+    }
+
+    type GitSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+    const SECTIONS: &[GitSection] = &[
+        ("init", &["init", "clone", "start", "new"], s_init),
+        (
+            "config",
+            &["config", "configure", "setup", "settings"],
+            s_config,
+        ),
+        (
+            "stage",
+            &["stage", "add", "status", "diff", "unstage"],
+            s_stage,
+        ),
+        ("commit", &["commit", "amend", "conventional"], s_commit),
+        ("branch", &["branch", "branches"], s_branch),
+        ("checkout", &["checkout", "switch", "restore"], s_checkout),
+        ("merge", &["merge", "mergetool"], s_merge),
+        (
+            "rebase",
+            &["rebase", "interactive", "squash", "fixup"],
+            s_rebase,
+        ),
+        (
+            "remote",
+            &["remote", "fetch", "pull", "push", "origin"],
+            s_remote,
+        ),
+        ("stash", &["stash", "shelve", "wip"], s_stash),
+        ("log", &["log", "history", "blame", "shortlog"], s_log),
+        ("reset", &["reset", "revert", "undo", "rollback"], s_reset),
+        ("tag", &["tag", "tags", "release", "annotate"], s_tag),
+        ("diff", &["diff", "show", "compare"], s_diff),
+        ("clean", &["clean", "rm", "remove", "untrack"], s_clean),
+        ("bisect", &["bisect", "debug", "regression"], s_bisect),
+        ("worktree", &["worktree", "linked"], s_worktree),
+        ("aliases", &["alias", "aliases", "shortcuts"], s_aliases),
+    ];
+
+    let q = query.trim().to_lowercase();
+
+    if q.is_empty() || q == "help" || q == "list" {
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  hematite --git-ref <TOPIC>");
+        let _ = writeln!(out, "  Offline git command reference");
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  Topics:");
+        for &(name, aliases, _) in SECTIONS {
+            let _ = writeln!(out, "    {name:<12} ({})", aliases.join(", "));
+        }
+        let _ = writeln!(out, "\n  hematite --git-ref all   -- print everything");
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    if q == "all" {
+        let _ = writeln!(out, "{sep}");
+        for &(name, _, f) in SECTIONS {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+            let _ = writeln!(out, "");
+        }
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    let found: Vec<_> = SECTIONS
+        .iter()
+        .filter(|&&(name, aliases, _)| {
+            name.contains(q.as_str())
+                || aliases
+                    .iter()
+                    .any(|&a| a.contains(q.as_str()) || q.contains(a))
+        })
+        .collect();
+
+    if found.is_empty() {
+        let _ = writeln!(out, "  No topic found for '{}'.", query.trim());
+        let _ = writeln!(out, "  Run: hematite --git-ref help");
+    } else {
+        let _ = writeln!(out, "{sep}");
+        for &&(name, _, f) in &found {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+        }
+        let _ = writeln!(out, "{sep}");
+    }
+    out
+}
+
+pub fn color_names_calc(query: &str) -> String {
+    use std::fmt::Write as _;
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+
+    // (name, hex, category)
+    const COLORS: &[(&str, &str, &str)] = &[
+        // reds
+        ("red", "#FF0000", "red"),
+        ("darkred", "#8B0000", "red"),
+        ("firebrick", "#B22222", "red"),
+        ("crimson", "#DC143C", "red"),
+        ("indianred", "#CD5C5C", "red"),
+        ("lightcoral", "#F08080", "red"),
+        ("salmon", "#FA8072", "red"),
+        ("darksalmon", "#E9967A", "red"),
+        ("lightsalmon", "#FFA07A", "red"),
+        ("tomato", "#FF6347", "red"),
+        ("orangered", "#FF4500", "red"),
+        // oranges/yellows
+        ("orange", "#FFA500", "orange"),
+        ("darkorange", "#FF8C00", "orange"),
+        ("coral", "#FF7F50", "orange"),
+        ("gold", "#FFD700", "yellow"),
+        ("yellow", "#FFFF00", "yellow"),
+        ("lightyellow", "#FFFFE0", "yellow"),
+        ("lemonchiffon", "#FFFACD", "yellow"),
+        ("palegoldenrod", "#EEE8AA", "yellow"),
+        ("khaki", "#F0E68C", "yellow"),
+        ("darkkhaki", "#BDB76B", "yellow"),
+        ("goldenrod", "#DAA520", "yellow"),
+        ("darkgoldenrod", "#B8860B", "yellow"),
+        // greens
+        ("green", "#008000", "green"),
+        ("lime", "#00FF00", "green"),
+        ("limegreen", "#32CD32", "green"),
+        ("darkgreen", "#006400", "green"),
+        ("forestgreen", "#228B22", "green"),
+        ("seagreen", "#2E8B57", "green"),
+        ("mediumseagreen", "#3CB371", "green"),
+        ("springgreen", "#00FF7F", "green"),
+        ("mediumspringgreen", "#00FA9A", "green"),
+        ("lightgreen", "#90EE90", "green"),
+        ("palegreen", "#98FB98", "green"),
+        ("darkseagreen", "#8FBC8F", "green"),
+        ("mediumaquamarine", "#66CDAA", "green"),
+        ("aquamarine", "#7FFFD4", "green"),
+        ("chartreuse", "#7FFF00", "green"),
+        ("lawngreen", "#7CFC00", "green"),
+        ("greenyellow", "#ADFF2F", "green"),
+        ("yellowgreen", "#9ACD32", "green"),
+        ("olivedrab", "#6B8E23", "green"),
+        ("olive", "#808000", "green"),
+        ("darkolivegreen", "#556B2F", "green"),
+        // blues
+        ("blue", "#0000FF", "blue"),
+        ("darkblue", "#00008B", "blue"),
+        ("navy", "#000080", "blue"),
+        ("mediumblue", "#0000CD", "blue"),
+        ("royalblue", "#4169E1", "blue"),
+        ("cornflowerblue", "#6495ED", "blue"),
+        ("steelblue", "#4682B4", "blue"),
+        ("dodgerblue", "#1E90FF", "blue"),
+        ("deepskyblue", "#00BFFF", "blue"),
+        ("skyblue", "#87CEEB", "blue"),
+        ("lightskyblue", "#87CEFA", "blue"),
+        ("lightblue", "#ADD8E6", "blue"),
+        ("powderblue", "#B0E0E6", "blue"),
+        ("lightsteelblue", "#B0C4DE", "blue"),
+        ("slateblue", "#6A5ACD", "blue"),
+        ("mediumslateblue", "#7B68EE", "blue"),
+        ("darkslateblue", "#483D8B", "blue"),
+        ("cadetblue", "#5F9EA0", "blue"),
+        ("teal", "#008080", "blue"),
+        ("darkcyan", "#008B8B", "blue"),
+        ("cyan", "#00FFFF", "blue"),
+        ("aqua", "#00FFFF", "blue"),
+        ("lightcyan", "#E0FFFF", "blue"),
+        ("paleturquoise", "#AFEEEE", "blue"),
+        ("turquoise", "#40E0D0", "blue"),
+        ("mediumturquoise", "#48D1CC", "blue"),
+        ("darkturquoise", "#00CED1", "blue"),
+        // purples/pinks
+        ("purple", "#800080", "purple"),
+        ("darkviolet", "#9400D3", "purple"),
+        ("darkmagenta", "#8B008B", "purple"),
+        ("magenta", "#FF00FF", "purple"),
+        ("fuchsia", "#FF00FF", "purple"),
+        ("violet", "#EE82EE", "purple"),
+        ("orchid", "#DA70D6", "purple"),
+        ("mediumorchid", "#BA55D3", "purple"),
+        ("mediumpurple", "#9370DB", "purple"),
+        ("blueviolet", "#8A2BE2", "purple"),
+        ("darkorchid", "#9932CC", "purple"),
+        ("indigo", "#4B0082", "purple"),
+        ("slateblue", "#6A5ACD", "purple"),
+        ("pink", "#FFC0CB", "pink"),
+        ("lightpink", "#FFB6C1", "pink"),
+        ("hotpink", "#FF69B4", "pink"),
+        ("deeppink", "#FF1493", "pink"),
+        ("mediumvioletred", "#C71585", "pink"),
+        ("palevioletred", "#DB7093", "pink"),
+        ("rosybrown", "#BC8F8F", "pink"),
+        // browns
+        ("brown", "#A52A2A", "brown"),
+        ("saddlebrown", "#8B4513", "brown"),
+        ("sienna", "#A0522D", "brown"),
+        ("chocolate", "#D2691E", "brown"),
+        ("peru", "#CD853F", "brown"),
+        ("sandybrown", "#F4A460", "brown"),
+        ("burlywood", "#DEB887", "brown"),
+        ("tan", "#D2B48C", "brown"),
+        ("wheat", "#F5DEB3", "brown"),
+        ("moccasin", "#FFE4B5", "brown"),
+        ("navajowhite", "#FFDEAD", "brown"),
+        ("bisque", "#FFE4C4", "brown"),
+        ("blanchedalmond", "#FFEBCD", "brown"),
+        ("cornsilk", "#FFF8DC", "brown"),
+        // whites/creams
+        ("white", "#FFFFFF", "white"),
+        ("snow", "#FFFAFA", "white"),
+        ("honeydew", "#F0FFF0", "white"),
+        ("mintcream", "#F5FFFA", "white"),
+        ("azure", "#F0FFFF", "white"),
+        ("aliceblue", "#F0F8FF", "white"),
+        ("ghostwhite", "#F8F8FF", "white"),
+        ("whitesmoke", "#F5F5F5", "white"),
+        ("seashell", "#FFF5EE", "white"),
+        ("beige", "#F5F5DC", "white"),
+        ("oldlace", "#FDF5E6", "white"),
+        ("floralwhite", "#FFFAF0", "white"),
+        ("ivory", "#FFFFF0", "white"),
+        ("antiquewhite", "#FAEBD7", "white"),
+        ("linen", "#FAF0E6", "white"),
+        ("lavenderblush", "#FFF0F5", "white"),
+        ("mistyrose", "#FFE4E1", "white"),
+        // grays
+        ("black", "#000000", "gray"),
+        ("gray", "#808080", "gray"),
+        ("grey", "#808080", "gray"),
+        ("darkgray", "#A9A9A9", "gray"),
+        ("darkgrey", "#A9A9A9", "gray"),
+        ("silver", "#C0C0C0", "gray"),
+        ("lightgray", "#D3D3D3", "gray"),
+        ("lightgrey", "#D3D3D3", "gray"),
+        ("gainsboro", "#DCDCDC", "gray"),
+        ("dimgray", "#696969", "gray"),
+        ("dimgrey", "#696969", "gray"),
+        ("slategray", "#708090", "gray"),
+        ("slategrey", "#708090", "gray"),
+        ("lightslategray", "#778899", "gray"),
+        ("lightslategrey", "#778899", "gray"),
+        ("darkslategray", "#2F4F4F", "gray"),
+        ("darkslategrey", "#2F4F4F", "gray"),
+        ("lavender", "#E6E6FA", "gray"),
+    ];
+
+    fn hex_to_rgb(hex: &str) -> (u8, u8, u8) {
+        let h = hex.trim_start_matches('#');
+        let r = u8::from_str_radix(&h[0..2], 16).unwrap_or(0);
+        let g = u8::from_str_radix(&h[2..4], 16).unwrap_or(0);
+        let b = u8::from_str_radix(&h[4..6], 16).unwrap_or(0);
+        (r, g, b)
+    }
+
+    fn rgb_to_hsl(r: u8, g: u8, b: u8) -> (u16, u8, u8) {
+        let r = r as f64 / 255.0;
+        let g = g as f64 / 255.0;
+        let b = b as f64 / 255.0;
+        let max = r.max(g).max(b);
+        let min = r.min(g).min(b);
+        let l = (max + min) / 2.0;
+        if (max - min).abs() < 1e-10 {
+            return (0, 0, (l * 100.0).round() as u8);
+        }
+        let d = max - min;
+        let s = if l > 0.5 {
+            d / (2.0 - max - min)
+        } else {
+            d / (max + min)
+        };
+        let h = if (max - r).abs() < 1e-10 {
+            ((g - b) / d + if g < b { 6.0 } else { 0.0 }) / 6.0
+        } else if (max - g).abs() < 1e-10 {
+            ((b - r) / d + 2.0) / 6.0
+        } else {
+            ((r - g) / d + 4.0) / 6.0
+        };
+        (
+            (h * 360.0).round() as u16,
+            (s * 100.0).round() as u8,
+            (l * 100.0).round() as u8,
+        )
+    }
+
+    fn show_color(out: &mut String, name: &str, hex: &str) {
+        let (r, g, b) = hex_to_rgb(hex);
+        let (h, s, l) = rgb_to_hsl(r, g, b);
+        let _ = writeln!(
+            out,
+            "  {name:<24} {hex}   rgb({r},{g},{b})   hsl({h},{s}%,{l}%)"
+        );
+    }
+
+    let q = query.trim().to_lowercase();
+
+    if q.is_empty() || q == "help" || q == "list" {
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  hematite --color-names <NAME|HEX|CATEGORY>");
+        let _ = writeln!(out, "  Offline CSS named color reference");
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(
+            out,
+            "  Lookup by name:     hematite --color-names cornflowerblue"
+        );
+        let _ = writeln!(
+            out,
+            "  Lookup by hex:      hematite --color-names \"#6495ED\""
+        );
+        let _ = writeln!(out, "  Category:           hematite --color-names red");
+        let _ = writeln!(
+            out,
+            "  Categories:  red orange yellow green blue purple pink brown white gray"
+        );
+        let _ = writeln!(out, "  All colors:         hematite --color-names all");
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    // Hex lookup: #RRGGBB
+    if q.starts_with('#') || (q.len() == 6 && q.chars().all(|c| c.is_ascii_hexdigit())) {
+        let needle = q.trim_start_matches('#').to_uppercase();
+        let found: Vec<_> = COLORS
+            .iter()
+            .filter(|&&(_, hex, _)| hex.trim_start_matches('#') == needle.as_str())
+            .collect();
+        if found.is_empty() {
+            let _ = writeln!(out, "  No CSS named color matches #{needle}.");
+        } else {
+            let _ = writeln!(out, "{sep}");
+            for &&(name, hex, cat) in &found {
+                let _ = writeln!(out, "  Name:     {name}  ({cat})");
+                let (r, g, b) = hex_to_rgb(hex);
+                let (h, s, l) = rgb_to_hsl(r, g, b);
+                let _ = writeln!(out, "  Hex:      {hex}");
+                let _ = writeln!(out, "  RGB:      rgb({r}, {g}, {b})");
+                let _ = writeln!(out, "  HSL:      hsl({h}, {s}%, {l}%)");
+            }
+            let _ = writeln!(out, "{sep}");
+        }
+        return out;
+    }
+
+    // Category filter
+    const CATEGORIES: &[&str] = &[
+        "red", "orange", "yellow", "green", "blue", "purple", "pink", "brown", "white", "gray",
+    ];
+    if CATEGORIES.contains(&q.as_str()) || q == "all" {
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  {:<24} {:<9}  RGB               HSL", "Name", "Hex");
+        let _ = writeln!(out, "  {}", "─".repeat(55));
+        for &(name, hex, _cat) in COLORS
+            .iter()
+            .filter(|&&(_, _, c)| q == "all" || c == q.as_str())
+        {
+            show_color(&mut out, name, hex);
+        }
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    // Exact name match first, then partial
+    let exact: Vec<_> = COLORS
+        .iter()
+        .filter(|&&(n, _, _)| n == q.as_str())
+        .collect();
+    if !exact.is_empty() {
+        let _ = writeln!(out, "{sep}");
+        for &&(name, hex, cat) in &exact {
+            let (r, g, b) = hex_to_rgb(hex);
+            let (h, s, l) = rgb_to_hsl(r, g, b);
+            let _ = writeln!(out, "  Name:     {name}  ({cat})");
+            let _ = writeln!(out, "  Hex:      {hex}");
+            let _ = writeln!(out, "  RGB:      rgb({r}, {g}, {b})");
+            let _ = writeln!(out, "  HSL:      hsl({h}, {s}%, {l}%)");
+        }
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    // Partial name search
+    let found: Vec<_> = COLORS
+        .iter()
+        .filter(|&&(n, _, _)| n.contains(q.as_str()))
+        .collect();
+    if found.is_empty() {
+        let _ = writeln!(out, "  No color found for '{}'.", query.trim());
+        let _ = writeln!(
+            out,
+            "  Try a color name, #hex, or category (red, blue, gray, etc.)"
+        );
+    } else {
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  {:<24} {:<9}  RGB               HSL", "Name", "Hex");
+        let _ = writeln!(out, "  {}", "─".repeat(55));
+        for &&(name, hex, _) in &found {
+            show_color(&mut out, name, hex);
+        }
+        let _ = writeln!(out, "{sep}");
+    }
+    out
+}
+
+pub fn docker_ref_calc(query: &str) -> String {
+    use std::fmt::Write as _;
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+
+    fn s_build() -> &'static str {
+        "  docker build -t <name>:<tag> .          Build from Dockerfile in current dir\n  docker build -t <name> -f <file> .       Build from specific Dockerfile\n  docker build --no-cache -t <name> .      Build without cache\n  docker build --build-arg KEY=val .       Pass build argument\n  docker buildx build --platform linux/amd64,linux/arm64 -t <name> . --push\n                                           Multi-platform build (Buildx)\n  docker image ls                          List local images\n  docker image rm <name>:<tag>             Remove image\n  docker image prune                       Remove dangling images\n  docker image prune -a                    Remove all unused images\n  docker tag <src> <dst>                   Tag image with new name\n  docker save -o out.tar <name>            Export image to tar\n  docker load -i out.tar                   Load image from tar\n"
+    }
+    fn s_run() -> &'static str {
+        "  docker run <image>                    Run container (foreground)\n  docker run -d <image>                  Run detached (background)\n  docker run --rm <image>                Auto-remove when stopped\n  docker run -it <image> bash            Interactive terminal\n  docker run -p <host>:<container> <img> Port mapping\n  docker run -p 8080:80 nginx            Example: host:8080 -> container:80\n  docker run -v /host:/container <img>   Bind mount\n  docker run -v vol_name:/data <img>     Named volume\n  docker run -e KEY=val <image>          Set environment variable\n  docker run --env-file .env <image>     Load env from file\n  docker run --name <name> <image>       Assign container name\n  docker run --network <net> <image>     Connect to network\n  docker run --cpus 1.5 --memory 512m <image>  Resource limits\n  docker run --restart always <image>    Restart policy\n"
+    }
+    fn s_container() -> &'static str {
+        "  docker ps                      List running containers\n  docker ps -a                   List all containers (including stopped)\n  docker stop <name|id>          Stop container (SIGTERM, then SIGKILL)\n  docker kill <name|id>          Force kill (SIGKILL)\n  docker start <name|id>         Start stopped container\n  docker restart <name|id>       Restart container\n  docker rm <name|id>            Remove stopped container\n  docker rm -f <name|id>         Force remove running container\n  docker container prune         Remove all stopped containers\n  docker rename <old> <new>      Rename container\n  docker inspect <name|id>       Detailed JSON metadata\n  docker stats                   Live resource usage\n  docker top <name|id>           Show processes in container\n  docker port <name|id>          Show port mappings\n  docker cp <src> <dst>          Copy files (host <-> container)\n    docker cp file.txt <name>:/path/   Copy to container\n    docker cp <name>:/path/file .      Copy from container\n"
+    }
+    fn s_exec() -> &'static str {
+        "  docker exec -it <name> bash    Interactive bash in running container\n  docker exec -it <name> sh      Interactive sh (Alpine/minimal images)\n  docker exec <name> <cmd>       Run command in container\n  docker exec -e KEY=val <name> <cmd>  With env var\n  docker logs <name>             Show container logs\n  docker logs -f <name>          Follow logs (tail -f equivalent)\n  docker logs --tail 100 <name>  Last 100 lines\n  docker logs --since 1h <name>  Logs from last hour\n  docker attach <name>           Attach to container stdin/stdout\n  docker wait <name>             Block until container stops\n"
+    }
+    fn s_volumes() -> &'static str {
+        "  docker volume ls                   List volumes\n  docker volume create <name>        Create named volume\n  docker volume inspect <name>       Volume details and mount path\n  docker volume rm <name>            Remove volume\n  docker volume prune                Remove all unused volumes\n  docker run -v vol_name:/data img   Mount named volume\n  docker run -v /host/path:/container/path img   Bind mount\n  docker run -v /host/path:/container/path:ro img  Read-only bind mount\n  Tip: volumes persist after container removal; bind mounts do not\n"
+    }
+    fn s_network() -> &'static str {
+        "  docker network ls                         List networks\n  docker network create <name>              Create bridge network\n  docker network create --driver overlay <n> Create overlay (Swarm)\n  docker network rm <name>                  Remove network\n  docker network inspect <name>             Network details\n  docker network connect <net> <container>  Connect container to network\n  docker network disconnect <net> <cont>    Disconnect container\n  docker run --network <name> <image>       Run on specific network\n  Default networks: bridge (default), host, none\n  bridge: containers communicate via IP; need -p for host access\n  host: container shares host network stack\n"
+    }
+    fn s_compose() -> &'static str {
+        "  docker compose up              Start services (foreground)\n  docker compose up -d           Start services detached\n  docker compose up --build      Rebuild images before starting\n  docker compose down            Stop and remove containers + networks\n  docker compose down -v         Also remove volumes\n  docker compose ps              List compose services\n  docker compose logs -f         Follow logs for all services\n  docker compose logs -f <svc>   Follow logs for one service\n  docker compose exec <svc> bash Shell into running service\n  docker compose run <svc> <cmd> Run one-off command in new container\n  docker compose build           Build/rebuild service images\n  docker compose pull            Pull latest service images\n  docker compose restart <svc>   Restart a service\n  docker compose stop <svc>      Stop without removing\n  docker compose config          Validate and view resolved config\n"
+    }
+    fn s_registry() -> &'static str {
+        "  docker login                          Login to Docker Hub\n  docker login registry.example.com     Login to private registry\n  docker logout                         Logout\n  docker push <name>:<tag>              Push to registry\n  docker pull <name>:<tag>              Pull from registry\n  docker search <term>                  Search Docker Hub\n  Tagging for private registry:\n    docker tag <local-name> registry.example.com/repo:tag\n    docker push registry.example.com/repo:tag\n"
+    }
+    fn s_prune() -> &'static str {
+        "  docker system prune            Remove stopped containers, unused networks,\n                                 dangling images, and build cache\n  docker system prune -a         Also remove all unused images\n  docker system prune -a --volumes  Also remove all unused volumes\n  docker system df               Show Docker disk usage\n  docker image prune             Remove dangling images only\n  docker image prune -a          Remove all unused images\n  docker container prune         Remove stopped containers\n  docker volume prune            Remove unused volumes\n  docker network prune           Remove unused networks\n  docker builder prune           Remove build cache\n"
+    }
+    fn s_dockerfile() -> &'static str {
+        "  Dockerfile Reference\n\n  FROM <image>:<tag>             Base image\n  RUN <cmd>                      Execute command in new layer\n  COPY <src> <dst>               Copy from build context\n  ADD <src> <dst>                Copy + extract archives + URL support\n  WORKDIR /app                   Set working directory\n  ENV KEY=val                    Set environment variable\n  ARG KEY=default                Build-time variable\n  EXPOSE <port>                  Document port (does not publish)\n  CMD [\"exec\", \"arg\"]            Default command (overridable)\n  ENTRYPOINT [\"exec\", \"arg\"]     Fixed command prefix\n  USER <user>                    Switch user\n  VOLUME [\"/data\"]               Declare mount point\n  LABEL key=val                  Add metadata\n  HEALTHCHECK CMD curl -f http://localhost/ || exit 1\n\n  Best practices:\n    Pin base image versions: FROM node:20-alpine\n    Combine RUN commands to reduce layers\n    Put rarely-changed instructions first (layer caching)\n    Use .dockerignore to exclude node_modules, .git, etc.\n    Run as non-root: RUN adduser -D app && USER app\n"
+    }
+
+    type DockerSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+    const SECTIONS: &[DockerSection] = &[
+        (
+            "build",
+            &["build", "image", "buildx", "tag", "save"],
+            s_build,
+        ),
+        (
+            "run",
+            &["run", "start", "flags", "port", "volume", "-p"],
+            s_run,
+        ),
+        (
+            "container",
+            &["container", "ps", "stop", "rm", "inspect"],
+            s_container,
+        ),
+        ("exec", &["exec", "logs", "shell", "bash", "log"], s_exec),
+        ("volumes", &["volumes", "vol", "mounts", "bind"], s_volumes),
+        (
+            "network",
+            &["network", "net", "bridge", "connect"],
+            s_network,
+        ),
+        (
+            "compose",
+            &["compose", "docker-compose", "up", "down"],
+            s_compose,
+        ),
+        (
+            "registry",
+            &["registry", "push", "pull", "login", "hub"],
+            s_registry,
+        ),
+        ("prune", &["prune", "clean", "disk", "space", "df"], s_prune),
+        (
+            "dockerfile",
+            &["dockerfile", "file", "from", "copy", "cmd"],
+            s_dockerfile,
+        ),
+    ];
+
+    let q = query.trim().to_lowercase();
+
+    if q.is_empty() || q == "help" || q == "list" {
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  hematite --docker-ref <TOPIC>");
+        let _ = writeln!(out, "  Offline Docker command reference");
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  Topics:");
+        for &(name, aliases, _) in SECTIONS {
+            let _ = writeln!(out, "    {name:<12} ({})", aliases.join(", "));
+        }
+        let _ = writeln!(out, "\n  hematite --docker-ref all   -- print everything");
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    if q == "all" {
+        let _ = writeln!(out, "{sep}");
+        for &(name, _, f) in SECTIONS {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+            let _ = writeln!(out, "");
+        }
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    let found: Vec<_> = SECTIONS
+        .iter()
+        .filter(|&&(name, aliases, _)| {
+            name.contains(q.as_str())
+                || aliases
+                    .iter()
+                    .any(|&a| a.contains(q.as_str()) || q.contains(a))
+        })
+        .collect();
+
+    if found.is_empty() {
+        let _ = writeln!(out, "  No topic found for '{}'.", query.trim());
+        let _ = writeln!(out, "  Run: hematite --docker-ref help");
+    } else {
+        let _ = writeln!(out, "{sep}");
+        for &&(name, _, f) in &found {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+        }
+        let _ = writeln!(out, "{sep}");
+    }
+    out
+}

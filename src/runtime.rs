@@ -1035,6 +1035,10 @@ mod tests {
             ascii_table: None,
             ssl: None,
             id: None,
+            http_status: None,
+            git_ref: None,
+            color_names: None,
+            docker_ref: None,
             pdf_extract_helper: None,
             teleported_from: None,
         };
