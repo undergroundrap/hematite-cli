@@ -3,18 +3,19 @@
 /// Covers known-value correctness, edge-case non-panics, and the newer
 /// matrix decomposition modes (QR, SVD, Cholesky).
 use hematite::tools::math_util::{
-    ascii_calc, ascii_table_calc, awk_calc, bitwise_calc, case_calc, chars_calc, checksum_calc,
-    chemistry_calc, cipher_calc, color_calc, color_names_calc, combinatorics_calc, complex_calc,
-    cron_calc, csv_calc, curl_calc, datetime_calc, diff_calc, docker_ref_calc, duration_calc,
-    electrical_calc, encode_calc, escape_calc, find_calc, fraction_calc, geometry_calc,
-    git_ref_calc, gitignore_calc, grep_calc, hash_calc, headers_calc, health_calc, http_calc,
-    http_status_calc, id_gen_calc, ip_calc, jq_calc, json_calc, json_path_calc, jwt_calc, kbd_calc,
-    license_calc, lorem_calc, make_calc, markdown_calc, matrix_calc, mime_calc, net_calc,
-    number_format, number_theory_calc, percent_calc, physics_calc, port_calc, prob_calc,
-    regex_calc, regex_ref_calc, roman_calc, sed_calc, semver_calc, set_calc, sort_viz, spark_calc,
-    sql_fmt_calc, sql_ref_calc, ssh_ref_calc, ssl_calc, stats_calc, string_dist, systemd_calc,
-    table_calc, tar_calc, template_calc, text_stats, timestamp_calc, toml_calc, trig_calc, tz_calc,
-    url_calc, uuid_calc, validate_calc, vim_calc, xml_calc, yaml_calc,
+    ascii_calc, ascii_table_calc, awk_calc, bash_ref_calc, bitwise_calc, case_calc, chars_calc,
+    checksum_calc, chemistry_calc, chmod_calc, cipher_calc, color_calc, color_names_calc,
+    combinatorics_calc, complex_calc, cron_calc, csv_calc, curl_calc, datetime_calc, diff_calc,
+    docker_ref_calc, duration_calc, electrical_calc, encode_calc, escape_calc, find_calc,
+    fraction_calc, geometry_calc, git_ref_calc, gitignore_calc, grep_calc, hash_calc, headers_calc,
+    health_calc, http_calc, http_status_calc, id_gen_calc, ip_calc, jq_calc, json_calc,
+    json_path_calc, jwt_calc, kbd_calc, license_calc, lorem_calc, make_calc, markdown_calc,
+    matrix_calc, mime_calc, net_calc, nginx_calc, number_format, number_theory_calc, openssl_calc,
+    percent_calc, physics_calc, port_calc, prob_calc, regex_calc, regex_ref_calc, roman_calc,
+    sed_calc, semver_calc, set_calc, sort_viz, spark_calc, sql_fmt_calc, sql_ref_calc,
+    ssh_ref_calc, ssl_calc, stats_calc, string_dist, systemd_calc, table_calc, tar_calc,
+    template_calc, text_stats, timestamp_calc, toml_calc, trig_calc, tz_calc, url_calc, uuid_calc,
+    validate_calc, vim_calc, xml_calc, yaml_calc,
 };
 
 // ─── Cipher tests ────────────────────────────────────────────────────────────
@@ -6327,4 +6328,438 @@ fn test_make_all_prints_all_sections() {
 fn test_make_unknown_topic() {
     let out = make_calc("foobar_xyz");
     assert!(out.contains("No topic") || out.contains("help"), "{out}");
+}
+
+// ─── Wave 16: chmod, openssl, nginx, bash-ref ────────────────────────────────
+
+#[test]
+fn test_chmod_help() {
+    let out = chmod_calc("help");
+    assert!(out.contains("chmod") || out.contains("TOPIC"), "{out}");
+    assert!(out.contains("basics"), "{out}");
+    assert!(out.contains("symbolic"), "{out}");
+}
+
+#[test]
+fn test_chmod_list() {
+    let out = chmod_calc("list");
+    assert!(out.contains("basics"), "{out}");
+    assert!(out.contains("umask"), "{out}");
+}
+
+#[test]
+fn test_chmod_empty() {
+    let out = chmod_calc("");
+    assert!(out.contains("TOPIC") || out.contains("Topics"), "{out}");
+}
+
+#[test]
+fn test_chmod_basics_topic() {
+    let out = chmod_calc("basics");
+    assert!(out.contains("755"), "{out}");
+    assert!(out.contains("644"), "{out}");
+    assert!(out.contains("chmod"), "{out}");
+}
+
+#[test]
+fn test_chmod_numeric_alias() {
+    let out = chmod_calc("numeric");
+    assert!(out.contains("755") || out.contains("octal"), "{out}");
+}
+
+#[test]
+fn test_chmod_symbolic_topic() {
+    let out = chmod_calc("symbolic");
+    assert!(out.contains("u+x") || out.contains("ugoa"), "{out}");
+    assert!(out.contains("operator") || out.contains("+"), "{out}");
+}
+
+#[test]
+fn test_chmod_special_topic() {
+    let out = chmod_calc("special");
+    assert!(out.contains("SUID") || out.contains("suid"), "{out}");
+    assert!(out.contains("sticky") || out.contains("1777"), "{out}");
+}
+
+#[test]
+fn test_chmod_suid_alias() {
+    let out = chmod_calc("suid");
+    assert!(out.contains("SUID") || out.contains("4000"), "{out}");
+}
+
+#[test]
+fn test_chmod_chown_topic() {
+    let out = chmod_calc("chown");
+    assert!(out.contains("chown"), "{out}");
+    assert!(out.contains("chgrp"), "{out}");
+}
+
+#[test]
+fn test_chmod_umask_topic() {
+    let out = chmod_calc("umask");
+    assert!(out.contains("umask"), "{out}");
+    assert!(out.contains("022") || out.contains("644"), "{out}");
+}
+
+#[test]
+fn test_chmod_all() {
+    let out = chmod_calc("all");
+    assert!(out.contains("755"), "{out}");
+    assert!(out.contains("SUID") || out.contains("suid"), "{out}");
+    assert!(out.contains("umask"), "{out}");
+    assert!(out.contains("chown"), "{out}");
+}
+
+#[test]
+fn test_chmod_unknown_topic() {
+    let out = chmod_calc("foobar_xyz");
+    assert!(out.contains("No topic") || out.contains("Run:"), "{out}");
+}
+
+// ─── openssl tests ───────────────────────────────────────────────────────────
+
+#[test]
+fn test_openssl_help() {
+    let out = openssl_calc("help");
+    assert!(out.contains("openssl") || out.contains("TOPIC"), "{out}");
+    assert!(out.contains("keygen"), "{out}");
+    assert!(out.contains("certs"), "{out}");
+}
+
+#[test]
+fn test_openssl_list() {
+    let out = openssl_calc("list");
+    assert!(out.contains("keygen"), "{out}");
+    assert!(out.contains("connect"), "{out}");
+}
+
+#[test]
+fn test_openssl_empty() {
+    let out = openssl_calc("");
+    assert!(out.contains("TOPIC") || out.contains("Topics"), "{out}");
+}
+
+#[test]
+fn test_openssl_keygen_topic() {
+    let out = openssl_calc("keygen");
+    assert!(out.contains("genrsa") || out.contains("RSA"), "{out}");
+    assert!(out.contains("Ed25519") || out.contains("ed25519"), "{out}");
+}
+
+#[test]
+fn test_openssl_rsa_alias() {
+    let out = openssl_calc("rsa");
+    assert!(out.contains("genrsa") || out.contains("RSA"), "{out}");
+}
+
+#[test]
+fn test_openssl_certs_topic() {
+    let out = openssl_calc("certs");
+    assert!(out.contains("x509") || out.contains("self-signed"), "{out}");
+    assert!(
+        out.contains("SAN") || out.contains("subjectAltName"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_openssl_csr_topic() {
+    let out = openssl_calc("csr");
+    assert!(out.contains("req") || out.contains("CSR"), "{out}");
+}
+
+#[test]
+fn test_openssl_inspect_topic() {
+    let out = openssl_calc("inspect");
+    assert!(out.contains("x509") || out.contains("-text"), "{out}");
+    assert!(
+        out.contains("fingerprint") || out.contains("-dates"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_openssl_convert_topic() {
+    let out = openssl_calc("convert");
+    assert!(out.contains("DER") || out.contains("der"), "{out}");
+    assert!(out.contains("P12") || out.contains("pkcs12"), "{out}");
+}
+
+#[test]
+fn test_openssl_encrypt_topic() {
+    let out = openssl_calc("encrypt");
+    assert!(out.contains("aes-256") || out.contains("AES"), "{out}");
+    assert!(out.contains("pbkdf2") || out.contains("decrypt"), "{out}");
+}
+
+#[test]
+fn test_openssl_digest_topic() {
+    let out = openssl_calc("digest");
+    assert!(out.contains("sha256") || out.contains("SHA"), "{out}");
+    assert!(out.contains("hmac") || out.contains("HMAC"), "{out}");
+}
+
+#[test]
+fn test_openssl_connect_topic() {
+    let out = openssl_calc("connect");
+    assert!(out.contains("s_client"), "{out}");
+    assert!(out.contains("443") || out.contains("-connect"), "{out}");
+}
+
+#[test]
+fn test_openssl_tls_alias() {
+    let out = openssl_calc("tls");
+    assert!(out.contains("s_client") || out.contains("TLS"), "{out}");
+}
+
+#[test]
+fn test_openssl_all() {
+    let out = openssl_calc("all");
+    assert!(out.contains("genrsa") || out.contains("RSA"), "{out}");
+    assert!(out.contains("s_client"), "{out}");
+    assert!(out.contains("sha256") || out.contains("SHA"), "{out}");
+    assert!(out.contains("DER") || out.contains("der"), "{out}");
+}
+
+#[test]
+fn test_openssl_unknown_topic() {
+    let out = openssl_calc("foobar_xyz");
+    assert!(out.contains("No topic") || out.contains("Run:"), "{out}");
+}
+
+// ─── nginx tests ─────────────────────────────────────────────────────────────
+
+#[test]
+fn test_nginx_help() {
+    let out = nginx_calc("help");
+    assert!(out.contains("nginx") || out.contains("TOPIC"), "{out}");
+    assert!(out.contains("proxy"), "{out}");
+    assert!(out.contains("location"), "{out}");
+}
+
+#[test]
+fn test_nginx_list() {
+    let out = nginx_calc("list");
+    assert!(out.contains("commands"), "{out}");
+    assert!(out.contains("rewrites"), "{out}");
+}
+
+#[test]
+fn test_nginx_empty() {
+    let out = nginx_calc("");
+    assert!(out.contains("TOPIC") || out.contains("Topics"), "{out}");
+}
+
+#[test]
+fn test_nginx_commands_topic() {
+    let out = nginx_calc("commands");
+    assert!(out.contains("nginx -t") || out.contains("-t"), "{out}");
+    assert!(out.contains("reload") || out.contains("-s"), "{out}");
+}
+
+#[test]
+fn test_nginx_server_block_topic() {
+    let out = nginx_calc("server-block");
+    assert!(
+        out.contains("server_name") || out.contains("listen"),
+        "{out}"
+    );
+    assert!(out.contains("root") || out.contains("index"), "{out}");
+}
+
+#[test]
+fn test_nginx_vhost_alias() {
+    let out = nginx_calc("vhost");
+    assert!(
+        out.contains("listen") || out.contains("server_name"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_nginx_location_topic() {
+    let out = nginx_calc("location");
+    assert!(
+        out.contains("try_files") || out.contains("location"),
+        "{out}"
+    );
+    assert!(out.contains("regex") || out.contains("prefix"), "{out}");
+}
+
+#[test]
+fn test_nginx_proxy_topic() {
+    let out = nginx_calc("proxy");
+    assert!(out.contains("proxy_pass"), "{out}");
+    assert!(
+        out.contains("upstream") || out.contains("X-Real-IP"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_nginx_websocket_alias() {
+    let out = nginx_calc("websocket");
+    assert!(
+        out.contains("proxy_pass") || out.contains("Upgrade"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_nginx_ssl_tls_topic() {
+    let out = nginx_calc("ssl-tls");
+    assert!(
+        out.contains("ssl_certificate") || out.contains("TLSv1"),
+        "{out}"
+    );
+    assert!(out.contains("certbot") || out.contains("443"), "{out}");
+}
+
+#[test]
+fn test_nginx_static_topic() {
+    let out = nginx_calc("static");
+    assert!(out.contains("gzip") || out.contains("expires"), "{out}");
+    assert!(out.contains("root") || out.contains("alias"), "{out}");
+}
+
+#[test]
+fn test_nginx_rewrites_topic() {
+    let out = nginx_calc("rewrites");
+    assert!(out.contains("return") || out.contains("rewrite"), "{out}");
+    assert!(out.contains("301") || out.contains("redirect"), "{out}");
+}
+
+#[test]
+fn test_nginx_all() {
+    let out = nginx_calc("all");
+    assert!(out.contains("proxy_pass"), "{out}");
+    assert!(
+        out.contains("ssl_certificate") || out.contains("TLS"),
+        "{out}"
+    );
+    assert!(out.contains("gzip"), "{out}");
+    assert!(out.contains("return") || out.contains("301"), "{out}");
+}
+
+#[test]
+fn test_nginx_unknown_topic() {
+    let out = nginx_calc("foobar_xyz");
+    assert!(out.contains("No topic") || out.contains("Run:"), "{out}");
+}
+
+// ─── bash-ref tests ──────────────────────────────────────────────────────────
+
+#[test]
+fn test_bash_ref_help() {
+    let out = bash_ref_calc("help");
+    assert!(out.contains("bash") || out.contains("TOPIC"), "{out}");
+    assert!(out.contains("variables"), "{out}");
+    assert!(out.contains("loops"), "{out}");
+}
+
+#[test]
+fn test_bash_ref_list() {
+    let out = bash_ref_calc("list");
+    assert!(out.contains("variables"), "{out}");
+    assert!(out.contains("advanced"), "{out}");
+}
+
+#[test]
+fn test_bash_ref_empty() {
+    let out = bash_ref_calc("");
+    assert!(out.contains("TOPIC") || out.contains("Topics"), "{out}");
+}
+
+#[test]
+fn test_bash_ref_variables_topic() {
+    let out = bash_ref_calc("variables");
+    assert!(out.contains("${var") || out.contains("$var"), "{out}");
+    assert!(out.contains("export") || out.contains("unset"), "{out}");
+}
+
+#[test]
+fn test_bash_ref_expansion_alias() {
+    let out = bash_ref_calc("expansion");
+    assert!(out.contains("${var") || out.contains("default"), "{out}");
+}
+
+#[test]
+fn test_bash_ref_arrays_topic() {
+    let out = bash_ref_calc("arrays");
+    assert!(out.contains("arr=") || out.contains("declare -A"), "{out}");
+    assert!(
+        out.contains("associative") || out.contains("${arr"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_bash_ref_conditionals_topic() {
+    let out = bash_ref_calc("conditionals");
+    assert!(out.contains("if") && out.contains("fi"), "{out}");
+    assert!(out.contains("[[ ") || out.contains("-f "), "{out}");
+}
+
+#[test]
+fn test_bash_ref_loops_topic() {
+    let out = bash_ref_calc("loops");
+    assert!(out.contains("for") || out.contains("while"), "{out}");
+    assert!(out.contains("break") || out.contains("continue"), "{out}");
+}
+
+#[test]
+fn test_bash_ref_while_alias() {
+    let out = bash_ref_calc("while");
+    assert!(out.contains("while") || out.contains("until"), "{out}");
+}
+
+#[test]
+fn test_bash_ref_functions_topic() {
+    let out = bash_ref_calc("functions");
+    assert!(out.contains("local") || out.contains("return"), "{out}");
+    assert!(out.contains("FUNCNAME") || out.contains("nameref"), "{out}");
+}
+
+#[test]
+fn test_bash_ref_io_topic() {
+    let out = bash_ref_calc("io");
+    assert!(out.contains("printf") || out.contains("echo"), "{out}");
+    assert!(out.contains("redirect") || out.contains("2>&1"), "{out}");
+}
+
+#[test]
+fn test_bash_ref_heredoc_alias() {
+    let out = bash_ref_calc("heredoc");
+    assert!(
+        out.contains("<<") || out.contains("heredoc") || out.contains("EOF"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_bash_ref_advanced_topic() {
+    let out = bash_ref_calc("advanced");
+    assert!(out.contains("pipefail") || out.contains("set -e"), "{out}");
+    assert!(out.contains("trap") || out.contains("subshell"), "{out}");
+}
+
+#[test]
+fn test_bash_ref_strict_alias() {
+    let out = bash_ref_calc("strict");
+    assert!(out.contains("set -e") || out.contains("pipefail"), "{out}");
+}
+
+#[test]
+fn test_bash_ref_all() {
+    let out = bash_ref_calc("all");
+    assert!(out.contains("export") || out.contains("unset"), "{out}");
+    assert!(out.contains("declare -A"), "{out}");
+    assert!(out.contains("while") || out.contains("for"), "{out}");
+    assert!(out.contains("pipefail") || out.contains("set -e"), "{out}");
+}
+
+#[test]
+fn test_bash_ref_unknown_topic() {
+    let out = bash_ref_calc("foobar_xyz");
+    assert!(out.contains("No topic") || out.contains("Run:"), "{out}");
 }

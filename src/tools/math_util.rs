@@ -32614,3 +32614,520 @@ pub fn make_calc(query: &str) -> String {
     }
     out
 }
+
+// ─── Wave 16: chmod, openssl, nginx, bash-ref ─────────────────────────────────
+
+pub fn chmod_calc(query: &str) -> String {
+    use std::fmt::Write as _;
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+
+    fn s_basics() -> &'static str {
+        "  chmod [options] MODE FILE\n\n  Two notations:\n  Numeric (octal):  chmod 755 file\n  Symbolic:         chmod u+x file\n\n  Permission bits per entity (user / group / other):\n  4   read    (r)\n  2   write   (w)\n  1   execute (x)\n  Sum them: rwx = 4+2+1 = 7\n             rw- = 4+2+0 = 6\n             r-- = 4+0+0 = 4\n\n  Common permission sets:\n  777  rwxrwxrwx  Everyone can read/write/execute (dangerous)\n  755  rwxr-xr-x  Owner full; group+other read+execute (dirs, executables)\n  750  rwxr-x---  Owner full; group read+execute; other none\n  700  rwx------  Owner full; no one else\n  664  rw-rw-r--  Owner+group read+write; other read (shared files)\n  644  rw-r--r--  Owner read+write; others read only (default files)\n  640  rw-r-----  Owner read+write; group read; other none\n  600  rw-------  Owner read+write only (private files: SSH keys)\n  444  r--r--r--  Read-only for everyone\n  400  r--------  Read-only for owner only\n\n  Recursive (-R):\n  chmod -R 755 dir/      Apply to dir and all contents\n  chmod -R u+x scripts/  Add execute bit for owner recursively\n"
+    }
+    fn s_symbolic() -> &'static str {
+        "  Symbolic notation:  chmod [ugoa][+-=][rwxXst] file\n\n  Who:\n  u   User (owner)\n  g   Group\n  o   Other\n  a   All (u+g+o)  — default if who is omitted\n\n  Operator:\n  +   Add permission\n  -   Remove permission\n  =   Set exactly (clears unspecified bits for that entity)\n\n  Permission letter:\n  r   Read\n  w   Write\n  x   Execute\n  X   Execute only if directory or already has execute for someone\n  s   Set-user-ID (on u) / Set-group-ID (on g)\n  t   Sticky bit (on o)\n\n  Examples:\n  chmod u+x file         Add execute for owner\n  chmod g-w file         Remove write for group\n  chmod o= file          Clear all permissions for others\n  chmod a+r file         Add read for everyone\n  chmod ug+rw,o-rwx file Owner+group get rw; others get nothing\n  chmod u=rwx,g=rx,o=r file  Set all at once (like 754)\n  chmod +x file          Add execute for all (a+x)\n  chmod -x file          Remove execute for all\n  chmod a-s file         Remove SUID and SGID\n  chmod +X dir/          Add execute for dirs only (recursive use case)\n  chmod -R a+rX dir/     Read for all, execute only for dirs/executables\n"
+    }
+    fn s_special() -> &'static str {
+        "  Special permission bits (the 4th octal digit):\n\n  SUID (Set User ID) — 4000 or u+s:\n  chmod 4755 binary      File runs as owner, not caller\n  chmod u+s binary       Symbolic equivalent\n  ls -l shows: -rwsr-xr-x (s in user execute position)\n  Security risk: restrict to trusted binaries only\n  Find SUID files: find / -perm -4000 -type f\n\n  SGID (Set Group ID) — 2000 or g+s:\n  chmod 2755 binary      File runs with owner's group\n  chmod g+s dir/         New files in dir inherit dir's group\n  ls -l shows: -rwxr-sr-x (s in group execute position)\n  Useful for shared directories where group ownership should propagate\n  Find SGID files: find / -perm -2000 -type f\n\n  Sticky bit — 1000 or +t:\n  chmod 1777 /tmp        Users can only delete their own files\n  chmod +t shared-dir/   Same as o+t\n  ls -l shows: drwxrwxrwt (t in other execute position)\n  T (capital) means sticky is set but other-execute is NOT set\n  Classic use: /tmp, /var/tmp — world-writable but protected\n\n  Combined special:\n  chmod 6755 file        SUID + SGID\n  chmod 7777 file        All special bits + full perms (very dangerous)\n"
+    }
+    fn s_chown() -> &'static str {
+        "  chown — change file owner and group:\n  chown user file              Change owner to user\n  chown user:group file        Change owner and group\n  chown :group file            Change group only\n  chown user: file             Change owner; group = user's login group\n  chown -R user:group dir/     Recursive\n  chown --from=olduser newuser file  Only change if current owner matches\n  chown --reference=ref file   Copy owner/group from ref file\n\n  chgrp — change group only:\n  chgrp group file             Change group to group\n  chgrp -R group dir/          Recursive\n  chgrp --reference=ref file   Copy group from ref file\n\n  View current ownership:\n  ls -la file                  Shows permissions, owner, group\n  stat file                    Detailed file status including numeric IDs\n  stat -c '%U %G %a' file      Format: owner group octal-perms\n\n  Common patterns:\n  chown -R www-data:www-data /var/www/html    Web server ownership\n  chown root:sudo /usr/local/bin/tool         Root-owned, sudo-accessible\n  chmod 640 /etc/app/secret.conf             Protect config\n  chown root:app /etc/app/secret.conf         Root-owned, app-group readable\n"
+    }
+    fn s_umask() -> &'static str {
+        "  umask — default permission mask for new files\n\n  umask MASK         Set the mask\n  umask              Show current mask (octal)\n  umask -S           Show symbolic (e.g., u=rwx,g=rx,o=rx)\n\n  How umask works:\n  New file permissions = base permissions AND NOT umask\n  Files base:  666 (rw-rw-rw-)  — no execute by default\n  Dirs  base:  777 (rwxrwxrwx)\n\n  Common umask values:\n  022  Files: 644 (rw-r--r--)  Dirs: 755 (rwxr-xr-x)  — standard default\n  027  Files: 640 (rw-r-----)  Dirs: 750 (rwxr-x---)  — secure servers\n  077  Files: 600 (rw-------)  Dirs: 700 (rwx------)  — private\n  002  Files: 664 (rw-rw-r--)  Dirs: 775 (rwxrwxr-x)  — group-writable\n  000  Files: 666 (rw-rw-rw-)  Dirs: 777 (rwxrwxrwx)  — no masking\n\n  Per-process umask in scripts:\n  umask 077          Set tight permissions for new files this session\n  ( umask 022; tar xzf archive.tar.gz )  Subshell with different umask\n\n  Set in shell startup:\n  Add to ~/.bashrc or /etc/profile:\n  umask 022          Single-user workstation\n  umask 027          Multi-user or server environment\n"
+    }
+
+    type ChmodSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+    const SECTIONS: &[ChmodSection] = &[
+        (
+            "basics",
+            &["basics", "numeric", "octal", "common", "755", "644"],
+            s_basics,
+        ),
+        (
+            "symbolic",
+            &["symbolic", "ugoa", "operator", "plus", "minus", "equal"],
+            s_symbolic,
+        ),
+        (
+            "special",
+            &["special", "suid", "sgid", "sticky", "setuid", "setgid"],
+            s_special,
+        ),
+        (
+            "chown",
+            &["chown", "chgrp", "owner", "group", "reference"],
+            s_chown,
+        ),
+        (
+            "umask",
+            &["umask", "default", "mask", "new-file", "creation"],
+            s_umask,
+        ),
+    ];
+
+    let q = query.trim().to_lowercase();
+
+    if q.is_empty() || q == "help" || q == "list" {
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  hematite --chmod <TOPIC>");
+        let _ = writeln!(out, "  Offline chmod / chown / umask reference");
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  Topics:");
+        for &(name, aliases, _) in SECTIONS {
+            let _ = writeln!(out, "    {name:<12} ({})", aliases.join(", "));
+        }
+        let _ = writeln!(out, "\n  hematite --chmod all   -- print everything");
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    if q == "all" {
+        let _ = writeln!(out, "{sep}");
+        for &(name, _, f) in SECTIONS {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+            let _ = writeln!(out, "");
+        }
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    let found: Vec<_> = SECTIONS
+        .iter()
+        .filter(|&&(name, aliases, _)| {
+            name.contains(q.as_str())
+                || aliases
+                    .iter()
+                    .any(|&a| a.contains(q.as_str()) || q.contains(a))
+        })
+        .collect();
+
+    if found.is_empty() {
+        let _ = writeln!(out, "  No topic found for '{}'.", query.trim());
+        let _ = writeln!(out, "  Run: hematite --chmod help");
+    } else {
+        let _ = writeln!(out, "{sep}");
+        for &&(name, _, f) in &found {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+        }
+        let _ = writeln!(out, "{sep}");
+    }
+    out
+}
+
+pub fn openssl_calc(query: &str) -> String {
+    use std::fmt::Write as _;
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+
+    fn s_keygen() -> &'static str {
+        "  RSA keys:\n  openssl genrsa -out key.pem 4096            Generate 4096-bit RSA key\n  openssl genrsa -aes256 -out key.pem 4096   Encrypted with passphrase\n  openssl rsa -in key.pem -out key_nopass.pem Remove passphrase\n  openssl rsa -in key.pem -pubout -out pub.pem Extract public key\n\n  EC keys (modern, smaller, faster):\n  openssl ecparam -name prime256v1 -genkey -noout -out ec.pem\n  openssl ecparam -name secp384r1  -genkey -noout -out ec.pem\n  openssl ecparam -name secp521r1  -genkey -noout -out ec.pem\n  openssl ec -in ec.pem -pubout -out ec_pub.pem\n\n  Ed25519 (modern preferred):\n  openssl genpkey -algorithm Ed25519 -out ed25519.pem\n  openssl pkey -in ed25519.pem -pubout -out ed25519_pub.pem\n\n  Modern genpkey (unified interface):\n  openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:4096 -out key.pem\n  openssl genpkey -algorithm EC  -pkeyopt ec_paramgen_curve:P-256 -out key.pem\n\n  Check key:\n  openssl rsa -in key.pem -check -noout\n  openssl pkey -in key.pem -check -noout\n"
+    }
+    fn s_certs() -> &'static str {
+        "  Self-signed certificate (dev/testing):\n  openssl req -x509 -newkey rsa:4096 -keyout key.pem -out cert.pem \\\n    -days 365 -nodes -subj \"/CN=localhost\"\n\n  With full subject:\n  openssl req -x509 -newkey rsa:4096 -keyout key.pem -out cert.pem \\\n    -days 365 -nodes \\\n    -subj \"/C=US/ST=CA/L=SF/O=MyOrg/OU=Dev/CN=example.com\"\n\n  Self-signed with SAN (Subject Alternative Names) — required by modern browsers:\n  openssl req -x509 -newkey rsa:4096 -keyout key.pem -out cert.pem \\\n    -days 365 -nodes \\\n    -addext \"subjectAltName=DNS:example.com,DNS:www.example.com,IP:127.0.0.1\"\n\n  Create a CA key + cert:\n  openssl genrsa -out ca.key 4096\n  openssl req -x509 -new -nodes -key ca.key -sha256 -days 3650 \\\n    -out ca.crt -subj \"/CN=My CA\"\n\n  Sign a CSR with your CA:\n  openssl x509 -req -in server.csr -CA ca.crt -CAkey ca.key \\\n    -CAcreateserial -out server.crt -days 365 -sha256\n\n  Sign with SAN extension:\n  openssl x509 -req -in server.csr -CA ca.crt -CAkey ca.key \\\n    -CAcreateserial -out server.crt -days 365 -sha256 \\\n    -extfile <(printf \"subjectAltName=DNS:example.com\")\n"
+    }
+    fn s_csr() -> &'static str {
+        "  Generate private key + CSR in one step:\n  openssl req -newkey rsa:4096 -keyout key.pem -out req.csr -nodes \\\n    -subj \"/CN=example.com/O=MyOrg\"\n\n  Generate CSR from existing key:\n  openssl req -new -key key.pem -out req.csr \\\n    -subj \"/C=US/ST=CA/CN=example.com\"\n\n  Inspect a CSR:\n  openssl req -in req.csr -text -noout\n  openssl req -in req.csr -subject -noout\n  openssl req -in req.csr -pubkey -noout\n\n  CSR with SAN via config file:\n  cat > san.cnf <<'EOF'\n  [req]\n  req_extensions = v3_req\n  distinguished_name = req_distinguished_name\n  [req_distinguished_name]\n  [v3_req]\n  subjectAltName = @alt_names\n  [alt_names]\n  DNS.1 = example.com\n  DNS.2 = www.example.com\n  IP.1  = 192.168.1.1\n  EOF\n  openssl req -new -key key.pem -out req.csr -config san.cnf\n\n  Verify CSR matches key (modulus check):\n  openssl req -noout -modulus -in req.csr | md5sum\n  openssl rsa -noout -modulus -in key.pem | md5sum\n  (both MD5s must match)\n"
+    }
+    fn s_inspect() -> &'static str {
+        "  Inspect a certificate:\n  openssl x509 -in cert.pem -text -noout          Full text\n  openssl x509 -in cert.pem -subject -noout        Subject only\n  openssl x509 -in cert.pem -issuer -noout         Issuer only\n  openssl x509 -in cert.pem -dates -noout          Not-before/not-after\n  openssl x509 -in cert.pem -fingerprint -noout     SHA1 fingerprint\n  openssl x509 -in cert.pem -fingerprint -sha256 -noout  SHA256 fingerprint\n  openssl x509 -in cert.pem -serial -noout          Serial number\n  openssl x509 -in cert.pem -noout -checkend 86400  Exit 1 if expires in 24h\n\n  Inspect a private key:\n  openssl rsa -in key.pem -text -noout\n  openssl pkey -in key.pem -text -noout            (works for all key types)\n\n  Inspect a DER cert:\n  openssl x509 -inform DER -in cert.der -text -noout\n\n  Verify cert against CA:\n  openssl verify -CAfile ca.crt cert.pem\n  openssl verify -CAfile ca.crt -untrusted chain.pem leaf.pem\n\n  Check cert + key match:\n  openssl x509 -noout -modulus -in cert.pem | md5sum\n  openssl rsa  -noout -modulus -in key.pem  | md5sum\n  (must match for cert to work with key)\n\n  Read cert from remote server:\n  openssl s_client -connect example.com:443 </dev/null 2>/dev/null \\\n    | openssl x509 -text -noout\n"
+    }
+    fn s_convert() -> &'static str {
+        "  PEM <-> DER conversion:\n  openssl x509 -in cert.pem -outform DER -out cert.der    PEM -> DER\n  openssl x509 -in cert.der -inform DER -out cert.pem     DER -> PEM\n  openssl rsa  -in key.pem  -outform DER -out key.der     PEM key -> DER\n  openssl rsa  -in key.der  -inform DER  -out key.pem     DER key -> PEM\n\n  PEM <-> P12/PFX (includes cert + key + chain):\n  Create P12 from cert + key:\n  openssl pkcs12 -export -out bundle.p12 -inkey key.pem -in cert.pem\n\n  Create P12 with CA chain:\n  openssl pkcs12 -export -out bundle.p12 -inkey key.pem \\\n    -in cert.pem -certfile ca-chain.crt\n\n  Extract from P12:\n  openssl pkcs12 -in bundle.p12 -nocerts -nodes -out key.pem    Key only\n  openssl pkcs12 -in bundle.p12 -nokeys  -clcerts -out cert.pem  Cert only\n  openssl pkcs12 -in bundle.p12 -nokeys  -cacerts -out ca.pem    CA chain only\n  openssl pkcs12 -in bundle.p12 -nodes -out combined.pem         Everything\n\n  PEM bundle operations:\n  cat cert.pem intermediate.pem root.pem > chain.pem   Build chain\n  openssl x509 -in chain.pem                            Read first cert\n  csplit -z chain.pem '/-----BEGIN/' '{*}'              Split bundle to files\n"
+    }
+    fn s_encrypt() -> &'static str {
+        "  Symmetric file encryption/decryption:\n\n  Encrypt file (AES-256-CBC, password prompt):\n  openssl enc -aes-256-cbc -pbkdf2 -iter 100000 -in file.txt -out file.enc\n\n  Encrypt with password from command line (insecure: visible in ps):\n  openssl enc -aes-256-cbc -pbkdf2 -in file.txt -out file.enc -pass pass:secret\n\n  Decrypt:\n  openssl enc -d -aes-256-cbc -pbkdf2 -iter 100000 -in file.enc -out file.txt\n\n  Modern choice — ChaCha20-Poly1305:\n  openssl enc -chacha20 -pbkdf2 -iter 100000 -in file.txt -out file.enc\n  openssl enc -d -chacha20 -pbkdf2 -iter 100000 -in file.enc -out file.txt\n\n  Base64 output (email/text-safe):\n  openssl enc -aes-256-cbc -pbkdf2 -a -in file.txt -out file.b64.enc\n  openssl enc -d -aes-256-cbc -pbkdf2 -a -in file.b64.enc -out file.txt\n\n  List available ciphers:\n  openssl enc -list\n\n  Asymmetric encryption (small data only — use to encrypt symmetric key):\n  openssl rsautl -encrypt -pubin -inkey pub.pem -in key.bin -out key.enc\n  openssl rsautl -decrypt -inkey priv.pem -in key.enc -out key.bin\n"
+    }
+    fn s_digest() -> &'static str {
+        "  Hash files:\n  openssl dgst -sha256 file                 SHA-256 hash\n  openssl dgst -sha512 file                 SHA-512 hash\n  openssl dgst -md5 file                    MD5 (legacy)\n  openssl dgst -sha256 -hex file            Hex output (default)\n  openssl dgst -sha256 -binary file         Binary output\n  openssl sha256 file                       Shorthand (same as -sha256)\n\n  HMAC (keyed hash):\n  openssl dgst -sha256 -hmac 'secret-key' file\n  echo -n 'message' | openssl dgst -sha256 -hmac 'key'\n\n  Hash a string:\n  echo -n 'hello' | openssl dgst -sha256\n  printf '%s' 'hello' | openssl dgst -sha256   (no trailing newline)\n\n  Base64:\n  openssl base64 -in file.bin -out file.b64      Encode file\n  openssl base64 -d -in file.b64 -out file.bin   Decode file\n  echo 'hello' | openssl base64                  Encode string\n  echo 'aGVsbG8K' | openssl base64 -d            Decode string\n  openssl base64 -A -in file                     No line breaks (URL-safe input)\n\n  Random bytes:\n  openssl rand -hex 32                   32 random bytes as hex (64 chars)\n  openssl rand -base64 32                32 random bytes as base64\n  openssl rand -out file.bin 256         256 random bytes to file\n"
+    }
+    fn s_connect() -> &'static str {
+        "  Test TLS connections with s_client:\n  openssl s_client -connect example.com:443\n  openssl s_client -connect example.com:443 -servername example.com  (SNI)\n  openssl s_client -connect example.com:443 </dev/null  (non-interactive)\n\n  Common s_client flags:\n  -connect host:port         Target host and port\n  -servername name           SNI hostname (for virtual hosting)\n  -CAfile ca.crt             Verify with specific CA\n  -cert client.crt -key k.pem  Client certificate auth\n  -showcerts                 Show full chain\n  -verify 5                  Verify depth\n  -tls1_2                    Force TLS 1.2\n  -tls1_3                    Force TLS 1.3\n  -cipher 'HIGH:!aNULL'      Cipher list\n  -starttls smtp             STARTTLS for SMTP\n  -starttls imap             STARTTLS for IMAP\n\n  Useful one-liners:\n  Print cert expiry:\n  echo | openssl s_client -connect example.com:443 2>/dev/null \\\n    | openssl x509 -noout -dates\n\n  Check TLS protocol version:\n  echo | openssl s_client -connect example.com:443 2>&1 | grep 'Protocol'\n\n  Test specific cipher:\n  openssl s_client -connect host:443 -cipher ECDHE-RSA-AES256-GCM-SHA384\n\n  Check certificate chain:\n  echo | openssl s_client -connect example.com:443 -showcerts 2>/dev/null\n"
+    }
+
+    type SslSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+    const SECTIONS: &[SslSection] = &[
+        (
+            "keygen",
+            &["keygen", "key", "rsa", "ec", "ed25519", "generate"],
+            s_keygen,
+        ),
+        (
+            "certs",
+            &["cert", "certs", "x509", "self-signed", "ca", "sign"],
+            s_certs,
+        ),
+        (
+            "csr",
+            &["csr", "request", "signing", "san", "subject"],
+            s_csr,
+        ),
+        (
+            "inspect",
+            &["inspect", "view", "check", "text", "fingerprint", "verify"],
+            s_inspect,
+        ),
+        (
+            "convert",
+            &["convert", "der", "pem", "p12", "pfx", "pkcs12", "chain"],
+            s_convert,
+        ),
+        (
+            "encrypt",
+            &["encrypt", "decrypt", "aes", "symmetric", "chacha"],
+            s_encrypt,
+        ),
+        (
+            "digest",
+            &["digest", "hash", "sha256", "hmac", "base64", "rand"],
+            s_digest,
+        ),
+        (
+            "connect",
+            &["connect", "s_client", "tls", "test", "starttls", "server"],
+            s_connect,
+        ),
+    ];
+
+    let q = query.trim().to_lowercase();
+
+    if q.is_empty() || q == "help" || q == "list" {
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  hematite --openssl <TOPIC>");
+        let _ = writeln!(out, "  Offline OpenSSL command reference");
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  Topics:");
+        for &(name, aliases, _) in SECTIONS {
+            let _ = writeln!(out, "    {name:<10} ({})", aliases.join(", "));
+        }
+        let _ = writeln!(out, "\n  hematite --openssl all   -- print everything");
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    if q == "all" {
+        let _ = writeln!(out, "{sep}");
+        for &(name, _, f) in SECTIONS {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+            let _ = writeln!(out, "");
+        }
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    let found: Vec<_> = SECTIONS
+        .iter()
+        .filter(|&&(name, aliases, _)| {
+            name.contains(q.as_str())
+                || aliases
+                    .iter()
+                    .any(|&a| a.contains(q.as_str()) || q.contains(a))
+        })
+        .collect();
+
+    if found.is_empty() {
+        let _ = writeln!(out, "  No topic found for '{}'.", query.trim());
+        let _ = writeln!(out, "  Run: hematite --openssl help");
+    } else {
+        let _ = writeln!(out, "{sep}");
+        for &&(name, _, f) in &found {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+        }
+        let _ = writeln!(out, "{sep}");
+    }
+    out
+}
+
+pub fn nginx_calc(query: &str) -> String {
+    use std::fmt::Write as _;
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+
+    fn s_commands() -> &'static str {
+        "  nginx CLI:\n  nginx -t                   Test configuration syntax\n  nginx -T                   Test + dump merged config\n  nginx -s reload            Reload config (graceful, no downtime)\n  nginx -s stop              Fast shutdown\n  nginx -s quit              Graceful shutdown (wait for connections)\n  nginx -s reopen            Reopen log files (after rotation)\n  nginx -v                   Show version\n  nginx -V                   Show version + build options + modules\n  nginx -c /path/nginx.conf  Use specific config file\n  nginx -p /custom/prefix/   Use specific prefix path\n\n  Via systemctl:\n  systemctl start nginx\n  systemctl stop nginx\n  systemctl reload nginx     (sends reload signal)\n  systemctl status nginx\n\n  Config locations:\n  /etc/nginx/nginx.conf           Main config (Debian/Ubuntu/RHEL)\n  /etc/nginx/conf.d/*.conf        Per-site includes\n  /etc/nginx/sites-available/     Available vhosts (Debian/Ubuntu)\n  /etc/nginx/sites-enabled/       Enabled vhosts (symlinks)\n  /usr/local/nginx/conf/          Custom compile prefix\n  /var/log/nginx/access.log       Access log\n  /var/log/nginx/error.log        Error log\n"
+    }
+    fn s_server_block() -> &'static str {
+        "  Basic HTTP server block:\n  server {\n      listen 80;\n      listen [::]:80;              # IPv6\n      server_name example.com www.example.com;\n\n      root /var/www/html;\n      index index.html index.htm;\n\n      access_log /var/log/nginx/example.access.log;\n      error_log  /var/log/nginx/example.error.log warn;\n\n      location / {\n          try_files $uri $uri/ =404;\n      }\n  }\n\n  Redirect HTTP -> HTTPS:\n  server {\n      listen 80;\n      server_name example.com;\n      return 301 https://$host$request_uri;\n  }\n\n  Default server (catch-all):\n  server {\n      listen 80 default_server;\n      server_name _;\n      return 444;   # Silent close\n  }\n\n  server_name wildcards and regex:\n  server_name *.example.com;       # Wildcard subdomain\n  server_name ~^(www\\.)?(.+)$;    # Regex capture\n"
+    }
+    fn s_location() -> &'static str {
+        "  Location matching (priority order):\n  location = /exact       Exact match (highest priority)\n  location ^~ /prefix     Prefix match; stops regex if matched\n  location ~ \\.php$       Regex match (case-sensitive)\n  location ~* \\.php$      Regex match (case-insensitive)\n  location /prefix        Prefix match (lowest priority)\n\n  Common location patterns:\n  location / {\n      try_files $uri $uri/ /index.html;  # SPA fallback\n  }\n\n  location /api/ {\n      proxy_pass http://backend/;\n  }\n\n  location ~* \\.(js|css|png|jpg|gif|ico|woff2)$ {\n      expires 1y;\n      add_header Cache-Control \"public, immutable\";\n  }\n\n  location ~ /\\.ht {\n      deny all;   # Block .htaccess, .htpasswd\n  }\n\n  try_files directive:\n  try_files $uri $uri/ =404;          # File, then dir, then 404\n  try_files $uri $uri/ /index.php;    # Fallback to PHP\n  try_files $uri @backend;            # Fallback to named location\n\n  Named locations:\n  location @backend {\n      proxy_pass http://app_servers;\n  }\n"
+    }
+    fn s_proxy() -> &'static str {
+        "  Reverse proxy to backend:\n  location /api/ {\n      proxy_pass http://127.0.0.1:8080/;   # Trailing slash strips /api prefix\n      proxy_pass http://127.0.0.1:8080;    # No strip — passes full URI\n\n      proxy_set_header Host              $host;\n      proxy_set_header X-Real-IP         $remote_addr;\n      proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;\n      proxy_set_header X-Forwarded-Proto $scheme;\n      proxy_set_header Connection        \"\";\n\n      proxy_http_version 1.1;              # Required for keepalive\n      proxy_buffering    on;\n      proxy_buffer_size  4k;\n      proxy_buffers      4 32k;\n\n      proxy_connect_timeout 60s;\n      proxy_send_timeout    60s;\n      proxy_read_timeout    60s;\n  }\n\n  Upstream block (load balancing):\n  upstream app_servers {\n      keepalive 32;                # Persistent connections to upstream\n      server 127.0.0.1:8001;\n      server 127.0.0.1:8002;\n      server 127.0.0.1:8003 backup;   # Only used if others fail\n      server 127.0.0.1:8004 weight=3; # 3x more requests\n      least_conn;                  # Method: least_conn | ip_hash | round-robin\n  }\n\n  WebSocket proxy:\n  location /ws/ {\n      proxy_pass http://backend;\n      proxy_http_version 1.1;\n      proxy_set_header Upgrade    $http_upgrade;\n      proxy_set_header Connection \"upgrade\";\n  }\n"
+    }
+    fn s_ssl_tls() -> &'static str {
+        "  HTTPS server block:\n  server {\n      listen 443 ssl;\n      listen [::]:443 ssl;\n      http2 on;                    # Enable HTTP/2 (nginx >= 1.25.1)\n      server_name example.com;\n\n      ssl_certificate     /etc/nginx/ssl/cert.pem;    # Full chain\n      ssl_certificate_key /etc/nginx/ssl/key.pem;\n\n      ssl_protocols       TLSv1.2 TLSv1.3;\n      ssl_ciphers         ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305;\n      ssl_prefer_server_ciphers off;\n\n      ssl_session_timeout  1d;\n      ssl_session_cache    shared:SSL:10m;\n      ssl_session_tickets  off;\n\n      ssl_stapling         on;\n      ssl_stapling_verify  on;\n      resolver             1.1.1.1 8.8.8.8 valid=300s;\n\n      add_header Strict-Transport-Security \"max-age=63072000\" always;\n      add_header X-Frame-Options DENY;\n      add_header X-Content-Type-Options nosniff;\n  }\n\n  Let's Encrypt / Certbot:\n  certbot --nginx -d example.com -d www.example.com\n  certbot renew --dry-run\n  certbot certificates\n"
+    }
+    fn s_static() -> &'static str {
+        "  Static file serving:\n  root vs alias:\n  root /var/www;               # Appends URI: /var/www/uri\n  alias /var/files/;           # Replaces prefix: always end with /\n\n  location /images/ {\n      root /var/www;           # Serves from /var/www/images/\n  }\n  location /files/ {\n      alias /mnt/data/files/;  # Serves from /mnt/data/files/\n  }\n\n  Caching headers:\n  location ~* \\.(jpg|jpeg|png|gif|ico|css|js|woff2)$ {\n      expires 30d;\n      add_header Cache-Control \"public, no-transform\";\n      access_log off;\n  }\n\n  Gzip compression:\n  gzip on;\n  gzip_vary on;\n  gzip_proxied any;\n  gzip_comp_level 6;\n  gzip_min_length 256;\n  gzip_types\n      text/plain text/css text/xml application/json\n      application/javascript application/xml+rss\n      image/svg+xml;\n\n  Directory listing:\n  autoindex on;               # Enable for downloads/internal dirs only\n  autoindex_exact_size off;   # Human-readable sizes\n  autoindex_localtime on;     # Local time in listing\n"
+    }
+    fn s_rewrites() -> &'static str {
+        "  return directive (preferred — simpler and faster than rewrite):\n  return 301 https://$host$request_uri;   # Permanent redirect\n  return 302 /new-location;               # Temporary redirect\n  return 404;                             # Return status with no body\n  return 444;                             # Silent close (no response)\n  return 200 'OK';                        # Return body\n\n  rewrite directive:\n  rewrite ^/old-page$  /new-page  permanent;    # 301\n  rewrite ^/old/(.*)$  /new/$1    redirect;     # 302\n  rewrite ^/api/(.*)$  /$1        break;        # Internal rewrite, stop\n  rewrite ^/api/(.*)$  /$1        last;         # Internal rewrite, re-search\n\n  Flags:\n  last       Stop rewrite, search locations again\n  break      Stop rewrite, use current location\n  redirect   302 redirect\n  permanent  301 redirect\n\n  if in location (use sparingly — can cause issues):\n  if ($request_method = POST) { ... }      # Method check\n  if ($http_user_agent ~* 'bot') { ... }   # User-agent check\n  if ($query_string ~* 'spam') { return 403; }\n\n  Map module (cleaner alternative to multiple ifs):\n  map $request_uri $new_uri {\n      /old-page  /new-page;\n      /legacy    /updated;\n      default    \"\";\n  }\n  server {\n      if ($new_uri) { return 301 $new_uri; }\n  }\n"
+    }
+
+    type NginxSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+    const SECTIONS: &[NginxSection] = &[
+        (
+            "commands",
+            &["command", "commands", "reload", "test", "signal", "cli"],
+            s_commands,
+        ),
+        (
+            "server-block",
+            &["server", "vhost", "listen", "server_name", "index"],
+            s_server_block,
+        ),
+        (
+            "location",
+            &["location", "try_files", "regex", "prefix", "exact"],
+            s_location,
+        ),
+        (
+            "proxy",
+            &["proxy", "reverse", "upstream", "backend", "websocket"],
+            s_proxy,
+        ),
+        (
+            "ssl-tls",
+            &[
+                "ssl",
+                "tls",
+                "https",
+                "certificate",
+                "certbot",
+                "letsencrypt",
+            ],
+            s_ssl_tls,
+        ),
+        (
+            "static",
+            &["static", "gzip", "cache", "expires", "root", "alias"],
+            s_static,
+        ),
+        (
+            "rewrites",
+            &["rewrite", "redirect", "return", "301", "302", "map"],
+            s_rewrites,
+        ),
+    ];
+
+    let q = query.trim().to_lowercase();
+
+    if q.is_empty() || q == "help" || q == "list" {
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  hematite --nginx <TOPIC>");
+        let _ = writeln!(out, "  Offline nginx configuration reference");
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  Topics:");
+        for &(name, aliases, _) in SECTIONS {
+            let _ = writeln!(out, "    {name:<14} ({})", aliases.join(", "));
+        }
+        let _ = writeln!(out, "\n  hematite --nginx all   -- print everything");
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    if q == "all" {
+        let _ = writeln!(out, "{sep}");
+        for &(name, _, f) in SECTIONS {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+            let _ = writeln!(out, "");
+        }
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    let found: Vec<_> = SECTIONS
+        .iter()
+        .filter(|&&(name, aliases, _)| {
+            name.contains(q.as_str())
+                || aliases
+                    .iter()
+                    .any(|&a| a.contains(q.as_str()) || q.contains(a))
+        })
+        .collect();
+
+    if found.is_empty() {
+        let _ = writeln!(out, "  No topic found for '{}'.", query.trim());
+        let _ = writeln!(out, "  Run: hematite --nginx help");
+    } else {
+        let _ = writeln!(out, "{sep}");
+        for &&(name, _, f) in &found {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+        }
+        let _ = writeln!(out, "{sep}");
+    }
+    out
+}
+
+pub fn bash_ref_calc(query: &str) -> String {
+    use std::fmt::Write as _;
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+
+    fn s_variables() -> &'static str {
+        "  Assignment (no spaces around =):\n  var=value           Assign string\n  var=\"hello world\"   Assign with spaces\n  var=$(cmd)          Assign command output\n  var=$((1 + 2))      Assign arithmetic result\n  readonly var=val    Immutable variable\n  export var=val      Export to child processes\n  unset var           Remove variable\n\n  Special variables:\n  $0     Script name / shell name\n  $1..$9 Positional arguments\n  $#     Argument count\n  $@     All arguments (each separately quoted when in \"\")\n  $*     All arguments (one string when in \"\")\n  $?     Exit status of last command\n  $$     Current process ID (PID)\n  $!     PID of last background job\n  $-     Current shell option flags\n  $LINENO  Current line number in script\n  $BASH_VERSION  Bash version string\n\n  Variable expansion:\n  ${var}            Value (braces required before letters/digits)\n  ${var:-default}   Use default if unset or empty\n  ${var:=default}   Set and use default if unset or empty\n  ${var:?message}   Error and exit if unset or empty\n  ${var:+alt}       Use alt if set and non-empty\n  ${#var}           Length of value\n  ${var:2}          Substring from position 2\n  ${var:2:5}        Substring: position 2, length 5\n  ${var/old/new}    Replace first occurrence\n  ${var//old/new}   Replace all occurrences\n  ${var/#old/new}   Replace at start\n  ${var/%old/new}   Replace at end\n  ${var^}           Uppercase first char\n  ${var^^}          Uppercase all\n  ${var,}           Lowercase first char\n  ${var,,}          Lowercase all\n  ${!prefix*}       Names of variables starting with prefix\n"
+    }
+    fn s_arrays() -> &'static str {
+        "  Indexed arrays:\n  arr=(a b c d)             Declare and initialize\n  arr[0]=first              Assign single element\n  arr+=(e f)                Append elements\n  ${arr[0]}                 Element 0\n  ${arr[-1]}                Last element\n  ${arr[@]}                 All elements (preserves spacing when quoted)\n  ${arr[*]}                 All elements as one string\n  ${#arr[@]}                Number of elements\n  ${!arr[@]}                All indices\n  unset arr[2]              Remove element 2\n  unset arr                 Remove entire array\n  arr2=(\"${arr[@]}\")        Copy array\n  slice=(\"${arr[@]:1:3}\")   Elements 1,2,3\n\n  Iterate:\n  for item in \"${arr[@]}\"; do echo \"$item\"; done\n  for i in \"${!arr[@]}\"; do echo \"$i: ${arr[$i]}\"; done\n\n  Associative arrays (Bash 4+):\n  declare -A map\n  map[key]=value\n  map=([key1]=val1 [key2]=val2)\n  ${map[key]}               Get value\n  ${!map[@]}                All keys\n  ${map[@]}                 All values\n  [[ -v map[key] ]]         Test if key exists\n\n  Useful patterns:\n  read -ra words <<< \"one two three\"   Split string into array\n  IFS=, read -ra fields <<< \"a,b,c\"    Split on comma\n  joined=$(IFS=,; echo \"${arr[*]}\")    Join array with comma\n"
+    }
+    fn s_conditionals() -> &'static str {
+        "  if/elif/else:\n  if condition; then\n    commands\n  elif condition2; then\n    commands\n  else\n    commands\n  fi\n\n  [[ ]] — modern test (Bash):\n  [[ -z \"$var\" ]]          Empty string\n  [[ -n \"$var\" ]]          Non-empty string\n  [[ \"$a\" == \"$b\" ]]       String equal\n  [[ \"$a\" != \"$b\" ]]       String not equal\n  [[ \"$a\" < \"$b\" ]]        String less than (lexicographic)\n  [[ \"$a\" =~ regex ]]      Regex match (captures in BASH_REMATCH)\n  [[ -e path ]]            Path exists\n  [[ -f path ]]            Regular file\n  [[ -d path ]]            Directory\n  [[ -L path ]]            Symbolic link\n  [[ -r path ]]            Readable\n  [[ -w path ]]            Writable\n  [[ -x path ]]            Executable\n  [[ -s path ]]            Non-empty file\n  [[ path1 -nt path2 ]]    path1 newer than path2\n  [[ path1 -ot path2 ]]    path1 older than path2\n  [[ -v var ]]             Variable is set\n\n  Integer comparisons inside [[ ]] or (( )):\n  [[ $a -eq $b ]]   -ne -lt -le -gt -ge\n  (( a == b ))      == != < <= > >= (arithmetic context)\n\n  Combining:\n  [[ cond1 && cond2 ]]    AND\n  [[ cond1 || cond2 ]]    OR\n  [[ ! cond ]]            NOT\n\n  Inline conditionals:\n  cmd && echo ok || echo fail\n  [[ -f file ]] && source file\n  val=${var:-default}\n"
+    }
+    fn s_loops() -> &'static str {
+        "  for loops:\n  for i in 1 2 3; do echo $i; done\n  for i in {1..10}; do echo $i; done       Brace expansion range\n  for i in {0..20..2}; do echo $i; done    Range with step (Bash 4+)\n  for f in *.txt; do process \"$f\"; done    Glob expansion\n  for line in $(cat file); do ...; done    Command expansion (word-splits)\n\n  C-style for:\n  for ((i=0; i<10; i++)); do echo $i; done\n  for ((i=0; i<${#arr[@]}; i++)); do echo \"${arr[$i]}\"; done\n\n  while / until:\n  while condition; do commands; done\n  until condition; do commands; done    (opposite: loop until true)\n\n  while read:\n  while IFS= read -r line; do\n    echo \"$line\"\n  done < file.txt\n\n  while IFS=, read -r col1 col2 col3; do\n    echo \"$col1 $col2 $col3\"\n  done < data.csv\n\n  Pipe to while (runs in subshell — vars don't persist after):\n  cat file | while read line; do ...; done\n\n  Process substitution avoids subshell:\n  while IFS= read -r line; do ...; done < <(command)\n\n  Loop control:\n  break          Exit loop\n  break 2        Exit 2 levels of nested loops\n  continue       Skip to next iteration\n  continue 2     Skip to next iteration of outer loop\n\n  select (interactive menu):\n  select opt in \"Option A\" \"Option B\" quit; do\n    case $opt in\n      'Option A') ...; break;;\n      quit) break;;\n    esac\n  done\n"
+    }
+    fn s_functions() -> &'static str {
+        "  Define a function:\n  my_func() {\n    local var=\"$1\"    # local scope\n    echo \"arg: $var\"\n    return 0          # exit status (0=ok, 1-255=error)\n  }\n\n  Alternative syntax:\n  function my_func { ... }\n\n  Call:\n  my_func arg1 arg2\n  result=$(my_func arg1)   Capture stdout\n\n  Return values:\n  return N             Set exit status ($?), max 255\n  echo value           Return string via stdout capture\n  printf '%s' value    Same (better with special chars)\n\n  Local variables:\n  local var            Scoped to function and children\n  local -r const=5     Read-only local\n  local -a arr         Local indexed array\n  local -A map         Local associative array\n  local -i num         Local integer\n\n  Special inside functions:\n  $0         Still the script name (not function name)\n  FUNCNAME   Array of function call stack\n  $FUNCNAME  Current function name\n\n  Pass arrays:\n  func \"${arr[@]}\"     Pass as separate args\n  func \"${!arr_name}\"  Pass by name (nameref approach)\n\n  Nameref (Bash 4.3+):\n  func() {\n    local -n ref=$1   # ref is an alias for the named var\n    ref=\"modified\"\n  }\n  func my_var\n"
+    }
+    fn s_io() -> &'static str {
+        "  echo / printf:\n  echo \"hello\"          Print with newline\n  echo -n \"no newline\"  No trailing newline\n  echo -e \"tab:\\there\"  Interpret escapes (\\t \\n \\\\)\n  printf \"%s\\n\" \"$var\"  Formatted output (safer than echo)\n  printf \"%-20s %5d\\n\" \"item\" 42\n\n  read:\n  read var              Read line from stdin into var\n  read -p \"Enter: \" var  Prompt\n  read -s var           Silent (password)\n  read -t 10 var        Timeout after 10 seconds\n  read -n 1 var         Read exactly 1 character\n  read -r var           Raw (don't interpret backslashes)\n  read -a arr           Read into array\n  IFS=: read -r a b c   Split by : into a, b, c\n\n  Redirections:\n  cmd > file            Stdout to file (overwrite)\n  cmd >> file           Stdout append\n  cmd 2> file           Stderr to file\n  cmd 2>&1              Redirect stderr to stdout\n  cmd > file 2>&1       Both to file\n  cmd &> file           Both to file (Bash shorthand)\n  cmd < file            Stdin from file\n  cmd1 | cmd2           Pipe stdout of cmd1 to stdin of cmd2\n  cmd 2>&1 | tee file   Pipe both streams, also save to file\n  cmd > /dev/null 2>&1  Suppress all output\n\n  Here documents and strings:\n  cmd << 'EOF'          Heredoc (no variable expansion)\n  line 1\n  EOF\n  cmd <<< \"$var\"        Herestring — feed string as stdin\n\n  Process substitution:\n  diff <(cmd1) <(cmd2)  Compare outputs without temp files\n  cmd < <(producer)     Feed command output as stdin\n"
+    }
+    fn s_advanced() -> &'static str {
+        "  Strict mode (add to top of scripts):\n  set -e               Exit on error\n  set -u               Error on unset variable\n  set -o pipefail      Pipe fails if any command fails\n  set -x               Print each command before running (debug)\n  set -euo pipefail    Combined — standard strict mode\n\n  Error handling:\n  cmd || { echo 'failed' >&2; exit 1; }\n  if ! cmd; then echo 'failed'; fi\n  trap 'echo \"Error at line $LINENO\"' ERR\n\n  trap — signal and exit handlers:\n  trap cleanup EXIT                     Run on any exit\n  trap 'echo interrupted' INT TERM      Run on Ctrl+C or kill\n  trap '' INT                           Ignore SIGINT\n  trap - INT                            Reset to default\n  trap 'rm -f /tmp/scratch.$$' EXIT     Temp file cleanup\n\n  Subshells and process groups:\n  ( cd /tmp && cmd )    Subshell: cd doesn't affect parent\n  { cmd1; cmd2; }       Command group: same shell, no subshell\n  cmd &                 Background job\n  jobs                  List background jobs\n  wait                  Wait for all background jobs\n  wait $!               Wait for last background job\n  wait %1               Wait for job 1\n  fg %1                 Bring job 1 to foreground\n\n  Useful script patterns:\n  SCRIPT_DIR=$(cd \"$(dirname \"$0\")\" && pwd)   Reliable script dir\n  : \"${VAR:?Must set VAR}\"    Validate required variable\n  command -v git || { echo 'git required'; exit 1; }   Check dependency\n  exec > >(tee /tmp/script.log) 2>&1         Log all output to file\n"
+    }
+
+    type BashSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+    const SECTIONS: &[BashSection] = &[
+        (
+            "variables",
+            &[
+                "variable",
+                "variables",
+                "expansion",
+                "special",
+                "export",
+                "unset",
+            ],
+            s_variables,
+        ),
+        (
+            "arrays",
+            &[
+                "array",
+                "arrays",
+                "associative",
+                "indexed",
+                "map",
+                "iterate",
+            ],
+            s_arrays,
+        ),
+        (
+            "conditionals",
+            &["conditional", "if", "elif", "test", "bracket", "comparison"],
+            s_conditionals,
+        ),
+        (
+            "loops",
+            &["loop", "loops", "for", "while", "until", "read", "break"],
+            s_loops,
+        ),
+        (
+            "functions",
+            &["function", "functions", "local", "return", "nameref"],
+            s_functions,
+        ),
+        (
+            "io",
+            &[
+                "io", "echo", "printf", "read", "redirect", "pipe", "heredoc",
+            ],
+            s_io,
+        ),
+        (
+            "advanced",
+            &["advanced", "strict", "trap", "subshell", "set", "pipefail"],
+            s_advanced,
+        ),
+    ];
+
+    let q = query.trim().to_lowercase();
+
+    if q.is_empty() || q == "help" || q == "list" {
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  hematite --bash-ref <TOPIC>");
+        let _ = writeln!(out, "  Offline Bash scripting reference");
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  Topics:");
+        for &(name, aliases, _) in SECTIONS {
+            let _ = writeln!(out, "    {name:<14} ({})", aliases.join(", "));
+        }
+        let _ = writeln!(out, "\n  hematite --bash-ref all   -- print everything");
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    if q == "all" {
+        let _ = writeln!(out, "{sep}");
+        for &(name, _, f) in SECTIONS {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+            let _ = writeln!(out, "");
+        }
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    let found: Vec<_> = SECTIONS
+        .iter()
+        .filter(|&&(name, aliases, _)| {
+            name.contains(q.as_str())
+                || aliases
+                    .iter()
+                    .any(|&a| a.contains(q.as_str()) || q.contains(a))
+        })
+        .collect();
+
+    if found.is_empty() {
+        let _ = writeln!(out, "  No topic found for '{}'.", query.trim());
+        let _ = writeln!(out, "  Run: hematite --bash-ref help");
+    } else {
+        let _ = writeln!(out, "{sep}");
+        for &&(name, _, f) in &found {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+        }
+        let _ = writeln!(out, "{sep}");
+    }
+    out
+}

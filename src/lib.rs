@@ -1571,6 +1571,38 @@ pub struct CliCockpit {
     #[arg(
         long,
         help_heading = "Math & Science",
+        value_name = "TOPIC",
+        help = "chmod / chown / umask reference — offline cheatsheet. Topics: basics, symbolic, special, chown, umask. Commands: all = everything. Examples: hematite --chmod basics | hematite --chmod symbolic | hematite --chmod umask"
+    )]
+    pub chmod: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Math & Science",
+        value_name = "TOPIC",
+        help = "OpenSSL command reference — offline cheatsheet. Topics: keygen, certs, csr, inspect, convert, encrypt, digest, connect. Commands: all = everything. Examples: hematite --openssl keygen | hematite --openssl certs | hematite --openssl digest"
+    )]
+    pub openssl: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Math & Science",
+        value_name = "TOPIC",
+        help = "nginx configuration reference — offline cheatsheet. Topics: commands, server-block, location, proxy, ssl-tls, static, rewrites. Commands: all = everything. Examples: hematite --nginx proxy | hematite --nginx ssl-tls | hematite --nginx location"
+    )]
+    pub nginx: Option<String>,
+
+    #[arg(
+        long = "bash-ref",
+        help_heading = "Math & Science",
+        value_name = "TOPIC",
+        help = "Bash scripting reference — offline cheatsheet. Topics: variables, arrays, conditionals, loops, functions, io, advanced. Commands: all = everything. Examples: hematite --bash-ref variables | hematite --bash-ref loops | hematite --bash-ref advanced"
+    )]
+    pub bash_ref: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Math & Science",
         value_name = "QUERY",
         help = "Lorem ipsum generator — offline replacement for lipsum.com. Commands: (bare) or <N> = N paragraphs (default 1); words <N> = N words; sentences <N> = N sentences. Examples: hematite --lorem | hematite --lorem 3 | hematite --lorem 'words 50' | hematite --lorem 'sentences 5'"
     )]

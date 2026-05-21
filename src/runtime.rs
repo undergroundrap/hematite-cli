@@ -1051,6 +1051,10 @@ mod tests {
             find: None,
             systemd: None,
             make: None,
+            chmod: None,
+            openssl: None,
+            nginx: None,
+            bash_ref: None,
             pdf_extract_helper: None,
             teleported_from: None,
         };
