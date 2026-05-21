@@ -30911,3 +30911,596 @@ pub fn docker_ref_calc(query: &str) -> String {
     }
     out
 }
+
+// ─── Wave 13: sql-ref, vim, curl, jq ─────────────────────────────────────────
+
+pub fn sql_ref_calc(query: &str) -> String {
+    use std::fmt::Write as _;
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+
+    fn s_select() -> &'static str {
+        "  SELECT col1, col2 FROM table;\n  SELECT * FROM table;\n  SELECT DISTINCT col FROM table;\n  SELECT col AS alias FROM table;\n  SELECT col1, COUNT(*) FROM table GROUP BY col1;\n  SELECT col1, COUNT(*) AS cnt FROM table GROUP BY col1 HAVING cnt > 5;\n  SELECT col FROM table WHERE condition ORDER BY col ASC;\n  SELECT col FROM table LIMIT 10 OFFSET 20;\n  SELECT TOP 10 col FROM table;           -- SQL Server\n  SELECT col FROM table FETCH FIRST 10 ROWS ONLY;  -- Standard SQL\n"
+    }
+    fn s_where() -> &'static str {
+        "  WHERE col = 'value'              Equality\n  WHERE col != 'value'             Inequality\n  WHERE col > 5 AND col < 10       Range (explicit)\n  WHERE col BETWEEN 5 AND 10       Range (inclusive)\n  WHERE col IN (1, 2, 3)           Set membership\n  WHERE col NOT IN (1, 2, 3)       Set exclusion\n  WHERE col IS NULL                Null check\n  WHERE col IS NOT NULL            Non-null check\n  WHERE col LIKE 'abc%'            Pattern: starts with abc\n  WHERE col LIKE '%abc%'           Pattern: contains abc\n  WHERE col ILIKE '%ABC%'          Case-insensitive LIKE (PostgreSQL)\n  WHERE col SIMILAR TO 'a(b|c)%'  Regex-like pattern (PostgreSQL)\n  WHERE col ~ '^[A-Z]'             POSIX regex match (PostgreSQL)\n  WHERE EXISTS (SELECT 1 FROM t2 WHERE t2.id = t1.id)\n"
+    }
+    fn s_joins() -> &'static str {
+        "  SELECT a.col, b.col\n  FROM   table_a a\n  JOIN   table_b b ON a.id = b.a_id;        -- INNER JOIN (matching rows only)\n\n  LEFT  JOIN table_b b ON a.id = b.a_id;   -- All from a, NULL from b if no match\n  RIGHT JOIN table_b b ON a.id = b.a_id;   -- All from b, NULL from a if no match\n  FULL  OUTER JOIN b ON a.id = b.a_id;     -- All from both, NULLs where no match\n  CROSS JOIN table_b b;                    -- Cartesian product (every combination)\n\n  Self-join:\n  SELECT a.name, b.name AS manager\n  FROM   employees a JOIN employees b ON a.manager_id = b.id;\n\n  USING shorthand (when column names match):\n  JOIN table_b USING (id)                  -- equivalent to ON a.id = b.id\n"
+    }
+    fn s_aggregate() -> &'static str {
+        "  COUNT(*)          Row count\n  COUNT(col)        Count non-NULL values\n  COUNT(DISTINCT c) Count unique non-NULL values\n  SUM(col)          Sum\n  AVG(col)          Average\n  MIN(col)          Minimum\n  MAX(col)          Maximum\n  STRING_AGG(col, ',') ORDER BY col   Concatenate (PostgreSQL / SQL Server 2017+)\n  GROUP_CONCAT(col)                   Concatenate (MySQL / SQLite)\n  ARRAY_AGG(col)                      Aggregate into array (PostgreSQL)\n  JSON_AGG(col)                       Aggregate into JSON array (PostgreSQL)\n\n  Filter within aggregate:\n  COUNT(*) FILTER (WHERE status = 'active')   -- PostgreSQL\n  SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END)  -- portable\n"
+    }
+    fn s_window() -> &'static str {
+        "  Window function syntax:\n  func() OVER (PARTITION BY col ORDER BY col ROWS BETWEEN ...)\n\n  ROW_NUMBER()     Unique sequential row number\n  RANK()           Rank with gaps (1,1,3...)\n  DENSE_RANK()     Rank without gaps (1,1,2...)\n  NTILE(n)         Divide into n buckets\n  LAG(col, n)      Value n rows before\n  LEAD(col, n)     Value n rows after\n  FIRST_VALUE(c)   First value in window\n  LAST_VALUE(c)    Last value in window\n  NTH_VALUE(c,n)   Nth value in window\n  SUM(c) OVER ()   Running total (no ORDER BY = grand total)\n  SUM(c) OVER (PARTITION BY dept ORDER BY date)  Running sum per dept\n\n  Frame clauses:\n  ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW   -- running total\n  ROWS BETWEEN 2 PRECEDING AND 2 FOLLOWING          -- sliding 5-row window\n  RANGE BETWEEN INTERVAL '7' DAY PRECEDING AND CURRENT ROW\n"
+    }
+    fn s_subquery() -> &'static str {
+        "  Inline subquery (derived table):\n  SELECT * FROM (SELECT col, COUNT(*) AS cnt FROM t GROUP BY col) sub\n  WHERE sub.cnt > 5;\n\n  Correlated subquery:\n  SELECT * FROM orders o\n  WHERE total > (SELECT AVG(total) FROM orders WHERE customer_id = o.customer_id);\n\n  CTE (Common Table Expression):\n  WITH monthly AS (\n      SELECT date_trunc('month', created_at) AS month, SUM(amount) AS total\n      FROM orders GROUP BY 1\n  )\n  SELECT month, total, SUM(total) OVER (ORDER BY month) AS running\n  FROM monthly;\n\n  Recursive CTE (hierarchy / tree):\n  WITH RECURSIVE tree AS (\n      SELECT id, parent_id, name, 0 AS depth FROM nodes WHERE parent_id IS NULL\n      UNION ALL\n      SELECT n.id, n.parent_id, n.name, t.depth + 1\n      FROM nodes n JOIN tree t ON n.parent_id = t.id\n  )\n  SELECT * FROM tree ORDER BY depth, name;\n"
+    }
+    fn s_dml() -> &'static str {
+        "  INSERT INTO table (col1, col2) VALUES ('a', 1);\n  INSERT INTO table (col1, col2) VALUES ('a', 1), ('b', 2);  -- multi-row\n  INSERT INTO table SELECT col1, col2 FROM other_table;\n\n  UPDATE table SET col1 = 'new' WHERE id = 1;\n  UPDATE table SET col1 = col2 + 1 WHERE status = 'active';\n\n  DELETE FROM table WHERE id = 1;\n  DELETE FROM table;           -- delete all rows (but keep table)\n  TRUNCATE TABLE table;        -- fast delete all (no transaction log per row)\n\n  Upsert (PostgreSQL):\n  INSERT INTO table (id, val) VALUES (1, 'x')\n  ON CONFLICT (id) DO UPDATE SET val = EXCLUDED.val;\n\n  Upsert (MySQL):\n  INSERT INTO table (id, val) VALUES (1, 'x')\n  ON DUPLICATE KEY UPDATE val = VALUES(val);\n\n  Upsert (SQLite):\n  INSERT OR REPLACE INTO table (id, val) VALUES (1, 'x');\n"
+    }
+    fn s_ddl() -> &'static str {
+        "  CREATE TABLE users (\n      id         SERIAL PRIMARY KEY,       -- PostgreSQL auto-increment\n      id         INT NOT NULL AUTO_INCREMENT PRIMARY KEY,  -- MySQL\n      id         INTEGER PRIMARY KEY AUTOINCREMENT,       -- SQLite\n      name       VARCHAR(100) NOT NULL,\n      email      TEXT UNIQUE,\n      age        INT CHECK (age >= 0),\n      created_at TIMESTAMP DEFAULT NOW(),\n      dept_id    INT REFERENCES departments(id) ON DELETE SET NULL\n  );\n\n  ALTER TABLE users ADD COLUMN phone VARCHAR(20);\n  ALTER TABLE users DROP COLUMN phone;\n  ALTER TABLE users RENAME COLUMN old TO new;      -- PostgreSQL / SQLite 3.25+\n  ALTER TABLE users ALTER COLUMN name TYPE TEXT;   -- PostgreSQL\n  ALTER TABLE users MODIFY COLUMN name TEXT;       -- MySQL\n\n  CREATE INDEX idx_users_email ON users(email);\n  CREATE UNIQUE INDEX idx_users_email ON users(email);\n  DROP INDEX idx_users_email;\n\n  DROP TABLE users;\n  DROP TABLE IF EXISTS users;\n  TRUNCATE TABLE users;        -- remove all rows, reset identity\n"
+    }
+    fn s_explain() -> &'static str {
+        "  EXPLAIN SELECT ...;                -- Show query plan (no execution)\n  EXPLAIN ANALYZE SELECT ...;        -- Execute + show actual times (PostgreSQL)\n  EXPLAIN FORMAT=JSON SELECT ...;    -- JSON output (MySQL)\n  EXPLAIN VERBOSE SELECT ...;        -- Extra detail (PostgreSQL)\n\n  Key plan nodes (PostgreSQL):\n  Seq Scan          Full table scan (no index used)\n  Index Scan        Index used for lookup\n  Index Only Scan   Index covers all needed columns (heap not accessed)\n  Bitmap Heap Scan  Bulk index + heap reads (good for many rows)\n  Hash Join         Build hash table from one side, probe with other\n  Nested Loop       For each row in outer, probe inner (good if inner is small)\n  Merge Join        Both inputs sorted; merge together\n  Sort              Explicit sort (check if index can eliminate)\n  Aggregate         GROUP BY / aggregate functions\n  Limit             LIMIT / OFFSET\n\n  Cost format:  cost=startup..total  (rows=estimated)  (width=row_bytes)\n  Actual times: actual time=first..last  rows=actual  loops=N\n\n  High-cost nodes to investigate:\n  Seq Scan on large table -> add index\n  Sort               -> add covering index with ORDER BY columns\n  Nested Loop + Seq Scan -> check join condition, add index on inner table\n"
+    }
+    fn s_transactions() -> &'static str {
+        "  BEGIN;                     Start transaction (PostgreSQL / SQLite)\n  START TRANSACTION;         Start transaction (MySQL)\n  COMMIT;                    Commit\n  ROLLBACK;                  Rollback all changes\n  SAVEPOINT sp1;             Create savepoint\n  ROLLBACK TO SAVEPOINT sp1; Roll back to savepoint\n  RELEASE SAVEPOINT sp1;     Release savepoint\n\n  Isolation levels (SET TRANSACTION ISOLATION LEVEL ...):\n  READ UNCOMMITTED   Dirty reads allowed (fastest, rarely used)\n  READ COMMITTED     Default in PostgreSQL / SQL Server; no dirty reads\n  REPEATABLE READ    Default in MySQL InnoDB; no non-repeatable reads\n  SERIALIZABLE       Strictest; prevents all anomalies\n\n  Locking:\n  SELECT ... FOR UPDATE        Row-level exclusive lock (prevent concurrent update)\n  SELECT ... FOR SHARE         Shared lock (reads allowed, writes blocked)\n  SELECT ... SKIP LOCKED       Skip locked rows (queue worker pattern)\n  LOCK TABLE table IN EXCLUSIVE MODE  -- PostgreSQL table-level lock\n"
+    }
+    fn s_json() -> &'static str {
+        "  PostgreSQL JSON operators:\n  col->'key'          Extract JSON object field (returns JSON)\n  col->>'key'         Extract as text\n  col#>'{a,b}'        Extract nested path (returns JSON)\n  col#>>'{a,b}'       Extract nested path as text\n  col @> '{\"k\":1}'   Contains (jsonb only)\n  col <@ '{\"k\":1}'   Is contained by (jsonb only)\n  col ? 'key'         Key exists (jsonb only)\n  col ?| ARRAY[...]   Any key exists (jsonb only)\n  col ?& ARRAY[...]   All keys exist (jsonb only)\n  jsonb_set(col, '{key}', '\"new\"')  Update nested value\n  jsonb_strip_nulls(col)            Remove null fields\n  jsonb_object_keys(col)            Get top-level keys as rows\n  json_array_elements(col)          Expand array to rows\n  row_to_json(t.*)                  Row to JSON object\n  json_agg(row_to_json(t.*))        Aggregate rows into JSON array\n\n  MySQL JSON:\n  JSON_EXTRACT(col, '$.key')   Extract field\n  JSON_SET(col, '$.k', val)    Update field\n  JSON_ARRAYAGG(col)           Aggregate into JSON array (8.0+)\n  col->>'$.key'                Shorthand extract as text (5.7+)\n"
+    }
+
+    type SqlSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+    const SECTIONS: &[SqlSection] = &[
+        (
+            "select",
+            &["select", "query", "from", "limit", "order", "group"],
+            s_select,
+        ),
+        (
+            "where",
+            &["where", "filter", "like", "between", "in", "null"],
+            s_where,
+        ),
+        (
+            "joins",
+            &["join", "joins", "inner", "left", "right", "outer"],
+            s_joins,
+        ),
+        (
+            "aggregate",
+            &["aggregate", "agg", "count", "sum", "avg", "group"],
+            s_aggregate,
+        ),
+        (
+            "window",
+            &["window", "rank", "lag", "lead", "over", "partition"],
+            s_window,
+        ),
+        (
+            "subquery",
+            &["subquery", "cte", "with", "recursive", "derived"],
+            s_subquery,
+        ),
+        (
+            "dml",
+            &["dml", "insert", "update", "delete", "upsert", "truncate"],
+            s_dml,
+        ),
+        (
+            "ddl",
+            &["ddl", "create", "alter", "drop", "index", "table"],
+            s_ddl,
+        ),
+        (
+            "explain",
+            &["explain", "plan", "analyze", "performance", "slow"],
+            s_explain,
+        ),
+        (
+            "transactions",
+            &["transaction", "commit", "rollback", "lock", "isolation"],
+            s_transactions,
+        ),
+        ("json", &["json", "jsonb", "jsonpath", "extract"], s_json),
+    ];
+
+    let q = query.trim().to_lowercase();
+
+    if q.is_empty() || q == "help" || q == "list" {
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  hematite --sql-ref <TOPIC>");
+        let _ = writeln!(
+            out,
+            "  Offline SQL reference (ANSI + PostgreSQL + MySQL + SQLite)"
+        );
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  Topics:");
+        for &(name, aliases, _) in SECTIONS {
+            let _ = writeln!(out, "    {name:<14} ({})", aliases.join(", "));
+        }
+        let _ = writeln!(out, "\n  hematite --sql-ref all   -- print everything");
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    if q == "all" {
+        let _ = writeln!(out, "{sep}");
+        for &(name, _, f) in SECTIONS {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+            let _ = writeln!(out, "");
+        }
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    let found: Vec<_> = SECTIONS
+        .iter()
+        .filter(|&&(name, aliases, _)| {
+            name.contains(q.as_str())
+                || aliases
+                    .iter()
+                    .any(|&a| a.contains(q.as_str()) || q.contains(a))
+        })
+        .collect();
+
+    if found.is_empty() {
+        let _ = writeln!(out, "  No topic found for '{}'.", query.trim());
+        let _ = writeln!(out, "  Run: hematite --sql-ref help");
+    } else {
+        let _ = writeln!(out, "{sep}");
+        for &&(name, _, f) in &found {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+        }
+        let _ = writeln!(out, "{sep}");
+    }
+    out
+}
+
+pub fn vim_calc(query: &str) -> String {
+    use std::fmt::Write as _;
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+
+    fn s_modes() -> &'static str {
+        "  Vim has several primary modes:\n\n  Normal   Default mode for navigation and commands. Press Esc to return.\n  Insert   Text entry. Enter with: i  I  a  A  o  O  s  S  c  C\n  Visual   Selection. Enter with: v (char)  V (line)  Ctrl+v (block)\n  Command  Ex commands. Enter with: :  (e.g. :w  :q  :s///)\n  Replace  Overwrite characters. Enter with: R\n  Operator-pending  After an operator (d, c, y) waiting for a motion\n\n  Esc        Return to Normal from any mode\n  Ctrl+[     Same as Esc\n  Ctrl+c     Cancel / return to Normal (does not trigger InsertLeave)\n"
+    }
+    fn s_motion() -> &'static str {
+        "  Character:\n  h j k l        Left, down, up, right\n  0  ^  $        Start of line, first non-blank, end of line\n  gj  gk         Move by display line (wrapped text)\n\n  Word:\n  w  W           Next word start (word / WORD)\n  b  B           Previous word start\n  e  E           Word end\n  ge  gE         Previous word end\n\n  Line/Screen:\n  gg  G          First line, last line\n  :N  NG         Go to line N\n  H  M  L        Top / middle / bottom of screen\n  Ctrl+d  Ctrl+u Half-page down / up\n  Ctrl+f  Ctrl+b Full page forward / back\n  zz  zt  zb     Center / top / bottom current line\n\n  Find on line:\n  f<c>  F<c>     Jump to next/prev char c\n  t<c>  T<c>     Jump before next/prev char c\n  ;  ,           Repeat last f/t forward / backward\n\n  Search:\n  /<pattern>     Search forward\n  ?<pattern>     Search backward\n  n  N           Next / previous match\n  *  #           Search word under cursor forward / backward\n  %              Jump to matching bracket/paren/brace\n"
+    }
+    fn s_editing() -> &'static str {
+        "  Operators (combine with motions or text objects):\n  d   Delete (cut)\n  c   Change (delete + enter Insert)\n  y   Yank (copy)\n  >   Indent right\n  <   Indent left\n  =   Auto-indent\n  gU  Uppercase\n  gu  Lowercase\n  ~   Toggle case (single char)\n  g~  Toggle case (motion)\n\n  Common combinations:\n  dd     Delete line\n  cc     Change line\n  yy     Yank line\n  D      Delete to end of line\n  C      Change to end of line\n  dw     Delete word\n  ciw    Change inner word\n  da\"    Delete around double-quoted string (including quotes)\n  di(    Delete inside parens\n  yi{    Yank inside curly braces\n\n  Insert mode entry:\n  i  I   Insert before cursor / before first non-blank\n  a  A   Append after cursor / after end of line\n  o  O   Open new line below / above\n  s  S   Substitute char / line\n  r      Replace single character (stays in Normal)\n  R      Enter Replace mode\n\n  Clipboard:\n  p  P   Paste after / before cursor\n  \"<r>p  Paste from register <r>\n  \"+p    Paste from system clipboard\n  \"+y    Yank to system clipboard\n"
+    }
+    fn s_text_objects() -> &'static str {
+        "  Text objects (use after d, c, y, v, etc.):\n  iw  aw    Inner word / around word (includes space)\n  iW  aW    Inner WORD / around WORD\n  is  as    Inner sentence / around sentence\n  ip  ap    Inner paragraph / around paragraph\n  i\"  a\"    Inside / around double quotes\n  i'  a'    Inside / around single quotes\n  i`  a`    Inside / around backticks\n  i(  a(    Inside / around parentheses  (also ib / ab)\n  i[  a[    Inside / around square brackets\n  i{  a{    Inside / around curly braces  (also iB / aB)\n  it  at    Inside / around XML/HTML tag\n  i<  a<    Inside / around angle brackets\n\n  Visual mode + text object:\n  viw        Select inner word\n  va\"        Select around double-quoted string\n  vit        Select contents of HTML tag\n"
+    }
+    fn s_search_replace() -> &'static str {
+        "  :<range>s/<pattern>/<replacement>/<flags>\n\n  Range:\n  (blank)    Current line\n  %          Entire file\n  1,10       Lines 1-10\n  .,$        Current line to end\n  'a,'b      Between marks a and b\n\n  Flags:\n  g    Global (all occurrences on each line)\n  i    Case-insensitive\n  c    Confirm each substitution\n  n    Count matches (no replacement)\n  e    No error if no match\n\n  Examples:\n  :s/foo/bar/           Replace first foo on current line\n  :%s/foo/bar/g         Replace all foo globally\n  :%s/foo/bar/gi        Case-insensitive global replace\n  :%s/foo/bar/gc        Interactive global replace\n  :%s/\\bword\\b/new/g   Whole-word replace\n  :%s/^/  /             Indent all lines 2 spaces\n  :%s/\\s\\+$//          Strip trailing whitespace\n  :g/pattern/d          Delete all lines matching pattern\n  :g/pattern/y A        Yank all matching lines into register a\n  :v/pattern/d          Delete all lines NOT matching pattern\n"
+    }
+    fn s_files() -> &'static str {
+        "  :w             Save\n  :w <file>      Save as\n  :wa            Save all\n  :q             Quit\n  :q!            Force quit (discard changes)\n  :wq  ZZ        Save and quit\n  :x             Save and quit (only writes if changed)\n  :qa!           Force quit all windows\n  :e <file>      Open file\n  :e!            Reload file from disk\n  :r <file>      Read file into buffer at cursor\n  :r !<cmd>      Read command output into buffer\n\n  Splits:\n  :sp <file>     Horizontal split\n  :vsp <file>    Vertical split\n  Ctrl+w s       Horizontal split\n  Ctrl+w v       Vertical split\n  Ctrl+w hjkl    Move between splits\n  Ctrl+w =       Equalize split sizes\n  Ctrl+w _       Maximize current horizontal split\n  Ctrl+w |       Maximize current vertical split\n  :close         Close current split\n\n  Buffers:\n  :ls            List buffers\n  :b <name|num>  Switch buffer\n  :bn  :bp       Next / previous buffer\n  :bd            Delete (close) buffer\n"
+    }
+    fn s_macros() -> &'static str {
+        "  Recording:\n  q<a-z>     Start recording into register a-z\n  (perform actions)\n  q          Stop recording\n\n  Playback:\n  @<a-z>     Play macro in register once\n  @@         Repeat last played macro\n  5@a        Play macro a 5 times\n\n  Editing a macro:\n  \"ap        Paste register a as text\n  (edit the text)\n  \"ay$       Yank back into register a\n\n  Useful patterns:\n  Record on first line, use n@@ to apply to remaining lines\n  qaNORMAL_COMMANDSq then :%normal @a to run on every line\n  Use :argdo %s/foo/bar/g | update to apply across files\n\n  Registers:\n  \"\"     Unnamed (last d/c/y)\n  \"0     Last yank\n  \"1-\"9  Delete history ring\n  \"+     System clipboard\n  \"*     Primary selection (X11)\n  \"_     Black hole (discard)\n  \"=     Expression register (type expression, Enter)\n  \"/     Last search pattern\n  \":     Last command\n"
+    }
+    fn s_marks() -> &'static str {
+        "  m<a-z>       Set local mark (per buffer)\n  m<A-Z>       Set global mark (across files)\n  '<mark>      Jump to mark line\n  `<mark>      Jump to exact position of mark\n  ''  ``       Jump to last jump location (line / exact)\n  '[  `[       Start of last change/yank\n  ']  `]       End of last change/yank\n  '<  `<       Start of last visual selection\n  '>  `>       End of last visual selection\n  :marks       List all marks\n  :delmarks a  Delete mark a\n\n  Navigation history:\n  Ctrl+o       Jump backward in jumplist\n  Ctrl+i       Jump forward in jumplist\n  :jumps       View jumplist\n  g;  g,       Older / newer change position\n  :changes     View changelist\n"
+    }
+    fn s_config() -> &'static str {
+        "  Essential .vimrc / init.vim settings:\n\n  set nocompatible          Use Vim defaults (not Vi)\n  set number                Line numbers\n  set relativenumber        Relative line numbers\n  set tabstop=4             Tab width\n  set shiftwidth=4          Indent width\n  set expandtab             Spaces instead of tabs\n  set autoindent            Copy indent from current line\n  set smartindent           Smart auto-indent\n  set wrap                  Wrap long lines\n  set linebreak             Wrap at word boundaries\n  set scrolloff=8           Keep 8 lines above/below cursor\n  set hlsearch              Highlight search results\n  set incsearch             Incremental search\n  set ignorecase            Case-insensitive search\n  set smartcase             Case-sensitive if uppercase present\n  set wildmenu              Command tab-completion menu\n  set clipboard=unnamedplus  Use system clipboard\n  set undofile              Persistent undo across restarts\n  set hidden                Allow hiding unsaved buffers\n  set mouse=a               Enable mouse\n  syntax enable             Syntax highlighting\n  filetype plugin indent on  Per-filetype settings\n\n  Neovim init.lua equivalent:\n  vim.opt.number = true\n  vim.opt.tabstop = 4\n  vim.opt.expandtab = true\n"
+    }
+
+    type VimSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+    const SECTIONS: &[VimSection] = &[
+        (
+            "modes",
+            &["mode", "modes", "insert", "visual", "normal", "command"],
+            s_modes,
+        ),
+        (
+            "motion",
+            &["motion", "move", "navigate", "hjkl", "word", "search"],
+            s_motion,
+        ),
+        (
+            "editing",
+            &[
+                "edit", "editing", "delete", "change", "yank", "copy", "paste", "operator",
+            ],
+            s_editing,
+        ),
+        (
+            "text-objects",
+            &["text-object", "textobject", "iw", "aw", "inner", "around"],
+            s_text_objects,
+        ),
+        (
+            "search",
+            &["search", "replace", "substitute", "regex", "global"],
+            s_search_replace,
+        ),
+        (
+            "files",
+            &["file", "files", "save", "quit", "split", "buffer", "open"],
+            s_files,
+        ),
+        (
+            "macros",
+            &["macro", "macros", "record", "register", "repeat"],
+            s_macros,
+        ),
+        (
+            "marks",
+            &["mark", "marks", "jump", "jumplist", "navigation"],
+            s_marks,
+        ),
+        (
+            "config",
+            &["config", "vimrc", "settings", "options", "neovim"],
+            s_config,
+        ),
+    ];
+
+    let q = query.trim().to_lowercase();
+
+    if q.is_empty() || q == "help" || q == "list" {
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  hematite --vim <TOPIC>");
+        let _ = writeln!(out, "  Offline Vim/Neovim cheatsheet");
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  Topics:");
+        for &(name, aliases, _) in SECTIONS {
+            let _ = writeln!(out, "    {name:<14} ({})", aliases.join(", "));
+        }
+        let _ = writeln!(out, "\n  hematite --vim all   -- print everything");
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    if q == "all" {
+        let _ = writeln!(out, "{sep}");
+        for &(name, _, f) in SECTIONS {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+            let _ = writeln!(out, "");
+        }
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    let found: Vec<_> = SECTIONS
+        .iter()
+        .filter(|&&(name, aliases, _)| {
+            name.contains(q.as_str())
+                || aliases
+                    .iter()
+                    .any(|&a| a.contains(q.as_str()) || q.contains(a))
+        })
+        .collect();
+
+    if found.is_empty() {
+        let _ = writeln!(out, "  No topic found for '{}'.", query.trim());
+        let _ = writeln!(out, "  Run: hematite --vim help");
+    } else {
+        let _ = writeln!(out, "{sep}");
+        for &&(name, _, f) in &found {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+        }
+        let _ = writeln!(out, "{sep}");
+    }
+    out
+}
+
+pub fn curl_calc(query: &str) -> String {
+    use std::fmt::Write as _;
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+
+    fn s_basics() -> &'static str {
+        "  curl <url>                     GET request\n  curl -o file.html <url>        Save response to file\n  curl -O <url>                  Save with remote filename\n  curl -L <url>                  Follow redirects\n  curl -s <url>                  Silent mode (no progress)\n  curl -S <url>                  Show errors even in silent mode\n  curl -sS <url>                 Silent but show errors\n  curl -v <url>                  Verbose (show headers + body)\n  curl -I <url>                  HEAD request (headers only)\n  curl -i <url>                  Include response headers in output\n  curl --http1.1 <url>           Force HTTP/1.1\n  curl --http2 <url>             Force HTTP/2\n  curl -# <url>                  Progress bar instead of meter\n  curl --max-time 10 <url>       Timeout after 10 seconds\n  curl --connect-timeout 5 <url> Connection timeout\n  curl --retry 3 <url>           Retry failed requests\n  curl -w \"%{http_code}\" -o /dev/null -s <url>  Print status code only\n"
+    }
+    fn s_methods() -> &'static str {
+        "  GET (default):\n  curl https://api.example.com/users\n\n  POST with JSON:\n  curl -X POST https://api.example.com/users \\\n       -H 'Content-Type: application/json' \\\n       -d '{\"name\":\"Alice\",\"email\":\"alice@example.com\"}'\n\n  POST form data:\n  curl -X POST https://example.com/form \\\n       -d 'username=alice&password=secret'\n\n  PUT:\n  curl -X PUT https://api.example.com/users/1 \\\n       -H 'Content-Type: application/json' \\\n       -d '{\"name\":\"Bob\"}'\n\n  PATCH:\n  curl -X PATCH https://api.example.com/users/1 \\\n       -H 'Content-Type: application/json' \\\n       -d '{\"email\":\"new@example.com\"}'\n\n  DELETE:\n  curl -X DELETE https://api.example.com/users/1\n\n  Send data from file:\n  curl -X POST https://api.example.com/upload \\\n       -H 'Content-Type: application/json' \\\n       -d @payload.json\n"
+    }
+    fn s_headers() -> &'static str {
+        "  Set header:\n  curl -H 'Authorization: Bearer TOKEN' <url>\n  curl -H 'Content-Type: application/json' <url>\n  curl -H 'Accept: application/json' <url>\n  curl -H 'X-Custom-Header: value' <url>\n\n  Multiple headers:\n  curl -H 'Authorization: Bearer TOKEN' \\\n       -H 'Content-Type: application/json' \\\n       -H 'Accept: application/json' \\\n       <url>\n\n  Remove a default header:\n  curl -H 'User-Agent:' <url>    -- remove User-Agent\n\n  Set User-Agent:\n  curl -A 'Mozilla/5.0' <url>\n  curl --user-agent 'MyApp/1.0' <url>\n\n  Set Referer:\n  curl -e 'https://referring-page.com' <url>\n\n  View response headers:\n  curl -I <url>                   HEAD request\n  curl -D headers.txt <url>       Save headers to file\n  curl -D - <url>                 Print headers to stdout (then body)\n  curl -v <url> 2>&1 | grep '^[<>]'  Filter verbose header lines\n"
+    }
+    fn s_auth() -> &'static str {
+        "  Basic auth:\n  curl -u username:password <url>\n  curl -u username <url>             Prompt for password\n\n  Bearer token:\n  curl -H 'Authorization: Bearer TOKEN' <url>\n\n  Digest auth:\n  curl --digest -u user:pass <url>\n\n  API key in header:\n  curl -H 'X-API-Key: YOUR_KEY' <url>\n\n  API key in URL:\n  curl 'https://api.example.com/data?api_key=YOUR_KEY'\n\n  OAuth2 client credentials (get token then use it):\n  TOKEN=$(curl -s -X POST https://auth.example.com/token \\\n    -d 'grant_type=client_credentials' \\\n    -d 'client_id=ID' -d 'client_secret=SECRET' \\\n    | jq -r .access_token)\n  curl -H \"Authorization: Bearer $TOKEN\" https://api.example.com/data\n\n  Netrc file (~/.netrc):\n  machine api.example.com login myuser password mypass\n  curl --netrc <url>              Use .netrc for auth\n"
+    }
+    fn s_tls() -> &'static str {
+        "  Skip TLS verification (dev only!):\n  curl -k <url>\n  curl --insecure <url>\n\n  Specify CA bundle:\n  curl --cacert /path/to/ca-bundle.crt <url>\n\n  Client certificate:\n  curl --cert client.crt --key client.key <url>\n  curl --cert bundle.p12 --cert-type P12 <url>\n\n  Pin to specific TLS version:\n  curl --tlsv1.2 <url>\n  curl --tlsv1.3 <url>\n\n  Check certificate expiry:\n  curl -vI https://example.com 2>&1 | grep 'expire date'\n\n  Show TLS details:\n  curl -v --tlsv1.2 https://example.com 2>&1 | grep 'SSL'\n"
+    }
+    fn s_upload() -> &'static str {
+        "  Upload file (multipart form):\n  curl -F 'file=@/path/to/file.pdf' https://example.com/upload\n  curl -F 'file=@photo.jpg;type=image/jpeg' https://example.com/upload\n  curl -F 'file=@data.csv' -F 'name=my-upload' https://example.com/upload\n\n  Upload raw binary:\n  curl -X PUT --data-binary @file.bin https://example.com/upload\n\n  Upload with progress:\n  curl -# -F 'file=@bigfile.zip' https://example.com/upload\n\n  Multiple files:\n  curl -F 'file1=@a.txt' -F 'file2=@b.txt' https://example.com/upload\n\n  Download file (resume partial):\n  curl -C - -O https://example.com/largefile.zip\n\n  Download multiple files:\n  curl -O https://example.com/file1.zip -O https://example.com/file2.zip\n\n  Download and extract in one step:\n  curl -L https://example.com/archive.tar.gz | tar xz\n"
+    }
+    fn s_proxy() -> &'static str {
+        "  Use HTTP proxy:\n  curl -x http://proxy.example.com:8080 <url>\n  curl --proxy http://proxy.example.com:8080 <url>\n\n  Proxy with auth:\n  curl -x http://proxy.example.com:8080 -U user:pass <url>\n\n  SOCKS5 proxy:\n  curl --socks5 127.0.0.1:1080 <url>\n\n  SOCKS5 proxy with DNS:\n  curl --socks5-hostname 127.0.0.1:1080 <url>\n\n  Bypass proxy for host:\n  curl --noproxy example.com <url>\n\n  Environment proxy (curl respects these automatically):\n  HTTP_PROXY=http://proxy:8080\n  HTTPS_PROXY=http://proxy:8080\n  NO_PROXY=localhost,127.0.0.1,.internal\n"
+    }
+    fn s_cookies() -> &'static str {
+        "  Send cookie:\n  curl -b 'session=abc123' <url>\n  curl --cookie 'name=value; other=val' <url>\n\n  Load cookies from file (Netscape format):\n  curl -b cookies.txt <url>\n\n  Save cookies to file:\n  curl -c cookies.txt <url>\n\n  Session: save + send cookies:\n  curl -b cookies.txt -c cookies.txt <url>\n\n  Login and save session cookie:\n  curl -c session.txt -X POST https://example.com/login \\\n       -d 'user=alice&pass=secret'\n  curl -b session.txt https://example.com/dashboard\n"
+    }
+    fn s_output() -> &'static str {
+        "  Write output format variables:\n  %{http_code}        HTTP status code\n  %{time_total}       Total time in seconds\n  %{time_connect}     Time to connect\n  %{time_starttransfer}  Time to first byte\n  %{size_download}    Downloaded bytes\n  %{speed_download}   Download speed bytes/sec\n  %{url_effective}    Final URL after redirects\n  %{remote_ip}        Remote IP address\n\n  Examples:\n  curl -w \"%{http_code}\" -s -o /dev/null <url>\n  curl -w \"\\nCode: %{http_code}\\nTime: %{time_total}s\\n\" -s -o /dev/null <url>\n  curl -w \"@format.txt\" <url>       Load format from file\n\n  Pipe to jq:\n  curl -s https://api.example.com/users | jq '.[].name'\n\n  Pipe to python for pretty JSON:\n  curl -s <url> | python -m json.tool\n\n  Parallel requests (curl 7.66+):\n  curl --parallel --parallel-immediate \\\n       https://url1.com https://url2.com https://url3.com\n"
+    }
+
+    type CurlSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+    const SECTIONS: &[CurlSection] = &[
+        (
+            "basics",
+            &["basics", "get", "download", "timeout", "silent", "verbose"],
+            s_basics,
+        ),
+        (
+            "methods",
+            &["method", "post", "put", "patch", "delete", "json", "form"],
+            s_methods,
+        ),
+        (
+            "headers",
+            &["header", "headers", "user-agent", "referer", "accept"],
+            s_headers,
+        ),
+        (
+            "auth",
+            &[
+                "auth",
+                "authentication",
+                "basic",
+                "bearer",
+                "token",
+                "oauth",
+            ],
+            s_auth,
+        ),
+        (
+            "tls",
+            &["tls", "ssl", "cert", "https", "verify", "insecure"],
+            s_tls,
+        ),
+        (
+            "upload",
+            &["upload", "file", "multipart", "binary", "resume"],
+            s_upload,
+        ),
+        ("proxy", &["proxy", "socks", "tunnel"], s_proxy),
+        (
+            "cookies",
+            &["cookie", "cookies", "session", "jar"],
+            s_cookies,
+        ),
+        (
+            "output",
+            &["output", "format", "write-out", "jq", "pipe", "parallel"],
+            s_output,
+        ),
+    ];
+
+    let q = query.trim().to_lowercase();
+
+    if q.is_empty() || q == "help" || q == "list" {
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  hematite --curl <TOPIC>");
+        let _ = writeln!(out, "  Offline curl command reference");
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  Topics:");
+        for &(name, aliases, _) in SECTIONS {
+            let _ = writeln!(out, "    {name:<10} ({})", aliases.join(", "));
+        }
+        let _ = writeln!(out, "\n  hematite --curl all   -- print everything");
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    if q == "all" {
+        let _ = writeln!(out, "{sep}");
+        for &(name, _, f) in SECTIONS {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+            let _ = writeln!(out, "");
+        }
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    let found: Vec<_> = SECTIONS
+        .iter()
+        .filter(|&&(name, aliases, _)| {
+            name.contains(q.as_str())
+                || aliases
+                    .iter()
+                    .any(|&a| a.contains(q.as_str()) || q.contains(a))
+        })
+        .collect();
+
+    if found.is_empty() {
+        let _ = writeln!(out, "  No topic found for '{}'.", query.trim());
+        let _ = writeln!(out, "  Run: hematite --curl help");
+    } else {
+        let _ = writeln!(out, "{sep}");
+        for &&(name, _, f) in &found {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+        }
+        let _ = writeln!(out, "{sep}");
+    }
+    out
+}
+
+pub fn jq_calc(query: &str) -> String {
+    use std::fmt::Write as _;
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+
+    fn s_basics() -> &'static str {
+        "  jq '.'                       Pretty-print JSON\n  jq '.' file.json             Read from file\n  curl -s <url> | jq '.'       Pretty-print API response\n  jq -r '...'                  Raw output (no quotes around strings)\n  jq -c '...'                  Compact (single-line) output\n  jq -n '...'                  No input (create JSON from scratch)\n  jq -e '...'                  Exit 1 if output is false or null\n  jq -f filter.jq              Read filter from file\n  jq --arg name value '...'    Pass shell variable as string\n  jq --argjson name json '...' Pass shell variable as JSON\n  jq --slurp '...'             Read all input into array before filtering\n  jq --raw-input '...'         Read each line as raw string\n  jq --join-output '...'       No newline after each output\n"
+    }
+    fn s_access() -> &'static str {
+        "  .field              Access object field\n  .field.nested       Nested field access\n  .[\"field\"]          Access field with special chars / variable\n  .[0]                Array index (0-based)\n  .[-1]               Last element\n  .[2:5]              Array slice (indices 2,3,4)\n  .[]                 Iterate: outputs each element as separate value\n  .field[]            Iterate over array field\n  .[]?                Iterate (suppress errors if not iterable)\n  .field?             Access field (suppress error if missing)\n  keys                Get object keys as array\n  values              Get object values as array\n  keys_unsorted       Keys without sorting\n  has(\"field\")        True if field exists\n  in                  Alternative form: {\"a\":1} | has(\"a\")\n  length              Length of array/string/object / 0 for null\n  type                Type name: \"null\" \"boolean\" \"number\" \"string\" \"array\" \"object\"\n"
+    }
+    fn s_transform() -> &'static str {
+        "  Array construction:\n  [.[] | .name]         Map: extract field from each element\n  [.[] | select(.age > 18)]  Filter: keep elements matching condition\n  [.a, .b, .c]          Construct array from values\n  [range(5)]            Array of 0-4\n\n  Object construction:\n  {name: .name, age: .age}        New object with selected fields\n  {(.key): .value}                Dynamic key from value\n  . + {extra: \"field\"}            Merge objects (right wins)\n  . * {nested: {k: v}}            Recursive merge\n\n  map and select:\n  map(.field)           Extract field from every element\n  map(. * 2)            Transform every element\n  map(select(. > 5))    Filter array elements\n  map_values(.+1)       Transform object values\n\n  Pipe:\n  .users[] | .name      Pipeline: get name from each user\n  .users[] | {name, email}  Shorthand: same as {name: .name, email: .email}\n\n  Flatten:\n  flatten               Flatten nested arrays (all levels)\n  flatten(1)            Flatten one level only\n\n  Unique / sort:\n  unique               Deduplicate array\n  unique_by(.id)       Deduplicate by field\n  sort                 Sort array\n  sort_by(.name)       Sort by field\n  group_by(.dept)      Group into array of arrays by field\n  min_by(.age)         Minimum element by field\n  max_by(.score)       Maximum element by field\n"
+    }
+    fn s_string() -> &'static str {
+        "  String interpolation:\n  \"Hello, \\(.name)!\"     Embed expression in string\n  \"\\(.a) + \\(.b)\"        Multiple embeddings\n\n  String functions:\n  split(\",\")             Split string to array\n  join(\",\")              Join array of strings\n  ltrimstr(\"prefix\")     Remove prefix if present\n  rtrimstr(\"suffix\")     Remove suffix if present\n  startswith(\"str\")      Boolean: starts with string\n  endswith(\"str\")        Boolean: ends with string\n  ascii_downcase         Lowercase\n  ascii_upcase           Uppercase\n  ltrimstr(\"\") | ltrimstr(\"\")  (use ltrimstr for trimming)\n  gsub(\"pattern\"; \"repl\") Regex global substitution\n  test(\"pattern\")         Boolean: regex match\n  match(\"pattern\")        Regex match object with captures\n  capture(\"(?P<y>\\\\d{4})-(?P<m>\\\\d{2})\")  Named captures to object\n  scan(\"pattern\")         All non-overlapping matches as array\n  tostring               Convert to string (JSON-encode)\n  tonumber               Parse string to number\n  explode                String to array of codepoints\n  implode                Array of codepoints to string\n"
+    }
+    fn s_conditionals() -> &'static str {
+        "  if-then-else:\n  if .age >= 18 then \"adult\" else \"minor\" end\n  if .status == \"active\" then . else empty end   (filter: keep only active)\n\n  try-catch:\n  try .field catch \"default\"    Use default if field access fails\n  try (.x | .y) catch null      Null on error\n\n  Alternative operator:\n  .field // \"default\"           Use default if null or false\n  .count // 0                   Default to 0 if null\n\n  Comparison:\n  .a == .b    .a != .b\n  .a < .b     .a <= .b\n  .a > .b     .a >= .b\n\n  Boolean:\n  .a and .b\n  .a or .b\n  .a | not\n\n  Empty and error:\n  empty                   Produce no output (useful in filters)\n  error(\"message\")        Raise an error\n  halt_error(1)           Exit with code\n"
+    }
+    fn s_reduce() -> &'static str {
+        "  reduce EXPR as $var (INIT; UPDATE)\n\n  Sum an array:\n  reduce .[] as $x (0; . + $x)\n  [.[]| .price] | add               -- simpler: add sums array\n\n  Build object from array:\n  reduce .[] as $item ({}; . + {($item.key): $item.value})\n\n  add:\n  add                        Sum / concatenate array elements\n  map(.value) | add          Sum a field across objects\n  map(.tags) | add           Flatten array of arrays\n  [.a, .b] | add             Merge objects\n\n  any / all:\n  any(.[]; . > 5)            True if any element > 5\n  all(.[]; . > 0)            True if all elements > 0\n\n  indices / index / rindex:\n  [1,2,3,2,1] | index(2)     First index of 2 (-> 1)\n  [1,2,3,2,1] | rindex(2)    Last index of 2  (-> 3)\n  \"abcabc\" | indices(\"b\")    All indices of b  (-> [1,4])\n\n  env:\n  env                        Object of all environment variables\n  env.HOME                   Single env var\n  $ENV.PATH                  Alternative env access\n"
+    }
+    fn s_recipes() -> &'static str {
+        "  Pretty-print and extract:\n  curl -s api | jq '.data[].name'\n  curl -s api | jq -r '.items[] | \"\\(.id) \\(.name)\"'\n\n  Filter array by field value:\n  jq '[.users[] | select(.role == \"admin\")]'\n\n  Count items:\n  jq '.users | length'\n  jq '[.[] | select(.active)] | length'\n\n  Get unique values:\n  jq '[.[] | .department] | unique'\n\n  Sum a field:\n  jq '[.orders[] | .total] | add'\n\n  Get keys of an object:\n  jq 'keys'\n  jq 'to_entries[] | .key'\n\n  Convert object to array of key-value pairs:\n  jq 'to_entries'\n  jq 'to_entries | map({(.key): (.value | tostring)}) | add'\n\n  Merge two JSON files:\n  jq -s '.[0] * .[1]' a.json b.json\n\n  Transform and write back:\n  jq '.config.debug = true' config.json > tmp && mv tmp config.json\n\n  Extract specific fields from list:\n  jq '.[] | {id, name, email}' users.json\n\n  TSV output (tab-separated):\n  jq -r '.[] | [.id, .name, .email] | @tsv'\n\n  CSV output:\n  jq -r '.[] | [.id, .name] | @csv'\n\n  Base64 encode/decode:\n  jq -r '.data | @base64d'          Decode base64 field\n  jq -n '\"hello\" | @base64'         Encode string\n\n  URI encode:\n  jq -rn '\"hello world\" | @uri'\n\n  HTML escape:\n  jq -rn '\"<b>hi</b>\" | @html'\n"
+    }
+
+    type JqSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+    const SECTIONS: &[JqSection] = &[
+        (
+            "basics",
+            &["basics", "flags", "options", "input", "output"],
+            s_basics,
+        ),
+        (
+            "access",
+            &["access", "field", "index", "keys", "values", "type"],
+            s_access,
+        ),
+        (
+            "transform",
+            &[
+                "transform",
+                "map",
+                "select",
+                "filter",
+                "sort",
+                "group",
+                "flatten",
+            ],
+            s_transform,
+        ),
+        (
+            "strings",
+            &[
+                "string",
+                "strings",
+                "split",
+                "join",
+                "regex",
+                "interpolation",
+            ],
+            s_string,
+        ),
+        (
+            "conditionals",
+            &[
+                "conditional",
+                "if",
+                "try",
+                "catch",
+                "default",
+                "empty",
+                "bool",
+            ],
+            s_conditionals,
+        ),
+        (
+            "reduce",
+            &["reduce", "add", "any", "all", "sum", "aggregate"],
+            s_reduce,
+        ),
+        (
+            "recipes",
+            &["recipe", "recipes", "examples", "csv", "tsv", "base64"],
+            s_recipes,
+        ),
+    ];
+
+    let q = query.trim().to_lowercase();
+
+    if q.is_empty() || q == "help" || q == "list" {
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  hematite --jq <TOPIC>");
+        let _ = writeln!(out, "  Offline jq filter reference");
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  Topics:");
+        for &(name, aliases, _) in SECTIONS {
+            let _ = writeln!(out, "    {name:<14} ({})", aliases.join(", "));
+        }
+        let _ = writeln!(out, "\n  hematite --jq all   -- print everything");
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    if q == "all" {
+        let _ = writeln!(out, "{sep}");
+        for &(name, _, f) in SECTIONS {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+            let _ = writeln!(out, "");
+        }
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    let found: Vec<_> = SECTIONS
+        .iter()
+        .filter(|&&(name, aliases, _)| {
+            name.contains(q.as_str())
+                || aliases
+                    .iter()
+                    .any(|&a| a.contains(q.as_str()) || q.contains(a))
+        })
+        .collect();
+
+    if found.is_empty() {
+        let _ = writeln!(out, "  No topic found for '{}'.", query.trim());
+        let _ = writeln!(out, "  Run: hematite --jq help");
+    } else {
+        let _ = writeln!(out, "{sep}");
+        for &&(name, _, f) in &found {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+        }
+        let _ = writeln!(out, "{sep}");
+    }
+    out
+}

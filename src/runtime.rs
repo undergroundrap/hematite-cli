@@ -1039,6 +1039,10 @@ mod tests {
             git_ref: None,
             color_names: None,
             docker_ref: None,
+            sql_ref: None,
+            vim: None,
+            curl: None,
+            jq: None,
             pdf_extract_helper: None,
             teleported_from: None,
         };

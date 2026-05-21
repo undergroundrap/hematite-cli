@@ -5,15 +5,15 @@
 use hematite::tools::math_util::{
     ascii_calc, ascii_table_calc, bitwise_calc, case_calc, chars_calc, checksum_calc,
     chemistry_calc, cipher_calc, color_calc, color_names_calc, combinatorics_calc, complex_calc,
-    cron_calc, csv_calc, datetime_calc, diff_calc, docker_ref_calc, duration_calc, electrical_calc,
-    encode_calc, escape_calc, fraction_calc, geometry_calc, git_ref_calc, gitignore_calc,
-    hash_calc, headers_calc, health_calc, http_calc, http_status_calc, id_gen_calc, ip_calc,
-    json_calc, json_path_calc, jwt_calc, kbd_calc, license_calc, lorem_calc, markdown_calc,
-    matrix_calc, mime_calc, net_calc, number_format, number_theory_calc, percent_calc,
-    physics_calc, port_calc, prob_calc, regex_calc, regex_ref_calc, roman_calc, semver_calc,
-    set_calc, sort_viz, spark_calc, sql_fmt_calc, ssl_calc, stats_calc, string_dist, table_calc,
-    template_calc, text_stats, timestamp_calc, toml_calc, trig_calc, tz_calc, url_calc, uuid_calc,
-    validate_calc, xml_calc, yaml_calc,
+    cron_calc, csv_calc, curl_calc, datetime_calc, diff_calc, docker_ref_calc, duration_calc,
+    electrical_calc, encode_calc, escape_calc, fraction_calc, geometry_calc, git_ref_calc,
+    gitignore_calc, hash_calc, headers_calc, health_calc, http_calc, http_status_calc, id_gen_calc,
+    ip_calc, jq_calc, json_calc, json_path_calc, jwt_calc, kbd_calc, license_calc, lorem_calc,
+    markdown_calc, matrix_calc, mime_calc, net_calc, number_format, number_theory_calc,
+    percent_calc, physics_calc, port_calc, prob_calc, regex_calc, regex_ref_calc, roman_calc,
+    semver_calc, set_calc, sort_viz, spark_calc, sql_fmt_calc, sql_ref_calc, ssl_calc, stats_calc,
+    string_dist, table_calc, template_calc, text_stats, timestamp_calc, toml_calc, trig_calc,
+    tz_calc, url_calc, uuid_calc, validate_calc, vim_calc, xml_calc, yaml_calc,
 };
 
 // ─── Cipher tests ────────────────────────────────────────────────────────────
@@ -5219,5 +5219,394 @@ fn test_docker_ref_registry_topic() {
 #[test]
 fn test_docker_ref_unknown_topic() {
     let out = docker_ref_calc("foobar_xyz");
+    assert!(out.contains("No topic") || out.contains("help"), "{out}");
+}
+
+// ── Wave 13: sql_ref_calc ─────────────────────────────────────────────────────
+
+#[test]
+fn test_sql_ref_empty_shows_help() {
+    let out = sql_ref_calc("");
+    assert!(out.contains("hematite --sql-ref"), "{out}");
+    assert!(out.contains("joins") || out.contains("select"), "{out}");
+}
+
+#[test]
+fn test_sql_ref_select_topic() {
+    let out = sql_ref_calc("select");
+    assert!(out.contains("SELECT"), "{out}");
+    assert!(out.contains("FROM") || out.contains("LIMIT"), "{out}");
+}
+
+#[test]
+fn test_sql_ref_joins_topic() {
+    let out = sql_ref_calc("joins");
+    assert!(out.contains("JOIN"), "{out}");
+    assert!(out.contains("LEFT") || out.contains("INNER"), "{out}");
+}
+
+#[test]
+fn test_sql_ref_window_topic() {
+    let out = sql_ref_calc("window");
+    assert!(out.contains("OVER"), "{out}");
+    assert!(
+        out.contains("ROW_NUMBER") || out.contains("PARTITION"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_sql_ref_cte_alias() {
+    let out = sql_ref_calc("cte");
+    assert!(out.contains("WITH"), "{out}");
+    assert!(
+        out.contains("CTE") || out.contains("recursive") || out.contains("RECURSIVE"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_sql_ref_dml_topic() {
+    let out = sql_ref_calc("insert");
+    assert!(out.contains("INSERT"), "{out}");
+    assert!(out.contains("UPDATE") || out.contains("DELETE"), "{out}");
+}
+
+#[test]
+fn test_sql_ref_ddl_topic() {
+    let out = sql_ref_calc("ddl");
+    assert!(out.contains("CREATE TABLE"), "{out}");
+    assert!(out.contains("ALTER") || out.contains("DROP"), "{out}");
+}
+
+#[test]
+fn test_sql_ref_explain_topic() {
+    let out = sql_ref_calc("explain");
+    assert!(out.contains("EXPLAIN"), "{out}");
+    assert!(out.contains("Seq Scan") || out.contains("Index"), "{out}");
+}
+
+#[test]
+fn test_sql_ref_transactions_topic() {
+    let out = sql_ref_calc("transaction");
+    assert!(out.contains("BEGIN") || out.contains("COMMIT"), "{out}");
+    assert!(
+        out.contains("ROLLBACK") || out.contains("SAVEPOINT"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_sql_ref_json_topic() {
+    let out = sql_ref_calc("json");
+    assert!(out.contains("JSON") || out.contains("jsonb"), "{out}");
+}
+
+#[test]
+fn test_sql_ref_all_prints_all_sections() {
+    let out = sql_ref_calc("all");
+    assert!(out.contains("SELECT"), "{out}");
+    assert!(out.contains("JOIN"), "{out}");
+    assert!(out.contains("OVER"), "{out}");
+    assert!(out.contains("CREATE TABLE"), "{out}");
+}
+
+#[test]
+fn test_sql_ref_unknown_topic() {
+    let out = sql_ref_calc("foobar_xyz");
+    assert!(out.contains("No topic") || out.contains("help"), "{out}");
+}
+
+// ── Wave 13: vim_calc ─────────────────────────────────────────────────────────
+
+#[test]
+fn test_vim_empty_shows_help() {
+    let out = vim_calc("");
+    assert!(out.contains("hematite --vim"), "{out}");
+    assert!(out.contains("motion") || out.contains("modes"), "{out}");
+}
+
+#[test]
+fn test_vim_modes_topic() {
+    let out = vim_calc("modes");
+    assert!(out.contains("Normal") || out.contains("Insert"), "{out}");
+    assert!(out.contains("Esc") || out.contains("Visual"), "{out}");
+}
+
+#[test]
+fn test_vim_motion_topic() {
+    let out = vim_calc("motion");
+    assert!(out.contains("hjkl") || out.contains("h j k l"), "{out}");
+    assert!(out.contains("gg") || out.contains("word"), "{out}");
+}
+
+#[test]
+fn test_vim_editing_topic() {
+    let out = vim_calc("edit");
+    assert!(out.contains("dd") || out.contains("yy"), "{out}");
+    assert!(
+        out.contains("delete") || out.contains("yank") || out.contains("Delete"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_vim_text_objects_topic() {
+    let out = vim_calc("text-objects");
+    assert!(out.contains("iw") || out.contains("aw"), "{out}");
+    assert!(out.contains("inner") || out.contains("around"), "{out}");
+}
+
+#[test]
+fn test_vim_search_replace_topic() {
+    let out = vim_calc("search");
+    assert!(out.contains("substitute") || out.contains(":%s/"), "{out}");
+}
+
+#[test]
+fn test_vim_files_topic() {
+    let out = vim_calc("files");
+    assert!(out.contains(":w") || out.contains(":q"), "{out}");
+    assert!(out.contains("split") || out.contains(":sp"), "{out}");
+}
+
+#[test]
+fn test_vim_macros_topic() {
+    let out = vim_calc("macro");
+    assert!(
+        out.contains("q<") || out.contains("Recording") || out.contains("record"),
+        "{out}"
+    );
+    assert!(out.contains("@"), "{out}");
+}
+
+#[test]
+fn test_vim_marks_topic() {
+    let out = vim_calc("marks");
+    assert!(
+        out.contains("m<") || out.contains("mark") || out.contains("Mark"),
+        "{out}"
+    );
+    assert!(
+        out.contains("jumplist") || out.contains("Ctrl+o") || out.contains("Ctrl"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_vim_config_topic() {
+    let out = vim_calc("vimrc");
+    assert!(
+        out.contains("set number") || out.contains("tabstop"),
+        "{out}"
+    );
+    assert!(
+        out.contains("expandtab") || out.contains("hlsearch"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_vim_all_prints_all_sections() {
+    let out = vim_calc("all");
+    assert!(out.contains("Normal"), "{out}");
+    assert!(out.contains("hjkl") || out.contains("h j k l"), "{out}");
+    assert!(out.contains(":w"), "{out}");
+    assert!(
+        out.contains("set number") || out.contains("tabstop"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_vim_unknown_topic() {
+    let out = vim_calc("foobar_xyz");
+    assert!(out.contains("No topic") || out.contains("help"), "{out}");
+}
+
+// ── Wave 13: curl_calc ────────────────────────────────────────────────────────
+
+#[test]
+fn test_curl_empty_shows_help() {
+    let out = curl_calc("");
+    assert!(out.contains("hematite --curl"), "{out}");
+    assert!(out.contains("auth") || out.contains("methods"), "{out}");
+}
+
+#[test]
+fn test_curl_basics_topic() {
+    let out = curl_calc("basics");
+    assert!(out.contains("curl <url>") || out.contains("curl"), "{out}");
+    assert!(out.contains("-L") || out.contains("-s"), "{out}");
+}
+
+#[test]
+fn test_curl_methods_topic() {
+    let out = curl_calc("post");
+    assert!(out.contains("POST") || out.contains("-X POST"), "{out}");
+    assert!(out.contains("-d") || out.contains("json"), "{out}");
+}
+
+#[test]
+fn test_curl_headers_topic() {
+    let out = curl_calc("headers");
+    assert!(out.contains("-H") || out.contains("Authorization"), "{out}");
+    assert!(
+        out.contains("Content-Type") || out.contains("User-Agent"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_curl_auth_topic() {
+    let out = curl_calc("auth");
+    assert!(
+        out.contains("Bearer") || out.contains("basic") || out.contains("Basic"),
+        "{out}"
+    );
+    assert!(
+        out.contains("-u ") || out.contains("Authorization"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_curl_tls_topic() {
+    let out = curl_calc("tls");
+    assert!(out.contains("-k") || out.contains("insecure"), "{out}");
+    assert!(out.contains("cert") || out.contains("--cacert"), "{out}");
+}
+
+#[test]
+fn test_curl_upload_topic() {
+    let out = curl_calc("upload");
+    assert!(out.contains("-F") || out.contains("multipart"), "{out}");
+    assert!(out.contains("file") || out.contains("@"), "{out}");
+}
+
+#[test]
+fn test_curl_proxy_topic() {
+    let out = curl_calc("proxy");
+    assert!(out.contains("-x ") || out.contains("--proxy"), "{out}");
+    assert!(out.contains("socks") || out.contains("SOCKS"), "{out}");
+}
+
+#[test]
+fn test_curl_cookies_topic() {
+    let out = curl_calc("cookies");
+    assert!(out.contains("-b ") || out.contains("-c "), "{out}");
+    assert!(out.contains("cookie") || out.contains("session"), "{out}");
+}
+
+#[test]
+fn test_curl_output_topic() {
+    let out = curl_calc("output");
+    assert!(
+        out.contains("%{http_code}") || out.contains("http_code"),
+        "{out}"
+    );
+    assert!(out.contains("-w ") || out.contains("write"), "{out}");
+}
+
+#[test]
+fn test_curl_all_prints_all_sections() {
+    let out = curl_calc("all");
+    assert!(out.contains("-L"), "{out}");
+    assert!(
+        out.contains("Bearer") || out.contains("Authorization"),
+        "{out}"
+    );
+    assert!(out.contains("-F") || out.contains("multipart"), "{out}");
+    assert!(out.contains("%{http_code}"), "{out}");
+}
+
+#[test]
+fn test_curl_unknown_topic() {
+    let out = curl_calc("foobar_xyz");
+    assert!(out.contains("No topic") || out.contains("help"), "{out}");
+}
+
+// ── Wave 13: jq_calc ──────────────────────────────────────────────────────────
+
+#[test]
+fn test_jq_empty_shows_help() {
+    let out = jq_calc("");
+    assert!(out.contains("hematite --jq"), "{out}");
+    assert!(out.contains("recipes") || out.contains("access"), "{out}");
+}
+
+#[test]
+fn test_jq_basics_topic() {
+    let out = jq_calc("basics");
+    assert!(
+        out.contains("jq '.'") || out.contains("Pretty-print"),
+        "{out}"
+    );
+    assert!(out.contains("-r") || out.contains("raw"), "{out}");
+}
+
+#[test]
+fn test_jq_access_topic() {
+    let out = jq_calc("access");
+    assert!(out.contains(".field") || out.contains(".["), "{out}");
+    assert!(out.contains("keys") || out.contains("length"), "{out}");
+}
+
+#[test]
+fn test_jq_transform_topic() {
+    let out = jq_calc("transform");
+    assert!(out.contains("map(") || out.contains("select("), "{out}");
+    assert!(out.contains("sort") || out.contains("flatten"), "{out}");
+}
+
+#[test]
+fn test_jq_strings_topic() {
+    let out = jq_calc("strings");
+    assert!(out.contains("split(") || out.contains("join("), "{out}");
+    assert!(
+        out.contains("ascii_downcase") || out.contains("ascii_upcase"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_jq_conditionals_topic() {
+    let out = jq_calc("conditionals");
+    assert!(out.contains("if") && out.contains("then"), "{out}");
+    assert!(out.contains("try") || out.contains("catch"), "{out}");
+}
+
+#[test]
+fn test_jq_reduce_topic() {
+    let out = jq_calc("reduce");
+    assert!(out.contains("reduce"), "{out}");
+    assert!(out.contains("add") || out.contains("any"), "{out}");
+}
+
+#[test]
+fn test_jq_recipes_topic() {
+    let out = jq_calc("recipes");
+    assert!(out.contains("select(") || out.contains("length"), "{out}");
+    assert!(
+        out.contains("@csv") || out.contains("@tsv") || out.contains("@base64"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_jq_all_prints_all_sections() {
+    let out = jq_calc("all");
+    assert!(
+        out.contains("jq '.'") || out.contains("Pretty-print"),
+        "{out}"
+    );
+    assert!(out.contains("map("), "{out}");
+    assert!(out.contains("reduce"), "{out}");
+    assert!(out.contains("@csv") || out.contains("@tsv"), "{out}");
+}
+
+#[test]
+fn test_jq_unknown_topic() {
+    let out = jq_calc("foobar_xyz");
     assert!(out.contains("No topic") || out.contains("help"), "{out}");
 }

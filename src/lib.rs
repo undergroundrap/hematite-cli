@@ -1475,6 +1475,38 @@ pub struct CliCockpit {
     #[arg(
         long,
         help_heading = "Math & Science",
+        value_name = "TOPIC",
+        help = "SQL quick reference — offline ANSI/PostgreSQL/MySQL/SQLite cheatsheet. Topics: select, where, joins, aggregate, window, subquery, dml, ddl, explain, transactions, json. Commands: all = everything. Examples: hematite --sql-ref joins | hematite --sql-ref window | hematite --sql-ref all"
+    )]
+    pub sql_ref: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Math & Science",
+        value_name = "TOPIC",
+        help = "Vim/Neovim cheatsheet — offline reference for modes, motions, editing, text-objects, search/replace, files/splits, macros, marks, and config. Commands: all = everything. Examples: hematite --vim motion | hematite --vim text-objects | hematite --vim macros"
+    )]
+    pub vim: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Math & Science",
+        value_name = "TOPIC",
+        help = "curl command reference — offline cheatsheet covering basics, HTTP methods, headers, auth, TLS, file upload, proxy, cookies, and output formatting. Commands: all = everything. Examples: hematite --curl auth | hematite --curl upload | hematite --curl output"
+    )]
+    pub curl: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Math & Science",
+        value_name = "TOPIC",
+        help = "jq filter reference — offline cheatsheet covering basics/flags, field access, transforms, strings, conditionals, reduce/add, and ready-to-use recipes. Commands: all = everything. Examples: hematite --jq transform | hematite --jq recipes | hematite --jq strings"
+    )]
+    pub jq: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Math & Science",
         value_name = "QUERY",
         help = "Lorem ipsum generator — offline replacement for lipsum.com. Commands: (bare) or <N> = N paragraphs (default 1); words <N> = N words; sentences <N> = N sentences. Examples: hematite --lorem | hematite --lorem 3 | hematite --lorem 'words 50' | hematite --lorem 'sentences 5'"
     )]
