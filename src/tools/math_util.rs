@@ -46974,3 +46974,1015 @@ pub fn testing_ref_calc(query: &str) -> String {
         query.trim()
     )
 }
+
+// ── Wave 31: cicd_ref_calc ────────────────────────────────────────────────────
+
+type CicdSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+
+fn s_cicd_concepts() -> &'static str {
+    "── CI/CD Concepts ──
+CI (Continuous Integration): auto-build + test on every push; catch breakage fast
+CD (Continuous Delivery): every green build is releasable; deploy manually when ready
+CD (Continuous Deployment): every green build auto-deploys to production; no manual gate
+Pipeline stages: Source -> Build -> Test -> Security Scan -> Package -> Deploy -> Verify
+Trunk-based development: short-lived branches (<1 day); feature flags hide unfinished work
+  Reduces merge conflicts; forces small incremental changes; pairs well with CI
+Feature flags: decouple deploy from release; gradual rollout; kill switch for bad features
+  Tools: LaunchDarkly, Unleash, OpenFeature, env-var flags
+Shift left: move testing/security earlier in pipeline; cheaper to fix early
+DORA metrics: Deployment Frequency, Lead Time, Change Failure Rate, MTTR
+  Elite performers: deploy on-demand; lead time < 1 hour; CFR < 5%; MTTR < 1 hour
+Artifact registry: store versioned build outputs; Docker images, JAR, npm packages, binaries
+  Docker Hub, GHCR, ECR, Artifactory, Nexus
+Idempotent deploy: applying the same deploy twice leaves system in same state (IaC/K8s)"
+}
+
+fn s_cicd_github_actions() -> &'static str {
+    "── GitHub Actions ──
+Workflow file: .github/workflows/<name>.yml; triggered by push, PR, schedule, dispatch
+  on: push / pull_request / schedule (cron: '0 2 * * *') / workflow_dispatch
+  jobs: build: / runs-on: ubuntu-latest / steps: - uses: / - run:
+Key actions: actions/checkout@v4; actions/setup-node@v4; actions/cache@v4
+  docker/build-push-action@v6; softprops/action-gh-release@v2; peaceiris/actions-gh-pages@v4
+Matrix build: strategy: matrix: os: [ubuntu, macos, windows] node: [18, 20]
+  jobs.build.runs-on: ${{ matrix.os }}
+Secrets: ${{ secrets.MY_SECRET }} — set in repo Settings > Secrets and variables
+Caching: actions/cache key on hash of lockfile; restore from closest match
+  key: node-${{ hashFiles('package-lock.json') }}
+  restore-keys: node-
+Artifact upload: actions/upload-artifact; available to downstream jobs and 90 days
+Reusable workflows: .github/workflows/reusable.yml with on: workflow_call
+  Caller: uses: org/repo/.github/workflows/reusable.yml@main with: ...
+Composite actions: action.yml in any directory; runs: using: composite
+GITHUB_TOKEN: auto-issued per workflow run; limited permissions; use for GH API calls
+Environments: production: / required_reviewers: / deployment_branch_policy:"
+}
+
+fn s_cicd_gitlab() -> &'static str {
+    "── GitLab CI ──
+Config file: .gitlab-ci.yml at repo root
+  stages: [build, test, deploy]
+  job_name: stage: build / script: - make build / artifacts: paths: [dist/]
+Variables: $CI_COMMIT_SHA, $CI_REGISTRY_IMAGE, $CI_ENVIRONMENT_NAME
+  Custom vars: Settings > CI/CD > Variables; masked/protected options
+Runner types: shared (GitLab-managed) / group / project-specific; tags for routing
+  tags: [docker, linux] — routes job to runner with matching tags
+Artifacts: paths: [build/] + expire_in: 1 week; passed between stages
+Cache: key: $CI_COMMIT_REF_SLUG / paths: [node_modules/] — reuses across pipelines
+include: to split config; include: - project: 'group/cicd-templates' / file: /node.yml
+Rules: rules: - if: $CI_COMMIT_BRANCH == main / when: on_success
+  Replaces only:/except:; supports changes: and exists: conditions
+Environments: environment: name: production / url: https://prod.example.com
+  Tracks which commit is live; rollback to previous deployment
+Review apps: dynamic environments per MR; destroy on MR close
+Dependency proxy: cache Docker Hub images; avoid rate limits
+  docker pull $CI_DEPENDENCY_PROXY_DIRECT_GROUP_IMAGE_PREFIX/node:20"
+}
+
+fn s_cicd_pipelines() -> &'static str {
+    "── Pipeline Patterns ──
+Parallel testing: split test suite across N runners; matrix jobs; reduce wall time
+  GitHub Actions: matrix / GitLab: parallel: 4 (splits $CI_NODE_INDEX)
+Fail fast: cancel remaining jobs when one fails; saves compute credits
+  GitHub Actions: cancel-in-progress: true on pull_request
+Canary deploy: route 5-10% traffic to new version; monitor error rate; gradually increase
+  Tools: Argo Rollouts, Flagger, AWS CodeDeploy, nginx split-client
+Blue-green deploy: run v2 in parallel; flip load balancer; instant rollback
+  Old env stays up until confidence; no in-place upgrade risk
+Rolling deploy: replace pods one by one; zero downtime; K8s Deployment default
+  maxUnavailable: 0 / maxSurge: 1 -- conservative; or 25% each for speed
+Environment promotion: dev -> staging -> prod; same artifact, different config
+  Never rebuild for env promotion -- same image tag; config injected via env/secrets
+Release gates: integration tests, performance gates, manual approval, security scan pass
+  GitHub Environments required_reviewers; Argo Rollouts analysis
+Rollback: keep N previous releases; git revert + redeploy; or image tag rollback
+  K8s: kubectl rollout undo deployment/app
+Drift detection: check if running state matches desired state; alert on divergence
+  Flux, Argo CD reconciliation loop; Terraform state vs real infra"
+}
+
+fn s_cicd_security() -> &'static str {
+    "── CI/CD Security ──
+Secret management: never commit secrets; use vault references or env injection
+  GitHub Secrets / GitLab Variables / HashiCorp Vault / AWS SSM Parameter Store
+  Scan for leaked secrets: gitleaks, truffleHog, git-secrets (pre-commit hook)
+SAST (Static Application Security Testing): scan source code for vulnerabilities
+  Tools: Semgrep, SonarQube, Snyk Code, CodeQL (GitHub Advanced Security)
+  Run in CI; block PR merge on critical findings
+SCA (Software Composition Analysis): scan dependencies for known CVEs
+  Tools: Snyk, OWASP Dependency-Check, Trivy (--scanners vuln), Grype
+  Pin dependency versions; keep lockfiles in VCS
+Container scanning: scan Docker images for OS and app package CVEs
+  Trivy: trivy image myapp:latest
+  Grype: grype myapp:latest
+  Run after docker build before push; block on CRITICAL
+SBOM (Software Bill of Materials): inventory all components; required for compliance
+  Syft: syft myapp:latest -o spdx-json > sbom.json
+  Useful for auditing, license compliance, vulnerability response
+Signing: cosign for container image signing; Sigstore for keyless signing
+  cosign sign --key cosign.key image@digest
+  Verify before deploy: cosign verify --key cosign.pub image
+Least privilege: each CI job gets minimal permissions; no admin tokens in workflows
+  GitHub Actions: permissions: contents: read -- restrict at job level"
+}
+
+fn s_cicd_jenkins() -> &'static str {
+    "── Jenkins ──
+Jenkinsfile: declarative or scripted pipeline; stored in repo root
+  Declarative: pipeline { agent any; stages { stage('Build') { steps { sh 'make' } } } }
+  Scripted: node { stage('Build') { sh 'make' } }
+Agents: agent any / agent { label 'linux' } / agent { docker { image 'node:20' } }
+Environment: environment { MY_VAR = credentials('my-secret') }
+  Credentials binding: usernamePassword / sshUserPrivateKey / string
+Input step: input message: 'Deploy to prod?', ok: 'Yes'
+  Pauses pipeline; times out after N minutes; gate for production deploy
+Shared libraries: @Library('my-lib') _ -- import from Git; reuse across Jenkinsfiles
+  src/org/example/Build.groovy; vars/myStep.groovy (global vars)
+Blue Ocean: modern pipeline UI; visualizes parallel stages; branch source plugin
+Multibranch pipeline: auto-creates pipeline per branch/PR; scans SCM for Jenkinsfiles
+Triggers: pollSCM('H/5 * * * *') / upstream(upstreamProjects: 'other-job') / cron
+Plugins ecosystem: 1800+ plugins; Blue Ocean, Pipeline, Docker, Kubernetes, Slack Notify
+  Install via UI or Jenkins Configuration as Code (JCasC) via yaml"
+}
+
+const CICD_SECTIONS: &[CicdSection] = &[
+    (
+        "concepts",
+        &[
+            "dora",
+            "trunk-based",
+            "feature-flags",
+            "shift-left",
+            "artifact-registry",
+            "idempotent-deploy",
+            "ci-pipeline",
+            "cd-pipeline",
+        ],
+        s_cicd_concepts,
+    ),
+    (
+        "github-actions",
+        &[
+            "gha",
+            "workflow",
+            "actions-cache",
+            "matrix-build",
+            "reusable-workflow",
+            "composite-action",
+            "github-token",
+            "environments",
+        ],
+        s_cicd_github_actions,
+    ),
+    (
+        "gitlab",
+        &[
+            "gitlab-ci",
+            "gitlab-runner",
+            "review-apps",
+            "dependency-proxy",
+            "gitlab-variables",
+            "include",
+            "rules",
+            "artifacts",
+        ],
+        s_cicd_gitlab,
+    ),
+    (
+        "pipelines",
+        &[
+            "canary",
+            "blue-green",
+            "rolling-deploy",
+            "env-promotion",
+            "release-gate",
+            "rollback",
+            "drift-detection",
+            "parallel-testing",
+        ],
+        s_cicd_pipelines,
+    ),
+    (
+        "security",
+        &[
+            "sast",
+            "sca",
+            "container-scanning",
+            "sbom",
+            "signing",
+            "cosign",
+            "gitleaks",
+            "trivy",
+            "snyk",
+            "least-privilege",
+        ],
+        s_cicd_security,
+    ),
+    (
+        "jenkins",
+        &[
+            "jenkinsfile",
+            "shared-library",
+            "multibranch",
+            "blue-ocean",
+            "jenkins-agent",
+            "jcasc",
+            "jenkins-pipeline",
+            "credentials-binding",
+        ],
+        s_cicd_jenkins,
+    ),
+];
+
+pub fn cicd_ref_calc(query: &str) -> String {
+    let q = query.trim().to_lowercase();
+    if q.is_empty() || q == "list" || q == "help" {
+        let topics: Vec<&str> = CICD_SECTIONS.iter().map(|(n, _, _)| *n).collect();
+        return format!(
+            "cicd-ref topics: {}\nUse: --cicd-ref <topic>  or  --cicd-ref all",
+            topics.join(", ")
+        );
+    }
+    if q == "all" {
+        return CICD_SECTIONS
+            .iter()
+            .map(|(_, _, f)| f())
+            .collect::<Vec<_>>()
+            .join("\n\n");
+    }
+    for (name, aliases, func) in CICD_SECTIONS {
+        if q == *name || aliases.iter().any(|a| q == *a || q.contains(a)) {
+            return func().to_string();
+        }
+    }
+    format!(
+        "No topic found for '{}'. Try: --cicd-ref list",
+        query.trim()
+    )
+}
+
+// ── Wave 31: design_patterns_calc ────────────────────────────────────────────
+
+type DpSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+
+fn s_dp_creational() -> &'static str {
+    "── Creational Patterns ──
+Singleton: one instance; controlled access to shared resource
+  Rust: OnceLock<T> / LazyLock<T> for thread-safe lazy init; avoid global mutability
+  Anti-pattern when overused: hidden dependency; hard to test; prefer DI
+Factory Method: subclass decides which object to create; open/closed for new types
+  trait Animal { fn speak(&self); }
+  fn create_animal(kind: &str) -> Box<dyn Animal> { match kind { ... } }
+Abstract Factory: family of related objects without specifying concrete classes
+  Useful for cross-platform UI widgets (WindowsButton + MacButton from same factory)
+Builder: construct complex objects step by step; separate construction from representation
+  Rust: method chaining with consumed self; builder.host(h).port(p).build()
+  Avoids telescoping constructor; validates on .build()
+Prototype: clone existing object instead of creating from scratch
+  Rust: Clone + Default; useful when construction is expensive
+Object Pool: reuse expensive objects (DB connections, threads)
+  Pre-create N objects; borrow/return; reduces allocation overhead"
+}
+
+fn s_dp_structural() -> &'static str {
+    "── Structural Patterns ──
+Adapter: convert interface A to interface B; makes incompatible classes work together
+  Rust: wrapper struct that implements target trait and delegates to adaptee
+  Use case: wrap legacy API, third-party library with a different interface
+Decorator: add behavior at runtime without subclassing
+  Rust: wrapper struct implementing same trait; compose decorators
+  Use case: logging middleware, caching wrapper, compression layer
+Facade: simplified interface to a complex subsystem
+  Reduces coupling; single entry point for complex sub-systems
+  Use case: payment processing facade hiding gateway, fraud check, ledger
+Proxy: surrogate that controls access to another object
+  Types: remote (network), virtual (lazy init), protection (auth check), caching
+  Rust: smart pointers (Box, Rc, Arc) are proxy-like; custom proxy via trait impl
+Composite: tree structure where leaf and branch share the same interface
+  Use case: file system (File + Directory both impl Node), UI component tree
+  Rust: enum { Leaf(T), Branch(Vec<Node>) } or Box<dyn Node>
+Bridge: decouple abstraction from implementation; both can vary independently
+  Use case: device + remote control; shape + rendering engine
+Flyweight: share data common to many objects; reduce memory for large object counts
+  Use case: game sprites (share texture, differ only in position/state)"
+}
+
+fn s_dp_behavioral() -> &'static str {
+    "── Behavioral Patterns ──
+Observer: notify multiple subscribers when state changes
+  Rust: Vec<Box<dyn Observer>>; notify_all() iterates and calls update()
+  Use case: event bus, UI data binding, domain events
+Strategy: swap algorithms at runtime; define family of algorithms, encapsulate each
+  Rust: Box<dyn SortStrategy> or fn pointer stored in struct
+  Use case: payment method, compression algorithm, route planner
+Command: encapsulate request as object; supports undo, queue, log
+  Rust: trait Command { fn execute(&self); fn undo(&self); }
+  Use case: text editor operations, macro recording, transactional commands
+Iterator: sequential access without exposing underlying representation
+  Rust: Iterator trait is the idiomatic pattern; implement next() -> Option<Item>
+State: object changes behavior when internal state changes
+  Rust: enum State { Locked, Unlocked } or typestate pattern with PhantomData
+  Avoids large if/match on state flag scattered through code
+Chain of Responsibility: pass request along a chain; each handler decides to process or forward
+  Use case: middleware pipeline, event bubbling, logging handlers
+Template Method: define algorithm skeleton; subclass fills in specific steps
+  Rust: trait with default impl for skeleton; override specific steps
+Mediator: central hub for communication between objects; reduces direct coupling
+  Use case: chat room (mediator), air traffic control, form validation coordinator
+Visitor: add operations to object hierarchy without modifying classes
+  Rust: accept(&mut visitor) pattern; visitor implements per-type methods"
+}
+
+fn s_dp_concurrency() -> &'static str {
+    "── Concurrency Patterns ──
+Active Object: decouple method call from execution; runs in its own thread
+  Rust: spawn thread with channel; caller sends request, receives future/result
+Thread Pool: reuse fixed set of threads for task execution
+  Rust: rayon for CPU-bound; tokio::spawn for async; threadpool crate
+Actor Model: actors are isolated units with mailboxes; no shared memory
+  Rust: actix, bastion, xactor; message passing only; no shared state
+Read-Write Lock: allow concurrent reads; exclusive write
+  Rust: std::sync::RwLock; try_read()/try_write() to avoid deadlock
+Pipeline: chain of processing stages; each stage runs concurrently
+  Rust: channels as stage connectors; thread per stage; backpressure via bounded channels
+Fork-Join: split task into subtasks; merge results
+  Rust: rayon::join(|| ..., || ...); or manual thread spawn + join handles
+Scheduler: control execution order and timing of tasks
+  Tokio: JoinSet for structured concurrency; spawn_blocking for blocking I/O
+Bulkhead: isolate failures; separate thread pool per external dependency
+  Prevents one slow service from consuming all threads; used in microservices"
+}
+
+fn s_dp_rust_idioms() -> &'static str {
+    "── Rust-Specific Idioms ──
+Typestate: encode state in type system; invalid transitions are compile errors
+  struct Door<S> { _state: PhantomData<S> }
+  struct Open; struct Closed;
+  impl Door<Closed> { fn open(self) -> Door<Open> { ... } }
+  -- can only call open() on a Closed door
+Newtype: wrap primitive in struct to add type safety; zero runtime cost
+  struct Meters(f64); struct Seconds(f64);
+  -- prevents mixing up Meters and Seconds at compile time
+Extension traits: add methods to external types without orphan rule violation
+  trait MyExt: SomeTrait { fn extra(&self) -> String; }
+  impl MyExt for ExternalType { fn extra(&self) -> String { ... } }
+RAII (Resource Acquisition Is Initialization): constructor acquires, Drop releases
+  Rust: automatic; implement Drop for custom cleanup; MutexGuard, File all use this
+Return Position impl Trait (RPIT): return complex iterator/future without boxing
+  fn process() -> impl Iterator<Item = u32> { vec![1,2,3].into_iter().map(|x| x*2) }
+Error context propagation: ? operator + From impl + thiserror
+  #[derive(Error)] enum AppError { #[error('db: {0}')] Db(#[from] DbError), ... }
+Derive macros: #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+  Avoid hand-writing boilerplate; proc-macros generate at compile time"
+}
+
+fn s_dp_arch_patterns() -> &'static str {
+    "── Architecture Patterns ──
+MVC (Model-View-Controller): separate data, UI, and logic
+  Model: state + business rules; View: rendering; Controller: input handling
+MVP (Model-View-Presenter): View is passive; Presenter holds logic; easier to test
+MVVM (Model-View-ViewModel): ViewModel exposes observables; View binds; popular in mobile/SPA
+Hexagonal (Ports and Adapters): business logic core; ports (interfaces); adapters (implementations)
+  Inner ring never imports outer; swap DB or HTTP adapter without touching core logic
+CQRS (Command Query Responsibility Segregation): separate read and write models
+  Commands: mutate state; Queries: return data; can scale read/write side independently
+Event Sourcing: store events not state; replay to reconstruct; audit log for free
+  Pairs with CQRS; projection = current state derived from event stream
+Saga: manage distributed transactions via sequence of local transactions + compensations
+  Choreography: each service emits events; Orchestration: central coordinator drives steps
+Clean Architecture: concentric rings; dependencies point inward; Entities -> Use Cases -> Interface
+  Framework is a detail; DB is a detail; core logic has no import of outer layers
+Microservices vs Monolith: start with monolith; extract when team/scaling demands it
+  Rule of thumb: one microservice per team; each owns its data store
+  Strangler Fig: incrementally migrate monolith; new features as services; route via proxy"
+}
+
+const DP_SECTIONS: &[DpSection] = &[
+    (
+        "creational",
+        &[
+            "singleton",
+            "factory",
+            "abstract-factory",
+            "builder-pattern",
+            "prototype",
+            "object-pool",
+        ],
+        s_dp_creational,
+    ),
+    (
+        "structural",
+        &[
+            "adapter",
+            "decorator",
+            "facade",
+            "proxy-pattern",
+            "composite",
+            "bridge",
+            "flyweight",
+        ],
+        s_dp_structural,
+    ),
+    (
+        "behavioral",
+        &[
+            "observer",
+            "strategy",
+            "command-pattern",
+            "iterator-pattern",
+            "state-pattern",
+            "chain-of-responsibility",
+            "template-method",
+            "mediator",
+            "visitor",
+        ],
+        s_dp_behavioral,
+    ),
+    (
+        "concurrency",
+        &[
+            "active-object",
+            "thread-pool",
+            "actor-model",
+            "read-write-lock",
+            "pipeline-pattern",
+            "fork-join",
+            "bulkhead",
+            "scheduler-pattern",
+        ],
+        s_dp_concurrency,
+    ),
+    (
+        "rust-idioms",
+        &[
+            "typestate",
+            "newtype-pattern",
+            "raii",
+            "extension-trait",
+            "rpit",
+            "derive-macros",
+            "error-context",
+        ],
+        s_dp_rust_idioms,
+    ),
+    (
+        "architecture",
+        &[
+            "hexagonal",
+            "ports-and-adapters",
+            "cqrs-pattern",
+            "event-sourcing-pattern",
+            "saga-pattern",
+            "clean-architecture",
+            "microservices",
+            "strangler-fig",
+            "mvvm",
+            "mvp",
+        ],
+        s_dp_arch_patterns,
+    ),
+];
+
+pub fn design_patterns_calc(query: &str) -> String {
+    let q = query.trim().to_lowercase();
+    if q.is_empty() || q == "list" || q == "help" {
+        let topics: Vec<&str> = DP_SECTIONS.iter().map(|(n, _, _)| *n).collect();
+        return format!(
+            "design-patterns topics: {}\nUse: --design-patterns <topic>  or  --design-patterns all",
+            topics.join(", ")
+        );
+    }
+    if q == "all" {
+        return DP_SECTIONS
+            .iter()
+            .map(|(_, _, f)| f())
+            .collect::<Vec<_>>()
+            .join("\n\n");
+    }
+    for (name, aliases, func) in DP_SECTIONS {
+        if q == *name || aliases.iter().any(|a| q == *a || q.contains(a)) {
+            return func().to_string();
+        }
+    }
+    format!(
+        "No topic found for '{}'. Try: --design-patterns list",
+        query.trim()
+    )
+}
+
+// ── Wave 31: auth_ref_calc ────────────────────────────────────────────────────
+
+type AuthSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+
+fn s_auth_oauth2() -> &'static str {
+    "── OAuth 2.0 ──
+Roles: Resource Owner (user), Client (app), Authorization Server (AS), Resource Server (API)
+Flows:
+  Authorization Code + PKCE: browser-based; safest; recommended for all new apps
+    1. Client -> AS: GET /authorize?response_type=code&client_id=...&code_challenge=...
+    2. User logs in, consents
+    3. AS -> Client: redirect with ?code=...
+    4. Client -> AS: POST /token {code, code_verifier, client_id, redirect_uri}
+    5. AS -> Client: {access_token, refresh_token, id_token}
+  Client Credentials: machine-to-machine; no user; service-to-service
+    POST /token {grant_type=client_credentials, client_id, client_secret, scope}
+  Device Code: input-constrained devices (TV, CLI); user logs in on phone
+    POST /device_authorization -> {device_code, user_code, verification_uri}
+    Poll POST /token until user approves
+Tokens:
+  access_token: short-lived (15 min-1 hr); opaque or JWT; proves client is authorized
+  refresh_token: long-lived; exchange for new access_token; rotate on use; revocable
+  id_token: OIDC only; JWT about the authenticated user; NOT for API authorization
+Scopes: space-delimited permissions; e.g. read:users write:posts openid profile email
+Token introspection: POST /introspect {token}; AS tells RS if token is active + metadata
+Token revocation: POST /revoke {token}; invalidate refresh_token on logout"
+}
+
+fn s_auth_oidc() -> &'static str {
+    "── OpenID Connect (OIDC) ──
+OIDC: identity layer on top of OAuth 2.0; adds id_token + userinfo endpoint
+  OAuth2 answers 'what can the app do?'; OIDC answers 'who is the user?'
+Discovery: GET /.well-known/openid-configuration -> JSON with all endpoint URLs
+  Always use discovery; don't hardcode endpoint URLs
+id_token: JWT signed by AS; contains claims: sub, iss, aud, exp, iat, nonce
+  Verify: signature (JWKs), issuer (iss == expected), audience (aud == client_id), expiry
+  nonce: random value in auth request; must match nonce in id_token (CSRF protection)
+UserInfo endpoint: GET /userinfo with access_token; returns additional user claims
+Standard claims: sub (user ID), name, email, email_verified, picture, locale, updated_at
+PKCE: Proof Key for Code Exchange; S256 method; code_verifier = random 43-128 char string
+  code_challenge = BASE64URL(SHA256(code_verifier))
+  Prevents authorization code interception; mandatory for public clients
+Session management: iframe-based silent refresh; check_session_iframe; post_message
+  Back-channel logout: AS sends logout_token to client's logout endpoint
+JWKS: JSON Web Key Set; public keys for verifying AS-signed JWTs
+  GET /.well-known/jwks.json; cache with rotation awareness; kid header selects key"
+}
+
+fn s_auth_jwt() -> &'static str {
+    "── JWT (JSON Web Tokens) ──
+Structure: header.payload.signature (Base64URL encoded, dot-separated)
+  Header: {alg: RS256, typ: JWT, kid: key-id}
+  Payload: {sub, iss, aud, exp, iat, jti, custom_claims}
+  Signature: RS256 = RSASSA-PKCS1-v1_5(SHA256(header.payload), private_key)
+Algorithms:
+  RS256: RSA + SHA256; asymmetric; AS signs with private key; verify with public key (JWKS)
+  HS256: HMAC + SHA256; symmetric; shared secret; avoid for distributed systems
+  ES256: ECDSA + P-256; shorter keys than RSA; modern choice
+  none: explicitly disabled; reject tokens with alg:none
+Claims:
+  iss (issuer): who issued the token; verify matches expected AS URL
+  sub (subject): user identifier; stable, unique per user per issuer
+  aud (audience): intended recipient; verify matches your API identifier
+  exp: expiry Unix timestamp; reject if now > exp
+  iat: issued at; useful for token age checks
+  jti: unique token ID; store to detect replay attacks
+Validation checklist: verify signature, iss, aud, exp; check jti if replay protection needed
+Common mistakes: not verifying signature, trusting alg from header, no exp check
+Token storage: httpOnly cookie (CSRF risk) vs localStorage (XSS risk) vs memory (best for SPA)
+JWE: JSON Web Encryption; encrypt token contents; use when payload is sensitive"
+}
+
+fn s_auth_session() -> &'static str {
+    "── Sessions & Cookies ──
+Server-side sessions: session ID stored in cookie; server stores session data
+  Fast revocation: delete session from store; access revoked immediately
+  Store: Redis (ttl per session), DB, in-memory (single-node only)
+Cookie attributes:
+  HttpOnly: prevents JS access; mitigates XSS cookie theft
+  Secure: HTTPS only; never sent over HTTP
+  SameSite=Strict: not sent on cross-site requests; breaks OAuth redirects
+  SameSite=Lax: sent on top-level navigation GET; default in modern browsers; balanced
+  SameSite=None; Secure: cross-site; required for embedded widgets, OAuth flows
+  Domain=.example.com: shared across subdomains
+  Expires/Max-Age: persistent cookie vs session cookie (clears on browser close)
+CSRF protection:
+  SameSite=Lax/Strict (browser-enforced); Double Submit Cookie; Synchronizer Token
+  Token in form/header; verify server-side; not needed for APIs using Bearer tokens
+Session fixation: attacker sets session ID before login; fix by regenerating ID on login
+Session expiry: sliding window (reset on activity) vs absolute (fixed duration)
+  Implement both: e.g. 30 min idle + 8 hr absolute max
+Distributed session: all app servers share Redis session store; sticky sessions avoid this
+Cookie prefixes: __Secure- prefix enforces Secure attribute; __Host- enforces Secure + no Domain + path=/"
+}
+
+fn s_auth_saml() -> &'static str {
+    "── SAML 2.0 ──
+Use case: enterprise SSO; legacy systems; IdP-initiated flows
+  Older than OIDC; XML-based; complex but ubiquitous in enterprise
+Actors: Service Provider (SP = your app), Identity Provider (IdP = Okta, ADFS, Azure AD)
+SP-initiated flow:
+  1. User hits SP, not authenticated
+  2. SP generates SAMLRequest (XML, deflate+base64), redirects to IdP SSO URL
+  3. IdP authenticates user, sends SAMLResponse POST to SP's ACS URL
+  4. SP validates assertion, creates session
+IdP-initiated flow: user starts at IdP portal, clicks app tile, IdP POSTs assertion to SP
+SAMLResponse: XML document containing Assertion with Subject, Conditions, AttributeStatement
+  Must verify: signature (X.509 cert), issuer, NotBefore/NotOnOrAfter, audience restriction
+  Assertion: signed; Response may also be signed; verify both when present
+Metadata: SP exports metadata.xml (ACS URL, entityID, cert); IdP imports it
+  Always use metadata exchange for cert rotation; don't hardcode
+Common attributes: NameID (user identifier), email, firstName, lastName, groups
+  NameID formats: emailAddress / persistent (opaque, stable) / transient (per-session)
+Vulnerabilities: XML signature wrapping attacks; verify on Assertion not just Response
+  Use a vetted SAML library; never parse XML signatures manually"
+}
+
+fn s_auth_security() -> &'static str {
+    "── Auth Security & Best Practices ──
+Password storage: bcrypt (cost >= 12), Argon2id (preferred), scrypt; never MD5/SHA1/plain
+  Argon2id params: m=64MB, t=3 iterations, p=4 parallelism; adjust for server speed
+Brute force protection: rate limiting per IP + per username; exponential backoff; lockout
+  Differentiate: wrong password (log + rate limit) vs user not found (same response time)
+Timing attacks: use constant-time comparison for secrets; crypto.timingSafeEqual()
+MFA (Multi-Factor Authentication):
+  TOTP (Time-based OTP): RFC 6238; 30s window; HOTP base; Google Authenticator, Authy
+    secret = base32 random; TOTP(secret, floor(now/30)) == user input
+  WebAuthn/FIDO2: phishing-resistant; hardware key or biometric; platform authenticator
+    navigator.credentials.create({publicKey: ...}) -- no password, no phishing
+  SMS OTP: weakest; SIM-swap attacks; use only as last resort fallback
+Password reset: signed time-limited token; one-use; deliver to verified email/phone
+  Token: HMAC(userid + expiry + salt, secret) or random bytes stored in DB
+Authorization: RBAC (role-based), ABAC (attribute-based), ReBAC (relationship-based)
+  Enforce at API layer; never trust client-provided role claims without re-verification
+Principle of least privilege: each user/service gets minimum permissions needed
+OWASP top auth issues: broken auth, insecure JWT, missing brute force protection,
+  predictable session IDs, credential stuffing (use HaveIBeenPwned API on registration)"
+}
+
+const AUTH_SECTIONS: &[AuthSection] = &[
+    (
+        "oauth2",
+        &[
+            "authorization-code",
+            "pkce",
+            "client-credentials",
+            "device-code",
+            "refresh-token",
+            "token-revocation",
+            "scopes",
+            "oauth-flow",
+        ],
+        s_auth_oauth2,
+    ),
+    (
+        "oidc",
+        &[
+            "openid-connect",
+            "id-token",
+            "jwks",
+            "userinfo",
+            "discovery",
+            "nonce",
+            "silent-refresh",
+            "back-channel-logout",
+        ],
+        s_auth_oidc,
+    ),
+    (
+        "jwt",
+        &[
+            "rs256",
+            "hs256",
+            "es256",
+            "jws",
+            "jwe",
+            "jti",
+            "claims",
+            "token-validation",
+            "jwt-security",
+        ],
+        s_auth_jwt,
+    ),
+    (
+        "session",
+        &[
+            "cookie",
+            "httponly",
+            "samesite",
+            "csrf",
+            "session-fixation",
+            "session-store",
+            "cookie-prefix",
+            "sticky-session",
+        ],
+        s_auth_session,
+    ),
+    (
+        "saml",
+        &[
+            "saml2",
+            "sso",
+            "idp",
+            "service-provider",
+            "assertion",
+            "samlresponse",
+            "adfs",
+            "okta-saml",
+        ],
+        s_auth_saml,
+    ),
+    (
+        "security",
+        &[
+            "bcrypt",
+            "argon2",
+            "totp",
+            "webauthn",
+            "fido2",
+            "mfa",
+            "password-reset",
+            "rbac",
+            "abac",
+            "brute-force",
+        ],
+        s_auth_security,
+    ),
+];
+
+pub fn auth_ref_calc(query: &str) -> String {
+    let q = query.trim().to_lowercase();
+    if q.is_empty() || q == "list" || q == "help" {
+        let topics: Vec<&str> = AUTH_SECTIONS.iter().map(|(n, _, _)| *n).collect();
+        return format!(
+            "auth-ref topics: {}\nUse: --auth-ref <topic>  or  --auth-ref all",
+            topics.join(", ")
+        );
+    }
+    if q == "all" {
+        return AUTH_SECTIONS
+            .iter()
+            .map(|(_, _, f)| f())
+            .collect::<Vec<_>>()
+            .join("\n\n");
+    }
+    for (name, aliases, func) in AUTH_SECTIONS {
+        if q == *name || aliases.iter().any(|a| q == *a || q.contains(a)) {
+            return func().to_string();
+        }
+    }
+    format!(
+        "No topic found for '{}'. Try: --auth-ref list",
+        query.trim()
+    )
+}
+
+// ── Wave 31: linux_kernel_calc ────────────────────────────────────────────────
+
+type KernelSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+
+fn s_kernel_syscalls() -> &'static str {
+    "── System Calls ──
+Syscalls: interface between user space and kernel; trap into kernel via INT 0x80 or SYSCALL
+  x86_64: SYSCALL instruction; rax=syscall number; args in rdi, rsi, rdx, r10, r8, r9
+  strace: trace syscalls of a process; strace -p PID or strace ./program
+  ltrace: trace library calls (libc wrappers around syscalls)
+Common syscalls:
+  read(fd, buf, count) / write(fd, buf, count) -- file I/O
+  open(path, flags, mode) / close(fd) -- file descriptor lifecycle
+  mmap(addr, len, prot, flags, fd, offset) -- map file or anonymous memory
+  fork() -- copy process; exec*(path, argv, envp) -- replace process image
+  clone(fn, stack, flags, arg) -- create thread/process with shared namespaces
+  futex(uaddr, op, val) -- fast userspace mutex (basis of pthreads)
+  epoll_create1/epoll_ctl/epoll_wait -- scalable I/O event notification
+  io_uring_setup/io_uring_enter -- async I/O; submits and reaps without per-op syscall
+vsyscall / vDSO: kernel maps vDSO page into every process; fast path for gettimeofday etc.
+  No actual ring transition needed; read from mapped kernel memory
+seccomp-bpf: filter syscalls with BPF rules; containers use this; Docker default profile
+  SCMP_ACT_KILL_PROCESS: terminate on forbidden syscall; SCMP_ACT_ERRNO: return error"
+}
+
+fn s_kernel_memory() -> &'static str {
+    "── Memory Management ──
+Virtual memory: each process has 48-bit virtual address space (x86_64); kernel in upper half
+  4KB pages default; huge pages 2MB (THP) or 1GB (HugeTLBfs)
+  Page Table: maps virtual -> physical; 4 levels (PGD/PUD/PMD/PTE) on x86_64
+  TLB: cache of recent page table lookups; ASID for fast context switch
+mmap regions: text (code), data (BSS/heap), stack, vDSO, mmap area (libraries, anonymous)
+  /proc/PID/maps -- view virtual memory layout of any process
+  /proc/PID/smaps -- per-region resident memory, swap usage
+OOM Killer: triggered when system has no free memory; kills process with highest oom_score
+  /proc/PID/oom_score_adj: -1000 (never kill) to +1000 (kill first)
+  Avoid by setting memory limits (cgroups); alert before OOM; tune overcommit
+NUMA: Non-Uniform Memory Access; multi-socket systems; local memory faster
+  numactl --membind=0 --cpunodebind=0 ./app -- pin to NUMA node 0
+  numastat -- shows NUMA misses; high numa_miss = migration candidate
+Memory pressure signals: /proc/meminfo (MemFree, Cached, SwapUsed)
+  PSI (Pressure Stall Information): /proc/pressure/memory -- stall percentage
+  vmstat 1 -- live view; si/so columns = swap in/out
+Copy-on-Write (CoW): fork() copies page table only; physical pages shared until write
+  On write: page fault -> kernel copies physical page -> update PTE
+Transparent Huge Pages (THP): auto-promotes 4K pages to 2MB; helps throughput, hurts latency
+  echo madvise > /sys/kernel/mm/transparent_hugepage/enabled -- per-madvise control"
+}
+
+fn s_kernel_namespaces() -> &'static str {
+    "── Namespaces & Containers ──
+Linux namespaces: kernel feature isolating system resources per namespace
+  pid: each namespace has its own PID 1; processes don't see other namespaces' PIDs
+  net: separate network stack (interfaces, routing, iptables, sockets)
+  mnt: separate mount point tree; pivot_root for container rootfs
+  uts: separate hostname and domain name
+  ipc: separate SysV IPC, POSIX message queues
+  user: map UIDs; container root (0) -> host non-root UID (e.g. 100000)
+  cgroup: separate view of cgroup hierarchy (cgroup v2 unified hierarchy)
+  time: separate CLOCK_BOOTTIME and CLOCK_MONOTONIC offsets (kernel 5.6+)
+Creating namespaces: unshare (new shell) / clone() syscall (programmatically) / nsenter (join)
+  unshare --pid --fork --mount-proc /bin/bash -- new PID namespace
+  nsenter -t PID --pid --net -- enter another process's namespaces
+Container runtime: runc (OCI compliant) calls clone() with namespace flags + cgroups + chroot
+  containerd -> runc; Docker -> containerd -> runc
+/proc/PID/ns/: symlinks to namespace inodes; open FD to preserve namespace after fork
+Rootless containers: user namespace maps container root to unprivileged host UID
+  Podman, Docker rootless; no root needed on host; reduced attack surface"
+}
+
+fn s_kernel_cgroups() -> &'static str {
+    "── cgroups (Control Groups) ──
+Purpose: limit, account, and isolate resource usage (CPU, memory, I/O, network)
+cgroup v1: per-subsystem hierarchies; legacy; complex; Docker uses v1 by default on old distros
+cgroup v2: unified hierarchy; single mount at /sys/fs/cgroup; all controllers together
+  Kernel 4.5+; Fedora/RHEL 9 default; Ubuntu 21.10+ default
+Key controllers:
+  memory: memory.max (hard limit), memory.high (throttle), memory.swap.max
+    cat /sys/fs/cgroup/mygroup/memory.current -- current usage
+  cpu: cpu.max (quota/period); cpu.weight (priority share, default 100)
+    cpu.max: '50000 100000' = 50% of one CPU; '200000 100000' = 2 CPUs
+  io: io.max (IOPS and bandwidth limits per device); io.weight (priority)
+  pids: pids.max -- max number of processes; prevents fork bombs
+  cpuset: cpuset.cpus / cpuset.mems -- pin to specific CPUs and NUMA nodes
+K8s integration: every Pod gets a cgroup; requests/limits map to cpu.max/memory.max
+  kubectl describe node -- shows allocatable vs requested per node
+Creating cgroups v2:
+  mkdir /sys/fs/cgroup/mygroup
+  echo '1000000 1000000' > /sys/fs/cgroup/mygroup/cpu.max  -- 100% of 1 CPU
+  echo $$ > /sys/fs/cgroup/mygroup/cgroup.procs  -- add current PID
+systemd: each service has its own cgroup; systemd-cgls shows tree; systemctl set-property"
+}
+
+fn s_kernel_ebpf() -> &'static str {
+    "── eBPF ──
+eBPF: extended Berkeley Packet Filter; run sandboxed programs in kernel without modules
+  Verified by the kernel verifier before loading; JIT compiled to native code
+  No kernel recompilation; no crash risk; production-safe instrumentation
+Use cases: observability, networking, security, tracing, profiling
+Program types:
+  kprobe/kretprobe: attach to kernel function entry/return
+  tracepoint: stable kernel tracepoints (sys_enter_read, sched_switch)
+  XDP: eXpress Data Path; packet processing at NIC driver; DDoS mitigation
+  TC (Traffic Control): ingress/egress packet manipulation; Cilium uses this
+  uprobe/uretprobe: instrument user-space functions (no recompile needed)
+  perf_event: hardware counters, software events, PMU
+Maps: eBPF data structures shared between kernel and user space
+  BPF_MAP_TYPE_HASH, _ARRAY, _RINGBUF, _PERCPU_HASH, _LRU_HASH
+  Read from user space: bpf(BPF_MAP_LOOKUP_ELEM, ...)
+Tools:
+  bpftrace: high-level tracing; DTrace-like; one-liners
+    bpftrace -e 'kprobe:do_sys_open { printf(\"%s\n\", str(arg1)); }'
+  libbpf + CO-RE: portable eBPF; BTF for kernel struct offsets; no kernel headers needed
+  BCC: Python frontend; iovisor project; many example tools (execsnoop, tcptracer)
+  Cilium: K8s networking + security via eBPF; replaces kube-proxy; NetworkPolicy in kernel
+  Pixie: auto-instrumentation of K8s apps via eBPF; no code changes
+Verifier: enforces bounded loops, no null deref, stack depth limits, safe memory access"
+}
+
+fn s_kernel_scheduler() -> &'static str {
+    "── Scheduler & I/O ──
+CFS (Completely Fair Scheduler): default process scheduler; virtual runtime (vruntime)
+  Each task accumulates vruntime; scheduler picks task with lowest vruntime
+  nice value: -20 (highest priority) to +19 (lowest); weight = 1024 / 1.25^nice
+  cgroup cpu.weight maps to scheduler weight; K8s CPU requests -> cgroup weight
+  chrt: change scheduling policy; chrt -f 50 ./realtime-app -- SCHED_FIFO at priority 50
+Real-time: SCHED_FIFO (no preemption within priority) / SCHED_RR (round-robin same priority)
+  Requires CAP_SYS_NICE or RT scheduling group; use for audio, industrial control
+NUMA scheduling: kernel tries to place tasks near their memory; numa_balancing auto-migrates
+  NUMA pitfall: process migrated away from memory -> high NUMA misses -> latency spikes
+I/O schedulers:
+  none: no queuing; SSD/NVMe; pass directly to block device; default for NVMe
+  mq-deadline: bounded latency; good for mixed read/write; HDD or shared storage
+  bfq (Budget Fair Queuing): fairness; good for interactive desktop; latency-sensitive
+  Check: cat /sys/block/sda/queue/scheduler; set: echo mq-deadline > /sys/block/sda/queue/scheduler
+io_uring: zero-copy async I/O; submission queue (SQ) + completion queue (CQ) in shared memory
+  sqe: submission queue entry describes op (read/write/send/recv/connect)
+  io_uring_enter submits batch of SQEs; kernel processes asynchronously; CQE signals completion
+  Reduces syscall overhead for high-throughput I/O; vectorized submit_and_wait
+IRQ affinity: pin interrupts to specific CPUs; isolcpus= kernel param for latency-sensitive workloads"
+}
+
+const KERNEL_SECTIONS: &[KernelSection] = &[
+    (
+        "syscalls",
+        &[
+            "strace",
+            "ltrace",
+            "mmap",
+            "io-uring",
+            "vsyscall",
+            "seccomp",
+            "vdso",
+            "clone-syscall",
+        ],
+        s_kernel_syscalls,
+    ),
+    (
+        "memory",
+        &[
+            "virtual-memory",
+            "page-table",
+            "huge-pages",
+            "thp",
+            "oom-killer",
+            "numa",
+            "copy-on-write",
+            "psi",
+            "vmstat",
+            "mmap-regions",
+        ],
+        s_kernel_memory,
+    ),
+    (
+        "namespaces",
+        &[
+            "pid-namespace",
+            "net-namespace",
+            "user-namespace",
+            "mnt-namespace",
+            "unshare",
+            "nsenter",
+            "rootless",
+            "container-runtime",
+        ],
+        s_kernel_namespaces,
+    ),
+    (
+        "cgroups",
+        &[
+            "cgroup-v2",
+            "cgroup-v1",
+            "memory-limit",
+            "cpu-limit",
+            "cpuset",
+            "pids-limit",
+            "k8s-cgroups",
+            "systemd-cgroup",
+        ],
+        s_kernel_cgroups,
+    ),
+    (
+        "ebpf",
+        &[
+            "bpftrace",
+            "libbpf",
+            "bcc",
+            "xdp",
+            "kprobe",
+            "tracepoint",
+            "cilium",
+            "perf-event",
+            "uprobe",
+            "co-re",
+        ],
+        s_kernel_ebpf,
+    ),
+    (
+        "scheduler",
+        &[
+            "cfs",
+            "nice-value",
+            "sched-fifo",
+            "io-scheduler",
+            "io-uring-scheduler",
+            "bfq",
+            "mq-deadline",
+            "irq-affinity",
+            "numa-scheduling",
+        ],
+        s_kernel_scheduler,
+    ),
+];
+
+pub fn linux_kernel_calc(query: &str) -> String {
+    let q = query.trim().to_lowercase();
+    if q.is_empty() || q == "list" || q == "help" {
+        let topics: Vec<&str> = KERNEL_SECTIONS.iter().map(|(n, _, _)| *n).collect();
+        return format!(
+            "linux-kernel topics: {}\nUse: --linux-kernel <topic>  or  --linux-kernel all",
+            topics.join(", ")
+        );
+    }
+    if q == "all" {
+        return KERNEL_SECTIONS
+            .iter()
+            .map(|(_, _, f)| f())
+            .collect::<Vec<_>>()
+            .join("\n\n");
+    }
+    for (name, aliases, func) in KERNEL_SECTIONS {
+        if q == *name || aliases.iter().any(|a| q == *a || q.contains(a)) {
+            return func().to_string();
+        }
+    }
+    format!(
+        "No topic found for '{}'. Try: --linux-kernel list",
+        query.trim()
+    )
+}

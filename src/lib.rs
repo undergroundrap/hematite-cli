@@ -2012,6 +2012,38 @@ pub struct CliCockpit {
         long,
         help_heading = "Developer Toolkit",
         value_name = "QUERY",
+        help = "CI/CD reference — offline replacement for GitHub Actions/GitLab CI docs. Topics: concepts, github-actions, gitlab, pipelines, security, jenkins. Aliases: dora, gha, canary, blue-green, sast, jenkinsfile, trivy, and more. Examples: hematite --cicd-ref github-actions | hematite --cicd-ref canary | hematite --cicd-ref sast | hematite --cicd-ref all"
+    )]
+    pub cicd_ref: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Developer Toolkit",
+        value_name = "QUERY",
+        help = "Design patterns reference — offline replacement for refactoring.guru. Topics: creational, structural, behavioral, concurrency, rust-idioms, architecture. Aliases: singleton, observer, builder-pattern, typestate, hexagonal, cqrs-pattern, and more. Examples: hematite --design-patterns creational | hematite --design-patterns observer | hematite --design-patterns hexagonal | hematite --design-patterns all"
+    )]
+    pub design_patterns: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Developer Toolkit",
+        value_name = "QUERY",
+        help = "Auth reference — offline replacement for auth0 docs, OIDC spec. Topics: oauth2, oidc, jwt, session, saml, security. Aliases: pkce, id-token, rs256, httponly, bcrypt, totp, webauthn, and more. Examples: hematite --auth-ref oauth2 | hematite --auth-ref pkce | hematite --auth-ref totp | hematite --auth-ref all"
+    )]
+    pub auth_ref: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Developer Toolkit",
+        value_name = "QUERY",
+        help = "Linux kernel internals reference — offline replacement for kernel.org docs. Topics: syscalls, memory, namespaces, cgroups, ebpf, scheduler. Aliases: strace, mmap, oom-killer, cgroup-v2, bpftrace, cfs, io-uring, and more. Examples: hematite --linux-kernel syscalls | hematite --linux-kernel ebpf | hematite --linux-kernel cgroups | hematite --linux-kernel all"
+    )]
+    pub linux_kernel: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Developer Toolkit",
+        value_name = "QUERY",
         help = "Advanced database reference — offline replacement for PostgreSQL/MySQL docs tabs. Topics: indexing, partitioning, replication, query-opt, transactions, maintenance. Aliases: btree, gin, explain, mvcc, pgbouncer, pitr, vacuum, patroni, and more. Examples: hematite --database-adv indexing | hematite --database-adv explain | hematite --database-adv mvcc | hematite --database-adv all"
     )]
     pub database_adv: Option<String>,

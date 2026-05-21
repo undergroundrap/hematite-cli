@@ -4,18 +4,19 @@
 /// matrix decomposition modes (QR, SVD, Cholesky).
 use hematite::tools::math_util::{
     accessibility_calc, algo_ref_calc, ansible_calc, api_design_calc, api_gateway_calc, ascii_calc,
-    ascii_table_calc, awk_calc, bash_adv_calc, bash_ref_calc, bitwise_calc, case_calc, chars_calc,
-    checksum_calc, chemistry_calc, chmod_calc, cipher_calc, cloud_ref_calc, color_calc,
-    color_names_calc, combinatorics_calc, complex_calc, cron_calc, crypto_ref_calc, css_ref_calc,
-    csv_calc, curl_calc, database_adv_calc, datetime_calc, db_design_calc, devops_ref_calc,
-    diff_calc, docker_adv_calc, docker_compose_calc, docker_ref_calc, duration_calc,
-    electrical_calc, encode_calc, escape_calc, event_driven_calc, find_calc, fraction_calc,
-    geometry_calc, git_adv_calc, git_ref_calc, gitignore_calc, go_ref_calc, grep_calc, hash_calc,
-    headers_calc, health_calc, http_adv_calc, http_calc, http_headers_calc, http_status_calc,
-    id_gen_calc, ip_calc, jinja_calc, jq_calc, js_ref_calc, json_calc, json_path_calc, jwt_calc,
-    k8s_ref_calc, kbd_calc, kubectl_calc, license_calc, linux_adv_calc, linux_sys_calc, lorem_calc,
-    make_calc, makefile_calc, markdown_calc, matrix_calc, mime_calc, ml_ref_calc, net_calc,
-    network_ref_calc, networking_adv_calc, nginx_calc, npm_calc, number_format, number_theory_calc,
+    ascii_table_calc, auth_ref_calc, awk_calc, bash_adv_calc, bash_ref_calc, bitwise_calc,
+    case_calc, chars_calc, checksum_calc, chemistry_calc, chmod_calc, cicd_ref_calc, cipher_calc,
+    cloud_ref_calc, color_calc, color_names_calc, combinatorics_calc, complex_calc, cron_calc,
+    crypto_ref_calc, css_ref_calc, csv_calc, curl_calc, database_adv_calc, datetime_calc,
+    db_design_calc, design_patterns_calc, devops_ref_calc, diff_calc, docker_adv_calc,
+    docker_compose_calc, docker_ref_calc, duration_calc, electrical_calc, encode_calc, escape_calc,
+    event_driven_calc, find_calc, fraction_calc, geometry_calc, git_adv_calc, git_ref_calc,
+    gitignore_calc, go_ref_calc, grep_calc, hash_calc, headers_calc, health_calc, http_adv_calc,
+    http_calc, http_headers_calc, http_status_calc, id_gen_calc, ip_calc, jinja_calc, jq_calc,
+    js_ref_calc, json_calc, json_path_calc, jwt_calc, k8s_ref_calc, kbd_calc, kubectl_calc,
+    license_calc, linux_adv_calc, linux_kernel_calc, linux_sys_calc, lorem_calc, make_calc,
+    makefile_calc, markdown_calc, matrix_calc, mime_calc, ml_ref_calc, net_calc, network_ref_calc,
+    networking_adv_calc, nginx_calc, npm_calc, number_format, number_theory_calc,
     observability_calc, oop_ref_calc, openssl_calc, percent_calc, perf_ref_calc, physics_calc,
     port_calc, postgres_calc, prob_calc, python_data_calc, python_ref_calc, regex_adv_calc,
     regex_calc, regex_ref_calc, regex_test_calc, roman_calc, rust_adv_calc, rust_patterns_calc,
@@ -19869,4 +19870,1017 @@ fn testing_ref_dependency_injection_alias() {
 fn testing_ref_edge_cases() {
     let _ = testing_ref_calc("@#$%");
     let _ = testing_ref_calc("   ");
+}
+
+// ── cicd_ref_calc ─────────────────────────────────────────────────────────────
+
+#[test]
+fn cicd_ref_empty() {
+    let out = cicd_ref_calc("");
+    assert!(out.contains("concepts") || out.contains("github") || out.contains("Topics"));
+}
+
+#[test]
+fn cicd_ref_nomatch() {
+    let out = cicd_ref_calc("zzznomatch");
+    assert!(out.contains("No topic found") || out.contains("no topic"));
+}
+
+#[test]
+fn cicd_ref_all() {
+    let out = cicd_ref_calc("all");
+    assert!(out.contains("concepts") || out.contains("Concepts") || out.contains("DORA"));
+    assert!(out.contains("github") || out.contains("GitHub") || out.contains("workflow"));
+    assert!(out.contains("gitlab") || out.contains("GitLab"));
+    assert!(out.contains("pipelines") || out.contains("Pipelines") || out.contains("canary"));
+    assert!(out.contains("security") || out.contains("Security") || out.contains("SAST"));
+    assert!(out.contains("jenkins") || out.contains("Jenkins"));
+}
+
+#[test]
+fn cicd_ref_concepts() {
+    let out = cicd_ref_calc("concepts");
+    assert!(
+        out.contains("CI")
+            || out.contains("CD")
+            || out.contains("pipeline")
+            || out.contains("DORA")
+    );
+}
+
+#[test]
+fn cicd_ref_dora_alias() {
+    let out = cicd_ref_calc("dora");
+    assert!(!out.contains("No topic found"));
+    assert!(
+        out.contains("DORA") || out.contains("Deployment Frequency") || out.contains("Lead Time")
+    );
+}
+
+#[test]
+fn cicd_ref_trunk_based_alias() {
+    let out = cicd_ref_calc("trunk-based");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("trunk") || out.contains("Trunk") || out.contains("short-lived"));
+}
+
+#[test]
+fn cicd_ref_feature_flags_alias() {
+    let out = cicd_ref_calc("feature-flags");
+    assert!(!out.contains("No topic found"));
+    assert!(
+        out.contains("feature flag")
+            || out.contains("Feature flag")
+            || out.contains("LaunchDarkly")
+    );
+}
+
+#[test]
+fn cicd_ref_github_actions() {
+    let out = cicd_ref_calc("github-actions");
+    assert!(out.contains("workflow") || out.contains("actions/checkout") || out.contains("matrix"));
+}
+
+#[test]
+fn cicd_ref_gha_alias() {
+    let out = cicd_ref_calc("gha");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("GitHub") || out.contains("workflow") || out.contains("Actions"));
+}
+
+#[test]
+fn cicd_ref_matrix_build_alias() {
+    let out = cicd_ref_calc("matrix-build");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("matrix") || out.contains("Matrix") || out.contains("strategy"));
+}
+
+#[test]
+fn cicd_ref_reusable_workflow_alias() {
+    let out = cicd_ref_calc("reusable-workflow");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("reusable") || out.contains("Reusable") || out.contains("workflow_call"));
+}
+
+#[test]
+fn cicd_ref_gitlab() {
+    let out = cicd_ref_calc("gitlab");
+    assert!(out.contains("GitLab") || out.contains(".gitlab-ci.yml") || out.contains("runner"));
+}
+
+#[test]
+fn cicd_ref_gitlab_runner_alias() {
+    let out = cicd_ref_calc("gitlab-runner");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("runner") || out.contains("Runner") || out.contains("GitLab"));
+}
+
+#[test]
+fn cicd_ref_review_apps_alias() {
+    let out = cicd_ref_calc("review-apps");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("review") || out.contains("Review") || out.contains("environment"));
+}
+
+#[test]
+fn cicd_ref_pipelines() {
+    let out = cicd_ref_calc("pipelines");
+    assert!(
+        out.contains("canary")
+            || out.contains("Canary")
+            || out.contains("blue-green")
+            || out.contains("Blue-green")
+    );
+}
+
+#[test]
+fn cicd_ref_canary_alias() {
+    let out = cicd_ref_calc("canary");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("canary") || out.contains("Canary") || out.contains("traffic"));
+}
+
+#[test]
+fn cicd_ref_blue_green_alias() {
+    let out = cicd_ref_calc("blue-green");
+    assert!(!out.contains("No topic found"));
+    assert!(
+        out.contains("blue")
+            || out.contains("Blue")
+            || out.contains("load balancer")
+            || out.contains("rollback")
+    );
+}
+
+#[test]
+fn cicd_ref_rollback_alias() {
+    let out = cicd_ref_calc("rollback");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("rollback") || out.contains("Rollback") || out.contains("undo"));
+}
+
+#[test]
+fn cicd_ref_security() {
+    let out = cicd_ref_calc("security");
+    assert!(
+        out.contains("SAST")
+            || out.contains("SCA")
+            || out.contains("secret")
+            || out.contains("scan")
+    );
+}
+
+#[test]
+fn cicd_ref_sast_alias() {
+    let out = cicd_ref_calc("sast");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("SAST") || out.contains("static") || out.contains("source code"));
+}
+
+#[test]
+fn cicd_ref_trivy_alias() {
+    let out = cicd_ref_calc("trivy");
+    assert!(!out.contains("No topic found"));
+    assert!(
+        out.contains("Trivy")
+            || out.contains("trivy")
+            || out.contains("container")
+            || out.contains("CVE")
+    );
+}
+
+#[test]
+fn cicd_ref_sbom_alias() {
+    let out = cicd_ref_calc("sbom");
+    assert!(!out.contains("No topic found"));
+    assert!(
+        out.contains("SBOM")
+            || out.contains("bill of materials")
+            || out.contains("Bill of Materials")
+    );
+}
+
+#[test]
+fn cicd_ref_jenkins() {
+    let out = cicd_ref_calc("jenkins");
+    assert!(out.contains("Jenkins") || out.contains("Jenkinsfile") || out.contains("pipeline"));
+}
+
+#[test]
+fn cicd_ref_jenkinsfile_alias() {
+    let out = cicd_ref_calc("jenkinsfile");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("Jenkinsfile") || out.contains("declarative") || out.contains("pipeline"));
+}
+
+#[test]
+fn cicd_ref_shared_library_alias() {
+    let out = cicd_ref_calc("shared-library");
+    assert!(!out.contains("No topic found"));
+    assert!(
+        out.contains("Shared")
+            || out.contains("shared")
+            || out.contains("library")
+            || out.contains("@Library")
+    );
+}
+
+#[test]
+fn cicd_ref_edge_cases() {
+    let _ = cicd_ref_calc("@#$%");
+    let _ = cicd_ref_calc("   ");
+}
+
+// ── design_patterns_calc ──────────────────────────────────────────────────────
+
+#[test]
+fn design_patterns_empty() {
+    let out = design_patterns_calc("");
+    assert!(out.contains("creational") || out.contains("structural") || out.contains("Topics"));
+}
+
+#[test]
+fn design_patterns_nomatch() {
+    let out = design_patterns_calc("zzznomatch");
+    assert!(out.contains("No topic found") || out.contains("no topic"));
+}
+
+#[test]
+fn design_patterns_all() {
+    let out = design_patterns_calc("all");
+    assert!(out.contains("creational") || out.contains("Creational") || out.contains("Singleton"));
+    assert!(out.contains("structural") || out.contains("Structural") || out.contains("Adapter"));
+    assert!(out.contains("behavioral") || out.contains("Behavioral") || out.contains("Observer"));
+    assert!(out.contains("concurrency") || out.contains("Concurrency"));
+    assert!(
+        out.contains("rust-idioms")
+            || out.contains("Rust")
+            || out.contains("typestate")
+            || out.contains("Typestate")
+    );
+    assert!(
+        out.contains("architecture") || out.contains("Architecture") || out.contains("Hexagonal")
+    );
+}
+
+#[test]
+fn design_patterns_creational() {
+    let out = design_patterns_calc("creational");
+    assert!(out.contains("Singleton") || out.contains("Factory") || out.contains("Builder"));
+}
+
+#[test]
+fn design_patterns_singleton_alias() {
+    let out = design_patterns_calc("singleton");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("Singleton") || out.contains("one instance") || out.contains("OnceLock"));
+}
+
+#[test]
+fn design_patterns_builder_pattern_alias() {
+    let out = design_patterns_calc("builder-pattern");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("Builder") || out.contains("builder") || out.contains("build()"));
+}
+
+#[test]
+fn design_patterns_factory_alias() {
+    let out = design_patterns_calc("factory");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("Factory") || out.contains("factory") || out.contains("create"));
+}
+
+#[test]
+fn design_patterns_structural() {
+    let out = design_patterns_calc("structural");
+    assert!(out.contains("Adapter") || out.contains("Decorator") || out.contains("Facade"));
+}
+
+#[test]
+fn design_patterns_adapter_alias() {
+    let out = design_patterns_calc("adapter");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("Adapter") || out.contains("adapter") || out.contains("interface"));
+}
+
+#[test]
+fn design_patterns_decorator_alias() {
+    let out = design_patterns_calc("decorator");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("Decorator") || out.contains("decorator") || out.contains("behavior"));
+}
+
+#[test]
+fn design_patterns_facade_alias() {
+    let out = design_patterns_calc("facade");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("Facade") || out.contains("facade") || out.contains("simplified"));
+}
+
+#[test]
+fn design_patterns_proxy_alias() {
+    let out = design_patterns_calc("proxy-pattern");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("Proxy") || out.contains("proxy") || out.contains("surrogate"));
+}
+
+#[test]
+fn design_patterns_behavioral() {
+    let out = design_patterns_calc("behavioral");
+    assert!(out.contains("Observer") || out.contains("Strategy") || out.contains("Command"));
+}
+
+#[test]
+fn design_patterns_observer_alias() {
+    let out = design_patterns_calc("observer");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("Observer") || out.contains("observer") || out.contains("subscriber"));
+}
+
+#[test]
+fn design_patterns_strategy_alias() {
+    let out = design_patterns_calc("strategy");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("Strategy") || out.contains("strategy") || out.contains("algorithm"));
+}
+
+#[test]
+fn design_patterns_state_pattern_alias() {
+    let out = design_patterns_calc("state-pattern");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("State") || out.contains("state") || out.contains("behavior"));
+}
+
+#[test]
+fn design_patterns_concurrency() {
+    let out = design_patterns_calc("concurrency");
+    assert!(
+        out.contains("thread")
+            || out.contains("Thread")
+            || out.contains("actor")
+            || out.contains("Actor")
+    );
+}
+
+#[test]
+fn design_patterns_actor_model_alias() {
+    let out = design_patterns_calc("actor-model");
+    assert!(!out.contains("No topic found"));
+    assert!(
+        out.contains("actor")
+            || out.contains("Actor")
+            || out.contains("mailbox")
+            || out.contains("message")
+    );
+}
+
+#[test]
+fn design_patterns_thread_pool_alias() {
+    let out = design_patterns_calc("thread-pool");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("thread pool") || out.contains("Thread Pool") || out.contains("rayon"));
+}
+
+#[test]
+fn design_patterns_rust_idioms() {
+    let out = design_patterns_calc("rust-idioms");
+    assert!(
+        out.contains("typestate")
+            || out.contains("Typestate")
+            || out.contains("newtype")
+            || out.contains("Newtype")
+    );
+}
+
+#[test]
+fn design_patterns_typestate_alias() {
+    let out = design_patterns_calc("typestate");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("typestate") || out.contains("PhantomData") || out.contains("compile"));
+}
+
+#[test]
+fn design_patterns_newtype_alias() {
+    let out = design_patterns_calc("newtype-pattern");
+    assert!(!out.contains("No topic found"));
+    assert!(
+        out.contains("Newtype")
+            || out.contains("newtype")
+            || out.contains("wrapper")
+            || out.contains("zero")
+    );
+}
+
+#[test]
+fn design_patterns_raii_alias() {
+    let out = design_patterns_calc("raii");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("RAII") || out.contains("Drop") || out.contains("Resource Acquisition"));
+}
+
+#[test]
+fn design_patterns_architecture() {
+    let out = design_patterns_calc("architecture");
+    assert!(
+        out.contains("Hexagonal")
+            || out.contains("CQRS")
+            || out.contains("microservice")
+            || out.contains("Microservice")
+    );
+}
+
+#[test]
+fn design_patterns_hexagonal_alias() {
+    let out = design_patterns_calc("hexagonal");
+    assert!(!out.contains("No topic found"));
+    assert!(
+        out.contains("Hexagonal")
+            || out.contains("hexagonal")
+            || out.contains("Ports")
+            || out.contains("adapter")
+    );
+}
+
+#[test]
+fn design_patterns_cqrs_alias() {
+    let out = design_patterns_calc("cqrs-pattern");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("CQRS") || out.contains("command") || out.contains("query"));
+}
+
+#[test]
+fn design_patterns_strangler_fig_alias() {
+    let out = design_patterns_calc("strangler-fig");
+    assert!(!out.contains("No topic found"));
+    assert!(
+        out.contains("Strangler")
+            || out.contains("strangler")
+            || out.contains("migrate")
+            || out.contains("monolith")
+    );
+}
+
+#[test]
+fn design_patterns_edge_cases() {
+    let _ = design_patterns_calc("@#$%");
+    let _ = design_patterns_calc("   ");
+}
+
+// ── auth_ref_calc ─────────────────────────────────────────────────────────────
+
+#[test]
+fn auth_ref_empty() {
+    let out = auth_ref_calc("");
+    assert!(out.contains("oauth2") || out.contains("oidc") || out.contains("Topics"));
+}
+
+#[test]
+fn auth_ref_nomatch() {
+    let out = auth_ref_calc("zzznomatch");
+    assert!(out.contains("No topic found") || out.contains("no topic"));
+}
+
+#[test]
+fn auth_ref_all() {
+    let out = auth_ref_calc("all");
+    assert!(out.contains("oauth2") || out.contains("OAuth") || out.contains("Authorization Code"));
+    assert!(out.contains("oidc") || out.contains("OIDC") || out.contains("OpenID"));
+    assert!(out.contains("jwt") || out.contains("JWT"));
+    assert!(
+        out.contains("session")
+            || out.contains("Session")
+            || out.contains("cookie")
+            || out.contains("Cookie")
+    );
+    assert!(out.contains("saml") || out.contains("SAML"));
+    assert!(
+        out.contains("security")
+            || out.contains("Security")
+            || out.contains("bcrypt")
+            || out.contains("Argon")
+    );
+}
+
+#[test]
+fn auth_ref_oauth2() {
+    let out = auth_ref_calc("oauth2");
+    assert!(
+        out.contains("Authorization Code") || out.contains("PKCE") || out.contains("access_token")
+    );
+}
+
+#[test]
+fn auth_ref_pkce_alias() {
+    let out = auth_ref_calc("pkce");
+    assert!(!out.contains("No topic found"));
+    assert!(
+        out.contains("PKCE") || out.contains("code_challenge") || out.contains("code_verifier")
+    );
+}
+
+#[test]
+fn auth_ref_client_credentials_alias() {
+    let out = auth_ref_calc("client-credentials");
+    assert!(!out.contains("No topic found"));
+    assert!(
+        out.contains("client_credentials") || out.contains("machine") || out.contains("service")
+    );
+}
+
+#[test]
+fn auth_ref_refresh_token_alias() {
+    let out = auth_ref_calc("refresh-token");
+    assert!(!out.contains("No topic found"));
+    assert!(
+        out.contains("refresh_token") || out.contains("refresh token") || out.contains("rotate")
+    );
+}
+
+#[test]
+fn auth_ref_device_code_alias() {
+    let out = auth_ref_calc("device-code");
+    assert!(!out.contains("No topic found"));
+    assert!(
+        out.contains("device_code")
+            || out.contains("device code")
+            || out.contains("TV")
+            || out.contains("CLI")
+    );
+}
+
+#[test]
+fn auth_ref_oidc() {
+    let out = auth_ref_calc("oidc");
+    assert!(
+        out.contains("id_token")
+            || out.contains("OpenID")
+            || out.contains("discovery")
+            || out.contains("JWKS")
+    );
+}
+
+#[test]
+fn auth_ref_id_token_alias() {
+    let out = auth_ref_calc("id-token");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("id_token") || out.contains("id token") || out.contains("identity"));
+}
+
+#[test]
+fn auth_ref_jwks_alias() {
+    let out = auth_ref_calc("jwks");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("JWKS") || out.contains("public key") || out.contains("JWK"));
+}
+
+#[test]
+fn auth_ref_discovery_alias() {
+    let out = auth_ref_calc("discovery");
+    assert!(!out.contains("No topic found"));
+    assert!(
+        out.contains("discovery")
+            || out.contains("openid-configuration")
+            || out.contains(".well-known")
+    );
+}
+
+#[test]
+fn auth_ref_jwt() {
+    let out = auth_ref_calc("jwt");
+    assert!(
+        out.contains("RS256")
+            || out.contains("HS256")
+            || out.contains("header.payload")
+            || out.contains("signature")
+    );
+}
+
+#[test]
+fn auth_ref_rs256_alias() {
+    let out = auth_ref_calc("rs256");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("RS256") || out.contains("RSA") || out.contains("asymmetric"));
+}
+
+#[test]
+fn auth_ref_claims_alias() {
+    let out = auth_ref_calc("claims");
+    assert!(!out.contains("No topic found"));
+    assert!(
+        out.contains("iss") || out.contains("sub") || out.contains("exp") || out.contains("aud")
+    );
+}
+
+#[test]
+fn auth_ref_jti_alias() {
+    let out = auth_ref_calc("jti");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("jti") || out.contains("replay") || out.contains("unique"));
+}
+
+#[test]
+fn auth_ref_session() {
+    let out = auth_ref_calc("session");
+    assert!(
+        out.contains("cookie")
+            || out.contains("Cookie")
+            || out.contains("HttpOnly")
+            || out.contains("SameSite")
+    );
+}
+
+#[test]
+fn auth_ref_httponly_alias() {
+    let out = auth_ref_calc("httponly");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("HttpOnly") || out.contains("httponly") || out.contains("XSS"));
+}
+
+#[test]
+fn auth_ref_samesite_alias() {
+    let out = auth_ref_calc("samesite");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("SameSite") || out.contains("Strict") || out.contains("Lax"));
+}
+
+#[test]
+fn auth_ref_csrf_alias() {
+    let out = auth_ref_calc("csrf");
+    assert!(!out.contains("No topic found"));
+    assert!(
+        out.contains("CSRF")
+            || out.contains("csrf")
+            || out.contains("synchronizer")
+            || out.contains("SameSite")
+    );
+}
+
+#[test]
+fn auth_ref_saml() {
+    let out = auth_ref_calc("saml");
+    assert!(
+        out.contains("SAML")
+            || out.contains("IdP")
+            || out.contains("Service Provider")
+            || out.contains("Assertion")
+    );
+}
+
+#[test]
+fn auth_ref_saml2_alias() {
+    let out = auth_ref_calc("saml2");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("SAML") || out.contains("saml") || out.contains("enterprise"));
+}
+
+#[test]
+fn auth_ref_idp_alias() {
+    let out = auth_ref_calc("idp");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("IdP") || out.contains("Identity Provider") || out.contains("Okta"));
+}
+
+#[test]
+fn auth_ref_sso_alias() {
+    let out = auth_ref_calc("sso");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("SSO") || out.contains("single sign") || out.contains("Single Sign"));
+}
+
+#[test]
+fn auth_ref_security() {
+    let out = auth_ref_calc("security");
+    assert!(
+        out.contains("bcrypt")
+            || out.contains("Argon2")
+            || out.contains("TOTP")
+            || out.contains("MFA")
+    );
+}
+
+#[test]
+fn auth_ref_bcrypt_alias() {
+    let out = auth_ref_calc("bcrypt");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("bcrypt") || out.contains("password") || out.contains("hash"));
+}
+
+#[test]
+fn auth_ref_totp_alias() {
+    let out = auth_ref_calc("totp");
+    assert!(!out.contains("No topic found"));
+    assert!(
+        out.contains("TOTP")
+            || out.contains("OTP")
+            || out.contains("time-based")
+            || out.contains("Authenticator")
+    );
+}
+
+#[test]
+fn auth_ref_webauthn_alias() {
+    let out = auth_ref_calc("webauthn");
+    assert!(!out.contains("No topic found"));
+    assert!(
+        out.contains("WebAuthn")
+            || out.contains("FIDO2")
+            || out.contains("passkey")
+            || out.contains("biometric")
+    );
+}
+
+#[test]
+fn auth_ref_brute_force_alias() {
+    let out = auth_ref_calc("brute-force");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("brute force") || out.contains("rate limit") || out.contains("lockout"));
+}
+
+#[test]
+fn auth_ref_rbac_alias() {
+    let out = auth_ref_calc("rbac");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("RBAC") || out.contains("role") || out.contains("authorization"));
+}
+
+#[test]
+fn auth_ref_edge_cases() {
+    let _ = auth_ref_calc("@#$%");
+    let _ = auth_ref_calc("   ");
+}
+
+// ── linux_kernel_calc ─────────────────────────────────────────────────────────
+
+#[test]
+fn linux_kernel_empty() {
+    let out = linux_kernel_calc("");
+    assert!(out.contains("syscalls") || out.contains("memory") || out.contains("Topics"));
+}
+
+#[test]
+fn linux_kernel_nomatch() {
+    let out = linux_kernel_calc("zzznomatch");
+    assert!(out.contains("No topic found") || out.contains("no topic"));
+}
+
+#[test]
+fn linux_kernel_all() {
+    let out = linux_kernel_calc("all");
+    assert!(out.contains("syscalls") || out.contains("Syscalls") || out.contains("strace"));
+    assert!(out.contains("memory") || out.contains("Memory") || out.contains("virtual"));
+    assert!(out.contains("namespaces") || out.contains("Namespaces") || out.contains("namespace"));
+    assert!(out.contains("cgroups") || out.contains("cgroup") || out.contains("Control Groups"));
+    assert!(out.contains("ebpf") || out.contains("eBPF"));
+    assert!(out.contains("scheduler") || out.contains("Scheduler") || out.contains("CFS"));
+}
+
+#[test]
+fn linux_kernel_syscalls() {
+    let out = linux_kernel_calc("syscalls");
+    assert!(out.contains("strace") || out.contains("syscall") || out.contains("mmap"));
+}
+
+#[test]
+fn linux_kernel_strace_alias() {
+    let out = linux_kernel_calc("strace");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("strace") || out.contains("trace") || out.contains("syscall"));
+}
+
+#[test]
+fn linux_kernel_mmap_alias() {
+    let out = linux_kernel_calc("mmap");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("mmap") || out.contains("memory") || out.contains("map"));
+}
+
+#[test]
+fn linux_kernel_io_uring_alias() {
+    let out = linux_kernel_calc("io-uring");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("io_uring") || out.contains("io-uring") || out.contains("async"));
+}
+
+#[test]
+fn linux_kernel_seccomp_alias() {
+    let out = linux_kernel_calc("seccomp");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("seccomp") || out.contains("BPF") || out.contains("filter"));
+}
+
+#[test]
+fn linux_kernel_memory() {
+    let out = linux_kernel_calc("memory");
+    assert!(
+        out.contains("virtual")
+            || out.contains("Virtual")
+            || out.contains("page")
+            || out.contains("OOM")
+    );
+}
+
+#[test]
+fn linux_kernel_virtual_memory_alias() {
+    let out = linux_kernel_calc("virtual-memory");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("virtual") || out.contains("Virtual") || out.contains("address space"));
+}
+
+#[test]
+fn linux_kernel_oom_killer_alias() {
+    let out = linux_kernel_calc("oom-killer");
+    assert!(!out.contains("No topic found"));
+    assert!(
+        out.contains("OOM")
+            || out.contains("oom")
+            || out.contains("killed")
+            || out.contains("memory")
+    );
+}
+
+#[test]
+fn linux_kernel_huge_pages_alias() {
+    let out = linux_kernel_calc("huge-pages");
+    assert!(!out.contains("No topic found"));
+    assert!(
+        out.contains("huge") || out.contains("Huge") || out.contains("2MB") || out.contains("THP")
+    );
+}
+
+#[test]
+fn linux_kernel_numa_alias() {
+    let out = linux_kernel_calc("numa");
+    assert!(!out.contains("No topic found"));
+    assert!(
+        out.contains("NUMA")
+            || out.contains("numa")
+            || out.contains("socket")
+            || out.contains("local memory")
+    );
+}
+
+#[test]
+fn linux_kernel_namespaces() {
+    let out = linux_kernel_calc("namespaces");
+    assert!(
+        out.contains("pid")
+            || out.contains("PID")
+            || out.contains("net")
+            || out.contains("unshare")
+    );
+}
+
+#[test]
+fn linux_kernel_pid_namespace_alias() {
+    let out = linux_kernel_calc("pid-namespace");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("pid") || out.contains("PID") || out.contains("namespace"));
+}
+
+#[test]
+fn linux_kernel_unshare_alias() {
+    let out = linux_kernel_calc("unshare");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("unshare") || out.contains("namespace") || out.contains("shell"));
+}
+
+#[test]
+fn linux_kernel_rootless_alias() {
+    let out = linux_kernel_calc("rootless");
+    assert!(!out.contains("No topic found"));
+    assert!(
+        out.contains("rootless")
+            || out.contains("Rootless")
+            || out.contains("user namespace")
+            || out.contains("unprivileged")
+    );
+}
+
+#[test]
+fn linux_kernel_cgroups() {
+    let out = linux_kernel_calc("cgroups");
+    assert!(
+        out.contains("cgroup")
+            || out.contains("memory")
+            || out.contains("cpu")
+            || out.contains("Control")
+    );
+}
+
+#[test]
+fn linux_kernel_cgroup_v2_alias() {
+    let out = linux_kernel_calc("cgroup-v2");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("v2") || out.contains("unified") || out.contains("cgroup"));
+}
+
+#[test]
+fn linux_kernel_k8s_cgroups_alias() {
+    let out = linux_kernel_calc("k8s-cgroups");
+    assert!(!out.contains("No topic found"));
+    assert!(
+        out.contains("K8s")
+            || out.contains("k8s")
+            || out.contains("Pod")
+            || out.contains("requests")
+    );
+}
+
+#[test]
+fn linux_kernel_cpuset_alias() {
+    let out = linux_kernel_calc("cpuset");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("cpuset") || out.contains("CPU") || out.contains("NUMA"));
+}
+
+#[test]
+fn linux_kernel_ebpf() {
+    let out = linux_kernel_calc("ebpf");
+    assert!(out.contains("eBPF") || out.contains("bpftrace") || out.contains("BPF"));
+}
+
+#[test]
+fn linux_kernel_bpftrace_alias() {
+    let out = linux_kernel_calc("bpftrace");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("bpftrace") || out.contains("trace") || out.contains("kprobe"));
+}
+
+#[test]
+fn linux_kernel_xdp_alias() {
+    let out = linux_kernel_calc("xdp");
+    assert!(!out.contains("No topic found"));
+    assert!(
+        out.contains("XDP")
+            || out.contains("xdp")
+            || out.contains("packet")
+            || out.contains("DDoS")
+    );
+}
+
+#[test]
+fn linux_kernel_kprobe_alias() {
+    let out = linux_kernel_calc("kprobe");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("kprobe") || out.contains("kernel function") || out.contains("attach"));
+}
+
+#[test]
+fn linux_kernel_cilium_alias() {
+    let out = linux_kernel_calc("cilium");
+    assert!(!out.contains("No topic found"));
+    assert!(
+        out.contains("Cilium")
+            || out.contains("cilium")
+            || out.contains("K8s")
+            || out.contains("networking")
+    );
+}
+
+#[test]
+fn linux_kernel_scheduler() {
+    let out = linux_kernel_calc("scheduler");
+    assert!(
+        out.contains("CFS")
+            || out.contains("nice")
+            || out.contains("vruntime")
+            || out.contains("SCHED_FIFO")
+    );
+}
+
+#[test]
+fn linux_kernel_cfs_alias() {
+    let out = linux_kernel_calc("cfs");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("CFS") || out.contains("Completely Fair") || out.contains("vruntime"));
+}
+
+#[test]
+fn linux_kernel_io_scheduler_alias() {
+    let out = linux_kernel_calc("io-scheduler");
+    assert!(!out.contains("No topic found"));
+    assert!(
+        out.contains("scheduler")
+            || out.contains("mq-deadline")
+            || out.contains("bfq")
+            || out.contains("NVMe")
+    );
+}
+
+#[test]
+fn linux_kernel_bfq_alias() {
+    let out = linux_kernel_calc("bfq");
+    assert!(!out.contains("No topic found"));
+    assert!(
+        out.contains("bfq")
+            || out.contains("BFQ")
+            || out.contains("Budget Fair")
+            || out.contains("interactive")
+    );
+}
+
+#[test]
+fn linux_kernel_edge_cases() {
+    let _ = linux_kernel_calc("@#$%");
+    let _ = linux_kernel_calc("   ");
 }
