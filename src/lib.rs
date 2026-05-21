@@ -1889,6 +1889,30 @@ pub struct CliCockpit {
     pub devops_ref: Option<String>,
 
     #[arg(
+        long = "linux-sys",
+        help_heading = "Developer Reference",
+        value_name = "TOPIC",
+        help = "Linux SysAdmin reference — systemd/journalctl, processes/signals, kernel/sysctl, filesystem, network, security. Topics: systemctl, processes, kernel, filesystem, network, security. Commands: all = everything. Examples: hematite --linux-sys systemctl | hematite --linux-sys kernel | hematite --linux-sys security"
+    )]
+    pub linux_sys: Option<String>,
+
+    #[arg(
+        long = "api-design",
+        help_heading = "Developer Reference",
+        value_name = "TOPIC",
+        help = "API design reference — REST, OpenAPI/Swagger, versioning, error formats, GraphQL, rate limiting. Topics: rest, openapi, versioning, errors, graphql, ratelimit. Commands: all = everything. Examples: hematite --api-design rest | hematite --api-design openapi | hematite --api-design graphql"
+    )]
+    pub api_design: Option<String>,
+
+    #[arg(
+        long = "db-design",
+        help_heading = "Developer Reference",
+        value_name = "TOPIC",
+        help = "Database design reference — normalization, indexes, ACID/transactions, distributed/CAP, NoSQL, migrations. Topics: normalization, indexes, transactions, distributed, nosql, migrations. Commands: all = everything. Examples: hematite --db-design normalization | hematite --db-design indexes | hematite --db-design nosql"
+    )]
+    pub db_design: Option<String>,
+
+    #[arg(
         long,
         help_heading = "Math & Science",
         value_name = "QUERY",

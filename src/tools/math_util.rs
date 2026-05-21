@@ -39642,3 +39642,1448 @@ pub fn devops_ref_calc(query: &str) -> String {
     }
     out
 }
+
+// ── Wave 26 functions ─────────────────────────────────────────────────────────
+
+type LinuxSysSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+
+fn s_linux_sys_systemctl() -> &'static str {
+    "\
+  systemctl — systemd service management:
+    systemctl status nginx          — show service status and recent logs
+    systemctl start|stop|restart nginx
+    systemctl enable|disable nginx  — enable/disable on boot
+    systemctl reload nginx          — reload config without restart
+    systemctl daemon-reload         — reload unit files after editing
+    systemctl list-units --type=service --state=running
+    systemctl list-units --failed   — show failed services
+    systemctl cat nginx             — show unit file content
+    systemctl edit nginx            — create override (drop-in) for unit file
+    systemctl show nginx -p Restart,RestartSec  — show specific properties
+
+  Unit file locations (highest to lowest priority):
+    /etc/systemd/system/            — admin-created, overrides
+    /run/systemd/system/            — runtime (lost on reboot)
+    /lib/systemd/system/            — packaged defaults
+
+  Minimal service unit:
+    [Unit]
+    Description=My App
+    After=network.target
+
+    [Service]
+    Type=simple
+    User=appuser
+    WorkingDirectory=/opt/myapp
+    ExecStart=/opt/myapp/bin/server
+    Restart=on-failure
+    RestartSec=5s
+    StandardOutput=journal
+    StandardError=journal
+
+    [Install]
+    WantedBy=multi-user.target
+
+  Restart policies: no | on-success | on-failure | on-abnormal | always
+  Type=: simple (default) | exec | forking | oneshot | notify | dbus | idle
+
+  journalctl (log viewer):
+    journalctl -u nginx             — logs for unit
+    journalctl -u nginx -f          — follow (tail -f equivalent)
+    journalctl -u nginx --since today
+    journalctl -u nginx --since '1 hour ago'
+    journalctl -p err               — filter by priority (emerg|alert|crit|err|warning|notice|info|debug)
+    journalctl -b                   — logs since last boot
+    journalctl -b -1                — logs from previous boot
+    journalctl --disk-usage         — journal disk usage
+    journalctl --vacuum-size=100M   — trim journal to 100MB
+"
+}
+
+fn s_linux_sys_processes() -> &'static str {
+    "\
+  Process Management:
+  Signals:
+    SIGTERM (15)  — graceful termination request — handle and clean up
+    SIGKILL (9)   — unconditional kill — cannot be caught or ignored
+    SIGHUP  (1)   — hangup — conventionally: reload config
+    SIGINT  (2)   — interrupt (Ctrl+C)
+    SIGQUIT (3)   — quit + core dump (Ctrl+\\)
+    SIGSTOP (19)  — pause process (Ctrl+Z) — cannot be caught
+    SIGCONT (18)  — resume paused process
+    SIGUSR1/2     — user-defined signals (app-specific behavior)
+    SIGCHLD       — child process changed state (for parent processes)
+
+  kill / pkill / killall:
+    kill -15 <pid>          — graceful stop
+    kill -9 <pid>           — force kill
+    pkill -f 'python app'   — kill by process name pattern
+    killall nginx           — kill all processes named nginx
+    kill -0 <pid>           — check if process exists (no signal sent)
+
+  Process inspection:
+    ps aux                  — all processes, user-friendly
+    ps -eo pid,ppid,user,stat,pcpu,pmem,comm — custom columns
+    pgrep -a nginx          — find PIDs by name, show cmd
+    pstree -p               — process tree with PIDs
+    lsof -p <pid>           — files opened by process
+    lsof -i :8080           — processes using port 8080
+    strace -p <pid>         — trace system calls of running process
+    strace -e trace=read,write,open,close cmd  — trace specific calls
+    ltrace cmd              — trace library calls
+
+  Priority (nice values):
+    nice -n 10 command      — run with lower priority (niceness +10)
+    renice +5 -p <pid>      — change running process priority
+    chrt -f -p 99 <pid>     — set realtime FIFO priority
+
+  Background / foreground:
+    cmd &                   — run in background
+    jobs                    — list background jobs
+    fg %1                   — bring job 1 to foreground
+    bg %1                   — resume job 1 in background
+    nohup cmd &             — immune to hangup; output to nohup.out
+    disown %1               — detach job from shell
+
+  /proc filesystem:
+    /proc/<pid>/cmdline     — command line args (null-delimited)
+    /proc/<pid>/environ     — environment variables
+    /proc/<pid>/fd/         — open file descriptors
+    /proc/<pid>/status      — human-readable status
+    /proc/<pid>/maps        — memory maps
+    /proc/loadavg           — 1/5/15 min load averages
+    /proc/meminfo           — memory usage
+    /proc/net/tcp           — TCP connection table
+"
+}
+
+fn s_linux_sys_kernel() -> &'static str {
+    "\
+  Kernel & System Parameters:
+  sysctl — kernel tuning:
+    sysctl -a                           — list all parameters
+    sysctl net.core.somaxconn           — read single param
+    sysctl -w net.core.somaxconn=1024   — set temporarily
+    /etc/sysctl.conf or /etc/sysctl.d/  — persistent settings
+
+  Network tuning (common):
+    net.core.somaxconn = 65535          — TCP listen backlog
+    net.ipv4.tcp_max_syn_backlog = 65535
+    net.ipv4.ip_local_port_range = 1024 65535
+    net.ipv4.tcp_fin_timeout = 30       — TIME_WAIT timeout
+    net.ipv4.tcp_tw_reuse = 1           — reuse TIME_WAIT sockets
+    net.core.rmem_max = 16777216        — max socket receive buffer
+    net.core.wmem_max = 16777216        — max socket send buffer
+
+  VM tuning:
+    vm.swappiness = 10                  — 0=avoid swap, 100=use swap freely
+    vm.dirty_ratio = 20                 — max dirty pages % before forced writeback
+    vm.overcommit_memory = 1            — allow overcommit (needed for Redis fork)
+    vm.nr_hugepages = 512               — huge pages for databases
+
+  File descriptor limits:
+    ulimit -n                           — current open files limit
+    ulimit -n 65536                     — set for current shell session
+    /etc/security/limits.conf:          — persistent per-user limits
+      * soft nofile 65536
+      * hard nofile 65536
+    /proc/sys/fs/file-max               — system-wide fd limit
+
+  cgroups v2 (resource control):
+    systemd-cgls                        — show cgroup tree
+    systemctl set-property nginx MemoryLimit=512M
+    systemctl set-property nginx CPUQuota=50%
+    cat /sys/fs/cgroup/system.slice/nginx.service/memory.current
+    cgroupv2 controllers: cpu, memory, io, pids, cpuset
+
+  namespaces (container isolation):
+    Types: pid, net, ipc, mnt, uts, user, cgroup, time
+    unshare --pid --fork --mount-proc bash  — new PID namespace
+    nsenter -t <pid> --net               — enter net namespace of pid
+    ip netns list                        — list network namespaces
+    ip netns exec <name> ip addr         — run cmd in network namespace
+"
+}
+
+fn s_linux_sys_filesystem() -> &'static str {
+    "\
+  Filesystem & Storage:
+  disk usage:
+    df -h                   — disk space by filesystem
+    df -ih                  — inode usage
+    du -sh /var/*           — directory sizes
+    du -sh * | sort -rh | head -20  — top 20 space consumers
+    ncdu /                  — interactive disk usage viewer
+    lsblk -f                — block devices with filesystem info
+    blkid                   — device UUIDs and filesystem types
+
+  mount:
+    mount -o ro,remount /   — remount root read-only
+    mount -t tmpfs -o size=512m tmpfs /tmp
+    findmnt --verify        — verify all mounts
+
+  /etc/fstab fields:
+    device  mountpoint  fstype  options  dump  pass
+    UUID=xx /data ext4 defaults,noatime 0 2
+    Options: noatime, nodiratime, data=writeback, errors=remount-ro
+
+  LVM basics:
+    pvs / vgs / lvs         — display PV/VG/LV info
+    lvcreate -L 10G -n data vg0   — create LV
+    lvextend -L +5G /dev/vg0/data — extend LV
+    resize2fs /dev/vg0/data        — resize filesystem after extend
+
+  File operations:
+    find / -type f -size +100M     — find large files
+    find . -name '*.log' -mtime +30 -delete  — delete old logs
+    rsync -av --progress src/ dst/ — sync with progress
+    rsync -av --delete src/ dst/   — sync + delete removed files
+    dd if=/dev/zero of=testfile bs=1M count=1024  — write 1GB test file
+    dd if=/dev/urandom of=/dev/sdb bs=4M  — wipe drive with random data
+
+  inodes:
+    stat file               — file metadata including inode number
+    ls -i                   — show inode numbers
+    df -i                   — inode usage (small files can exhaust inodes)
+    find / -inum <num>       — find file by inode number
+    debugfs /dev/sda1 -R 'stat <inode>'  — ext4 inode details
+
+  Extended attributes:
+    lsattr file             — list extended attributes (immutable, append-only)
+    chattr +i file          — set immutable (even root can't delete)
+    chattr +a file          — append-only
+    chattr -i file          — remove immutable flag
+"
+}
+
+fn s_linux_sys_network() -> &'static str {
+    "\
+  Linux Network Commands:
+  ip (modern, replaces ifconfig/route):
+    ip addr show                     — all interface addresses
+    ip addr add 192.168.1.100/24 dev eth0
+    ip link set eth0 up|down
+    ip route show                    — routing table
+    ip route add default via 192.168.1.1
+    ip neigh show                    — ARP/neighbor table (replaces arp -a)
+    ip link show                     — link layer info
+
+  ss (modern, replaces netstat):
+    ss -tlnp                         — TCP listening with process
+    ss -tunlp                        — TCP+UDP listening with process
+    ss -s                            — socket statistics summary
+    ss -tnp state established        — established connections with process
+    ss -o state time-wait            — TIME_WAIT connections
+
+  nftables / iptables firewall:
+    nft list ruleset                 — modern: show all rules
+    iptables -L -n -v               — legacy: list rules with counts
+    iptables -A INPUT -p tcp --dport 22 -j ACCEPT
+    iptables -A INPUT -j DROP        — default deny INPUT
+    iptables-save > /etc/iptables/rules.v4   — persist rules
+    iptables-restore < /etc/iptables/rules.v4
+
+  tcpdump / tshark:
+    tcpdump -i eth0 -n port 80      — capture HTTP traffic
+    tcpdump -i any -w capture.pcap  — write capture to file
+    tcpdump 'tcp[tcpflags] & tcp-syn != 0'  — SYN packets only
+    tshark -i eth0 -Y 'http.request'  — HTTP requests
+
+  bandwidth monitoring:
+    iftop -i eth0                   — real-time bandwidth by connection
+    nload eth0                      — interface bandwidth bar graph
+    nethogs                         — per-process bandwidth usage
+    iperf3 -s / iperf3 -c <host>   — throughput test
+
+  DNS tools:
+    dig example.com                 — A record lookup
+    dig @8.8.8.8 example.com MX    — query specific server for MX
+    dig +short example.com          — short output
+    dig -x 8.8.8.8                  — reverse DNS
+    resolvectl status               — systemd-resolved status
+    resolvectl flush-caches         — flush DNS cache
+
+  Network troubleshooting flow:
+    1. ip addr — check interface has IP
+    2. ping gateway — check layer 3 local reachability
+    3. ping 8.8.8.8 — check internet reachability
+    4. dig google.com — check DNS
+    5. curl -v https://example.com — check HTTP/TLS
+    6. traceroute / mtr — check routing path
+"
+}
+
+fn s_linux_sys_security() -> &'static str {
+    "\
+  Linux Security:
+  File permissions:
+    chmod 644 file         — rw-r--r--  (owner rw, group r, other r)
+    chmod 755 dir          — rwxr-xr-x  (typical for executables)
+    chmod 600 ~/.ssh/id_ed25519  — private key must be 600
+    chmod o-rwx /etc/passwd      — remove all other permissions
+    umask 022              — default creation mask (dirs=755, files=644)
+    umask 077              — stricter (dirs=700, files=600)
+
+  Special bits:
+    chmod 4755 /usr/bin/passwd  — setuid: run as file owner
+    chmod 2755 /usr/bin/write   — setgid: run as file group
+    chmod 1755 /tmp             — sticky bit: only owner can delete
+
+  ACLs:
+    getfacl file           — show ACL
+    setfacl -m u:alice:rw file    — grant alice rw
+    setfacl -m g:devs:rx dir      — grant devs rx
+    setfacl -R -m u:ci:rx /opt/app  — recursive
+
+  sudo:
+    visudo                 — safely edit /etc/sudoers
+    alice ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart nginx
+    %devs ALL=(root) /usr/bin/apt
+
+  PAM (Pluggable Authentication Modules):
+    /etc/pam.d/sshd        — SSH auth configuration
+    pam_faillock           — account lockout after N failures
+    pam_pwquality          — password strength enforcement
+    pam_google_authenticator — TOTP 2FA
+
+  auditd:
+    auditctl -w /etc/passwd -p wa -k passwd_changes
+    ausearch -k passwd_changes   — search audit log
+    auditd log: /var/log/audit/audit.log
+
+  Security scanning:
+    lynis audit system         — comprehensive security audit
+    rkhunter --check           — rootkit scanner
+    chkrootkit                 — another rootkit checker
+    aide --init && aide --check  — file integrity monitoring
+    trivy fs / --security-checks vuln  — package vulnerability scan
+
+  SELinux basics:
+    getenforce                 — Enforcing/Permissive/Disabled
+    setenforce 0               — set permissive (audit only)
+    sestatus                   — detailed SELinux status
+    audit2allow -a             — suggest allow rules from denials
+    chcon -t httpd_sys_content_t /var/www/html  — change file context
+    restorecon -Rv /var/www/   — restore default contexts
+"
+}
+
+const LINUX_SYS_SECTIONS: &[LinuxSysSection] = &[
+    (
+        "systemctl",
+        &[
+            "systemctl",
+            "systemd",
+            "service",
+            "unit",
+            "journalctl",
+            "journal",
+            "daemon",
+            "boot",
+            "enable",
+        ],
+        s_linux_sys_systemctl,
+    ),
+    (
+        "processes",
+        &[
+            "processes",
+            "process",
+            "signals",
+            "signal",
+            "kill",
+            "pkill",
+            "strace",
+            "lsof",
+            "nice",
+            "priority",
+            "proc",
+            "background",
+            "jobs",
+        ],
+        s_linux_sys_processes,
+    ),
+    (
+        "kernel",
+        &[
+            "kernel",
+            "sysctl",
+            "cgroup",
+            "namespace",
+            "ulimit",
+            "hugepage",
+            "tuning",
+            "limits",
+            "vm",
+        ],
+        s_linux_sys_kernel,
+    ),
+    (
+        "filesystem",
+        &[
+            "filesystem",
+            "disk",
+            "mount",
+            "lvm",
+            "inode",
+            "du",
+            "df",
+            "fstab",
+            "rsync",
+            "find",
+            "chattr",
+        ],
+        s_linux_sys_filesystem,
+    ),
+    (
+        "network",
+        &[
+            "network",
+            "ip",
+            "ss",
+            "netstat",
+            "iptables",
+            "nftables",
+            "tcpdump",
+            "dns",
+            "bandwidth",
+            "iftop",
+            "dig",
+        ],
+        s_linux_sys_network,
+    ),
+    (
+        "security",
+        &[
+            "security",
+            "permissions",
+            "chmod",
+            "acl",
+            "sudo",
+            "sudoers",
+            "selinux",
+            "auditd",
+            "pam",
+            "lynis",
+        ],
+        s_linux_sys_security,
+    ),
+];
+
+/// Linux system administration reference — systemd, processes, kernel, filesystem, network, security.
+pub fn linux_sys_calc(query: &str) -> String {
+    use std::fmt::Write;
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+    let _ = writeln!(out, "{}", sep);
+    let _ = writeln!(out, "  Linux SysAdmin Reference");
+    let _ = writeln!(out, "{}", sep);
+
+    let q = query.trim().to_ascii_lowercase();
+
+    if q.is_empty() || q == "help" || q == "list" {
+        let _ = writeln!(
+            out,
+            "  Topics: systemctl, processes, kernel, filesystem, network, security"
+        );
+        let _ = writeln!(out, "  Commands: all = all topics");
+        let _ = writeln!(out, "  Run: hematite --linux-sys <topic>");
+        let _ = writeln!(out, "{}", sep);
+        return out;
+    }
+
+    if q == "all" {
+        let _ = writeln!(out, "{}", sep);
+        for &(name, _, f) in LINUX_SYS_SECTIONS {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+        }
+        let _ = writeln!(out, "{}", sep);
+        return out;
+    }
+
+    let found: Vec<_> = LINUX_SYS_SECTIONS
+        .iter()
+        .filter(|&&(name, aliases, _)| {
+            name.contains(q.as_str())
+                || aliases
+                    .iter()
+                    .any(|&a| a.contains(q.as_str()) || q.contains(a))
+        })
+        .collect();
+
+    if found.is_empty() {
+        let _ = writeln!(out, "  No topic found for '{}'.", query.trim());
+        let _ = writeln!(out, "  Run: hematite --linux-sys help");
+    } else {
+        let _ = writeln!(out, "{}", sep);
+        for &&(name, _, f) in &found {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+        }
+        let _ = writeln!(out, "{}", sep);
+    }
+    out
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+type ApiDesignSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+
+fn s_api_design_rest() -> &'static str {
+    "\
+  REST API Design:
+  HTTP method semantics:
+    GET    — read; idempotent; safe; no body
+    POST   — create; non-idempotent; returns 201 + Location
+    PUT    — full replace; idempotent; returns 200 or 204
+    PATCH  — partial update; idempotent if designed well; returns 200
+    DELETE — delete; idempotent; returns 204 (no content)
+    HEAD   — like GET but no body; check existence/metadata
+    OPTIONS — CORS preflight; list allowed methods
+
+  URL structure:
+    /v1/users            — collection
+    /v1/users/42         — single resource
+    /v1/users/42/orders  — sub-collection
+    /v1/users/42/orders/7
+    Nouns not verbs: /v1/users not /v1/getUsers
+    Plural nouns: /users not /user
+    Lowercase, hyphens: /user-profiles not /userProfiles
+    No trailing slash: /v1/users not /v1/users/
+
+  Query parameters:
+    Filtering:   GET /v1/users?status=active&role=admin
+    Sorting:     GET /v1/users?sort=created_at&order=desc
+    Pagination:  GET /v1/users?page=2&per_page=25
+    Fields:      GET /v1/users?fields=id,name,email
+    Search:      GET /v1/users?q=alice
+
+  Response codes:
+    200 OK            — successful GET/PUT/PATCH
+    201 Created       — successful POST; include Location header
+    204 No Content    — successful DELETE or PUT with no body
+    206 Partial       — range request (pagination, file resume)
+    400 Bad Request   — malformed request / validation error
+    401 Unauthorized  — not authenticated (misleading name)
+    403 Forbidden     — authenticated but no permission
+    404 Not Found     — resource doesn't exist
+    409 Conflict      — duplicate / state conflict (e.g. email exists)
+    410 Gone          — resource permanently deleted
+    422 Unprocessable — semantic validation failure
+    429 Too Many      — rate limited
+    500 Internal      — unexpected server error
+    503 Unavailable   — temporarily down; include Retry-After
+
+  HATEOAS (optional but powerful):
+    {
+      \"id\": 42,
+      \"_links\": {
+        \"self\": { \"href\": \"/v1/users/42\" },
+        \"orders\": { \"href\": \"/v1/users/42/orders\" }
+      }
+    }
+
+  Pagination patterns:
+    Offset:  { page, per_page, total, data: [...] }
+    Cursor:  { cursor, limit, next_cursor, data: [...] }
+    Link header: Link: </v1/users?page=3>; rel=\"next\"
+"
+}
+
+fn s_api_design_openapi() -> &'static str {
+    "\
+  OpenAPI 3.x Reference:
+  Minimal spec structure:
+    openapi: '3.0.3'
+    info:
+      title: My API
+      version: '1.0.0'
+    servers:
+      - url: https://api.example.com/v1
+    paths:
+      /users/{id}:
+        get:
+          summary: Get user
+          parameters:
+            - name: id
+              in: path
+              required: true
+              schema: { type: integer }
+          responses:
+            '200':
+              description: Success
+              content:
+                application/json:
+                  schema:
+                    $ref: '#/components/schemas/User'
+    components:
+      schemas:
+        User:
+          type: object
+          required: [id, name]
+          properties:
+            id: { type: integer, example: 42 }
+            name: { type: string, example: Alice }
+            email: { type: string, format: email }
+
+  Parameter locations: path | query | header | cookie
+  Request body:
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/CreateUserRequest'
+
+  Security schemes:
+    components:
+      securitySchemes:
+        bearerAuth:
+          type: http
+          scheme: bearer
+          bearerFormat: JWT
+    security:
+      - bearerAuth: []
+
+  Tooling:
+    Swagger UI: interactive documentation from spec
+    Redoc: clean documentation site
+    openapi-generator: generates client SDKs / server stubs
+    spectral: lint your OpenAPI spec
+    swagger-cli: validate spec
+    Stoplight Studio: GUI editor
+
+  Tips:
+    Use $ref everywhere — keep schemas DRY
+    additionalProperties: false — strict schema validation
+    readOnly: true on id/created_at — not required in request body
+    oneOf / anyOf — polymorphic schemas with discriminator
+    externalDocs on operations — link to detailed documentation
+"
+}
+
+fn s_api_design_versioning() -> &'static str {
+    "\
+  API Versioning Strategies:
+  URI versioning (most common):
+    /v1/users
+    /v2/users
+    Pros: explicit, easy to test, visible in logs
+    Cons: resource duplication in paths
+
+  Header versioning:
+    Accept: application/vnd.api+json;version=2
+    X-API-Version: 2024-01
+    Pros: clean URLs
+    Cons: harder to test, less visible
+
+  Query param versioning:
+    /users?version=2
+    Pros: easy to test in browser
+    Cons: pollutes query space, can interfere with caching
+
+  Date-based versioning (Stripe, Azure):
+    X-API-Version: 2024-01-01
+    Pros: clear change timeline, no major/minor ambiguity
+    Cons: clients must track dates, not semantic meaning
+
+  Deprecation protocol:
+    Sunset header: Sunset: Sat, 31 Dec 2025 23:59:59 GMT
+    Deprecation header: Deprecation: version=\"v1\"
+    Link header: Link: <https://docs/migration>; rel=\"sunset\"
+    Response-level warning: X-Deprecated: true
+
+  Breaking vs non-breaking changes:
+    Non-breaking (safe): add fields, add endpoints, add optional params, relax validation
+    Breaking (version bump): remove fields, rename fields, change types,
+                             remove endpoints, tighten validation, change auth
+
+  Best practices:
+    Never remove fields without a deprecation period (≥6 months)
+    Support N and N-1 versions simultaneously
+    Changelog per version — what changed, why, migration steps
+    Client-negotiated: return highest version ≤ requested
+    Schema evolution: use optional fields, additive changes only in minors
+"
+}
+
+fn s_api_design_errors() -> &'static str {
+    "\
+  Error Response Design:
+  RFC 9457 / Problem Details (JSON API errors):
+    {
+      \"type\": \"https://api.example.com/errors/validation\",
+      \"title\": \"Validation Failed\",
+      \"status\": 422,
+      \"detail\": \"Email address is already in use.\",
+      \"instance\": \"/v1/users\",
+      \"errors\": [
+        { \"field\": \"email\", \"code\": \"DUPLICATE\", \"message\": \"Already exists\" }
+      ],
+      \"trace_id\": \"f45d9b2c-3a81-4f0d-b212-6f6a2c8d4321\"
+    }
+
+  Error code conventions:
+    Machine-readable: \"code\": \"RATE_LIMITED\", \"code\": \"INSUFFICIENT_BALANCE\"
+    Scoped: use namespaced codes (PAYMENT_DECLINED, AUTH_TOKEN_EXPIRED)
+    Never expose internal stack traces in production
+    Log full details server-side; return safe subset to client
+
+  Validation errors (400/422):
+    Return ALL field errors at once — don't stop at first failure
+    Field path for nested: \"field\": \"address.zip\"
+    Code + human message per error: { field, code, message }
+
+  Authentication/authorization (401/403):
+    401: always include WWW-Authenticate header
+    403: return safe reason if possible; never reveal resource existence to unauthorized users
+    Avoid: distinguishing 404 vs 403 to unauthorized users (information leak)
+
+  Rate limiting (429):
+    X-RateLimit-Limit: 1000
+    X-RateLimit-Remaining: 42
+    X-RateLimit-Reset: 1625097600    — Unix timestamp
+    Retry-After: 120                  — seconds until retry OK
+
+  Server errors (5xx):
+    Always include trace/request ID
+    Log full error server-side; never expose internals
+    503: include Retry-After for temporary outages
+    Circuit breaker: return 503 early vs timeout
+
+  Idempotency keys:
+    Idempotency-Key: <uuid>           — on POST requests
+    Replay same key → same response (cached)
+    Typical TTL: 24 hours
+    Stripe, Adyen, AWS all use this pattern
+"
+}
+
+fn s_api_design_graphql() -> &'static str {
+    "\
+  GraphQL Quick Reference:
+  Schema definition:
+    type User {
+      id: ID!
+      name: String!
+      email: String
+      orders: [Order!]!
+    }
+    type Query {
+      user(id: ID!): User
+      users(first: Int, after: String): UserConnection!
+    }
+    type Mutation {
+      createUser(input: CreateUserInput!): UserPayload!
+    }
+    type Subscription {
+      orderUpdated(userId: ID!): Order!
+    }
+
+  Query syntax:
+    query GetUser($id: ID!) {
+      user(id: $id) {
+        id
+        name
+        orders { id total }
+      }
+    }
+    Variables: { \"id\": \"42\" }
+
+  Fragments (reuse fields):
+    fragment UserFields on User {
+      id
+      name
+      email
+    }
+
+  Directives:
+    @include(if: $showEmail) — conditional include
+    @skip(if: $hidePrice)    — conditional skip
+    @deprecated(reason: \"Use newField\")
+
+  Connections (Relay pagination):
+    { edges { node { id name } cursor } pageInfo { hasNextPage endCursor } }
+
+  N+1 problem — DataLoader pattern:
+    Batch individual DB lookups into single query per type
+    dataloader.load(userId) — batched across request lifecycle
+
+  Best practices:
+    Never expose internal IDs as integers — use opaque Base64 globally unique IDs
+    Depth limiting: prevent deeply nested queries (default: 10 levels)
+    Query complexity scoring: prevent expensive queries
+    Persisted queries: pre-register queries by hash for production
+    GraphQL over HTTP: POST with { query, variables } or GET for persisted queries
+
+  gRPC comparison:
+    REST: simple, wide tooling, HTTP/1.1
+    GraphQL: client-driven, flexible, one endpoint, requires server setup
+    gRPC: binary (protobuf), fast, typed, streaming, HTTP/2, generated clients
+"
+}
+
+fn s_api_design_ratelimit() -> &'static str {
+    "\
+  Rate Limiting & API Security:
+  Rate limiting algorithms:
+    Token bucket: refill tokens at rate R; burst allowed up to bucket size
+    Leaky bucket: smooth output at constant rate; queue excess
+    Fixed window: N requests per window (minute/hour); burst at window edge
+    Sliding window log: log timestamps; count in last N seconds; accurate, memory heavy
+    Sliding window counter: hybrid; approximates sliding window with counters
+
+  Rate limit keys:
+    By API key (server-to-server)
+    By user ID (authenticated)
+    By IP (unauthenticated) — CGNAT can share IPs; supplement with fingerprint
+    By endpoint (tighter limits on expensive operations)
+    Composite: user × endpoint (e.g. 100 search requests/min per user)
+
+  Implementation examples:
+    Redis INCR + EXPIRE: simple fixed window
+    Redis sorted set (ZADD/ZRANGEBYSCORE): sliding window log
+    Nginx: limit_req_zone $binary_remote_addr zone=api:10m rate=10r/s;
+    Cloudflare Workers: custom rate limit per route
+
+  API authentication patterns:
+    API keys: X-API-Key header; hash before storage; rotate on compromise
+    JWTs: stateless; verify signature; check exp; short TTL (15 min) + refresh token
+    OAuth2 flows:
+      Authorization Code + PKCE: browser/mobile apps
+      Client Credentials: server-to-server
+      Device Flow: TV/CLI apps
+    mTLS: mutual TLS; client and server authenticate each other; zero-trust
+
+  Input validation:
+    Validate ALL inputs at the boundary — types, ranges, formats, lengths
+    Schema validation: JSON Schema, Pydantic, Zod, Joi
+    Escape for output context: SQL (prepared statements), HTML (escape), Shell (never interpolate)
+    Mass assignment protection: allowlist fields, never bind raw request to model
+
+  OWASP API Security Top 10:
+    1. Broken Object Level Authorization (BOLA/IDOR)
+    2. Broken Authentication
+    3. Broken Object Property Level Authorization
+    4. Unrestricted Resource Consumption
+    5. Broken Function Level Authorization
+    6. Unrestricted Access to Sensitive Business Flows
+    7. Server Side Request Forgery (SSRF)
+    8. Security Misconfiguration
+    9. Improper Inventory Management
+    10. Unsafe Consumption of APIs
+"
+}
+
+const API_DESIGN_SECTIONS: &[ApiDesignSection] = &[
+    (
+        "rest",
+        &[
+            "rest",
+            "http-method",
+            "crud",
+            "resource",
+            "endpoint",
+            "pagination",
+            "status-code",
+            "hateoas",
+        ],
+        s_api_design_rest,
+    ),
+    (
+        "openapi",
+        &[
+            "openapi",
+            "swagger",
+            "spec",
+            "schema",
+            "oas",
+            "documentation",
+            "redoc",
+        ],
+        s_api_design_openapi,
+    ),
+    (
+        "versioning",
+        &[
+            "versioning",
+            "version",
+            "deprecation",
+            "sunset",
+            "breaking-change",
+            "migration",
+            "changelog",
+        ],
+        s_api_design_versioning,
+    ),
+    (
+        "errors",
+        &[
+            "errors",
+            "error",
+            "problem-details",
+            "rfc9457",
+            "error-response",
+            "validation-error",
+            "idempotency",
+        ],
+        s_api_design_errors,
+    ),
+    (
+        "graphql",
+        &[
+            "graphql",
+            "grpc",
+            "query",
+            "mutation",
+            "subscription",
+            "dataloader",
+            "relay",
+            "schema",
+        ],
+        s_api_design_graphql,
+    ),
+    (
+        "ratelimit",
+        &[
+            "ratelimit",
+            "rate-limit",
+            "rate-limiting",
+            "throttle",
+            "auth",
+            "oauth",
+            "jwt",
+            "security",
+            "owasp",
+            "api-key",
+        ],
+        s_api_design_ratelimit,
+    ),
+];
+
+/// API design reference — REST, OpenAPI, versioning, errors, GraphQL, rate limiting.
+pub fn api_design_calc(query: &str) -> String {
+    use std::fmt::Write;
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+    let _ = writeln!(out, "{}", sep);
+    let _ = writeln!(out, "  API Design Reference");
+    let _ = writeln!(out, "{}", sep);
+
+    let q = query.trim().to_ascii_lowercase();
+
+    if q.is_empty() || q == "help" || q == "list" {
+        let _ = writeln!(
+            out,
+            "  Topics: rest, openapi, versioning, errors, graphql, ratelimit"
+        );
+        let _ = writeln!(out, "  Commands: all = all topics");
+        let _ = writeln!(out, "  Run: hematite --api-design <topic>");
+        let _ = writeln!(out, "{}", sep);
+        return out;
+    }
+
+    if q == "all" {
+        let _ = writeln!(out, "{}", sep);
+        for &(name, _, f) in API_DESIGN_SECTIONS {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+        }
+        let _ = writeln!(out, "{}", sep);
+        return out;
+    }
+
+    let found: Vec<_> = API_DESIGN_SECTIONS
+        .iter()
+        .filter(|&&(name, aliases, _)| {
+            name.contains(q.as_str())
+                || aliases
+                    .iter()
+                    .any(|&a| a.contains(q.as_str()) || q.contains(a))
+        })
+        .collect();
+
+    if found.is_empty() {
+        let _ = writeln!(out, "  No topic found for '{}'.", query.trim());
+        let _ = writeln!(out, "  Run: hematite --api-design help");
+    } else {
+        let _ = writeln!(out, "{}", sep);
+        for &&(name, _, f) in &found {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+        }
+        let _ = writeln!(out, "{}", sep);
+    }
+    out
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+type DbDesignSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+
+fn s_db_design_normalization() -> &'static str {
+    "\
+  Database Normalization:
+  1NF (First Normal Form):
+    Atomic values — no repeating groups, no arrays in cells
+    Each row uniquely identifiable (primary key)
+    Violation: phone1, phone2, phone3 columns → separate phones table
+
+  2NF (Second Normal Form):
+    1NF + no partial dependencies on composite key
+    Every non-key column depends on the WHOLE primary key
+    Violation: order_items(order_id, product_id, product_name) — product_name depends only on product_id
+    Fix: separate products(product_id, product_name) table
+
+  3NF (Third Normal Form):
+    2NF + no transitive dependencies
+    Non-key columns depend ONLY on the primary key, not on other non-key columns
+    Violation: employees(id, dept_id, dept_name) — dept_name depends on dept_id, not id
+    Fix: separate departments(dept_id, dept_name) table
+
+  BCNF (Boyce-Codd Normal Form):
+    Stronger version of 3NF
+    For every functional dependency A→B, A must be a superkey
+    Handles edge cases 3NF misses with composite keys
+
+  4NF (Fourth Normal Form):
+    BCNF + no multi-valued dependencies (two independent multi-valued facts in one table)
+
+  5NF (Fifth Normal Form / PJNF):
+    No join dependencies — can't reconstruct table from smaller tables without loss
+
+  Practical advice:
+    Design to 3NF/BCNF for OLTP systems (transactional)
+    Intentionally denormalize for OLAP/reporting (read performance)
+    Star schema (data warehouses): fact table + dimension tables (denormalized)
+    NoSQL: denormalize aggressively — model around access patterns, not entities
+
+  Entity-Relationship tips:
+    Many-to-many: always through a junction/bridge table
+    Soft delete: deleted_at TIMESTAMP NULL (filter with WHERE deleted_at IS NULL)
+    Audit trail: created_at, updated_at, updated_by on every table
+    Surrogate keys: auto-increment or UUID as PK; natural keys as unique constraints
+"
+}
+
+fn s_db_design_indexes() -> &'static str {
+    "\
+  Indexes & Query Optimization:
+  Index types:
+    B-tree (default)    — equality, range, ORDER BY, prefix match — most versatile
+    Hash               — equality only — faster for = checks; no range queries
+    GiST               — geometric data, full-text (PostgreSQL)
+    GIN                — inverted index for arrays, JSONB, full-text (PostgreSQL)
+    BRIN               — block range index for naturally ordered large tables (PostgreSQL)
+    Partial index      — index rows matching a condition: CREATE INDEX ON orders(user_id) WHERE status = 'active'
+    Covering index     — include all needed columns to avoid table lookup
+
+  When to index:
+    Foreign key columns — JOIN performance
+    Columns in WHERE clauses (equality and range predicates)
+    Columns in ORDER BY / GROUP BY
+    Columns used in JOIN ON conditions
+    Unique constraints (auto-creates unique index)
+
+  When NOT to index:
+    Small tables (< 1000 rows) — sequential scan is faster
+    Columns with very low cardinality (Boolean, status with 2-3 values)
+    Columns rarely used in queries
+    Tables with heavy write load (indexes slow writes)
+
+  PostgreSQL EXPLAIN ANALYZE:
+    EXPLAIN ANALYZE SELECT ...     — show actual cost and rows
+    Seq Scan      — table scan; no index used
+    Index Scan    — uses index; good
+    Index Only Scan — index covers all needed columns; best
+    Bitmap Scan   — combines multiple indexes
+    Key terms: cost, rows, width, actual time, loops, buffers
+
+  Query optimization:
+    Avoid SELECT * — name specific columns
+    Use LIMIT early to reduce rows
+    Avoid functions on indexed columns: WHERE YEAR(created_at) = 2024 → WHERE created_at BETWEEN ...
+    Avoid wildcard prefix: LIKE '%text' can't use index; LIKE 'text%' can
+    Use NOT EXISTS instead of NOT IN with NULLs
+    Batch inserts: INSERT INTO t VALUES (...),(...),...
+    Connection pooling: PgBouncer (PostgreSQL), ProxySQL (MySQL)
+
+  Index maintenance:
+    PostgreSQL: VACUUM ANALYZE table — update statistics, reclaim space
+    REINDEX: rebuild bloated index
+    pg_stat_user_indexes: check index usage (idx_scan counter)
+    MySQL: ANALYZE TABLE; OPTIMIZE TABLE (rewrite)
+    Drop unused indexes — they slow writes with no benefit
+"
+}
+
+fn s_db_design_transactions() -> &'static str {
+    "\
+  Transactions, ACID & Isolation:
+  ACID properties:
+    Atomicity    — all or nothing; partial updates rolled back on failure
+    Consistency  — database moves from valid state to valid state
+    Isolation    — concurrent transactions don't interfere
+    Durability   — committed data survives crashes (WAL/redo log)
+
+  Isolation levels (weakest to strongest):
+    READ UNCOMMITTED — dirty reads possible; almost never use
+    READ COMMITTED   — default in PostgreSQL/Oracle; no dirty reads; phantom reads possible
+    REPEATABLE READ  — default in MySQL InnoDB; no dirty/non-repeatable reads
+    SERIALIZABLE     — strongest; serializes all transactions; highest contention
+
+  Anomalies prevented per level:
+    Level              | Dirty Read | Non-Repeatable | Phantom Read
+    READ UNCOMMITTED   |  possible  |    possible    |   possible
+    READ COMMITTED     |  prevented |    possible    |   possible
+    REPEATABLE READ    |  prevented |    prevented   |   possible
+    SERIALIZABLE       |  prevented |    prevented   |   prevented
+
+  Locking:
+    Shared (S) lock     — read lock; multiple readers allowed; blocks writers
+    Exclusive (X) lock  — write lock; blocks all other locks
+    Row-level locking   — PostgreSQL/MySQL InnoDB default
+    Table-level locking — MyISAM; SQLite (write); avoid for OLTP
+
+  SELECT FOR UPDATE vs SELECT FOR SHARE:
+    SELECT ... FOR UPDATE  — exclusive lock; blocks other readers/writers
+    SELECT ... FOR SHARE   — shared lock; blocks only writers
+    SKIP LOCKED            — skip locked rows (queue processing pattern)
+    NOWAIT                 — fail immediately if lock unavailable
+
+  Deadlocks:
+    Occur when two transactions each hold a lock the other needs
+    Databases detect and kill one transaction
+    Prevention: always acquire locks in the same order
+    Keep transactions short — reduces lock contention window
+
+  Optimistic vs Pessimistic locking:
+    Pessimistic: lock row when reading (SELECT FOR UPDATE)
+    Optimistic: no lock; check version on update; retry on conflict
+    Pattern: version column; UPDATE ... WHERE id=? AND version=?
+"
+}
+
+fn s_db_design_distributed() -> &'static str {
+    "\
+  Distributed Databases & CAP Theorem:
+  CAP Theorem (Brewer):
+    Consistency    — every read gets the most recent write or an error
+    Availability   — every request gets a non-error response
+    Partition Tolerance — works despite network partitions
+    Rule: distributed system can guarantee at most 2 of 3 simultaneously
+    In practice: network partitions happen → choose CA or CP
+
+  CP systems (consistency over availability):
+    HBase, ZooKeeper, etcd, Consul
+    Strong consistency; may reject requests during partition
+
+  AP systems (availability over consistency):
+    Cassandra (tunable), CouchDB, DynamoDB (eventual by default)
+    Always return result; may be stale; eventual consistency
+
+  PACELC extension:
+    When partition: choose P→A or P→C
+    Else (no partition): choose E→latency or E→consistency
+
+  Replication patterns:
+    Single-leader (master-slave): writes to primary; reads from replicas
+      Lag: replica reads may be stale; use read-your-writes consistency
+    Multi-leader: writes to multiple nodes; conflict resolution needed
+    Leaderless (Dynamo-style): write to W nodes, read from R; quorum W+R>N
+
+  Sharding (horizontal partitioning):
+    By range: user_id 1-1000000 → shard A
+    By hash: hash(user_id) % N → shard
+    By directory: lookup table maps key to shard
+    Hotspot risk: celebrity problem; consistent hashing mitigates
+    Cross-shard queries are expensive — denormalize or use scatter-gather
+
+  Consistency models (weakest to strongest):
+    Eventual consistency — data converges eventually (no guarantee when)
+    Monotonic read — never read older data than you've seen
+    Read-your-writes — always see your own writes
+    Causal — causally related operations are seen in order
+    Linearizability — behaves as if single copy; strongest guarantee
+
+  Connection pooling:
+    PgBouncer: PostgreSQL pooler; transaction/session/statement modes
+    ProxySQL: MySQL/MariaDB proxy with routing rules
+    HikariCP: Java JDBC pool; fast; zero-overhead; preferred
+    Sizing: (core_count × 2) + effective_spindle_count (rough formula)
+"
+}
+
+fn s_db_design_nosql() -> &'static str {
+    "\
+  NoSQL & Modern Database Types:
+  Document databases (MongoDB, Firestore, CouchDB):
+    Model: JSON/BSON documents; nested objects; arrays
+    Strengths: flexible schema, nested data, horizontal scale
+    Query by any field; rich query language
+    Access pattern first: embed vs reference
+    Embed when: read together, one-to-few, child doesn't exist independently
+    Reference when: many-to-many, child accessed independently, document would be huge
+    16MB document limit (MongoDB)
+
+  Key-value stores (Redis, DynamoDB, etcd):
+    Redis: in-memory; persistence options; pub/sub; streams; Lua scripts
+    Data structures: String, Hash, List, Set, Sorted Set, Bitmap, Stream
+    DynamoDB: managed; single-digit ms; partition key + sort key; GSI/LSI
+    etcd: distributed key-value; used by Kubernetes for cluster state; Raft consensus
+
+  Column-family (Cassandra, HBase, Bigtable):
+    Data model: rows identified by row key; columns grouped in families
+    Wide rows: row can have millions of columns
+    Cassandra: partition key determines shard; cluster key orders within partition
+    Time-series friendly: partition by time period, cluster by timestamp
+    No JOINs; no aggregations in general; model for your queries
+
+  Time-series databases (InfluxDB, TimescaleDB, Prometheus):
+    Optimized for: insert heavy, time-ordered, range queries, aggregations
+    Automatic downsampling, retention policies
+    TimescaleDB: PostgreSQL extension; SQL compatible; hypertables
+
+  Search engines (Elasticsearch, OpenSearch, Typesense, Meilisearch):
+    Inverted index: tokenize text, map terms to documents
+    Elasticsearch: NDJSON bulk API; relevance scoring (BM25)
+    Full-text search + aggregations + geo + vectors
+    Not a primary database: sync from primary DB via CDC (change data capture)
+
+  Graph databases (Neo4j, Amazon Neptune):
+    Relationships are first-class: (user)-[:FOLLOWS]->(user)
+    Cypher query: MATCH (u:User)-[:ORDERED]->(o:Order) RETURN u, o
+    Good for: social graphs, recommendation engines, fraud detection
+    Bad for: high-volume transactional workloads
+"
+}
+
+fn s_db_design_migrations() -> &'static str {
+    "\
+  Database Migrations & Schema Management:
+  Migration tools:
+    Flyway (Java): SQL or Java migrations; versioned (V1__init.sql)
+    Liquibase: XML/YAML/JSON/SQL changelogs; rollback support
+    Alembic (Python/SQLAlchemy): autogenerate from model changes
+    golang-migrate: Go; file-based SQL up/down migrations
+    Prisma Migrate: ORM-integrated; TypeScript; auto-diff
+    Sqitch: change management; dependency tracking; deploy/revert/verify
+
+  Safe migration patterns (zero-downtime):
+    Never: ALTER TABLE on large tables (locks table for minutes/hours)
+    Instead:
+      1. Add column as nullable with no default
+      2. Backfill in batches: UPDATE t SET col=val WHERE id BETWEEN ... (1000 rows)
+      3. Add NOT NULL constraint (verify no NULLs first)
+      4. Deploy app code that writes to new column
+      5. Make constraint NOT NULL after backfill
+    PostgreSQL CONCURRENTLY: CREATE INDEX CONCURRENTLY (no write lock)
+
+  Schema change anti-patterns:
+    Renaming columns: breaks old code; instead add new column, migrate, drop old
+    Changing column type: may require full table rewrite; test on staging first
+    Dropping columns: ensure all code stops reading before dropping
+    Adding NOT NULL without default: breaks existing inserts
+    Adding unique constraint without unique check: can fail on large tables
+
+  Online schema change tools:
+    gh-ost (GitHub): shadow copy approach for MySQL; no metadata locks
+    pt-online-schema-change: Percona tool for MySQL
+    pg_repack: PostgreSQL table repack without exclusive locks
+
+  Data backfill patterns:
+    Batch with ID range: WHERE id BETWEEN start AND end; sleep between batches
+    Batch with cursor: WHERE id > last_id ORDER BY id LIMIT 1000
+    Background worker: queue backfill jobs; don't block deploys
+    Verify: SELECT COUNT(*) WHERE new_col IS NULL (should reach 0)
+
+  Backup & recovery:
+    pg_dump / pg_dumpall: logical backups; can restore selectively
+    pg_basebackup: physical backup for PostgreSQL
+    Point-in-time recovery (PITR): continuous WAL archiving + base backup
+    Recovery Time Objective (RTO) and Recovery Point Objective (RPO): define before incident
+    Test restores: backup not tested is no backup at all
+"
+}
+
+const DB_DESIGN_SECTIONS: &[DbDesignSection] = &[
+    (
+        "normalization",
+        &[
+            "normalization",
+            "1nf",
+            "2nf",
+            "3nf",
+            "bcnf",
+            "normal-form",
+            "schema-design",
+            "denormalize",
+            "er",
+            "entity",
+        ],
+        s_db_design_normalization,
+    ),
+    (
+        "indexes",
+        &[
+            "indexes",
+            "index",
+            "explain",
+            "query",
+            "optimization",
+            "btree",
+            "gin",
+            "partial-index",
+            "covering",
+            "vacuum",
+        ],
+        s_db_design_indexes,
+    ),
+    (
+        "transactions",
+        &[
+            "transactions",
+            "transaction",
+            "acid",
+            "isolation",
+            "locking",
+            "deadlock",
+            "optimistic",
+            "pessimistic",
+            "mvcc",
+            "commit",
+            "rollback",
+        ],
+        s_db_design_transactions,
+    ),
+    (
+        "distributed",
+        &[
+            "distributed",
+            "cap",
+            "replication",
+            "sharding",
+            "consistency",
+            "eventual",
+            "partition",
+            "pacelc",
+            "quorum",
+            "pooling",
+        ],
+        s_db_design_distributed,
+    ),
+    (
+        "nosql",
+        &[
+            "nosql",
+            "mongodb",
+            "redis",
+            "cassandra",
+            "document",
+            "key-value",
+            "column-family",
+            "elasticsearch",
+            "graph",
+            "dynamodb",
+            "timeseries",
+        ],
+        s_db_design_nosql,
+    ),
+    (
+        "migrations",
+        &[
+            "migrations",
+            "migration",
+            "flyway",
+            "alembic",
+            "schema-change",
+            "backfill",
+            "zero-downtime",
+            "gh-ost",
+            "backup",
+            "recovery",
+        ],
+        s_db_design_migrations,
+    ),
+];
+
+/// Database design reference — normalization, indexes, transactions, distributed, NoSQL, migrations.
+pub fn db_design_calc(query: &str) -> String {
+    use std::fmt::Write;
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+    let _ = writeln!(out, "{}", sep);
+    let _ = writeln!(out, "  Database Design Reference");
+    let _ = writeln!(out, "{}", sep);
+
+    let q = query.trim().to_ascii_lowercase();
+
+    if q.is_empty() || q == "help" || q == "list" {
+        let _ = writeln!(
+            out,
+            "  Topics: normalization, indexes, transactions, distributed, nosql, migrations"
+        );
+        let _ = writeln!(out, "  Commands: all = all topics");
+        let _ = writeln!(out, "  Run: hematite --db-design <topic>");
+        let _ = writeln!(out, "{}", sep);
+        return out;
+    }
+
+    if q == "all" {
+        let _ = writeln!(out, "{}", sep);
+        for &(name, _, f) in DB_DESIGN_SECTIONS {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+        }
+        let _ = writeln!(out, "{}", sep);
+        return out;
+    }
+
+    let found: Vec<_> = DB_DESIGN_SECTIONS
+        .iter()
+        .filter(|&&(name, aliases, _)| {
+            name.contains(q.as_str())
+                || aliases
+                    .iter()
+                    .any(|&a| a.contains(q.as_str()) || q.contains(a))
+        })
+        .collect();
+
+    if found.is_empty() {
+        let _ = writeln!(out, "  No topic found for '{}'.", query.trim());
+        let _ = writeln!(out, "  Run: hematite --db-design help");
+    } else {
+        let _ = writeln!(out, "{}", sep);
+        for &&(name, _, f) in &found {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+        }
+        let _ = writeln!(out, "{}", sep);
+    }
+    out
+}

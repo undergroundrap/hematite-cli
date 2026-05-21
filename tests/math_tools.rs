@@ -3,18 +3,19 @@
 /// Covers known-value correctness, edge-case non-panics, and the newer
 /// matrix decomposition modes (QR, SVD, Cholesky).
 use hematite::tools::math_util::{
-    algo_ref_calc, ansible_calc, ascii_calc, ascii_table_calc, awk_calc, bash_adv_calc,
-    bash_ref_calc, bitwise_calc, case_calc, chars_calc, checksum_calc, chemistry_calc, chmod_calc,
-    cipher_calc, cloud_ref_calc, color_calc, color_names_calc, combinatorics_calc, complex_calc,
-    cron_calc, crypto_ref_calc, css_ref_calc, csv_calc, curl_calc, datetime_calc, devops_ref_calc,
-    diff_calc, docker_adv_calc, docker_ref_calc, duration_calc, electrical_calc, encode_calc,
-    escape_calc, find_calc, fraction_calc, geometry_calc, git_adv_calc, git_ref_calc,
-    gitignore_calc, go_ref_calc, grep_calc, hash_calc, headers_calc, health_calc, http_adv_calc,
-    http_calc, http_headers_calc, http_status_calc, id_gen_calc, ip_calc, jinja_calc, jq_calc,
-    js_ref_calc, json_calc, json_path_calc, jwt_calc, kbd_calc, kubectl_calc, license_calc,
-    linux_adv_calc, lorem_calc, make_calc, makefile_calc, markdown_calc, matrix_calc, mime_calc,
-    net_calc, network_ref_calc, nginx_calc, npm_calc, number_format, number_theory_calc,
-    oop_ref_calc, openssl_calc, percent_calc, physics_calc, port_calc, postgres_calc, prob_calc,
+    algo_ref_calc, ansible_calc, api_design_calc, ascii_calc, ascii_table_calc, awk_calc,
+    bash_adv_calc, bash_ref_calc, bitwise_calc, case_calc, chars_calc, checksum_calc,
+    chemistry_calc, chmod_calc, cipher_calc, cloud_ref_calc, color_calc, color_names_calc,
+    combinatorics_calc, complex_calc, cron_calc, crypto_ref_calc, css_ref_calc, csv_calc,
+    curl_calc, datetime_calc, db_design_calc, devops_ref_calc, diff_calc, docker_adv_calc,
+    docker_ref_calc, duration_calc, electrical_calc, encode_calc, escape_calc, find_calc,
+    fraction_calc, geometry_calc, git_adv_calc, git_ref_calc, gitignore_calc, go_ref_calc,
+    grep_calc, hash_calc, headers_calc, health_calc, http_adv_calc, http_calc, http_headers_calc,
+    http_status_calc, id_gen_calc, ip_calc, jinja_calc, jq_calc, js_ref_calc, json_calc,
+    json_path_calc, jwt_calc, kbd_calc, kubectl_calc, license_calc, linux_adv_calc, linux_sys_calc,
+    lorem_calc, make_calc, makefile_calc, markdown_calc, matrix_calc, mime_calc, net_calc,
+    network_ref_calc, nginx_calc, npm_calc, number_format, number_theory_calc, oop_ref_calc,
+    openssl_calc, percent_calc, physics_calc, port_calc, postgres_calc, prob_calc,
     python_data_calc, python_ref_calc, regex_adv_calc, regex_calc, regex_ref_calc, regex_test_calc,
     roman_calc, rust_adv_calc, rust_ref_calc, security_ref_calc, sed_calc, semver_calc, set_calc,
     sort_viz, spark_calc, sql_adv_calc, sql_fmt_calc, sql_ref_calc, ssh_ref_calc, ssl_calc,
@@ -15523,4 +15524,1162 @@ fn devops_ref_scanning_alias() {
 fn devops_ref_no_panic_special() {
     let _ = devops_ref_calc("@#$%");
     let _ = devops_ref_calc("   ");
+}
+
+// ── linux_sys_calc ────────────────────────────────────────────────────────────
+
+#[test]
+fn linux_sys_help_empty() {
+    let out = linux_sys_calc("");
+    assert!(
+        out.contains("hematite --linux-sys"),
+        "help shown for empty query"
+    );
+}
+
+#[test]
+fn linux_sys_help_unknown() {
+    let out = linux_sys_calc("zzznomatch");
+    assert!(
+        out.contains("hematite --linux-sys"),
+        "help shown for unknown"
+    );
+}
+
+#[test]
+fn linux_sys_all() {
+    let out = linux_sys_calc("all");
+    assert!(
+        out.contains("systemctl") || out.contains("systemd"),
+        "all has systemctl"
+    );
+    assert!(
+        out.contains("SIGTERM") || out.contains("signal"),
+        "all has processes"
+    );
+    assert!(
+        out.contains("sysctl") || out.contains("kernel"),
+        "all has kernel"
+    );
+    assert!(
+        out.contains("inode") || out.contains("mount"),
+        "all has filesystem"
+    );
+}
+
+#[test]
+fn linux_sys_systemctl() {
+    let out = linux_sys_calc("systemctl");
+    assert!(out.contains("systemctl"), "systemctl section present");
+    assert!(
+        out.contains("journalctl") || out.contains("journal"),
+        "systemctl has journalctl"
+    );
+    assert!(
+        out.contains("[Unit]") || out.contains("[Service]"),
+        "systemctl has unit file"
+    );
+}
+
+#[test]
+fn linux_sys_systemd_alias() {
+    let out = linux_sys_calc("systemd");
+    assert!(
+        out.contains("systemctl") || out.contains("systemd"),
+        "systemd alias resolves"
+    );
+}
+
+#[test]
+fn linux_sys_service_alias() {
+    let out = linux_sys_calc("service");
+    assert!(
+        out.contains("systemctl") || out.contains("service"),
+        "service alias resolves"
+    );
+}
+
+#[test]
+fn linux_sys_journal_alias() {
+    let out = linux_sys_calc("journal");
+    assert!(
+        out.contains("journalctl") || out.contains("journal"),
+        "journal alias resolves"
+    );
+}
+
+#[test]
+fn linux_sys_journalctl_alias() {
+    let out = linux_sys_calc("journalctl");
+    assert!(out.contains("journalctl"), "journalctl alias resolves");
+}
+
+#[test]
+fn linux_sys_unit_alias() {
+    let out = linux_sys_calc("unit");
+    assert!(
+        out.contains("[Unit]") || out.contains("unit"),
+        "unit alias resolves"
+    );
+}
+
+#[test]
+fn linux_sys_processes() {
+    let out = linux_sys_calc("processes");
+    assert!(
+        out.contains("SIGTERM") || out.contains("SIGKILL"),
+        "processes has signals"
+    );
+    assert!(
+        out.contains("kill") || out.contains("pkill"),
+        "processes has kill"
+    );
+    assert!(
+        out.contains("strace") || out.contains("lsof"),
+        "processes has strace/lsof"
+    );
+}
+
+#[test]
+fn linux_sys_process_alias() {
+    let out = linux_sys_calc("process");
+    assert!(
+        out.contains("SIGTERM") || out.contains("process"),
+        "process alias resolves"
+    );
+}
+
+#[test]
+fn linux_sys_signals_alias() {
+    let out = linux_sys_calc("signals");
+    assert!(
+        out.contains("SIGTERM") || out.contains("SIGKILL"),
+        "signals alias resolves"
+    );
+}
+
+#[test]
+fn linux_sys_signal_alias() {
+    let out = linux_sys_calc("signal");
+    assert!(
+        out.contains("SIGTERM") || out.contains("signal"),
+        "signal alias resolves"
+    );
+}
+
+#[test]
+fn linux_sys_kill_alias() {
+    let out = linux_sys_calc("kill");
+    assert!(
+        out.contains("kill") || out.contains("SIGKILL"),
+        "kill alias resolves"
+    );
+}
+
+#[test]
+fn linux_sys_strace_alias() {
+    let out = linux_sys_calc("strace");
+    assert!(
+        out.contains("strace") || out.contains("trace"),
+        "strace alias resolves"
+    );
+}
+
+#[test]
+fn linux_sys_lsof_alias() {
+    let out = linux_sys_calc("lsof");
+    assert!(
+        out.contains("lsof") || out.contains("files"),
+        "lsof alias resolves"
+    );
+}
+
+#[test]
+fn linux_sys_background_alias() {
+    let out = linux_sys_calc("background");
+    assert!(
+        out.contains("nohup") || out.contains("background"),
+        "background alias resolves"
+    );
+}
+
+#[test]
+fn linux_sys_kernel() {
+    let out = linux_sys_calc("kernel");
+    assert!(
+        out.contains("sysctl") || out.contains("kernel"),
+        "kernel section present"
+    );
+    assert!(
+        out.contains("cgroup") || out.contains("namespace"),
+        "kernel has cgroups/namespaces"
+    );
+    assert!(
+        out.contains("ulimit") || out.contains("nofile"),
+        "kernel has ulimit"
+    );
+}
+
+#[test]
+fn linux_sys_sysctl_alias() {
+    let out = linux_sys_calc("sysctl");
+    assert!(
+        out.contains("sysctl") || out.contains("kernel"),
+        "sysctl alias resolves"
+    );
+}
+
+#[test]
+fn linux_sys_cgroup_alias() {
+    let out = linux_sys_calc("cgroup");
+    assert!(
+        out.contains("cgroup") || out.contains("cgroups"),
+        "cgroup alias resolves"
+    );
+}
+
+#[test]
+fn linux_sys_namespace_alias() {
+    let out = linux_sys_calc("namespace");
+    assert!(
+        out.contains("namespace") || out.contains("unshare"),
+        "namespace alias resolves"
+    );
+}
+
+#[test]
+fn linux_sys_ulimit_alias() {
+    let out = linux_sys_calc("ulimit");
+    assert!(
+        out.contains("ulimit") || out.contains("nofile"),
+        "ulimit alias resolves"
+    );
+}
+
+#[test]
+fn linux_sys_filesystem() {
+    let out = linux_sys_calc("filesystem");
+    assert!(
+        out.contains("df") || out.contains("du"),
+        "filesystem has df/du"
+    );
+    assert!(
+        out.contains("mount") || out.contains("fstab"),
+        "filesystem has mount"
+    );
+    assert!(
+        out.contains("inode") || out.contains("lsblk"),
+        "filesystem has inode"
+    );
+}
+
+#[test]
+fn linux_sys_disk_alias() {
+    let out = linux_sys_calc("disk");
+    assert!(
+        out.contains("df") || out.contains("disk") || out.contains("lsblk"),
+        "disk alias resolves"
+    );
+}
+
+#[test]
+fn linux_sys_mount_alias() {
+    let out = linux_sys_calc("mount");
+    assert!(
+        out.contains("mount") || out.contains("fstab"),
+        "mount alias resolves"
+    );
+}
+
+#[test]
+fn linux_sys_inode_alias() {
+    let out = linux_sys_calc("inode");
+    assert!(
+        out.contains("inode") || out.contains("stat"),
+        "inode alias resolves"
+    );
+}
+
+#[test]
+fn linux_sys_rsync_alias() {
+    let out = linux_sys_calc("rsync");
+    assert!(
+        out.contains("rsync") || out.contains("sync"),
+        "rsync alias resolves"
+    );
+}
+
+#[test]
+fn linux_sys_network() {
+    let out = linux_sys_calc("network");
+    assert!(
+        out.contains("ip addr") || out.contains("ip link"),
+        "network has ip commands"
+    );
+    assert!(
+        out.contains("ss -") || out.contains("ss "),
+        "network has ss"
+    );
+    assert!(
+        out.contains("tcpdump") || out.contains("iptables"),
+        "network has tcpdump"
+    );
+}
+
+#[test]
+fn linux_sys_ip_alias() {
+    let out = linux_sys_calc("ip");
+    assert!(
+        out.contains("ip addr") || out.contains("ip route"),
+        "ip alias resolves"
+    );
+}
+
+#[test]
+fn linux_sys_ss_alias() {
+    let out = linux_sys_calc("ss");
+    assert!(
+        out.contains("ss -") || out.contains("netstat"),
+        "ss alias resolves"
+    );
+}
+
+#[test]
+fn linux_sys_iptables_alias() {
+    let out = linux_sys_calc("iptables");
+    assert!(
+        out.contains("iptables") || out.contains("nftables"),
+        "iptables alias resolves"
+    );
+}
+
+#[test]
+fn linux_sys_tcpdump_alias() {
+    let out = linux_sys_calc("tcpdump");
+    assert!(
+        out.contains("tcpdump") || out.contains("capture"),
+        "tcpdump alias resolves"
+    );
+}
+
+#[test]
+fn linux_sys_dig_alias() {
+    let out = linux_sys_calc("dig");
+    assert!(
+        out.contains("dig") || out.contains("DNS"),
+        "dig alias resolves"
+    );
+}
+
+#[test]
+fn linux_sys_security() {
+    let out = linux_sys_calc("security");
+    assert!(
+        out.contains("chmod") || out.contains("permission"),
+        "security has chmod"
+    );
+    assert!(
+        out.contains("sudo") || out.contains("sudoers"),
+        "security has sudo"
+    );
+    assert!(
+        out.contains("SELinux") || out.contains("selinux") || out.contains("lynis"),
+        "security has SELinux/lynis"
+    );
+}
+
+#[test]
+fn linux_sys_chmod_alias() {
+    let out = linux_sys_calc("chmod");
+    assert!(
+        out.contains("chmod") || out.contains("permission"),
+        "chmod alias resolves"
+    );
+}
+
+#[test]
+fn linux_sys_sudo_alias() {
+    let out = linux_sys_calc("sudo");
+    assert!(
+        out.contains("sudo") || out.contains("sudoers"),
+        "sudo alias resolves"
+    );
+}
+
+#[test]
+fn linux_sys_selinux_alias() {
+    let out = linux_sys_calc("selinux");
+    assert!(
+        out.contains("SELinux") || out.contains("selinux"),
+        "selinux alias resolves"
+    );
+}
+
+#[test]
+fn linux_sys_acl_alias() {
+    let out = linux_sys_calc("acl");
+    assert!(
+        out.contains("ACL") || out.contains("setfacl") || out.contains("getfacl"),
+        "acl alias resolves"
+    );
+}
+
+#[test]
+fn linux_sys_no_panic_special() {
+    let _ = linux_sys_calc("@#$%");
+    let _ = linux_sys_calc("   ");
+}
+
+// ── api_design_calc ───────────────────────────────────────────────────────────
+
+#[test]
+fn api_design_help_empty() {
+    let out = api_design_calc("");
+    assert!(
+        out.contains("hematite --api-design"),
+        "help shown for empty query"
+    );
+}
+
+#[test]
+fn api_design_help_unknown() {
+    let out = api_design_calc("zzznomatch");
+    assert!(
+        out.contains("hematite --api-design"),
+        "help shown for unknown"
+    );
+}
+
+#[test]
+fn api_design_all() {
+    let out = api_design_calc("all");
+    assert!(out.contains("GET") || out.contains("POST"), "all has REST");
+    assert!(
+        out.contains("openapi") || out.contains("swagger") || out.contains("OpenAPI"),
+        "all has OpenAPI"
+    );
+    assert!(
+        out.contains("GraphQL") || out.contains("graphql"),
+        "all has GraphQL"
+    );
+}
+
+#[test]
+fn api_design_rest() {
+    let out = api_design_calc("rest");
+    assert!(
+        out.contains("GET") && out.contains("POST"),
+        "rest has GET/POST"
+    );
+    assert!(
+        out.contains("201") || out.contains("204"),
+        "rest has status codes"
+    );
+    assert!(
+        out.contains("pagination") || out.contains("Pagination"),
+        "rest has pagination"
+    );
+}
+
+#[test]
+fn api_design_http_method_alias() {
+    let out = api_design_calc("http-method");
+    assert!(
+        out.contains("GET") || out.contains("POST"),
+        "http-method alias resolves"
+    );
+}
+
+#[test]
+fn api_design_crud_alias() {
+    let out = api_design_calc("crud");
+    assert!(
+        out.contains("GET") || out.contains("POST") || out.contains("REST"),
+        "crud alias resolves"
+    );
+}
+
+#[test]
+fn api_design_endpoint_alias() {
+    let out = api_design_calc("endpoint");
+    assert!(
+        out.contains("GET") || out.contains("endpoint") || out.contains("resource"),
+        "endpoint alias resolves"
+    );
+}
+
+#[test]
+fn api_design_status_code_alias() {
+    let out = api_design_calc("status-code");
+    assert!(
+        out.contains("200") || out.contains("201") || out.contains("404"),
+        "status-code alias resolves"
+    );
+}
+
+#[test]
+fn api_design_pagination_alias() {
+    let out = api_design_calc("pagination");
+    assert!(
+        out.contains("pagination") || out.contains("cursor") || out.contains("page"),
+        "pagination alias resolves"
+    );
+}
+
+#[test]
+fn api_design_openapi() {
+    let out = api_design_calc("openapi");
+    assert!(
+        out.contains("openapi") || out.contains("OpenAPI"),
+        "openapi section present"
+    );
+    assert!(
+        out.contains("schema") || out.contains("Schema"),
+        "openapi has schema"
+    );
+    assert!(
+        out.contains("swagger") || out.contains("Swagger") || out.contains("Redoc"),
+        "openapi has tooling"
+    );
+}
+
+#[test]
+fn api_design_swagger_alias() {
+    let out = api_design_calc("swagger");
+    assert!(
+        out.contains("swagger") || out.contains("Swagger") || out.contains("openapi"),
+        "swagger alias resolves"
+    );
+}
+
+#[test]
+fn api_design_spec_alias() {
+    let out = api_design_calc("spec");
+    assert!(
+        out.contains("openapi") || out.contains("spec") || out.contains("schema"),
+        "spec alias resolves"
+    );
+}
+
+#[test]
+fn api_design_versioning() {
+    let out = api_design_calc("versioning");
+    assert!(
+        out.contains("version") || out.contains("Version"),
+        "versioning section present"
+    );
+    assert!(
+        out.contains("deprecation") || out.contains("Deprecation"),
+        "versioning has deprecation"
+    );
+    assert!(
+        out.contains("breaking") || out.contains("Breaking"),
+        "versioning has breaking changes"
+    );
+}
+
+#[test]
+fn api_design_version_alias() {
+    let out = api_design_calc("version");
+    assert!(
+        out.contains("version") || out.contains("Version"),
+        "version alias resolves"
+    );
+}
+
+#[test]
+fn api_design_deprecation_alias() {
+    let out = api_design_calc("deprecation");
+    assert!(
+        out.contains("deprecation") || out.contains("Deprecation") || out.contains("Sunset"),
+        "deprecation alias resolves"
+    );
+}
+
+#[test]
+fn api_design_breaking_change_alias() {
+    let out = api_design_calc("breaking-change");
+    assert!(
+        out.contains("breaking") || out.contains("Breaking"),
+        "breaking-change alias resolves"
+    );
+}
+
+#[test]
+fn api_design_errors() {
+    let out = api_design_calc("errors");
+    assert!(
+        out.contains("RFC") || out.contains("Problem Details"),
+        "errors section present"
+    );
+    assert!(
+        out.contains("422") || out.contains("400"),
+        "errors has status codes"
+    );
+    assert!(
+        out.contains("Idempotency") || out.contains("idempotency"),
+        "errors has idempotency"
+    );
+}
+
+#[test]
+fn api_design_error_alias() {
+    let out = api_design_calc("error");
+    assert!(
+        out.contains("error") || out.contains("Error"),
+        "error alias resolves"
+    );
+}
+
+#[test]
+fn api_design_idempotency_alias() {
+    let out = api_design_calc("idempotency");
+    assert!(
+        out.contains("Idempotency") || out.contains("idempotency"),
+        "idempotency alias resolves"
+    );
+}
+
+#[test]
+fn api_design_problem_details_alias() {
+    let out = api_design_calc("problem-details");
+    assert!(
+        out.contains("Problem Details") || out.contains("RFC"),
+        "problem-details alias resolves"
+    );
+}
+
+#[test]
+fn api_design_graphql() {
+    let out = api_design_calc("graphql");
+    assert!(
+        out.contains("GraphQL") || out.contains("graphql"),
+        "graphql section present"
+    );
+    assert!(
+        out.contains("query") || out.contains("mutation"),
+        "graphql has query/mutation"
+    );
+    assert!(
+        out.contains("DataLoader") || out.contains("N+1"),
+        "graphql has N+1/DataLoader"
+    );
+}
+
+#[test]
+fn api_design_grpc_alias() {
+    let out = api_design_calc("grpc");
+    assert!(
+        out.contains("gRPC") || out.contains("grpc"),
+        "grpc alias resolves"
+    );
+}
+
+#[test]
+fn api_design_mutation_alias() {
+    let out = api_design_calc("mutation");
+    assert!(
+        out.contains("mutation") || out.contains("Mutation"),
+        "mutation alias resolves"
+    );
+}
+
+#[test]
+fn api_design_relay_alias() {
+    let out = api_design_calc("relay");
+    assert!(
+        out.contains("Relay") || out.contains("relay") || out.contains("cursor"),
+        "relay alias resolves"
+    );
+}
+
+#[test]
+fn api_design_ratelimit() {
+    let out = api_design_calc("ratelimit");
+    assert!(
+        out.contains("rate") || out.contains("Rate"),
+        "ratelimit section present"
+    );
+    assert!(
+        out.contains("Token bucket") || out.contains("token bucket") || out.contains("leaky"),
+        "ratelimit has token bucket"
+    );
+    assert!(
+        out.contains("OWASP") || out.contains("owasp"),
+        "ratelimit has OWASP"
+    );
+}
+
+#[test]
+fn api_design_rate_limit_alias() {
+    let out = api_design_calc("rate-limit");
+    assert!(
+        out.contains("rate") || out.contains("Rate"),
+        "rate-limit alias resolves"
+    );
+}
+
+#[test]
+fn api_design_throttle_alias() {
+    let out = api_design_calc("throttle");
+    assert!(
+        out.contains("rate") || out.contains("throttle") || out.contains("limit"),
+        "throttle alias resolves"
+    );
+}
+
+#[test]
+fn api_design_oauth_alias() {
+    let out = api_design_calc("oauth");
+    assert!(
+        out.contains("OAuth") || out.contains("oauth") || out.contains("Bearer"),
+        "oauth alias resolves"
+    );
+}
+
+#[test]
+fn api_design_owasp_alias() {
+    let out = api_design_calc("owasp");
+    assert!(
+        out.contains("OWASP") || out.contains("owasp"),
+        "owasp alias resolves"
+    );
+}
+
+#[test]
+fn api_design_no_panic_special() {
+    let _ = api_design_calc("@#$%");
+    let _ = api_design_calc("   ");
+}
+
+// ── db_design_calc ────────────────────────────────────────────────────────────
+
+#[test]
+fn db_design_help_empty() {
+    let out = db_design_calc("");
+    assert!(
+        out.contains("hematite --db-design"),
+        "help shown for empty query"
+    );
+}
+
+#[test]
+fn db_design_help_unknown() {
+    let out = db_design_calc("zzznomatch");
+    assert!(
+        out.contains("hematite --db-design"),
+        "help shown for unknown"
+    );
+}
+
+#[test]
+fn db_design_all() {
+    let out = db_design_calc("all");
+    assert!(
+        out.contains("1NF") || out.contains("normalization"),
+        "all has normalization"
+    );
+    assert!(
+        out.contains("B-tree") || out.contains("index"),
+        "all has indexes"
+    );
+    assert!(
+        out.contains("ACID") || out.contains("transaction"),
+        "all has transactions"
+    );
+    assert!(
+        out.contains("CAP") || out.contains("distributed"),
+        "all has distributed"
+    );
+}
+
+#[test]
+fn db_design_normalization() {
+    let out = db_design_calc("normalization");
+    assert!(
+        out.contains("1NF") || out.contains("First Normal"),
+        "normalization has 1NF"
+    );
+    assert!(
+        out.contains("3NF") || out.contains("Third Normal"),
+        "normalization has 3NF"
+    );
+    assert!(
+        out.contains("BCNF") || out.contains("Boyce"),
+        "normalization has BCNF"
+    );
+}
+
+#[test]
+fn db_design_1nf_alias() {
+    let out = db_design_calc("1nf");
+    assert!(
+        out.contains("1NF") || out.contains("First Normal"),
+        "1nf alias resolves"
+    );
+}
+
+#[test]
+fn db_design_3nf_alias() {
+    let out = db_design_calc("3nf");
+    assert!(
+        out.contains("3NF") || out.contains("Third Normal"),
+        "3nf alias resolves"
+    );
+}
+
+#[test]
+fn db_design_bcnf_alias() {
+    let out = db_design_calc("bcnf");
+    assert!(
+        out.contains("BCNF") || out.contains("Boyce"),
+        "bcnf alias resolves"
+    );
+}
+
+#[test]
+fn db_design_denormalize_alias() {
+    let out = db_design_calc("denormalize");
+    assert!(
+        out.contains("denormali") || out.contains("OLAP"),
+        "denormalize alias resolves"
+    );
+}
+
+#[test]
+fn db_design_er_alias() {
+    let out = db_design_calc("er");
+    assert!(
+        out.contains("ER") || out.contains("entity") || out.contains("surrogate"),
+        "er alias resolves"
+    );
+}
+
+#[test]
+fn db_design_indexes() {
+    let out = db_design_calc("indexes");
+    assert!(
+        out.contains("B-tree") || out.contains("btree"),
+        "indexes has B-tree"
+    );
+    assert!(
+        out.contains("EXPLAIN") || out.contains("Seq Scan"),
+        "indexes has EXPLAIN"
+    );
+    assert!(
+        out.contains("Covering") || out.contains("covering") || out.contains("Partial"),
+        "indexes has covering/partial"
+    );
+}
+
+#[test]
+fn db_design_index_alias() {
+    let out = db_design_calc("index");
+    assert!(
+        out.contains("B-tree") || out.contains("index"),
+        "index alias resolves"
+    );
+}
+
+#[test]
+fn db_design_explain_alias() {
+    let out = db_design_calc("explain");
+    assert!(
+        out.contains("EXPLAIN") || out.contains("Seq Scan"),
+        "explain alias resolves"
+    );
+}
+
+#[test]
+fn db_design_btree_alias() {
+    let out = db_design_calc("btree");
+    assert!(
+        out.contains("B-tree") || out.contains("btree"),
+        "btree alias resolves"
+    );
+}
+
+#[test]
+fn db_design_gin_alias() {
+    let out = db_design_calc("gin");
+    assert!(
+        out.contains("GIN") || out.contains("gin"),
+        "gin alias resolves"
+    );
+}
+
+#[test]
+fn db_design_vacuum_alias() {
+    let out = db_design_calc("vacuum");
+    assert!(
+        out.contains("VACUUM") || out.contains("vacuum"),
+        "vacuum alias resolves"
+    );
+}
+
+#[test]
+fn db_design_transactions() {
+    let out = db_design_calc("transactions");
+    assert!(
+        out.contains("ACID") || out.contains("Atomicity"),
+        "transactions has ACID"
+    );
+    assert!(
+        out.contains("isolation") || out.contains("Isolation"),
+        "transactions has isolation levels"
+    );
+    assert!(
+        out.contains("deadlock") || out.contains("Deadlock"),
+        "transactions has deadlock"
+    );
+}
+
+#[test]
+fn db_design_transaction_alias() {
+    let out = db_design_calc("transaction");
+    assert!(
+        out.contains("ACID") || out.contains("transaction"),
+        "transaction alias resolves"
+    );
+}
+
+#[test]
+fn db_design_acid_alias() {
+    let out = db_design_calc("acid");
+    assert!(
+        out.contains("ACID") || out.contains("Atomicity"),
+        "acid alias resolves"
+    );
+}
+
+#[test]
+fn db_design_isolation_alias() {
+    let out = db_design_calc("isolation");
+    assert!(
+        out.contains("isolation") || out.contains("Isolation"),
+        "isolation alias resolves"
+    );
+}
+
+#[test]
+fn db_design_deadlock_alias() {
+    let out = db_design_calc("deadlock");
+    assert!(
+        out.contains("deadlock") || out.contains("Deadlock"),
+        "deadlock alias resolves"
+    );
+}
+
+#[test]
+fn db_design_optimistic_alias() {
+    let out = db_design_calc("optimistic");
+    assert!(
+        out.contains("Optimistic") || out.contains("optimistic"),
+        "optimistic alias resolves"
+    );
+}
+
+#[test]
+fn db_design_distributed() {
+    let out = db_design_calc("distributed");
+    assert!(
+        out.contains("CAP") || out.contains("Brewer"),
+        "distributed has CAP"
+    );
+    assert!(
+        out.contains("replication") || out.contains("Replication"),
+        "distributed has replication"
+    );
+    assert!(
+        out.contains("sharding") || out.contains("Sharding"),
+        "distributed has sharding"
+    );
+}
+
+#[test]
+fn db_design_cap_alias() {
+    let out = db_design_calc("cap");
+    assert!(
+        out.contains("CAP") || out.contains("Brewer"),
+        "cap alias resolves"
+    );
+}
+
+#[test]
+fn db_design_replication_alias() {
+    let out = db_design_calc("replication");
+    assert!(
+        out.contains("replication") || out.contains("Replication"),
+        "replication alias resolves"
+    );
+}
+
+#[test]
+fn db_design_sharding_alias() {
+    let out = db_design_calc("sharding");
+    assert!(
+        out.contains("sharding") || out.contains("Sharding"),
+        "sharding alias resolves"
+    );
+}
+
+#[test]
+fn db_design_consistency_alias() {
+    let out = db_design_calc("consistency");
+    assert!(
+        out.contains("consistency") || out.contains("Consistency"),
+        "consistency alias resolves"
+    );
+}
+
+#[test]
+fn db_design_eventual_alias() {
+    let out = db_design_calc("eventual");
+    assert!(
+        out.contains("eventual") || out.contains("Eventual"),
+        "eventual alias resolves"
+    );
+}
+
+#[test]
+fn db_design_nosql() {
+    let out = db_design_calc("nosql");
+    assert!(
+        out.contains("MongoDB") || out.contains("document"),
+        "nosql has document"
+    );
+    assert!(
+        out.contains("Redis") || out.contains("key-value"),
+        "nosql has key-value"
+    );
+    assert!(
+        out.contains("Cassandra") || out.contains("column"),
+        "nosql has column-family"
+    );
+}
+
+#[test]
+fn db_design_mongodb_alias() {
+    let out = db_design_calc("mongodb");
+    assert!(
+        out.contains("MongoDB") || out.contains("document"),
+        "mongodb alias resolves"
+    );
+}
+
+#[test]
+fn db_design_redis_alias() {
+    let out = db_design_calc("redis");
+    assert!(
+        out.contains("Redis") || out.contains("key-value"),
+        "redis alias resolves"
+    );
+}
+
+#[test]
+fn db_design_cassandra_alias() {
+    let out = db_design_calc("cassandra");
+    assert!(
+        out.contains("Cassandra") || out.contains("column"),
+        "cassandra alias resolves"
+    );
+}
+
+#[test]
+fn db_design_elasticsearch_alias() {
+    let out = db_design_calc("elasticsearch");
+    assert!(
+        out.contains("Elasticsearch") || out.contains("inverted index"),
+        "elasticsearch alias resolves"
+    );
+}
+
+#[test]
+fn db_design_dynamodb_alias() {
+    let out = db_design_calc("dynamodb");
+    assert!(
+        out.contains("DynamoDB") || out.contains("dynamodb"),
+        "dynamodb alias resolves"
+    );
+}
+
+#[test]
+fn db_design_migrations() {
+    let out = db_design_calc("migrations");
+    assert!(
+        out.contains("Flyway") || out.contains("Alembic") || out.contains("migration"),
+        "migrations section present"
+    );
+    assert!(
+        out.contains("zero-downtime")
+            || out.contains("zero downtime")
+            || out.contains("CONCURRENTLY"),
+        "migrations has zero-downtime"
+    );
+    assert!(
+        out.contains("backfill") || out.contains("Backfill"),
+        "migrations has backfill"
+    );
+}
+
+#[test]
+fn db_design_migration_alias() {
+    let out = db_design_calc("migration");
+    assert!(
+        out.contains("migration") || out.contains("Migration"),
+        "migration alias resolves"
+    );
+}
+
+#[test]
+fn db_design_flyway_alias() {
+    let out = db_design_calc("flyway");
+    assert!(
+        out.contains("Flyway") || out.contains("flyway"),
+        "flyway alias resolves"
+    );
+}
+
+#[test]
+fn db_design_alembic_alias() {
+    let out = db_design_calc("alembic");
+    assert!(
+        out.contains("Alembic") || out.contains("alembic"),
+        "alembic alias resolves"
+    );
+}
+
+#[test]
+fn db_design_backfill_alias() {
+    let out = db_design_calc("backfill");
+    assert!(
+        out.contains("backfill") || out.contains("Backfill"),
+        "backfill alias resolves"
+    );
+}
+
+#[test]
+fn db_design_backup_alias() {
+    let out = db_design_calc("backup");
+    assert!(
+        out.contains("backup") || out.contains("Backup") || out.contains("pg_dump"),
+        "backup alias resolves"
+    );
+}
+
+#[test]
+fn db_design_zero_downtime_alias() {
+    let out = db_design_calc("zero-downtime");
+    assert!(
+        out.contains("zero-downtime")
+            || out.contains("zero downtime")
+            || out.contains("CONCURRENTLY"),
+        "zero-downtime alias resolves"
+    );
+}
+
+#[test]
+fn db_design_no_panic_special() {
+    let _ = db_design_calc("@#$%");
+    let _ = db_design_calc("   ");
 }

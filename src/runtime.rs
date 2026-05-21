@@ -1091,6 +1091,9 @@ mod tests {
             http_headers: None,
             crypto_ref: None,
             devops_ref: None,
+            linux_sys: None,
+            api_design: None,
+            db_design: None,
             pdf_extract_helper: None,
             teleported_from: None,
         };
