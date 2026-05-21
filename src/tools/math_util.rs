@@ -37365,3 +37365,631 @@ pub fn oop_ref_calc(query: &str) -> String {
     }
     out
 }
+
+// ─── Wave 24: typescript-adv, bash-adv, network-ref, unicode-ref ──────────────
+
+pub fn typescript_adv_calc(query: &str) -> String {
+    use std::fmt::Write as _;
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+
+    fn s_generics() -> &'static str {
+        "  TypeScript generics:\n\n  Generic function:\n  function identity<T>(arg: T): T { return arg; }\n  function first<T>(arr: T[]): T | undefined { return arr[0]; }\n\n  Constraints:\n  function getLength<T extends { length: number }>(arg: T): number {\n      return arg.length;\n  }\n  function getProperty<T, K extends keyof T>(obj: T, key: K): T[K] {\n      return obj[key];\n  }\n\n  Multiple type params:\n  function zip<A, B>(a: A[], b: B[]): [A, B][] {\n      return a.map((x, i) => [x, b[i]]);\n  }\n\n  Generic interfaces:\n  interface Repository<T, ID = string> {\n      findById(id: ID): Promise<T | null>;\n      save(entity: T): Promise<T>;\n      delete(id: ID): Promise<void>;\n  }\n\n  Generic classes:\n  class Stack<T> {\n      private items: T[] = [];\n      push(item: T): void { this.items.push(item); }\n      pop(): T | undefined { return this.items.pop(); }\n  }\n\n  Default type parameters:\n  interface ApiResponse<T = unknown> { data: T; status: number; }\n  type Result<T, E = Error> = { ok: true; value: T } | { ok: false; error: E };\n\n  Type inference with generics:\n  const nums = identity([1, 2, 3]);  // inferred: number[]\n  const pair = zip(['a'], [1]);       // inferred: [string, number][]\n\n  Variance (TypeScript is structurally typed):\n  // Covariant: T used only in output (read) positions — safe to widen\n  // Contravariant: T used only in input (write) positions — reverse subtyping\n  // Invariant: T in both positions — must match exactly\n  // TypeScript doesn't enforce variance annotations (unlike Kotlin/Scala)\n"
+    }
+    fn s_utility_types() -> &'static str {
+        "  Built-in utility types:\n\n  Partial<T>         All properties optional\n  Required<T>        All properties required\n  Readonly<T>        All properties readonly\n  Record<K, V>       Object type with keys K and values V\n  Pick<T, K>         Keep only keys K from T\n  Omit<T, K>         Remove keys K from T\n  Exclude<T, U>      From union T, remove types assignable to U\n  Extract<T, U>      From union T, keep types assignable to U\n  NonNullable<T>     Remove null and undefined from T\n  ReturnType<F>      Return type of function F\n  Parameters<F>      Parameter types of F as tuple\n  ConstructorParameters<C>  Constructor params as tuple\n  InstanceType<C>    Instance type of constructor C\n  Awaited<T>         Unwrap Promise<T> -> T (recursive)\n  ThisType<T>        Sets 'this' type in object literal\n\n  Examples:\n  type User = { id: number; name: string; email: string };\n  type UserPreview = Pick<User, 'id' | 'name'>;      // { id; name }\n  type UserUpdate = Partial<Omit<User, 'id'>>;       // { name?; email? }\n  type Flags = Record<string, boolean>;              // { [k: string]: boolean }\n\n  type Action = 'read' | 'write' | 'delete';\n  type SafeAction = Exclude<Action, 'delete'>;       // 'read' | 'write'\n  type AdminOnly = Extract<Action, 'write' | 'delete'>; // 'write' | 'delete'\n\n  type AsyncFn = () => Promise<string>;\n  type Result = Awaited<ReturnType<AsyncFn>>;        // string\n\n  type ApiParams = Parameters<typeof fetch>;         // [input: RequestInfo, init?: RequestInit]\n\n  Deep partial (custom utility):\n  type DeepPartial<T> = T extends object\n      ? { [P in keyof T]?: DeepPartial<T[P]> }\n      : T;\n"
+    }
+    fn s_conditional() -> &'static str {
+        "  Conditional and template literal types:\n\n  Conditional types:\n  T extends U ? TrueType : FalseType\n\n  type IsString<T> = T extends string ? true : false;\n  type Flatten<T> = T extends Array<infer Item> ? Item : T;\n  // Flatten<number[]> = number;  Flatten<string> = string\n\n  infer — extract type in conditional:\n  type UnpackPromise<T> = T extends Promise<infer U> ? U : T;\n  type FirstArg<T> = T extends (first: infer F, ...rest: any[]) => any ? F : never;\n  type UnwrapArray<T> = T extends (infer E)[] ? E : T;\n\n  Distributive conditional types (auto-distributes over unions):\n  type ToArray<T> = T extends any ? T[] : never;\n  ToArray<string | number>  // string[] | number[]  (not (string|number)[])\n  // Wrap in tuple to prevent distribution:\n  type ToArray2<T> = [T] extends [any] ? T[] : never;\n  ToArray2<string | number>  // (string | number)[]\n\n  Template literal types:\n  type EventName = 'click' | 'focus' | 'blur';\n  type Handler = `on${Capitalize<EventName>}`;  // 'onClick' | 'onFocus' | 'onBlur'\n  type Getter<T extends string> = `get${Capitalize<T>}`;\n  type CSSUnit = `${number}px` | `${number}rem` | `${number}%`;\n\n  String manipulation types:\n  Uppercase<S>  Lowercase<S>  Capitalize<S>  Uncapitalize<S>\n\n  Recursive type aliases:\n  type JSONValue =\n      | string | number | boolean | null\n      | JSONValue[]\n      | { [key: string]: JSONValue };\n\n  type Path<T, K extends keyof T = keyof T> =\n      K extends string\n          ? T[K] extends Record<string, any>\n              ? `${K}.${Path<T[K]>}` | K\n              : K\n          : never;\n"
+    }
+    fn s_mapped() -> &'static str {
+        "  Mapped types:\n\n  Basic form:\n  type Optional<T> = { [K in keyof T]?: T[K] };\n  type Mutable<T> = { -readonly [K in keyof T]: T[K] };\n  type Nullable<T> = { [K in keyof T]: T[K] | null };\n\n  Modifiers:\n  [K in keyof T]?:     Add optional modifier\n  [K in keyof T]-?:    Remove optional modifier (Required)\n  readonly [K in keyof T]:   Add readonly\n  -readonly [K in keyof T]:  Remove readonly\n\n  Key remapping via 'as':\n  type Getters<T> = {\n      [K in keyof T as `get${Capitalize<string & K>}`]: () => T[K]\n  };\n  // Getters<{name: string}> = { getName: () => string }\n\n  Filter keys with 'as never':\n  type OnlyStrings<T> = {\n      [K in keyof T as T[K] extends string ? K : never]: T[K]\n  };\n\n  Mapped type with union:\n  type EventMap = {\n      [E in 'click' | 'focus' | 'blur']: (e: Event) => void\n  };\n\n  Common patterns:\n  // Deep readonly\n  type DeepReadonly<T> = {\n      readonly [K in keyof T]: T[K] extends object ? DeepReadonly<T[K]> : T[K]\n  };\n\n  // Typed event emitter\n  type EventHandlers<Events extends Record<string, any>> = {\n      [K in keyof Events as `on${Capitalize<string & K>}`]?: (payload: Events[K]) => void\n  };\n\n  Index signatures in mapped types:\n  type Dict<T> = { [key: string]: T };    // index signature\n  type ReadonlyDict<T> = Readonly<Dict<T>>;\n\n  Homomorphic vs non-homomorphic:\n  Homomorphic: [K in keyof T]  — preserves modifiers from T\n  Non-homomorphic: [K in string]  — doesn't preserve modifiers\n"
+    }
+    fn s_decorators() -> &'static str {
+        "  Decorators (enable experimentalDecorators in tsconfig):\n\n  Class decorator:\n  function sealed(constructor: Function) {\n      Object.seal(constructor);\n      Object.seal(constructor.prototype);\n  }\n  @sealed class BugReport { ... }\n\n  Method decorator:\n  function log(target: any, key: string, descriptor: PropertyDescriptor) {\n      const original = descriptor.value;\n      descriptor.value = function(...args: any[]) {\n          console.log(`Calling ${key}`);\n          return original.apply(this, args);\n      };\n      return descriptor;\n  }\n  class MyClass { @log greet() { return 'hi'; } }\n\n  Property decorator:\n  function required(target: any, key: string) {\n      // Metadata: mark property as required for validation\n      Reflect.defineMetadata('required', true, target, key);\n  }\n  class User { @required name!: string; }\n\n  Parameter decorator:\n  function inject(token: string) {\n      return (target: any, key: string | undefined, idx: number) => {\n          Reflect.defineMetadata(`inject:${idx}`, token, target);\n      };\n  }\n\n  Decorator factories (return a decorator):\n  function MinLength(min: number) {\n      return function(target: any, key: string) {\n          // validation logic\n      };\n  }\n  class Form { @MinLength(3) username!: string; }\n\n  Decorator order:\n  Evaluation top-to-bottom; execution bottom-to-top (inner first).\n  @A @B class Foo {}  — B's decorator runs before A's.\n\n  TypeScript 5 decorators (Stage 3, no experimentalDecorators needed):\n  function logged<T extends (...args: any[]) => any>(fn: T, ctx: ClassMethodDecoratorContext): T {\n      return function(this: any, ...args) { console.log(ctx.name); return fn.call(this, ...args); } as T;\n  }\n  class C { @logged greet() {} }\n"
+    }
+    fn s_modules() -> &'static str {
+        "  Modules, declarations, and module augmentation:\n\n  Declaration files (.d.ts):\n  declare module 'my-lib' {\n      export function doThing(x: string): number;\n      export interface Options { timeout: number; }\n      export default class MyLib { ... }\n  }\n\n  Ambient declarations (for JS files without types):\n  declare const __DEV__: boolean;\n  declare function require(module: string): any;\n  declare class MyJSClass { method(): void; }\n\n  Module augmentation (extend existing module):\n  import 'express';\n  declare module 'express' {\n      interface Request { user?: { id: string; role: string }; }\n  }\n  // Now req.user is typed in all Express route handlers\n\n  Global augmentation:\n  declare global {\n      interface Window { analytics: Analytics; }\n      interface Array<T> { first(): T | undefined; }\n  }\n\n  Namespaces (legacy — prefer ES modules):\n  namespace Validation {\n      export interface StringValidator { isAcceptable(s: string): boolean; }\n      export class LettersOnlyValidator implements StringValidator { ... }\n  }\n\n  tsconfig.json key settings:\n  {\n    \"compilerOptions\": {\n      \"strict\": true,          // enables all strict checks\n      \"noUncheckedIndexedAccess\": true,  // arr[0] is T | undefined\n      \"exactOptionalPropertyTypes\": true,  // {x?: string} doesn't allow x: undefined\n      \"target\": \"ES2022\",\n      \"moduleResolution\": \"bundler\",   // Vite/webpack; or \"node16\" for Node\n      \"paths\": { \"@/*\": [\"./src/*\"] },   // path aliases\n      \"baseUrl\": \".\"\n    }\n  }\n\n  satisfies operator (TS 4.9+):\n  const config = {\n      port: 3000,\n      host: 'localhost',\n  } satisfies Record<string, string | number>;\n  // Preserves literal types while checking against the type\n"
+    }
+
+    type TsAdvSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+    const SECTIONS: &[TsAdvSection] = &[
+        (
+            "generics",
+            &[
+                "generic",
+                "generics",
+                "constraint",
+                "infer",
+                "keyof",
+                "extends",
+            ],
+            s_generics,
+        ),
+        (
+            "utility",
+            &[
+                "utility",
+                "partial",
+                "required",
+                "pick",
+                "omit",
+                "record",
+                "returntype",
+            ],
+            s_utility_types,
+        ),
+        (
+            "conditional",
+            &[
+                "conditional",
+                "infer",
+                "distributive",
+                "template-literal",
+                "recursive",
+            ],
+            s_conditional,
+        ),
+        (
+            "mapped",
+            &[
+                "mapped",
+                "modifiers",
+                "remap",
+                "readonly-mod",
+                "filter-keys",
+            ],
+            s_mapped,
+        ),
+        (
+            "decorators",
+            &[
+                "decorator",
+                "decorators",
+                "metadata",
+                "reflect",
+                "property-dec",
+            ],
+            s_decorators,
+        ),
+        (
+            "modules",
+            &[
+                "module",
+                "declaration",
+                "ambient",
+                "augmentation",
+                "namespace",
+                "tsconfig",
+            ],
+            s_modules,
+        ),
+    ];
+
+    let q = query.trim().to_lowercase();
+
+    if q.is_empty() || q == "help" || q == "list" {
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  hematite --typescript-adv <TOPIC>");
+        let _ = writeln!(out, "  Offline advanced TypeScript reference — generics, utility types, conditional, mapped, decorators");
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  Topics:");
+        for &(name, aliases, _) in SECTIONS {
+            let _ = writeln!(out, "    {name:<12} ({})", aliases.join(", "));
+        }
+        let _ = writeln!(
+            out,
+            "\n  hematite --typescript-adv all   -- print everything"
+        );
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    if q == "all" {
+        let _ = writeln!(out, "{sep}");
+        for &(name, _, f) in SECTIONS {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+            let _ = writeln!(out, "");
+        }
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    let found: Vec<_> = SECTIONS
+        .iter()
+        .filter(|&&(name, aliases, _)| {
+            name.contains(q.as_str())
+                || aliases
+                    .iter()
+                    .any(|&a| a.contains(q.as_str()) || q.contains(a))
+        })
+        .collect();
+
+    if found.is_empty() {
+        let _ = writeln!(out, "  No topic found for '{}'.", query.trim());
+        let _ = writeln!(out, "  Run: hematite --typescript-adv help");
+    } else {
+        let _ = writeln!(out, "{sep}");
+        for &&(name, _, f) in &found {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+        }
+        let _ = writeln!(out, "{sep}");
+    }
+    out
+}
+
+pub fn bash_adv_calc(query: &str) -> String {
+    use std::fmt::Write as _;
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+
+    fn s_arrays() -> &'static str {
+        "  Bash arrays:\n\n  Indexed arrays:\n  arr=(one two three)\n  arr[0]='one'\n  arr+=(four five)            Append elements\n  echo ${arr[0]}              First element\n  echo ${arr[-1]}             Last element\n  echo ${arr[@]}              All elements\n  echo ${arr[*]}              All elements (quoted diff: one string vs words)\n  echo ${#arr[@]}             Length\n  echo ${arr[@]:1:2}          Slice: offset 1, length 2\n  unset arr[2]                Delete element (creates sparse array)\n  arr=( \"${arr[@]/old/new}\" ) Replace in all elements\n\n  Loops:\n  for elem in \"${arr[@]}\"; do echo \"$elem\"; done\n  for i in \"${!arr[@]}\"; do echo \"$i: ${arr[$i]}\"; done  # with index\n\n  Associative arrays (bash 4+):\n  declare -A map\n  map[key]='value'\n  map=([name]='Alice' [age]='30')\n  echo ${map[name]}\n  echo ${!map[@]}             All keys\n  echo ${map[@]}              All values\n  for key in \"${!map[@]}\"; do echo \"$key=${map[$key]}\"; done\n  [[ -v map[key] ]]           Test if key exists\n  unset map[key]              Remove key\n\n  Array tricks:\n  # Read lines into array\n  mapfile -t lines < file.txt\n  readarray -t lines < file.txt    # same\n  IFS=$'\\n' read -r -d '' -a lines < file.txt\n\n  # Command output to array\n  files=($(ls *.txt))\n  mapfile -t files < <(find . -name '*.txt')\n\n  # Join with separator\n  IFS=','; joined=\"${arr[*]}\"; unset IFS\n\n  # Sorted array\n  sorted=($(printf '%s\\n' \"${arr[@]}\" | sort))\n"
+    }
+    fn s_strings() -> &'static str {
+        "  Bash string manipulation (parameter expansion):\n\n  Length:\n  ${#var}            Length of var\n\n  Substring:\n  ${var:offset}      From offset to end\n  ${var:offset:len}  Substring at offset, length len\n  ${var: -3}         Last 3 chars (space before - required)\n\n  Remove prefix/suffix:\n  ${var#pattern}     Remove shortest prefix match\n  ${var##pattern}    Remove longest prefix match (greedy)\n  ${var%pattern}     Remove shortest suffix match\n  ${var%%pattern}    Remove longest suffix match (greedy)\n  ${path##*/}        Filename from path (like basename)\n  ${path%/*}         Directory from path (like dirname)\n  ${file%.*}         Strip extension\n  ${file##*.}        Extension only\n\n  Replace:\n  ${var/old/new}     Replace first match\n  ${var//old/new}    Replace all matches\n  ${var/#old/new}    Replace if at start\n  ${var/%old/new}    Replace if at end\n\n  Case conversion (bash 4+):\n  ${var^}            Uppercase first char\n  ${var^^}           Uppercase all\n  ${var,}            Lowercase first char\n  ${var,,}           Lowercase all\n\n  Default values:\n  ${var:-default}    Use default if var unset or empty\n  ${var:=default}    Assign default if var unset or empty\n  ${var:+other}      Use other if var IS set (reverse default)\n  ${var:?error msg}  Exit with error if unset or empty\n\n  Indirect expansion:\n  name='PATH'; echo ${!name}   # prints value of PATH\n\n  String comparisons:\n  [[ \"$a\" == \"$b\" ]]       Equal\n  [[ \"$a\" != \"$b\" ]]       Not equal\n  [[ \"$a\" < \"$b\" ]]        Less than (lexicographic)\n  [[ \"$a\" =~ ^[0-9]+$ ]]   Regex match (no quotes on pattern)\n  [[ -z \"$a\" ]]            Zero-length (empty or unset)\n  [[ -n \"$a\" ]]            Non-zero-length\n"
+    }
+    fn s_arithmetic() -> &'static str {
+        "  Bash arithmetic:\n\n  Integer arithmetic:\n  (( x = 5 + 3 ))         Arithmetic assignment\n  (( x++ ))               Increment\n  (( x += 5 ))\n  result=$(( 10 * 3 ))    Capture result\n  echo $(( 2 ** 8 ))      Exponentiation: 256\n  echo $(( 15 % 4 ))      Modulo: 3\n  (( 5 > 3 )) && echo yes  Comparison (0=true in (()))\n  (( x = condition ? a : b ))  Ternary\n\n  Operators: + - * / % ** ++ -- << >> & | ^ ~ ! && ||\n  Bitwise: & | ^ ~ << >>\n  (( x = 0xFF & 0x0F ))   bitwise AND\n\n  let command (older style):\n  let \"x = 5 * 3\"\n  let x++\n\n  declare -i (integer type):\n  declare -i count=0\n  count+=1      # arithmetic auto-applied without $(())\n\n  Floating-point (bc or awk — bash itself is integers only):\n  result=$(echo '3.14 * 2' | bc -l)\n  result=$(awk 'BEGIN { printf \"%.2f\", 3.14 * 2 }')\n  result=$(python3 -c 'print(3.14 * 2)')\n\n  printf formatting:\n  printf '%d\\n' 42          Integer\n  printf '%.2f\\n' 3.14159   Float with 2 decimals\n  printf '%05d\\n' 42        Zero-padded: 00042\n  printf '%10s\\n' hello     Right-aligned in 10 chars\n  printf '%-10s|\\n' hello   Left-aligned\n  printf '%x\\n' 255         Hex: ff\n  printf '%o\\n' 8           Octal: 10\n  printf '%b\\n' '\\101'      Octal escape: A\n"
+    }
+    fn s_substitution() -> &'static str {
+        "  Process and command substitution:\n\n  Command substitution:\n  result=$(command)          Modern syntax (preferred)\n  result=`command`           Legacy backtick (avoid nesting issues)\n  files=$(find . -name '*.py' | sort)\n  count=$(wc -l < file.txt)\n\n  Process substitution (bash/zsh only):\n  <(command)   Treats command output as a file (readable fd)\n  >(command)   Treats a file-like input for a command\n\n  diff <(sort file1) <(sort file2)    Diff sorted versions without temp files\n  while IFS= read -r line; do ...     Safe line reading\n  done < <(find . -name '*.txt')\n  tee >(gzip > out.gz) >(wc -l) > /dev/null  Fan-out to multiple commands\n\n  Here-documents:\n  cat <<'EOF'              Single-quoted: no variable expansion\n  This is literal $var\n  EOF\n\n  cat <<EOF                Double-quoted (default): variables expand\n  Hello $USER\n  EOF\n\n  cat <<-EOF               Strip leading tabs (not spaces)\n      Indented line\n  EOF\n\n  ssh user@host <<'ENDSSH'\n  hostname\n  uptime\n  ENDSSH\n\n  Here-strings:\n  read -r a b c <<< 'one two three'    Split string into variables\n  grep 'pattern' <<< \"$variable\"       Avoid echo | grep\n  while IFS= read -r line; do ...      Process variable line-by-line\n  done <<< \"$multiline_var\"\n\n  Pipelines and subshells:\n  ( cd /tmp && ls )         Run in subshell (no effect on parent)\n  { cmd1; cmd2; }           Run in current shell (semicolon+space required)\n  cmd1 | cmd2 | cmd3        Each command in its own subshell (except last in bash 4.2-)\n  lastpipe option: shopt -s lastpipe  (last pipe runs in current shell)\n"
+    }
+    fn s_traps() -> &'static str {
+        "  Traps and signal handling:\n\n  Syntax: trap 'commands' SIGNAL [SIGNAL...]\n\n  Signals:\n  EXIT     Fires when script exits (any reason) — use for cleanup\n  ERR      Fires on any command error (non-zero exit) — use for error handling\n  INT      Ctrl+C (SIGINT)\n  TERM     kill default signal (SIGTERM)\n  HUP      Terminal closed (SIGHUP)\n  DEBUG    Fires before every command — use for tracing\n  RETURN   Fires on return from a function or sourced file\n\n  Cleanup pattern:\n  tmpfile=$(mktemp)\n  trap 'rm -f \"$tmpfile\"' EXIT\n  trap 'echo \"Interrupted\"; exit 130' INT TERM\n\n  Error handling:\n  set -euo pipefail       # Recommended strict mode\n  # -e: exit on error    -u: error on unset var    -o pipefail: pipe fails on any error\n  trap 'echo \"Error on line $LINENO\"' ERR\n\n  Stack trace on error:\n  trap 'echo \"Error at line $LINENO in ${FUNCNAME[*]}\"' ERR\n\n  Ignore signals:\n  trap '' INT           # Ignore Ctrl+C\n  trap - INT            # Reset to default handler\n\n  Nested trap (save and restore):\n  old_trap=$(trap -p INT)\n  trap 'my_handler' INT\n  # ... do work ...\n  eval \"$old_trap\"      # Restore original\n\n  Debugging:\n  set -x    # Print each command before executing (xtrace)\n  set +x    # Turn off xtrace\n  trap 'echo \"DBG:$LINENO: $BASH_COMMAND\" >&2' DEBUG\n  bash -x script.sh    # Run entire script in xtrace mode\n  BASH_XTRACEFD=3 bash -x script.sh 3>trace.log  # Send trace to file\n"
+    }
+    fn s_patterns_bash() -> &'static str {
+        "  Globbing and patterns:\n\n  Basic globs:\n  *        Any string (zero or more chars)\n  ?        Any single character\n  [abc]    Any char in set\n  [a-z]    Any char in range\n  [!abc]   Any char NOT in set\n\n  Extended globs (shopt -s extglob):\n  ?(pattern)  Zero or one match\n  *(pattern)  Zero or more matches\n  +(pattern)  One or more matches\n  @(pattern)  Exactly one match\n  !(pattern)  Anything that does NOT match\n\n  ls !(*.log)          All files except .log files\n  rm +(file).txt       Delete file.txt, file.txt... etc.\n  case \"$x\" in @(yes|no)) ...  # match yes or no exactly\n\n  Globstar (shopt -s globstar):\n  **       Matches any number of directories recursively\n  ls **/*.py          All .py files at any depth\n  cp **/*.conf /dest/ Recursively copy configs\n\n  Null glob (shopt -s nullglob):\n  shopt -s nullglob\n  files=(*.txt)     # Empty array if no .txt files (not literal '*.txt')\n  shopt -u nullglob\n\n  Failglob (shopt -s failglob):\n  Unmatched glob causes error instead of literal string.\n\n  Brace expansion:\n  echo {a,b,c}         a b c\n  echo {1..5}          1 2 3 4 5\n  echo {01..10}        01 02 03 ... 10 (zero-padded)\n  echo {a..z}          a b c ... z\n  echo {1..10..2}      1 3 5 7 9 (step)\n  mkdir -p src/{main,test}/{java,resources}\n  cp file.conf{,.bak}  Backup: file.conf and file.conf.bak\n\n  Useful shopt settings:\n  shopt -s cdspell      Fix minor typos in cd\n  shopt -s autocd       Type directory name to cd into it\n  shopt -s dotglob      Globs match dotfiles\n  shopt -s nocaseglob   Case-insensitive globbing\n  shopt -s histappend   Append to history instead of overwrite\n"
+    }
+
+    type BashAdvSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+    const SECTIONS: &[BashAdvSection] = &[
+        (
+            "arrays",
+            &[
+                "array",
+                "arrays",
+                "associative",
+                "mapfile",
+                "readarray",
+                "indexed",
+            ],
+            s_arrays,
+        ),
+        (
+            "strings",
+            &[
+                "string",
+                "strings",
+                "expansion",
+                "substring",
+                "replace",
+                "case-mod",
+            ],
+            s_strings,
+        ),
+        (
+            "arithmetic",
+            &[
+                "arithmetic",
+                "integer",
+                "math",
+                "printf",
+                "bc",
+                "bitwise",
+                "let",
+            ],
+            s_arithmetic,
+        ),
+        (
+            "substitution",
+            &[
+                "substitution",
+                "process-sub",
+                "heredoc",
+                "here-string",
+                "pipeline",
+            ],
+            s_substitution,
+        ),
+        (
+            "traps",
+            &[
+                "trap",
+                "traps",
+                "signal",
+                "exit-hook",
+                "debug",
+                "pipefail",
+                "strict",
+            ],
+            s_traps,
+        ),
+        (
+            "patterns",
+            &[
+                "glob", "pattern", "extglob", "brace", "globstar", "nullglob", "shopt",
+            ],
+            s_patterns_bash,
+        ),
+    ];
+
+    let q = query.trim().to_lowercase();
+
+    if q.is_empty() || q == "help" || q == "list" {
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  hematite --bash-adv <TOPIC>");
+        let _ = writeln!(out, "  Offline advanced Bash scripting reference");
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  Topics:");
+        for &(name, aliases, _) in SECTIONS {
+            let _ = writeln!(out, "    {name:<12} ({})", aliases.join(", "));
+        }
+        let _ = writeln!(out, "\n  hematite --bash-adv all   -- print everything");
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    if q == "all" {
+        let _ = writeln!(out, "{sep}");
+        for &(name, _, f) in SECTIONS {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+            let _ = writeln!(out, "");
+        }
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    let found: Vec<_> = SECTIONS
+        .iter()
+        .filter(|&&(name, aliases, _)| {
+            name.contains(q.as_str())
+                || aliases
+                    .iter()
+                    .any(|&a| a.contains(q.as_str()) || q.contains(a))
+        })
+        .collect();
+
+    if found.is_empty() {
+        let _ = writeln!(out, "  No topic found for '{}'.", query.trim());
+        let _ = writeln!(out, "  Run: hematite --bash-adv help");
+    } else {
+        let _ = writeln!(out, "{sep}");
+        for &&(name, _, f) in &found {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+        }
+        let _ = writeln!(out, "{sep}");
+    }
+    out
+}
+
+pub fn network_ref_calc(query: &str) -> String {
+    use std::fmt::Write as _;
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+
+    fn s_osi() -> &'static str {
+        "  OSI model (7 layers):\n\n  7  Application   HTTP HTTPS FTP SMTP IMAP DNS SNMP RDP SSH\n  6  Presentation  TLS/SSL encryption, MIME, data encoding/compression\n  5  Session        NetBIOS, RPC, authentication session establishment\n  4  Transport      TCP UDP SCTP — segments, port numbers, reliability\n  3  Network        IP ICMP OSPF BGP — packets, routing, IP addresses\n  2  Data Link      Ethernet WiFi ARP — frames, MAC addresses, switches\n  1  Physical       Cables, hubs, signals, bits on the wire\n\n  TCP/IP model (4 layers — practical):\n  Application   = OSI 5+6+7\n  Transport     = OSI 4 (TCP/UDP)\n  Internet      = OSI 3 (IP)\n  Network Access= OSI 1+2\n\n  Key protocol locations:\n  NAT/PAT       L3/L4 boundary (IP + port translation)\n  Firewall      L3/L4 (packet filter) or L7 (application)\n  Load balancer L4 (TCP/UDP) or L7 (HTTP)\n  VPN           L2 (L2TP), L3 (IPSec/OpenVPN), L4 (TLS-based)\n  Proxy         L7 (HTTP/SOCKS — sees full request)\n  Bridge/Switch L2 (uses MAC table)\n  Router        L3 (uses routing table)\n\n  Common port numbers:\n  20/21  FTP data/control    22  SSH        23  Telnet\n  25  SMTP                   53  DNS        67/68  DHCP\n  80  HTTP                   110 POP3       143 IMAP\n  389 LDAP                   443 HTTPS      445 SMB\n  465 SMTPS                  587 SMTP-TLS   636 LDAPS\n  993 IMAPS                  995 POP3S     1194 OpenVPN\n  1433 MSSQL                1521 Oracle    3306 MySQL\n  3389 RDP                  5432 Postgres  5900 VNC\n  6379 Redis                8080 HTTP-alt  8443 HTTPS-alt\n  27017 MongoDB\n"
+    }
+    fn s_tcp_ip() -> &'static str {
+        "  TCP / UDP / ICMP:\n\n  TCP 3-way handshake:\n  Client -> Server: SYN  (seq=x)\n  Server -> Client: SYN-ACK  (seq=y, ack=x+1)\n  Client -> Server: ACK  (ack=y+1)\n  Connection established. Data transfer begins.\n\n  TCP 4-way teardown:\n  Active -> Passive: FIN\n  Passive -> Active: ACK\n  Passive -> Active: FIN\n  Active -> Passive: ACK  (then TIME_WAIT 2*MSL)\n\n  TCP flags:\n  SYN  Synchronize (start connection)\n  ACK  Acknowledge\n  FIN  Finish (close connection)\n  RST  Reset (abort connection)\n  PSH  Push (don't buffer, send immediately)\n  URG  Urgent data\n\n  TCP states:\n  LISTEN -> SYN_RCVD -> ESTABLISHED -> FIN_WAIT_1 -> FIN_WAIT_2 -> TIME_WAIT -> CLOSED\n  Client ESTABLISHED -> CLOSE_WAIT -> LAST_ACK -> CLOSED\n\n  TCP features:\n  Reliable delivery: sequence numbers + ACKs + retransmit\n  Flow control: receiver window (rwnd) — receiver can slow sender\n  Congestion control: cwnd — sender slows when network congests\n  Nagle algorithm: coalesce small packets (disable with TCP_NODELAY)\n  TCP_QUICKACK: disable delayed ACKs for interactive apps\n\n  UDP:\n  Connectionless, no handshake, no reliability, no ordering.\n  Lower overhead; good for: DNS, DHCP, VoIP, gaming, video streaming.\n  UDP with reliability on top: QUIC (HTTP/3), DTLS, WebRTC.\n\n  ICMP:\n  Type 0: Echo Reply (ping response)\n  Type 3: Destination Unreachable (Code 0=net, 1=host, 3=port, 4=frag needed)\n  Type 8: Echo Request (ping)\n  Type 11: Time Exceeded (TTL expired — used by traceroute)\n  Type 12: Parameter Problem\n  ping uses ICMP type 8/0; traceroute exploits type 11 with increasing TTL.\n"
+    }
+    fn s_subnetting() -> &'static str {
+        "  Subnetting and CIDR:\n\n  CIDR notation: IP/prefix  e.g. 192.168.1.0/24\n  Prefix = number of network bits; host bits = 32 - prefix\n  Host count = 2^(32-prefix) - 2  (subtract network + broadcast)\n\n  Common subnet sizes:\n  /8   255.0.0.0       16,777,214 hosts   Class A\n  /16  255.255.0.0        65,534 hosts    Class B\n  /24  255.255.255.0         254 hosts    Class C (most common)\n  /25  255.255.255.128       126 hosts\n  /26  255.255.255.192        62 hosts\n  /27  255.255.255.224        30 hosts\n  /28  255.255.255.240        14 hosts\n  /29  255.255.255.248         6 hosts\n  /30  255.255.255.252         2 hosts    (point-to-point links)\n  /31  255.255.255.254         2 hosts    (RFC 3021, no broadcast)\n  /32  255.255.255.255         1 host     (loopback, single host route)\n\n  Private ranges (RFC 1918):\n  10.0.0.0/8         10.x.x.x           Class A private\n  172.16.0.0/12      172.16.x.x - 172.31.x.x\n  192.168.0.0/16     192.168.x.x        Most home/office networks\n  127.0.0.0/8        Loopback\n  169.254.0.0/16     APIPA (link-local, DHCP failure)\n\n  IPv6 quick reference:\n  128-bit address; 8 groups of 4 hex digits: 2001:0db8:85a3::8a2e:0370:7334\n  ::  compress consecutive zero groups (once per address)\n  /64  Standard subnet prefix (last 64 bits = interface ID)\n  ::1            IPv6 loopback (= 127.0.0.1)\n  fe80::/10      Link-local\n  fc00::/7       Unique local (= private RFC 1918)\n  2001:db8::/32  Documentation range\n  ff00::/8       Multicast\n\n  Calculate subnet:\n  192.168.1.200/26\n  Block size = 256-192 = 64\n  Subnets: .0-.63, .64-.127, .128-.191, .192-.255\n  .200 is in .192-.255: network=.192, broadcast=.255, hosts=.193-.254\n"
+    }
+    fn s_dns() -> &'static str {
+        "  DNS record types:\n  A       IPv4 address (hostname -> 192.168.1.1)\n  AAAA    IPv6 address (hostname -> 2001:db8::1)\n  CNAME   Canonical name alias (www -> example.com)\n  MX      Mail exchange (priority + hostname)\n  TXT     Arbitrary text (SPF, DKIM, DMARC, verification)\n  NS      Name server (delegates zone to server)\n  SOA     Start of Authority (zone metadata, serial, TTL)\n  PTR     Reverse DNS (IP -> hostname, in-addr.arpa)\n  SRV     Service locator (_service._proto.domain priority weight port target)\n  CAA     Cert Authority Authorization (which CAs may issue)\n  TLSA    DANE (TLS cert pinning via DNS)\n  SSHFP   SSH host key fingerprint\n  NAPTR   Name Authority Pointer (SIP/VoIP)\n\n  SPF / DKIM / DMARC (email anti-spoofing):\n  SPF TXT:   v=spf1 include:_spf.google.com ~all\n  DKIM TXT:  v=DKIM1; k=rsa; p=<public key>\n  DMARC TXT: v=DMARC1; p=quarantine; rua=mailto:dmarc@example.com\n\n  DNS resolution process:\n  1. Browser/OS cache\n  2. /etc/hosts (or C:\\Windows\\System32\\drivers\\etc\\hosts)\n  3. Recursive resolver (ISP or 1.1.1.1 / 8.8.8.8)\n  4. Root nameservers (13 root clusters, A-M)\n  5. TLD nameservers (.com, .org, .net, etc.)\n  6. Authoritative nameserver (returns final answer)\n\n  DNS tools:\n  dig example.com A               Query A record\n  dig @8.8.8.8 example.com MX     Query via specific resolver\n  dig +short example.com          Short output\n  dig -x 1.1.1.1                  Reverse lookup (PTR)\n  dig +trace example.com          Full resolution trace\n  nslookup example.com\n  host example.com\n  resolvectl query example.com    (systemd-resolved)\n\n  TTL strategy:\n  Normal operation: 3600-86400 (1h-24h) — reduces load\n  Before DNS change: lower to 300 (5min) so propagation is fast\n  After change confirmed: raise back to 3600+\n"
+    }
+    fn s_tls() -> &'static str {
+        "  TLS / HTTPS:\n\n  TLS 1.3 handshake (simplified):\n  1. Client Hello: TLS version, cipher suites, client random, key_share\n  2. Server Hello: chosen cipher, server random, key_share + certificate + Finished\n  3. Client: verify cert chain, send Finished\n  4. Encrypted application data flows (1-RTT)\n  TLS 1.3 0-RTT: Client can send data with first flight (replay risk)\n\n  Certificate chain:\n  Root CA -> Intermediate CA -> Leaf Certificate (your domain)\n  Browser trusts root CAs (built into OS/browser trust store)\n  Intermediate certs must be served by the server (not auto-fetched)\n  Verify chain: openssl verify -CAfile ca-bundle.crt cert.pem\n\n  Key certificate fields:\n  Subject:     CN=example.com, O=Company, C=US\n  SAN:         Subject Alternative Names (actual hostnames validated)\n  Issuer:      Who signed it\n  Validity:    Not Before / Not After\n  Key Usage:   digitalSignature, keyEncipherment\n  Extended Key Usage: serverAuth, clientAuth, codeSigning\n\n  Cipher suite (TLS 1.2 format):\n  TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384\n  KeyExchange_AuthAlgo_WITH_Cipher_MAC\n  TLS 1.3 ciphers: TLS_AES_128_GCM_SHA256  TLS_AES_256_GCM_SHA384\n\n  Certificate types:\n  DV  Domain Validated  (just owns domain — issued in minutes)\n  OV  Org Validated     (organization vetted — days)\n  EV  Extended Validated (strict vetting — shows org name in old browsers)\n  Wildcard: *.example.com  (one level only; doesn't cover example.com itself)\n  SAN: one cert covers multiple names\n\n  HSTS — HTTP Strict Transport Security:\n  Strict-Transport-Security: max-age=31536000; includeSubDomains; preload\n  Tells browsers: always use HTTPS; ignore HTTP responses for this domain.\n  HSTS preload list: hardcoded into browsers; submit at hstspreload.org.\n\n  OCSP stapling:\n  Server includes signed certificate revocation status in TLS handshake.\n  Eliminates client OCSP round-trip; privacy-preserving.\n  nginx: ssl_stapling on; ssl_stapling_verify on;\n"
+    }
+    fn s_protocols() -> &'static str {
+        "  Modern application protocols:\n\n  HTTP/1.1:\n  One request per connection (with pipelining optional); head-of-line blocking.\n  Keep-Alive header reuses TCP connection across requests.\n\n  HTTP/2:\n  Binary framing; multiplexed streams on one TCP connection.\n  Header compression (HPACK); server push.\n  Still head-of-line blocking at TCP level.\n  Requires HTTPS in practice (browsers require h2 over TLS).\n\n  HTTP/3 / QUIC:\n  Runs over UDP with QUIC protocol; no TCP head-of-line blocking.\n  Built-in encryption (TLS 1.3 integrated); 0-RTT reconnect.\n  Connection ID survives IP change (mobile handoff).\n  Alt-Svc: h3=\":443\" — advertise HTTP/3 support.\n\n  WebSockets:\n  Upgrade: websocket / Connection: Upgrade over HTTP/1.1\n  Full-duplex TCP connection; ws:// or wss:// (TLS)\n  Handshake uses Sec-WebSocket-Key/Accept headers.\n  Good for: real-time apps, chat, live dashboards.\n  Drawback: proxies, firewalls, load balancers need explicit support.\n\n  Server-Sent Events (SSE):\n  Content-Type: text/event-stream\n  Server pushes events; client uses EventSource API.\n  One-directional server->client; auto-reconnect built in.\n  Good for: live feeds, notifications (simpler than WebSockets).\n\n  gRPC:\n  RPC framework over HTTP/2; Protocol Buffers by default.\n  Strongly typed; code-gen for multiple languages.\n  Modes: unary, server streaming, client streaming, bidirectional streaming.\n  grpc-web for browser clients (requires proxy for HTTP/2 -> gRPC translation).\n\n  MQTT:\n  Lightweight pub/sub for IoT; runs over TCP/TLS; port 1883 (8883 TLS).\n  QoS levels: 0 (fire-and-forget), 1 (at least once), 2 (exactly once).\n\n  AMQP (RabbitMQ):\n  Message queuing protocol; exchanges + queues + bindings.\n  Reliable delivery with acknowledgements and dead-letter queues.\n"
+    }
+
+    type NetSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+    const SECTIONS: &[NetSection] = &[
+        (
+            "osi",
+            &["osi", "layers", "model", "layer", "tcp-ip-model", "port"],
+            s_osi,
+        ),
+        (
+            "tcp-ip",
+            &[
+                "tcp",
+                "udp",
+                "icmp",
+                "handshake",
+                "flags",
+                "states",
+                "congestion",
+            ],
+            s_tcp_ip,
+        ),
+        (
+            "subnetting",
+            &[
+                "subnet",
+                "subnetting",
+                "cidr",
+                "mask",
+                "ipv6",
+                "private",
+                "prefix",
+            ],
+            s_subnetting,
+        ),
+        (
+            "dns",
+            &[
+                "dns", "record", "mx", "cname", "txt", "ptr", "spf", "dkim", "dmarc",
+            ],
+            s_dns,
+        ),
+        (
+            "tls",
+            &[
+                "tls",
+                "ssl",
+                "https",
+                "certificate",
+                "hsts",
+                "ocsp",
+                "cipher",
+            ],
+            s_tls,
+        ),
+        (
+            "protocols",
+            &[
+                "protocol",
+                "http2",
+                "http3",
+                "quic",
+                "websocket",
+                "sse",
+                "grpc",
+            ],
+            s_protocols,
+        ),
+    ];
+
+    let q = query.trim().to_lowercase();
+
+    if q.is_empty() || q == "help" || q == "list" {
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  hematite --network-ref <TOPIC>");
+        let _ = writeln!(
+            out,
+            "  Offline networking reference — OSI, TCP/IP, subnetting, DNS, TLS, protocols"
+        );
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  Topics:");
+        for &(name, aliases, _) in SECTIONS {
+            let _ = writeln!(out, "    {name:<12} ({})", aliases.join(", "));
+        }
+        let _ = writeln!(out, "\n  hematite --network-ref all   -- print everything");
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    if q == "all" {
+        let _ = writeln!(out, "{sep}");
+        for &(name, _, f) in SECTIONS {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+            let _ = writeln!(out, "");
+        }
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    let found: Vec<_> = SECTIONS
+        .iter()
+        .filter(|&&(name, aliases, _)| {
+            name.contains(q.as_str())
+                || aliases
+                    .iter()
+                    .any(|&a| a.contains(q.as_str()) || q.contains(a))
+        })
+        .collect();
+
+    if found.is_empty() {
+        let _ = writeln!(out, "  No topic found for '{}'.", query.trim());
+        let _ = writeln!(out, "  Run: hematite --network-ref help");
+    } else {
+        let _ = writeln!(out, "{sep}");
+        for &&(name, _, f) in &found {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+        }
+        let _ = writeln!(out, "{sep}");
+    }
+    out
+}
+
+pub fn unicode_ref_calc(query: &str) -> String {
+    use std::fmt::Write as _;
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+
+    fn s_encoding() -> &'static str {
+        "  Unicode encoding formats:\n\n  UTF-8 (most common — variable width 1-4 bytes):\n  U+0000..U+007F    1 byte   0xxxxxxx                (ASCII range)\n  U+0080..U+07FF    2 bytes  110xxxxx 10xxxxxx\n  U+0800..U+FFFF    3 bytes  1110xxxx 10xxxxxx 10xxxxxx\n  U+10000..U+10FFFF 4 bytes  11110xxx 10xxxxxx 10xxxxxx 10xxxxxx\n  Continuation bytes always start with 10xxxxxx.\n  ASCII is valid UTF-8 (first 128 code points unchanged).\n\n  UTF-16 (2 or 4 bytes):\n  BMP (U+0000..U+FFFF):  1 code unit (2 bytes)\n  Supplementary (U+10000+): surrogate pair (4 bytes)\n  High surrogate: D800-DBFF + Low surrogate: DC00-DFFF\n  Decode: cp = (high - 0xD800) * 0x400 + (low - 0xDC00) + 0x10000\n  Used internally by: JavaScript, Java, Windows APIs, .NET\n  JS strings are UTF-16; String.length counts code units not code points!\n  '\\u{1F600}'.length === 2  (emoji = surrogate pair in JS)\n\n  UTF-32 (4 bytes, fixed width):\n  One code unit per code point; direct array indexing possible.\n  Wasteful in memory (4x ASCII); used in Python 3 internally (narrow build).\n\n  Comparison:\n  Format    Width     Notes\n  ASCII     1 byte    7-bit; only 128 chars; subset of UTF-8\n  Latin-1   1 byte    ISO-8859-1; not Unicode-safe (conflict at 0x80-0xFF)\n  UTF-8     1-4 bytes Self-synchronizing; ASCII-compatible; web standard\n  UTF-16    2-4 bytes Compact for CJK; surrogate complexity; Windows default\n  UTF-32    4 bytes   Simple indexing; memory-heavy; rare in practice\n\n  Detecting encoding:\n  BOM (Byte Order Mark): optional marker at file start\n  UTF-8 BOM:    EF BB BF  (avoid — breaks many tools)\n  UTF-16 LE BOM: FF FE\n  UTF-16 BE BOM: FE FF\n  UTF-32 LE BOM: FF FE 00 00\n  Python:  chardet / charset-normalizer libraries detect encoding\n  file -i document.txt    (Linux: shows charset)\n"
+    }
+    fn s_codepoints() -> &'static str {
+        "  Code points and Unicode planes:\n\n  Notation: U+XXXX or U+XXXXX (4-6 hex digits)\n  Total range: U+0000 to U+10FFFF (1,114,112 code points)\n\n  Unicode planes:\n  Plane 0  BMP  U+0000..U+FFFF   Basic Multilingual Plane (most text)\n  Plane 1  SMP  U+10000..U+1FFFF  Supplementary Multilingual (emoji, ancient scripts)\n  Plane 2  SIP  U+20000..U+2FFFF  Supplementary Ideographic (rare CJK)\n  Planes 3-13: mostly unassigned\n  Plane 14     U+E0000..U+EFFFF  Tags and variation selectors\n  Planes 15-16 U+F0000..U+10FFFF Private Use Areas\n\n  Notable code points:\n  U+0000  NULL          U+0009  TAB       U+000A  LF\n  U+000D  CR            U+0020  SPACE     U+007F  DEL\n  U+00A0  NO-BREAK SPACE  U+00AD  SOFT HYPHEN  U+FEFF  BOM/ZWNBSP\n  U+200B  ZERO WIDTH SPACE  U+200C  ZWNJ  U+200D  ZWJ\n  U+2014  EM DASH (—)   U+2018  LEFT SINGLE QUOTE  U+2019  RIGHT SINGLE QUOTE\n  U+201C  LEFT DOUBLE QUOTE  U+201D  RIGHT DOUBLE QUOTE\n  U+2026  HORIZONTAL ELLIPSIS (…)\n  U+FFFD  REPLACEMENT CHARACTER (for invalid sequences)\n  U+FFFE  BOM reversed (used to detect wrong byte order)\n  U+10FFFF  Last valid code point\n\n  Surrogate range U+D800..U+DFFF: not valid standalone; UTF-16 pairs only.\n  Noncharacters: U+FDD0..U+FDEF, U+FFFE, U+FFFF, U+1FFFE, etc. — valid but for internal use.\n\n  Python:\n  ord('A')       # 65\n  chr(0x1F600)   # emoji code point -> character\n  hex(ord('€'))  # '0x20ac'\n  '\\u20AC'       # Euro sign €\n  '\\U0001F600'   # 4-digit escape for supplementary\n"
+    }
+    fn s_normalization() -> &'static str {
+        "  Unicode normalization forms:\n\n  Why normalize: some characters have multiple representations.\n  é can be: U+00E9 (precomposed) OR U+0065 + U+0301 (e + combining accent)\n  Both look identical but are different byte sequences — comparison fails.\n\n  NFD  (Canonical Decomposition):\n  Decomposes characters into base + combining marks.\n  é -> e + ̀  (two code points)\n  Useful for: sorting, searching (strip accents), fingerprinting.\n\n  NFC  (Canonical Decomposition then Canonical Composition):\n  Decompose then recompose into shortest form.\n  Most common form for text interchange on the web.\n  macOS uses NFD for filenames; most other systems use NFC.\n\n  NFKD (Compatibility Decomposition):\n  Decompose compatibility equivalents too.\n  ﬁ (U+FB01 fi ligature) -> f + i\n  ² (U+00B2 superscript 2) -> 2\n  Useful for: text search that should match ligatures and superscripts.\n\n  NFKC (Compatibility Decomposition then Canonical Composition):\n  Like NFKD but recompose. Most aggressive normalization.\n  Best for: identifiers, usernames, security (case folding, look-alike attacks).\n\n  Language support:\n  Python:  import unicodedata; unicodedata.normalize('NFC', s)\n  Rust:    unicode-normalization crate: use_nfc, use_nfd, etc.\n  JS:      str.normalize('NFC')  (ES6+; 'NFC','NFD','NFKC','NFKD')\n  Java:    java.text.Normalizer.normalize(s, Form.NFC)\n  Go:      golang.org/x/text/unicode/norm\n\n  Case folding (beyond toLower):\n  Turkic I: U+0130 LATIN CAPITAL I WITH DOT ABOVE / U+0131 dotless i\n  German: Eszett ß = ss in uppercase\n  Use case-folded NFKC for security-critical username comparison.\n"
+    }
+    fn s_escapes() -> &'static str {
+        "  Unicode escape sequences by language:\n\n  Python:\n  '\\uXXXX'        4-hex BMP code point (str)\n  '\\UXXXXXXXX'    8-hex supplementary code point\n  '\\xXX'          Latin-1 byte (0-255)\n  '\\N{NAME}'      By Unicode name: '\\N{SNOWMAN}' = ☃\n  b'\\xXX'         Bytes literal (not Unicode — raw byte)\n  chr(0x1F600)    Code point -> character\n  ord('A')        Character -> code point integer\n\n  JavaScript / TypeScript:\n  '\\uXXXX'        4-hex BMP\n  '\\u{XXXXX}'     Any code point (ES6+) — use for emoji\n  '\\xXX'          Latin-1 (0-255)\n  String.fromCodePoint(0x1F600)  Code point -> char\n  '\\u{1F600}'.codePointAt(0)     Char -> code point\n\n  Rust:\n  '\\u{XXXX}'      Unicode scalar value in char or string literal\n  '\\xXX'          7-bit hex in &str (ASCII only; use \\u for higher)\n  char::from_u32(0x1F600)  code point -> Option<char>\n  c.len_utf8()             UTF-8 byte length of a char\n  String::from_utf8(bytes) bytes -> Result<String>\n\n  Java / Kotlin:\n  '\\uXXXX'        4-hex BMP (char type)\n  Character.toChars(0x1F600)  code point -> char[]\n  s.codePointAt(0)  UTF-16 code unit -> code point\n\n  Go:\n  '\\uXXXX'        4-hex rune literal\n  '\\UXXXXXXXX'    8-hex rune literal\n  utf8.DecodeRuneInString(s)   -> rune, size\n  fmt.Sprintf(\"%c\", 0x1F600)   code point -> string\n\n  C / C++ (char8_t, C++20):\n  u8'\\uXXXX'      UTF-8 char literal (C++20)\n  L'\\uXXXX'       Wide char\n  U'\\UXXXXXXXX'   char32_t literal\n\n  HTML / CSS:\n  &#x1F600;   or   &#128512;   HTML entity (decimal)\n  \\1F600      CSS content property\n"
+    }
+    fn s_categories() -> &'static str {
+        "  Unicode categories and special characters:\n\n  General categories (\\p{} in regex):\n  L   Letter    Lu uppercase  Ll lowercase  Lt titlecase  Lm modifier  Lo other\n  M   Mark      Mn non-spacing  Mc spacing combining  Me enclosing\n  N   Number    Nd decimal  Nl letter  No other\n  P   Punct     Pc connector  Pd dash  Ps open  Pe close  Pi initial  Pf final  Po other\n  S   Symbol    Sm math  Sc currency  Sk modifier  So other\n  Z   Separator Zs space  Zl line  Zp paragraph\n  C   Other     Cc control  Cf format  Cs surrogate  Co private use  Cn unassigned\n\n  Python: import unicodedata; unicodedata.category('A')  -> 'Lu'\n  Regex:  \\p{Lu}  (Python regex module, Rust regex, PCRE, JS /u flag)\n\n  Emoji and ZWJ sequences:\n  Most emoji are in Plane 1 (U+1F300-U+1FFFF).\n  Skin tone modifiers: U+1F3FB-U+1F3FF (append to base emoji).\n  ZWJ (U+200D) sequences: combine emoji with ZWJ.\n  Family: U+1F468 ZWJ U+1F469 ZWJ U+1F467  (man+ZWJ+woman+ZWJ+girl)\n  Profession: U+1F468 ZWJ U+1F4BB  (man+ZWJ+laptop)\n  Variation selectors:\n  U+FE0E (VS15): text presentation  U+FE0F (VS16): emoji presentation\n  ☎  vs  ☎️  (telephone with/without VS16)\n\n  Bidirectional text (Bidi):\n  U+200F  RIGHT-TO-LEFT MARK\n  U+200E  LEFT-TO-RIGHT MARK\n  U+202E  RIGHT-TO-LEFT OVERRIDE (trojan source attack!)\n  CVE-2021-42574: Trojan Source — comments/strings with Bidi overrides change apparent code flow.\n  Mitigated by: compiler warnings, editor rendering of Bidi control chars.\n\n  Python string inspection:\n  unicodedata.name('A')       -> 'LATIN CAPITAL LETTER A'\n  unicodedata.category('€')   -> 'Sc' (currency symbol)\n  unicodedata.east_asian_width('A')  -> 'Na' (narrow)\n  unicodedata.is_normalized('NFC', s)\n  unicodedata.normalize('NFKC', s)\n"
+    }
+    fn s_bom() -> &'static str {
+        "  BOM, file encoding, and practical pitfalls:\n\n  BOM (Byte Order Mark):\n  UTF-8 BOM:    EF BB BF  — Optional; causes issues with many Unix tools\n  UTF-16 LE:    FF FE     — Windows default; required to distinguish LE/BE\n  UTF-16 BE:    FE FF\n  UTF-32 LE:    FF FE 00 00\n\n  UTF-8 BOM pitfalls:\n  - PHP: BOM before <?php causes 'headers already sent' error\n  - Python: can break shebang detection and CSV parsing\n  - bash/sh: BOM breaks script execution\n  - JSON: invalid per RFC 8259 (parsers may or may not tolerate it)\n  - Avoid UTF-8 BOM unless targeting Windows-only audiences\n  Windows Notepad (pre-2019) adds UTF-8 BOM automatically; modern Notepad fixed\n\n  PowerShell encoding:\n  PowerShell 5.1: Out-File / Set-Content defaults to UTF-16 LE with BOM\n  PowerShell 7+:  UTF-8 no BOM by default\n  Force UTF-8 no BOM: [System.IO.File]::WriteAllText(path, text, [System.Text.UTF8Encoding]::new($false))\n  Or: Set-Content -Path file -Value data -Encoding utf8NoBOM  (PS 6+)\n\n  Detecting and converting encoding:\n  file -i file.txt                             Detect encoding (Linux)\n  python3 -c \"open('f.txt', encoding='utf-8-sig').read()\"  Strip BOM\n  iconv -f utf-16 -t utf-8 in.txt > out.txt    Convert encoding\n  sed -i 's/\\xef\\xbb\\xbf//' file.txt           Strip UTF-8 BOM\n\n  Python gotchas:\n  open('f', encoding='utf-8-sig')  Strips UTF-8 BOM if present\n  open('f', encoding='utf-8')      Treats BOM as content (U+FEFF)\n  str.encode('utf-8-sig')          Adds BOM when encoding\n\n  String length vs character count:\n  Python 3:  len('\\U0001F600') == 1 (code points)\n  JS:        '\\u{1F600}'.length == 2 (UTF-16 code units)\n  Rust:      '\\u{1F600}'.len_utf8() == 4 (UTF-8 bytes)\n  Go:        len(\"\\U0001F600\") == 4 (bytes); utf8.RuneCountInString == 1\n  Use language-appropriate function to count visible characters.\n"
+    }
+
+    type UnicodeSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+    const SECTIONS: &[UnicodeSection] = &[
+        (
+            "encoding",
+            &[
+                "encoding",
+                "utf-8",
+                "utf-16",
+                "utf-32",
+                "ascii",
+                "byte",
+                "bom-format",
+            ],
+            s_encoding,
+        ),
+        (
+            "codepoints",
+            &[
+                "codepoint",
+                "code-point",
+                "plane",
+                "bmp",
+                "surrogate",
+                "u+",
+                "notation",
+            ],
+            s_codepoints,
+        ),
+        (
+            "normalization",
+            &[
+                "normalization",
+                "nfc",
+                "nfd",
+                "nfkc",
+                "nfkd",
+                "decompose",
+                "compose",
+            ],
+            s_normalization,
+        ),
+        (
+            "escapes",
+            &[
+                "escape",
+                "literal",
+                "python-esc",
+                "js-esc",
+                "rust-esc",
+                "java-esc",
+            ],
+            s_escapes,
+        ),
+        (
+            "categories",
+            &[
+                "category", "emoji", "zwj", "bidi", "property", "trojan", "modifier",
+            ],
+            s_categories,
+        ),
+        (
+            "bom",
+            &[
+                "bom",
+                "byte-order",
+                "powershell-enc",
+                "utf8-sig",
+                "detect",
+                "convert",
+            ],
+            s_bom,
+        ),
+    ];
+
+    let q = query.trim().to_lowercase();
+
+    if q.is_empty() || q == "help" || q == "list" {
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  hematite --unicode-ref <TOPIC>");
+        let _ = writeln!(out, "  Offline Unicode and encoding reference");
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  Topics:");
+        for &(name, aliases, _) in SECTIONS {
+            let _ = writeln!(out, "    {name:<14} ({})", aliases.join(", "));
+        }
+        let _ = writeln!(out, "\n  hematite --unicode-ref all   -- print everything");
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    if q == "all" {
+        let _ = writeln!(out, "{sep}");
+        for &(name, _, f) in SECTIONS {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+            let _ = writeln!(out, "");
+        }
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    let found: Vec<_> = SECTIONS
+        .iter()
+        .filter(|&&(name, aliases, _)| {
+            name.contains(q.as_str())
+                || aliases
+                    .iter()
+                    .any(|&a| a.contains(q.as_str()) || q.contains(a))
+        })
+        .collect();
+
+    if found.is_empty() {
+        let _ = writeln!(out, "  No topic found for '{}'.", query.trim());
+        let _ = writeln!(out, "  Run: hematite --unicode-ref help");
+    } else {
+        let _ = writeln!(out, "{sep}");
+        for &&(name, _, f) in &found {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+        }
+        let _ = writeln!(out, "{sep}");
+    }
+    out
+}

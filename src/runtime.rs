@@ -1083,6 +1083,10 @@ mod tests {
             rust_adv: None,
             algo_ref: None,
             oop_ref: None,
+            typescript_adv: None,
+            bash_adv: None,
+            network_ref: None,
+            unicode_ref: None,
             pdf_extract_helper: None,
             teleported_from: None,
         };

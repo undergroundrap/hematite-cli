@@ -3,23 +3,24 @@
 /// Covers known-value correctness, edge-case non-panics, and the newer
 /// matrix decomposition modes (QR, SVD, Cholesky).
 use hematite::tools::math_util::{
-    algo_ref_calc, ansible_calc, ascii_calc, ascii_table_calc, awk_calc, bash_ref_calc,
-    bitwise_calc, case_calc, chars_calc, checksum_calc, chemistry_calc, chmod_calc, cipher_calc,
-    cloud_ref_calc, color_calc, color_names_calc, combinatorics_calc, complex_calc, cron_calc,
-    css_ref_calc, csv_calc, curl_calc, datetime_calc, diff_calc, docker_adv_calc, docker_ref_calc,
-    duration_calc, electrical_calc, encode_calc, escape_calc, find_calc, fraction_calc,
-    geometry_calc, git_adv_calc, git_ref_calc, gitignore_calc, go_ref_calc, grep_calc, hash_calc,
-    headers_calc, health_calc, http_adv_calc, http_calc, http_status_calc, id_gen_calc, ip_calc,
-    jinja_calc, jq_calc, js_ref_calc, json_calc, json_path_calc, jwt_calc, kbd_calc, kubectl_calc,
-    license_calc, linux_adv_calc, lorem_calc, make_calc, makefile_calc, markdown_calc, matrix_calc,
-    mime_calc, net_calc, nginx_calc, npm_calc, number_format, number_theory_calc, oop_ref_calc,
-    openssl_calc, percent_calc, physics_calc, port_calc, postgres_calc, prob_calc,
-    python_data_calc, python_ref_calc, regex_adv_calc, regex_calc, regex_ref_calc, roman_calc,
-    rust_adv_calc, rust_ref_calc, security_ref_calc, sed_calc, semver_calc, set_calc, sort_viz,
-    spark_calc, sql_adv_calc, sql_fmt_calc, sql_ref_calc, ssh_ref_calc, ssl_calc, stats_calc,
-    string_dist, systemd_adv_calc, systemd_calc, table_calc, tar_calc, template_calc,
-    terraform_calc, text_stats, timestamp_calc, tmux_calc, toml_calc, trig_calc, ts_ref_calc,
-    tz_calc, url_calc, uuid_calc, validate_calc, vim_adv_calc, vim_calc, xml_calc, yaml_calc,
+    algo_ref_calc, ansible_calc, ascii_calc, ascii_table_calc, awk_calc, bash_adv_calc,
+    bash_ref_calc, bitwise_calc, case_calc, chars_calc, checksum_calc, chemistry_calc, chmod_calc,
+    cipher_calc, cloud_ref_calc, color_calc, color_names_calc, combinatorics_calc, complex_calc,
+    cron_calc, css_ref_calc, csv_calc, curl_calc, datetime_calc, diff_calc, docker_adv_calc,
+    docker_ref_calc, duration_calc, electrical_calc, encode_calc, escape_calc, find_calc,
+    fraction_calc, geometry_calc, git_adv_calc, git_ref_calc, gitignore_calc, go_ref_calc,
+    grep_calc, hash_calc, headers_calc, health_calc, http_adv_calc, http_calc, http_status_calc,
+    id_gen_calc, ip_calc, jinja_calc, jq_calc, js_ref_calc, json_calc, json_path_calc, jwt_calc,
+    kbd_calc, kubectl_calc, license_calc, linux_adv_calc, lorem_calc, make_calc, makefile_calc,
+    markdown_calc, matrix_calc, mime_calc, net_calc, network_ref_calc, nginx_calc, npm_calc,
+    number_format, number_theory_calc, oop_ref_calc, openssl_calc, percent_calc, physics_calc,
+    port_calc, postgres_calc, prob_calc, python_data_calc, python_ref_calc, regex_adv_calc,
+    regex_calc, regex_ref_calc, roman_calc, rust_adv_calc, rust_ref_calc, security_ref_calc,
+    sed_calc, semver_calc, set_calc, sort_viz, spark_calc, sql_adv_calc, sql_fmt_calc,
+    sql_ref_calc, ssh_ref_calc, ssl_calc, stats_calc, string_dist, systemd_adv_calc, systemd_calc,
+    table_calc, tar_calc, template_calc, terraform_calc, text_stats, timestamp_calc, tmux_calc,
+    toml_calc, trig_calc, ts_ref_calc, typescript_adv_calc, tz_calc, unicode_ref_calc, url_calc,
+    uuid_calc, validate_calc, vim_adv_calc, vim_calc, xml_calc, yaml_calc,
 };
 
 // ─── Cipher tests ────────────────────────────────────────────────────────────
@@ -11531,7 +11532,10 @@ fn rust_adv_all() {
         "all has lifetimes content"
     );
     assert!(
-        out.contains("Blanket") || out.contains("blanket") || out.contains("Associated") || out.contains("associated"),
+        out.contains("Blanket")
+            || out.contains("blanket")
+            || out.contains("Associated")
+            || out.contains("associated"),
         "all has traits content"
     );
     assert!(
@@ -12908,4 +12912,1150 @@ fn oop_ref_not_found() {
         out.contains("No topic found"),
         "unknown query returns not-found message"
     );
+}
+
+// ── typescript_adv_calc ───────────────────────────────────────────────────────
+
+#[test]
+fn typescript_adv_help_empty() {
+    let out = typescript_adv_calc("");
+    assert!(
+        out.contains("hematite --typescript-adv"),
+        "help shown for empty query"
+    );
+}
+
+#[test]
+fn typescript_adv_help_unknown() {
+    let out = typescript_adv_calc("zzznomatch");
+    assert!(
+        out.contains("hematite --typescript-adv"),
+        "help shown for unknown query"
+    );
+}
+
+#[test]
+fn typescript_adv_all() {
+    let out = typescript_adv_calc("all");
+    assert!(
+        out.contains("Partial") || out.contains("utility"),
+        "all has utility types content"
+    );
+    assert!(
+        out.contains("infer") || out.contains("conditional"),
+        "all has conditional types content"
+    );
+    assert!(
+        out.contains("keyof") || out.contains("generics"),
+        "all has generics content"
+    );
+}
+
+#[test]
+fn typescript_adv_generics() {
+    let out = typescript_adv_calc("generics");
+    assert!(
+        out.contains("keyof") || out.contains("constraint"),
+        "generics section has keyof"
+    );
+}
+
+#[test]
+fn typescript_adv_generic_alias() {
+    let out = typescript_adv_calc("generic");
+    assert!(
+        out.contains("keyof") || out.contains("generic"),
+        "generic alias resolves"
+    );
+}
+
+#[test]
+fn typescript_adv_type_params_alias() {
+    let out = typescript_adv_calc("type-params");
+    assert!(
+        out.contains("keyof") || out.contains("type-params") || out.contains("Type"),
+        "type-params alias resolves"
+    );
+}
+
+#[test]
+fn typescript_adv_variance_alias() {
+    let out = typescript_adv_calc("variance");
+    assert!(
+        out.contains("variance") || out.contains("Variance") || out.contains("covariant"),
+        "variance alias resolves"
+    );
+}
+
+#[test]
+fn typescript_adv_utility() {
+    let out = typescript_adv_calc("utility");
+    assert!(out.contains("Partial"), "utility section has Partial");
+    assert!(out.contains("Omit"), "utility section has Omit");
+    assert!(out.contains("Pick"), "utility section has Pick");
+    assert!(out.contains("Record"), "utility section has Record");
+    assert!(out.contains("ReturnType"), "utility section has ReturnType");
+}
+
+#[test]
+fn typescript_adv_utility_types_alias() {
+    let out = typescript_adv_calc("utility-types");
+    assert!(
+        out.contains("Partial") || out.contains("Omit"),
+        "utility-types alias resolves"
+    );
+}
+
+#[test]
+fn typescript_adv_required_alias() {
+    let out = typescript_adv_calc("required");
+    assert!(
+        out.contains("Required") || out.contains("Partial"),
+        "required alias resolves"
+    );
+}
+
+#[test]
+fn typescript_adv_readonly_alias() {
+    let out = typescript_adv_calc("readonly");
+    assert!(
+        out.contains("Readonly") || out.contains("readonly"),
+        "readonly alias resolves"
+    );
+}
+
+#[test]
+fn typescript_adv_conditional() {
+    let out = typescript_adv_calc("conditional");
+    assert!(
+        out.contains("infer") || out.contains("Conditional"),
+        "conditional section has infer"
+    );
+    assert!(
+        out.contains("extends") || out.contains("distributive"),
+        "conditional section has extends"
+    );
+}
+
+#[test]
+fn typescript_adv_infer_alias() {
+    let out = typescript_adv_calc("infer");
+    assert!(
+        out.contains("infer") || out.contains("conditional"),
+        "infer alias resolves"
+    );
+}
+
+#[test]
+fn typescript_adv_distributive_alias() {
+    let out = typescript_adv_calc("distributive");
+    assert!(
+        out.contains("distributive") || out.contains("Distributive") || out.contains("extends"),
+        "distributive alias resolves"
+    );
+}
+
+#[test]
+fn typescript_adv_template_alias() {
+    let out = typescript_adv_calc("template");
+    assert!(
+        out.contains("template") || out.contains("Template") || out.contains("literal"),
+        "template alias resolves"
+    );
+}
+
+#[test]
+fn typescript_adv_mapped() {
+    let out = typescript_adv_calc("mapped");
+    assert!(
+        out.contains("keyof") || out.contains("mapped") || out.contains("Mapped"),
+        "mapped section present"
+    );
+}
+
+#[test]
+fn typescript_adv_map_alias() {
+    let out = typescript_adv_calc("map");
+    assert!(
+        out.contains("keyof") || out.contains("mapped") || out.contains("Mapped"),
+        "map alias resolves to mapped"
+    );
+}
+
+#[test]
+fn typescript_adv_key_remapping_alias() {
+    let out = typescript_adv_calc("key-remapping");
+    assert!(
+        out.contains("key-remapping") || out.contains("remapping") || out.contains("as"),
+        "key-remapping alias resolves"
+    );
+}
+
+#[test]
+fn typescript_adv_decorators() {
+    let out = typescript_adv_calc("decorators");
+    assert!(
+        out.contains("decorator") || out.contains("Decorator"),
+        "decorators section present"
+    );
+}
+
+#[test]
+fn typescript_adv_decorator_alias() {
+    let out = typescript_adv_calc("decorator");
+    assert!(
+        out.contains("decorator") || out.contains("Decorator"),
+        "decorator alias resolves"
+    );
+}
+
+#[test]
+fn typescript_adv_modules() {
+    let out = typescript_adv_calc("modules");
+    assert!(
+        out.contains(".d.ts") || out.contains("module") || out.contains("Module"),
+        "modules section present"
+    );
+}
+
+#[test]
+fn typescript_adv_module_alias() {
+    let out = typescript_adv_calc("module");
+    assert!(
+        out.contains(".d.ts") || out.contains("module") || out.contains("Module"),
+        "module alias resolves"
+    );
+}
+
+#[test]
+fn typescript_adv_tsconfig_alias() {
+    let out = typescript_adv_calc("tsconfig");
+    assert!(
+        out.contains("tsconfig") || out.contains("strict"),
+        "tsconfig alias resolves"
+    );
+}
+
+#[test]
+fn typescript_adv_ambient_alias() {
+    let out = typescript_adv_calc("ambient");
+    assert!(
+        out.contains("ambient") || out.contains("Ambient") || out.contains(".d.ts"),
+        "ambient alias resolves"
+    );
+}
+
+#[test]
+fn typescript_adv_no_panic_on_special_chars() {
+    let _ = typescript_adv_calc("@#$%");
+    let _ = typescript_adv_calc("   ");
+}
+
+// ── bash_adv_calc ─────────────────────────────────────────────────────────────
+
+#[test]
+fn bash_adv_help_empty() {
+    let out = bash_adv_calc("");
+    assert!(
+        out.contains("hematite --bash-adv"),
+        "help shown for empty query"
+    );
+}
+
+#[test]
+fn bash_adv_help_unknown() {
+    let out = bash_adv_calc("zzznomatch");
+    assert!(
+        out.contains("hematite --bash-adv"),
+        "help shown for unknown query"
+    );
+}
+
+#[test]
+fn bash_adv_all() {
+    let out = bash_adv_calc("all");
+    assert!(
+        out.contains("associative") || out.contains("declare"),
+        "all has arrays content"
+    );
+    assert!(
+        out.contains("parameter") || out.contains("expansion"),
+        "all has string content"
+    );
+    assert!(
+        out.contains("pipefail") || out.contains("strict"),
+        "all has traps content"
+    );
+}
+
+#[test]
+fn bash_adv_arrays() {
+    let out = bash_adv_calc("arrays");
+    assert!(
+        out.contains("declare") || out.contains("associative"),
+        "arrays section has declare"
+    );
+    assert!(
+        out.contains("mapfile") || out.contains("readarray"),
+        "arrays section has mapfile"
+    );
+}
+
+#[test]
+fn bash_adv_array_alias() {
+    let out = bash_adv_calc("array");
+    assert!(
+        out.contains("declare") || out.contains("associative") || out.contains("array"),
+        "array alias resolves"
+    );
+}
+
+#[test]
+fn bash_adv_associative_alias() {
+    let out = bash_adv_calc("associative");
+    assert!(
+        out.contains("associative") || out.contains("declare"),
+        "associative alias resolves"
+    );
+}
+
+#[test]
+fn bash_adv_mapfile_alias() {
+    let out = bash_adv_calc("mapfile");
+    assert!(
+        out.contains("mapfile") || out.contains("readarray"),
+        "mapfile alias resolves"
+    );
+}
+
+#[test]
+fn bash_adv_strings() {
+    let out = bash_adv_calc("strings");
+    assert!(
+        out.contains("expansion") || out.contains("parameter"),
+        "strings section has parameter expansion"
+    );
+    assert!(
+        out.contains("##") || out.contains("prefix") || out.contains("suffix"),
+        "strings section has prefix/suffix removal"
+    );
+}
+
+#[test]
+fn bash_adv_string_alias() {
+    let out = bash_adv_calc("string");
+    assert!(
+        out.contains("expansion") || out.contains("parameter") || out.contains("string"),
+        "string alias resolves"
+    );
+}
+
+#[test]
+fn bash_adv_parameter_expansion_alias() {
+    let out = bash_adv_calc("parameter-expansion");
+    assert!(
+        out.contains("expansion") || out.contains("parameter"),
+        "parameter-expansion alias resolves"
+    );
+}
+
+#[test]
+fn bash_adv_param_alias() {
+    let out = bash_adv_calc("param");
+    assert!(
+        out.contains("expansion") || out.contains("parameter") || out.contains("param"),
+        "param alias resolves"
+    );
+}
+
+#[test]
+fn bash_adv_arithmetic() {
+    let out = bash_adv_calc("arithmetic");
+    assert!(
+        out.contains("(( ") || out.contains("$(( ") || out.contains("let"),
+        "arithmetic section has (( ))"
+    );
+}
+
+#[test]
+fn bash_adv_math_alias() {
+    let out = bash_adv_calc("math");
+    assert!(
+        out.contains("(( ") || out.contains("$(( ") || out.contains("let"),
+        "math alias resolves to arithmetic"
+    );
+}
+
+#[test]
+fn bash_adv_expr_alias() {
+    let out = bash_adv_calc("expr");
+    assert!(
+        out.contains("(( ") || out.contains("expr") || out.contains("let"),
+        "expr alias resolves"
+    );
+}
+
+#[test]
+fn bash_adv_bc_alias() {
+    let out = bash_adv_calc("bc");
+    assert!(
+        out.contains("bc") || out.contains("awk"),
+        "bc alias resolves"
+    );
+}
+
+#[test]
+fn bash_adv_substitution() {
+    let out = bash_adv_calc("substitution");
+    assert!(
+        out.contains("$(") || out.contains("command substitution"),
+        "substitution section has command substitution"
+    );
+    assert!(
+        out.contains("heredoc") || out.contains("<<") || out.contains("EOF"),
+        "substitution section has heredoc"
+    );
+}
+
+#[test]
+fn bash_adv_command_sub_alias() {
+    let out = bash_adv_calc("command-sub");
+    assert!(
+        out.contains("$(") || out.contains("command") || out.contains("substitution"),
+        "command-sub alias resolves"
+    );
+}
+
+#[test]
+fn bash_adv_heredoc_alias() {
+    let out = bash_adv_calc("heredoc");
+    assert!(
+        out.contains("heredoc") || out.contains("EOF") || out.contains("<<"),
+        "heredoc alias resolves"
+    );
+}
+
+#[test]
+fn bash_adv_process_sub_alias() {
+    let out = bash_adv_calc("process-sub");
+    assert!(
+        out.contains("process") || out.contains("<(") || out.contains(">("),
+        "process-sub alias resolves"
+    );
+}
+
+#[test]
+fn bash_adv_traps() {
+    let out = bash_adv_calc("traps");
+    assert!(
+        out.contains("trap") || out.contains("EXIT") || out.contains("ERR"),
+        "traps section has trap"
+    );
+    assert!(
+        out.contains("pipefail") || out.contains("set -"),
+        "traps section has strict mode"
+    );
+}
+
+#[test]
+fn bash_adv_trap_alias() {
+    let out = bash_adv_calc("trap");
+    assert!(
+        out.contains("trap") || out.contains("EXIT"),
+        "trap alias resolves"
+    );
+}
+
+#[test]
+fn bash_adv_strict_alias() {
+    let out = bash_adv_calc("strict");
+    assert!(
+        out.contains("pipefail") || out.contains("set -"),
+        "strict alias resolves"
+    );
+}
+
+#[test]
+fn bash_adv_signals_alias() {
+    let out = bash_adv_calc("signals");
+    assert!(
+        out.contains("INT") || out.contains("TERM") || out.contains("EXIT"),
+        "signals alias resolves"
+    );
+}
+
+#[test]
+fn bash_adv_patterns() {
+    let out = bash_adv_calc("patterns");
+    assert!(
+        out.contains("glob") || out.contains("extglob") || out.contains("brace"),
+        "patterns section has glob"
+    );
+}
+
+#[test]
+fn bash_adv_glob_alias() {
+    let out = bash_adv_calc("glob");
+    assert!(
+        out.contains("glob") || out.contains("*"),
+        "glob alias resolves"
+    );
+}
+
+#[test]
+fn bash_adv_extglob_alias() {
+    let out = bash_adv_calc("extglob");
+    assert!(
+        out.contains("extglob") || out.contains("shopt"),
+        "extglob alias resolves"
+    );
+}
+
+#[test]
+fn bash_adv_brace_alias() {
+    let out = bash_adv_calc("brace");
+    assert!(
+        out.contains("brace") || out.contains("{"),
+        "brace alias resolves"
+    );
+}
+
+#[test]
+fn bash_adv_no_panic_on_special_chars() {
+    let _ = bash_adv_calc("@#$%");
+    let _ = bash_adv_calc("   ");
+}
+
+// ── network_ref_calc ──────────────────────────────────────────────────────────
+
+#[test]
+fn network_ref_help_empty() {
+    let out = network_ref_calc("");
+    assert!(
+        out.contains("hematite --network-ref"),
+        "help shown for empty query"
+    );
+}
+
+#[test]
+fn network_ref_help_unknown() {
+    let out = network_ref_calc("zzznomatch");
+    assert!(
+        out.contains("hematite --network-ref"),
+        "help shown for unknown query"
+    );
+}
+
+#[test]
+fn network_ref_all() {
+    let out = network_ref_calc("all");
+    assert!(
+        out.contains("OSI") || out.contains("Layer"),
+        "all has OSI content"
+    );
+    assert!(
+        out.contains("TCP") || out.contains("handshake"),
+        "all has TCP content"
+    );
+    assert!(
+        out.contains("DNS") || out.contains("CNAME"),
+        "all has DNS content"
+    );
+}
+
+#[test]
+fn network_ref_osi() {
+    let out = network_ref_calc("osi");
+    assert!(
+        out.contains("OSI") || out.contains("Layer"),
+        "osi section present"
+    );
+    assert!(
+        out.contains("Physical") || out.contains("Layer 1"),
+        "osi has Layer 1"
+    );
+    assert!(
+        out.contains("Application") || out.contains("Layer 7"),
+        "osi has Layer 7"
+    );
+}
+
+#[test]
+fn network_ref_layers_alias() {
+    let out = network_ref_calc("layers");
+    assert!(
+        out.contains("OSI") || out.contains("Layer"),
+        "layers alias resolves to osi"
+    );
+}
+
+#[test]
+fn network_ref_model_alias() {
+    let out = network_ref_calc("model");
+    assert!(
+        out.contains("OSI") || out.contains("Layer") || out.contains("TCP/IP"),
+        "model alias resolves"
+    );
+}
+
+#[test]
+fn network_ref_ports_alias() {
+    let out = network_ref_calc("ports");
+    assert!(
+        out.contains("80") || out.contains("443") || out.contains("port"),
+        "ports alias resolves"
+    );
+}
+
+#[test]
+fn network_ref_tcp_ip() {
+    let out = network_ref_calc("tcp-ip");
+    assert!(
+        out.contains("SYN") || out.contains("handshake"),
+        "tcp-ip section has SYN"
+    );
+    assert!(
+        out.contains("ACK") || out.contains("FIN"),
+        "tcp-ip section has ACK/FIN"
+    );
+}
+
+#[test]
+fn network_ref_tcp_alias() {
+    let out = network_ref_calc("tcp");
+    assert!(
+        out.contains("SYN") || out.contains("TCP"),
+        "tcp alias resolves"
+    );
+}
+
+#[test]
+fn network_ref_handshake_alias() {
+    let out = network_ref_calc("handshake");
+    assert!(
+        out.contains("SYN") || out.contains("handshake"),
+        "handshake alias resolves"
+    );
+}
+
+#[test]
+fn network_ref_flags_alias() {
+    let out = network_ref_calc("flags");
+    assert!(
+        out.contains("SYN") || out.contains("ACK") || out.contains("FIN"),
+        "flags alias resolves"
+    );
+}
+
+#[test]
+fn network_ref_udp_alias() {
+    let out = network_ref_calc("udp");
+    assert!(
+        out.contains("UDP") || out.contains("ICMP"),
+        "udp alias resolves"
+    );
+}
+
+#[test]
+fn network_ref_subnetting() {
+    let out = network_ref_calc("subnetting");
+    assert!(
+        out.contains("CIDR") || out.contains("subnet"),
+        "subnetting section has CIDR"
+    );
+    assert!(
+        out.contains("192.168") || out.contains("RFC 1918") || out.contains("private"),
+        "subnetting section has private ranges"
+    );
+}
+
+#[test]
+fn network_ref_subnet_alias() {
+    let out = network_ref_calc("subnet");
+    assert!(
+        out.contains("CIDR") || out.contains("subnet"),
+        "subnet alias resolves"
+    );
+}
+
+#[test]
+fn network_ref_cidr_alias() {
+    let out = network_ref_calc("cidr");
+    assert!(
+        out.contains("CIDR") || out.contains("/24"),
+        "cidr alias resolves"
+    );
+}
+
+#[test]
+fn network_ref_ipv6_alias() {
+    let out = network_ref_calc("ipv6");
+    assert!(
+        out.contains("IPv6") || out.contains("::/"),
+        "ipv6 alias resolves"
+    );
+}
+
+#[test]
+fn network_ref_dns() {
+    let out = network_ref_calc("dns");
+    assert!(out.contains("A"), "dns section has A record");
+    assert!(
+        out.contains("CNAME") || out.contains("MX"),
+        "dns section has CNAME/MX"
+    );
+    assert!(
+        out.contains("TXT") || out.contains("NS"),
+        "dns section has TXT/NS"
+    );
+}
+
+#[test]
+fn network_ref_records_alias() {
+    let out = network_ref_calc("records");
+    assert!(
+        out.contains("CNAME") || out.contains("MX") || out.contains("DNS"),
+        "records alias resolves"
+    );
+}
+
+#[test]
+fn network_ref_mx_alias() {
+    let out = network_ref_calc("mx");
+    assert!(
+        out.contains("MX") || out.contains("DNS"),
+        "mx alias resolves"
+    );
+}
+
+#[test]
+fn network_ref_spf_alias() {
+    let out = network_ref_calc("spf");
+    assert!(
+        out.contains("SPF") || out.contains("DKIM") || out.contains("DMARC"),
+        "spf alias resolves"
+    );
+}
+
+#[test]
+fn network_ref_tls() {
+    let out = network_ref_calc("tls");
+    assert!(
+        out.contains("TLS") || out.contains("certificate"),
+        "tls section has TLS"
+    );
+    assert!(
+        out.contains("handshake") || out.contains("cipher"),
+        "tls section has handshake"
+    );
+}
+
+#[test]
+fn network_ref_ssl_alias() {
+    let out = network_ref_calc("ssl");
+    assert!(
+        out.contains("TLS") || out.contains("SSL"),
+        "ssl alias resolves to tls"
+    );
+}
+
+#[test]
+fn network_ref_https_alias() {
+    let out = network_ref_calc("https");
+    assert!(
+        out.contains("TLS") || out.contains("HTTPS") || out.contains("certificate"),
+        "https alias resolves"
+    );
+}
+
+#[test]
+fn network_ref_certificate_alias() {
+    let out = network_ref_calc("certificate");
+    assert!(
+        out.contains("certificate") || out.contains("cert") || out.contains("TLS"),
+        "certificate alias resolves"
+    );
+}
+
+#[test]
+fn network_ref_hsts_alias() {
+    let out = network_ref_calc("hsts");
+    assert!(
+        out.contains("HSTS") || out.contains("Strict"),
+        "hsts alias resolves"
+    );
+}
+
+#[test]
+fn network_ref_protocols() {
+    let out = network_ref_calc("protocols");
+    assert!(
+        out.contains("HTTP") || out.contains("HTTP/2"),
+        "protocols section has HTTP"
+    );
+    assert!(
+        out.contains("WebSocket") || out.contains("gRPC") || out.contains("MQTT"),
+        "protocols section has WebSocket/gRPC/MQTT"
+    );
+}
+
+#[test]
+fn network_ref_http_alias() {
+    let out = network_ref_calc("http");
+    assert!(
+        out.contains("HTTP") || out.contains("HTTP/2"),
+        "http alias resolves"
+    );
+}
+
+#[test]
+fn network_ref_http2_alias() {
+    let out = network_ref_calc("http2");
+    assert!(
+        out.contains("HTTP/2") || out.contains("HTTP"),
+        "http2 alias resolves"
+    );
+}
+
+#[test]
+fn network_ref_websocket_alias() {
+    let out = network_ref_calc("websocket");
+    assert!(
+        out.contains("WebSocket") || out.contains("websocket"),
+        "websocket alias resolves"
+    );
+}
+
+#[test]
+fn network_ref_grpc_alias() {
+    let out = network_ref_calc("grpc");
+    assert!(
+        out.contains("gRPC") || out.contains("grpc"),
+        "grpc alias resolves"
+    );
+}
+
+#[test]
+fn network_ref_mqtt_alias() {
+    let out = network_ref_calc("mqtt");
+    assert!(
+        out.contains("MQTT") || out.contains("mqtt"),
+        "mqtt alias resolves"
+    );
+}
+
+#[test]
+fn network_ref_quic_alias() {
+    let out = network_ref_calc("quic");
+    assert!(
+        out.contains("QUIC") || out.contains("HTTP/3"),
+        "quic alias resolves"
+    );
+}
+
+#[test]
+fn network_ref_no_panic_on_special_chars() {
+    let _ = network_ref_calc("@#$%");
+    let _ = network_ref_calc("   ");
+}
+
+// ── unicode_ref_calc ──────────────────────────────────────────────────────────
+
+#[test]
+fn unicode_ref_help_empty() {
+    let out = unicode_ref_calc("");
+    assert!(
+        out.contains("hematite --unicode-ref"),
+        "help shown for empty query"
+    );
+}
+
+#[test]
+fn unicode_ref_help_unknown() {
+    let out = unicode_ref_calc("zzznomatch");
+    assert!(
+        out.contains("hematite --unicode-ref"),
+        "help shown for unknown query"
+    );
+}
+
+#[test]
+fn unicode_ref_all() {
+    let out = unicode_ref_calc("all");
+    assert!(
+        out.contains("UTF-8") || out.contains("encoding"),
+        "all has encoding content"
+    );
+    assert!(
+        out.contains("NFC") || out.contains("normalization"),
+        "all has normalization content"
+    );
+    assert!(
+        out.contains("BOM") || out.contains("byte order"),
+        "all has BOM content"
+    );
+}
+
+#[test]
+fn unicode_ref_encoding() {
+    let out = unicode_ref_calc("encoding");
+    assert!(
+        out.contains("UTF-8") || out.contains("encoding"),
+        "encoding section present"
+    );
+    assert!(
+        out.contains("UTF-16") || out.contains("surrogate"),
+        "encoding section has UTF-16"
+    );
+    assert!(
+        out.contains("UTF-32") || out.contains("4 byte"),
+        "encoding section has UTF-32"
+    );
+}
+
+#[test]
+fn unicode_ref_utf8_alias() {
+    let out = unicode_ref_calc("utf8");
+    assert!(
+        out.contains("UTF-8") || out.contains("byte"),
+        "utf8 alias resolves"
+    );
+}
+
+#[test]
+fn unicode_ref_utf_alias() {
+    let out = unicode_ref_calc("utf");
+    assert!(
+        out.contains("UTF-8") || out.contains("UTF"),
+        "utf alias resolves"
+    );
+}
+
+#[test]
+fn unicode_ref_surrogate_alias() {
+    let out = unicode_ref_calc("surrogate");
+    assert!(
+        out.contains("surrogate") || out.contains("UTF-16"),
+        "surrogate alias resolves"
+    );
+}
+
+#[test]
+fn unicode_ref_codepoints() {
+    let out = unicode_ref_calc("codepoints");
+    assert!(
+        out.contains("U+") || out.contains("code point"),
+        "codepoints section has U+ notation"
+    );
+    assert!(
+        out.contains("plane") || out.contains("Plane"),
+        "codepoints section has planes"
+    );
+}
+
+#[test]
+fn unicode_ref_codepoint_alias() {
+    let out = unicode_ref_calc("codepoint");
+    assert!(
+        out.contains("U+") || out.contains("code point") || out.contains("codepoint"),
+        "codepoint alias resolves"
+    );
+}
+
+#[test]
+fn unicode_ref_planes_alias() {
+    let out = unicode_ref_calc("planes");
+    assert!(
+        out.contains("plane") || out.contains("Plane") || out.contains("BMP"),
+        "planes alias resolves"
+    );
+}
+
+#[test]
+fn unicode_ref_zwj_alias() {
+    let out = unicode_ref_calc("zwj");
+    assert!(
+        out.contains("ZWJ") || out.contains("U+200D") || out.contains("zero"),
+        "zwj alias resolves"
+    );
+}
+
+#[test]
+fn unicode_ref_normalization() {
+    let out = unicode_ref_calc("normalization");
+    assert!(
+        out.contains("NFC") || out.contains("NFD"),
+        "normalization section has NFC/NFD"
+    );
+    assert!(
+        out.contains("NFKC") || out.contains("NFKD"),
+        "normalization section has NFKC/NFKD"
+    );
+}
+
+#[test]
+fn unicode_ref_normalize_alias() {
+    let out = unicode_ref_calc("normalize");
+    assert!(
+        out.contains("NFC") || out.contains("NFD") || out.contains("normali"),
+        "normalize alias resolves"
+    );
+}
+
+#[test]
+fn unicode_ref_nfc_alias() {
+    let out = unicode_ref_calc("nfc");
+    assert!(
+        out.contains("NFC") || out.contains("composed"),
+        "nfc alias resolves"
+    );
+}
+
+#[test]
+fn unicode_ref_nfd_alias() {
+    let out = unicode_ref_calc("nfd");
+    assert!(
+        out.contains("NFD") || out.contains("decomposed"),
+        "nfd alias resolves"
+    );
+}
+
+#[test]
+fn unicode_ref_case_folding_alias() {
+    let out = unicode_ref_calc("case-folding");
+    assert!(
+        out.contains("case") || out.contains("fold") || out.contains("normali"),
+        "case-folding alias resolves"
+    );
+}
+
+#[test]
+fn unicode_ref_escapes() {
+    let out = unicode_ref_calc("escapes");
+    assert!(
+        out.contains("\\u") || out.contains("escape"),
+        "escapes section has \\u"
+    );
+}
+
+#[test]
+fn unicode_ref_escape_alias() {
+    let out = unicode_ref_calc("escape");
+    assert!(
+        out.contains("\\u") || out.contains("escape"),
+        "escape alias resolves"
+    );
+}
+
+#[test]
+fn unicode_ref_python_alias() {
+    let out = unicode_ref_calc("python");
+    assert!(
+        out.contains("\\u") || out.contains("Python") || out.contains("escape"),
+        "python alias resolves"
+    );
+}
+
+#[test]
+fn unicode_ref_javascript_alias() {
+    let out = unicode_ref_calc("js-esc");
+    assert!(
+        out.contains("\\u") || out.contains("JS") || out.contains("escape"),
+        "js-esc alias resolves"
+    );
+}
+
+#[test]
+fn unicode_ref_categories() {
+    let out = unicode_ref_calc("categories");
+    assert!(
+        out.contains("Lu") || out.contains("category"),
+        "categories section has Lu"
+    );
+    assert!(
+        out.contains("Nd") || out.contains("Ll"),
+        "categories section has Nd/Ll"
+    );
+}
+
+#[test]
+fn unicode_ref_category_alias() {
+    let out = unicode_ref_calc("category");
+    assert!(
+        out.contains("Lu") || out.contains("category"),
+        "category alias resolves"
+    );
+}
+
+#[test]
+fn unicode_ref_emoji_alias() {
+    let out = unicode_ref_calc("emoji");
+    assert!(
+        out.contains("emoji") || out.contains("ZWJ") || out.contains("skin"),
+        "emoji alias resolves"
+    );
+}
+
+#[test]
+fn unicode_ref_bidi_alias() {
+    let out = unicode_ref_calc("bidi");
+    assert!(
+        out.contains("Bidi") || out.contains("bidi") || out.contains("CVE"),
+        "bidi alias resolves"
+    );
+}
+
+#[test]
+fn unicode_ref_trojan_source_alias() {
+    let out = unicode_ref_calc("trojan-source");
+    assert!(
+        out.contains("Trojan") || out.contains("CVE") || out.contains("Bidi"),
+        "trojan-source alias resolves"
+    );
+}
+
+#[test]
+fn unicode_ref_bom() {
+    let out = unicode_ref_calc("bom");
+    assert!(
+        out.contains("BOM") || out.contains("byte order"),
+        "bom section present"
+    );
+    assert!(
+        out.contains("UTF-8") || out.contains("EF BB BF"),
+        "bom section has UTF-8 BOM"
+    );
+}
+
+#[test]
+fn unicode_ref_byte_order_alias() {
+    let out = unicode_ref_calc("byte-order");
+    assert!(
+        out.contains("BOM") || out.contains("byte order") || out.contains("byte-order"),
+        "byte-order alias resolves"
+    );
+}
+
+#[test]
+fn unicode_ref_powershell_alias() {
+    let out = unicode_ref_calc("powershell");
+    assert!(
+        out.contains("PowerShell") || out.contains("UTF-16") || out.contains("BOM"),
+        "powershell alias resolves"
+    );
+}
+
+#[test]
+fn unicode_ref_string_length_alias() {
+    let out = unicode_ref_calc("string-length");
+    assert!(
+        out.contains("length") || out.contains("character") || out.contains("BOM"),
+        "string-length alias resolves"
+    );
+}
+
+#[test]
+fn unicode_ref_no_panic_on_special_chars() {
+    let _ = unicode_ref_calc("@#$%");
+    let _ = unicode_ref_calc("   ");
 }

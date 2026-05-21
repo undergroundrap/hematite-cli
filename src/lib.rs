@@ -1825,6 +1825,38 @@ pub struct CliCockpit {
     pub oop_ref: Option<String>,
 
     #[arg(
+        long = "typescript-adv",
+        help_heading = "Developer Reference",
+        value_name = "TOPIC",
+        help = "TypeScript advanced reference — generics, utility types, conditional/mapped types, decorators, modules. Topics: generics, utility, conditional, mapped, decorators, modules. Commands: all = everything. Examples: hematite --typescript-adv utility | hematite --typescript-adv conditional | hematite --typescript-adv all"
+    )]
+    pub typescript_adv: Option<String>,
+
+    #[arg(
+        long = "bash-adv",
+        help_heading = "Developer Reference",
+        value_name = "TOPIC",
+        help = "Bash advanced reference — arrays, string manipulation, arithmetic, substitution, traps, patterns. Topics: arrays, strings, arithmetic, substitution, traps, patterns. Commands: all = everything. Examples: hematite --bash-adv arrays | hematite --bash-adv strings | hematite --bash-adv traps"
+    )]
+    pub bash_adv: Option<String>,
+
+    #[arg(
+        long = "network-ref",
+        help_heading = "Developer Reference",
+        value_name = "TOPIC",
+        help = "Networking reference — OSI model, TCP/IP, subnetting, DNS, TLS, protocols. Topics: osi, tcp-ip, subnetting, dns, tls, protocols. Commands: all = everything. Examples: hematite --network-ref dns | hematite --network-ref tls | hematite --network-ref subnetting"
+    )]
+    pub network_ref: Option<String>,
+
+    #[arg(
+        long = "unicode-ref",
+        help_heading = "Developer Reference",
+        value_name = "TOPIC",
+        help = "Unicode reference — encoding, code points, normalization, escape sequences, categories, BOM. Topics: encoding, codepoints, normalization, escapes, categories, bom. Commands: all = everything. Examples: hematite --unicode-ref encoding | hematite --unicode-ref normalization | hematite --unicode-ref bom"
+    )]
+    pub unicode_ref: Option<String>,
+
+    #[arg(
         long,
         help_heading = "Math & Science",
         value_name = "QUERY",
