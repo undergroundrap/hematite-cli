@@ -1946,6 +1946,38 @@ pub struct CliCockpit {
 
     #[arg(
         long,
+        help_heading = "Developer Toolkit",
+        value_name = "TOPIC",
+        help = "Kubernetes reference — pods, deployments, services, ingress, RBAC, troubleshooting, Helm. Topics: pods, services, config, rbac, troubleshoot, helm. Commands: all = everything. Examples: hematite --k8s-ref pods | hematite --k8s-ref rbac | hematite --k8s-ref troubleshoot"
+    )]
+    pub k8s_ref: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Developer Toolkit",
+        value_name = "TOPIC",
+        help = "Observability reference — metrics/Prometheus, tracing/OpenTelemetry, logging, SLOs, dashboards, alerting. Topics: metrics, tracing, logging, slo, dashboards, alerting. Commands: all = everything. Examples: hematite --observability metrics | hematite --observability tracing | hematite --observability slo"
+    )]
+    pub observability: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Developer Toolkit",
+        value_name = "TOPIC",
+        help = "Advanced Terraform reference — modules, state management, workspaces, testing, patterns, CI/CD. Topics: modules, state, workspaces, testing, patterns, cicd. Commands: all = everything. Examples: hematite --terraform-adv modules | hematite --terraform-adv state | hematite --terraform-adv testing"
+    )]
+    pub terraform_adv: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Developer Toolkit",
+        value_name = "TOPIC",
+        help = "Security scanning reference — SAST, DAST, dependency scanning, container security, secrets detection, compliance. Topics: sast, dast, deps, containers, secrets, compliance. Commands: all = everything. Examples: hematite --security-scan sast | hematite --security-scan secrets | hematite --security-scan compliance"
+    )]
+    pub security_scan: Option<String>,
+
+    #[arg(
+        long,
         help_heading = "Math & Science",
         value_name = "QUERY",
         help = "Lorem ipsum generator — offline replacement for lipsum.com. Commands: (bare) or <N> = N paragraphs (default 1); words <N> = N words; sentences <N> = N sentences. Examples: hematite --lorem | hematite --lorem 3 | hematite --lorem 'words 50' | hematite --lorem 'sentences 5'"

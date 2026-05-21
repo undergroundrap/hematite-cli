@@ -1098,6 +1098,10 @@ mod tests {
             docker_compose: None,
             wasm_ref: None,
             accessibility: None,
+            k8s_ref: None,
+            observability: None,
+            terraform_adv: None,
+            security_scan: None,
             pdf_extract_helper: None,
             teleported_from: None,
         };

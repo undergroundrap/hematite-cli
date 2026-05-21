@@ -12,15 +12,16 @@ use hematite::tools::math_util::{
     find_calc, fraction_calc, geometry_calc, git_adv_calc, git_ref_calc, gitignore_calc,
     go_ref_calc, grep_calc, hash_calc, headers_calc, health_calc, http_adv_calc, http_calc,
     http_headers_calc, http_status_calc, id_gen_calc, ip_calc, jinja_calc, jq_calc, js_ref_calc,
-    json_calc, json_path_calc, jwt_calc, kbd_calc, kubectl_calc, license_calc, linux_adv_calc,
-    linux_sys_calc, lorem_calc, make_calc, makefile_calc, markdown_calc, matrix_calc, mime_calc,
-    net_calc, network_ref_calc, nginx_calc, npm_calc, number_format, number_theory_calc,
-    oop_ref_calc, openssl_calc, percent_calc, perf_ref_calc, physics_calc, port_calc,
-    postgres_calc, prob_calc, python_data_calc, python_ref_calc, regex_adv_calc, regex_calc,
-    regex_ref_calc, regex_test_calc, roman_calc, rust_adv_calc, rust_ref_calc, security_ref_calc,
-    sed_calc, semver_calc, set_calc, sort_viz, spark_calc, sql_adv_calc, sql_fmt_calc,
-    sql_ref_calc, ssh_ref_calc, ssl_calc, stats_calc, string_dist, systemd_adv_calc, systemd_calc,
-    table_calc, tar_calc, template_calc, terraform_calc, text_stats, timestamp_calc, tmux_calc,
+    json_calc, json_path_calc, jwt_calc, k8s_ref_calc, kbd_calc, kubectl_calc, license_calc,
+    linux_adv_calc, linux_sys_calc, lorem_calc, make_calc, makefile_calc, markdown_calc,
+    matrix_calc, mime_calc, net_calc, network_ref_calc, nginx_calc, npm_calc, number_format,
+    number_theory_calc, observability_calc, oop_ref_calc, openssl_calc, percent_calc,
+    perf_ref_calc, physics_calc, port_calc, postgres_calc, prob_calc, python_data_calc,
+    python_ref_calc, regex_adv_calc, regex_calc, regex_ref_calc, regex_test_calc, roman_calc,
+    rust_adv_calc, rust_ref_calc, security_ref_calc, security_scan_calc, sed_calc, semver_calc,
+    set_calc, sort_viz, spark_calc, sql_adv_calc, sql_fmt_calc, sql_ref_calc, ssh_ref_calc,
+    ssl_calc, stats_calc, string_dist, systemd_adv_calc, systemd_calc, table_calc, tar_calc,
+    template_calc, terraform_adv_calc, terraform_calc, text_stats, timestamp_calc, tmux_calc,
     toml_calc, trig_calc, ts_ref_calc, typescript_adv_calc, tz_calc, unicode_ref_calc, url_calc,
     uuid_calc, validate_calc, vim_adv_calc, vim_calc, wasm_ref_calc, xml_calc, yaml_calc,
 };
@@ -17407,4 +17408,811 @@ fn accessibility_eslint_alias() {
 fn accessibility_edge_cases() {
     let _ = accessibility_calc("@#$%");
     let _ = accessibility_calc("   ");
+}
+
+// ── k8s_ref_calc ──────────────────────────────────────────────────────────────
+
+#[test]
+fn k8s_ref_empty() {
+    let out = k8s_ref_calc("");
+    assert!(out.contains("pods") || out.contains("services") || out.contains("Topics"));
+}
+
+#[test]
+fn k8s_ref_nomatch() {
+    let out = k8s_ref_calc("zzznomatch");
+    assert!(out.contains("No topic found") || out.contains("no topic"));
+}
+
+#[test]
+fn k8s_ref_all() {
+    let out = k8s_ref_calc("all");
+    assert!(out.contains("pods") || out.contains("Pods"));
+    assert!(out.contains("services") || out.contains("Services"));
+    assert!(out.contains("config") || out.contains("Config"));
+    assert!(out.contains("rbac") || out.contains("RBAC"));
+    assert!(out.contains("troubleshoot") || out.contains("Troubleshoot"));
+    assert!(out.contains("helm") || out.contains("Helm"));
+}
+
+#[test]
+fn k8s_ref_pods() {
+    let out = k8s_ref_calc("pods");
+    assert!(out.contains("kubectl") || out.contains("deployment") || out.contains("pod"));
+}
+
+#[test]
+fn k8s_ref_deployment_alias() {
+    let out = k8s_ref_calc("deployment");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("Deployment") || out.contains("rollout") || out.contains("kubectl"));
+}
+
+#[test]
+fn k8s_ref_crashloopbackoff_alias() {
+    let out = k8s_ref_calc("crashloopbackoff");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("CrashLoopBackOff") || out.contains("crash") || out.contains("log"));
+}
+
+#[test]
+fn k8s_ref_statefulset_alias() {
+    let out = k8s_ref_calc("statefulset");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("StatefulSet") || out.contains("stateful") || out.contains("ordered"));
+}
+
+#[test]
+fn k8s_ref_services() {
+    let out = k8s_ref_calc("services");
+    assert!(out.contains("ClusterIP") || out.contains("NodePort") || out.contains("service"));
+}
+
+#[test]
+fn k8s_ref_ingress_alias() {
+    let out = k8s_ref_calc("ingress");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("Ingress") || out.contains("ingress") || out.contains("HTTP"));
+}
+
+#[test]
+fn k8s_ref_dns_alias() {
+    let out = k8s_ref_calc("dns");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("DNS") || out.contains("kube-dns") || out.contains("CoreDNS"));
+}
+
+#[test]
+fn k8s_ref_networkpolicy_alias() {
+    let out = k8s_ref_calc("networkpolicy");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("NetworkPolicy") || out.contains("network") || out.contains("Calico"));
+}
+
+#[test]
+fn k8s_ref_config() {
+    let out = k8s_ref_calc("config");
+    assert!(out.contains("ConfigMap") || out.contains("Secret") || out.contains("PVC"));
+}
+
+#[test]
+fn k8s_ref_configmap_alias() {
+    let out = k8s_ref_calc("configmap");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("ConfigMap") || out.contains("configmap") || out.contains("env"));
+}
+
+#[test]
+fn k8s_ref_secret_alias() {
+    let out = k8s_ref_calc("secret");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("Secret") || out.contains("base64") || out.contains("Vault"));
+}
+
+#[test]
+fn k8s_ref_pvc_alias() {
+    let out = k8s_ref_calc("pvc");
+    assert!(!out.contains("No topic found"));
+    assert!(
+        out.contains("PVC") || out.contains("PersistentVolume") || out.contains("StorageClass")
+    );
+}
+
+#[test]
+fn k8s_ref_probe_alias() {
+    let out = k8s_ref_calc("probe");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("probe") || out.contains("liveness") || out.contains("readiness"));
+}
+
+#[test]
+fn k8s_ref_rbac() {
+    let out = k8s_ref_calc("rbac");
+    assert!(out.contains("RBAC") || out.contains("Role") || out.contains("ClusterRole"));
+}
+
+#[test]
+fn k8s_ref_role_alias() {
+    let out = k8s_ref_calc("role");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("Role") || out.contains("RBAC") || out.contains("namespace"));
+}
+
+#[test]
+fn k8s_ref_serviceaccount_alias() {
+    let out = k8s_ref_calc("serviceaccount");
+    assert!(!out.contains("No topic found"));
+    assert!(
+        out.contains("ServiceAccount") || out.contains("serviceaccount") || out.contains("RBAC")
+    );
+}
+
+#[test]
+fn k8s_ref_securitycontext_alias() {
+    let out = k8s_ref_calc("securitycontext");
+    assert!(!out.contains("No topic found"));
+    assert!(
+        out.contains("securityContext")
+            || out.contains("runAsNonRoot")
+            || out.contains("privilege")
+    );
+}
+
+#[test]
+fn k8s_ref_troubleshoot() {
+    let out = k8s_ref_calc("troubleshoot");
+    assert!(out.contains("kubectl") || out.contains("describe") || out.contains("logs"));
+}
+
+#[test]
+fn k8s_ref_debug_alias() {
+    let out = k8s_ref_calc("debug");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("debug") || out.contains("busybox") || out.contains("exec"));
+}
+
+#[test]
+fn k8s_ref_oomkilled_alias() {
+    let out = k8s_ref_calc("oomkilled");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("OOMKilled") || out.contains("memory") || out.contains("limit"));
+}
+
+#[test]
+fn k8s_ref_helm() {
+    let out = k8s_ref_calc("helm");
+    assert!(out.contains("helm") || out.contains("Helm") || out.contains("chart"));
+}
+
+#[test]
+fn k8s_ref_chart_alias() {
+    let out = k8s_ref_calc("chart");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("chart") || out.contains("Chart") || out.contains("values"));
+}
+
+#[test]
+fn k8s_ref_argocd_alias() {
+    let out = k8s_ref_calc("argocd");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("ArgoCD") || out.contains("argocd") || out.contains("gitops"));
+}
+
+#[test]
+fn k8s_ref_edge_cases() {
+    let _ = k8s_ref_calc("@#$%");
+    let _ = k8s_ref_calc("   ");
+}
+
+// ── observability_calc ────────────────────────────────────────────────────────
+
+#[test]
+fn observability_empty() {
+    let out = observability_calc("");
+    assert!(out.contains("metrics") || out.contains("tracing") || out.contains("Topics"));
+}
+
+#[test]
+fn observability_nomatch() {
+    let out = observability_calc("zzznomatch");
+    assert!(out.contains("No topic found") || out.contains("no topic"));
+}
+
+#[test]
+fn observability_all() {
+    let out = observability_calc("all");
+    assert!(out.contains("metrics") || out.contains("Metrics"));
+    assert!(out.contains("tracing") || out.contains("Tracing"));
+    assert!(out.contains("logging") || out.contains("Logging"));
+    assert!(out.contains("slo") || out.contains("SLO"));
+    assert!(out.contains("dashboards") || out.contains("Dashboards"));
+    assert!(out.contains("alerting") || out.contains("Alerting"));
+}
+
+#[test]
+fn observability_metrics() {
+    let out = observability_calc("metrics");
+    assert!(out.contains("Prometheus") || out.contains("PromQL") || out.contains("Counter"));
+}
+
+#[test]
+fn observability_prometheus_alias() {
+    let out = observability_calc("prometheus");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("Prometheus") || out.contains("metric") || out.contains("PromQL"));
+}
+
+#[test]
+fn observability_promql_alias() {
+    let out = observability_calc("promql");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("rate") || out.contains("sum") || out.contains("PromQL"));
+}
+
+#[test]
+fn observability_histogram_alias() {
+    let out = observability_calc("histogram");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("Histogram") || out.contains("histogram") || out.contains("bucket"));
+}
+
+#[test]
+fn observability_exporter_alias() {
+    let out = observability_calc("exporter");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("exporter") || out.contains("node_exporter") || out.contains("blackbox"));
+}
+
+#[test]
+fn observability_tracing() {
+    let out = observability_calc("tracing");
+    assert!(
+        out.contains("trace")
+            || out.contains("Trace")
+            || out.contains("span")
+            || out.contains("OpenTelemetry")
+    );
+}
+
+#[test]
+fn observability_otel_alias() {
+    let out = observability_calc("otel");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("OpenTelemetry") || out.contains("OTel") || out.contains("otel"));
+}
+
+#[test]
+fn observability_jaeger_alias() {
+    let out = observability_calc("jaeger");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("Jaeger") || out.contains("jaeger") || out.contains("backend"));
+}
+
+#[test]
+fn observability_span_alias() {
+    let out = observability_calc("span");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("Span") || out.contains("span") || out.contains("trace"));
+}
+
+#[test]
+fn observability_logging() {
+    let out = observability_calc("logging");
+    assert!(
+        out.contains("structured")
+            || out.contains("Structured")
+            || out.contains("JSON")
+            || out.contains("level")
+    );
+}
+
+#[test]
+fn observability_loki_alias() {
+    let out = observability_calc("loki");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("Loki") || out.contains("loki") || out.contains("LogQL"));
+}
+
+#[test]
+fn observability_elk_alias() {
+    let out = observability_calc("elk");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("Elasticsearch") || out.contains("ELK") || out.contains("Kibana"));
+}
+
+#[test]
+fn observability_slo() {
+    let out = observability_calc("slo");
+    assert!(
+        out.contains("SLO")
+            || out.contains("SLI")
+            || out.contains("error budget")
+            || out.contains("Error budget")
+    );
+}
+
+#[test]
+fn observability_error_budget_alias() {
+    let out = observability_calc("error-budget");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("error budget") || out.contains("Error budget") || out.contains("budget"));
+}
+
+#[test]
+fn observability_burn_rate_alias() {
+    let out = observability_calc("burn-rate");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("burn") || out.contains("Burn") || out.contains("SLO"));
+}
+
+#[test]
+fn observability_dashboards() {
+    let out = observability_calc("dashboards");
+    assert!(
+        out.contains("Grafana")
+            || out.contains("panel")
+            || out.contains("RED")
+            || out.contains("USE")
+    );
+}
+
+#[test]
+fn observability_grafana_alias() {
+    let out = observability_calc("grafana");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("Grafana") || out.contains("grafana") || out.contains("panel"));
+}
+
+#[test]
+fn observability_red_method_alias() {
+    let out = observability_calc("red-method");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("RED") || out.contains("Rate") || out.contains("Duration"));
+}
+
+#[test]
+fn observability_alerting() {
+    let out = observability_calc("alerting");
+    assert!(
+        out.contains("alert")
+            || out.contains("Alert")
+            || out.contains("runbook")
+            || out.contains("pagerduty")
+            || out.contains("PagerDuty")
+    );
+}
+
+#[test]
+fn observability_pagerduty_alias() {
+    let out = observability_calc("pagerduty");
+    assert!(!out.contains("No topic found"));
+    assert!(
+        out.contains("PagerDuty")
+            || out.contains("pagerduty")
+            || out.contains("oncall")
+            || out.contains("on-call")
+    );
+}
+
+#[test]
+fn observability_postmortem_alias() {
+    let out = observability_calc("postmortem");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("postmortem") || out.contains("Postmortem") || out.contains("incident"));
+}
+
+#[test]
+fn observability_edge_cases() {
+    let _ = observability_calc("@#$%");
+    let _ = observability_calc("   ");
+}
+
+// ── terraform_adv_calc ────────────────────────────────────────────────────────
+
+#[test]
+fn terraform_adv_empty() {
+    let out = terraform_adv_calc("");
+    assert!(out.contains("modules") || out.contains("state") || out.contains("Topics"));
+}
+
+#[test]
+fn terraform_adv_nomatch() {
+    let out = terraform_adv_calc("zzznomatch");
+    assert!(out.contains("No topic found") || out.contains("no topic"));
+}
+
+#[test]
+fn terraform_adv_all() {
+    let out = terraform_adv_calc("all");
+    assert!(out.contains("modules") || out.contains("Modules"));
+    assert!(out.contains("state") || out.contains("State"));
+    assert!(out.contains("workspaces") || out.contains("Workspaces"));
+    assert!(out.contains("testing") || out.contains("Testing"));
+    assert!(out.contains("patterns") || out.contains("Patterns"));
+    assert!(out.contains("cicd") || out.contains("CI/CD"));
+}
+
+#[test]
+fn terraform_adv_modules() {
+    let out = terraform_adv_calc("modules");
+    assert!(out.contains("module") || out.contains("Module") || out.contains("source"));
+}
+
+#[test]
+fn terraform_adv_module_alias() {
+    let out = terraform_adv_calc("module");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("module") || out.contains("source") || out.contains("output"));
+}
+
+#[test]
+fn terraform_adv_registry_alias() {
+    let out = terraform_adv_calc("registry");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("registry") || out.contains("Registry") || out.contains("source"));
+}
+
+#[test]
+fn terraform_adv_state() {
+    let out = terraform_adv_calc("state");
+    assert!(out.contains("state") || out.contains("State") || out.contains("backend"));
+}
+
+#[test]
+fn terraform_adv_backend_alias() {
+    let out = terraform_adv_calc("backend");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("backend") || out.contains("S3") || out.contains("remote"));
+}
+
+#[test]
+fn terraform_adv_s3_alias() {
+    let out = terraform_adv_calc("s3");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("S3") || out.contains("bucket") || out.contains("DynamoDB"));
+}
+
+#[test]
+fn terraform_adv_import_alias() {
+    let out = terraform_adv_calc("import");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("import") || out.contains("state") || out.contains("infra"));
+}
+
+#[test]
+fn terraform_adv_workspaces() {
+    let out = terraform_adv_calc("workspaces");
+    assert!(
+        out.contains("workspace")
+            || out.contains("Workspace")
+            || out.contains("terraform.workspace")
+    );
+}
+
+#[test]
+fn terraform_adv_workspace_alias() {
+    let out = terraform_adv_calc("workspace");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("workspace") || out.contains("new") || out.contains("select"));
+}
+
+#[test]
+fn terraform_adv_tfvars_alias() {
+    let out = terraform_adv_calc("tfvars");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("tfvars") || out.contains("var-file") || out.contains("environment"));
+}
+
+#[test]
+fn terraform_adv_testing() {
+    let out = terraform_adv_calc("testing");
+    assert!(
+        out.contains("terratest")
+            || out.contains("Terratest")
+            || out.contains("checkov")
+            || out.contains("tflint")
+    );
+}
+
+#[test]
+fn terraform_adv_terratest_alias() {
+    let out = terraform_adv_calc("terratest");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("Terratest") || out.contains("terratest") || out.contains("Go"));
+}
+
+#[test]
+fn terraform_adv_checkov_alias() {
+    let out = terraform_adv_calc("checkov");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("checkov") || out.contains("Checkov") || out.contains("compliance"));
+}
+
+#[test]
+fn terraform_adv_tflint_alias() {
+    let out = terraform_adv_calc("tflint");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("tflint") || out.contains("lint") || out.contains("validate"));
+}
+
+#[test]
+fn terraform_adv_patterns() {
+    let out = terraform_adv_calc("patterns");
+    assert!(out.contains("dynamic") || out.contains("Dynamic") || out.contains("lifecycle"));
+}
+
+#[test]
+fn terraform_adv_dynamic_alias() {
+    let out = terraform_adv_calc("dynamic");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("dynamic") || out.contains("for_each") || out.contains("block"));
+}
+
+#[test]
+fn terraform_adv_lifecycle_alias() {
+    let out = terraform_adv_calc("lifecycle");
+    assert!(!out.contains("No topic found"));
+    assert!(
+        out.contains("lifecycle")
+            || out.contains("create_before_destroy")
+            || out.contains("prevent_destroy")
+    );
+}
+
+#[test]
+fn terraform_adv_cicd() {
+    let out = terraform_adv_calc("cicd");
+    assert!(
+        out.contains("CI")
+            || out.contains("Atlantis")
+            || out.contains("GitHub Actions")
+            || out.contains("github-actions")
+    );
+}
+
+#[test]
+fn terraform_adv_atlantis_alias() {
+    let out = terraform_adv_calc("atlantis");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("Atlantis") || out.contains("atlantis") || out.contains("plan"));
+}
+
+#[test]
+fn terraform_adv_oidc_alias() {
+    let out = terraform_adv_calc("oidc");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("OIDC") || out.contains("oidc") || out.contains("credential"));
+}
+
+#[test]
+fn terraform_adv_edge_cases() {
+    let _ = terraform_adv_calc("@#$%");
+    let _ = terraform_adv_calc("   ");
+}
+
+// ── security_scan_calc ────────────────────────────────────────────────────────
+
+#[test]
+fn security_scan_empty() {
+    let out = security_scan_calc("");
+    assert!(out.contains("sast") || out.contains("SAST") || out.contains("Topics"));
+}
+
+#[test]
+fn security_scan_nomatch() {
+    let out = security_scan_calc("zzznomatch");
+    assert!(out.contains("No topic found") || out.contains("no topic"));
+}
+
+#[test]
+fn security_scan_all() {
+    let out = security_scan_calc("all");
+    assert!(out.contains("SAST") || out.contains("sast"));
+    assert!(out.contains("DAST") || out.contains("dast"));
+    assert!(
+        out.contains("deps")
+            || out.contains("Deps")
+            || out.contains("dependency")
+            || out.contains("Dependency")
+    );
+    assert!(out.contains("container") || out.contains("Container"));
+    assert!(out.contains("secret") || out.contains("Secret"));
+    assert!(out.contains("compliance") || out.contains("Compliance"));
+}
+
+#[test]
+fn security_scan_sast() {
+    let out = security_scan_calc("sast");
+    assert!(out.contains("SAST") || out.contains("Semgrep") || out.contains("static"));
+}
+
+#[test]
+fn security_scan_semgrep_alias() {
+    let out = security_scan_calc("semgrep");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("Semgrep") || out.contains("semgrep") || out.contains("rule"));
+}
+
+#[test]
+fn security_scan_codeql_alias() {
+    let out = security_scan_calc("codeql");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("CodeQL") || out.contains("codeql") || out.contains("GitHub"));
+}
+
+#[test]
+fn security_scan_bandit_alias() {
+    let out = security_scan_calc("bandit");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("bandit") || out.contains("Bandit") || out.contains("Python"));
+}
+
+#[test]
+fn security_scan_dast() {
+    let out = security_scan_calc("dast");
+    assert!(out.contains("DAST") || out.contains("ZAP") || out.contains("dynamic"));
+}
+
+#[test]
+fn security_scan_zap_alias() {
+    let out = security_scan_calc("zap");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("ZAP") || out.contains("zap") || out.contains("OWASP"));
+}
+
+#[test]
+fn security_scan_nuclei_alias() {
+    let out = security_scan_calc("nuclei");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("nuclei") || out.contains("Nuclei") || out.contains("template"));
+}
+
+#[test]
+fn security_scan_deps() {
+    let out = security_scan_calc("deps");
+    assert!(
+        out.contains("npm audit")
+            || out.contains("cargo audit")
+            || out.contains("CVE")
+            || out.contains("Trivy")
+    );
+}
+
+#[test]
+fn security_scan_trivy_alias() {
+    let out = security_scan_calc("trivy");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("Trivy") || out.contains("trivy") || out.contains("scan"));
+}
+
+#[test]
+fn security_scan_sbom_alias() {
+    let out = security_scan_calc("sbom");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("SBOM") || out.contains("sbom") || out.contains("Bill of Materials"));
+}
+
+#[test]
+fn security_scan_supply_chain_alias() {
+    let out = security_scan_calc("supply-chain");
+    assert!(!out.contains("No topic found"));
+    assert!(
+        out.contains("supply")
+            || out.contains("Supply")
+            || out.contains("confusion")
+            || out.contains("typosquat")
+    );
+}
+
+#[test]
+fn security_scan_containers() {
+    let out = security_scan_calc("containers");
+    assert!(
+        out.contains("container")
+            || out.contains("Container")
+            || out.contains("Dockerfile")
+            || out.contains("image")
+    );
+}
+
+#[test]
+fn security_scan_dockerfile_alias() {
+    let out = security_scan_calc("dockerfile");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("Dockerfile") || out.contains("image") || out.contains("layer"));
+}
+
+#[test]
+fn security_scan_cosign_alias() {
+    let out = security_scan_calc("cosign");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("cosign") || out.contains("Cosign") || out.contains("sign"));
+}
+
+#[test]
+fn security_scan_falco_alias() {
+    let out = security_scan_calc("falco");
+    assert!(!out.contains("No topic found"));
+    assert!(
+        out.contains("Falco")
+            || out.contains("falco")
+            || out.contains("runtime")
+            || out.contains("eBPF")
+    );
+}
+
+#[test]
+fn security_scan_secrets() {
+    let out = security_scan_calc("secrets");
+    assert!(
+        out.contains("gitleaks")
+            || out.contains("Gitleaks")
+            || out.contains("secret")
+            || out.contains("exposed")
+    );
+}
+
+#[test]
+fn security_scan_gitleaks_alias() {
+    let out = security_scan_calc("gitleaks");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("gitleaks") || out.contains("Gitleaks") || out.contains("git"));
+}
+
+#[test]
+fn security_scan_vault_alias() {
+    let out = security_scan_calc("vault");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("Vault") || out.contains("vault") || out.contains("dynamic"));
+}
+
+#[test]
+fn security_scan_exposed_alias() {
+    let out = security_scan_calc("exposed");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("exposed") || out.contains("revoke") || out.contains("Revoke"));
+}
+
+#[test]
+fn security_scan_compliance() {
+    let out = security_scan_calc("compliance");
+    assert!(
+        out.contains("OWASP")
+            || out.contains("CIS")
+            || out.contains("compliance")
+            || out.contains("GDPR")
+    );
+}
+
+#[test]
+fn security_scan_owasp_alias() {
+    let out = security_scan_calc("owasp");
+    assert!(!out.contains("No topic found"));
+    assert!(out.contains("OWASP") || out.contains("Injection") || out.contains("Top 10"));
+}
+
+#[test]
+fn security_scan_gdpr_alias() {
+    let out = security_scan_calc("gdpr");
+    assert!(!out.contains("No topic found"));
+    assert!(
+        out.contains("GDPR") || out.contains("gdpr") || out.contains("EU") || out.contains("data")
+    );
+}
+
+#[test]
+fn security_scan_headers_alias() {
+    let out = security_scan_calc("headers");
+    assert!(!out.contains("No topic found"));
+    assert!(
+        out.contains("Strict-Transport")
+            || out.contains("Content-Security")
+            || out.contains("header")
+    );
+}
+
+#[test]
+fn security_scan_edge_cases() {
+    let _ = security_scan_calc("@#$%");
+    let _ = security_scan_calc("   ");
 }

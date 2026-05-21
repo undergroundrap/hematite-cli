@@ -42930,3 +42930,1709 @@ pub fn accessibility_calc(query: &str) -> String {
     }
     out
 }
+
+// ── Wave 28 functions ─────────────────────────────────────────────────────────
+
+type K8sSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+
+fn s_k8s_pods() -> &'static str {
+    "\
+  Pods & Workloads:
+  Pod basics:
+    kubectl run nginx --image=nginx:alpine          — create pod
+    kubectl get pods -A                            — all namespaces
+    kubectl get pods -o wide                       — with node/IP
+    kubectl describe pod <name>                    — events + conditions
+    kubectl logs <pod> -c <container> --follow     — log stream
+    kubectl exec -it <pod> -- /bin/sh              — shell into pod
+    kubectl cp <pod>:/path ./local                 — copy files
+    kubectl port-forward pod/<name> 8080:80        — local port forward
+
+  Deployment:
+    kubectl create deployment app --image=app:1.0 --replicas=3
+    kubectl set image deployment/app app=app:1.1   — rolling update
+    kubectl rollout status deployment/app
+    kubectl rollout undo deployment/app            — roll back
+    kubectl rollout history deployment/app
+    kubectl scale deployment app --replicas=5
+    kubectl autoscale deployment app --min=2 --max=10 --cpu-percent=70
+
+  ReplicaSet / DaemonSet / StatefulSet:
+    DaemonSet: one pod per node (log collectors, node agents)
+    StatefulSet: ordered deployment, stable network identity, persistent storage
+    kubectl get sts / kubectl get ds
+    StatefulSet pod names: app-0, app-1, app-2 (sticky identity)
+
+  Pod status quick reference:
+    Pending     — scheduled but not yet running (image pull, resource wait)
+    Running     — at least one container running
+    Succeeded   — all containers exited 0 (job/batch)
+    Failed      — at least one container exited non-zero
+    CrashLoopBackOff — container crashing and restarting (check logs)
+    OOMKilled   — Out of memory; increase memory limit
+    Evicted     — node resource pressure; check node capacity
+    ImagePullBackOff — can't pull image; check image name/credentials
+    Terminating — being deleted; check for finalizers
+"
+}
+
+fn s_k8s_services() -> &'static str {
+    "\
+  Services & Networking:
+  Service types:
+    ClusterIP   — internal only; default; stable virtual IP
+    NodePort    — exposes on <NodeIP>:<NodePort> (30000-32767)
+    LoadBalancer — cloud load balancer; external IP
+    ExternalName — CNAME alias (no proxy)
+    Headless (ClusterIP: None) — DNS to pod IPs directly (StatefulSets)
+
+  kubectl expose deployment app --port=80 --type=ClusterIP
+  kubectl get svc -A
+  kubectl get endpoints <svc-name>   — see backing pods
+
+  DNS resolution (kube-dns / CoreDNS):
+    <svc>.<namespace>.svc.cluster.local
+    Short form within namespace: <svc>
+    Short form cross-namespace: <svc>.<namespace>
+
+  Ingress (HTTP routing):
+    apiVersion: networking.k8s.io/v1
+    kind: Ingress
+    spec:
+      ingressClassName: nginx
+      rules:
+      - host: app.example.com
+        http:
+          paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: api-svc
+                port: { number: 80 }
+      tls:
+      - hosts: [app.example.com]
+        secretName: app-tls
+
+  Network Policies:
+    Default: all traffic allowed between pods
+    NetworkPolicy selects pods by labels + restricts ingress/egress
+    Requires a CNI that supports it (Calico, Cilium, Weave)
+
+  Common networking issues:
+    kubectl exec pod -- nslookup <svc>   — DNS check
+    kubectl exec pod -- wget -O- http://<svc>:<port>/  — reachability
+    kubectl get networkpolicy -A         — check for blocking policies
+    kubectl get events | grep -i fail    — recent failures
+"
+}
+
+fn s_k8s_config() -> &'static str {
+    "\
+  Config, Secrets & Storage:
+  ConfigMap:
+    kubectl create configmap app-config --from-literal=ENV=prod
+    kubectl create configmap app-config --from-file=config.yaml
+    Mount as volume or inject as env vars:
+      envFrom: [{ configMapRef: { name: app-config } }]
+      volumes: [{ name: cfg, configMap: { name: app-config } }]
+
+  Secrets:
+    kubectl create secret generic db-creds --from-literal=password=hunter2
+    kubectl create secret docker-registry regcred --docker-server=...
+    Secrets are base64-encoded (NOT encrypted by default):
+      kubectl get secret db-creds -o jsonpath='{.data.password}' | base64 -d
+    Encryption at rest: EncryptionConfiguration on API server
+    External: Vault, Sealed Secrets, External Secrets Operator
+
+  PersistentVolume / PersistentVolumeClaim:
+    PV: cluster resource (admin provisions)
+    PVC: developer request
+    StorageClass: dynamic provisioning (gp2, standard, ssd)
+
+    kubectl get pv / kubectl get pvc -A
+    PVC stuck Pending: no matching PV or StorageClass not found
+    PVC bound to single pod: ReadWriteOnce (RWO)
+    Multiple pods read: ReadOnlyMany (ROX); write: ReadWriteMany (RWX)
+
+  Resource requests and limits:
+    resources:
+      requests: { cpu: '100m', memory: '128Mi' }
+      limits:   { cpu: '500m', memory: '512Mi' }
+    1000m = 1 CPU core; 100m = 0.1 core
+    No limits: pod can consume all node resources
+    LimitRange: namespace-level defaults
+    ResourceQuota: namespace-level caps
+
+  Probes:
+    livenessProbe  — restart if unhealthy (httpGet, exec, tcpSocket)
+    readinessProbe — remove from service if not ready
+    startupProbe   — disable liveness during slow startup
+"
+}
+
+fn s_k8s_rbac() -> &'static str {
+    "\
+  RBAC & Security:
+  RBAC objects:
+    Role          — namespace-scoped permissions
+    ClusterRole   — cluster-wide permissions
+    RoleBinding   — bind Role or ClusterRole to user/group/SA in namespace
+    ClusterRoleBinding — bind ClusterRole cluster-wide
+
+  Check permissions:
+    kubectl auth can-i get pods --as=system:serviceaccount:default:my-sa
+    kubectl auth can-i '*' '*' --as=system:serviceaccount:kube-system:default
+    kubectl get rolebindings,clusterrolebindings -A | grep <subject>
+
+  Create minimal SA:
+    kubectl create serviceaccount my-sa -n my-ns
+    kubectl create role pod-reader --verb=get,list,watch --resource=pods -n my-ns
+    kubectl create rolebinding pod-reader --role=pod-reader \
+      --serviceaccount=my-ns:my-sa -n my-ns
+
+  Pod Security (PSA — Pod Security Admission, K8s 1.25+):
+    Labels on namespace:
+      pod-security.kubernetes.io/enforce: restricted
+      pod-security.kubernetes.io/warn: baseline
+    Levels: privileged | baseline | restricted
+    Replaces deprecated PodSecurityPolicy
+
+  Common security checks:
+    kubectl get pods -o json | jq '.items[].spec.containers[].securityContext'
+    kubectl get pods -o json | jq '.items[].spec.securityContext.runAsRoot'
+    No hostNetwork: true; no hostPID: true; no privileged: true
+    SecurityContext best practices:
+      runAsNonRoot: true
+      readOnlyRootFilesystem: true
+      allowPrivilegeEscalation: false
+      capabilities: { drop: [ALL] }
+"
+}
+
+fn s_k8s_troubleshoot() -> &'static str {
+    "\
+  Troubleshooting:
+  Pod not starting:
+    kubectl describe pod <name>   — look at Events section
+    kubectl logs <pod> --previous — logs from crashed container
+    CrashLoopBackOff: check logs; look for exit code (1=app error, 137=OOM, 139=segfault)
+    OOMKilled: increase memory limit or fix memory leak
+    ImagePullBackOff: check image name, registry auth, network egress
+
+  Pending pod:
+    Insufficient CPU/memory → add nodes or lower requests
+    Taint/toleration mismatch → kubectl describe node | grep Taint
+    NodeAffinity → check affinity rules vs node labels
+
+  Service not reachable:
+    kubectl get endpoints <svc>          — empty = no matching pods
+    kubectl get pods --selector=<label>  — verify selector matches pods
+    kubectl exec pod -- curl svc:port    — test from inside cluster
+    Check NetworkPolicy for egress/ingress blocks
+
+  Useful debugging commands:
+    kubectl get events --sort-by='.lastTimestamp' -A | tail -20
+    kubectl top pods -A                  — CPU/memory usage (metrics-server)
+    kubectl top nodes
+    kubectl debug -it <pod> --image=busybox --copy-to=debug-pod  — debug sidecar
+    kubectl run tmp --image=busybox --rm -it -- sh  — ephemeral debug pod
+    kubectl get nodes -o wide            — node status and versions
+
+  Cluster health:
+    kubectl get componentstatuses       — etcd, scheduler, controller-manager
+    kubectl get nodes                   — NotReady = kubelet issue
+    kubectl describe node <name>        — resource pressure, conditions
+    kubectl cluster-info
+    journalctl -u kubelet -f            — kubelet logs on node
+
+  Resource debugging:
+    kubectl api-resources               — all resource types
+    kubectl explain deployment.spec     — field documentation
+    kubectl diff -f manifest.yaml       — what would change
+"
+}
+
+fn s_k8s_helm() -> &'static str {
+    "\
+  Helm & GitOps:
+  Helm basics:
+    helm repo add stable https://charts.helm.sh/stable
+    helm repo update
+    helm search repo nginx
+    helm install my-release bitnami/nginx -f values.yaml
+    helm upgrade my-release bitnami/nginx --set replicaCount=3
+    helm rollback my-release 1
+    helm uninstall my-release
+    helm list -A                     — all releases
+    helm get values my-release       — current values
+    helm template my-release ./chart — render without install
+
+  Chart structure:
+    Chart.yaml, values.yaml, templates/, charts/ (dependencies)
+    _helpers.tpl: named templates ({{ include \"name\" . }})
+    NOTES.txt: post-install instructions
+    helm lint ./chart                — validate chart
+
+  Kustomize (built into kubectl):
+    kubectl apply -k ./overlays/prod
+    kustomize build ./overlays/prod | kubectl apply -f -
+    Structure: base/ + overlays/{dev,staging,prod}/kustomization.yaml
+
+  GitOps tools:
+    ArgoCD:
+      kubectl get application -n argocd
+      argocd app sync my-app
+      argocd app rollback my-app 1
+      Health states: Healthy | Progressing | Degraded | Missing | Suspended
+
+    Flux v2:
+      flux get all                 — kustomizations, helm releases, sources
+      flux reconcile source git my-repo
+      flux reconcile kustomization my-ks
+
+  Useful operators:
+    cert-manager: automatic TLS cert provisioning (Let's Encrypt)
+    external-dns: manage DNS records from Ingress/Service annotations
+    metrics-server: kubectl top pods/nodes
+    ingress-nginx: NGINX-based Ingress controller
+    Sealed Secrets: encrypt Kubernetes secrets for GitOps storage
+"
+}
+
+const K8S_SECTIONS: &[K8sSection] = &[
+    (
+        "pods",
+        &[
+            "pods",
+            "pod",
+            "deployment",
+            "rollout",
+            "scale",
+            "daemonset",
+            "statefulset",
+            "replicaset",
+            "crashloopbackoff",
+            "imagepullbackoff",
+        ],
+        s_k8s_pods,
+    ),
+    (
+        "services",
+        &[
+            "services",
+            "service",
+            "ingress",
+            "clusterip",
+            "nodeport",
+            "loadbalancer",
+            "dns",
+            "networking",
+            "networkpolicy",
+        ],
+        s_k8s_services,
+    ),
+    (
+        "config",
+        &[
+            "config",
+            "configmap",
+            "secret",
+            "secrets",
+            "pvc",
+            "persistentvolume",
+            "storage",
+            "storageclass",
+            "resources",
+            "probe",
+            "liveness",
+        ],
+        s_k8s_config,
+    ),
+    (
+        "rbac",
+        &[
+            "rbac",
+            "role",
+            "rolebinding",
+            "clusterrole",
+            "serviceaccount",
+            "permission",
+            "security",
+            "psa",
+            "securitycontext",
+        ],
+        s_k8s_rbac,
+    ),
+    (
+        "troubleshoot",
+        &[
+            "troubleshoot",
+            "debug",
+            "events",
+            "describe",
+            "logs",
+            "pending",
+            "crash",
+            "oomkilled",
+            "health",
+            "top",
+        ],
+        s_k8s_troubleshoot,
+    ),
+    (
+        "helm",
+        &[
+            "helm",
+            "chart",
+            "kustomize",
+            "gitops",
+            "argocd",
+            "flux",
+            "operator",
+            "release",
+            "values",
+        ],
+        s_k8s_helm,
+    ),
+];
+
+/// Kubernetes reference — pods, services, config, RBAC, troubleshooting, Helm/GitOps.
+pub fn k8s_ref_calc(query: &str) -> String {
+    use std::fmt::Write;
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+    let _ = writeln!(out, "{}", sep);
+    let _ = writeln!(out, "  Kubernetes (k8s) Reference");
+    let _ = writeln!(out, "{}", sep);
+
+    let q = query.trim().to_ascii_lowercase();
+
+    if q.is_empty() || q == "help" || q == "list" {
+        let _ = writeln!(
+            out,
+            "  Topics: pods, services, config, rbac, troubleshoot, helm"
+        );
+        let _ = writeln!(out, "  Commands: all = all topics");
+        let _ = writeln!(out, "  Run: hematite --k8s-ref <topic>");
+        let _ = writeln!(out, "{}", sep);
+        return out;
+    }
+
+    if q == "all" {
+        let _ = writeln!(out, "{}", sep);
+        for &(name, _, f) in K8S_SECTIONS {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+        }
+        let _ = writeln!(out, "{}", sep);
+        return out;
+    }
+
+    let found: Vec<_> = K8S_SECTIONS
+        .iter()
+        .filter(|&&(name, aliases, _)| {
+            name.contains(q.as_str())
+                || aliases
+                    .iter()
+                    .any(|&a| a.contains(q.as_str()) || q.contains(a))
+        })
+        .collect();
+
+    if found.is_empty() {
+        let _ = writeln!(out, "  No topic found for '{}'.", query.trim());
+        let _ = writeln!(out, "  Run: hematite --k8s-ref help");
+    } else {
+        let _ = writeln!(out, "{}", sep);
+        for &&(name, _, f) in &found {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+        }
+        let _ = writeln!(out, "{}", sep);
+    }
+    out
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+type ObsSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+
+fn s_obs_metrics() -> &'static str {
+    "\
+  Metrics & Prometheus:
+  Prometheus data model:
+    Metric types: Counter, Gauge, Histogram, Summary
+    Counter: monotonically increasing (requests_total, errors_total)
+    Gauge: can go up/down (memory_bytes, active_connections)
+    Histogram: observation distribution (request_duration_seconds_bucket)
+    Summary: quantiles on client side (response_size_bytes_sum)
+
+  PromQL essentials:
+    http_requests_total                         — instant vector
+    http_requests_total[5m]                     — range vector
+    rate(http_requests_total[5m])               — per-second rate
+    increase(http_requests_total[1h])           — total increase
+    irate(http_requests_total[5m])              — instantaneous rate
+
+    Aggregation:
+      sum(rate(http_requests_total[5m])) by (status_code)
+      avg(cpu_usage) by (instance)
+      topk(5, http_requests_total)              — top 5
+      histogram_quantile(0.99, sum(rate(..._bucket[5m])) by (le))  — p99
+
+    Filtering:
+      http_requests{status=~'5..'}              — regex match
+      http_requests{job!='batch'}               — negative match
+      http_requests offset 1h                  — time offset
+
+  Alerting rules:
+    - alert: HighErrorRate
+      expr: rate(http_errors_total[5m]) / rate(http_requests_total[5m]) > 0.05
+      for: 10m
+      labels: { severity: warning }
+      annotations:
+        summary: 'Error rate above 5% for 10 minutes'
+        runbook_url: 'https://runbook.example.com/high-error-rate'
+
+  Recording rules (pre-compute expensive queries):
+    - record: job:http_requests:rate5m
+      expr: sum(rate(http_requests_total[5m])) by (job)
+
+  Exporters:
+    node_exporter: host CPU, memory, disk, network
+    blackbox_exporter: probe endpoints (HTTP, TCP, ICMP, DNS)
+    kube-state-metrics: Kubernetes object state
+    postgres_exporter, redis_exporter, mysqld_exporter
+"
+}
+
+fn s_obs_tracing() -> &'static str {
+    "\
+  Distributed Tracing & OpenTelemetry:
+  Concepts:
+    Trace: end-to-end request across services
+    Span: single unit of work (operation + duration + attributes)
+    SpanContext: trace ID (16 bytes) + span ID (8 bytes) + flags
+    Baggage: key-value pairs propagated across service boundaries
+    Sampling: head-based (decision at entry), tail-based (after trace)
+
+  OpenTelemetry (OTel) — the standard:
+    SDK available for: Rust, Go, Java, Python, Node.js, .NET, PHP
+    Auto-instrumentation: inject agents to instrument frameworks
+    OTLP: OpenTelemetry Protocol (HTTP/JSON or gRPC)
+    Collector: pipeline agent — receive, process, export to multiple backends
+
+  OTel Collector config:
+    receivers: { otlp: { protocols: { grpc: {}, http: {} } } }
+    processors: { batch: {} }
+    exporters: { jaeger: { endpoint: 'jaeger:14250' }, prometheus: { endpoint: ':8889' } }
+    service: { pipelines: { traces: { receivers: [otlp], processors: [batch], exporters: [jaeger] } } }
+
+  Rust OTel:
+    opentelemetry = '0.22'; opentelemetry-otlp
+    let tracer = opentelemetry_otlp::new_pipeline().tracing()...install_batch()?;
+    let span = tracer.start('my-operation');
+    span.set_attribute(KeyValue::new('user.id', user_id));
+
+  Backends:
+    Jaeger: open source; good UI; supports OTLP
+    Zipkin: lightweight; Zipkin format + OTLP
+    Tempo (Grafana): S3-backed; query via TraceQL
+    Datadog, Honeycomb, Lightstep: commercial
+    Signoz: open source, full-stack
+
+  W3C Trace Context headers (standard):
+    traceparent: 00-{trace-id}-{parent-id}-{flags}
+    tracestate: vendor-specific key=value pairs
+"
+}
+
+fn s_obs_logging() -> &'static str {
+    "\
+  Structured Logging:
+  Why structured logs:
+    Parseable by machines → aggregation, alerting, dashboards
+    JSON lines (NDJSON) or logfmt: key=value pairs
+    Always include: timestamp (ISO 8601), level, message, correlation IDs
+    Correlation IDs: trace_id, request_id, user_id — tie logs to traces
+
+  Log levels (standard):
+    TRACE: very verbose, only in dev
+    DEBUG: detailed diagnostic info
+    INFO:  normal operation events (request received, task completed)
+    WARN:  potentially harmful situation, not yet error
+    ERROR: error event — request failed, retry
+    FATAL/CRITICAL: severe error; application cannot continue
+
+  Rust structured logging:
+    tracing crate (recommended): structured spans + events
+      tracing::info!(user_id = %user.id, 'request processed');
+      #[instrument]  — auto span for function
+    log + slog / tracing-subscriber: JSON formatter
+    RUST_LOG=info,my_crate=debug  — env filter
+
+  ELK/EFK stack:
+    Elasticsearch: storage and search
+    Logstash / Fluentd / Fluent Bit: log shipper
+    Kibana: dashboards, Discover, Lens
+    Fluent Bit config (K8s DaemonSet):
+      [INPUT]  Name tail, Path /var/log/containers/*.log
+      [FILTER] Name kubernetes, Kube_URL https://kubernetes.default.svc:443
+      [OUTPUT] Name es, Host elasticsearch:9200, Index k8s-logs
+
+  Loki (Grafana):
+    Like Prometheus but for logs; labels-based indexing
+    LogQL: {app=\"api\",env=\"prod\"} |= 'error' | json | rate[5m]
+    Promtail: log shipper (like node_exporter for logs)
+    Cheaper than Elasticsearch; no inverted index; search is sequential
+
+  Key antipatterns:
+    Log PII without masking
+    Log binary data or overly large payloads
+    Unstructured string concatenation in hot paths
+    High-cardinality labels in Prometheus / Loki (breaks performance)
+"
+}
+
+fn s_obs_slo() -> &'static str {
+    "\
+  SLOs, SLIs & Error Budgets:
+  Definitions:
+    SLI (Service Level Indicator) — a measurable metric
+      Example: proportion of requests with latency < 200ms
+    SLO (Service Level Objective) — target for an SLI
+      Example: 99.9% of requests under 200ms over 30 days
+    SLA (Service Level Agreement) — contractual SLO with penalties
+    Error budget — 1 - SLO target
+      99.9% SLO → 0.1% budget → 43.8 min/month downtime allowed
+
+  Common SLIs:
+    Availability: successful_requests / total_requests
+    Latency: % of requests under threshold (e.g., p99 < 500ms)
+    Throughput: requests per second
+    Error rate: 5xx / total * 100
+    Durability: data successfully stored / total writes (storage SLIs)
+
+  Multi-window alerting (Google SRE workbook):
+    Short window (1h, 2%) + long window (6h, 5%) → page on-call
+    Medium windows (1d, 10%) → ticket
+    Burn rate: how fast you're consuming the error budget
+      Burn rate 1 = consuming budget at exactly SLO rate
+      Burn rate 14.4 = consuming in 1/14.4 of the period → hourly alert
+
+  PromQL for availability SLO:
+    1 - (sum(rate(http_requests{code=~'5..'}[30d]))
+         / sum(rate(http_requests[30d])))
+
+  Alertmanager routing:
+    route:
+      group_by: [alertname, cluster]
+      receiver: slack-warning
+      routes:
+      - match: { severity: critical }
+        receiver: pagerduty
+        continue: true
+
+  Runbooks:
+    Each alert → link to runbook (SRE best practice)
+    Runbook: diagnosis steps, mitigations, escalation path
+    Store in same repo as alert rules for version control
+"
+}
+
+fn s_obs_dashboards() -> &'static str {
+    "\
+  Dashboards & Grafana:
+  Grafana essentials:
+    Panels: Graph, Stat, Gauge, Table, Heatmap, Logs
+    Data sources: Prometheus, Loki, Tempo, Elasticsearch, PostgreSQL
+    Variables: template variables (e.g., $namespace, $pod) for filtering
+    Annotations: mark events on graphs (deployments, incidents)
+    Alerts: rule-based on panel queries; route via contact points
+
+  Dashboard-as-code:
+    Grafonnet (Jsonnet library): generate dashboards programmatically
+    Terraform grafana provider: manage dashboards + datasources as IaC
+    Grafana Operator (Kubernetes): manage via CRDs
+
+  USE Method (Utilization, Saturation, Errors) — for resources:
+    Utilization: % time resource is busy (CPU, disk, network)
+    Saturation: queue depth / wait time when at capacity
+    Errors: error events per second
+
+  RED Method (Rate, Errors, Duration) — for services:
+    Rate: requests per second
+    Errors: failed requests per second
+    Duration: latency distribution (p50, p95, p99)
+
+  Four Golden Signals (Google SRE):
+    Latency: time to serve a request (differentiate success vs error)
+    Traffic: demand on the system (RPS, TPS)
+    Errors: failed requests (explicit 500s + implicit wrong content)
+    Saturation: how full the service is (CPU, memory, queue depth)
+
+  Key dashboards to have:
+    Overview: SLO burn rate, error rate, p99 latency, traffic
+    Infrastructure: CPU, memory, disk, network per node
+    Application: JVM/GC, DB connection pool, external call latency
+    Business: conversion rate, revenue per hour (if applicable)
+
+  Grafana k6 / load testing integration:
+    k6 run --out influxdb=http://localhost:8086/k6 script.js
+    Grafana dashboard ID 2587: k6 load testing results
+"
+}
+
+fn s_obs_alerting() -> &'static str {
+    "\
+  Alerting & On-Call:
+  Alert design principles:
+    Every page should be actionable (not just informational)
+    Alert on symptoms, not causes (alert on high latency, not high CPU)
+    Include runbook link in every alert annotation
+    Test alerts with amtool: amtool check-config alertmanager.yaml
+
+  Alert fatigue antipatterns:
+    Too many low-severity pages → humans ignore them
+    Flapping alerts → add 'for' duration (sustained before firing)
+    Duplicate alerts from multiple sources → deduplicate in Alertmanager
+    Alerts without runbooks → no one knows what to do
+
+  PagerDuty / OpsGenie integration:
+    Alertmanager → webhook → PagerDuty Events API v2
+    priority: critical = immediately page; warning = ticket
+    Escalation policies: primary → secondary → manager (after N min)
+
+  Incident management:
+    Incident lifecycle: Detection → Triage → Mitigate → Resolve → Postmortem
+    MTTR (Mean Time to Resolve) = key SRE metric
+    Blameless postmortem: focus on systems, not individuals
+    Five Whys: drill down to root cause
+    Postmortem template: impact, timeline, root cause, action items
+
+  Useful alerting patterns:
+    Absence alert: absent(metric{job='api'}) — detect metric disappearance
+    Rate-of-change: delta(gauge_metric[5m]) > threshold
+    Prediction: predict_linear(disk_free[1h], 4*3600) < 0 — disk full in 4h
+    Business hours routing: time_of_week matcher in Alertmanager route
+"
+}
+
+const OBS_SECTIONS: &[ObsSection] = &[
+    (
+        "metrics",
+        &[
+            "metrics",
+            "prometheus",
+            "promql",
+            "counter",
+            "gauge",
+            "histogram",
+            "rate",
+            "alertrule",
+            "recording",
+            "exporter",
+        ],
+        s_obs_metrics,
+    ),
+    (
+        "tracing",
+        &[
+            "tracing",
+            "trace",
+            "opentelemetry",
+            "otel",
+            "span",
+            "jaeger",
+            "zipkin",
+            "tempo",
+            "w3c",
+        ],
+        s_obs_tracing,
+    ),
+    (
+        "logging",
+        &[
+            "logging",
+            "logs",
+            "structured",
+            "elk",
+            "loki",
+            "logql",
+            "fluentd",
+            "fluent-bit",
+            "logfmt",
+        ],
+        s_obs_logging,
+    ),
+    (
+        "slo",
+        &[
+            "slo",
+            "sli",
+            "sla",
+            "error-budget",
+            "burn-rate",
+            "alertmanager",
+            "availability",
+            "runbook",
+            "postmortem",
+        ],
+        s_obs_slo,
+    ),
+    (
+        "dashboards",
+        &[
+            "dashboards",
+            "dashboard",
+            "grafana",
+            "use-method",
+            "red-method",
+            "golden-signals",
+            "panel",
+            "variable",
+        ],
+        s_obs_dashboards,
+    ),
+    (
+        "alerting",
+        &[
+            "alerting",
+            "alert",
+            "oncall",
+            "pagerduty",
+            "opsgenie",
+            "incident",
+            "postmortem",
+            "fatigue",
+            "absence",
+        ],
+        s_obs_alerting,
+    ),
+];
+
+/// Observability reference — metrics/Prometheus, tracing/OTel, logging, SLOs, dashboards, alerting.
+pub fn observability_calc(query: &str) -> String {
+    use std::fmt::Write;
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+    let _ = writeln!(out, "{}", sep);
+    let _ = writeln!(out, "  Observability Reference");
+    let _ = writeln!(out, "{}", sep);
+
+    let q = query.trim().to_ascii_lowercase();
+
+    if q.is_empty() || q == "help" || q == "list" {
+        let _ = writeln!(
+            out,
+            "  Topics: metrics, tracing, logging, slo, dashboards, alerting"
+        );
+        let _ = writeln!(out, "  Commands: all = all topics");
+        let _ = writeln!(out, "  Run: hematite --observability <topic>");
+        let _ = writeln!(out, "{}", sep);
+        return out;
+    }
+
+    if q == "all" {
+        let _ = writeln!(out, "{}", sep);
+        for &(name, _, f) in OBS_SECTIONS {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+        }
+        let _ = writeln!(out, "{}", sep);
+        return out;
+    }
+
+    let found: Vec<_> = OBS_SECTIONS
+        .iter()
+        .filter(|&&(name, aliases, _)| {
+            name.contains(q.as_str())
+                || aliases
+                    .iter()
+                    .any(|&a| a.contains(q.as_str()) || q.contains(a))
+        })
+        .collect();
+
+    if found.is_empty() {
+        let _ = writeln!(out, "  No topic found for '{}'.", query.trim());
+        let _ = writeln!(out, "  Run: hematite --observability help");
+    } else {
+        let _ = writeln!(out, "{}", sep);
+        for &&(name, _, f) in &found {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+        }
+        let _ = writeln!(out, "{}", sep);
+    }
+    out
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+type TfAdvSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+
+fn s_tf_adv_modules() -> &'static str {
+    "\
+  Terraform Modules:
+  Module structure:
+    modules/
+      vpc/
+        main.tf, variables.tf, outputs.tf, README.md
+    root:
+      module 'vpc' {
+        source  = './modules/vpc'
+        version = '~> 2.0'        — for registry modules
+        cidr    = var.vpc_cidr
+      }
+      output 'vpc_id' { value = module.vpc.vpc_id }
+
+  Module sources:
+    Local:    source = './modules/vpc'
+    Registry: source = 'hashicorp/consul/aws'; version = '0.1.0'
+    Git:      source = 'git::https://github.com/org/repo.git//modules/vpc?ref=v1.2'
+    S3:       source = 's3::https://s3.amazonaws.com/bucket/module.zip'
+
+  Module best practices:
+    Single responsibility: one module = one resource group
+    Input validation: variable { validation { condition = ... } }
+    No provider config inside modules (pass via required_providers)
+    version constraints: ~> 2.0 (permissive patch), = 2.1.3 (exact)
+    terraform-docs: generate README from variable descriptions
+
+  Calling modules:
+    for_each on modules (Terraform 0.13+):
+      module 'subnet' {
+        for_each = var.subnets
+        source   = './modules/subnet'
+        cidr     = each.value.cidr
+      }
+    Count: module 'server' { count = 3; ... }
+
+  Published modules (Terraform Registry):
+    terraform-aws-modules/vpc/aws
+    terraform-aws-modules/eks/aws
+    terraform-google-modules/network/google
+    Search: registry.terraform.io
+"
+}
+
+fn s_tf_adv_state() -> &'static str {
+    "\
+  State Management:
+  Remote backends:
+    S3 + DynamoDB (AWS):
+      terraform { backend 's3' {
+        bucket         = 'my-tf-state'
+        key            = 'prod/terraform.tfstate'
+        region         = 'us-east-1'
+        dynamodb_table = 'tf-state-lock'
+        encrypt        = true
+      } }
+
+    Terraform Cloud / Terraform Enterprise:
+      terraform { cloud {
+        organization = 'my-org'
+        workspaces { name = 'prod-infra' }
+      } }
+
+    GCS (Google):
+      backend 'gcs' { bucket = 'my-tf-state'; prefix = 'prod' }
+
+  State manipulation:
+    terraform state list              — all resources in state
+    terraform state show <resource>   — resource attributes
+    terraform state mv old new        — rename resource in state
+    terraform state rm <resource>     — remove from state (not destroy)
+    terraform import <addr> <id>      — import existing infra into state
+    terraform force-unlock <lock-id>  — break stuck state lock
+
+  State isolation patterns:
+    Per-environment workspaces: dev, staging, prod
+    Per-environment directories: environments/{dev,staging,prod}/
+    Separate state files per layer: networking, data, app
+    Never share state across unrelated teams
+
+  Sensitive state:
+    State files contain secrets in plaintext — never commit to git
+    S3: enable SSE-S3 or SSE-KMS; restrict bucket access
+    Terraform Cloud: encrypts state at rest
+    sensitive = true on variables: redacted in plan output
+
+  Drift detection:
+    terraform plan -refresh-only      — detect only drift (no changes)
+    terraform refresh                 — update state to match real world
+    -refresh=false                    — skip refresh (faster, stale)
+"
+}
+
+fn s_tf_adv_workspaces() -> &'static str {
+    "\
+  Workspaces & Environments:
+  Workspaces:
+    terraform workspace new staging
+    terraform workspace select prod
+    terraform workspace list
+    terraform workspace show          — current workspace name
+    terraform.workspace               — variable with current name
+
+  Using workspaces in config:
+    locals {
+      env_config = {
+        default  = { instance_type = 't3.micro', count = 1 }
+        staging  = { instance_type = 't3.small',  count = 2 }
+        prod     = { instance_type = 't3.large',  count = 5 }
+      }
+      cfg = local.env_config[terraform.workspace]
+    }
+    resource 'aws_instance' 'app' {
+      count         = local.cfg.count
+      instance_type = local.cfg.instance_type
+    }
+
+  Workspace state isolation:
+    Each workspace has separate state file
+    S3: stored at key path with workspace prefix
+    terraform.tfstate.d/<workspace>/terraform.tfstate
+
+  Pitfalls:
+    Workspaces share same code — easy to misconfigure prod
+    Prefer separate directories for strict isolation
+    Workspaces suit ephemeral/parallel environments (feature branches)
+
+  Var files per environment:
+    terraform apply -var-file=environments/prod.tfvars
+    terraform apply -var-file=environments/staging.tfvars
+    Auto-loaded: terraform.tfvars, *.auto.tfvars
+"
+}
+
+fn s_tf_adv_testing() -> &'static str {
+    "\
+  Terraform Testing:
+  Built-in testing (Terraform 1.6+):
+    tests/
+      main.tftest.hcl:
+        run 'setup' {
+          command = apply
+          variables { env = 'test' }
+        }
+        run 'verify' {
+          command = plan
+          assert {
+            condition     = aws_instance.app.instance_type == 't3.micro'
+            error_message = 'Instance type mismatch'
+          }
+        }
+    terraform test  — run all .tftest.hcl files
+
+  Terratest (Go-based integration tests):
+    import terraform 'github.com/gruntwork-io/terratest/modules/terraform'
+    options := &terraform.Options{ TerraformDir: '../' }
+    terraform.InitAndApply(t, options)
+    id := terraform.Output(t, options, 'instance_id')
+    assert.NotEmpty(t, id)
+    defer terraform.Destroy(t, options)
+
+  Checkov (static analysis / compliance):
+    checkov -d .                      — scan directory
+    checkov -f main.tf --compact      — scan single file
+    Checks: encryption, public access, least privilege, tagging
+    CIS benchmarks built-in; custom policies in Python or YAML
+
+  tflint:
+    tflint --init                     — install plugins
+    tflint                            — AWS/Azure/GCP provider rules
+    Catches: invalid instance types, deprecated resources, naming
+
+  Conftest + OPA policies:
+    conftest test plan.json           — enforce Rego policies on plan
+    Policy example: deny if resource has no required tag
+    Pull policies: conftest pull github.com/org/policies
+
+  Pre-commit hooks:
+    terraform fmt -check
+    terraform validate
+    tflint
+    checkov -d .
+"
+}
+
+fn s_tf_adv_patterns() -> &'static str {
+    "\
+  Advanced Patterns:
+  Dynamic blocks:
+    resource 'aws_security_group' 'app' {
+      dynamic 'ingress' {
+        for_each = var.ingress_rules
+        content {
+          from_port   = ingress.value.from_port
+          to_port     = ingress.value.to_port
+          protocol    = ingress.value.protocol
+          cidr_blocks = ingress.value.cidr_blocks
+        }
+      }
+    }
+
+  Conditional resources:
+    count = var.create_db ? 1 : 0
+    for_each = var.enable_feature ? toset(['true']) : toset([])
+
+  Data sources:
+    data 'aws_ami' 'ubuntu' {
+      most_recent = true
+      filter { name = 'name'; values = ['ubuntu/images/hvm-ssd/*22.04*'] }
+      owners = ['099720109477']
+    }
+    resource 'aws_instance' 'app' { ami = data.aws_ami.ubuntu.id }
+
+  Locals for computed values:
+    locals {
+      common_tags = { Env = var.env, Project = var.project, ManagedBy = 'Terraform' }
+      name_prefix = '${var.project}-${var.env}'
+    }
+
+  Lifecycle rules:
+    lifecycle {
+      create_before_destroy = true   — zero-downtime replacement
+      prevent_destroy       = true   — protect prod resources
+      ignore_changes        = [tags] — ignore drift in specific attrs
+      replace_triggered_by  = [var.ami_id]  — force replace on var change
+    }
+
+  Provider aliasing (multi-region):
+    provider 'aws' { alias = 'us_east'; region = 'us-east-1' }
+    provider 'aws' { alias = 'eu_west'; region = 'eu-west-1' }
+    resource 'aws_instance' 'eu' { provider = aws.eu_west }
+
+  Outputs for composition:
+    output 'vpc_id' {
+      value       = aws_vpc.main.id
+      description = 'VPC ID for use by other modules'
+      sensitive   = false
+    }
+"
+}
+
+fn s_tf_adv_cicd() -> &'static str {
+    "\
+  CI/CD & Automation:
+  PR-based workflow (Atlantis / Terraform Cloud):
+    PR → terraform plan (auto-comment on PR) → review → merge → apply
+    Atlantis: self-hosted; runs plan/apply on webhooks
+    Terraform Cloud: managed; policy as code (Sentinel)
+
+  GitHub Actions example:
+    - uses: hashicorp/setup-terraform@v3
+      with: { terraform_version: 1.8.0 }
+    - run: terraform init
+    - run: terraform fmt -check
+    - run: terraform validate
+    - run: terraform plan -out=tfplan
+    - run: terraform apply tfplan   # only on main branch
+
+  Environment secrets:
+    TF_VAR_db_password: ${{ secrets.DB_PASSWORD }}
+    AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY (use OIDC instead)
+    OIDC (no long-lived credentials):
+      aws-actions/configure-aws-credentials with role-to-assume
+
+  Sentinel policies (Terraform Enterprise/Cloud):
+    import 'tfplan/v2' as tfplan
+    deny[msg] { ... msg = 'resource must have required tags' }
+    Enforcement levels: advisory | soft-mandatory | hard-mandatory
+
+  Drift remediation:
+    terraform plan -refresh-only → review drift → terraform apply -refresh-only
+    Scheduled: cron job runs plan; alert if drift detected
+
+  Version pinning (reproducibility):
+    terraform { required_version = '>= 1.6, < 2.0' }
+    required_providers { aws = { source = 'hashicorp/aws', version = '~> 5.0' } }
+    .terraform.lock.hcl: committed to git — locks provider hashes
+    Never use terraform init -upgrade without reviewing changes
+"
+}
+
+const TF_ADV_SECTIONS: &[TfAdvSection] = &[
+    (
+        "modules",
+        &[
+            "modules",
+            "module",
+            "registry",
+            "source",
+            "for_each",
+            "terraform-docs",
+            "composition",
+        ],
+        s_tf_adv_modules,
+    ),
+    (
+        "state",
+        &[
+            "state",
+            "backend",
+            "remote",
+            "s3",
+            "lock",
+            "import",
+            "drift",
+            "sensitive",
+            "terraform-cloud",
+        ],
+        s_tf_adv_state,
+    ),
+    (
+        "workspaces",
+        &[
+            "workspaces",
+            "workspace",
+            "environment",
+            "tfvars",
+            "staging",
+            "prod",
+            "isolation",
+        ],
+        s_tf_adv_workspaces,
+    ),
+    (
+        "testing",
+        &[
+            "testing",
+            "test",
+            "terratest",
+            "checkov",
+            "tflint",
+            "conftest",
+            "opa",
+            "compliance",
+            "tftest",
+        ],
+        s_tf_adv_testing,
+    ),
+    (
+        "patterns",
+        &[
+            "patterns",
+            "dynamic",
+            "conditional",
+            "locals",
+            "lifecycle",
+            "provider-alias",
+            "data",
+            "output",
+        ],
+        s_tf_adv_patterns,
+    ),
+    (
+        "cicd",
+        &[
+            "cicd",
+            "ci",
+            "atlantis",
+            "github-actions",
+            "sentinel",
+            "oidc",
+            "automation",
+            "plan",
+            "apply",
+        ],
+        s_tf_adv_cicd,
+    ),
+];
+
+/// Advanced Terraform reference — modules, state, workspaces, testing, patterns, CI/CD.
+pub fn terraform_adv_calc(query: &str) -> String {
+    use std::fmt::Write;
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+    let _ = writeln!(out, "{}", sep);
+    let _ = writeln!(out, "  Advanced Terraform Reference");
+    let _ = writeln!(out, "{}", sep);
+
+    let q = query.trim().to_ascii_lowercase();
+
+    if q.is_empty() || q == "help" || q == "list" {
+        let _ = writeln!(
+            out,
+            "  Topics: modules, state, workspaces, testing, patterns, cicd"
+        );
+        let _ = writeln!(out, "  Commands: all = all topics");
+        let _ = writeln!(out, "  Run: hematite --terraform-adv <topic>");
+        let _ = writeln!(out, "{}", sep);
+        return out;
+    }
+
+    if q == "all" {
+        let _ = writeln!(out, "{}", sep);
+        for &(name, _, f) in TF_ADV_SECTIONS {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+        }
+        let _ = writeln!(out, "{}", sep);
+        return out;
+    }
+
+    let found: Vec<_> = TF_ADV_SECTIONS
+        .iter()
+        .filter(|&&(name, aliases, _)| {
+            name.contains(q.as_str())
+                || aliases
+                    .iter()
+                    .any(|&a| a.contains(q.as_str()) || q.contains(a))
+        })
+        .collect();
+
+    if found.is_empty() {
+        let _ = writeln!(out, "  No topic found for '{}'.", query.trim());
+        let _ = writeln!(out, "  Run: hematite --terraform-adv help");
+    } else {
+        let _ = writeln!(out, "{}", sep);
+        for &&(name, _, f) in &found {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+        }
+        let _ = writeln!(out, "{}", sep);
+    }
+    out
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+type SecScanSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+
+fn s_sec_sast() -> &'static str {
+    "\
+  SAST (Static Application Security Testing):
+  What it does: analyzes source code without executing it
+    Finds: SQL injection, XSS, hardcoded secrets, insecure deserialization,
+           command injection, path traversal, weak crypto
+
+  Tools by language:
+    Multi-language:
+      Semgrep: fast, rule-based; community + pro rules; SARIF output
+        semgrep --config=auto .
+        semgrep --config=r/owasp-top-ten .
+      SonarQube / SonarCloud: deep analysis; quality gates; dashboards
+      CodeQL (GitHub): semantic analysis; used by GitHub Advanced Security
+      Snyk Code: cloud SAST with IDE plugins
+
+    Rust:
+      cargo audit — dependency vulnerability check
+      cargo clippy — linting (some security lints with -W)
+      rustsec advisory database: rustsec.org
+
+    Python:
+      bandit: bandit -r . (detects common issues: subprocess, pickle, eval)
+      pylint with security plugins
+      safety: safety check — known vulnerable packages
+
+    JavaScript/TypeScript:
+      npm audit / yarn audit — dependency vulnerabilities
+      eslint-plugin-security — injection, path traversal rules
+      nodeJsScan: njsscan -o report.json .
+
+    Java:
+      SpotBugs + FindSecBugs: bytecode analysis
+      Checkmarx, Fortify: enterprise-grade
+
+  SARIF format (Standard for exchanging security results):
+    GitHub Actions: upload-artifact + github/codeql-action/upload-sarif
+    Unified format — import results from multiple tools into one dashboard
+"
+}
+
+fn s_sec_dast() -> &'static str {
+    "\
+  DAST (Dynamic Application Security Testing):
+  What it does: tests running application from outside
+    Finds: runtime vulnerabilities, configuration issues,
+           injection flaws, auth bypasses, sensitive data exposure
+
+  Tools:
+    OWASP ZAP (Zed Attack Proxy):
+      Passive scan: spider + observe (no active attacks)
+      Active scan: sends malicious payloads to test for vulns
+      CLI: docker run -t ghcr.io/zaproxy/zaproxy:stable zap-baseline.py -t http://app
+      Authenticated scans: record a login script via Selenium
+      API definition scanning: zap-api-scan.py with OpenAPI spec
+
+    Burp Suite (professional web testing):
+      Proxy: intercept and modify HTTP/S
+      Scanner: automated active + passive scanning
+      Intruder: brute force, parameter fuzzing
+      Repeater: manual request replay
+
+    Nikto: nikto -h http://app — quick scan for common issues
+    Nuclei: template-based; 9000+ templates; very fast
+      nuclei -u https://app.example.com -t nuclei-templates/
+
+    sqlmap: automated SQL injection detection and exploitation
+    ffuf / feroxbuster: directory/parameter fuzzing
+
+  API security testing:
+    REST APIs: Postman security tests, ZAP API scan
+    GraphQL: clairvoyance (schema discovery), graphql-cop
+    Test: auth bypass, IDOR (Insecure Direct Object Reference),
+          mass assignment, rate limiting, JWT algorithm confusion
+
+  CI/CD DAST integration:
+    ZAP baseline scan on staging before prod deploy
+    OWASP Juice Shop: intentionally vulnerable app for testing tools
+"
+}
+
+fn s_sec_deps() -> &'static str {
+    "\
+  Dependency & Supply Chain Security:
+  Vulnerability databases:
+    CVE (Common Vulnerabilities and Exposures): cve.mitre.org
+    NVD (National Vulnerability Database): nvd.nist.gov
+    OSV (Open Source Vulnerabilities): osv.dev — cross-ecosystem
+    GitHub Advisory Database: ghsa
+    Snyk vulnerability DB
+
+  Dependency scanning tools:
+    npm audit / yarn audit / pnpm audit  — Node.js
+    pip-audit                            — Python
+    cargo audit                          — Rust (rustsec advisory DB)
+    bundler-audit                        — Ruby
+    OWASP Dependency-Check               — Java, .NET, more
+    Trivy: trivy fs . — filesystem scan (multi-language + IaC)
+    Grype: grype dir:.  — fast multi-ecosystem scanner
+    Snyk: snyk test — with fix suggestions
+
+  SBOMs (Software Bill of Materials):
+    Formats: SPDX (Linux Foundation), CycloneDX (OWASP)
+    Generate: syft . -o cyclonedx-json > sbom.json
+    Scan SBOM: grype sbom:sbom.json
+    US EO 14028: federal software must provide SBOM
+
+  Supply chain attacks:
+    Dependency confusion: attacker publishes public package with same name
+      Mitigation: namespace packages; pin exact versions; use private registry
+    Typosquatting: similarlybane → dependency on wrong package
+    Malicious maintainer: hijacked npm account pushes malicious version
+    Mitigation: pin to exact version + hash; use lockfiles; review diffs
+
+  Lockfile security:
+    NEVER auto-update without reviewing
+    Commit lockfiles to git (package-lock.json, Cargo.lock, Pipfile.lock)
+    Pin actions in GitHub Actions: actions/checkout@v4  → pin to SHA
+      actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+"
+}
+
+fn s_sec_containers() -> &'static str {
+    "\
+  Container Security Scanning:
+  Image scanning tools:
+    Trivy: trivy image nginx:latest  — most popular; all-in-one
+      Scans: OS packages, language deps, IaC, secrets, licenses
+      trivy image --exit-code 1 --severity CRITICAL app:latest
+    Grype: grype nginx:latest
+    Syft + Grype: generate SBOM then scan
+    Clair: server-based; PostgreSQL; used by Quay, Harbor
+    Snyk: snyk container test nginx:latest --file=Dockerfile
+
+  Dockerfile best practices (security):
+    Use specific base image tags (not :latest):
+      FROM node:20.11.0-alpine3.19
+    Run as non-root:
+      RUN adduser -D appuser && USER appuser
+    Multi-stage builds: separate build tools from runtime
+    No secrets in Dockerfile or image layers:
+      Never: ENV PASSWORD=secret
+      Use: --secret flag (BuildKit) or runtime secrets
+    Minimal base: distroless, scratch, alpine
+    Read-only filesystem at runtime: --read-only
+
+  Container runtime security:
+    seccomp profiles: limit syscalls; docker --security-opt seccomp=profile.json
+    AppArmor / SELinux: mandatory access control
+    no-new-privileges: docker --security-opt no-new-privileges
+    Drop capabilities: --cap-drop ALL --cap-add NET_BIND_SERVICE
+    Non-root user: --user 1001:1001
+
+  Registry security:
+    Cosign: sign and verify container images
+      cosign sign --key cosign.key image@sha256:...
+      cosign verify --key cosign.pub image@sha256:...
+    Notary v2 / sigstore: image signing standards
+    Private registries: ECR, GCR, ACR, Harbor
+
+  Kubernetes container security:
+    Pod Security Standards (restricted): blocks privileged, hostNetwork, etc.
+    kubectl-who-can: discover who can do what in cluster
+    kube-bench: CIS Kubernetes benchmark checks
+    Falco: runtime threat detection (eBPF-based); alerts on suspicious syscalls
+"
+}
+
+fn s_sec_secrets_mgmt() -> &'static str {
+    "\
+  Secrets Detection & Management:
+  Secret scanning tools:
+    gitleaks: gitleaks detect --source . (detect secrets in git history)
+      gitleaks protect --staged  — pre-commit hook
+    truffleHog: deep git history + entropy scanning
+    detect-secrets: Yelp tool; baseline + pre-commit integration
+    git-secrets: AWS-developed; blocks commits with credentials
+    GitHub secret scanning: built-in for all repos; push protection
+
+  Pre-commit secret scanning:
+    .pre-commit-config.yaml:
+      repos:
+      - repo: https://github.com/zricethezav/gitleaks
+        rev: v8.18.2
+        hooks:
+        - id: gitleaks
+
+  Common secret patterns (high-priority):
+    AWS: AKIA[0-9A-Z]{16}
+    GitHub token: github_pat_..., ghp_..., ghs_...
+    Stripe: sk_live_[a-zA-Z0-9]{24}
+    Private keys: -----BEGIN (RSA|EC|DSA|OPENSSH) PRIVATE KEY-----
+    Generic API key: api[_-]?key[_-]?=.{10,}
+
+  If a secret is exposed:
+    1. Revoke immediately (don't wait for an investigation)
+    2. Rotate the secret to a new value
+    3. Audit usage logs for unauthorized access
+    4. Remove from git history: git filter-repo --force
+    5. Force-push after removal
+    6. Scan all forks and cached copies (GitHub cache, CI logs)
+
+  Secrets management systems:
+    HashiCorp Vault: dynamic secrets, lease TTL, audit logs
+    AWS Secrets Manager / Parameter Store: native AWS rotation
+    Azure Key Vault / GCP Secret Manager
+    Kubernetes: External Secrets Operator (sync Vault/AWS → K8s secrets)
+    SOPS: encrypt secrets in git (AWS KMS, GCP KMS, age)
+"
+}
+
+fn s_sec_compliance() -> &'static str {
+    "\
+  Compliance & Security Standards:
+  Common frameworks:
+    OWASP Top 10 (web):
+      A01 Broken Access Control     A06 Vulnerable Components
+      A02 Cryptographic Failures    A07 Auth Failures
+      A03 Injection                 A08 Software/Data Integrity
+      A04 Insecure Design           A09 Logging/Monitoring Failures
+      A05 Security Misconfiguration A10 SSRF
+
+    CIS Benchmarks: hardening guides for OS, cloud, k8s, containers
+    NIST 800-53: US federal security controls
+    SOC 2: trust services criteria (security, availability, confidentiality)
+    PCI-DSS: payment card industry; strict controls for cardholder data
+    HIPAA: US healthcare data; PHI protection
+    GDPR: EU; personal data processing; breach notification within 72h
+
+  Automated compliance tools:
+    Checkov: IaC compliance (Terraform, CloudFormation, K8s manifests)
+    Prowler: AWS/Azure/GCP security best practices audit
+    ScoutSuite: multi-cloud security posture assessment
+    kube-bench: CIS Kubernetes Benchmark
+    Lynis: host-level compliance audit (Linux)
+    InSpec (Chef): compliance as code; profiles for CIS, PCI, HIPAA
+
+  Security headers (web):
+    Strict-Transport-Security: max-age=31536000; includeSubDomains
+    Content-Security-Policy: default-src 'self'
+    X-Content-Type-Options: nosniff
+    X-Frame-Options: DENY
+    Referrer-Policy: strict-origin-when-cross-origin
+    Permissions-Policy: camera=(), microphone=(), geolocation=()
+    Check: securityheaders.com; Mozilla Observatory
+
+  Developer security training:
+    OWASP WebGoat: intentionally vulnerable Java app
+    Damn Vulnerable Web App (DVWA): PHP/MySQL
+    HackTheBox / TryHackMe: gamified learning
+    OWASP Juice Shop: modern JS vulnerable app; OWASP coverage
+"
+}
+
+const SEC_SCAN_SECTIONS: &[SecScanSection] = &[
+    (
+        "sast",
+        &[
+            "sast",
+            "static",
+            "semgrep",
+            "sonarqube",
+            "codeql",
+            "bandit",
+            "snyk-code",
+            "spotbugs",
+            "cargo-audit",
+        ],
+        s_sec_sast,
+    ),
+    (
+        "dast",
+        &[
+            "dast",
+            "dynamic",
+            "zap",
+            "burp",
+            "nikto",
+            "nuclei",
+            "sqlmap",
+            "fuzzing",
+            "api-security",
+        ],
+        s_sec_dast,
+    ),
+    (
+        "deps",
+        &[
+            "deps",
+            "dependencies",
+            "dependency",
+            "supply-chain",
+            "sbom",
+            "trivy",
+            "grype",
+            "lockfile",
+            "typosquatting",
+        ],
+        s_sec_deps,
+    ),
+    (
+        "containers",
+        &[
+            "containers",
+            "container",
+            "docker",
+            "image",
+            "dockerfile",
+            "cosign",
+            "registry",
+            "falco",
+            "kube-bench",
+        ],
+        s_sec_containers,
+    ),
+    (
+        "secrets",
+        &[
+            "secrets",
+            "secret",
+            "gitleaks",
+            "trufflehog",
+            "vault",
+            "sops",
+            "rotation",
+            "exposed",
+            "pre-commit",
+        ],
+        s_sec_secrets_mgmt,
+    ),
+    (
+        "compliance",
+        &[
+            "compliance",
+            "owasp",
+            "cis",
+            "gdpr",
+            "hipaa",
+            "pci",
+            "soc2",
+            "checkov",
+            "prowler",
+            "headers",
+        ],
+        s_sec_compliance,
+    ),
+];
+
+/// Security scanning reference — SAST, DAST, dependency scanning, container security, secrets, compliance.
+pub fn security_scan_calc(query: &str) -> String {
+    use std::fmt::Write;
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+    let _ = writeln!(out, "{}", sep);
+    let _ = writeln!(out, "  Security Scanning Reference");
+    let _ = writeln!(out, "{}", sep);
+
+    let q = query.trim().to_ascii_lowercase();
+
+    if q.is_empty() || q == "help" || q == "list" {
+        let _ = writeln!(
+            out,
+            "  Topics: sast, dast, deps, containers, secrets, compliance"
+        );
+        let _ = writeln!(out, "  Commands: all = all topics");
+        let _ = writeln!(out, "  Run: hematite --security-scan <topic>");
+        let _ = writeln!(out, "{}", sep);
+        return out;
+    }
+
+    if q == "all" {
+        let _ = writeln!(out, "{}", sep);
+        for &(name, _, f) in SEC_SCAN_SECTIONS {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+        }
+        let _ = writeln!(out, "{}", sep);
+        return out;
+    }
+
+    let found: Vec<_> = SEC_SCAN_SECTIONS
+        .iter()
+        .filter(|&&(name, aliases, _)| {
+            name.contains(q.as_str())
+                || aliases
+                    .iter()
+                    .any(|&a| a.contains(q.as_str()) || q.contains(a))
+        })
+        .collect();
+
+    if found.is_empty() {
+        let _ = writeln!(out, "  No topic found for '{}'.", query.trim());
+        let _ = writeln!(out, "  Run: hematite --security-scan help");
+    } else {
+        let _ = writeln!(out, "{}", sep);
+        for &&(name, _, f) in &found {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+        }
+        let _ = writeln!(out, "{}", sep);
+    }
+    out
+}
