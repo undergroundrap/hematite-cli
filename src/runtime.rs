@@ -1071,6 +1071,10 @@ mod tests {
             systemd_adv: None,
             makefile: None,
             jinja: None,
+            http_adv: None,
+            linux_adv: None,
+            security_ref: None,
+            cloud_ref: None,
             pdf_extract_helper: None,
             teleported_from: None,
         };

@@ -4,21 +4,21 @@
 /// matrix decomposition modes (QR, SVD, Cholesky).
 use hematite::tools::math_util::{
     ansible_calc, ascii_calc, ascii_table_calc, awk_calc, bash_ref_calc, bitwise_calc, case_calc,
-    chars_calc, checksum_calc, chemistry_calc, chmod_calc, cipher_calc, color_calc,
+    chars_calc, checksum_calc, chemistry_calc, chmod_calc, cipher_calc, cloud_ref_calc, color_calc,
     color_names_calc, combinatorics_calc, complex_calc, cron_calc, csv_calc, curl_calc,
     datetime_calc, diff_calc, docker_adv_calc, docker_ref_calc, duration_calc, electrical_calc,
     encode_calc, escape_calc, find_calc, fraction_calc, geometry_calc, git_adv_calc, git_ref_calc,
-    gitignore_calc, go_ref_calc, grep_calc, hash_calc, headers_calc, health_calc, http_calc,
-    http_status_calc, id_gen_calc, ip_calc, jinja_calc, jq_calc, js_ref_calc, json_calc,
-    json_path_calc, jwt_calc, kbd_calc, kubectl_calc, license_calc, lorem_calc, make_calc,
-    makefile_calc, markdown_calc, matrix_calc, mime_calc, net_calc, nginx_calc, npm_calc,
-    number_format, number_theory_calc, openssl_calc, percent_calc, physics_calc, port_calc,
-    postgres_calc, prob_calc, python_ref_calc, regex_calc, regex_ref_calc, roman_calc,
-    rust_ref_calc, sed_calc, semver_calc, set_calc, sort_viz, spark_calc, sql_fmt_calc,
-    sql_ref_calc, ssh_ref_calc, ssl_calc, stats_calc, string_dist, systemd_adv_calc, systemd_calc,
-    table_calc, tar_calc, template_calc, terraform_calc, text_stats, timestamp_calc, tmux_calc,
-    toml_calc, trig_calc, ts_ref_calc, tz_calc, url_calc, uuid_calc, validate_calc, vim_calc,
-    xml_calc, yaml_calc,
+    gitignore_calc, go_ref_calc, grep_calc, hash_calc, headers_calc, health_calc, http_adv_calc,
+    http_calc, http_status_calc, id_gen_calc, ip_calc, jinja_calc, jq_calc, js_ref_calc, json_calc,
+    json_path_calc, jwt_calc, kbd_calc, kubectl_calc, license_calc, linux_adv_calc, lorem_calc,
+    make_calc, makefile_calc, markdown_calc, matrix_calc, mime_calc, net_calc, nginx_calc,
+    npm_calc, number_format, number_theory_calc, openssl_calc, percent_calc, physics_calc,
+    port_calc, postgres_calc, prob_calc, python_ref_calc, regex_calc, regex_ref_calc, roman_calc,
+    rust_ref_calc, security_ref_calc, sed_calc, semver_calc, set_calc, sort_viz, spark_calc,
+    sql_fmt_calc, sql_ref_calc, ssh_ref_calc, ssl_calc, stats_calc, string_dist, systemd_adv_calc,
+    systemd_calc, table_calc, tar_calc, template_calc, terraform_calc, text_stats, timestamp_calc,
+    tmux_calc, toml_calc, trig_calc, ts_ref_calc, tz_calc, url_calc, uuid_calc, validate_calc,
+    vim_calc, xml_calc, yaml_calc,
 };
 
 // ─── Cipher tests ────────────────────────────────────────────────────────────
@@ -9142,4 +9142,675 @@ fn test_jinja_inheritance_alias_partial() {
 fn test_jinja_no_match() {
     let out = jinja_calc("xyznotfound");
     assert!(out.contains("No topic") || out.contains("hematite --jinja"));
+}
+
+// ─── Wave 21 Tests: http-adv, linux-adv, security-ref, cloud-ref ─────────────
+
+// ── http_adv_calc ─────────────────────────────────────────────────────────────
+
+#[test]
+fn test_http_adv_help_empty() {
+    let out = http_adv_calc("");
+    assert!(out.contains("hematite --http-adv") || out.contains("Topics"));
+}
+
+#[test]
+fn test_http_adv_all() {
+    let out = http_adv_calc("all");
+    assert!(out.contains("status") && out.contains("caching") && out.contains("cors"));
+}
+
+#[test]
+fn test_http_adv_status_topic() {
+    let out = http_adv_calc("status");
+    assert!(out.contains("200") || out.contains("404") || out.contains("500"));
+    assert!(out.contains("301") || out.contains("redirect") || out.contains("Redirect"));
+}
+
+#[test]
+fn test_http_adv_status_alias_codes() {
+    let out = http_adv_calc("codes");
+    assert!(out.contains("200") || out.contains("404"));
+}
+
+#[test]
+fn test_http_adv_status_alias_4xx() {
+    let out = http_adv_calc("4xx");
+    assert!(out.contains("400") || out.contains("401") || out.contains("429"));
+}
+
+#[test]
+fn test_http_adv_status_alias_redirect() {
+    let out = http_adv_calc("redirect");
+    assert!(out.contains("301") || out.contains("302") || out.contains("307"));
+}
+
+#[test]
+fn test_http_adv_caching_topic() {
+    let out = http_adv_calc("caching");
+    assert!(out.contains("Cache-Control") || out.contains("max-age"));
+    assert!(out.contains("ETag") || out.contains("304") || out.contains("Vary"));
+}
+
+#[test]
+fn test_http_adv_caching_alias_etag() {
+    let out = http_adv_calc("etag");
+    assert!(out.contains("ETag") || out.contains("If-None-Match") || out.contains("304"));
+}
+
+#[test]
+fn test_http_adv_caching_alias_immutable() {
+    let out = http_adv_calc("immutable");
+    assert!(out.contains("immutable") || out.contains("versioned"));
+}
+
+#[test]
+fn test_http_adv_caching_alias_stale() {
+    let out = http_adv_calc("stale");
+    assert!(out.contains("stale") || out.contains("stale-while-revalidate"));
+}
+
+#[test]
+fn test_http_adv_cors_topic() {
+    let out = http_adv_calc("cors");
+    assert!(out.contains("CORS") || out.contains("Access-Control-Allow-Origin"));
+    assert!(out.contains("preflight") || out.contains("OPTIONS") || out.contains("Preflight"));
+}
+
+#[test]
+fn test_http_adv_cors_alias_preflight() {
+    let out = http_adv_calc("preflight");
+    assert!(out.contains("OPTIONS") || out.contains("preflight") || out.contains("Preflight"));
+}
+
+#[test]
+fn test_http_adv_cors_alias_credentials() {
+    let out = http_adv_calc("credentials");
+    assert!(out.contains("credentials") || out.contains("Allow-Credentials"));
+}
+
+#[test]
+fn test_http_adv_auth_topic() {
+    let out = http_adv_calc("auth");
+    assert!(out.contains("Authorization") || out.contains("Bearer") || out.contains("JWT"));
+    assert!(out.contains("OAuth") || out.contains("cookie") || out.contains("Cookie"));
+}
+
+#[test]
+fn test_http_adv_auth_alias_bearer() {
+    let out = http_adv_calc("bearer");
+    assert!(out.contains("Bearer") || out.contains("bearer"));
+}
+
+#[test]
+fn test_http_adv_auth_alias_jwt() {
+    let out = http_adv_calc("jwt");
+    assert!(out.contains("JWT") || out.contains("header.payload"));
+}
+
+#[test]
+fn test_http_adv_auth_alias_oauth() {
+    let out = http_adv_calc("oauth");
+    assert!(out.contains("OAuth") || out.contains("PKCE") || out.contains("Authorization Code"));
+}
+
+#[test]
+fn test_http_adv_headers_topic() {
+    let out = http_adv_calc("headers");
+    assert!(
+        out.contains("Strict-Transport-Security")
+            || out.contains("Content-Security-Policy")
+            || out.contains("Security headers")
+    );
+    assert!(
+        out.contains("X-Content-Type-Options") || out.contains("nosniff") || out.contains("Rate")
+    );
+}
+
+#[test]
+fn test_http_adv_headers_alias_csp() {
+    let out = http_adv_calc("csp");
+    assert!(out.contains("Content-Security-Policy") || out.contains("CSP") || out.contains("csp"));
+}
+
+#[test]
+fn test_http_adv_headers_alias_hsts() {
+    let out = http_adv_calc("hsts");
+    assert!(
+        out.contains("Strict-Transport-Security") || out.contains("HSTS") || out.contains("hsts")
+    );
+}
+
+#[test]
+fn test_http_adv_headers_alias_rate_limit() {
+    let out = http_adv_calc("rate-limit");
+    assert!(out.contains("rate") || out.contains("RateLimit") || out.contains("429"));
+}
+
+#[test]
+fn test_http_adv_performance_topic() {
+    let out = http_adv_calc("performance");
+    assert!(out.contains("HTTP/2") || out.contains("HTTP/3") || out.contains("QUIC"));
+    assert!(out.contains("WebSocket") || out.contains("chunked") || out.contains("SSE"));
+}
+
+#[test]
+fn test_http_adv_performance_alias_http2() {
+    let out = http_adv_calc("http2");
+    assert!(out.contains("HTTP/2") || out.contains("Multiplexing") || out.contains("HPACK"));
+}
+
+#[test]
+fn test_http_adv_performance_alias_websocket() {
+    let out = http_adv_calc("websocket");
+    assert!(out.contains("WebSocket") || out.contains("Upgrade") || out.contains("101"));
+}
+
+#[test]
+fn test_http_adv_performance_alias_sse() {
+    let out = http_adv_calc("sse");
+    assert!(
+        out.contains("text/event-stream") || out.contains("SSE") || out.contains("Server-Sent")
+    );
+}
+
+#[test]
+fn test_http_adv_no_match() {
+    let out = http_adv_calc("xyznotfound");
+    assert!(out.contains("No topic") || out.contains("hematite --http-adv"));
+}
+
+// ── linux_adv_calc ────────────────────────────────────────────────────────────
+
+#[test]
+fn test_linux_adv_help_empty() {
+    let out = linux_adv_calc("");
+    assert!(out.contains("hematite --linux-adv") || out.contains("Topics"));
+}
+
+#[test]
+fn test_linux_adv_all() {
+    let out = linux_adv_calc("all");
+    assert!(out.contains("processes") && out.contains("tracing") && out.contains("sysctl"));
+}
+
+#[test]
+fn test_linux_adv_processes_topic() {
+    let out = linux_adv_calc("processes");
+    assert!(out.contains("SIGTERM") || out.contains("SIGKILL") || out.contains("Signals"));
+    assert!(out.contains("/proc/") || out.contains("pstree") || out.contains("pkill"));
+}
+
+#[test]
+fn test_linux_adv_processes_alias_signal() {
+    let out = linux_adv_calc("signal");
+    assert!(out.contains("SIGTERM") || out.contains("kill -l") || out.contains("SIGHUP"));
+}
+
+#[test]
+fn test_linux_adv_processes_alias_kill() {
+    let out = linux_adv_calc("kill");
+    assert!(out.contains("kill") || out.contains("SIGKILL") || out.contains("SIGTERM"));
+}
+
+#[test]
+fn test_linux_adv_processes_alias_proc() {
+    let out = linux_adv_calc("proc");
+    assert!(out.contains("/proc/") || out.contains("cmdline") || out.contains("Proc filesystem"));
+}
+
+#[test]
+fn test_linux_adv_tracing_topic() {
+    let out = linux_adv_calc("tracing");
+    assert!(out.contains("strace") || out.contains("lsof") || out.contains("perf"));
+    assert!(out.contains("syscall") || out.contains("-p pid") || out.contains("attach"));
+}
+
+#[test]
+fn test_linux_adv_tracing_alias_strace() {
+    let out = linux_adv_calc("strace");
+    assert!(out.contains("strace") || out.contains("system call"));
+}
+
+#[test]
+fn test_linux_adv_tracing_alias_lsof() {
+    let out = linux_adv_calc("lsof");
+    assert!(out.contains("lsof") || out.contains("open files") || out.contains("open file"));
+}
+
+#[test]
+fn test_linux_adv_tracing_alias_perf() {
+    let out = linux_adv_calc("perf");
+    assert!(out.contains("perf") || out.contains("CPU counters") || out.contains("profil"));
+}
+
+#[test]
+fn test_linux_adv_namespaces_topic() {
+    let out = linux_adv_calc("namespaces");
+    assert!(out.contains("namespace") || out.contains("pid") || out.contains("net"));
+    assert!(out.contains("nsenter") || out.contains("unshare") || out.contains("lsns"));
+}
+
+#[test]
+fn test_linux_adv_namespaces_alias_cgroup() {
+    let out = linux_adv_calc("cgroup");
+    assert!(out.contains("cgroup") || out.contains("/sys/fs/cgroup"));
+}
+
+#[test]
+fn test_linux_adv_namespaces_alias_capability() {
+    let out = linux_adv_calc("capability");
+    assert!(
+        out.contains("capsh")
+            || out.contains("getcap")
+            || out.contains("capabilities")
+            || out.contains("Capabilities")
+    );
+}
+
+#[test]
+fn test_linux_adv_sysctl_topic() {
+    let out = linux_adv_calc("sysctl");
+    assert!(out.contains("sysctl") || out.contains("kernel parameter"));
+    assert!(out.contains("ip_forward") || out.contains("swappiness") || out.contains("vm."));
+}
+
+#[test]
+fn test_linux_adv_sysctl_alias_kernel() {
+    let out = linux_adv_calc("kernel");
+    assert!(out.contains("sysctl") || out.contains("kernel") || out.contains("/proc/sys/"));
+}
+
+#[test]
+fn test_linux_adv_sysctl_alias_swappiness() {
+    let out = linux_adv_calc("swappiness");
+    assert!(out.contains("swappiness") || out.contains("vm.swappiness"));
+}
+
+#[test]
+fn test_linux_adv_sysctl_alias_ip_forward() {
+    let out = linux_adv_calc("ip_forward");
+    assert!(out.contains("ip_forward") || out.contains("IP forwarding") || out.contains("router"));
+}
+
+#[test]
+fn test_linux_adv_filesystem_topic() {
+    let out = linux_adv_calc("filesystem");
+    assert!(out.contains("inode") || out.contains("mount") || out.contains("lsblk"));
+    assert!(out.contains("inotify") || out.contains("ln -s") || out.contains("stat "));
+}
+
+#[test]
+fn test_linux_adv_filesystem_alias_inode() {
+    let out = linux_adv_calc("inode");
+    assert!(out.contains("inode") || out.contains("stat ") || out.contains("ls -i"));
+}
+
+#[test]
+fn test_linux_adv_filesystem_alias_mount() {
+    let out = linux_adv_calc("mount");
+    assert!(out.contains("mount") || out.contains("findmnt") || out.contains("umount"));
+}
+
+#[test]
+fn test_linux_adv_filesystem_alias_inotify() {
+    let out = linux_adv_calc("inotify");
+    assert!(out.contains("inotify") || out.contains("inotifywait"));
+}
+
+#[test]
+fn test_linux_adv_networking_topic() {
+    let out = linux_adv_calc("networking");
+    assert!(out.contains("ip addr") || out.contains("ip route") || out.contains("ss -"));
+    assert!(out.contains("tc ") || out.contains("nftables") || out.contains("iptables"));
+}
+
+#[test]
+fn test_linux_adv_networking_alias_ss() {
+    let out = linux_adv_calc("ss-cmd");
+    assert!(out.contains("ss -") || out.contains("socket statistics"));
+}
+
+#[test]
+fn test_linux_adv_networking_alias_tc() {
+    let out = linux_adv_calc("tc");
+    assert!(out.contains("tc ") || out.contains("traffic control") || out.contains("netem"));
+}
+
+#[test]
+fn test_linux_adv_no_match() {
+    let out = linux_adv_calc("xyznotfound");
+    assert!(out.contains("No topic") || out.contains("hematite --linux-adv"));
+}
+
+// ── security_ref_calc ─────────────────────────────────────────────────────────
+
+#[test]
+fn test_security_ref_help_empty() {
+    let out = security_ref_calc("");
+    assert!(out.contains("hematite --security-ref") || out.contains("Topics"));
+}
+
+#[test]
+fn test_security_ref_all() {
+    let out = security_ref_calc("all");
+    assert!(out.contains("owasp") && out.contains("injection") && out.contains("tls"));
+}
+
+#[test]
+fn test_security_ref_owasp_topic() {
+    let out = security_ref_calc("owasp");
+    assert!(out.contains("A01") || out.contains("Broken Access") || out.contains("OWASP"));
+    assert!(out.contains("A03") || out.contains("Injection") || out.contains("A07"));
+}
+
+#[test]
+fn test_security_ref_owasp_alias_top10() {
+    let out = security_ref_calc("top10");
+    assert!(out.contains("A01") || out.contains("Top 10") || out.contains("OWASP"));
+}
+
+#[test]
+fn test_security_ref_owasp_alias_ssrf() {
+    let out = security_ref_calc("ssrf");
+    assert!(
+        out.contains("SSRF") || out.contains("Server-Side Request") || out.contains("metadata")
+    );
+}
+
+#[test]
+fn test_security_ref_injection_topic() {
+    let out = security_ref_calc("injection");
+    assert!(out.contains("SQL") || out.contains("parameterized") || out.contains("XSS"));
+    assert!(out.contains("payload") || out.contains("Fix:") || out.contains("command"));
+}
+
+#[test]
+fn test_security_ref_injection_alias_sqli() {
+    let out = security_ref_calc("sqli");
+    assert!(out.contains("SQL") || out.contains("parameterized") || out.contains("UNION"));
+}
+
+#[test]
+fn test_security_ref_injection_alias_xss() {
+    let out = security_ref_calc("xss");
+    assert!(out.contains("XSS") || out.contains("Cross-Site Scripting") || out.contains("onerror"));
+}
+
+#[test]
+fn test_security_ref_injection_alias_command() {
+    let out = security_ref_calc("command");
+    assert!(
+        out.contains("Command Injection")
+            || out.contains("shell=True")
+            || out.contains("subprocess")
+    );
+}
+
+#[test]
+fn test_security_ref_injection_alias_traversal() {
+    let out = security_ref_calc("traversal");
+    assert!(out.contains("Traversal") || out.contains("../") || out.contains("realpath"));
+}
+
+#[test]
+fn test_security_ref_tls_topic() {
+    let out = security_ref_calc("tls");
+    assert!(out.contains("TLS") || out.contains("cipher") || out.contains("certificate"));
+    assert!(out.contains("TLS 1.2") || out.contains("TLS 1.3") || out.contains("ECDHE"));
+}
+
+#[test]
+fn test_security_ref_tls_alias_cipher() {
+    let out = security_ref_calc("cipher");
+    assert!(out.contains("cipher") || out.contains("ECDHE") || out.contains("AES-GCM"));
+}
+
+#[test]
+fn test_security_ref_tls_alias_certificate() {
+    let out = security_ref_calc("certificate");
+    assert!(out.contains("certificate") || out.contains("cert.pem") || out.contains("CA"));
+}
+
+#[test]
+fn test_security_ref_secrets_topic() {
+    let out = security_ref_calc("secrets");
+    assert!(
+        out.contains("Vault")
+            || out.contains("secret")
+            || out.contains("rotation")
+            || out.contains("Never do")
+    );
+    assert!(out.contains("rotate") || out.contains("Rotation") || out.contains("git"));
+}
+
+#[test]
+fn test_security_ref_secrets_alias_vault() {
+    let out = security_ref_calc("vault");
+    assert!(out.contains("vault kv") || out.contains("HashiCorp") || out.contains("Vault"));
+}
+
+#[test]
+fn test_security_ref_secrets_alias_rotate() {
+    let out = security_ref_calc("rotate");
+    assert!(out.contains("Rotat") || out.contains("rotate") || out.contains("rotation"));
+}
+
+#[test]
+fn test_security_ref_jwt_topic() {
+    let out = security_ref_calc("jwt");
+    assert!(out.contains("JWT") || out.contains("alg") || out.contains("algorithm"));
+    assert!(
+        out.contains("alg:none")
+            || out.contains("none")
+            || out.contains("HS256")
+            || out.contains("attack")
+    );
+}
+
+#[test]
+fn test_security_ref_jwt_alias_alg() {
+    let out = security_ref_calc("alg");
+    assert!(out.contains("alg") || out.contains("algorithm") || out.contains("HS256"));
+}
+
+#[test]
+fn test_security_ref_jwt_alias_claims() {
+    let out = security_ref_calc("claims");
+    assert!(
+        out.contains("exp") || out.contains("aud") || out.contains("claims") || out.contains("sub")
+    );
+}
+
+#[test]
+fn test_security_ref_scanning_topic() {
+    let out = security_ref_calc("scanning");
+    assert!(out.contains("trivy") || out.contains("semgrep") || out.contains("audit"));
+    assert!(out.contains("SAST") || out.contains("SCA") || out.contains("secret"));
+}
+
+#[test]
+fn test_security_ref_scanning_alias_trivy() {
+    let out = security_ref_calc("trivy");
+    assert!(out.contains("trivy") || out.contains("Trivy"));
+}
+
+#[test]
+fn test_security_ref_scanning_alias_semgrep() {
+    let out = security_ref_calc("semgrep");
+    assert!(out.contains("semgrep") || out.contains("Semgrep") || out.contains("SAST"));
+}
+
+#[test]
+fn test_security_ref_scanning_alias_grype() {
+    let out = security_ref_calc("grype");
+    assert!(out.contains("grype") || out.contains("Grype") || out.contains("CVE"));
+}
+
+#[test]
+fn test_security_ref_no_match() {
+    let out = security_ref_calc("xyznotfound");
+    assert!(out.contains("No topic") || out.contains("hematite --security-ref"));
+}
+
+// ── cloud_ref_calc ────────────────────────────────────────────────────────────
+
+#[test]
+fn test_cloud_ref_help_empty() {
+    let out = cloud_ref_calc("");
+    assert!(out.contains("hematite --cloud-ref") || out.contains("Topics"));
+}
+
+#[test]
+fn test_cloud_ref_all() {
+    let out = cloud_ref_calc("all");
+    assert!(out.contains("aws") && out.contains("gcp") && out.contains("azure"));
+}
+
+#[test]
+fn test_cloud_ref_aws_topic() {
+    let out = cloud_ref_calc("aws");
+    assert!(out.contains("aws s3") || out.contains("aws ec2") || out.contains("aws configure"));
+    assert!(out.contains("aws lambda") || out.contains("sts") || out.contains("IAM"));
+}
+
+#[test]
+fn test_cloud_ref_aws_alias_s3() {
+    let out = cloud_ref_calc("s3");
+    assert!(out.contains("aws s3") || out.contains("s3://") || out.contains("S3"));
+}
+
+#[test]
+fn test_cloud_ref_aws_alias_ec2() {
+    let out = cloud_ref_calc("ec2");
+    assert!(out.contains("ec2") || out.contains("instance-ids") || out.contains("EC2"));
+}
+
+#[test]
+fn test_cloud_ref_aws_alias_lambda() {
+    let out = cloud_ref_calc("lambda");
+    assert!(out.contains("lambda") || out.contains("aws lambda") || out.contains("Lambda"));
+}
+
+#[test]
+fn test_cloud_ref_gcp_topic() {
+    let out = cloud_ref_calc("gcp");
+    assert!(out.contains("gcloud") || out.contains("gsutil") || out.contains("GCP"));
+    assert!(out.contains("Cloud Run") || out.contains("gcloud run") || out.contains("Compute"));
+}
+
+#[test]
+fn test_cloud_ref_gcp_alias_gcloud() {
+    let out = cloud_ref_calc("gcloud");
+    assert!(out.contains("gcloud") || out.contains("gcloud auth"));
+}
+
+#[test]
+fn test_cloud_ref_gcp_alias_gsutil() {
+    let out = cloud_ref_calc("gsutil");
+    assert!(out.contains("gsutil") || out.contains("gs://"));
+}
+
+#[test]
+fn test_cloud_ref_gcp_alias_cloud_run() {
+    let out = cloud_ref_calc("cloud-run");
+    assert!(out.contains("cloud run") || out.contains("Cloud Run") || out.contains("gcloud run"));
+}
+
+#[test]
+fn test_cloud_ref_azure_topic() {
+    let out = cloud_ref_calc("azure");
+    assert!(out.contains("az login") || out.contains("az webapp") || out.contains("Azure"));
+    assert!(
+        out.contains("Key Vault")
+            || out.contains("az keyvault")
+            || out.contains("ACR")
+            || out.contains("az container")
+    );
+}
+
+#[test]
+fn test_cloud_ref_azure_alias_keyvault() {
+    let out = cloud_ref_calc("keyvault");
+    assert!(out.contains("keyvault") || out.contains("Key Vault") || out.contains("az keyvault"));
+}
+
+#[test]
+fn test_cloud_ref_azure_alias_app_service() {
+    let out = cloud_ref_calc("app-service");
+    assert!(out.contains("webapp") || out.contains("App Service") || out.contains("az webapp"));
+}
+
+#[test]
+fn test_cloud_ref_iam_topic() {
+    let out = cloud_ref_calc("iam");
+    assert!(out.contains("IAM") || out.contains("least privilege") || out.contains("policy"));
+    assert!(out.contains("role") || out.contains("assume-role") || out.contains("RBAC"));
+}
+
+#[test]
+fn test_cloud_ref_iam_alias_role() {
+    let out = cloud_ref_calc("role");
+    assert!(out.contains("role") || out.contains("Role") || out.contains("assume-role"));
+}
+
+#[test]
+fn test_cloud_ref_iam_alias_policy() {
+    let out = cloud_ref_calc("policy");
+    assert!(out.contains("policy") || out.contains("Policy") || out.contains("Statement"));
+}
+
+#[test]
+fn test_cloud_ref_iam_alias_assume_role() {
+    let out = cloud_ref_calc("assume-role");
+    assert!(
+        out.contains("assume-role")
+            || out.contains("AssumeRole")
+            || out.contains("sts assume-role")
+    );
+}
+
+#[test]
+fn test_cloud_ref_k8s_cloud_topic() {
+    let out = cloud_ref_calc("eks");
+    assert!(out.contains("EKS") || out.contains("eksctl") || out.contains("eks"));
+    assert!(out.contains("GKE") || out.contains("AKS") || out.contains("get-credentials"));
+}
+
+#[test]
+fn test_cloud_ref_k8s_cloud_alias_managed() {
+    let out = cloud_ref_calc("managed");
+    assert!(
+        out.contains("EKS")
+            || out.contains("GKE")
+            || out.contains("AKS")
+            || out.contains("managed")
+    );
+}
+
+#[test]
+fn test_cloud_ref_k8s_cloud_alias_kubeconfig() {
+    let out = cloud_ref_calc("kubeconfig");
+    assert!(
+        out.contains("kubeconfig")
+            || out.contains("kubectl config")
+            || out.contains("get-contexts")
+    );
+}
+
+#[test]
+fn test_cloud_ref_k8s_cloud_alias_storage_class() {
+    let out = cloud_ref_calc("storage-class");
+    assert!(
+        out.contains("StorageClass")
+            || out.contains("storage class")
+            || out.contains("gp3")
+            || out.contains("pd-ssd")
+    );
+}
+
+#[test]
+fn test_cloud_ref_no_match() {
+    let out = cloud_ref_calc("xyznotfound");
+    assert!(out.contains("No topic") || out.contains("hematite --cloud-ref"));
 }

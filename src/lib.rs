@@ -1729,6 +1729,38 @@ pub struct CliCockpit {
     pub jinja: Option<String>,
 
     #[arg(
+        long = "http-adv",
+        help_heading = "Math & Science",
+        value_name = "TOPIC",
+        help = "Advanced HTTP reference — offline cheatsheet. Topics: status, caching, cors, auth, headers, performance. Commands: all = everything. Examples: hematite --http-adv caching | hematite --http-adv cors | hematite --http-adv auth"
+    )]
+    pub http_adv: Option<String>,
+
+    #[arg(
+        long = "linux-adv",
+        help_heading = "Math & Science",
+        value_name = "TOPIC",
+        help = "Advanced Linux power-user reference — offline cheatsheet. Topics: processes, tracing, namespaces, sysctl, filesystem, networking. Commands: all = everything. Examples: hematite --linux-adv tracing | hematite --linux-adv sysctl | hematite --linux-adv namespaces"
+    )]
+    pub linux_adv: Option<String>,
+
+    #[arg(
+        long = "security-ref",
+        help_heading = "Math & Science",
+        value_name = "TOPIC",
+        help = "Security reference — OWASP, injection, TLS, secrets, JWT, scanning. Topics: owasp, injection, tls, secrets, jwt, scanning. Commands: all = everything. Examples: hematite --security-ref owasp | hematite --security-ref tls | hematite --security-ref jwt"
+    )]
+    pub security_ref: Option<String>,
+
+    #[arg(
+        long = "cloud-ref",
+        help_heading = "Math & Science",
+        value_name = "TOPIC",
+        help = "Cloud CLI reference — AWS, GCP, Azure, IAM, managed K8s. Topics: aws, gcp, azure, iam, k8s-cloud. Commands: all = everything. Examples: hematite --cloud-ref aws | hematite --cloud-ref iam | hematite --cloud-ref gcp"
+    )]
+    pub cloud_ref: Option<String>,
+
+    #[arg(
         long,
         help_heading = "Math & Science",
         value_name = "QUERY",

