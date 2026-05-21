@@ -2066,6 +2066,38 @@ pub struct CliCockpit {
 
     #[arg(
         long,
+        help_heading = "Developer Toolkit",
+        value_name = "QUERY",
+        help = "Compiler internals reference — offline replacement for compiler books and LLVM docs. Topics: parsing, ast, ir, optimization, codegen, tools. Aliases: lexer, pratt, lalrpop, tree-sitter, mir, ssa, llvm-ir, cranelift, pgo, cargo-asm, and more. Examples: hematite --compiler-ref parsing | hematite --compiler-ref ir | hematite --compiler-ref optimization | hematite --compiler-ref all"
+    )]
+    pub compiler_ref: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Developer Toolkit",
+        value_name = "QUERY",
+        help = "Monitoring & observability reference — offline replacement for Prometheus/Grafana docs. Topics: slo, prometheus, alerting, grafana, otel, logging. Aliases: sli, promql, alertmanager, loki, opentelemetry, structured-logging, and more. Examples: hematite --monitoring-ref slo | hematite --monitoring-ref prometheus | hematite --monitoring-ref otel | hematite --monitoring-ref all"
+    )]
+    pub monitoring_ref: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Developer Toolkit",
+        value_name = "QUERY",
+        help = "Search engine reference — offline replacement for Elasticsearch docs. Topics: concepts, elasticsearch, vector, ranking, performance, design. Aliases: inverted-index, bm25, hnsw, faiss, qdrant, ltr, bulk-api, and more. Examples: hematite --search-ref concepts | hematite --search-ref vector | hematite --search-ref elasticsearch | hematite --search-ref all"
+    )]
+    pub search_ref: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Developer Toolkit",
+        value_name = "QUERY",
+        help = "Network protocols reference — offline replacement for protocol docs. Topics: grpc, websocket, graphql, mqtt, http23, tls. Aliases: protobuf, grpc-gateway, dataloader, federation, qos, quic, mtls, and more. Examples: hematite --protocols-ref grpc | hematite --protocols-ref tls | hematite --protocols-ref graphql | hematite --protocols-ref all"
+    )]
+    pub protocols_ref: Option<String>,
+
+    #[arg(
+        long,
         help_heading = "Math & Science",
         value_name = "QUERY",
         help = "Lorem ipsum generator — offline replacement for lipsum.com. Commands: (bare) or <N> = N paragraphs (default 1); words <N> = N words; sentences <N> = N sentences. Examples: hematite --lorem | hematite --lorem 3 | hematite --lorem 'words 50' | hematite --lorem 'sentences 5'"

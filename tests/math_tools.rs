@@ -6,21 +6,22 @@ use hematite::tools::math_util::{
     accessibility_calc, algo_ref_calc, ansible_calc, api_design_calc, api_gateway_calc, ascii_calc,
     ascii_table_calc, auth_ref_calc, awk_calc, bash_adv_calc, bash_ref_calc, bitwise_calc,
     case_calc, chars_calc, checksum_calc, chemistry_calc, chmod_calc, cicd_ref_calc, cipher_calc,
-    cloud_ref_calc, color_calc, color_names_calc, combinatorics_calc, complex_calc, cron_calc,
-    crypto_ref_calc, css_ref_calc, csv_calc, curl_calc, database_adv_calc, datetime_calc,
-    db_design_calc, design_patterns_calc, devops_ref_calc, diff_calc, docker_adv_calc,
-    docker_compose_calc, docker_ref_calc, duration_calc, electrical_calc, encode_calc, escape_calc,
-    event_driven_calc, find_calc, fraction_calc, geometry_calc, git_adv_calc, git_ref_calc,
-    gitignore_calc, go_ref_calc, grep_calc, hash_calc, headers_calc, health_calc, http_adv_calc,
-    http_calc, http_headers_calc, http_status_calc, id_gen_calc, ip_calc, jinja_calc, jq_calc,
-    js_ref_calc, json_calc, json_path_calc, jwt_calc, k8s_ref_calc, kbd_calc, kubectl_calc,
-    license_calc, linux_adv_calc, linux_kernel_calc, linux_sys_calc, lorem_calc, make_calc,
-    makefile_calc, markdown_calc, matrix_calc, mime_calc, ml_ref_calc, net_calc, network_ref_calc,
-    networking_adv_calc, nginx_calc, npm_calc, number_format, number_theory_calc,
-    observability_calc, oop_ref_calc, openssl_calc, percent_calc, perf_ref_calc, physics_calc,
-    port_calc, postgres_calc, prob_calc, python_data_calc, python_ref_calc, regex_adv_calc,
-    regex_calc, regex_ref_calc, regex_test_calc, roman_calc, rust_adv_calc, rust_patterns_calc,
-    rust_ref_calc, security_ref_calc, security_scan_calc, sed_calc, semver_calc, set_calc,
+    cloud_ref_calc, color_calc, color_names_calc, combinatorics_calc, compiler_ref_calc,
+    complex_calc, cron_calc, crypto_ref_calc, css_ref_calc, csv_calc, curl_calc, database_adv_calc,
+    datetime_calc, db_design_calc, design_patterns_calc, devops_ref_calc, diff_calc,
+    docker_adv_calc, docker_compose_calc, docker_ref_calc, duration_calc, electrical_calc,
+    encode_calc, escape_calc, event_driven_calc, find_calc, fraction_calc, geometry_calc,
+    git_adv_calc, git_ref_calc, gitignore_calc, go_ref_calc, grep_calc, hash_calc, headers_calc,
+    health_calc, http_adv_calc, http_calc, http_headers_calc, http_status_calc, id_gen_calc,
+    ip_calc, jinja_calc, jq_calc, js_ref_calc, json_calc, json_path_calc, jwt_calc, k8s_ref_calc,
+    kbd_calc, kubectl_calc, license_calc, linux_adv_calc, linux_kernel_calc, linux_sys_calc,
+    lorem_calc, make_calc, makefile_calc, markdown_calc, matrix_calc, mime_calc, ml_ref_calc,
+    monitoring_ref_calc, net_calc, network_ref_calc, networking_adv_calc, nginx_calc, npm_calc,
+    number_format, number_theory_calc, observability_calc, oop_ref_calc, openssl_calc,
+    percent_calc, perf_ref_calc, physics_calc, port_calc, postgres_calc, prob_calc,
+    protocols_ref_calc, python_data_calc, python_ref_calc, regex_adv_calc, regex_calc,
+    regex_ref_calc, regex_test_calc, roman_calc, rust_adv_calc, rust_patterns_calc, rust_ref_calc,
+    search_ref_calc, security_ref_calc, security_scan_calc, sed_calc, semver_calc, set_calc,
     sort_viz, spark_calc, sql_adv_calc, sql_fmt_calc, sql_ref_calc, ssh_ref_calc, ssl_calc,
     stats_calc, string_dist, systemd_adv_calc, systemd_calc, table_calc, tar_calc, template_calc,
     terraform_adv_calc, terraform_calc, testing_ref_calc, text_stats, timestamp_calc, tmux_calc,
@@ -20883,4 +20884,744 @@ fn linux_kernel_bfq_alias() {
 fn linux_kernel_edge_cases() {
     let _ = linux_kernel_calc("@#$%");
     let _ = linux_kernel_calc("   ");
+}
+
+// ── compiler_ref_calc ────────────────────────────────────────────────────────
+
+#[test]
+fn compiler_ref_empty_returns_topic_list() {
+    let out = compiler_ref_calc("");
+    assert!(out.contains("compiler-ref topics:"), "{out}");
+    assert!(out.contains("parsing"), "{out}");
+    assert!(out.contains("codegen"), "{out}");
+}
+
+#[test]
+fn compiler_ref_nomatch_returns_hint() {
+    let out = compiler_ref_calc("zzznomatch");
+    assert!(out.contains("No topic found"), "{out}");
+    assert!(out.contains("compiler-ref list"), "{out}");
+}
+
+#[test]
+fn compiler_ref_all_returns_all_sections() {
+    let out = compiler_ref_calc("all");
+    assert!(out.contains("Parsing"), "{out}");
+    assert!(out.contains("AST"), "{out}");
+    assert!(out.contains("Intermediate"), "{out}");
+    assert!(out.contains("Optimization"), "{out}");
+    assert!(out.contains("Code Generation"), "{out}");
+    assert!(out.contains("Compiler Tools"), "{out}");
+}
+
+#[test]
+fn compiler_ref_parsing_by_name() {
+    let out = compiler_ref_calc("parsing");
+    assert!(out.contains("Lexing"), "{out}");
+    assert!(out.contains("Pratt"), "{out}");
+}
+
+#[test]
+fn compiler_ref_parsing_via_lexer_alias() {
+    let out = compiler_ref_calc("lexer");
+    assert!(out.contains("Parsing"), "{out}");
+}
+
+#[test]
+fn compiler_ref_parsing_via_pratt_alias() {
+    let out = compiler_ref_calc("pratt");
+    assert!(out.contains("Pratt parser"), "{out}");
+}
+
+#[test]
+fn compiler_ref_parsing_via_tree_sitter_alias() {
+    let out = compiler_ref_calc("tree-sitter");
+    assert!(out.contains("tree-sitter"), "{out}");
+}
+
+#[test]
+fn compiler_ref_ast_by_name() {
+    let out = compiler_ref_calc("ast");
+    assert!(out.contains("Abstract Syntax Tree"), "{out}");
+    assert!(out.contains("Visitor"), "{out}");
+}
+
+#[test]
+fn compiler_ref_ast_via_hindley_milner_alias() {
+    let out = compiler_ref_calc("hindley-milner");
+    assert!(out.contains("Hindley-Milner"), "{out}");
+}
+
+#[test]
+fn compiler_ref_ast_via_borrow_checker_alias() {
+    let out = compiler_ref_calc("borrow-checker");
+    assert!(out.contains("Borrow checking"), "{out}");
+}
+
+#[test]
+fn compiler_ref_ast_via_nll_alias() {
+    let out = compiler_ref_calc("nll");
+    assert!(out.contains("NLL"), "{out}");
+}
+
+#[test]
+fn compiler_ref_ir_by_name() {
+    let out = compiler_ref_calc("ir");
+    assert!(out.contains("HIR"), "{out}");
+    assert!(out.contains("MIR"), "{out}");
+    assert!(out.contains("LLVM IR"), "{out}");
+}
+
+#[test]
+fn compiler_ref_ir_via_ssa_alias() {
+    let out = compiler_ref_calc("ssa");
+    assert!(out.contains("SSA"), "{out}");
+}
+
+#[test]
+fn compiler_ref_ir_via_cranelift_alias() {
+    let out = compiler_ref_calc("cranelift");
+    assert!(out.contains("Cranelift"), "{out}");
+}
+
+#[test]
+fn compiler_ref_ir_via_mir_alias() {
+    let out = compiler_ref_calc("mir");
+    assert!(out.contains("MIR"), "{out}");
+}
+
+#[test]
+fn compiler_ref_optimization_by_name() {
+    let out = compiler_ref_calc("optimization");
+    assert!(out.contains("Constant folding"), "{out}");
+    assert!(out.contains("DCE"), "{out}");
+}
+
+#[test]
+fn compiler_ref_optimization_via_pgo_alias() {
+    let out = compiler_ref_calc("pgo");
+    assert!(out.contains("PGO"), "{out}");
+}
+
+#[test]
+fn compiler_ref_optimization_via_inlining_alias() {
+    let out = compiler_ref_calc("inlining");
+    assert!(out.contains("Inline expansion"), "{out}");
+}
+
+#[test]
+fn compiler_ref_optimization_via_vectorization_alias() {
+    let out = compiler_ref_calc("vectorization");
+    assert!(out.contains("Vectorization"), "{out}");
+}
+
+#[test]
+fn compiler_ref_codegen_by_name() {
+    let out = compiler_ref_calc("codegen");
+    assert!(out.contains("Instruction selection"), "{out}");
+    assert!(out.contains("ABI"), "{out}");
+}
+
+#[test]
+fn compiler_ref_codegen_via_jit_alias() {
+    let out = compiler_ref_calc("jit");
+    assert!(out.contains("JIT"), "{out}");
+}
+
+#[test]
+fn compiler_ref_codegen_via_lto_alias() {
+    let out = compiler_ref_calc("lto");
+    assert!(out.contains("LTO"), "{out}");
+}
+
+#[test]
+fn compiler_ref_codegen_via_abi_alias() {
+    let out = compiler_ref_calc("abi");
+    assert!(out.contains("ABI"), "{out}");
+}
+
+#[test]
+fn compiler_ref_tools_by_name() {
+    let out = compiler_ref_calc("tools");
+    assert!(out.contains("rustc"), "{out}");
+    assert!(out.contains("LLVM"), "{out}");
+}
+
+#[test]
+fn compiler_ref_tools_via_lsp_alias() {
+    let out = compiler_ref_calc("lsp");
+    assert!(out.contains("Language server"), "{out}");
+}
+
+#[test]
+fn compiler_ref_tools_via_cargo_fuzz_alias() {
+    let out = compiler_ref_calc("cargo-fuzz");
+    assert!(out.contains("cargo-fuzz"), "{out}");
+}
+
+#[test]
+fn compiler_ref_case_insensitive() {
+    let out = compiler_ref_calc("PARSING");
+    assert!(out.contains("Parsing") || out.contains("Lexing"), "{out}");
+}
+
+#[test]
+fn compiler_ref_whitespace_trimmed() {
+    let out = compiler_ref_calc("  ast  ");
+    assert!(out.contains("Abstract Syntax Tree"), "{out}");
+}
+
+// ── monitoring_ref_calc ───────────────────────────────────────────────────────
+
+#[test]
+fn monitoring_ref_empty_returns_topic_list() {
+    let out = monitoring_ref_calc("");
+    assert!(out.contains("monitoring-ref topics:"), "{out}");
+    assert!(out.contains("slo"), "{out}");
+    assert!(out.contains("prometheus"), "{out}");
+}
+
+#[test]
+fn monitoring_ref_nomatch_returns_hint() {
+    let out = monitoring_ref_calc("zzznomatch");
+    assert!(out.contains("No topic found"), "{out}");
+    assert!(out.contains("monitoring-ref list"), "{out}");
+}
+
+#[test]
+fn monitoring_ref_all_returns_all_sections() {
+    let out = monitoring_ref_calc("all");
+    assert!(out.contains("SLI"), "{out}");
+    assert!(out.contains("Prometheus"), "{out}");
+    assert!(out.contains("Alerting"), "{out}");
+    assert!(out.contains("Grafana"), "{out}");
+    assert!(out.contains("OpenTelemetry"), "{out}");
+    assert!(out.contains("Logging"), "{out}");
+}
+
+#[test]
+fn monitoring_ref_slo_by_name() {
+    let out = monitoring_ref_calc("slo");
+    assert!(out.contains("SLI"), "{out}");
+    assert!(out.contains("Error budget"), "{out}");
+}
+
+#[test]
+fn monitoring_ref_slo_via_sli_alias() {
+    let out = monitoring_ref_calc("sli");
+    assert!(out.contains("SLI"), "{out}");
+}
+
+#[test]
+fn monitoring_ref_slo_via_error_budget_alias() {
+    let out = monitoring_ref_calc("error-budget");
+    assert!(out.contains("Error budget"), "{out}");
+}
+
+#[test]
+fn monitoring_ref_slo_via_burn_rate_alias() {
+    let out = monitoring_ref_calc("burn-rate");
+    assert!(out.contains("Burn rate"), "{out}");
+}
+
+#[test]
+fn monitoring_ref_prometheus_by_name() {
+    let out = monitoring_ref_calc("prometheus");
+    assert!(out.contains("Counter"), "{out}");
+    assert!(out.contains("PromQL"), "{out}");
+}
+
+#[test]
+fn monitoring_ref_prometheus_via_promql_alias() {
+    let out = monitoring_ref_calc("promql");
+    assert!(out.contains("PromQL"), "{out}");
+}
+
+#[test]
+fn monitoring_ref_prometheus_via_histogram_alias() {
+    let out = monitoring_ref_calc("histogram");
+    assert!(out.contains("Histogram"), "{out}");
+}
+
+#[test]
+fn monitoring_ref_prometheus_via_counter_alias() {
+    let out = monitoring_ref_calc("counter");
+    assert!(out.contains("Counter"), "{out}");
+}
+
+#[test]
+fn monitoring_ref_alerting_by_name() {
+    let out = monitoring_ref_calc("alerting");
+    assert!(out.contains("Alertmanager"), "{out}");
+    assert!(out.contains("severity"), "{out}");
+}
+
+#[test]
+fn monitoring_ref_alerting_via_alertmanager_alias() {
+    let out = monitoring_ref_calc("alertmanager");
+    assert!(out.contains("Alertmanager"), "{out}");
+}
+
+#[test]
+fn monitoring_ref_alerting_via_runbook_alias() {
+    let out = monitoring_ref_calc("runbook");
+    assert!(out.contains("Runbook"), "{out}");
+}
+
+#[test]
+fn monitoring_ref_alerting_via_inhibition_alias() {
+    let out = monitoring_ref_calc("inhibition");
+    assert!(out.contains("Inhibition"), "{out}");
+}
+
+#[test]
+fn monitoring_ref_grafana_by_name() {
+    let out = monitoring_ref_calc("grafana");
+    assert!(out.contains("Dashboard"), "{out}");
+    assert!(out.contains("Loki"), "{out}");
+}
+
+#[test]
+fn monitoring_ref_grafana_via_loki_alias() {
+    let out = monitoring_ref_calc("loki");
+    assert!(out.contains("Loki"), "{out}");
+}
+
+#[test]
+fn monitoring_ref_grafana_via_tempo_alias() {
+    let out = monitoring_ref_calc("tempo");
+    assert!(out.contains("Tempo"), "{out}");
+}
+
+#[test]
+fn monitoring_ref_grafana_via_logql_alias() {
+    let out = monitoring_ref_calc("logql");
+    assert!(out.contains("LogQL"), "{out}");
+}
+
+#[test]
+fn monitoring_ref_otel_by_name() {
+    let out = monitoring_ref_calc("otel");
+    assert!(out.contains("OpenTelemetry"), "{out}");
+    assert!(out.contains("OTLP"), "{out}");
+}
+
+#[test]
+fn monitoring_ref_otel_via_opentelemetry_alias() {
+    let out = monitoring_ref_calc("opentelemetry");
+    assert!(out.contains("OTel"), "{out}");
+}
+
+#[test]
+fn monitoring_ref_otel_via_tracing_alias() {
+    let out = monitoring_ref_calc("tracing");
+    assert!(out.contains("Traces"), "{out}");
+}
+
+#[test]
+fn monitoring_ref_otel_via_baggage_alias() {
+    let out = monitoring_ref_calc("baggage");
+    assert!(out.contains("Baggage"), "{out}");
+}
+
+#[test]
+fn monitoring_ref_logging_by_name() {
+    let out = monitoring_ref_calc("logging");
+    assert!(out.contains("Structured logging"), "{out}");
+    assert!(out.contains("ERROR"), "{out}");
+}
+
+#[test]
+fn monitoring_ref_logging_via_structured_logging_alias() {
+    let out = monitoring_ref_calc("structured-logging");
+    assert!(out.contains("Structured logging"), "{out}");
+}
+
+#[test]
+fn monitoring_ref_logging_via_elk_alias() {
+    let out = monitoring_ref_calc("elk");
+    assert!(out.contains("ELK"), "{out}");
+}
+
+#[test]
+fn monitoring_ref_logging_via_cardinality_alias() {
+    let out = monitoring_ref_calc("cardinality");
+    assert!(out.contains("Cardinality"), "{out}");
+}
+
+#[test]
+fn monitoring_ref_case_insensitive() {
+    let out = monitoring_ref_calc("SLO");
+    assert!(out.contains("SLI") || out.contains("Error budget"), "{out}");
+}
+
+// ── search_ref_calc ───────────────────────────────────────────────────────────
+
+#[test]
+fn search_ref_empty_returns_topic_list() {
+    let out = search_ref_calc("");
+    assert!(out.contains("search-ref topics:"), "{out}");
+    assert!(out.contains("concepts"), "{out}");
+    assert!(out.contains("vector"), "{out}");
+}
+
+#[test]
+fn search_ref_nomatch_returns_hint() {
+    let out = search_ref_calc("zzznomatch");
+    assert!(out.contains("No topic found"), "{out}");
+    assert!(out.contains("search-ref list"), "{out}");
+}
+
+#[test]
+fn search_ref_all_returns_all_sections() {
+    let out = search_ref_calc("all");
+    assert!(out.contains("Inverted index"), "{out}");
+    assert!(out.contains("Elasticsearch"), "{out}");
+    assert!(out.contains("Vector"), "{out}");
+    assert!(out.contains("Ranking"), "{out}");
+    assert!(out.contains("Search Performance"), "{out}");
+    assert!(out.contains("Search System Design"), "{out}");
+}
+
+#[test]
+fn search_ref_concepts_by_name() {
+    let out = search_ref_calc("concepts");
+    assert!(out.contains("Inverted index"), "{out}");
+    assert!(out.contains("BM25"), "{out}");
+}
+
+#[test]
+fn search_ref_concepts_via_inverted_index_alias() {
+    let out = search_ref_calc("inverted-index");
+    assert!(out.contains("Inverted index"), "{out}");
+}
+
+#[test]
+fn search_ref_concepts_via_bm25_alias() {
+    let out = search_ref_calc("bm25");
+    assert!(out.contains("BM25"), "{out}");
+}
+
+#[test]
+fn search_ref_concepts_via_stemming_alias() {
+    let out = search_ref_calc("stemming");
+    assert!(out.contains("Stemming"), "{out}");
+}
+
+#[test]
+fn search_ref_elasticsearch_by_name() {
+    let out = search_ref_calc("elasticsearch");
+    assert!(out.contains("Index"), "{out}");
+    assert!(out.contains("bool"), "{out}");
+}
+
+#[test]
+fn search_ref_elasticsearch_via_es_alias() {
+    let out = search_ref_calc("es");
+    assert!(
+        out.contains("Index") || out.contains("Elasticsearch"),
+        "{out}"
+    );
+}
+
+#[test]
+fn search_ref_elasticsearch_via_mapping_alias() {
+    let out = search_ref_calc("mapping");
+    assert!(out.contains("Mapping"), "{out}");
+}
+
+#[test]
+fn search_ref_elasticsearch_via_aggregations_alias() {
+    let out = search_ref_calc("aggregations");
+    assert!(out.contains("Aggregations"), "{out}");
+}
+
+#[test]
+fn search_ref_vector_by_name() {
+    let out = search_ref_calc("vector");
+    assert!(out.contains("HNSW"), "{out}");
+    assert!(out.contains("ANN"), "{out}");
+}
+
+#[test]
+fn search_ref_vector_via_hnsw_alias() {
+    let out = search_ref_calc("hnsw");
+    assert!(out.contains("HNSW"), "{out}");
+}
+
+#[test]
+fn search_ref_vector_via_rag_alias() {
+    let out = search_ref_calc("rag");
+    assert!(out.contains("RAG"), "{out}");
+}
+
+#[test]
+fn search_ref_vector_via_qdrant_alias() {
+    let out = search_ref_calc("qdrant");
+    assert!(out.contains("Qdrant"), "{out}");
+}
+
+#[test]
+fn search_ref_ranking_by_name() {
+    let out = search_ref_calc("ranking");
+    assert!(out.contains("Function score"), "{out}");
+    assert!(out.contains("Learning to Rank"), "{out}");
+}
+
+#[test]
+fn search_ref_ranking_via_ltr_alias() {
+    let out = search_ref_calc("ltr");
+    assert!(out.contains("Learning to Rank"), "{out}");
+}
+
+#[test]
+fn search_ref_ranking_via_boosting_alias() {
+    let out = search_ref_calc("boosting");
+    assert!(out.contains("boost"), "{out}");
+}
+
+#[test]
+fn search_ref_performance_by_name() {
+    let out = search_ref_calc("performance");
+    assert!(out.contains("Bulk API"), "{out}");
+    assert!(out.contains("Sharding"), "{out}");
+}
+
+#[test]
+fn search_ref_performance_via_bulk_api_alias() {
+    let out = search_ref_calc("bulk-api");
+    assert!(out.contains("Bulk API"), "{out}");
+}
+
+#[test]
+fn search_ref_performance_via_sharding_alias() {
+    let out = search_ref_calc("sharding");
+    assert!(out.contains("Sharding"), "{out}");
+}
+
+#[test]
+fn search_ref_design_by_name() {
+    let out = search_ref_calc("search-architecture");
+    assert!(out.contains("Indexing pipeline"), "{out}");
+    assert!(out.contains("CDC"), "{out}");
+}
+
+#[test]
+fn search_ref_design_via_cdc_search_alias() {
+    let out = search_ref_calc("cdc-search");
+    assert!(out.contains("CDC"), "{out}");
+}
+
+#[test]
+fn search_ref_design_via_reindexing_alias() {
+    let out = search_ref_calc("reindexing");
+    assert!(out.contains("Reindex"), "{out}");
+}
+
+#[test]
+fn search_ref_case_insensitive() {
+    let out = search_ref_calc("CONCEPTS");
+    assert!(
+        out.contains("Inverted index") || out.contains("BM25"),
+        "{out}"
+    );
+}
+
+// ── protocols_ref_calc ────────────────────────────────────────────────────────
+
+#[test]
+fn protocols_ref_empty_returns_topic_list() {
+    let out = protocols_ref_calc("");
+    assert!(out.contains("protocols-ref topics:"), "{out}");
+    assert!(out.contains("grpc"), "{out}");
+    assert!(out.contains("tls"), "{out}");
+}
+
+#[test]
+fn protocols_ref_nomatch_returns_hint() {
+    let out = protocols_ref_calc("zzznomatch");
+    assert!(out.contains("No topic found"), "{out}");
+    assert!(out.contains("protocols-ref list"), "{out}");
+}
+
+#[test]
+fn protocols_ref_all_returns_all_sections() {
+    let out = protocols_ref_calc("all");
+    assert!(out.contains("gRPC"), "{out}");
+    assert!(out.contains("WebSocket"), "{out}");
+    assert!(out.contains("GraphQL"), "{out}");
+    assert!(out.contains("MQTT"), "{out}");
+    assert!(out.contains("HTTP/2"), "{out}");
+    assert!(out.contains("TLS"), "{out}");
+}
+
+#[test]
+fn protocols_ref_grpc_by_name() {
+    let out = protocols_ref_calc("grpc");
+    assert!(out.contains("Protocol Buffers"), "{out}");
+    assert!(out.contains("HTTP/2"), "{out}");
+}
+
+#[test]
+fn protocols_ref_grpc_via_protobuf_alias() {
+    let out = protocols_ref_calc("protobuf");
+    assert!(out.contains("gRPC"), "{out}");
+}
+
+#[test]
+fn protocols_ref_grpc_via_grpc_gateway_alias() {
+    let out = protocols_ref_calc("grpc-gateway");
+    assert!(out.contains("gRPC-Gateway"), "{out}");
+}
+
+#[test]
+fn protocols_ref_grpc_via_grpc_streaming_alias() {
+    let out = protocols_ref_calc("grpc-streaming");
+    assert!(out.contains("streaming"), "{out}");
+}
+
+#[test]
+fn protocols_ref_websocket_by_name() {
+    let out = protocols_ref_calc("websocket");
+    assert!(out.contains("full-duplex"), "{out}");
+    assert!(out.contains("Heartbeats"), "{out}");
+}
+
+#[test]
+fn protocols_ref_websocket_via_ws_alias() {
+    let out = protocols_ref_calc("ws");
+    assert!(out.contains("WebSocket"), "{out}");
+}
+
+#[test]
+fn protocols_ref_websocket_via_real_time_alias() {
+    let out = protocols_ref_calc("real-time");
+    assert!(out.contains("real-time"), "{out}");
+}
+
+#[test]
+fn protocols_ref_websocket_via_socket_io_alias() {
+    let out = protocols_ref_calc("socket-io");
+    assert!(out.contains("Socket.IO"), "{out}");
+}
+
+#[test]
+fn protocols_ref_graphql_by_name() {
+    let out = protocols_ref_calc("graphql");
+    assert!(out.contains("Schema"), "{out}");
+    assert!(out.contains("DataLoader"), "{out}");
+}
+
+#[test]
+fn protocols_ref_graphql_via_gql_alias() {
+    let out = protocols_ref_calc("gql");
+    assert!(out.contains("GraphQL"), "{out}");
+}
+
+#[test]
+fn protocols_ref_graphql_via_dataloader_alias() {
+    let out = protocols_ref_calc("dataloader");
+    assert!(out.contains("DataLoader"), "{out}");
+}
+
+#[test]
+fn protocols_ref_graphql_via_federation_alias() {
+    let out = protocols_ref_calc("federation");
+    assert!(out.contains("Federation"), "{out}");
+}
+
+#[test]
+fn protocols_ref_mqtt_by_name() {
+    let out = protocols_ref_calc("mqtt");
+    assert!(out.contains("QoS"), "{out}");
+    assert!(out.contains("broker"), "{out}");
+}
+
+#[test]
+fn protocols_ref_mqtt_via_qos_alias() {
+    let out = protocols_ref_calc("qos");
+    assert!(out.contains("QoS"), "{out}");
+}
+
+#[test]
+fn protocols_ref_mqtt_via_lwt_alias() {
+    let out = protocols_ref_calc("lwt");
+    assert!(out.contains("Last Will"), "{out}");
+}
+
+#[test]
+fn protocols_ref_mqtt_via_nats_alias() {
+    let out = protocols_ref_calc("nats");
+    assert!(out.contains("NATS"), "{out}");
+}
+
+#[test]
+fn protocols_ref_http23_by_name() {
+    let out = protocols_ref_calc("http23");
+    assert!(out.contains("HTTP/2"), "{out}");
+    assert!(out.contains("QUIC"), "{out}");
+}
+
+#[test]
+fn protocols_ref_http23_via_http2_alias() {
+    let out = protocols_ref_calc("http2");
+    assert!(out.contains("HTTP/2"), "{out}");
+}
+
+#[test]
+fn protocols_ref_http23_via_quic_alias() {
+    let out = protocols_ref_calc("quic");
+    assert!(out.contains("QUIC"), "{out}");
+}
+
+#[test]
+fn protocols_ref_http23_via_sse_alias() {
+    let out = protocols_ref_calc("sse");
+    assert!(out.contains("Server-Sent Events"), "{out}");
+}
+
+#[test]
+fn protocols_ref_tls_by_name() {
+    let out = protocols_ref_calc("tls");
+    assert!(out.contains("TLS 1.3"), "{out}");
+    assert!(out.contains("Certificate"), "{out}");
+}
+
+#[test]
+fn protocols_ref_tls_via_mtls_alias() {
+    let out = protocols_ref_calc("mtls");
+    assert!(out.contains("mTLS"), "{out}");
+}
+
+#[test]
+fn protocols_ref_tls_via_pki_alias() {
+    let out = protocols_ref_calc("pki");
+    assert!(out.contains("Certificate chain"), "{out}");
+}
+
+#[test]
+fn protocols_ref_tls_via_hsts_alias() {
+    let out = protocols_ref_calc("hsts");
+    assert!(out.contains("HSTS"), "{out}");
+}
+
+#[test]
+fn protocols_ref_tls_via_x509_alias() {
+    let out = protocols_ref_calc("x509");
+    assert!(out.contains("X.509"), "{out}");
+}
+
+#[test]
+fn protocols_ref_case_insensitive() {
+    let out = protocols_ref_calc("GRPC");
+    assert!(
+        out.contains("gRPC") || out.contains("Protocol Buffers"),
+        "{out}"
+    );
+}
+
+#[test]
+fn protocols_ref_whitespace_trimmed() {
+    let out = protocols_ref_calc("  tls  ");
+    assert!(out.contains("TLS"), "{out}");
 }

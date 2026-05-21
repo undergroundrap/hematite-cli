@@ -47986,3 +47986,1106 @@ pub fn linux_kernel_calc(query: &str) -> String {
         query.trim()
     )
 }
+
+// ── Wave 32: compiler_ref_calc ────────────────────────────────────────────────
+
+type CompilerSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+
+fn s_comp_parsing() -> &'static str {
+    "── Parsing ──
+Lexing (tokenization): source text -> token stream; DFA-based; handles whitespace, comments
+  Token types: keywords, identifiers, literals, operators, punctuation
+  Tools: logos (Rust), flex (C), ANTLR lexer grammar
+Parsing: token stream -> AST; checks structural grammar (not semantics)
+  Recursive descent: top-down; function per grammar rule; easy to implement; most hand-written parsers
+  Pratt parser: top-down operator precedence; elegant for expressions; used in many lang implementations
+  LR parsing: bottom-up; shift-reduce; handles wider class of grammars
+    LALR(1): lookahead 1; yacc/bison target; compact tables
+    GLR: generalized LR; handles ambiguous grammars; slower
+  Tools: pest (Rust PEG), lalrpop (LALR), tree-sitter (incremental, error-recovery)
+PEG (Parsing Expression Grammar): deterministic; no ambiguity; ordered choice (/)
+  peg! macro (Rust), pest, parsec (Haskell)
+Error recovery: synchronize on delimiter (;, }) after error; continue parsing rest
+  tree-sitter: robust error recovery; used in editors (Neovim, Helix)
+  Good errors: underline the bad token, suggest the expected token
+Grammar notation:
+  BNF: <expr> ::= <term> | <expr> + <term>
+  EBNF: expr = term { '+' term }
+  ABNF: RFC 5234; used in network protocol specs (HTTP, SMTP, IMAP)"
+}
+
+fn s_comp_ast() -> &'static str {
+    "── AST & Semantic Analysis ──
+AST (Abstract Syntax Tree): tree representing parsed structure; no concrete syntax noise
+  CST (Concrete Syntax Tree): includes all tokens; used by formatters and refactoring tools
+  Rowan (Rust): lossless green tree; used by rust-analyzer; immutable + cheap cloning
+AST traversal patterns:
+  Visitor: separate algorithm from node types; add_visit(node) dispatches to visit_X()
+  Recursive descent on AST: match node type, recurse into children
+  Transforms: immutable AST -> new AST; easier to reason about; Rust: fold trait pattern
+Name resolution: build symbol table; resolve identifiers to their declarations
+  Scopes: nested scopes as hash maps; lookup walks up scope chain
+  Module system: multi-pass; resolve imports, then bindings; rust-analyzer uses salsa (incremental)
+Type inference: Hindley-Milner algorithm W; unification of type variables
+  Constraint generation: traverse AST; emit type constraints (T1 = T2)
+  Unification: solve constraints; substitution of type variables
+  Generalization: polymorphic types (forall a. a -> a)
+Type checking: verify type constraints hold; report errors with source location
+Borrow checking (Rust): Non-Lexical Lifetimes (NLL); MIR-based; flow-sensitive regions
+  Polonius: next-gen borrow checker; loan-based; more precise; in development"
+}
+
+fn s_comp_ir() -> &'static str {
+    "── Intermediate Representations ──
+HIR (High-Level IR): close to source; desugared; used for type checking; Rust HIR
+MIR (Mid-level IR): control flow graph; explicit borrows; Rust borrow checker + LLVM lowering
+  Basic blocks: linear sequences of statements ending in terminator (goto, return, call)
+  SSA form (Static Single Assignment): each variable assigned exactly once; phi nodes at join points
+    phi(x_1, x_2): select value based on which predecessor was taken; enables dataflow analysis
+LLVM IR: typed SSA; target-independent; LLVM optimizations run on this
+  %result = add i32 %a, %b; br i1 %cond, label %then, label %else
+  getelementptr: pointer arithmetic with type info; inbounds for alias analysis
+  Opaque pointers (LLVM 15+): ptr type replaces typed pointers; simpler bitcast
+Cranelift: LLVM alternative; Rust; used in Wasmtime and rustc codegen backend
+  Faster compile times than LLVM; simpler; no profile-guided optimization
+QBE: small C IR backend; 10% LLVM speed; 10000 lines; good for educational compilers
+Three-address code: tac: x = y op z; all operations explicitly named; easy to optimize
+CPS (Continuation-Passing Style): every function takes an extra continuation arg
+  Control flow becomes data flow; natural for functional language compilation; tail-call elimination
+ANF (A-Normal Form): similar to CPS; every intermediate computation named; common in ML compilers"
+}
+
+fn s_comp_optimization() -> &'static str {
+    "── Optimization Passes ──
+Constant folding: evaluate constant expressions at compile time; 2+3 -> 5
+Dead code elimination (DCE): remove unreachable code and unused computations
+Common subexpression elimination (CSE): compute shared subexpression once; store in temp
+Inline expansion: replace call site with callee body; eliminates call overhead; enables further opts
+  Inlining heuristics: function size, call frequency, hot path analysis
+Loop optimizations:
+  Loop invariant code motion (LICM): hoist invariant computation out of loop
+  Loop unrolling: replicate loop body N times; fewer branches; better ILP
+  Vectorization (auto-SIMD): replace scalar ops with SIMD; loop must be analyzable
+  Loop fusion: merge adjacent loops with same iteration space; better cache use
+Alias analysis: determine if two pointers can refer to the same memory
+  LLVM: tbaa (type-based alias analysis); noalias attribute; restrict pointer
+  Critical for vectorization and instruction reordering
+Escape analysis: determine if heap-allocated object can be stack-allocated
+  JVM: scalar replacement if object doesn't escape method
+Register allocation: map virtual registers to physical; graph coloring approach
+  Spilling: when more values live than registers; spill to stack slot
+  Linear scan: simpler; faster; used in JIT compilers (V8, JVM C1)
+PGO (Profile-Guided Optimization): use runtime profile to guide inlining/layout decisions
+  cargo rustc -- -Cprofile-generate; run workload; -Cprofile-use"
+}
+
+fn s_comp_codegen() -> &'static str {
+    "── Code Generation ──
+Instruction selection: IR -> target instructions; ISEL via tree pattern matching
+  LLVM: DAG-based selection; SelectionDAG; then legalization for target constraints
+  RISC-V, ARM64, x86-64: each has backend in LLVM; target triple selects backend
+Instruction scheduling: reorder instructions to hide latency; avoid hazards
+  Out-of-order CPUs: hardware reschedules; but good software scheduling still helps caches
+ABI (Application Binary Interface): calling conventions; argument passing; stack layout
+  System V AMD64: args in rdi, rsi, rdx, rcx, r8, r9; return in rax; callee-saves: rbx, rbp, r12-r15
+  Windows x64: args in rcx, rdx, r8, r9; shadow space 32 bytes; different callee-saves
+  Rust ABI: unstable; don't use across crate boundaries; use extern 'C' for FFI
+JIT compilation: compile at runtime; can use runtime profile; V8 TurboFan, JVM JIT
+  Tiered: interpret -> baseline JIT -> optimizing JIT (based on type feedback)
+  Deoptimization: bail back to interpreter when assumption violated (e.g. type changed)
+WASM compilation: source -> WASM binary; wasm-opt for size/speed; then browser JIT
+  WASM -> native: Wasmtime (Cranelift), Wasmer, WasmEdge
+  WASM target in rustc: wasm32-unknown-unknown / wasm32-wasi
+Linker: combine object files; resolve symbols; layout sections (.text, .data, .bss, .rodata)
+  lld (LLVM): faster than GNU ld; mold: fastest modern linker; parallel
+  LTO (Link-Time Optimization): inline across translation units; larger but faster binaries
+  ThinLTO: parallel LTO; summary-based; good balance of speed and optimization"
+}
+
+fn s_comp_tools() -> &'static str {
+    "── Compiler Tools & Debugging ──
+rustc internals:
+  cargo rustc -- -Zunpretty=hir: dump HIR
+  cargo rustc -- -Zunpretty=mir: dump MIR (requires nightly)
+  RUSTFLAGS=-Cllvm-args=--print-before-all cargo build: dump all LLVM passes
+  cargo asm: show disassembly (cargo install cargo-show-asm)
+LLVM tools:
+  opt: run optimization passes on LLVM IR; --print-passes for list
+  llc: compile LLVM IR to assembly or object file
+  llvm-mca: machine code analyzer; throughput, latency, resource pressure
+  llvm-objdump: disassemble; --demangle for Rust/C++ names
+Tree-sitter:
+  tree-sitter generate: build parser from grammar.js
+  tree-sitter parse file.rs: show parse tree; highlight errors
+  Incremental: only re-parses changed regions; O(change size) not O(file size)
+Profiling compiler performance:
+  -Zself-profile (rustc nightly): measure per-query time; flamegraph with crox/measureme
+  perf stat / perf record on compiler binary; flamegraph for bottleneck identification
+Language server protocol (LSP): JSON-RPC; editor -> LSP; completions, go-to-def, diagnostics
+  rust-analyzer: salsa incremental computation; lazy; only recomputes changed queries
+  clangd: index-based; uses compile_commands.json
+Fuzzing compiler inputs:
+  cargo-fuzz (libFuzzer): fuzz parsers; -sanitize=address; minimization built in
+  AFL++ / honggfuzz: coverage-guided; great for finding parser panics/crashes"
+}
+
+const COMPILER_SECTIONS: &[CompilerSection] = &[
+    (
+        "parsing",
+        &[
+            "lexer",
+            "lexing",
+            "tokenization",
+            "recursive-descent",
+            "pratt",
+            "lalrpop",
+            "pest",
+            "tree-sitter",
+            "peg",
+            "ebnf",
+        ],
+        s_comp_parsing,
+    ),
+    (
+        "ast",
+        &[
+            "ast-traversal",
+            "visitor-pattern-ast",
+            "name-resolution",
+            "type-inference",
+            "borrow-checker",
+            "hindley-milner",
+            "symbol-table",
+            "nll",
+            "polonius",
+        ],
+        s_comp_ast,
+    ),
+    (
+        "ir",
+        &[
+            "hir",
+            "mir",
+            "ssa",
+            "llvm-ir",
+            "cranelift",
+            "cps",
+            "anf",
+            "three-address",
+            "phi-node",
+            "basic-block",
+        ],
+        s_comp_ir,
+    ),
+    (
+        "optimization",
+        &[
+            "constant-folding",
+            "dce",
+            "cse",
+            "inlining",
+            "loop-unroll",
+            "vectorization",
+            "alias-analysis",
+            "escape-analysis",
+            "register-allocation",
+            "pgo",
+        ],
+        s_comp_optimization,
+    ),
+    (
+        "codegen",
+        &[
+            "instruction-selection",
+            "abi",
+            "jit",
+            "wasm-codegen",
+            "lto",
+            "thinlto",
+            "linker",
+            "calling-convention",
+            "mold-linker",
+        ],
+        s_comp_codegen,
+    ),
+    (
+        "tools",
+        &[
+            "cargo-asm",
+            "llvm-mca",
+            "llvm-objdump",
+            "rust-analyzer",
+            "salsa",
+            "lsp",
+            "cargo-fuzz",
+            "clangd",
+            "tree-sitter-tools",
+        ],
+        s_comp_tools,
+    ),
+];
+
+pub fn compiler_ref_calc(query: &str) -> String {
+    let q = query.trim().to_lowercase();
+    if q.is_empty() || q == "list" || q == "help" {
+        let topics: Vec<&str> = COMPILER_SECTIONS.iter().map(|(n, _, _)| *n).collect();
+        return format!(
+            "compiler-ref topics: {}\nUse: --compiler-ref <topic>  or  --compiler-ref all",
+            topics.join(", ")
+        );
+    }
+    if q == "all" {
+        return COMPILER_SECTIONS
+            .iter()
+            .map(|(_, _, f)| f())
+            .collect::<Vec<_>>()
+            .join("\n\n");
+    }
+    for (name, aliases, func) in COMPILER_SECTIONS {
+        if q == *name || aliases.iter().any(|a| q == *a || q.contains(a)) {
+            return func().to_string();
+        }
+    }
+    format!(
+        "No topic found for '{}'. Try: --compiler-ref list",
+        query.trim()
+    )
+}
+
+// ── Wave 32: monitoring_ref_calc ──────────────────────────────────────────────
+
+type MonitorSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+
+fn s_mon_slo() -> &'static str {
+    "── SLI / SLO / SLA ──
+SLI (Service Level Indicator): metric that measures service behavior
+  Examples: request success rate, p99 latency, error rate, availability %
+SLO (Service Level Objective): target value for an SLI; internal commitment
+  Example: 99.9% of requests return 2xx within 500ms over 30 days
+  Error budget: 100% - SLO; 0.1% = 43.8 min/month downtime allowed
+SLA (Service Level Agreement): external contract with consequences (refunds, penalties)
+  SLAs are looser than SLOs; SLO breach doesn't mean SLA breach
+Error budget policy: when budget exhausted, freeze risky deploys; prioritize reliability
+  Burn rate alert: alert when consuming budget faster than allowed rate
+  Fast burn: >14.4x rate in 5 min (consumes 2% budget in 1h)
+  Slow burn: >6x rate in 1h (consumes 5% budget in 6h)
+Availability calculation:
+  99.9% (three nines): 8.77 hr/yr downtime
+  99.95%: 4.38 hr/yr; 99.99% (four nines): 52.6 min/yr; 99.999%: 5.26 min/yr
+Toil: manual, repetitive, automatable work; not engineering; should be < 50% of time
+  Measure toil; set reduction targets; toil > 50% -> escalate to eng leadership
+Golden signals (Google SRE): Latency, Traffic, Errors, Saturation
+  Latency: distinguish successful vs error latency; p50/p99/p999
+  Saturation: how full is the service? CPU%, queue depth, memory %; predict exhaustion"
+}
+
+fn s_mon_prometheus() -> &'static str {
+    "── Prometheus ──
+Data model: metric_name{label='value'} timestamp value
+  Types: Counter (monotonically increasing), Gauge (up/down), Histogram, Summary
+  Counter: http_requests_total{method='GET', status='200'} -- never decreases
+  Gauge: memory_usage_bytes, active_connections -- can go up or down
+  Histogram: http_request_duration_seconds{le='0.5'} -- bucket counts; use for latency
+  Summary: quantiles computed client-side; no aggregation across instances
+Scraping: Prometheus pulls metrics from /metrics endpoint; configurable interval
+  scrape_interval: 15s (default); evaluation_interval: 15s
+  Static targets: static_configs - targets: ['app:8080']
+  Dynamic: service discovery: kubernetes_sd_configs, consul_sd_configs, ec2_sd_configs
+PromQL (Prometheus Query Language):
+  Instant vector: http_requests_total{job='api'} -- current value
+  Range vector: http_requests_total[5m] -- values over time window
+  rate(): per-second average rate; use over counter: rate(http_requests_total[5m])
+  irate(): instantaneous rate; last 2 samples; more responsive, spiky
+  increase(): total increase over time range; increase(http_errors_total[1h])
+  sum(rate(...)by (status)): aggregate across instances, break down by label
+  histogram_quantile(0.99, rate(http_request_duration_seconds_bucket[5m])): p99 latency
+Recording rules: precompute expensive queries; job:http_requests:rate5m
+  groups: - name: rules; interval: 1m; rules: - record: job:rate; expr: rate(...)
+Remote write: ship metrics to Thanos/Cortex/Mimir for long-term storage"
+}
+
+fn s_mon_alerting() -> &'static str {
+    "── Alerting & Alertmanager ──
+Alerting rules (Prometheus):
+  groups: - name: alerts; rules:
+    - alert: HighErrorRate
+      expr: rate(http_errors_total[5m]) / rate(http_requests_total[5m]) > 0.05
+      for: 5m  -- must be true for 5m before firing; reduces flapping
+      labels: severity: critical
+      annotations: summary: 'Error rate above 5%'; runbook_url: https://wiki/...
+Alert lifecycle: Inactive -> Pending (for: period) -> Firing -> Resolved
+Alertmanager: routes alerts to receivers; deduplication; grouping; silencing
+  Route tree: match labels -> receiver (PagerDuty, Slack, email, OpsGenie)
+  group_by: [alertname, cluster] -- batch related alerts into one notification
+  group_wait: 30s -- wait before first notification (collect more alerts)
+  repeat_interval: 4h -- re-notify if still firing
+  Inhibition: suppress child alerts when parent fires; e.g. silence app alerts if host down
+  Silence: mute specific alerts for maintenance window; match labels
+Notification fatigue: alert on symptoms not causes; ensure every alert is actionable
+  P1: page on-call (wakes people); P2: ticket; P3: log only
+  Runbooks: link from every alert; step-by-step triage; reduces MTTR
+Multi-window multi-burn-rate alerts: fast burn (short window) + slow burn (long window)
+  - alert: SLOBurnRateFast; expr: burn_rate > 14.4; for: 5m (catches big incidents fast)
+  - alert: SLOBurnRateSlow; expr: burn_rate > 6; for: 60m (catches slow degradation)"
+}
+
+fn s_mon_grafana() -> &'static str {
+    "── Grafana ──
+Dashboards: JSON; version-controlled in Git; import/export; community dashboards at grafana.com/dashboards
+  Panels: Graph (time series), Stat (single value), Gauge, Table, Heatmap, Logs, Traces
+  Variables: template variables for dynamic filtering; $namespace, $pod, $instance
+  Repeat rows/panels: repeat for each variable value; fleet-wide overview
+Data sources: Prometheus, Loki, Tempo, InfluxDB, Elasticsearch, CloudWatch, Datadog, MySQL
+  LGTM stack: Loki (logs) + Grafana + Tempo (traces) + Mimir/Thanos (metrics)
+  Correlate: jump from metric spike to logs at same timestamp; click exemplar -> trace
+PromQL in Grafana:
+  Rate with variable: rate(http_requests_total{job='$job'}[5m])
+  Top-N: topk(10, sum(rate(cpu_usage[5m])) by (pod))
+  Latency: histogram_quantile(0.99, sum(rate(http_duration_bucket{job='$job'}[5m])) by (le))
+Alerting (Grafana Alerting v2): multi-dimensional alerts; alert per label set
+  Contact points: Slack, PagerDuty, email, webhook
+  Alert rules: separate from Prometheus; can alert on any data source
+  Silence, inhibition: same concepts as Alertmanager
+Grafana Loki: log aggregation; LogQL query language
+  LogQL: {app='myapp'} |= 'error' | json | line_format '{{.message}}'
+  Stream selector + pipeline; label filter, json parser, line_format
+Grafana Tempo: distributed tracing; TraceQL query language
+  TraceQL: {span.http.status_code=500 && duration > 1s}
+  Exemplars: link metric data point to a trace ID; requires instrumentation"
+}
+
+fn s_mon_otel() -> &'static str {
+    "── OpenTelemetry ──
+OTel: vendor-neutral observability framework; signals: Traces, Metrics, Logs
+  SDK per language: otlp exporter sends to collector or directly to backend
+  Auto-instrumentation: attach agent; instruments HTTP, DB, messaging automatically
+Traces:
+  Span: unit of work; parent-child hierarchy forms trace
+  Attributes: key-value metadata on span; semantic conventions (http.method, db.system)
+  Events: timestamped annotation on span; error with stack trace
+  Context propagation: W3C TraceContext (traceparent header); baggage for user-defined data
+  Sampling: head-based (decide at trace start) or tail-based (decide after full trace)
+    Tail sampling: sample 100% of traces with errors; 1% of healthy traces
+Metrics:
+  Instrument types: Counter, UpDownCounter, Histogram, ObservableGauge, ObservableCounter
+  Exemplars: link metric data point to a trace span; sampled per histogram bucket
+OTLP: OTel Protocol; gRPC or HTTP/JSON; push-based; collector as intermediary
+  Collector: receive -> process -> export; fan out to multiple backends; batching
+  Pipeline: receivers (otlp, prometheus, zipkin) -> processors (batch, filter) -> exporters
+Semantic conventions: standard attribute names; cross-language consistency
+  HTTP: http.request.method, url.full, http.response.status_code, server.address
+  DB: db.system, db.name, db.operation.name, db.query.text (sanitized)
+Resource detection: auto-detect service.name, k8s.pod.name, cloud.region from environment
+Baggage: propagate key-value pairs through entire trace; use for tenant ID, user ID
+  Carry cost: included in every outbound header; keep small"
+}
+
+fn s_mon_logging() -> &'static str {
+    "── Logging Best Practices ──
+Structured logging: JSON or key=value format; machine-readable; enables log queries
+  Avoid: printf-style strings; hard to parse; no schema
+  Prefer: {level: info, msg: request_complete, method: GET, path: /api, duration_ms: 42}
+Log levels:
+  ERROR: requires immediate attention; paging alert candidate
+  WARN: unexpected but handled; investigate during business hours
+  INFO: normal operations; request received, job completed
+  DEBUG: developer detail; off in production; enabled per module when needed
+  TRACE: very verbose; request/response bodies; only for local debugging
+Logging in distributed systems:
+  Correlation ID / request ID: propagate through all services; log at every hop
+  Structured with trace_id: correlate logs to traces; essential for debugging
+  Log at service boundary, not every function; reduce volume while keeping coverage
+ELK / EFK stack:
+  Elasticsearch (store + search) + Logstash/Fluentd (collect/parse) + Kibana (visualize)
+  Alternatives: Loki + Grafana (label-based, not full-text index; cheaper); ClickHouse
+Log shipping:
+  Filebeat / Fluent Bit: lightweight agent; tail log files; ship to aggregator
+  Sidecar pattern: container in same pod reads app log files
+  Stdout-only apps: container runtime captures stdout; k8s -> node agent -> backend
+Log retention: hot (7 days, fast search) -> warm (30 days, slower) -> cold archive (1 year)
+Cardinality: don't log user IDs or request paths in metric labels; high-cardinality fields go in span attributes or log messages, not metric labels"
+}
+
+const MONITOR_SECTIONS: &[MonitorSection] = &[
+    (
+        "slo",
+        &[
+            "sli",
+            "sla",
+            "error-budget",
+            "burn-rate",
+            "availability",
+            "toil",
+            "golden-signals",
+            "four-nines",
+        ],
+        s_mon_slo,
+    ),
+    (
+        "prometheus",
+        &[
+            "promql",
+            "counter",
+            "gauge",
+            "histogram",
+            "recording-rules",
+            "scrape",
+            "remote-write",
+            "service-discovery",
+        ],
+        s_mon_prometheus,
+    ),
+    (
+        "alerting",
+        &[
+            "alertmanager",
+            "alerting-rules",
+            "pagerduty",
+            "silences",
+            "inhibition",
+            "notification-fatigue",
+            "runbook",
+            "multi-burn-rate",
+        ],
+        s_mon_alerting,
+    ),
+    (
+        "grafana",
+        &[
+            "dashboard",
+            "loki",
+            "tempo",
+            "logql",
+            "traceql",
+            "exemplar",
+            "lgtm",
+            "grafana-alerting",
+        ],
+        s_mon_grafana,
+    ),
+    (
+        "otel",
+        &[
+            "opentelemetry",
+            "otlp",
+            "tracing",
+            "span",
+            "context-propagation",
+            "tail-sampling",
+            "otel-collector",
+            "semantic-conventions",
+            "baggage",
+        ],
+        s_mon_otel,
+    ),
+    (
+        "logging",
+        &[
+            "structured-logging",
+            "log-levels",
+            "correlation-id",
+            "elk",
+            "efk",
+            "fluentbit",
+            "filebeat",
+            "log-retention",
+            "cardinality",
+        ],
+        s_mon_logging,
+    ),
+];
+
+pub fn monitoring_ref_calc(query: &str) -> String {
+    let q = query.trim().to_lowercase();
+    if q.is_empty() || q == "list" || q == "help" {
+        let topics: Vec<&str> = MONITOR_SECTIONS.iter().map(|(n, _, _)| *n).collect();
+        return format!(
+            "monitoring-ref topics: {}\nUse: --monitoring-ref <topic>  or  --monitoring-ref all",
+            topics.join(", ")
+        );
+    }
+    if q == "all" {
+        return MONITOR_SECTIONS
+            .iter()
+            .map(|(_, _, f)| f())
+            .collect::<Vec<_>>()
+            .join("\n\n");
+    }
+    for (name, aliases, func) in MONITOR_SECTIONS {
+        if q == *name || aliases.iter().any(|a| q == *a || q.contains(a)) {
+            return func().to_string();
+        }
+    }
+    format!(
+        "No topic found for '{}'. Try: --monitoring-ref list",
+        query.trim()
+    )
+}
+
+// ── Wave 32: search_ref_calc ──────────────────────────────────────────────────
+
+type SearchSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+
+fn s_search_concepts() -> &'static str {
+    "── Search Concepts ──
+Inverted index: maps term -> list of documents containing it (postings list)
+  Core data structure for all full-text search engines
+  Term -> {doc_id, freq, positions} sorted by doc_id for efficient merging
+TF-IDF: term importance scoring
+  TF (term frequency): how often term appears in doc
+  IDF (inverse document frequency): log(N / df) -- rarer terms = higher score
+  Score: TF * IDF; normalized by doc length
+BM25: improved TF-IDF; default in Elasticsearch and Lucene 4+
+  Saturation: extra occurrences of rare terms add diminishing returns
+  k1 (1.2): controls term saturation; b (0.75): length normalization
+  score = IDF * (tf * (k1+1)) / (tf + k1*(1 - b + b*dl/avgdl))
+Precision vs recall:
+  Precision: fraction of returned docs that are relevant; quality
+  Recall: fraction of relevant docs that are returned; coverage
+  F1: harmonic mean; precision * recall * 2 / (precision + recall)
+  nDCG (normalized Discounted Cumulative Gain): rank-aware metric; standard for search quality
+Query expansion: synonyms, stemming, spell correction to increase recall
+  Stemming: 'running' -> 'run'; reduces inflections; Porter/Snowball stemmers
+  Lemmatization: 'better' -> 'good'; dictionary lookup; better quality, slower
+  Synonyms: expand 'car' to {car, automobile, vehicle}; token filter
+N-grams: substrings of length N; 2-gram = bigrams; used for partial matching, autocomplete
+  Edge n-gram: only from start of word; fast prefix search
+  Shingles: n-grams of words; detect near-duplicate documents"
+}
+
+fn s_search_elasticsearch() -> &'static str {
+    "── Elasticsearch ──
+Index: collection of documents; similar to a table; physically = shard set
+  Shard: Lucene index; primary + N replicas; distribute and replicate data
+  Mapping: schema; field types: text (analyzed), keyword (exact), integer, date, geo_point
+  Dynamic mapping: auto-detect types; disable for production to avoid mapping explosions
+Queries:
+  match: full-text; analyzed; tokenize + score
+  term: exact match on keyword fields; no analysis; filters
+  range: {gte, lte} on numeric/date; efficient with BKD tree index
+  bool: must (AND), should (OR), must_not, filter (no scoring, cached)
+  match_phrase: ordered term sequence; 'quick brown fox' as phrase
+  multi_match: search across multiple fields; {fields: [title, body], query: ..., type: best_fields}
+  nested: query inside nested objects; separate Lucene document per nested object
+Aggregations:
+  terms: top N values by doc count; like GROUP BY
+  date_histogram: bucket by time; calendar_interval: day/week/month
+  avg/sum/min/max: metric aggregations; percentiles for latency distributions
+  pipeline: bucket_selector, moving_avg for time-series smoothing
+Performance:
+  Filter context: use filter not query for non-scoring; bit-set cached; fast
+  _source: disable if not needed for search; field projection on fetch
+  doc_values: columnar; used for sorting/aggregations; disable on full-text fields
+  Refresh interval: default 1s; set to 30s for bulk indexing; disable for initial load
+Index Lifecycle Management (ILM): hot -> warm -> cold -> delete phases
+  Rollover: create new index when size/age threshold hit; no downtime"
+}
+
+fn s_search_vector() -> &'static str {
+    "── Vector Search ──
+Dense vector search: find nearest neighbors by embedding similarity; semantic search
+  Embedding models: text -> fixed-length float vector (768, 1536 dims typical)
+  Similarity metrics: cosine similarity, dot product, Euclidean distance (L2)
+ANN (Approximate Nearest Neighbor): faster than exact; trades recall for speed
+HNSW (Hierarchical Navigable Small World): graph-based ANN; fast insert+query
+  Parameters: M (connections per node, 16-64), ef_construction (200), ef_search (100)
+  Used in: Elasticsearch, Qdrant, Weaviate, pgvector, Chroma
+FAISS (Facebook AI Similarity Search): GPU-accelerated; IVF (inverted file index)
+  IVF: cluster centroids; only search nearest N clusters; nprobe controls recall/speed
+  PQ (Product Quantization): compress vectors; 8x-32x smaller; slight recall loss
+Hybrid search: combine dense vector score + BM25 keyword score
+  Reciprocal Rank Fusion (RRF): merge rankings; no hyperparameter tuning needed
+  Linear combination: alpha * BM25_score + (1-alpha) * vector_score
+Vector databases:
+  Pinecone: managed; fast; no self-hosting; good for production
+  Qdrant: Rust; HNSW; payload filtering; self-hosted or cloud
+  Weaviate: schema-based; auto-embedding; multi-modal
+  Chroma: embedded; Python-native; good for prototyping
+  pgvector: PostgreSQL extension; HNSW + IVFFlat; SQL join with vector search
+  Elasticsearch kNN: dense_vector field; knn query; HNSW backed
+RAG (Retrieval Augmented Generation): vector search to find relevant chunks; inject into LLM prompt
+  Chunk size: 256-512 tokens typical; overlap 10-20%; preserve sentence boundaries"
+}
+
+fn s_search_ranking() -> &'static str {
+    "── Ranking & Relevance ──
+Function score: custom scoring; multiply base score by function output
+  Field value factor: boost by numeric field (popularity, views, stars)
+  Decay functions: boost recency; exp/gauss/linear decay on date distance
+  Random score: random but consistent per user (seed=user_id); A/B test variant assignment
+Learning to Rank (LTR): ML model predicts relevance; features from query+doc pair
+  Models: LambdaMART (gradient boosted trees), RankNet, listwise approaches
+  Training data: human-labeled relevance judgments or click logs
+  Elasticsearch LTR plugin; Solr LTR module
+Query-time boosting: boost fields at search time
+  multi_match fields: ['title^3', 'body^1'] -- title matches worth 3x
+  Phrase match boost: exact phrase match > individual terms
+Personalization: user history/preferences -> rerank results for individual
+  Collaborative filtering: similar users -> similar interests; implicit feedback (clicks)
+  Two-tower model: user embedding + item embedding; dot product = relevance score
+Faceted search: drill-down by category/attribute; filter + aggregate
+  Example: search 'laptop' then filter price: 500-1000, brand: Dell
+  Implementation: filter + terms aggregation; counts update with active filters
+Spell checking: suggest corrections for low-result queries
+  Edit distance: Levenshtein; trigram index for candidates; rescore by popularity
+  did-you-mean: show when query returns 0 or few results
+A/B testing search: control vs experiment; measure engagement metrics (CTR, session length)
+  Interleaving: blend results from two rankers in single SERP; less traffic needed"
+}
+
+fn s_search_performance() -> &'static str {
+    "── Search Performance ──
+Query performance:
+  Use filter context for boolean conditions (cached, no scoring)
+  Avoid wildcard/regexp on text fields at scale; use edge n-gram for prefix
+  Deep pagination: avoid from+size > 10000; use search_after with sort key instead
+  Scroll API: deprecated; use search_after with point-in-time (PIT) snapshot
+Indexing performance:
+  Bulk API: send 5-15MB batches; don't exceed; measure queue depth
+  Disable refresh: set refresh_interval: -1 for bulk; re-enable after
+  Increase translog flush interval: index.translog.durability: async for bulk
+  Segment merging: force merge to 1 segment for static indexes; searchable faster
+Sharding strategy:
+  Oversharding: too many small shards; overhead; aim for 10-50 GB per shard
+  Undersharding: can't scale; plan initial shards based on expected data volume
+  Routing: route related docs to same shard for shard-level aggregations
+Caching:
+  Filter cache: bit-set per filter result; automatic; most filters auto-cached
+  Query cache: off by default; shard-level request cache for segment-stable queries
+  Field data cache: for sorting and aggregations on text fields; prefer keyword + doc_values
+Monitoring ES:
+  cat indices / cat shards: cluster health and index status
+  cluster/health?level=indices: green/yellow/red per index
+  hot threads API: diagnose CPU-bound queries
+  Slow log: index.search.slowlog.threshold.query.warn: 1s"
+}
+
+fn s_search_design() -> &'static str {
+    "── Search System Design ──
+Indexing pipeline:
+  Source (DB/stream) -> extract -> transform/enrich -> normalize -> bulk index
+  Change data capture (CDC): stream DB changes to search index; Debezium -> Kafka -> ES
+  Event-driven sync: publish change events; search indexer consumes; eventually consistent
+Search architecture patterns:
+  CQRS write path: command updates DB and publishes event
+  Search consumer: updates search index from event stream; decoupled from write path
+  Dual-write anti-pattern: write DB + ES in same request; inconsistency on partial failure
+Multi-tenancy:
+  Index-per-tenant: full isolation; overhead for many tenants; easy filtering
+  Tenant field + routing: single index; filter every query; potential data leak if misconfigured
+  Alias pattern: alias per tenant pointing to physical index; swap on reindex
+Reindexing strategy:
+  Blue-green indexes: build new index in background; atomic alias swap; zero downtime
+  Reindex API: copy from old to new within Elasticsearch; throttled; scroll-based
+  Zero-downtime reindex: write to both old and new during transition; verify; flip alias
+Schema evolution:
+  Add field: safe; new data indexed; old docs missing field -> null
+  Change type: reindex required; old type incompatible
+  Rename field: add new field; backfill; update queries; remove old field
+Disaster recovery: cross-cluster replication (CCR); snapshot to S3; restore to new cluster"
+}
+
+const SEARCH_SECTIONS: &[SearchSection] = &[
+    (
+        "concepts",
+        &[
+            "inverted-index",
+            "tfidf",
+            "bm25",
+            "precision-recall",
+            "ndcg",
+            "stemming",
+            "lemmatization",
+            "ngrams",
+            "edge-ngram",
+            "synonyms",
+        ],
+        s_search_concepts,
+    ),
+    (
+        "elasticsearch",
+        &[
+            "es",
+            "lucene",
+            "mapping",
+            "shards",
+            "aggregations",
+            "bool-query",
+            "term-query",
+            "match-query",
+            "ilm",
+            "doc-values",
+        ],
+        s_search_elasticsearch,
+    ),
+    (
+        "vector",
+        &[
+            "vector-search",
+            "semantic-search",
+            "hnsw",
+            "faiss",
+            "ann",
+            "embedding",
+            "qdrant",
+            "pgvector",
+            "chroma",
+            "rag",
+            "hybrid-search",
+        ],
+        s_search_vector,
+    ),
+    (
+        "ranking",
+        &[
+            "relevance",
+            "function-score",
+            "ltr",
+            "learning-to-rank",
+            "personalization",
+            "faceted-search",
+            "spell-check",
+            "boosting",
+            "two-tower",
+        ],
+        s_search_ranking,
+    ),
+    (
+        "performance",
+        &[
+            "search-perf",
+            "bulk-api",
+            "sharding",
+            "filter-cache",
+            "search-after",
+            "force-merge",
+            "slow-log",
+            "point-in-time",
+        ],
+        s_search_performance,
+    ),
+    (
+        "design",
+        &[
+            "search-architecture",
+            "indexing-pipeline",
+            "cdc-search",
+            "multi-tenancy",
+            "reindexing",
+            "blue-green-index",
+            "schema-evolution",
+            "cross-cluster",
+        ],
+        s_search_design,
+    ),
+];
+
+pub fn search_ref_calc(query: &str) -> String {
+    let q = query.trim().to_lowercase();
+    if q.is_empty() || q == "list" || q == "help" {
+        let topics: Vec<&str> = SEARCH_SECTIONS.iter().map(|(n, _, _)| *n).collect();
+        return format!(
+            "search-ref topics: {}\nUse: --search-ref <topic>  or  --search-ref all",
+            topics.join(", ")
+        );
+    }
+    if q == "all" {
+        return SEARCH_SECTIONS
+            .iter()
+            .map(|(_, _, f)| f())
+            .collect::<Vec<_>>()
+            .join("\n\n");
+    }
+    for (name, aliases, func) in SEARCH_SECTIONS {
+        if q == *name || aliases.iter().any(|a| q == *a || q.contains(a)) {
+            return func().to_string();
+        }
+    }
+    format!(
+        "No topic found for '{}'. Try: --search-ref list",
+        query.trim()
+    )
+}
+
+// ── Wave 32: protocols_ref_calc ───────────────────────────────────────────────
+
+type ProtoSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+
+fn s_proto_grpc() -> &'static str {
+    "── gRPC ──
+gRPC: Google RPC framework; HTTP/2 + Protocol Buffers (protobuf); strongly typed
+  Service definition in .proto file; protoc generates client/server stubs
+  transport: HTTP/2; multiplexed streams; binary framing; header compression (HPACK)
+Service types:
+  Unary: request -> response (like REST)
+  Server streaming: request -> stream of responses
+  Client streaming: stream of requests -> response
+  Bidirectional streaming: stream -> stream; full-duplex
+Protobuf:
+  Binary encoding; 3-8x smaller than JSON; schema required for decoding
+  Field numbers: wire format uses numbers not names; backward compat via reserved numbers
+  Types: int32, int64, sint32 (zigzag), fixed32, string, bytes, bool, enum, message, repeated
+  Well-known types: google.protobuf.Timestamp, Duration, Any, Struct (dynamic JSON-like)
+  proto3 default: all fields optional; zero value if absent; use oneof for explicit optionality
+Metadata: key-value pairs in header; authentication token in Authorization metadata
+  Grpc-status / Grpc-message: trailing metadata with status code
+Status codes: OK(0), CANCELLED(1), UNKNOWN(2), NOT_FOUND(5), ALREADY_EXISTS(6),
+  PERMISSION_DENIED(7), RESOURCE_EXHAUSTED(8), FAILED_PRECONDITION(9), UNAVAILABLE(14)
+Interceptors: middleware for logging, auth, retry, metrics; unary and streaming variants
+gRPC-Gateway: generate REST proxy from .proto; protoc-gen-grpc-gateway plugin
+  Maps HTTP methods/paths to gRPC methods; useful for browser/curl clients
+gRPC-Web: browser-compatible gRPC; requires proxy (Envoy or grpcwebproxy)
+  HTTP/1.1 framing wrapper; does not support client/bidirectional streaming natively
+Health checking: grpc.health.v1.Health service; standard protocol; liveness + readiness"
+}
+
+fn s_proto_websocket() -> &'static str {
+    "── WebSocket ──
+Protocol: full-duplex over single TCP connection; HTTP upgrade handshake
+  Handshake: HTTP GET with Upgrade: websocket, Connection: Upgrade, Sec-WebSocket-Key
+  Server responds: 101 Switching Protocols; Sec-WebSocket-Accept = base64(SHA1(key + GUID))
+  After upgrade: binary framing protocol; no HTTP overhead per message
+Frames: opcode + masked payload (client must mask; server must not mask)
+  Opcodes: 0x1 (text), 0x2 (binary), 0x8 (close), 0x9 (ping), 0xA (pong)
+  FIN bit: last frame of message; fragmentation for large messages
+Use cases: real-time chat, live updates, multiplayer games, trading feeds, collaborative editing
+Libraries:
+  tokio-tungstenite (Rust); ws (Node.js); websockets (Python); gorilla/websocket (Go)
+  Socket.IO: higher-level; auto-reconnect; rooms/namespaces; fallback to polling
+Scaling WebSockets:
+  Sticky sessions: load balancer pins client to same server (ip_hash or cookie)
+  Pub/sub backend: Redis Pub/Sub or Kafka; server subscribes; fan out messages to connected clients
+  Connection limits: 65535 ports per IP; tune ulimit -n; use multiple server IPs
+Heartbeats: ping/pong at interval to detect dead connections; client should respond to pong
+  Close handshake: send close frame with status code; peer sends close frame back; then TCP close
+Security:
+  wss:// (WebSocket Secure): TLS; always use in production
+  Origin validation: check Origin header in upgrade handshake; reject unexpected origins
+  Rate limiting: per-connection message rate; protect against abuse"
+}
+
+fn s_proto_graphql() -> &'static str {
+    "── GraphQL ──
+Query language for APIs; client specifies exact data shape; one endpoint
+  Schema: SDL (Schema Definition Language); types, queries, mutations, subscriptions
+  query { user(id: 42) { name, email, posts { title } } } -- fetch only needed fields
+Operations:
+  Query: read; multiple named queries per document
+  Mutation: write; returns result; chained mutations in one round-trip
+  Subscription: real-time; server pushes updates over WebSocket
+Type system: scalar (Int, Float, String, Boolean, ID), object, enum, interface, union, input
+  Non-null: String! -- guaranteed; List: [String]; List of non-null: [String!]!
+  Custom scalars: Date, Email, UUID; require serialize/parse/parseLiteral
+Resolvers: function per field; context (auth info), parent, args, info
+  Resolver chain: root query -> parent resolver -> child field resolvers
+N+1 problem: fetching users then each user's posts = N+1 queries
+  DataLoader: batch + cache; groups requests in same tick into one DB query
+  graphql-dataloader (JS), async-graphql DataLoader (Rust)
+Execution: parallel resolver execution for independent fields; serial for mutations
+Fragments: reusable field selections; inline or named
+  fragment PostFields on Post { id title createdAt }
+  ... PostFields -- spread in query
+Federation (Apollo): compose multiple GraphQL services into one supergraph
+  @key, @external, @requires, @provides directives
+  Entities: objects owned by one service but referenced by others
+Persisted queries: hash of query sent instead of full text; security + performance
+Introspection: __schema, __type; disable in production to hide API shape from attackers"
+}
+
+fn s_proto_mqtt() -> &'static str {
+    "── MQTT & Message Queuing ──
+MQTT: lightweight pub/sub for IoT and constrained devices; TCP port 1883 / TLS 8883
+  Broker: central message router (Mosquitto, EMQX, HiveMQ, AWS IoT Core)
+  Client: subscribe or publish; QoS 0/1/2 per message
+QoS levels:
+  QoS 0: at most once; fire and forget; no ACK; fastest; sensor telemetry
+  QoS 1: at least once; ACK required; may deliver multiple times; idempotent handlers needed
+  QoS 2: exactly once; 4-way handshake (PUBLISH -> PUBREC -> PUBREL -> PUBCOMP); slowest
+Topics: hierarchical; / separator; wildcards: + (single level), # (multi level)
+  home/+/temperature matches home/bedroom/temperature and home/living/temperature
+  sensors/# matches everything under sensors/
+Retained messages: broker stores last message per topic; new subscriber gets it immediately
+  Useful for last known state; retain=true flag on publish
+Last Will and Testament (LWT): message broker sends on behalf of client if connection drops
+  Detect offline devices; alert system when client disconnects unexpectedly
+Clean session: false = broker persists subscriptions and QoS 1/2 queued messages across reconnects
+AMQP 1.0: enterprise messaging; more complex than MQTT; used in Azure Service Bus, ActiveMQ
+  Features: transactions, routing, dead letter queues, TTL, message acknowledgment
+  Compared to Kafka: AMQP good for task queues; Kafka for event streaming and replay
+NATS: cloud-native messaging; lightweight; JetStream for persistence; used in K8s
+  Subjects: hierarchical like MQTT topics; wildcards * and >
+  Core NATS: at-most-once; JetStream: at-least-once with replay, consumer groups"
+}
+
+fn s_proto_http2_http3() -> &'static str {
+    "── HTTP/2 & HTTP/3 ──
+HTTP/2:
+  Multiplexing: multiple streams over single TCP connection; no head-of-line blocking at HTTP layer
+  Binary framing: frames instead of text; DATA and HEADERS frames
+  Header compression: HPACK; static + dynamic table; 85-90% reduction on repeated headers
+  Server push: server sends resources before client requests them; rarely beneficial; often disabled
+  Stream priorities: weights and dependencies; client hints for scheduling
+  Flow control: per-stream and per-connection; WINDOW_UPDATE frames
+  ALPN: negotiate HTTP/2 during TLS handshake (h2 token); no need for upgrade
+  Issues: TCP head-of-line blocking; one lost packet blocks all streams
+HTTP/3 (QUIC):
+  Built on QUIC (UDP); no TCP head-of-line blocking; independent stream delivery
+  0-RTT connection setup: resume session without full handshake; replaces TLS session tickets
+  Connection migration: IP/port change without reconnect; works over mobile networks
+  QPACK: header compression adapted for out-of-order delivery; replaces HPACK
+  Connection ID: not IP-bound; survives NAT rebind, interface switch
+  Status: Chrome, Firefox, Cloudflare, Google all default HTTP/3; nginx 1.25+ with quiche
+Server-Sent Events (SSE): one-way push over HTTP/1.1 or HTTP/2; EventSource API
+  Content-Type: text/event-stream; data: {json}\n\n; id: and retry: fields
+  Simpler than WebSocket for server-to-client only; auto-reconnect built in
+  Long polling: fallback; request held until server has data; client immediately re-requests
+WebTransport: HTTP/3-based; bidirectional streams; QUIC datagrams; designed to replace WebSocket"
+}
+
+fn s_proto_tls() -> &'static str {
+    "── TLS & PKI ──
+TLS 1.3 (RFC 8446): 1-RTT handshake (vs 2-RTT in TLS 1.2); 0-RTT for resumption
+  Key exchange: X25519 ECDH only (removed RSA key exchange); forward secrecy mandatory
+  Cipher suites reduced: TLS_AES_128_GCM_SHA256, TLS_AES_256_GCM_SHA384, TLS_CHACHA20_POLY1305_SHA256
+  Removed: static RSA, CBC ciphers, MD5/SHA1, compression, renegotiation, custom DHE
+  TLS 1.2 still common but TLS 1.3 should be default for new servers
+Certificate chain: leaf cert -> intermediate CA(s) -> root CA
+  Root CA: self-signed; in OS/browser trust store; offline; air-gapped for security
+  Intermediate CA: signs leaf certs; can be revoked without distrust of root
+  Leaf cert: domain cert; contains public key + SANs (Subject Alternative Names)
+X.509 cert fields: Subject, Issuer, Not Before/After, Public Key, Extensions
+  SAN: Subject Alternative Name; list of domains/IPs cert is valid for; CN deprecated
+  OCSP stapling: server attaches signed OCSP response; client doesn't need to query CA
+Certificate transparency (CT): all public certs logged to CT log; auditable
+  Browsers require SCT (Signed Certificate Timestamp) in cert or TLS extension
+mTLS (mutual TLS): both client and server present certificates; zero-trust, service mesh
+  Client sends Certificate + CertificateVerify; server validates against trusted CA
+  Istio/Linkerd automate mTLS between pods; SPIFFE/SPIRE for workload identity
+Certificate rotation: automate with cert-manager (K8s) or ACME (Let's Encrypt)
+  Let's Encrypt: free DV certs; 90-day validity; certbot automates renewal
+HSTS: HTTP Strict Transport Security; browser only connects via HTTPS for duration
+  Strict-Transport-Security: max-age=31536000; includeSubDomains; preload"
+}
+
+const PROTO_SECTIONS: &[ProtoSection] = &[
+    (
+        "grpc",
+        &[
+            "protobuf",
+            "proto3",
+            "grpc-gateway",
+            "grpc-web",
+            "grpc-health",
+            "grpc-interceptor",
+            "grpc-streaming",
+            "grpc-status",
+        ],
+        s_proto_grpc,
+    ),
+    (
+        "websocket",
+        &[
+            "ws",
+            "wss",
+            "socket-io",
+            "websocket-scaling",
+            "websocket-heartbeat",
+            "websocket-frame",
+            "real-time",
+            "pub-sub-ws",
+        ],
+        s_proto_websocket,
+    ),
+    (
+        "graphql",
+        &[
+            "gql",
+            "schema",
+            "resolver",
+            "dataloader",
+            "federation",
+            "fragments",
+            "subscription",
+            "persisted-queries",
+            "introspection",
+        ],
+        s_proto_graphql,
+    ),
+    (
+        "mqtt",
+        &[
+            "amqp",
+            "nats",
+            "qos",
+            "retained-message",
+            "lwt",
+            "last-will",
+            "mosquitto",
+            "emqx",
+            "jetstream",
+        ],
+        s_proto_mqtt,
+    ),
+    (
+        "http23",
+        &[
+            "http2",
+            "http3",
+            "quic",
+            "hpack",
+            "qpack",
+            "0rtt",
+            "server-push",
+            "sse",
+            "server-sent-events",
+            "webtransport",
+            "alpn",
+        ],
+        s_proto_http2_http3,
+    ),
+    (
+        "tls",
+        &[
+            "tls13",
+            "tls12",
+            "mtls",
+            "pki",
+            "certificate",
+            "x509",
+            "ocsp",
+            "hsts",
+            "ct-log",
+            "cert-manager",
+            "lets-encrypt",
+            "mTLS",
+        ],
+        s_proto_tls,
+    ),
+];
+
+pub fn protocols_ref_calc(query: &str) -> String {
+    let q = query.trim().to_lowercase();
+    if q.is_empty() || q == "list" || q == "help" {
+        let topics: Vec<&str> = PROTO_SECTIONS.iter().map(|(n, _, _)| *n).collect();
+        return format!(
+            "protocols-ref topics: {}\nUse: --protocols-ref <topic>  or  --protocols-ref all",
+            topics.join(", ")
+        );
+    }
+    if q == "all" {
+        return PROTO_SECTIONS
+            .iter()
+            .map(|(_, _, f)| f())
+            .collect::<Vec<_>>()
+            .join("\n\n");
+    }
+    for (name, aliases, func) in PROTO_SECTIONS {
+        if q == *name || aliases.iter().any(|a| q == *a || q.contains(a)) {
+            return func().to_string();
+        }
+    }
+    format!(
+        "No topic found for '{}'. Try: --protocols-ref list",
+        query.trim()
+    )
+}

@@ -1113,6 +1113,10 @@ mod tests {
             database_adv: None,
             networking_adv: None,
             testing_ref: None,
+            compiler_ref: None,
+            monitoring_ref: None,
+            search_ref: None,
+            protocols_ref: None,
             pdf_extract_helper: None,
             teleported_from: None,
         };
