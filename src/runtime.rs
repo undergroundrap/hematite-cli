@@ -1125,6 +1125,10 @@ mod tests {
             sql_tuning: None,
             concurrency: None,
             cloud_native: None,
+            regex_patterns: None,
+            http_security: None,
+            grpc_ref: None,
+            wasm_runtime: None,
             pdf_extract_helper: None,
             teleported_from: None,
         };

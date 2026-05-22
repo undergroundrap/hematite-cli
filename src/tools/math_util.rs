@@ -51316,3 +51316,1428 @@ pub fn cloud_native_calc(query: &str) -> String {
         query.trim()
     )
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Wave 35: --regex-patterns, --http-security, --grpc-ref, --wasm-runtime
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ── regex-patterns ──────────────────────────────────────────────────────────
+
+fn s_rxp_common() -> &'static str {
+    "Regex Patterns — Common Validation
+Email (basic):    [a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}
+Email (strict):   ^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$
+URL:              https?:\\/\\/[\\w\\-]+(\\.[\\w\\-]+)+([\\w\\-.,@?^=%&:\\/~+#]*[\\w\\-@?^=%&\\/~+#])?
+IPv4:             ^(?:25[0-5]|2[0-4]\\d|[01]?\\d\\d?)\\.(?:25[0-5]|2[0-4]\\d|[01]?\\d\\d?)\\.(?:25[0-5]|2[0-4]\\d|[01]?\\d\\d?)\\.(?:25[0-5]|2[0-4]\\d|[01]?\\d\\d?)$
+IPv6:             ^(?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}$  (simplified)
+UUID v4:          ^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$
+Slug:             ^[a-z0-9]+(?:-[a-z0-9]+)*$
+Hex color:        ^#?([a-fA-F0-9]{6}|[a-fA-F0-9]{3})$
+Semver:           ^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$
+Phone (E.164):    ^\\+[1-9]\\d{1,14}$
+ISO date:         ^\\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\\d|3[01])$
+Time (HH:MM:SS):  ^([01]?\\d|2[0-3]):[0-5]\\d:[0-5]\\d$
+Credit card:      ^(?:4[0-9]{12}(?:[0-9]{3})?|5[1-5][0-9]{14}|3[47][0-9]{13}|6(?:011|5[0-9]{2})[0-9]{12})$
+SSN:              ^(?!000|666)[0-8]\\d{2}-(?!00)\\d{2}-(?!0000)\\d{4}$
+ZIP (US):         ^\\d{5}(?:-\\d{4})?$
+Postal (CA):      ^[A-Z]\\d[A-Z][ ]?\\d[A-Z]\\d$
+Strong password:  ^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&])[A-Za-z\\d@$!%*?&]{12,}$"
+}
+
+fn s_rxp_text() -> &'static str {
+    "Regex Patterns — Text Processing
+Blank lines:          ^\\s*$
+Leading whitespace:   ^\\s+
+Trailing whitespace:  \\s+$
+Multiple spaces:      \\s{2,}
+Duplicate words:      \\b(\\w+)\\s+\\1\\b   (backreference \\1)
+CamelCase split:      (?<=[a-z])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])
+snake_case words:     [a-z]+(?:_[a-z]+)*
+CSV field (quoted):   \"[^\"]*\"|[^,\\n]+
+CSV all fields:       (?:\"[^\"]*\"|[^,\\r\\n]*)(?:,(?:\"[^\"]*\"|[^,\\r\\n]*))*
+Markdown heading:     ^(#{1,6})\\s+(.+)$
+Markdown link:        \\[([^\\]]+)\\]\\(([^)]+)\\)
+HTML tag:             <([a-zA-Z][a-zA-Z0-9]*)\\b[^>]*>(.*?)<\\/\\1>
+HTML comment:         <!--[\\s\\S]*?-->
+Code block (md):      ```[\\s\\S]*?```
+ANSI escape:          \\x1b\\[[0-9;]*m
+Windows path:         ^[a-zA-Z]:\\\\(?:[^\\\\/:*?\"<>|\\r\\n]+\\\\)*[^\\\\/:*?\"<>|\\r\\n]*$
+Unix path:            ^\\/(?:[^\\/\\0]+\\/)*[^\\/\\0]*$
+Filename ext:         \\.([a-zA-Z0-9]+)$
+Digits only:          ^\\d+$
+Alpha only:           ^[a-zA-Z]+$
+Alphanumeric:         ^[a-zA-Z0-9]+$
+Word boundary:        \\b\\w+\\b
+Non-word:             \\W+"
+}
+
+fn s_rxp_code() -> &'static str {
+    "Regex Patterns — Source Code Extraction
+Function def (JS):     ^\\s*(?:async\\s+)?function\\s+(\\w+)\\s*\\(
+Arrow func (JS):       const\\s+(\\w+)\\s*=\\s*(?:async\\s*)?\\([^)]*\\)\\s*=>
+Class def:             ^\\s*class\\s+(\\w+)(?:\\s+extends\\s+(\\w+))?\\s*\\{
+Python def:            ^\\s*(?:async\\s+)?def\\s+(\\w+)\\s*\\(
+Python class:          ^\\s*class\\s+(\\w+)(?:\\s*\\([^)]*\\))?\\s*:
+Rust fn:               ^\\s*(?:pub\\s+)?(?:async\\s+)?fn\\s+(\\w+)
+Rust struct:           ^\\s*(?:pub\\s+)?struct\\s+(\\w+)
+Rust impl:             ^\\s*impl(?:<[^>]*>)?\\s+(\\w+)
+Go func:               ^func\\s+(?:\\(\\w+\\s+\\*?\\w+\\)\\s+)?(\\w+)\\s*\\(
+TODO comment:          (?:TODO|FIXME|HACK|XXX|BUG)(?:\\([^)]+\\))?:\\s*(.+)
+Import (JS/TS):        import\\s+(?:\\{[^}]*\\}|\\*\\s+as\\s+\\w+|\\w+)\\s+from\\s+['\"]([^'\"]+)['\"]
+require (Node):        (?:const|let|var)\\s+(?:\\{[^}]*\\}|\\w+)\\s*=\\s*require\\(['\"]([^'\"]+)['\"]\\)
+Python import:         ^(?:from\\s+(\\S+)\\s+import|import\\s+(\\S+))
+Rust use:              ^use\\s+([\\w:]+)(?:::\\{[^}]*\\}|::\\*)?;
+Version in file:       version\\s*=\\s*['\"]([\\d.]+)['\"]
+Env variable ref:      \\$\\{?([A-Z_][A-Z0-9_]*)\\}?
+Shebang:               ^#!(\\S+)"
+}
+
+fn s_rxp_log() -> &'static str {
+    "Regex Patterns — Log Parsing
+Syslog (RFC 3164):   ^([A-Z][a-z]{2})\\s+(\\d{1,2})\\s+(\\d{2}:\\d{2}:\\d{2})\\s+(\\S+)\\s+(\\w+)(?:\\[(\\d+)\\])?:\\s+(.*)$
+Apache combined log: ^(\\S+) \\S+ (\\S+) \\[([^\\]]+)\\] \"(\\S+) (\\S+) ([^\"]+)\" (\\d{3}) (\\S+) \"([^\"]*)\" \"([^\"]*)\"$
+Nginx access log:    ^(\\S+) - (\\S+) \\[([^\\]]+)\\] \"([^\"]*)\" (\\d{3}) (\\d+) \"([^\"]*)\" \"([^\"]*)\"$
+ISO 8601 timestamp:  \\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:Z|[+-]\\d{2}:\\d{2})
+Log level:           \\b(TRACE|DEBUG|INFO|WARN(?:ING)?|ERROR|FATAL|CRITICAL)\\b
+HTTP method+URL:     (GET|POST|PUT|DELETE|PATCH|HEAD|OPTIONS)\\s+(\\S+)\\s+HTTP\\/(\\d\\.\\d)
+HTTP status line:    HTTP\\/(\\d\\.\\d)\\s+(\\d{3})\\s+(.*)
+JSON log line:       \\{\"[^\"]+\":.*\\}
+Stack trace (Java):  ^\\s+at\\s+([\\w$.]+)\\.([\\w$<>]+)\\(([^)]+)\\)
+Stack trace (Python):File \"([^\"]+)\", line (\\d+), in (\\w+)
+Error with code:     (?:error|Error|ERROR)(?:\\s+code)?[:\\s]+(\\d+|[A-Z_]+)
+Request ID:          (?:request[-_]?id|trace[-_]?id|x-request-id)[=:\\s]+([\\w-]+)
+Duration:            (?:duration|elapsed|took|latency)[=:\\s]+(\\d+(?:\\.\\d+)?\\s*(?:ms|s|us|ns))
+Memory:              (\\d+(?:\\.\\d+)?\\s*(?:MB|GB|KB|bytes?))(?:\\s+(?:used|free|allocated))?
+IP from log:         \\b(?:\\d{1,3}\\.){3}\\d{1,3}\\b"
+}
+
+fn s_rxp_security() -> &'static str {
+    "Regex Patterns — Security & Secrets Detection
+AWS access key:     AKIA[0-9A-Z]{16}
+AWS secret key:     (?i)aws.{0,20}?['\"][0-9a-zA-Z\\/+]{40}['\"]
+GitHub token:       ghp_[a-zA-Z0-9]{36}|github_pat_[a-zA-Z0-9_]{82}
+Generic API key:    (?i)(?:api[_-]?key|apikey|api[_-]?secret)[=:\\s]+['\"]?([\\w\\-]{20,})['\"]?
+Generic password:   (?i)(?:password|passwd|secret)[=:\\s]+['\"]?([^\\s'\"]{8,})['\"]?
+RSA private key:    -----BEGIN (?:RSA )?PRIVATE KEY-----
+JWT token:          eyJ[a-zA-Z0-9_-]+\\.eyJ[a-zA-Z0-9_-]+\\.[a-zA-Z0-9_-]+
+Connection string:  (?i)(?:mongodb|postgres|mysql|redis|amqp|jdbc)://[^\\s\"']+
+SQL injection:      (?:'\\s*(?:OR|AND)\\s*['\"]?\\d+['\"]?\\s*=\\s*['\"]?\\d+['\"]?|;\\s*(?:DROP|DELETE|INSERT|UPDATE|SELECT)\\b)
+XSS pattern:        <script[^>]*>[\\s\\S]*?<\\/script>|javascript:|onerror=|onload=
+Path traversal:     \\.{2}[\\/\\\\]|\\.{2}%2[Ff]
+Base64 secret:      (?i)(?:secret|token|key)[=:\\s]+([A-Za-z0-9+\\/]{20,}={0,2})
+Hex color safe:     ^[0-9a-fA-F]{6}$
+License plate (US): ^[A-Z0-9]{1,3}[- ]?[A-Z0-9]{1,4}[- ]?[A-Z0-9]{1,3}$
+VIN:                ^[A-HJ-NPR-Z0-9]{17}$
+IBAN:               ^[A-Z]{2}[0-9]{2}[A-Z0-9]{4}[0-9]{7}([A-Z0-9]?){0,16}$
+BIC/SWIFT:          ^[A-Z]{6}[A-Z0-9]{2}([A-Z0-9]{3})?$"
+}
+
+fn s_rxp_network() -> &'static str {
+    "Regex Patterns — Network & Infrastructure
+CIDR block:        ^(\\d{1,3}\\.){3}\\d{1,3}\\/(\\d|[1-2]\\d|3[0-2])$
+MAC address:       ^([0-9a-fA-F]{2}[:\\-]){5}[0-9a-fA-F]{2}$
+Domain name:       ^(?:[a-zA-Z0-9](?:[a-zA-Z0-9\\-]{0,61}[a-zA-Z0-9])?\\.)+[a-zA-Z]{2,}$
+Hostname:          ^(?:[a-zA-Z0-9](?:[a-zA-Z0-9\\-]{0,61}[a-zA-Z0-9])?(?:\\.|$))+$
+Port number:       ^([1-9][0-9]{0,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5])$
+HTTP header:       ^([!#$%&'*+\\-.0-9A-Z^_`a-z|~]+): ?(.*)$
+Cookie:            ^([\\w!#$%&'*+\\-.^_`|~]+)=([^;]*)(?:;\\s*([^;]+))*$
+User-Agent:        Mozilla\\/[\\d.]+ \\(([^)]+)\\)
+Docker image:      ^(?:([a-z0-9][a-z0-9.-]*)\\/)?([a-z0-9][a-z0-9._/-]*)(?::([\\w][\\w.-]*))?$
+Kubernetes name:   ^[a-z0-9][a-z0-9\\-]{0,61}[a-z0-9]$|^[a-z0-9]$
+Cron expression:   ^(\\*|\\d+(?:[,\\-\\/]\\d+)*) (\\*|\\d+(?:[,\\-\\/]\\d+)*) (\\*|\\d+(?:[,\\-\\/]\\d+)*) (\\*|\\d+(?:[,\\-\\/]\\d+)*) (\\*|[0-6](?:[,\\-\\/][0-6])*)$
+S3 bucket name:    ^[a-z0-9][a-z0-9.\\-]{1,61}[a-z0-9]$
+AWS ARN:           ^arn:[a-z0-9\\-]+:[a-z0-9\\-]*:[a-z0-9\\-]*:[0-9]{12}:[a-zA-Z0-9\\-_\\/:.@*]+$
+Environment var:   ^[A-Z_][A-Z0-9_]*$
+Git branch:        ^(?!.*/\\.)(?!.*\\.\\.)[^\\000-\\037 ~^:?*\\[\\\\]*(?<!\\.lock)(?<!\\.)[^\\/]$"
+}
+
+type RegexPatternsSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+const REGEX_PATTERNS_SECTIONS: &[RegexPatternsSection] = &[
+    (
+        "common",
+        &[
+            "validation",
+            "email-pattern",
+            "url-pattern",
+            "ipv4-pattern",
+            "uuid-pattern",
+            "slug-pattern",
+            "hex-color",
+            "semver-regex",
+            "phone-e164",
+            "iso-date",
+            "password-regex",
+            "credit-card-regex",
+        ],
+        s_rxp_common,
+    ),
+    (
+        "text",
+        &[
+            "text-processing",
+            "blank-lines",
+            "leading-whitespace",
+            "duplicate-words",
+            "camelcase-split",
+            "csv-pattern",
+            "markdown-pattern",
+            "html-pattern",
+            "ansi-escape",
+            "windows-path",
+            "unix-path",
+        ],
+        s_rxp_text,
+    ),
+    (
+        "code",
+        &[
+            "code-extraction",
+            "function-def",
+            "class-def",
+            "python-def",
+            "rust-fn",
+            "go-func",
+            "todo-comment",
+            "import-pattern",
+            "shebang",
+            "version-pattern",
+            "env-var-ref",
+        ],
+        s_rxp_code,
+    ),
+    (
+        "log",
+        &[
+            "log-parsing",
+            "syslog-pattern",
+            "apache-log",
+            "nginx-log",
+            "iso-timestamp",
+            "log-level",
+            "stack-trace",
+            "request-id",
+            "duration-pattern",
+            "error-code",
+        ],
+        s_rxp_log,
+    ),
+    (
+        "security",
+        &[
+            "secrets-detection",
+            "aws-key",
+            "github-token",
+            "api-key-pattern",
+            "password-pattern",
+            "jwt-pattern",
+            "connection-string",
+            "sql-injection",
+            "xss-pattern",
+            "path-traversal",
+            "base64-secret",
+        ],
+        s_rxp_security,
+    ),
+    (
+        "network",
+        &[
+            "network-patterns",
+            "cidr-pattern",
+            "mac-address",
+            "domain-name",
+            "hostname-pattern",
+            "port-number",
+            "http-header-pattern",
+            "docker-image",
+            "kubernetes-name",
+            "cron-pattern",
+            "aws-arn",
+            "git-branch",
+        ],
+        s_rxp_network,
+    ),
+];
+
+pub fn regex_patterns_calc(query: &str) -> String {
+    let q = query.trim().to_lowercase();
+    if q.is_empty() || q == "list" || q == "help" {
+        let topics: Vec<&str> = REGEX_PATTERNS_SECTIONS.iter().map(|(n, _, _)| *n).collect();
+        return format!(
+            "regex-patterns topics: {}\nUse: --regex-patterns <topic>  or  --regex-patterns all",
+            topics.join(", ")
+        );
+    }
+    if q == "all" {
+        return REGEX_PATTERNS_SECTIONS
+            .iter()
+            .map(|(n, _, f)| format!("── {} ──\n{}", n, f()))
+            .collect::<Vec<_>>()
+            .join("\n\n");
+    }
+    for (name, aliases, func) in REGEX_PATTERNS_SECTIONS {
+        if q == *name || aliases.iter().any(|a| q == *a || q.contains(a)) {
+            return func().to_string();
+        }
+    }
+    format!(
+        "Unknown regex-patterns topic: '{}'\nAvailable: {}",
+        query.trim(),
+        REGEX_PATTERNS_SECTIONS
+            .iter()
+            .map(|(n, _, _)| *n)
+            .collect::<Vec<_>>()
+            .join(", ")
+    )
+}
+
+// ── http-security ────────────────────────────────────────────────────────────
+
+fn s_hs_csp() -> &'static str {
+    "Content Security Policy (CSP)
+Purpose: Controls which resources the browser is allowed to load.
+Header: Content-Security-Policy: <directives>
+
+Key directives:
+  default-src 'self'          — fallback for all resource types
+  script-src 'self' 'nonce-<base64>'  — script sources; prefer nonces over 'unsafe-inline'
+  style-src 'self' 'unsafe-inline'    — stylesheets (avoid unsafe-inline)
+  img-src 'self' data: https:         — images
+  connect-src 'self' https://api.example.com  — XHR/fetch/WebSocket
+  font-src 'self' https://fonts.gstatic.com
+  frame-src 'none'            — disallow all iframes
+  object-src 'none'           — disallow Flash/plugins
+  base-uri 'self'             — restrict <base> tag
+  form-action 'self'          — restrict form targets
+  upgrade-insecure-requests   — auto-upgrade HTTP to HTTPS
+  block-all-mixed-content     — block HTTP resources on HTTPS pages
+  report-uri /csp-report      — legacy reporting endpoint
+  report-to default           — modern Reporting API
+
+Nonce-based (recommended):
+  script-src 'nonce-<random-base64>'
+  Per-request nonce injected into <script nonce=\"...\">
+
+Hash-based alternative:
+  script-src 'sha256-<base64-hash>'
+
+Strict policy starter:
+  Content-Security-Policy:
+    default-src 'none';
+    script-src 'self' 'nonce-{NONCE}';
+    style-src 'self';
+    img-src 'self' data:;
+    connect-src 'self';
+    font-src 'self';
+    base-uri 'self';
+    form-action 'self';
+
+Testing: use report-only first:
+  Content-Security-Policy-Report-Only: ...; report-uri /csp-report"
+}
+
+fn s_hs_cors() -> &'static str {
+    "Cross-Origin Resource Sharing (CORS)
+Purpose: Allows or denies cross-origin HTTP requests.
+
+Simple request (no preflight): GET/HEAD/POST with safe headers.
+Preflight: OPTIONS request for PUT/DELETE/custom headers/non-simple content-types.
+
+Response headers:
+  Access-Control-Allow-Origin: https://example.com  (or * for public APIs)
+  Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS
+  Access-Control-Allow-Headers: Content-Type, Authorization, X-Request-ID
+  Access-Control-Allow-Credentials: true   (do NOT use with * origin)
+  Access-Control-Max-Age: 86400            (preflight cache in seconds)
+  Access-Control-Expose-Headers: X-Custom-Header
+
+Wildcard origin (*):
+  Cannot be used with credentials (cookies, Authorization).
+  Use specific origin + Vary: Origin when auth is involved.
+
+Vary header:
+  Always add: Vary: Origin when origin varies per request.
+  Prevents CDN cache poisoning.
+
+Common mistakes:
+  * with credentials → browser blocks, do not use
+  Missing Vary: Origin → CDN caches wrong CORS response
+  Reflecting any Origin without validation → CORS bypass
+  Allowing null origin → sandboxed iframes can exploit
+
+Preflight cache:
+  Access-Control-Max-Age: 7200  — browser caches preflight for 2h
+  Chrome max: 7200s; Firefox max: 86400s
+
+Express.js example:
+  app.use(cors({ origin: 'https://app.example.com', credentials: true }))
+
+Nginx snippet:
+  add_header 'Access-Control-Allow-Origin' '$http_origin' always;
+  add_header 'Vary' 'Origin' always;"
+}
+
+fn s_hs_hsts() -> &'static str {
+    "HTTP Strict Transport Security (HSTS)
+Purpose: Forces browsers to always use HTTPS for a domain.
+
+Header: Strict-Transport-Security: max-age=<seconds>[; includeSubDomains][; preload]
+
+Parameters:
+  max-age=31536000          — 1 year (recommended minimum)
+  max-age=63072000          — 2 years (preload requirement)
+  includeSubDomains         — also applies to all subdomains
+  preload                   — consent to browser preload list inclusion
+
+Preload list:
+  Submit at: https://hstspreload.org
+  Requirements: max-age ≥ 31536000, includeSubDomains, preload directive
+  Effect: browser enforces HTTPS before first visit (no TOFU vulnerability)
+  Removal: takes months — commit only when ready
+
+TOFU (Trust On First Use):
+  HSTS without preload: first visit is not protected.
+  Preload eliminates TOFU for listed domains.
+
+Rollout strategy:
+  1. max-age=0               — test removal/cleanup
+  2. max-age=300             — test for 5 minutes
+  3. max-age=86400           — 1 day
+  4. max-age=2592000         — 30 days
+  5. max-age=31536000        — 1 year
+  6. + includeSubDomains
+  7. + preload + hstspreload.org submission
+
+Nginx: add_header Strict-Transport-Security \"max-age=31536000; includeSubDomains\" always;
+Apache: Header always set Strict-Transport-Security \"max-age=31536000; includeSubDomains\""
+}
+
+fn s_hs_headers() -> &'static str {
+    "Security Headers Reference
+X-Content-Type-Options: nosniff
+  — Prevents MIME-type sniffing; always set this.
+
+X-Frame-Options: DENY | SAMEORIGIN | ALLOW-FROM uri
+  — Controls iframe embedding. Use CSP frame-ancestors instead (more flexible).
+  — DENY: no framing; SAMEORIGIN: same origin only.
+  — Deprecated in favor of: Content-Security-Policy: frame-ancestors 'none'
+
+Referrer-Policy:
+  no-referrer                   — never send Referer
+  no-referrer-when-downgrade    — send on HTTPS→HTTPS, not HTTPS→HTTP (default)
+  same-origin                   — send only to same origin
+  strict-origin                 — send origin only, never on downgrade
+  strict-origin-when-cross-origin — recommended for most sites
+  unsafe-url                    — always send full URL (never use)
+
+Permissions-Policy (formerly Feature-Policy):
+  Permissions-Policy: geolocation=(), microphone=(), camera=()
+  Disable features: accelerometer, autoplay, clipboard-read, fullscreen, gyroscope
+  Allow for origin: geolocation=(self \"https://maps.example.com\")
+
+X-XSS-Protection: 0
+  — Disabled (modern recommendation). The old 1; mode=block can introduce XSS vulnerabilities.
+  — Rely on CSP instead.
+
+Cross-Origin headers:
+  Cross-Origin-Opener-Policy: same-origin            — isolate browsing context
+  Cross-Origin-Embedder-Policy: require-corp         — required for SharedArrayBuffer
+  Cross-Origin-Resource-Policy: same-origin | cross-origin | same-site
+
+Cache-Control for sensitive data:
+  Cache-Control: no-store                            — never cache auth pages
+  Cache-Control: private, no-cache                  — ok for logged-in content
+
+Quick audit tool: securityheaders.com
+Mozilla Observatory: observatory.mozilla.org"
+}
+
+fn s_hs_tls() -> &'static str {
+    "TLS Configuration Best Practices
+Protocol versions:
+  TLS 1.3: preferred; 0-RTT, forward secrecy by default, fewer ciphers
+  TLS 1.2: acceptable; must disable weak ciphers/curves
+  TLS 1.1 / TLS 1.0 / SSLv3: DISABLE — vulnerable (POODLE, BEAST, CRIME)
+
+TLS 1.3 cipher suites (auto-negotiated, no manual config needed):
+  TLS_AES_256_GCM_SHA384
+  TLS_CHACHA20_POLY1305_SHA256
+  TLS_AES_128_GCM_SHA256
+
+TLS 1.2 strong cipher suite (OpenSSL):
+  ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:
+  ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:
+  ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256
+
+Elliptic curves:
+  Preferred: X25519, P-256 (secp256r1), P-384
+  Avoid: P-521, brainpool, secp192r1
+
+Certificate:
+  Key: ECDSA P-256 (faster) or RSA 2048+ (compatible)
+  SANs: always use Subject Alternative Names, not CN
+  OCSP Stapling: enable to avoid client OCSP round-trip
+  SCT (Certificate Transparency): required by Chrome since 2018
+
+HPKP: DEPRECATED — do not use. Pinning has caused major outages.
+Prefer: CAA DNS records to restrict which CAs can issue for your domain.
+
+nginx (modern TLS):
+  ssl_protocols TLSv1.2 TLSv1.3;
+  ssl_prefer_server_ciphers off;
+  ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:...;
+  ssl_session_cache shared:SSL:10m;
+  ssl_session_timeout 1d;
+  ssl_session_tickets off;
+  ssl_stapling on;
+  ssl_stapling_verify on;
+
+Test: ssllabs.com/ssltest — aim for A+"
+}
+
+fn s_hs_cookies() -> &'static str {
+    "Cookie Security
+Attributes:
+  Secure       — only sent over HTTPS; always set for auth cookies
+  HttpOnly     — not accessible via JavaScript; prevents XSS token theft
+  SameSite     — controls cross-site sending:
+    Strict     — never sent cross-site (breaks OAuth flows)
+    Lax        — sent on top-level GET navigation (safe default)
+    None       — always sent cross-site; requires Secure attribute
+  Domain       — omit to restrict to exact host (not subdomains)
+  Path=/       — scope cookie to root
+  Max-Age=N    — expiry in seconds; prefer over Expires
+  Partitioned  — CHIPS: cookie scoped to top-level site (privacy sandbox)
+
+Recommended for session cookie:
+  Set-Cookie: sessionid=<value>; Secure; HttpOnly; SameSite=Lax; Path=/; Max-Age=86400
+
+Recommended for CSRF token:
+  Set-Cookie: csrftoken=<value>; Secure; SameSite=Strict; Path=/
+  Also send in X-CSRF-Token header and validate server-side.
+
+Anti-CSRF patterns:
+  Double Submit Cookie: token in cookie + header/body must match
+  Synchronizer Token: server generates per-session token, validates on POST
+  SameSite=Strict: effective CSRF protection for most flows
+
+Cookie theft mitigations:
+  HttpOnly prevents XSS-based theft
+  Secure prevents network sniffing
+  Short Max-Age limits window of compromise
+  Token rotation on privilege escalation
+
+Cookie prefixes (modern browsers):
+  __Secure- prefix: requires Secure, sent from HTTPS only
+  __Host- prefix: requires Secure, no Domain, Path=/ — strongest isolation
+  Example: Set-Cookie: __Host-sessionid=abc; Secure; HttpOnly; SameSite=Lax; Path=/"
+}
+
+type HttpSecuritySection = (&'static str, &'static [&'static str], fn() -> &'static str);
+const HTTP_SECURITY_SECTIONS: &[HttpSecuritySection] = &[
+    (
+        "csp",
+        &[
+            "content-security-policy",
+            "csp-header",
+            "nonce-csp",
+            "hash-csp",
+            "csp-directives",
+            "script-src",
+            "default-src",
+            "report-uri",
+            "csp-report-only",
+        ],
+        s_hs_csp,
+    ),
+    (
+        "cors",
+        &[
+            "cross-origin-resource-sharing",
+            "cors-headers",
+            "preflight",
+            "access-control-allow-origin",
+            "cors-credentials",
+            "vary-origin",
+            "cors-bypass",
+        ],
+        s_hs_cors,
+    ),
+    (
+        "hsts",
+        &[
+            "strict-transport-security",
+            "hsts-preload",
+            "hsts-max-age",
+            "includesubdomains",
+            "tofu-hsts",
+            "hsts-rollout",
+        ],
+        s_hs_hsts,
+    ),
+    (
+        "headers",
+        &[
+            "security-headers",
+            "x-content-type-options",
+            "x-frame-options",
+            "referrer-policy",
+            "permissions-policy",
+            "coop",
+            "coep",
+            "corp",
+            "cache-control-security",
+        ],
+        s_hs_headers,
+    ),
+    (
+        "tls",
+        &[
+            "tls-config",
+            "ssl-config",
+            "tls13",
+            "tls12",
+            "cipher-suites",
+            "elliptic-curves",
+            "ocsp-stapling",
+            "certificate-transparency",
+            "hpkp",
+            "caa-record",
+            "ssl-test",
+        ],
+        s_hs_tls,
+    ),
+    (
+        "cookies",
+        &[
+            "cookie-security",
+            "cookie-attributes",
+            "secure-cookie",
+            "httponly",
+            "samesite",
+            "csrf-protection",
+            "double-submit",
+            "cookie-prefix",
+            "host-prefix",
+        ],
+        s_hs_cookies,
+    ),
+];
+
+pub fn http_security_calc(query: &str) -> String {
+    let q = query.trim().to_lowercase();
+    if q.is_empty() || q == "list" || q == "help" {
+        let topics: Vec<&str> = HTTP_SECURITY_SECTIONS.iter().map(|(n, _, _)| *n).collect();
+        return format!(
+            "http-security topics: {}\nUse: --http-security <topic>  or  --http-security all",
+            topics.join(", ")
+        );
+    }
+    if q == "all" {
+        return HTTP_SECURITY_SECTIONS
+            .iter()
+            .map(|(n, _, f)| format!("── {} ──\n{}", n, f()))
+            .collect::<Vec<_>>()
+            .join("\n\n");
+    }
+    for (name, aliases, func) in HTTP_SECURITY_SECTIONS {
+        if q == *name || aliases.iter().any(|a| q == *a || q.contains(a)) {
+            return func().to_string();
+        }
+    }
+    format!(
+        "Unknown http-security topic: '{}'\nAvailable: {}",
+        query.trim(),
+        HTTP_SECURITY_SECTIONS
+            .iter()
+            .map(|(n, _, _)| *n)
+            .collect::<Vec<_>>()
+            .join(", ")
+    )
+}
+
+// ── grpc-ref ─────────────────────────────────────────────────────────────────
+
+fn s_grpc_proto() -> &'static str {
+    "gRPC / Protobuf — Proto3 Syntax
+File structure:
+  syntax = \"proto3\";
+  package mypackage;
+  option go_package = \"github.com/example/proto/mypackage\";
+  import \"google/protobuf/timestamp.proto\";
+
+Message definition:
+  message User {
+    int32  id    = 1;
+    string name  = 2;
+    string email = 3;
+    repeated string roles = 4;
+    google.protobuf.Timestamp created_at = 5;
+    optional string bio = 6;        // proto3 explicit optional
+    oneof contact { string phone = 7; string slack = 8; }
+    map<string, string> metadata = 9;
+  }
+
+Scalar types:
+  double, float — 64/32-bit float
+  int32, int64  — variable-length (inefficient for negatives)
+  uint32, uint64 — unsigned variable-length
+  sint32, sint64 — ZigZag encoding (efficient for negatives)
+  fixed32, fixed64 — always 4/8 bytes (good for >2^28)
+  sfixed32, sfixed64 — signed fixed
+  bool, string, bytes
+
+Well-known types (import google/protobuf/*.proto):
+  Timestamp, Duration, Struct, Value, Any, FieldMask, Empty
+  Wrappers: Int32Value, StringValue, BoolValue, etc.
+
+Field rules:
+  singular (default) — 0 or 1 value; default is zero value
+  repeated           — ordered list (like array)
+  map<K,V>           — unordered key-value pairs
+  optional           — explicit presence tracking (proto3 feature)
+  oneof              — exactly one of the named fields is set
+
+Reserved fields (prevent accidental reuse):
+  reserved 2, 15, 9 to 11;
+  reserved \"foo\", \"bar\";
+
+Enum:
+  enum Status { STATUS_UNKNOWN = 0; ACTIVE = 1; INACTIVE = 2; }
+  First value must be 0; use prefix convention (ENUM_NAME_VALUE)"
+}
+
+fn s_grpc_services() -> &'static str {
+    "gRPC Service Definitions & Patterns
+Service types:
+  Unary:            rpc GetUser(GetUserRequest) returns (User);
+  Server streaming: rpc ListUsers(ListUsersRequest) returns (stream User);
+  Client streaming: rpc CreateUsers(stream CreateUserRequest) returns (CreateUsersResponse);
+  Bidirectional:    rpc Chat(stream ChatMessage) returns (stream ChatMessage);
+
+Request/response wrapping (best practice):
+  Always wrap in dedicated request/response messages:
+  rpc CreateUser(CreateUserRequest) returns (CreateUserResponse);
+  Allows adding fields later without breaking changes.
+
+Standard error model:
+  Import: google/rpc/status.proto
+  Status { code, message, repeated Any details }
+  ErrorInfo, RetryInfo, QuotaFailure, BadRequest (field violations)
+
+Service reflection:
+  Register grpc.ServerReflection for grpcurl, Evans, etc.
+  grpcurl -plaintext localhost:50051 list
+  grpcurl -plaintext localhost:50051 describe mypackage.UserService
+  grpcurl -plaintext -d '{\"id\": 1}' localhost:50051 mypackage.UserService/GetUser
+
+Naming conventions:
+  Package: lowercase, dot-separated (mycompany.myservice.v1)
+  Messages: PascalCase
+  Fields: snake_case
+  Services: PascalCase + \"Service\" suffix
+  Methods: PascalCase verbs (GetUser, CreateUser, ListUsers, DeleteUser)
+  Enums: PascalCase; values SCREAMING_SNAKE_CASE with TYPE_ prefix
+
+Proto file layout:
+  1. License/copyright
+  2. syntax, package, options
+  3. imports
+  4. file-level options
+  5. enums
+  6. messages
+  7. services"
+}
+
+fn s_grpc_codegen() -> &'static str {
+    "gRPC Code Generation
+protoc setup:
+  Install: apt install protobuf-compiler / brew install protobuf
+  protoc --version  (need 3.x+)
+
+Go:
+  go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+  go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+  protoc --go_out=. --go-grpc_out=. proto/user.proto
+
+Python:
+  pip install grpcio-tools
+  python -m grpc_tools.protoc -I. --python_out=. --grpc_python_out=. user.proto
+
+Rust (tonic):
+  # Cargo.toml: tonic = \"*\", prost = \"*\", tonic-build = \"*\" (build-dep)
+  # build.rs:
+  fn main() { tonic_build::compile_protos(\"proto/user.proto\").unwrap(); }
+  # src/main.rs: tonic::include_proto!(\"mypackage\");
+
+TypeScript/Node (ts-proto or @grpc/proto-loader):
+  npm install @grpc/proto-loader @grpc/grpc-js
+  grpc_tools_node_protoc --js_out=import_style=commonjs,binary:./dist --grpc_out=grpc_js:./dist user.proto
+
+Java (Gradle):
+  id 'com.google.protobuf' version '0.9.4'
+  protobuf { protoc { artifact = 'com.google.protobuf:protoc:3.25.0' }
+    plugins { grpc { artifact = 'io.grpc:protoc-gen-grpc-java:1.60.0' } } }
+
+buf (modern protobuf workflow):
+  brew install bufbuild/buf/buf
+  buf lint          — check style
+  buf generate      — generate code via buf.gen.yaml
+  buf breaking      — detect breaking schema changes
+  buf.yaml:         version: v1; lint: { use: [DEFAULT] }; breaking: { use: [FILE] }
+
+Breaking vs non-breaking changes:
+  Non-breaking: adding optional fields, adding services/methods, adding enum values
+  Breaking: renaming/removing fields, changing field types, changing field numbers"
+}
+
+fn s_grpc_interceptors() -> &'static str {
+    "gRPC Interceptors & Middleware
+Unary interceptor pattern (Go):
+  func LogInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+    start := time.Now()
+    resp, err := handler(ctx, req)
+    log.Printf(\"%s duration=%s err=%v\", info.FullMethod, time.Since(start), err)
+    return resp, err
+  }
+  s := grpc.NewServer(grpc.UnaryInterceptor(LogInterceptor))
+
+Chaining interceptors (Go with grpc-middleware):
+  grpc.ChainUnaryInterceptor(LogInterceptor, AuthInterceptor, RateLimitInterceptor)
+
+Stream interceptor:
+  func StreamInterceptor(srv interface{}, stream grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error
+
+Metadata (headers):
+  Sending:  md := metadata.Pairs(\"authorization\", \"Bearer \"+token); ctx = metadata.NewOutgoingContext(ctx, md)
+  Reading:  md, ok := metadata.FromIncomingContext(ctx); token := md.Get(\"authorization\")
+
+Status codes (google.golang.org/grpc/codes):
+  OK, Canceled, Unknown, InvalidArgument, DeadlineExceeded, NotFound,
+  AlreadyExists, PermissionDenied, ResourceExhausted, FailedPrecondition,
+  Aborted, OutOfRange, Unimplemented, Internal, Unavailable, DataLoss, Unauthenticated
+
+Error handling:
+  return nil, status.Errorf(codes.NotFound, \"user %d not found\", id)
+  st, _ := status.FromError(err); st.Code(), st.Message()
+
+Common interceptor use cases:
+  Auth:         validate JWT from metadata, inject user into context
+  Logging:      method, duration, status code, request ID
+  Metrics:      Prometheus counter/histogram per method
+  Tracing:      OpenTelemetry span propagation via metadata
+  Rate limit:   token bucket per client IP or user ID
+  Panic recovery: wrap handler in recover(), return Internal error"
+}
+
+fn s_grpc_transport() -> &'static str {
+    "gRPC Transport, Load Balancing & Security
+Transport protocols:
+  HTTP/2: multiplexing, header compression (HPACK), binary framing
+  gRPC-Web: translates to HTTP/1.1 for browser clients via proxy
+  gRPC over HTTP/3 (QUIC): experimental / Envoy support
+
+TLS setup (Go):
+  creds, _ := credentials.NewServerTLSFromFile(\"cert.pem\", \"key.pem\")
+  s := grpc.NewServer(grpc.Creds(creds))
+  // Client:
+  creds, _ := credentials.NewClientTLSFromFile(\"cert.pem\", \"\")
+  conn, _ := grpc.Dial(addr, grpc.WithTransportCredentials(creds))
+
+mTLS (mutual TLS):
+  Load CA cert + client cert; verify both directions.
+  tlsConfig := &tls.Config{ ClientAuth: tls.RequireAndVerifyClientCert, ClientCAs: certPool }
+
+Load balancing:
+  Client-side (pick_first default, round_robin):
+    conn, _ := grpc.Dial(\"dns:///myservice:443\", grpc.WithDefaultServiceConfig(`{\"loadBalancingConfig\":[{\"round_robin\":{}}]}`))
+  xDS / service mesh: Envoy/Istio handles LB via Envoy proxy
+  headless service (K8s): DNS returns multiple IPs; client-side LB iterates them
+
+Health checking:
+  Import: google.golang.org/grpc/health/grpc_health_v1
+  server.RegisterService(&grpc_health_v1.Health_ServiceDesc, healthServer)
+  grpc_health_v1.NewHealthClient(conn).Check(ctx, &grpc_health_v1.HealthCheckRequest{Service: \"myservice\"})
+
+Keepalive:
+  kaParams := keepalive.ServerParameters{ MaxConnectionIdle: 15*time.Second, Time: 5*time.Second, Timeout: 1*time.Second }
+  grpc.NewServer(grpc.KeepaliveParams(kaParams))
+
+Deadlines / context:
+  ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+  defer cancel()
+  Always propagate context; gRPC respects deadline automatically.
+
+Compression:
+  grpc.UseCompressor(gzip.Name)  — per-call
+  grpc.NewServer(grpc.RPCCompressor(grpc.NewGZIPCompressor()))  — server default"
+}
+
+fn s_grpc_tools() -> &'static str {
+    "gRPC Tooling & Debugging
+grpcurl — curl for gRPC (no proto file needed with reflection):
+  grpcurl -plaintext localhost:50051 list
+  grpcurl -plaintext localhost:50051 list mypackage.UserService
+  grpcurl -plaintext -d '{\"id\": 1}' localhost:50051 mypackage.UserService/GetUser
+  grpcurl -H 'Authorization: Bearer <token>' -d '{}' host:443 pkg.Svc/Method
+  grpcurl -proto user.proto -d '{}' localhost:50051 pkg.Svc/Method  (no reflection needed)
+
+Evans — interactive gRPC client (REPL):
+  evans --host localhost --port 50051 --reflection repl
+  > package mypackage; service UserService; call GetUser
+
+Postman: supports gRPC natively since v9.
+
+BloomRPC: GUI gRPC client (older, now less maintained).
+
+Buf Studio: web-based gRPC client at buf.build/studio.
+
+grpc-web-devtools: Chrome extension for gRPC-Web traffic.
+
+Prometheus metrics (grpc-go):
+  import grpc_prometheus \"github.com/grpc-ecosystem/go-grpc-prometheus\"
+  grpc.NewServer(grpc.StreamInterceptor(grpc_prometheus.StreamServerInterceptor),
+    grpc.UnaryInterceptor(grpc_prometheus.UnaryServerInterceptor))
+  grpc_prometheus.Register(server)
+
+OpenTelemetry tracing:
+  go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc
+  grpc.NewServer(grpc.StatsHandler(otelgrpc.NewServerHandler()))
+
+Proto linting (buf):
+  buf lint — checks field naming, package structure, comment presence
+  buf breaking --against '.git#branch=main' — CI breaking-change detection"
+}
+
+type GrpcRefSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+const GRPC_REF_SECTIONS: &[GrpcRefSection] = &[
+    (
+        "proto",
+        &[
+            "protobuf",
+            "proto3",
+            "proto-syntax",
+            "message-definition",
+            "scalar-types",
+            "well-known-types",
+            "field-rules",
+            "oneof",
+            "proto-enum",
+            "reserved-fields",
+        ],
+        s_grpc_proto,
+    ),
+    (
+        "services",
+        &[
+            "service-definition",
+            "unary-rpc",
+            "server-streaming",
+            "client-streaming",
+            "bidirectional-streaming",
+            "grpc-error-model",
+            "service-reflection",
+            "grpc-naming",
+            "breaking-changes",
+        ],
+        s_grpc_services,
+    ),
+    (
+        "codegen",
+        &[
+            "code-generation",
+            "protoc",
+            "protoc-gen-go",
+            "tonic",
+            "ts-proto",
+            "grpc-java",
+            "buf-tool",
+            "buf-lint",
+            "buf-breaking",
+            "buf-generate",
+        ],
+        s_grpc_codegen,
+    ),
+    (
+        "interceptors",
+        &[
+            "grpc-middleware",
+            "unary-interceptor",
+            "stream-interceptor",
+            "grpc-metadata",
+            "grpc-status-codes",
+            "grpc-auth",
+            "grpc-logging",
+            "grpc-tracing",
+            "grpc-rate-limit",
+            "panic-recovery",
+        ],
+        s_grpc_interceptors,
+    ),
+    (
+        "transport",
+        &[
+            "grpc-transport",
+            "grpc-tls",
+            "grpc-mtls",
+            "grpc-load-balancing",
+            "grpc-health-check",
+            "grpc-keepalive",
+            "grpc-deadline",
+            "grpc-compression",
+            "grpc-web",
+            "xds",
+        ],
+        s_grpc_transport,
+    ),
+    (
+        "tools",
+        &[
+            "grpc-tools",
+            "grpcurl",
+            "evans-repl",
+            "bloom-rpc",
+            "buf-studio",
+            "grpc-prometheus",
+            "grpc-otel",
+            "grpc-devtools",
+        ],
+        s_grpc_tools,
+    ),
+];
+
+pub fn grpc_ref_calc(query: &str) -> String {
+    let q = query.trim().to_lowercase();
+    if q.is_empty() || q == "list" || q == "help" {
+        let topics: Vec<&str> = GRPC_REF_SECTIONS.iter().map(|(n, _, _)| *n).collect();
+        return format!(
+            "grpc-ref topics: {}\nUse: --grpc-ref <topic>  or  --grpc-ref all",
+            topics.join(", ")
+        );
+    }
+    if q == "all" {
+        return GRPC_REF_SECTIONS
+            .iter()
+            .map(|(n, _, f)| format!("── {} ──\n{}", n, f()))
+            .collect::<Vec<_>>()
+            .join("\n\n");
+    }
+    for (name, aliases, func) in GRPC_REF_SECTIONS {
+        if q == *name || aliases.iter().any(|a| q == *a || q.contains(a)) {
+            return func().to_string();
+        }
+    }
+    format!(
+        "Unknown grpc-ref topic: '{}'\nAvailable: {}",
+        query.trim(),
+        GRPC_REF_SECTIONS
+            .iter()
+            .map(|(n, _, _)| *n)
+            .collect::<Vec<_>>()
+            .join(", ")
+    )
+}
+
+// ── wasm-runtime ─────────────────────────────────────────────────────────────
+
+fn s_wrm_core() -> &'static str {
+    "WebAssembly Core Concepts
+What is Wasm:
+  Binary instruction format for a stack-based virtual machine.
+  Runs in browsers and server-side runtimes (Wasmtime, WasmEdge, Wasmer).
+  Near-native performance, memory-safe sandbox, language-agnostic target.
+
+Binary format (.wasm) vs text format (.wat):
+  .wasm — binary, 4-byte magic 0x00 0x61 0x73 0x6D (\"\\0asm\") + version
+  .wat  — human-readable S-expression text format; use wat2wasm to compile
+
+Core types:
+  Value types: i32, i64, f32, f64 (v128 for SIMD)
+  Ref types: funcref, externref
+  Linear memory: flat byte array; addressable by i32 offset; grows by pages (64 KB/page)
+
+Module structure:
+  type section    — function signatures
+  import section  — host functions, memory, tables, globals
+  function section — local function index → type
+  table section   — tables of funcref/externref
+  memory section  — linear memory definition
+  global section  — mutable/immutable globals
+  export section  — exported functions, memory, tables, globals
+  code section    — function bodies
+
+Execution model:
+  Stack machine: instructions push/pop values from operand stack
+  Function calls: own stack frame; local variables; no raw stack access
+  No threads by default (SharedArrayBuffer + Atomics for shared memory)
+  Deterministic: same input → same output; no undefined behavior
+
+Limits (MVP):
+  32-bit address space: max 4 GB linear memory
+  Single return value per function (multi-value extended it to multiple)
+  No direct DOM access: host bindings via imports/exports"
+}
+
+fn s_wrm_wasi() -> &'static str {
+    "WASI — WebAssembly System Interface
+Purpose: Portable POSIX-like system API for Wasm outside the browser.
+Spec: wasi.dev — modular capability-based system interface.
+
+WASI Preview 1 (wasi_snapshot_preview1):
+  fd_read, fd_write, fd_seek, fd_close       — file I/O
+  path_open, path_create_directory           — filesystem access
+  clock_time_get                             — wall clock / monotonic
+  environ_get, args_get                      — env vars, CLI args
+  proc_exit                                  — exit code
+  random_get                                 — CSPRNG
+  poll_oneoff                                — async I/O poll
+
+WASI Preview 2 (Component Model):
+  wit-bindgen generates bindings from WIT (Wasm Interface Types)
+  wasi:io, wasi:filesystem, wasi:sockets, wasi:http, wasi:cli
+  wasi:http/incoming-handler — serverless HTTP via wasmtime serve
+
+Capability security:
+  No ambient authority: a Wasm module can only access what the host grants.
+  Preopened directories: mount specific host paths into Wasm filesystem.
+  Example (wasmtime): wasmtime --dir /tmp my.wasm — grants /tmp access
+
+Compile targets:
+  Rust: cargo build --target wasm32-wasip1 (formerly wasm32-wasi)
+  C/C++: wasi-sdk (clang + sysroot for WASI)
+  Python: wasmtime-py; CPython 3.13 ships wasm32-wasip1 build
+  Go: GOOS=wasip1 GOARCH=wasm go build
+  TinyGo: tinygo build -target wasi -o out.wasm main.go
+
+Runtimes comparison:
+  Wasmtime (Bytecode Alliance): production, Cranelift JIT, WASI support
+  WasmEdge: CNCF project; containers, cloud-native, AI inference
+  Wasmer: multi-backend (Cranelift, LLVM, Singlepass); package registry wapm.io
+  wazero: pure-Go runtime, zero cgo deps
+  Node.js/Deno: browser-compatible Wasm execution (no WASI by default)
+  Wasm in Docker: Docker + containerd with Wasm shims (WasmEdge, Wasmtime)"
+}
+
+fn s_wrm_js() -> &'static str {
+    "WebAssembly in JavaScript / Browser
+Instantiation:
+  // Async (recommended):
+  const { instance } = await WebAssembly.instantiateStreaming(fetch('module.wasm'), imports);
+  // From ArrayBuffer:
+  const { instance } = await WebAssembly.instantiate(buffer, imports);
+  // Synchronous (avoid; blocks main thread):
+  const module = new WebAssembly.Module(buffer);
+  const instance = new WebAssembly.Instance(module, imports);
+
+Calling exports:
+  const result = instance.exports.add(1, 2);
+  instance.exports.malloc; instance.exports.memory;
+
+Linear memory access:
+  const mem = new Uint8Array(instance.exports.memory.buffer);
+  const mem32 = new Int32Array(instance.exports.memory.buffer);
+  // Read null-terminated string from Wasm:
+  function readString(ptr) {
+    const mem = new Uint8Array(instance.exports.memory.buffer);
+    let end = ptr;
+    while (mem[end] !== 0) end++;
+    return new TextDecoder().decode(mem.subarray(ptr, end));
+  }
+
+Imports (host functions passed to Wasm):
+  const imports = {
+    env: {
+      console_log: (ptr, len) => { /* read string from memory */ },
+      now: () => performance.now(),
+    }
+  };
+
+Memory growth:
+  instance.exports.memory.grow(1);  // grow by 1 page (64 KB)
+  // buffer reference invalidates after grow — re-read memory.buffer
+
+Table (function references):
+  const table = instance.exports.__indirect_function_table;
+  const fn = table.get(idx);
+  fn(arg1, arg2);
+
+SharedArrayBuffer + Atomics (threads):
+  Requires COOP/COEP headers: Cross-Origin-Opener-Policy: same-origin + Cross-Origin-Embedder-Policy: require-corp
+  Use Atomics.wait / Atomics.notify for synchronization
+
+Debugging:
+  Source maps: --g flag in Emscripten; DWARF in wasm-pack
+  Chrome DevTools: Sources panel shows .wat disassembly
+  wasm-pack: cargo build → npm package with JS glue + .d.ts"
+}
+
+fn s_wrm_rust() -> &'static str {
+    "WebAssembly with Rust
+wasm-pack (browser target):
+  cargo install wasm-pack
+  wasm-pack build --target web     — ES module for direct browser import
+  wasm-pack build --target bundler — for webpack/rollup/vite
+  wasm-pack build --target nodejs  — Node.js CommonJS
+
+Cargo.toml:
+  [lib] crate-type = [\"cdylib\"]
+  [dependencies] wasm-bindgen = \"0.2\"
+  [profile.release] opt-level = \"z\"; lto = true; strip = true
+
+wasm-bindgen basics:
+  use wasm_bindgen::prelude::*;
+  #[wasm_bindgen] pub fn add(a: u32, b: u32) -> u32 { a + b }
+  #[wasm_bindgen] pub fn greet(name: &str) -> String { format!(\"Hello, {}!\", name) }
+  #[wasm_bindgen(start)] pub fn main() { console_log!(\"Wasm loaded\"); }
+
+JS interop:
+  #[wasm_bindgen] extern \"C\" { fn alert(s: &str); #[wasm_bindgen(js_namespace = console)] fn log(s: &str); }
+  use web_sys::{Document, Element, HtmlElement, Window};
+  web_sys::window().unwrap().document().unwrap()
+
+Passing complex types:
+  #[wasm_bindgen] pub struct Point { x: f64, y: f64 }
+  #[wasm_bindgen] impl Point { #[wasm_bindgen(constructor)] pub fn new(x: f64, y: f64) -> Point { Point {x, y} } }
+  serde-wasm-bindgen: serialize Rust structs to/from JS JsValue via Serde
+
+WASI target (server-side):
+  cargo build --target wasm32-wasip1 --release
+  wasmtime target/wasm32-wasip1/release/my_app.wasm
+
+wasm-opt (size/speed optimization):
+  wasm-opt -Oz -o out.wasm in.wasm   — optimize for size
+  wasm-opt -O3 -o out.wasm in.wasm   — optimize for speed
+  Install: npm install -g wasm-opt   or  brew install binaryen
+
+Binary size tips:
+  opt-level = \"z\" in release profile
+  lto = true, strip = true, codegen-units = 1
+  Use wee_alloc instead of default allocator: ~1 KB overhead
+  panic = \"abort\" in Cargo.toml [profile.release]"
+}
+
+fn s_wrm_components() -> &'static str {
+    "WebAssembly Component Model
+Overview:
+  Next-generation Wasm packaging: components are composable units with typed interfaces.
+  Solves the \"everything is bytes\" problem of core Wasm — structured types across language boundary.
+  Specified by the Bytecode Alliance; stabilized in 2024.
+
+WIT (WebAssembly Interface Types) IDL:
+  package local:example;
+  interface greeter {
+    greet: func(name: string) -> string;
+  }
+  world my-world {
+    import wasi:clocks/wall-clock;
+    export greeter;
+  }
+
+WIT types:
+  Primitive: bool, u8/u16/u32/u64, s8/s16/s32/s64, f32/f64, char, string
+  Composite: list<T>, tuple<T, U>, option<T>, result<T, E>
+  Named: record, variant, enum, flags, resource
+  Resource: reference-counted handle to host or component object
+
+cargo-component (Rust → component):
+  cargo install cargo-component
+  cargo component new my-component --lib
+  cargo component build --release
+  # Uses wit-bindgen under the hood
+
+wasm-tools (component inspection):
+  wasm-tools component new core.wasm -o component.wasm --adapt wasi_snapshot_preview1.wasm
+  wasm-tools component wit component.wasm    — extract WIT from component
+  wasm-tools validate component.wasm         — validate component
+
+Composition:
+  wasm-tools compose -c config.yml -o composed.wasm
+  wasmtime serve component.wasm              — serve wasi:http component
+
+wasmtime CLI:
+  wasmtime run module.wasm                   — run WASI module
+  wasmtime serve component.wasm             — HTTP server component
+  wasmtime --invoke add 1 2 module.wasm     — call exported function directly
+
+Ecosystem:
+  Spin (Fermyon): serverless Wasm framework; wasi:http components
+  WASI.cloud: cloud component registry
+  jco: JavaScript toolchain for Wasm components (transpile to JS)"
+}
+
+fn s_wrm_perf() -> &'static str {
+    "WebAssembly Performance & Profiling
+JIT compilation tiers:
+  V8 (Chrome): Liftoff (fast baseline) → TurboFan (optimizing JIT)
+  SpiderMonkey: Cranelift or Baseline + Ion
+  JavaScriptCore (Safari): BBQ + OMGPl
+  Wasmtime: Cranelift JIT or Cranelift AOT
+
+SIMD (Single Instruction Multiple Data):
+  128-bit vector ops: v128 type; i8x16, i16x8, i32x4, i64x2, f32x4, f64x2
+  Rust: std::arch::wasm32 intrinsics; or use packed_simd / portable-simd crates
+  --target-feature +simd128 in RUSTFLAGS
+  Chrome/Firefox/Safari: all support WASM SIMD (since ~2021)
+
+Threads and atomics:
+  SharedArrayBuffer: shared linear memory between workers
+  Atomics.wait / Atomics.notify: mutex-style synchronization
+  Rust: rayon with wasm-bindgen-rayon for thread pools
+  Headers required: COOP: same-origin + COEP: require-corp
+
+Memory optimization:
+  Avoid frequent grow() calls — reallocate costly
+  Preallocate pools in Wasm; manage allocation from JS side for small objects
+  Avoid GC pressure: minimize JS↔Wasm boundary crossing with GC objects
+
+Profiling:
+  Chrome DevTools: Performance panel → Wasm frames in flame chart
+  Firefox Profiler: profiler.firefox.com
+  Valgrind + wasmtime: callgrind works with --profile-guest
+  twiggy: wasm binary size profiler — twiggy dominators module.wasm
+  cargo bloat: function-level binary size analysis
+
+Cold start optimization:
+  V8 code cache: WebAssembly.compileStreaming + caches.put for service worker
+  Module splitting: compile shared modules once, instantiate multiple times
+  AOT compile (Wasmtime/Wasmer): compile to native ahead-of-time
+
+Size budget:
+  Target < 200 KB gzipped for initial load
+  Lazy load Wasm: only instantiate when needed
+  wasm-split: split Wasm by function call graph for lazy loading"
+}
+
+type WasmRuntimeSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+const WASM_RUNTIME_SECTIONS: &[WasmRuntimeSection] = &[
+    (
+        "core",
+        &[
+            "wasm-core",
+            "wasm-concepts",
+            "binary-format",
+            "wat-format",
+            "linear-memory",
+            "module-structure",
+            "wasm-types",
+            "stack-machine",
+            "wasm-limits",
+        ],
+        s_wrm_core,
+    ),
+    (
+        "wasi",
+        &[
+            "wasm-system-interface",
+            "wasi-preview1",
+            "wasi-preview2",
+            "wasi-http",
+            "wasi-filesystem",
+            "capability-security",
+            "wasi-target",
+            "wasm32-wasi",
+            "wasm32-wasip1",
+            "wasmtime",
+            "wasmedge",
+            "wasmer",
+            "wazero",
+        ],
+        s_wrm_wasi,
+    ),
+    (
+        "js",
+        &[
+            "wasm-javascript",
+            "wasm-browser",
+            "instantiatestreaming",
+            "wasm-imports",
+            "wasm-exports",
+            "wasm-memory-access",
+            "shared-array-buffer",
+            "wasm-table",
+            "wasm-source-maps",
+            "wasm-pack-js",
+        ],
+        s_wrm_js,
+    ),
+    (
+        "rust",
+        &[
+            "wasm-rust",
+            "wasm-pack",
+            "wasm-bindgen",
+            "web-sys",
+            "js-sys",
+            "wasm-opt",
+            "wasm-size",
+            "wee-alloc",
+            "wasm32-unknown-unknown",
+            "cargo-wasm",
+            "serde-wasm-bindgen",
+        ],
+        s_wrm_rust,
+    ),
+    (
+        "components",
+        &[
+            "component-model",
+            "wit-idl",
+            "wit-types",
+            "cargo-component",
+            "wasm-tools",
+            "wasm-composition",
+            "spin-fermyon",
+            "wasi-cloud",
+            "jco-transpile",
+            "wasm-interface-types",
+        ],
+        s_wrm_components,
+    ),
+    (
+        "perf",
+        &[
+            "wasm-performance",
+            "wasm-simd",
+            "wasm-threads",
+            "wasm-profiling",
+            "wasm-cold-start",
+            "twiggy-profiler",
+            "wasm-jit",
+            "wasm-aot",
+            "wasm-size-budget",
+            "wasm-split",
+        ],
+        s_wrm_perf,
+    ),
+];
+
+pub fn wasm_runtime_calc(query: &str) -> String {
+    let q = query.trim().to_lowercase();
+    if q.is_empty() || q == "list" || q == "help" {
+        let topics: Vec<&str> = WASM_RUNTIME_SECTIONS.iter().map(|(n, _, _)| *n).collect();
+        return format!(
+            "wasm-runtime topics: {}\nUse: --wasm-runtime <topic>  or  --wasm-runtime all",
+            topics.join(", ")
+        );
+    }
+    if q == "all" {
+        return WASM_RUNTIME_SECTIONS
+            .iter()
+            .map(|(n, _, f)| format!("── {} ──\n{}", n, f()))
+            .collect::<Vec<_>>()
+            .join("\n\n");
+    }
+    for (name, aliases, func) in WASM_RUNTIME_SECTIONS {
+        if q == *name || aliases.iter().any(|a| q == *a || q.contains(a)) {
+            return func().to_string();
+        }
+    }
+    format!(
+        "Unknown wasm-runtime topic: '{}'\nAvailable: {}",
+        query.trim(),
+        WASM_RUNTIME_SECTIONS
+            .iter()
+            .map(|(n, _, _)| *n)
+            .collect::<Vec<_>>()
+            .join(", ")
+    )
+}

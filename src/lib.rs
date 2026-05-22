@@ -2164,6 +2164,38 @@ pub struct CliCockpit {
         long,
         help_heading = "Math & Science",
         value_name = "QUERY",
+        help = "Regex pattern cookbook — offline replacement for regex cheat sheets. Topics: common, text, code, log, security, network. Aliases: validation, email-pattern, url-pattern, uuid-pattern, text-processing, duplicate-words, code-extraction, function-def, log-parsing, syslog-pattern, secrets-detection, aws-key, network-patterns, cidr-pattern, and more. Examples: hematite --regex-patterns common | hematite --regex-patterns log | hematite --regex-patterns all"
+    )]
+    pub regex_patterns: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Math & Science",
+        value_name = "QUERY",
+        help = "HTTP security reference — offline replacement for security header docs. Topics: csp, cors, hsts, headers, tls, cookies. Aliases: content-security-policy, nonce-csp, cross-origin-resource-sharing, preflight, strict-transport-security, hsts-preload, x-content-type-options, referrer-policy, permissions-policy, tls-config, cipher-suites, cookie-security, samesite, csrf-protection, and more. Examples: hematite --http-security csp | hematite --http-security cors | hematite --http-security all"
+    )]
+    pub http_security: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Math & Science",
+        value_name = "QUERY",
+        help = "gRPC and Protobuf reference — offline replacement for grpc.io docs. Topics: proto, services, codegen, interceptors, transport, tools. Aliases: protobuf, proto3, message-definition, service-definition, server-streaming, code-generation, protoc, tonic, buf-tool, grpc-middleware, grpc-metadata, grpc-tls, grpc-load-balancing, grpcurl, and more. Examples: hematite --grpc-ref proto | hematite --grpc-ref interceptors | hematite --grpc-ref all"
+    )]
+    pub grpc_ref: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Math & Science",
+        value_name = "QUERY",
+        help = "WebAssembly runtime reference — offline replacement for webassembly.org docs. Topics: core, wasi, js, rust, components, perf. Aliases: wasm-concepts, binary-format, wasm-system-interface, wasi-preview2, wasi-http, wasm-javascript, instantiatestreaming, wasm-pack, wasm-bindgen, component-model, wit-idl, wasm-simd, wasm-threads, wasm-profiling, and more. Examples: hematite --wasm-runtime wasi | hematite --wasm-runtime rust | hematite --wasm-runtime all"
+    )]
+    pub wasm_runtime: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Math & Science",
+        value_name = "QUERY",
         help = "Lorem ipsum generator — offline replacement for lipsum.com. Commands: (bare) or <N> = N paragraphs (default 1); words <N> = N words; sentences <N> = N sentences. Examples: hematite --lorem | hematite --lorem 3 | hematite --lorem 'words 50' | hematite --lorem 'sentences 5'"
     )]
     pub lorem: Option<String>,

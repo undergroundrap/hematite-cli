@@ -13,22 +13,24 @@ use hematite::tools::math_util::{
     docker_adv_calc, docker_compose_calc, docker_ref_calc, duration_calc, electrical_calc,
     encode_calc, escape_calc, event_driven_calc, find_calc, fraction_calc, geometry_calc,
     git_adv_calc, git_internals_calc, git_ref_calc, gitignore_calc, go_ref_calc, grep_calc,
-    hash_calc, headers_calc, health_calc, http_adv_calc, http_calc, http_headers_calc,
-    http_status_calc, id_gen_calc, ip_calc, jinja_calc, jq_calc, js_ref_calc, json_calc,
-    json_path_calc, jwt_calc, k8s_ref_calc, kbd_calc, kubectl_calc, license_calc, linux_adv_calc,
-    linux_kernel_calc, linux_sys_calc, lorem_calc, make_calc, makefile_calc, markdown_calc,
-    matrix_calc, mime_calc, ml_ref_calc, monitoring_ref_calc, net_calc, network_ref_calc,
-    networking_adv_calc, nginx_calc, npm_calc, number_format, number_theory_calc,
-    observability_calc, oop_ref_calc, openssl_calc, percent_calc, perf_ref_calc, physics_calc,
-    port_calc, postgres_calc, prob_calc, protocols_ref_calc, python_data_calc, python_ref_calc,
-    regex_adv_calc, regex_calc, regex_engine_calc, regex_ref_calc, regex_test_calc, roman_calc,
+    grpc_ref_calc, hash_calc, headers_calc, health_calc, http_adv_calc, http_calc,
+    http_headers_calc, http_security_calc, http_status_calc, id_gen_calc, ip_calc, jinja_calc,
+    jq_calc, js_ref_calc, json_calc, json_path_calc, jwt_calc, k8s_ref_calc, kbd_calc,
+    kubectl_calc, license_calc, linux_adv_calc, linux_kernel_calc, linux_sys_calc, lorem_calc,
+    make_calc, makefile_calc, markdown_calc, matrix_calc, mime_calc, ml_ref_calc,
+    monitoring_ref_calc, net_calc, network_ref_calc, networking_adv_calc, nginx_calc, npm_calc,
+    number_format, number_theory_calc, observability_calc, oop_ref_calc, openssl_calc,
+    percent_calc, perf_ref_calc, physics_calc, port_calc, postgres_calc, prob_calc,
+    protocols_ref_calc, python_data_calc, python_ref_calc, regex_adv_calc, regex_calc,
+    regex_engine_calc, regex_patterns_calc, regex_ref_calc, regex_test_calc, roman_calc,
     rust_adv_calc, rust_patterns_calc, rust_ref_calc, search_ref_calc, security_ref_calc,
     security_scan_calc, sed_calc, semver_calc, set_calc, sort_viz, spark_calc, sql_adv_calc,
     sql_fmt_calc, sql_ref_calc, sql_tuning_calc, ssh_ref_calc, ssl_calc, stats_calc, string_dist,
     systemd_adv_calc, systemd_calc, table_calc, tar_calc, template_calc, terraform_adv_calc,
     terraform_calc, testing_ref_calc, text_stats, timestamp_calc, tmux_calc, toml_calc, trig_calc,
     ts_ref_calc, typescript_adv_calc, tz_calc, unicode_ref_calc, url_calc, uuid_calc,
-    validate_calc, vim_adv_calc, vim_calc, wasm_ref_calc, web_perf_calc, xml_calc, yaml_calc,
+    validate_calc, vim_adv_calc, vim_calc, wasm_ref_calc, wasm_runtime_calc, web_perf_calc,
+    xml_calc, yaml_calc,
 };
 
 // ─── Cipher tests ────────────────────────────────────────────────────────────
@@ -23269,5 +23271,906 @@ fn cloud_native_unknown_no_panic() {
 #[test]
 fn cloud_native_empty_no_panic() {
     let out = cloud_native_calc("");
+    assert!(!out.is_empty());
+}
+
+// ─── Wave 35: regex_patterns_calc tests ──────────────────────────────────────
+
+#[test]
+fn regex_patterns_list_no_panic() {
+    let out = regex_patterns_calc("list");
+    assert!(!out.is_empty());
+}
+
+#[test]
+fn regex_patterns_all_contains_common() {
+    let out = regex_patterns_calc("all");
+    assert!(
+        out.contains("Email") || out.contains("email") || out.contains("common"),
+        "all: {out}"
+    );
+}
+
+#[test]
+fn regex_patterns_common_topic() {
+    let out = regex_patterns_calc("common");
+    assert!(
+        out.contains("Email") || out.contains("UUID") || out.contains("URL"),
+        "common: {out}"
+    );
+}
+
+#[test]
+fn regex_patterns_validation_alias() {
+    let out = regex_patterns_calc("validation");
+    assert!(!out.is_empty(), "validation alias: {out}");
+}
+
+#[test]
+fn regex_patterns_email_pattern_alias() {
+    let out = regex_patterns_calc("email-pattern");
+    assert!(!out.is_empty(), "email-pattern alias: {out}");
+}
+
+#[test]
+fn regex_patterns_uuid_pattern_alias() {
+    let out = regex_patterns_calc("uuid-pattern");
+    assert!(!out.is_empty(), "uuid-pattern alias: {out}");
+}
+
+#[test]
+fn regex_patterns_semver_regex_alias() {
+    let out = regex_patterns_calc("semver-regex");
+    assert!(!out.is_empty(), "semver-regex alias: {out}");
+}
+
+#[test]
+fn regex_patterns_text_topic() {
+    let out = regex_patterns_calc("text");
+    assert!(
+        out.contains("whitespace") || out.contains("blank") || out.contains("CSV"),
+        "text: {out}"
+    );
+}
+
+#[test]
+fn regex_patterns_text_processing_alias() {
+    let out = regex_patterns_calc("text-processing");
+    assert!(!out.is_empty(), "text-processing alias: {out}");
+}
+
+#[test]
+fn regex_patterns_duplicate_words_alias() {
+    let out = regex_patterns_calc("duplicate-words");
+    assert!(!out.is_empty(), "duplicate-words alias: {out}");
+}
+
+#[test]
+fn regex_patterns_camelcase_split_alias() {
+    let out = regex_patterns_calc("camelcase-split");
+    assert!(!out.is_empty(), "camelcase-split alias: {out}");
+}
+
+#[test]
+fn regex_patterns_ansi_escape_alias() {
+    let out = regex_patterns_calc("ansi-escape");
+    assert!(!out.is_empty(), "ansi-escape alias: {out}");
+}
+
+#[test]
+fn regex_patterns_code_topic() {
+    let out = regex_patterns_calc("code");
+    assert!(
+        out.contains("function") || out.contains("class") || out.contains("import"),
+        "code: {out}"
+    );
+}
+
+#[test]
+fn regex_patterns_code_extraction_alias() {
+    let out = regex_patterns_calc("code-extraction");
+    assert!(!out.is_empty(), "code-extraction alias: {out}");
+}
+
+#[test]
+fn regex_patterns_function_def_alias() {
+    let out = regex_patterns_calc("function-def");
+    assert!(!out.is_empty(), "function-def alias: {out}");
+}
+
+#[test]
+fn regex_patterns_todo_comment_alias() {
+    let out = regex_patterns_calc("todo-comment");
+    assert!(!out.is_empty(), "todo-comment alias: {out}");
+}
+
+#[test]
+fn regex_patterns_shebang_alias() {
+    let out = regex_patterns_calc("shebang");
+    assert!(!out.is_empty(), "shebang alias: {out}");
+}
+
+#[test]
+fn regex_patterns_log_topic() {
+    let out = regex_patterns_calc("log");
+    assert!(
+        out.contains("syslog") || out.contains("Apache") || out.contains("timestamp"),
+        "log: {out}"
+    );
+}
+
+#[test]
+fn regex_patterns_log_parsing_alias() {
+    let out = regex_patterns_calc("log-parsing");
+    assert!(!out.is_empty(), "log-parsing alias: {out}");
+}
+
+#[test]
+fn regex_patterns_apache_log_alias() {
+    let out = regex_patterns_calc("apache-log");
+    assert!(!out.is_empty(), "apache-log alias: {out}");
+}
+
+#[test]
+fn regex_patterns_request_id_alias() {
+    let out = regex_patterns_calc("request-id");
+    assert!(!out.is_empty(), "request-id alias: {out}");
+}
+
+#[test]
+fn regex_patterns_security_topic() {
+    let out = regex_patterns_calc("security");
+    assert!(
+        out.contains("AWS") || out.contains("token") || out.contains("JWT"),
+        "security: {out}"
+    );
+}
+
+#[test]
+fn regex_patterns_secrets_detection_alias() {
+    let out = regex_patterns_calc("secrets-detection");
+    assert!(!out.is_empty(), "secrets-detection alias: {out}");
+}
+
+#[test]
+fn regex_patterns_aws_key_alias() {
+    let out = regex_patterns_calc("aws-key");
+    assert!(!out.is_empty(), "aws-key alias: {out}");
+}
+
+#[test]
+fn regex_patterns_jwt_pattern_alias() {
+    let out = regex_patterns_calc("jwt-pattern");
+    assert!(!out.is_empty(), "jwt-pattern alias: {out}");
+}
+
+#[test]
+fn regex_patterns_path_traversal_alias() {
+    let out = regex_patterns_calc("path-traversal");
+    assert!(!out.is_empty(), "path-traversal alias: {out}");
+}
+
+#[test]
+fn regex_patterns_network_topic() {
+    let out = regex_patterns_calc("network");
+    assert!(
+        out.contains("CIDR") || out.contains("MAC") || out.contains("domain"),
+        "network: {out}"
+    );
+}
+
+#[test]
+fn regex_patterns_cidr_pattern_alias() {
+    let out = regex_patterns_calc("cidr-pattern");
+    assert!(!out.is_empty(), "cidr-pattern alias: {out}");
+}
+
+#[test]
+fn regex_patterns_mac_address_alias() {
+    let out = regex_patterns_calc("mac-address");
+    assert!(!out.is_empty(), "mac-address alias: {out}");
+}
+
+#[test]
+fn regex_patterns_kubernetes_name_alias() {
+    let out = regex_patterns_calc("kubernetes-name");
+    assert!(!out.is_empty(), "kubernetes-name alias: {out}");
+}
+
+#[test]
+fn regex_patterns_git_branch_alias() {
+    let out = regex_patterns_calc("git-branch");
+    assert!(!out.is_empty(), "git-branch alias: {out}");
+}
+
+#[test]
+fn regex_patterns_unknown_no_panic() {
+    let out = regex_patterns_calc("nonexistent-topic");
+    assert!(!out.is_empty());
+}
+
+#[test]
+fn regex_patterns_empty_no_panic() {
+    let out = regex_patterns_calc("");
+    assert!(!out.is_empty());
+}
+
+// ─── Wave 35: http_security_calc tests ───────────────────────────────────────
+
+#[test]
+fn http_security_list_no_panic() {
+    let out = http_security_calc("list");
+    assert!(!out.is_empty());
+}
+
+#[test]
+fn http_security_all_contains_csp() {
+    let out = http_security_calc("all");
+    assert!(
+        out.contains("CSP") || out.contains("Content-Security"),
+        "all: {out}"
+    );
+}
+
+#[test]
+fn http_security_csp_topic() {
+    let out = http_security_calc("csp");
+    assert!(
+        out.contains("Content-Security-Policy") || out.contains("script-src"),
+        "csp: {out}"
+    );
+}
+
+#[test]
+fn http_security_content_security_policy_alias() {
+    let out = http_security_calc("content-security-policy");
+    assert!(!out.is_empty(), "content-security-policy alias: {out}");
+}
+
+#[test]
+fn http_security_nonce_csp_alias() {
+    let out = http_security_calc("nonce-csp");
+    assert!(!out.is_empty(), "nonce-csp alias: {out}");
+}
+
+#[test]
+fn http_security_csp_directives_alias() {
+    let out = http_security_calc("csp-directives");
+    assert!(!out.is_empty(), "csp-directives alias: {out}");
+}
+
+#[test]
+fn http_security_report_uri_alias() {
+    let out = http_security_calc("report-uri");
+    assert!(!out.is_empty(), "report-uri alias: {out}");
+}
+
+#[test]
+fn http_security_cors_topic() {
+    let out = http_security_calc("cors");
+    assert!(
+        out.contains("CORS") || out.contains("Access-Control") || out.contains("preflight"),
+        "cors: {out}"
+    );
+}
+
+#[test]
+fn http_security_cross_origin_alias() {
+    let out = http_security_calc("cross-origin-resource-sharing");
+    assert!(
+        !out.is_empty(),
+        "cross-origin-resource-sharing alias: {out}"
+    );
+}
+
+#[test]
+fn http_security_preflight_alias() {
+    let out = http_security_calc("preflight");
+    assert!(!out.is_empty(), "preflight alias: {out}");
+}
+
+#[test]
+fn http_security_vary_origin_alias() {
+    let out = http_security_calc("vary-origin");
+    assert!(!out.is_empty(), "vary-origin alias: {out}");
+}
+
+#[test]
+fn http_security_hsts_topic() {
+    let out = http_security_calc("hsts");
+    assert!(
+        out.contains("Strict-Transport") || out.contains("HSTS") || out.contains("max-age"),
+        "hsts: {out}"
+    );
+}
+
+#[test]
+fn http_security_strict_transport_alias() {
+    let out = http_security_calc("strict-transport-security");
+    assert!(!out.is_empty(), "strict-transport-security alias: {out}");
+}
+
+#[test]
+fn http_security_hsts_preload_alias() {
+    let out = http_security_calc("hsts-preload");
+    assert!(!out.is_empty(), "hsts-preload alias: {out}");
+}
+
+#[test]
+fn http_security_hsts_rollout_alias() {
+    let out = http_security_calc("hsts-rollout");
+    assert!(!out.is_empty(), "hsts-rollout alias: {out}");
+}
+
+#[test]
+fn http_security_headers_topic() {
+    let out = http_security_calc("headers");
+    assert!(
+        out.contains("X-Content-Type")
+            || out.contains("Referrer-Policy")
+            || out.contains("Permissions"),
+        "headers: {out}"
+    );
+}
+
+#[test]
+fn http_security_x_content_type_options_alias() {
+    let out = http_security_calc("x-content-type-options");
+    assert!(!out.is_empty(), "x-content-type-options alias: {out}");
+}
+
+#[test]
+fn http_security_referrer_policy_alias() {
+    let out = http_security_calc("referrer-policy");
+    assert!(!out.is_empty(), "referrer-policy alias: {out}");
+}
+
+#[test]
+fn http_security_permissions_policy_alias() {
+    let out = http_security_calc("permissions-policy");
+    assert!(!out.is_empty(), "permissions-policy alias: {out}");
+}
+
+#[test]
+fn http_security_coop_alias() {
+    let out = http_security_calc("coop");
+    assert!(!out.is_empty(), "coop alias: {out}");
+}
+
+#[test]
+fn http_security_tls_topic() {
+    let out = http_security_calc("tls");
+    assert!(
+        out.contains("TLS") || out.contains("cipher") || out.contains("certificate"),
+        "tls: {out}"
+    );
+}
+
+#[test]
+fn http_security_tls_config_alias() {
+    let out = http_security_calc("tls-config");
+    assert!(!out.is_empty(), "tls-config alias: {out}");
+}
+
+#[test]
+fn http_security_cipher_suites_alias() {
+    let out = http_security_calc("cipher-suites");
+    assert!(!out.is_empty(), "cipher-suites alias: {out}");
+}
+
+#[test]
+fn http_security_ocsp_stapling_alias() {
+    let out = http_security_calc("ocsp-stapling");
+    assert!(!out.is_empty(), "ocsp-stapling alias: {out}");
+}
+
+#[test]
+fn http_security_cookies_topic() {
+    let out = http_security_calc("cookies");
+    assert!(
+        out.contains("Cookie") || out.contains("SameSite") || out.contains("HttpOnly"),
+        "cookies: {out}"
+    );
+}
+
+#[test]
+fn http_security_cookie_security_alias() {
+    let out = http_security_calc("cookie-security");
+    assert!(!out.is_empty(), "cookie-security alias: {out}");
+}
+
+#[test]
+fn http_security_samesite_alias() {
+    let out = http_security_calc("samesite");
+    assert!(!out.is_empty(), "samesite alias: {out}");
+}
+
+#[test]
+fn http_security_csrf_protection_alias() {
+    let out = http_security_calc("csrf-protection");
+    assert!(!out.is_empty(), "csrf-protection alias: {out}");
+}
+
+#[test]
+fn http_security_host_prefix_alias() {
+    let out = http_security_calc("host-prefix");
+    assert!(!out.is_empty(), "host-prefix alias: {out}");
+}
+
+#[test]
+fn http_security_unknown_no_panic() {
+    let out = http_security_calc("nonexistent-topic");
+    assert!(!out.is_empty());
+}
+
+#[test]
+fn http_security_empty_no_panic() {
+    let out = http_security_calc("");
+    assert!(!out.is_empty());
+}
+
+// ─── Wave 35: grpc_ref_calc tests ────────────────────────────────────────────
+
+#[test]
+fn grpc_ref_list_no_panic() {
+    let out = grpc_ref_calc("list");
+    assert!(!out.is_empty());
+}
+
+#[test]
+fn grpc_ref_all_contains_proto() {
+    let out = grpc_ref_calc("all");
+    assert!(
+        out.contains("proto") || out.contains("Proto") || out.contains("Protobuf"),
+        "all: {out}"
+    );
+}
+
+#[test]
+fn grpc_ref_proto_topic() {
+    let out = grpc_ref_calc("proto");
+    assert!(
+        out.contains("proto3") || out.contains("message") || out.contains("syntax"),
+        "proto: {out}"
+    );
+}
+
+#[test]
+fn grpc_ref_protobuf_alias() {
+    let out = grpc_ref_calc("protobuf");
+    assert!(!out.is_empty(), "protobuf alias: {out}");
+}
+
+#[test]
+fn grpc_ref_proto3_alias() {
+    let out = grpc_ref_calc("proto3");
+    assert!(!out.is_empty(), "proto3 alias: {out}");
+}
+
+#[test]
+fn grpc_ref_message_definition_alias() {
+    let out = grpc_ref_calc("message-definition");
+    assert!(!out.is_empty(), "message-definition alias: {out}");
+}
+
+#[test]
+fn grpc_ref_oneof_alias() {
+    let out = grpc_ref_calc("oneof");
+    assert!(!out.is_empty(), "oneof alias: {out}");
+}
+
+#[test]
+fn grpc_ref_services_topic() {
+    let out = grpc_ref_calc("services");
+    assert!(
+        out.contains("service") || out.contains("rpc") || out.contains("streaming"),
+        "services: {out}"
+    );
+}
+
+#[test]
+fn grpc_ref_service_definition_alias() {
+    let out = grpc_ref_calc("service-definition");
+    assert!(!out.is_empty(), "service-definition alias: {out}");
+}
+
+#[test]
+fn grpc_ref_server_streaming_alias() {
+    let out = grpc_ref_calc("server-streaming");
+    assert!(!out.is_empty(), "server-streaming alias: {out}");
+}
+
+#[test]
+fn grpc_ref_bidirectional_streaming_alias() {
+    let out = grpc_ref_calc("bidirectional-streaming");
+    assert!(!out.is_empty(), "bidirectional-streaming alias: {out}");
+}
+
+#[test]
+fn grpc_ref_breaking_changes_alias() {
+    let out = grpc_ref_calc("breaking-changes");
+    assert!(!out.is_empty(), "breaking-changes alias: {out}");
+}
+
+#[test]
+fn grpc_ref_codegen_topic() {
+    let out = grpc_ref_calc("codegen");
+    assert!(
+        out.contains("protoc") || out.contains("generate") || out.contains("buf"),
+        "codegen: {out}"
+    );
+}
+
+#[test]
+fn grpc_ref_code_generation_alias() {
+    let out = grpc_ref_calc("code-generation");
+    assert!(!out.is_empty(), "code-generation alias: {out}");
+}
+
+#[test]
+fn grpc_ref_tonic_alias() {
+    let out = grpc_ref_calc("tonic");
+    assert!(!out.is_empty(), "tonic alias: {out}");
+}
+
+#[test]
+fn grpc_ref_buf_tool_alias() {
+    let out = grpc_ref_calc("buf-tool");
+    assert!(!out.is_empty(), "buf-tool alias: {out}");
+}
+
+#[test]
+fn grpc_ref_buf_breaking_alias() {
+    let out = grpc_ref_calc("buf-breaking");
+    assert!(!out.is_empty(), "buf-breaking alias: {out}");
+}
+
+#[test]
+fn grpc_ref_interceptors_topic() {
+    let out = grpc_ref_calc("interceptors");
+    assert!(
+        out.contains("interceptor") || out.contains("middleware") || out.contains("metadata"),
+        "interceptors: {out}"
+    );
+}
+
+#[test]
+fn grpc_ref_grpc_middleware_alias() {
+    let out = grpc_ref_calc("grpc-middleware");
+    assert!(!out.is_empty(), "grpc-middleware alias: {out}");
+}
+
+#[test]
+fn grpc_ref_grpc_metadata_alias() {
+    let out = grpc_ref_calc("grpc-metadata");
+    assert!(!out.is_empty(), "grpc-metadata alias: {out}");
+}
+
+#[test]
+fn grpc_ref_grpc_status_codes_alias() {
+    let out = grpc_ref_calc("grpc-status-codes");
+    assert!(!out.is_empty(), "grpc-status-codes alias: {out}");
+}
+
+#[test]
+fn grpc_ref_panic_recovery_alias() {
+    let out = grpc_ref_calc("panic-recovery");
+    assert!(!out.is_empty(), "panic-recovery alias: {out}");
+}
+
+#[test]
+fn grpc_ref_transport_topic() {
+    let out = grpc_ref_calc("transport");
+    assert!(
+        out.contains("TLS") || out.contains("HTTP/2") || out.contains("load balanc"),
+        "transport: {out}"
+    );
+}
+
+#[test]
+fn grpc_ref_grpc_tls_alias() {
+    let out = grpc_ref_calc("grpc-tls");
+    assert!(!out.is_empty(), "grpc-tls alias: {out}");
+}
+
+#[test]
+fn grpc_ref_grpc_load_balancing_alias() {
+    let out = grpc_ref_calc("grpc-load-balancing");
+    assert!(!out.is_empty(), "grpc-load-balancing alias: {out}");
+}
+
+#[test]
+fn grpc_ref_grpc_health_check_alias() {
+    let out = grpc_ref_calc("grpc-health-check");
+    assert!(!out.is_empty(), "grpc-health-check alias: {out}");
+}
+
+#[test]
+fn grpc_ref_grpc_compression_alias() {
+    let out = grpc_ref_calc("grpc-compression");
+    assert!(!out.is_empty(), "grpc-compression alias: {out}");
+}
+
+#[test]
+fn grpc_ref_tools_topic() {
+    let out = grpc_ref_calc("tools");
+    assert!(
+        out.contains("grpcurl") || out.contains("Evans") || out.contains("Prometheus"),
+        "tools: {out}"
+    );
+}
+
+#[test]
+fn grpc_ref_grpcurl_alias() {
+    let out = grpc_ref_calc("grpcurl");
+    assert!(!out.is_empty(), "grpcurl alias: {out}");
+}
+
+#[test]
+fn grpc_ref_evans_repl_alias() {
+    let out = grpc_ref_calc("evans-repl");
+    assert!(!out.is_empty(), "evans-repl alias: {out}");
+}
+
+#[test]
+fn grpc_ref_grpc_otel_alias() {
+    let out = grpc_ref_calc("grpc-otel");
+    assert!(!out.is_empty(), "grpc-otel alias: {out}");
+}
+
+#[test]
+fn grpc_ref_unknown_no_panic() {
+    let out = grpc_ref_calc("nonexistent-topic");
+    assert!(!out.is_empty());
+}
+
+#[test]
+fn grpc_ref_empty_no_panic() {
+    let out = grpc_ref_calc("");
+    assert!(!out.is_empty());
+}
+
+// ─── Wave 35: wasm_runtime_calc tests ────────────────────────────────────────
+
+#[test]
+fn wasm_runtime_list_no_panic() {
+    let out = wasm_runtime_calc("list");
+    assert!(!out.is_empty());
+}
+
+#[test]
+fn wasm_runtime_all_contains_core() {
+    let out = wasm_runtime_calc("all");
+    assert!(
+        out.contains("WebAssembly") || out.contains("Wasm") || out.contains("wasm"),
+        "all: {out}"
+    );
+}
+
+#[test]
+fn wasm_runtime_core_topic() {
+    let out = wasm_runtime_calc("core");
+    assert!(
+        out.contains("WebAssembly") || out.contains("linear memory") || out.contains("stack"),
+        "core: {out}"
+    );
+}
+
+#[test]
+fn wasm_runtime_wasm_concepts_alias() {
+    let out = wasm_runtime_calc("wasm-concepts");
+    assert!(!out.is_empty(), "wasm-concepts alias: {out}");
+}
+
+#[test]
+fn wasm_runtime_binary_format_alias() {
+    let out = wasm_runtime_calc("binary-format");
+    assert!(!out.is_empty(), "binary-format alias: {out}");
+}
+
+#[test]
+fn wasm_runtime_linear_memory_alias() {
+    let out = wasm_runtime_calc("linear-memory");
+    assert!(!out.is_empty(), "linear-memory alias: {out}");
+}
+
+#[test]
+fn wasm_runtime_stack_machine_alias() {
+    let out = wasm_runtime_calc("stack-machine");
+    assert!(!out.is_empty(), "stack-machine alias: {out}");
+}
+
+#[test]
+fn wasm_runtime_wasi_topic() {
+    let out = wasm_runtime_calc("wasi");
+    assert!(
+        out.contains("WASI") || out.contains("system interface") || out.contains("wasmtime"),
+        "wasi: {out}"
+    );
+}
+
+#[test]
+fn wasm_runtime_wasm_system_interface_alias() {
+    let out = wasm_runtime_calc("wasm-system-interface");
+    assert!(!out.is_empty(), "wasm-system-interface alias: {out}");
+}
+
+#[test]
+fn wasm_runtime_wasi_preview1_alias() {
+    let out = wasm_runtime_calc("wasi-preview1");
+    assert!(!out.is_empty(), "wasi-preview1 alias: {out}");
+}
+
+#[test]
+fn wasm_runtime_wasi_preview2_alias() {
+    let out = wasm_runtime_calc("wasi-preview2");
+    assert!(!out.is_empty(), "wasi-preview2 alias: {out}");
+}
+
+#[test]
+fn wasm_runtime_wasmtime_alias() {
+    let out = wasm_runtime_calc("wasmtime");
+    assert!(!out.is_empty(), "wasmtime alias: {out}");
+}
+
+#[test]
+fn wasm_runtime_wasmer_alias() {
+    let out = wasm_runtime_calc("wasmer");
+    assert!(!out.is_empty(), "wasmer alias: {out}");
+}
+
+#[test]
+fn wasm_runtime_wazero_alias() {
+    let out = wasm_runtime_calc("wazero");
+    assert!(!out.is_empty(), "wazero alias: {out}");
+}
+
+#[test]
+fn wasm_runtime_js_topic() {
+    let out = wasm_runtime_calc("js");
+    assert!(
+        out.contains("JavaScript") || out.contains("instantiate") || out.contains("memory"),
+        "js: {out}"
+    );
+}
+
+#[test]
+fn wasm_runtime_wasm_javascript_alias() {
+    let out = wasm_runtime_calc("wasm-javascript");
+    assert!(!out.is_empty(), "wasm-javascript alias: {out}");
+}
+
+#[test]
+fn wasm_runtime_instantiatestreaming_alias() {
+    let out = wasm_runtime_calc("instantiatestreaming");
+    assert!(!out.is_empty(), "instantiatestreaming alias: {out}");
+}
+
+#[test]
+fn wasm_runtime_wasm_memory_access_alias() {
+    let out = wasm_runtime_calc("wasm-memory-access");
+    assert!(!out.is_empty(), "wasm-memory-access alias: {out}");
+}
+
+#[test]
+fn wasm_runtime_shared_array_buffer_alias() {
+    let out = wasm_runtime_calc("shared-array-buffer");
+    assert!(!out.is_empty(), "shared-array-buffer alias: {out}");
+}
+
+#[test]
+fn wasm_runtime_rust_topic() {
+    let out = wasm_runtime_calc("rust");
+    assert!(
+        out.contains("wasm-pack") || out.contains("wasm-bindgen") || out.contains("Rust"),
+        "rust: {out}"
+    );
+}
+
+#[test]
+fn wasm_runtime_wasm_rust_alias() {
+    let out = wasm_runtime_calc("wasm-rust");
+    assert!(!out.is_empty(), "wasm-rust alias: {out}");
+}
+
+#[test]
+fn wasm_runtime_wasm_pack_alias() {
+    let out = wasm_runtime_calc("wasm-pack");
+    assert!(!out.is_empty(), "wasm-pack alias: {out}");
+}
+
+#[test]
+fn wasm_runtime_wasm_bindgen_alias() {
+    let out = wasm_runtime_calc("wasm-bindgen");
+    assert!(!out.is_empty(), "wasm-bindgen alias: {out}");
+}
+
+#[test]
+fn wasm_runtime_wasm_opt_alias() {
+    let out = wasm_runtime_calc("wasm-opt");
+    assert!(!out.is_empty(), "wasm-opt alias: {out}");
+}
+
+#[test]
+fn wasm_runtime_wasm_size_alias() {
+    let out = wasm_runtime_calc("wasm-size");
+    assert!(!out.is_empty(), "wasm-size alias: {out}");
+}
+
+#[test]
+fn wasm_runtime_components_topic() {
+    let out = wasm_runtime_calc("components");
+    assert!(
+        out.contains("component") || out.contains("WIT") || out.contains("Component"),
+        "components: {out}"
+    );
+}
+
+#[test]
+fn wasm_runtime_component_model_alias() {
+    let out = wasm_runtime_calc("component-model");
+    assert!(!out.is_empty(), "component-model alias: {out}");
+}
+
+#[test]
+fn wasm_runtime_wit_idl_alias() {
+    let out = wasm_runtime_calc("wit-idl");
+    assert!(!out.is_empty(), "wit-idl alias: {out}");
+}
+
+#[test]
+fn wasm_runtime_cargo_component_alias() {
+    let out = wasm_runtime_calc("cargo-component");
+    assert!(!out.is_empty(), "cargo-component alias: {out}");
+}
+
+#[test]
+fn wasm_runtime_wasm_tools_alias() {
+    let out = wasm_runtime_calc("wasm-tools");
+    assert!(!out.is_empty(), "wasm-tools alias: {out}");
+}
+
+#[test]
+fn wasm_runtime_perf_topic() {
+    let out = wasm_runtime_calc("perf");
+    assert!(
+        out.contains("JIT") || out.contains("SIMD") || out.contains("performance"),
+        "perf: {out}"
+    );
+}
+
+#[test]
+fn wasm_runtime_wasm_simd_alias() {
+    let out = wasm_runtime_calc("wasm-simd");
+    assert!(!out.is_empty(), "wasm-simd alias: {out}");
+}
+
+#[test]
+fn wasm_runtime_wasm_threads_alias() {
+    let out = wasm_runtime_calc("wasm-threads");
+    assert!(!out.is_empty(), "wasm-threads alias: {out}");
+}
+
+#[test]
+fn wasm_runtime_twiggy_profiler_alias() {
+    let out = wasm_runtime_calc("twiggy-profiler");
+    assert!(!out.is_empty(), "twiggy-profiler alias: {out}");
+}
+
+#[test]
+fn wasm_runtime_wasm_cold_start_alias() {
+    let out = wasm_runtime_calc("wasm-cold-start");
+    assert!(!out.is_empty(), "wasm-cold-start alias: {out}");
+}
+
+#[test]
+fn wasm_runtime_unknown_no_panic() {
+    let out = wasm_runtime_calc("nonexistent-topic");
+    assert!(!out.is_empty());
+}
+
+#[test]
+fn wasm_runtime_empty_no_panic() {
+    let out = wasm_runtime_calc("");
     assert!(!out.is_empty());
 }
