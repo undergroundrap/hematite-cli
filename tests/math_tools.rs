@@ -3,23 +3,24 @@
 /// Covers known-value correctness, edge-case non-panics, and the newer
 /// matrix decomposition modes (QR, SVD, Cholesky).
 use hematite::tools::math_util::{
-    accessibility_calc, algo_ref_calc, ansible_calc, api_design_calc, api_gateway_calc, ascii_calc,
-    ascii_table_calc, auth_ref_calc, awk_calc, bash_adv_calc, bash_ref_calc, bitwise_calc,
-    case_calc, chars_calc, checksum_calc, chemistry_calc, chmod_calc, cicd_ref_calc, cipher_calc,
-    cloud_native_calc, cloud_ref_calc, color_calc, color_names_calc, combinatorics_calc,
-    compiler_ref_calc, complex_calc, concurrency_ref_calc, container_ref_calc, cron_calc,
-    crypto_ref_calc, css_ref_calc, csv_calc, curl_calc, data_formats_calc, database_adv_calc,
-    datetime_calc, db_design_calc, db_migrations_calc, design_patterns_calc, devops_ref_calc,
-    diff_calc, docker_adv_calc, docker_compose_calc, docker_ref_calc, duration_calc,
-    electrical_calc, encode_calc, escape_calc, event_driven_calc, find_calc, fraction_calc,
-    geometry_calc, git_adv_calc, git_internals_calc, git_ref_calc, gitignore_calc, go_ref_calc,
-    grep_calc, grpc_ref_calc, hash_calc, headers_calc, health_calc, http_adv_calc, http_calc,
-    http_headers_calc, http_security_calc, http_status_calc, id_gen_calc, ip_calc, jinja_calc,
-    jq_calc, js_ref_calc, json_calc, json_path_calc, jwt_calc, k8s_ref_calc, k8s_security_calc,
-    kbd_calc, kubectl_calc, license_calc, linux_adv_calc, linux_kernel_calc, linux_perf_calc,
-    linux_sys_calc, lorem_calc, make_calc, makefile_calc, markdown_calc, matrix_calc, mime_calc,
-    ml_ref_calc, monitoring_ref_calc, net_calc, network_ref_calc, networking_adv_calc, nginx_calc,
-    npm_calc, number_format, number_theory_calc, oauth_ref_calc, observability_calc, oop_ref_calc,
+    accessibility_calc, algo_ref_calc, ansible_calc, api_design_calc, api_gateway_calc,
+    api_versioning_calc, ascii_calc, ascii_table_calc, auth_ref_calc, awk_calc, bash_adv_calc,
+    bash_ref_calc, bitwise_calc, caching_ref_calc, case_calc, chars_calc, checksum_calc,
+    chemistry_calc, chmod_calc, cicd_ref_calc, cipher_calc, cloud_native_calc, cloud_ref_calc,
+    color_calc, color_names_calc, combinatorics_calc, compiler_ref_calc, complex_calc,
+    concurrency_ref_calc, container_ref_calc, cron_calc, crypto_ref_calc, css_ref_calc, csv_calc,
+    curl_calc, data_formats_calc, database_adv_calc, datetime_calc, db_design_calc,
+    db_migrations_calc, design_patterns_calc, devops_ref_calc, diff_calc, docker_adv_calc,
+    docker_compose_calc, docker_ref_calc, duration_calc, electrical_calc, encode_calc, escape_calc,
+    event_driven_calc, find_calc, fraction_calc, geometry_calc, git_adv_calc, git_internals_calc,
+    git_ref_calc, gitignore_calc, go_ref_calc, grep_calc, grpc_ref_calc, hash_calc, headers_calc,
+    health_calc, http_adv_calc, http_calc, http_headers_calc, http_security_calc, http_status_calc,
+    id_gen_calc, ip_calc, jinja_calc, jq_calc, js_ref_calc, json_calc, json_path_calc, jwt_calc,
+    k8s_ref_calc, k8s_security_calc, kbd_calc, kubectl_calc, license_calc, linux_adv_calc,
+    linux_kernel_calc, linux_perf_calc, linux_sys_calc, load_testing_calc, lorem_calc, make_calc,
+    makefile_calc, markdown_calc, matrix_calc, message_queue_calc, mime_calc, ml_ref_calc,
+    monitoring_ref_calc, net_calc, network_ref_calc, networking_adv_calc, nginx_calc, npm_calc,
+    number_format, number_theory_calc, oauth_ref_calc, observability_calc, oop_ref_calc,
     openssl_calc, percent_calc, perf_ref_calc, physics_calc, port_calc, postgres_calc, prob_calc,
     protocols_ref_calc, python_data_calc, python_ref_calc, regex_adv_calc, regex_calc,
     regex_engine_calc, regex_patterns_calc, regex_ref_calc, regex_test_calc, roman_calc,
@@ -24992,5 +24993,937 @@ fn k8s_security_unknown_no_panic() {
 #[test]
 fn k8s_security_empty_no_panic() {
     let out = k8s_security_calc("");
+    assert!(!out.is_empty());
+}
+
+// ─── Wave 37: api_versioning_calc tests ──────────────────────────────────────
+
+#[test]
+fn api_versioning_list_no_panic() {
+    let out = api_versioning_calc("list");
+    assert!(!out.is_empty());
+}
+
+#[test]
+fn api_versioning_all_contains_strategies() {
+    let out = api_versioning_calc("all");
+    assert!(
+        out.contains("strategies") || out.contains("Versioning") || out.contains("URL"),
+        "all: {out}"
+    );
+}
+
+#[test]
+fn api_versioning_strategies_topic() {
+    let out = api_versioning_calc("strategies");
+    assert!(
+        out.contains("URL") || out.contains("versioning") || out.contains("header"),
+        "strategies: {out}"
+    );
+}
+
+#[test]
+fn api_versioning_url_versioning_alias() {
+    let out = api_versioning_calc("url-versioning");
+    assert!(!out.is_empty(), "url-versioning alias: {out}");
+}
+
+#[test]
+fn api_versioning_header_versioning_alias() {
+    let out = api_versioning_calc("header-versioning");
+    assert!(!out.is_empty(), "header-versioning alias: {out}");
+}
+
+#[test]
+fn api_versioning_content_negotiation_alias() {
+    let out = api_versioning_calc("content-negotiation");
+    assert!(!out.is_empty(), "content-negotiation alias: {out}");
+}
+
+#[test]
+fn api_versioning_deprecation_header_alias() {
+    let out = api_versioning_calc("deprecation-header");
+    assert!(!out.is_empty(), "deprecation-header alias: {out}");
+}
+
+#[test]
+fn api_versioning_semver_topic() {
+    let out = api_versioning_calc("semver");
+    assert!(
+        out.contains("MAJOR") || out.contains("breaking") || out.contains("semantic"),
+        "semver: {out}"
+    );
+}
+
+#[test]
+fn api_versioning_breaking_changes_alias() {
+    let out = api_versioning_calc("breaking-changes");
+    assert!(!out.is_empty(), "breaking-changes alias: {out}");
+}
+
+#[test]
+fn api_versioning_non_breaking_changes_alias() {
+    let out = api_versioning_calc("non-breaking-changes");
+    assert!(!out.is_empty(), "non-breaking-changes alias: {out}");
+}
+
+#[test]
+fn api_versioning_backwards_compatibility_alias() {
+    let out = api_versioning_calc("backwards-compatibility");
+    assert!(!out.is_empty(), "backwards-compatibility alias: {out}");
+}
+
+#[test]
+fn api_versioning_postel_law_alias() {
+    let out = api_versioning_calc("postel-law");
+    assert!(!out.is_empty(), "postel-law alias: {out}");
+}
+
+#[test]
+fn api_versioning_contract_testing_alias() {
+    let out = api_versioning_calc("contract-testing");
+    assert!(!out.is_empty(), "contract-testing alias: {out}");
+}
+
+#[test]
+fn api_versioning_routing_topic() {
+    let out = api_versioning_calc("routing");
+    assert!(
+        out.contains("nginx") || out.contains("routing") || out.contains("gateway"),
+        "routing: {out}"
+    );
+}
+
+#[test]
+fn api_versioning_nginx_versioning_alias() {
+    let out = api_versioning_calc("nginx-versioning");
+    assert!(!out.is_empty(), "nginx-versioning alias: {out}");
+}
+
+#[test]
+fn api_versioning_api_gateway_versioning_alias() {
+    let out = api_versioning_calc("api-gateway-versioning");
+    assert!(!out.is_empty(), "api-gateway-versioning alias: {out}");
+}
+
+#[test]
+fn api_versioning_express_versioning_alias() {
+    let out = api_versioning_calc("express-versioning");
+    assert!(!out.is_empty(), "express-versioning alias: {out}");
+}
+
+#[test]
+fn api_versioning_graphql_topic() {
+    let out = api_versioning_calc("graphql");
+    assert!(
+        out.contains("GraphQL") || out.contains("schema") || out.contains("federation"),
+        "graphql: {out}"
+    );
+}
+
+#[test]
+fn api_versioning_graphql_versioning_alias() {
+    let out = api_versioning_calc("graphql-versioning");
+    assert!(!out.is_empty(), "graphql-versioning alias: {out}");
+}
+
+#[test]
+fn api_versioning_schema_deprecation_alias() {
+    let out = api_versioning_calc("schema-deprecation");
+    assert!(!out.is_empty(), "schema-deprecation alias: {out}");
+}
+
+#[test]
+fn api_versioning_apollo_federation_alias() {
+    let out = api_versioning_calc("apollo-federation");
+    assert!(!out.is_empty(), "apollo-federation alias: {out}");
+}
+
+#[test]
+fn api_versioning_hypermedia_topic() {
+    let out = api_versioning_calc("hypermedia");
+    assert!(
+        out.contains("HATEOAS") || out.contains("HAL") || out.contains("hypermedia"),
+        "hypermedia: {out}"
+    );
+}
+
+#[test]
+fn api_versioning_hateoas_alias() {
+    let out = api_versioning_calc("hateoas");
+    assert!(!out.is_empty(), "hateoas alias: {out}");
+}
+
+#[test]
+fn api_versioning_hal_format_alias() {
+    let out = api_versioning_calc("hal-format");
+    assert!(!out.is_empty(), "hal-format alias: {out}");
+}
+
+#[test]
+fn api_versioning_json_api_alias() {
+    let out = api_versioning_calc("json-api");
+    assert!(!out.is_empty(), "json-api alias: {out}");
+}
+
+#[test]
+fn api_versioning_richardson_maturity_alias() {
+    let out = api_versioning_calc("richardson-maturity");
+    assert!(!out.is_empty(), "richardson-maturity alias: {out}");
+}
+
+#[test]
+fn api_versioning_docs_topic() {
+    let out = api_versioning_calc("docs");
+    assert!(
+        out.contains("OpenAPI") || out.contains("changelog") || out.contains("migration"),
+        "docs: {out}"
+    );
+}
+
+#[test]
+fn api_versioning_openapi_changelog_alias() {
+    let out = api_versioning_calc("openapi-changelog");
+    assert!(!out.is_empty(), "openapi-changelog alias: {out}");
+}
+
+#[test]
+fn api_versioning_oasdiff_alias() {
+    let out = api_versioning_calc("oasdiff");
+    assert!(!out.is_empty(), "oasdiff alias: {out}");
+}
+
+#[test]
+fn api_versioning_semantic_release_alias() {
+    let out = api_versioning_calc("semantic-release");
+    assert!(!out.is_empty(), "semantic-release alias: {out}");
+}
+
+#[test]
+fn api_versioning_unknown_no_panic() {
+    let out = api_versioning_calc("nonexistent-topic");
+    assert!(!out.is_empty());
+}
+
+#[test]
+fn api_versioning_empty_no_panic() {
+    let out = api_versioning_calc("");
+    assert!(!out.is_empty());
+}
+
+// ─── Wave 37: message_queue_calc tests ───────────────────────────────────────
+
+#[test]
+fn message_queue_list_no_panic() {
+    let out = message_queue_calc("list");
+    assert!(!out.is_empty());
+}
+
+#[test]
+fn message_queue_all_contains_kafka() {
+    let out = message_queue_calc("all");
+    assert!(
+        out.contains("kafka") || out.contains("Kafka") || out.contains("topic"),
+        "all: {out}"
+    );
+}
+
+#[test]
+fn message_queue_kafka_topic() {
+    let out = message_queue_calc("kafka");
+    assert!(
+        out.contains("Kafka") || out.contains("topic") || out.contains("broker"),
+        "kafka: {out}"
+    );
+}
+
+#[test]
+fn message_queue_apache_kafka_alias() {
+    let out = message_queue_calc("apache-kafka");
+    assert!(!out.is_empty(), "apache-kafka alias: {out}");
+}
+
+#[test]
+fn message_queue_kafka_topics_alias() {
+    let out = message_queue_calc("kafka-topics");
+    assert!(!out.is_empty(), "kafka-topics alias: {out}");
+}
+
+#[test]
+fn message_queue_kafka_producer_alias() {
+    let out = message_queue_calc("kafka-producer");
+    assert!(!out.is_empty(), "kafka-producer alias: {out}");
+}
+
+#[test]
+fn message_queue_kafka_consumer_alias() {
+    let out = message_queue_calc("kafka-consumer");
+    assert!(!out.is_empty(), "kafka-consumer alias: {out}");
+}
+
+#[test]
+fn message_queue_kafka_cli_alias() {
+    let out = message_queue_calc("kafka-cli");
+    assert!(!out.is_empty(), "kafka-cli alias: {out}");
+}
+
+#[test]
+fn message_queue_consumer_group_alias() {
+    let out = message_queue_calc("consumer-group");
+    assert!(!out.is_empty(), "consumer-group alias: {out}");
+}
+
+#[test]
+fn message_queue_rabbitmq_topic() {
+    let out = message_queue_calc("rabbitmq");
+    assert!(
+        out.contains("RabbitMQ") || out.contains("exchange") || out.contains("AMQP"),
+        "rabbitmq: {out}"
+    );
+}
+
+#[test]
+fn message_queue_rabbit_mq_alias() {
+    let out = message_queue_calc("rabbit-mq");
+    assert!(!out.is_empty(), "rabbit-mq alias: {out}");
+}
+
+#[test]
+fn message_queue_amqp_alias() {
+    let out = message_queue_calc("amqp");
+    assert!(!out.is_empty(), "amqp alias: {out}");
+}
+
+#[test]
+fn message_queue_dlx_alias() {
+    let out = message_queue_calc("dlx");
+    assert!(!out.is_empty(), "dlx alias: {out}");
+}
+
+#[test]
+fn message_queue_dead_letter_exchange_alias() {
+    let out = message_queue_calc("dead-letter-exchange");
+    assert!(!out.is_empty(), "dead-letter-exchange alias: {out}");
+}
+
+#[test]
+fn message_queue_fanout_exchange_alias() {
+    let out = message_queue_calc("fanout-exchange");
+    assert!(!out.is_empty(), "fanout-exchange alias: {out}");
+}
+
+#[test]
+fn message_queue_patterns_topic() {
+    let out = message_queue_calc("patterns");
+    assert!(
+        out.contains("pattern") || out.contains("outbox") || out.contains("saga"),
+        "patterns: {out}"
+    );
+}
+
+#[test]
+fn message_queue_competing_consumers_alias() {
+    let out = message_queue_calc("competing-consumers");
+    assert!(!out.is_empty(), "competing-consumers alias: {out}");
+}
+
+#[test]
+fn message_queue_outbox_pattern_alias() {
+    let out = message_queue_calc("outbox-pattern");
+    assert!(!out.is_empty(), "outbox-pattern alias: {out}");
+}
+
+#[test]
+fn message_queue_saga_pattern_alias() {
+    let out = message_queue_calc("saga-pattern");
+    assert!(!out.is_empty(), "saga-pattern alias: {out}");
+}
+
+#[test]
+fn message_queue_sqs_topic() {
+    let out = message_queue_calc("sqs");
+    assert!(
+        out.contains("SQS") || out.contains("AWS") || out.contains("queue"),
+        "sqs: {out}"
+    );
+}
+
+#[test]
+fn message_queue_aws_sqs_alias() {
+    let out = message_queue_calc("aws-sqs");
+    assert!(!out.is_empty(), "aws-sqs alias: {out}");
+}
+
+#[test]
+fn message_queue_sqs_fifo_alias() {
+    let out = message_queue_calc("sqs-fifo");
+    assert!(!out.is_empty(), "sqs-fifo alias: {out}");
+}
+
+#[test]
+fn message_queue_sns_fanout_alias() {
+    let out = message_queue_calc("sns-fanout");
+    assert!(!out.is_empty(), "sns-fanout alias: {out}");
+}
+
+#[test]
+fn message_queue_reliability_topic() {
+    let out = message_queue_calc("reliability");
+    assert!(
+        out.contains("delivery") || out.contains("guarantee") || out.contains("idempoten"),
+        "reliability: {out}"
+    );
+}
+
+#[test]
+fn message_queue_at_least_once_alias() {
+    let out = message_queue_calc("at-least-once");
+    assert!(!out.is_empty(), "at-least-once alias: {out}");
+}
+
+#[test]
+fn message_queue_exactly_once_alias() {
+    let out = message_queue_calc("exactly-once");
+    assert!(!out.is_empty(), "exactly-once alias: {out}");
+}
+
+#[test]
+fn message_queue_publisher_confirms_alias() {
+    let out = message_queue_calc("publisher-confirms");
+    assert!(!out.is_empty(), "publisher-confirms alias: {out}");
+}
+
+#[test]
+fn message_queue_schema_topic() {
+    let out = message_queue_calc("schema");
+    assert!(
+        out.contains("Avro") || out.contains("schema") || out.contains("CloudEvents"),
+        "schema: {out}"
+    );
+}
+
+#[test]
+fn message_queue_avro_kafka_alias() {
+    let out = message_queue_calc("avro-kafka");
+    assert!(!out.is_empty(), "avro-kafka alias: {out}");
+}
+
+#[test]
+fn message_queue_schema_registry_alias() {
+    let out = message_queue_calc("schema-registry");
+    assert!(!out.is_empty(), "schema-registry alias: {out}");
+}
+
+#[test]
+fn message_queue_cloudevents_alias() {
+    let out = message_queue_calc("cloudevents");
+    assert!(!out.is_empty(), "cloudevents alias: {out}");
+}
+
+#[test]
+fn message_queue_asyncapi_alias() {
+    let out = message_queue_calc("asyncapi");
+    assert!(!out.is_empty(), "asyncapi alias: {out}");
+}
+
+#[test]
+fn message_queue_unknown_no_panic() {
+    let out = message_queue_calc("nonexistent-topic");
+    assert!(!out.is_empty());
+}
+
+#[test]
+fn message_queue_empty_no_panic() {
+    let out = message_queue_calc("");
+    assert!(!out.is_empty());
+}
+
+// ─── Wave 37: caching_ref_calc tests ─────────────────────────────────────────
+
+#[test]
+fn caching_ref_list_no_panic() {
+    let out = caching_ref_calc("list");
+    assert!(!out.is_empty());
+}
+
+#[test]
+fn caching_ref_all_contains_strategies() {
+    let out = caching_ref_calc("all");
+    assert!(
+        out.contains("strategies") || out.contains("cache") || out.contains("Cache"),
+        "all: {out}"
+    );
+}
+
+#[test]
+fn caching_ref_strategies_topic() {
+    let out = caching_ref_calc("strategies");
+    assert!(
+        out.contains("cache-aside") || out.contains("write-through") || out.contains("TTL"),
+        "strategies: {out}"
+    );
+}
+
+#[test]
+fn caching_ref_cache_aside_alias() {
+    let out = caching_ref_calc("cache-aside");
+    assert!(!out.is_empty(), "cache-aside alias: {out}");
+}
+
+#[test]
+fn caching_ref_write_through_alias() {
+    let out = caching_ref_calc("write-through");
+    assert!(!out.is_empty(), "write-through alias: {out}");
+}
+
+#[test]
+fn caching_ref_write_behind_alias() {
+    let out = caching_ref_calc("write-behind");
+    assert!(!out.is_empty(), "write-behind alias: {out}");
+}
+
+#[test]
+fn caching_ref_thundering_herd_alias() {
+    let out = caching_ref_calc("thundering-herd");
+    assert!(!out.is_empty(), "thundering-herd alias: {out}");
+}
+
+#[test]
+fn caching_ref_cache_stampede_alias() {
+    let out = caching_ref_calc("cache-stampede");
+    assert!(!out.is_empty(), "cache-stampede alias: {out}");
+}
+
+#[test]
+fn caching_ref_cache_invalidation_alias() {
+    let out = caching_ref_calc("cache-invalidation");
+    assert!(!out.is_empty(), "cache-invalidation alias: {out}");
+}
+
+#[test]
+fn caching_ref_redis_topic() {
+    let out = caching_ref_calc("redis");
+    assert!(
+        out.contains("Redis") || out.contains("GET") || out.contains("SET"),
+        "redis: {out}"
+    );
+}
+
+#[test]
+fn caching_ref_redis_commands_alias() {
+    let out = caching_ref_calc("redis-commands");
+    assert!(!out.is_empty(), "redis-commands alias: {out}");
+}
+
+#[test]
+fn caching_ref_redis_cluster_alias() {
+    let out = caching_ref_calc("redis-cluster");
+    assert!(!out.is_empty(), "redis-cluster alias: {out}");
+}
+
+#[test]
+fn caching_ref_redis_sentinel_alias() {
+    let out = caching_ref_calc("redis-sentinel");
+    assert!(!out.is_empty(), "redis-sentinel alias: {out}");
+}
+
+#[test]
+fn caching_ref_redis_sorted_set_alias() {
+    let out = caching_ref_calc("redis-sorted-set");
+    assert!(!out.is_empty(), "redis-sorted-set alias: {out}");
+}
+
+#[test]
+fn caching_ref_redis_pubsub_alias() {
+    let out = caching_ref_calc("redis-pubsub");
+    assert!(!out.is_empty(), "redis-pubsub alias: {out}");
+}
+
+#[test]
+fn caching_ref_http_topic() {
+    let out = caching_ref_calc("http");
+    assert!(
+        out.contains("Cache-Control") || out.contains("ETag") || out.contains("CDN"),
+        "http: {out}"
+    );
+}
+
+#[test]
+fn caching_ref_cache_control_header_alias() {
+    let out = caching_ref_calc("cache-control-header");
+    assert!(!out.is_empty(), "cache-control-header alias: {out}");
+}
+
+#[test]
+fn caching_ref_etag_caching_alias() {
+    let out = caching_ref_calc("etag-caching");
+    assert!(!out.is_empty(), "etag-caching alias: {out}");
+}
+
+#[test]
+fn caching_ref_cdn_caching_alias() {
+    let out = caching_ref_calc("cdn-caching");
+    assert!(!out.is_empty(), "cdn-caching alias: {out}");
+}
+
+#[test]
+fn caching_ref_immutable_cache_alias() {
+    let out = caching_ref_calc("immutable-cache");
+    assert!(!out.is_empty(), "immutable-cache alias: {out}");
+}
+
+#[test]
+fn caching_ref_stale_while_revalidate_alias() {
+    let out = caching_ref_calc("stale-while-revalidate");
+    assert!(!out.is_empty(), "stale-while-revalidate alias: {out}");
+}
+
+#[test]
+fn caching_ref_app_topic() {
+    let out = caching_ref_calc("app");
+    assert!(
+        out.contains("Memoization") || out.contains("memoization") || out.contains("LRU") || out.contains("Cache key"),
+        "app: {out}"
+    );
+}
+
+#[test]
+fn caching_ref_memoization_alias() {
+    let out = caching_ref_calc("memoization");
+    assert!(!out.is_empty(), "memoization alias: {out}");
+}
+
+#[test]
+fn caching_ref_lru_cache_alias() {
+    let out = caching_ref_calc("lru-cache");
+    assert!(!out.is_empty(), "lru-cache alias: {out}");
+}
+
+#[test]
+fn caching_ref_two_level_cache_alias() {
+    let out = caching_ref_calc("two-level-cache");
+    assert!(!out.is_empty(), "two-level-cache alias: {out}");
+}
+
+#[test]
+fn caching_ref_memcached_topic() {
+    let out = caching_ref_calc("memcached");
+    assert!(
+        out.contains("Memcached") || out.contains("memcache") || out.contains("slab"),
+        "memcached: {out}"
+    );
+}
+
+#[test]
+fn caching_ref_memcached_commands_alias() {
+    let out = caching_ref_calc("memcached-commands");
+    assert!(!out.is_empty(), "memcached-commands alias: {out}");
+}
+
+#[test]
+fn caching_ref_consistent_hashing_cache_alias() {
+    let out = caching_ref_calc("consistent-hashing-cache");
+    assert!(!out.is_empty(), "consistent-hashing-cache alias: {out}");
+}
+
+#[test]
+fn caching_ref_patterns_topic() {
+    let out = caching_ref_calc("patterns");
+    assert!(
+        out.contains("xfetch") || out.contains("warming") || out.contains("negative"),
+        "patterns: {out}"
+    );
+}
+
+#[test]
+fn caching_ref_stampede_prevention_alias() {
+    let out = caching_ref_calc("stampede-prevention");
+    assert!(!out.is_empty(), "stampede-prevention alias: {out}");
+}
+
+#[test]
+fn caching_ref_xfetch_alias() {
+    let out = caching_ref_calc("xfetch");
+    assert!(!out.is_empty(), "xfetch alias: {out}");
+}
+
+#[test]
+fn caching_ref_negative_caching_alias() {
+    let out = caching_ref_calc("negative-caching");
+    assert!(!out.is_empty(), "negative-caching alias: {out}");
+}
+
+#[test]
+fn caching_ref_unknown_no_panic() {
+    let out = caching_ref_calc("nonexistent-topic");
+    assert!(!out.is_empty());
+}
+
+#[test]
+fn caching_ref_empty_no_panic() {
+    let out = caching_ref_calc("");
+    assert!(!out.is_empty());
+}
+
+// ─── Wave 37: load_testing_calc tests ────────────────────────────────────────
+
+#[test]
+fn load_testing_list_no_panic() {
+    let out = load_testing_calc("list");
+    assert!(!out.is_empty());
+}
+
+#[test]
+fn load_testing_all_contains_k6() {
+    let out = load_testing_calc("all");
+    assert!(
+        out.contains("k6") || out.contains("load") || out.contains("test"),
+        "all: {out}"
+    );
+}
+
+#[test]
+fn load_testing_k6_topic() {
+    let out = load_testing_calc("k6");
+    assert!(
+        out.contains("k6") || out.contains("script") || out.contains("VU"),
+        "k6: {out}"
+    );
+}
+
+#[test]
+fn load_testing_k6_script_alias() {
+    let out = load_testing_calc("k6-script");
+    assert!(!out.is_empty(), "k6-script alias: {out}");
+}
+
+#[test]
+fn load_testing_k6_stages_alias() {
+    let out = load_testing_calc("k6-stages");
+    assert!(!out.is_empty(), "k6-stages alias: {out}");
+}
+
+#[test]
+fn load_testing_k6_scenarios_alias() {
+    let out = load_testing_calc("k6-scenarios");
+    assert!(!out.is_empty(), "k6-scenarios alias: {out}");
+}
+
+#[test]
+fn load_testing_k6_thresholds_alias() {
+    let out = load_testing_calc("k6-thresholds");
+    assert!(!out.is_empty(), "k6-thresholds alias: {out}");
+}
+
+#[test]
+fn load_testing_k6_checks_alias() {
+    let out = load_testing_calc("k6-checks");
+    assert!(!out.is_empty(), "k6-checks alias: {out}");
+}
+
+#[test]
+fn load_testing_grafana_k6_alias() {
+    let out = load_testing_calc("grafana-k6");
+    assert!(!out.is_empty(), "grafana-k6 alias: {out}");
+}
+
+#[test]
+fn load_testing_wrk_topic() {
+    let out = load_testing_calc("wrk");
+    assert!(
+        out.contains("wrk") || out.contains("benchmark") || out.contains("connections"),
+        "wrk: {out}"
+    );
+}
+
+#[test]
+fn load_testing_wrk_benchmark_alias() {
+    let out = load_testing_calc("wrk-benchmark");
+    assert!(!out.is_empty(), "wrk-benchmark alias: {out}");
+}
+
+#[test]
+fn load_testing_wrk2_alias() {
+    let out = load_testing_calc("wrk2");
+    assert!(!out.is_empty(), "wrk2 alias: {out}");
+}
+
+#[test]
+fn load_testing_vegeta_alias() {
+    let out = load_testing_calc("vegeta");
+    assert!(!out.is_empty(), "vegeta alias: {out}");
+}
+
+#[test]
+fn load_testing_apache_bench_alias() {
+    let out = load_testing_calc("apache-bench");
+    assert!(!out.is_empty(), "apache-bench alias: {out}");
+}
+
+#[test]
+fn load_testing_locust_topic() {
+    let out = load_testing_calc("locust");
+    assert!(
+        out.contains("Locust") || out.contains("locust") || out.contains("task"),
+        "locust: {out}"
+    );
+}
+
+#[test]
+fn load_testing_locustfile_alias() {
+    let out = load_testing_calc("locustfile");
+    assert!(!out.is_empty(), "locustfile alias: {out}");
+}
+
+#[test]
+fn load_testing_locust_headless_alias() {
+    let out = load_testing_calc("locust-headless");
+    assert!(!out.is_empty(), "locust-headless alias: {out}");
+}
+
+#[test]
+fn load_testing_locust_distributed_alias() {
+    let out = load_testing_calc("locust-distributed");
+    assert!(!out.is_empty(), "locust-distributed alias: {out}");
+}
+
+#[test]
+fn load_testing_metrics_topic() {
+    let out = load_testing_calc("metrics");
+    assert!(
+        out.contains("p99") || out.contains("percentile") || out.contains("RPS"),
+        "metrics: {out}"
+    );
+}
+
+#[test]
+fn load_testing_percentiles_alias() {
+    let out = load_testing_calc("percentiles");
+    assert!(!out.is_empty(), "percentiles alias: {out}");
+}
+
+#[test]
+fn load_testing_p95_alias() {
+    let out = load_testing_calc("p95");
+    assert!(!out.is_empty(), "p95 alias: {out}");
+}
+
+#[test]
+fn load_testing_p99_alias() {
+    let out = load_testing_calc("p99");
+    assert!(!out.is_empty(), "p99 alias: {out}");
+}
+
+#[test]
+fn load_testing_coordinated_omission_alias() {
+    let out = load_testing_calc("coordinated-omission");
+    assert!(!out.is_empty(), "coordinated-omission alias: {out}");
+}
+
+#[test]
+fn load_testing_amdahl_law_alias() {
+    let out = load_testing_calc("amdahl-law");
+    assert!(!out.is_empty(), "amdahl-law alias: {out}");
+}
+
+#[test]
+fn load_testing_littles_law_alias() {
+    let out = load_testing_calc("littles-law");
+    assert!(!out.is_empty(), "littles-law alias: {out}");
+}
+
+#[test]
+fn load_testing_slo_metrics_alias() {
+    let out = load_testing_calc("slo-metrics");
+    assert!(!out.is_empty(), "slo-metrics alias: {out}");
+}
+
+#[test]
+fn load_testing_scenarios_topic() {
+    let out = load_testing_calc("scenarios");
+    assert!(
+        out.contains("smoke") || out.contains("stress") || out.contains("soak"),
+        "scenarios: {out}"
+    );
+}
+
+#[test]
+fn load_testing_smoke_test_alias() {
+    let out = load_testing_calc("smoke-test");
+    assert!(!out.is_empty(), "smoke-test alias: {out}");
+}
+
+#[test]
+fn load_testing_stress_test_alias() {
+    let out = load_testing_calc("stress-test");
+    assert!(!out.is_empty(), "stress-test alias: {out}");
+}
+
+#[test]
+fn load_testing_spike_test_alias() {
+    let out = load_testing_calc("spike-test");
+    assert!(!out.is_empty(), "spike-test alias: {out}");
+}
+
+#[test]
+fn load_testing_soak_test_alias() {
+    let out = load_testing_calc("soak-test");
+    assert!(!out.is_empty(), "soak-test alias: {out}");
+}
+
+#[test]
+fn load_testing_breakpoint_test_alias() {
+    let out = load_testing_calc("breakpoint-test");
+    assert!(!out.is_empty(), "breakpoint-test alias: {out}");
+}
+
+#[test]
+fn load_testing_load_test_ci_alias() {
+    let out = load_testing_calc("load-test-ci");
+    assert!(!out.is_empty(), "load-test-ci alias: {out}");
+}
+
+#[test]
+fn load_testing_profiling_topic() {
+    let out = load_testing_calc("profiling");
+    assert!(
+        out.contains("pprof") || out.contains("flamegraph") || out.contains("profil"),
+        "profiling: {out}"
+    );
+}
+
+#[test]
+fn load_testing_go_pprof_alias() {
+    let out = load_testing_calc("go-pprof");
+    assert!(!out.is_empty(), "go-pprof alias: {out}");
+}
+
+#[test]
+fn load_testing_py_spy_alias() {
+    let out = load_testing_calc("py-spy");
+    assert!(!out.is_empty(), "py-spy alias: {out}");
+}
+
+#[test]
+fn load_testing_cargo_flamegraph_load_alias() {
+    let out = load_testing_calc("cargo-flamegraph-load");
+    assert!(!out.is_empty(), "cargo-flamegraph-load alias: {out}");
+}
+
+#[test]
+fn load_testing_async_profiler_load_alias() {
+    let out = load_testing_calc("async-profiler-load");
+    assert!(!out.is_empty(), "async-profiler-load alias: {out}");
+}
+
+#[test]
+fn load_testing_unknown_no_panic() {
+    let out = load_testing_calc("nonexistent-topic");
+    assert!(!out.is_empty());
+}
+
+#[test]
+fn load_testing_empty_no_panic() {
+    let out = load_testing_calc("");
     assert!(!out.is_empty());
 }

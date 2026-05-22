@@ -1133,6 +1133,10 @@ mod tests {
             db_migrations: None,
             oauth_ref: None,
             k8s_security: None,
+            api_versioning: None,
+            message_queue: None,
+            caching_ref: None,
+            load_testing: None,
             pdf_extract_helper: None,
             teleported_from: None,
         };

@@ -2226,6 +2226,38 @@ pub struct CliCockpit {
 
     #[arg(
         long,
+        help_heading = "Developer Toolkit",
+        value_name = "QUERY",
+        help = "API versioning reference — offline replacement for REST versioning docs. Topics: strategies, semver, routing, graphql, hypermedia, docs. Aliases: url-versioning, header-versioning, breaking-changes, backwards-compatibility, contract-testing, hateoas, hal-format, openapi-changelog, and more. Examples: hematite --api-versioning strategies | hematite --api-versioning semver | hematite --api-versioning all"
+    )]
+    pub api_versioning: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Developer Toolkit",
+        value_name = "QUERY",
+        help = "Message queue reference — offline replacement for Kafka/RabbitMQ docs. Topics: kafka, rabbitmq, patterns, sqs, reliability, schema. Aliases: apache-kafka, kafka-topics, kafka-producer, kafka-consumer, rabbit-mq, amqp, dlx, outbox-pattern, saga-pattern, aws-sqs, sqs-fifo, avro-kafka, schema-registry, cloudevents, asyncapi, and more. Examples: hematite --message-queue kafka | hematite --message-queue rabbitmq | hematite --message-queue all"
+    )]
+    pub message_queue: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Developer Toolkit",
+        value_name = "QUERY",
+        help = "Caching reference — offline replacement for caching docs. Topics: strategies, redis, http, app, memcached, patterns. Aliases: cache-aside, write-through, write-behind, thundering-herd, redis-commands, redis-cluster, cache-control-header, etag-caching, cdn-caching, memoization, consistent-hashing-cache, xfetch, negative-caching, and more. Examples: hematite --caching-ref strategies | hematite --caching-ref redis | hematite --caching-ref all"
+    )]
+    pub caching_ref: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Developer Toolkit",
+        value_name = "QUERY",
+        help = "Load testing reference — offline replacement for k6/Locust docs. Topics: k6, wrk, locust, metrics, scenarios, profiling. Aliases: k6-script, k6-stages, k6-thresholds, wrk-benchmark, vegeta, locustfile, load-test-metrics, percentiles, p99, coordinated-omission, amdahl-law, littles-law, smoke-test, stress-test, spike-test, soak-test, go-pprof, cargo-flamegraph-load, and more. Examples: hematite --load-testing k6 | hematite --load-testing metrics | hematite --load-testing all"
+    )]
+    pub load_testing: Option<String>,
+
+    #[arg(
+        long,
         help_heading = "Math & Science",
         value_name = "QUERY",
         help = "Lorem ipsum generator — offline replacement for lipsum.com. Commands: (bare) or <N> = N paragraphs (default 1); words <N> = N words; sentences <N> = N sentences. Examples: hematite --lorem | hematite --lorem 3 | hematite --lorem 'words 50' | hematite --lorem 'sentences 5'"

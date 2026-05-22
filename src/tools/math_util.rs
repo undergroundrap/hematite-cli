@@ -54286,3 +54286,1554 @@ pub fn k8s_security_calc(query: &str) -> String {
             .join(", ")
     )
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Wave 37: --api-versioning, --message-queue, --caching-ref, --load-testing
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ── api-versioning ───────────────────────────────────────────────────────────
+
+fn s_apiv_strategies() -> &'static str {
+    "API Versioning Strategies
+URL path versioning (most common):
+  /api/v1/users
+  /api/v2/users
+  Pros: explicit, cacheable, easy to test in browser
+  Cons: breaks REST purity (version is not a resource attribute)
+
+Query parameter versioning:
+  GET /api/users?version=2
+  Pros: optional, backwards compatible default
+  Cons: easy to forget; proxies/caches may ignore query params
+
+Header versioning:
+  Accept: application/vnd.myapi.v2+json
+  X-API-Version: 2
+  Pros: clean URLs, REST-pure
+  Cons: harder to test in browser; less visible in logs
+
+Content negotiation (Accept header):
+  Accept: application/vnd.company.product-v2+json
+  Response: Content-Type: application/vnd.company.product-v2+json
+  Used by GitHub API v3, Stripe
+
+Hostname/subdomain versioning:
+  v2.api.example.com
+  Pros: easy routing at infrastructure level
+  Cons: TLS cert complexity; not widely used
+
+Choosing a strategy:
+  Public external API: URL path (easiest for users to discover)
+  Internal microservices: header or content negotiation
+  Long-lived public API: URL path + deprecation headers
+  Never-break promise: URL path + semantic versioning
+
+Deprecation workflow:
+  Add: Deprecation: version=1, date=2025-01-01 (RFC 8594)
+  Add: Sunset: Sat, 01 Jan 2026 00:00:00 GMT (RFC 8594)
+  Add: Link: <https://api.example.com/v2/docs>; rel=\"successor-version\"
+  Monitor usage of old version before sunset."
+}
+
+fn s_apiv_semver() -> &'static str {
+    "API Semantic Versioning & Breaking Changes
+Semantic versioning for APIs:
+  MAJOR.MINOR.PATCH
+  MAJOR: breaking change (new URL version)
+  MINOR: additive / backwards compatible
+  PATCH: bug fix, no contract change
+
+What is a breaking change:
+  Removing a field from response
+  Renaming a field
+  Changing a field type (string → int)
+  Changing a required field to different meaning
+  Removing an endpoint
+  Changing HTTP method of endpoint
+  Adding a required request field (breaks existing callers)
+  Narrowing accepted values (stricter validation)
+  Changing error codes / error response shape
+  Changing authentication scheme
+
+What is NOT a breaking change:
+  Adding optional response fields (consumers must ignore unknown fields)
+  Adding optional request parameters with documented defaults
+  Adding new endpoints
+  Adding new enum values (warn: some clients match exhaustively)
+  Relaxing validation (accepting more input)
+  Improving error messages (not structure)
+  Performance improvements
+
+Backwards compatibility rules (Postel's Law):
+  Be conservative in what you send, liberal in what you accept.
+  Response: never remove fields; add only optional new ones.
+  Request: never add required fields; only add optional ones.
+  Document all deprecations at least one major version before removal.
+
+Consumer-driven contract testing:
+  Pact (pact.io): consumer writes contract; provider verifies it.
+  Spring Cloud Contract: similar for JVM ecosystem.
+  Run contract tests in CI before deploying provider changes."
+}
+
+fn s_apiv_routing() -> &'static str {
+    "API Version Routing & Infrastructure
+Nginx URL versioning:
+  location /api/v1/ { proxy_pass http://api-v1-service/; }
+  location /api/v2/ { proxy_pass http://api-v2-service/; }
+
+Header-based routing (Nginx):
+  map $http_x_api_version $api_upstream {
+    default  api-v1;
+    \"2\"      api-v2;
+    \"3\"      api-v3;
+  }
+  proxy_pass http://$api_upstream;
+
+API Gateway versioning:
+  AWS API Gateway: separate stage per version (v1, v2)
+  Kong: route by header or path to different services
+  Apigee: proxy endpoint configuration per version
+  Traefik: middleware to route by header value
+
+Express.js (Node.js):
+  const v1Router = express.Router();
+  const v2Router = express.Router();
+  app.use('/api/v1', v1Router);
+  app.use('/api/v2', v2Router);
+
+FastAPI (Python):
+  app_v1 = FastAPI(); app_v2 = FastAPI()
+  app.mount('/v1', app_v1); app.mount('/v2', app_v2)
+  Or: use APIRouter with prefix='/v1'
+
+Go (Chi router):
+  r.Route(\"/v1\", func(r chi.Router) { r.Get(\"/users\", v1.ListUsers) })
+  r.Route(\"/v2\", func(r chi.Router) { r.Get(\"/users\", v2.ListUsers) })
+
+Version lifecycle management:
+  Track active client versions via analytics or API key metadata.
+  Enforce via middleware: reject requests to sunset versions.
+  Respond 410 Gone for permanently removed versions.
+  Provide migration guides linked in deprecation header."
+}
+
+fn s_apiv_graphql() -> &'static str {
+    "API Evolution in GraphQL
+GraphQL has no URL versioning — evolution instead of versions.
+
+Adding fields:
+  Always safe — clients only query what they need.
+  Mark new fields with @since directive for docs.
+
+Deprecating fields:
+  @deprecated(reason: \"Use newField instead\")
+  Clients see deprecation in introspection; tooling warns.
+  Keep deprecated fields for at least one major release cycle.
+
+Removing fields (breaking):
+  Never remove without prior deprecation + migration period.
+  Use deprecation notice → sunset date → removal.
+
+Schema first (SDL):
+  type User {
+    id: ID!
+    name: String!
+    email: String!          # adding: safe
+    username: String @deprecated(reason: \"Use name\")  # deprecating
+  }
+
+Federated GraphQL (Apollo Federation):
+  Multiple subgraph services compose into one schema.
+  Breaking change in one subgraph can break the federated graph.
+  Use rover CLI for schema checks: rover subgraph check --schema schema.graphql
+  Contracts: filter schema for different consumers (external vs internal).
+
+Persisted queries:
+  Clients register query hashes at build time.
+  Server only accepts registered queries — reduces attack surface.
+  Breaking schema change does not break persisted query clients if fields still exist.
+
+GitHub GraphQL API approach:
+  Single /graphql endpoint; no versioning.
+  Preview headers: Accept: application/vnd.github.starfire-preview+json
+  Preview fields hidden unless opt-in header sent — graduated rollout."
+}
+
+fn s_apiv_hypermedia() -> &'static str {
+    "HATEOAS & Hypermedia APIs
+HATEOAS: Hypermedia As The Engine Of Application State.
+Clients discover available actions from responses — not hard-coded URLs.
+True REST Level 3 (Richardson Maturity Model).
+
+Example (HAL — Hypertext Application Language):
+  {
+    \"id\": 1,
+    \"name\": \"Alice\",
+    \"_links\": {
+      \"self\": { \"href\": \"/users/1\" },
+      \"orders\": { \"href\": \"/users/1/orders\" },
+      \"update\": { \"href\": \"/users/1\", \"method\": \"PUT\" },
+      \"delete\": { \"href\": \"/users/1\", \"method\": \"DELETE\" }
+    }
+  }
+
+HAL media type: application/hal+json
+JSON:API media type: application/vnd.api+json
+Siren: complex hypermedia with actions and entities
+Ion: newer, simpler hypermedia format
+
+Collection+JSON:
+  { \"collection\": { \"href\": \"/users\",
+      \"items\": [{ \"href\": \"/users/1\", \"data\": [...] }],
+      \"links\": [{ \"rel\": \"next\", \"href\": \"/users?page=2\" }] } }
+
+OpenAPI link objects (3.x):
+  paths:
+    /users/{id}:
+      get:
+        responses:
+          200:
+            links:
+              GetOrdersByUser:
+                operationId: getOrdersByUser
+                parameters: { userId: '$response.body#/id' }
+
+Practical HATEOAS adoption:
+  Most REST APIs implement Level 2 (HTTP methods + status codes).
+  Level 3 (HATEOAS) valuable for: workflow APIs, state machines, SDKless clients.
+  Start with simple _links; expand as client needs evolve.
+  Trade-off: more bytes per response; clients more resilient to URL changes."
+}
+
+fn s_apiv_docs() -> &'static str {
+    "API Documentation & Changelog Management
+OpenAPI / Swagger:
+  openapi: '3.1.0'
+  info: { title: My API, version: '2.0.0', description: 'Version 2 adds ...' }
+  tools: Swagger UI, Redoc, Stoplight Elements, scalar
+  CLI: npx @redocly/cli lint openapi.yaml
+  Diff: openapi-diff old.yaml new.yaml  (detects breaking changes)
+
+Changelog formats:
+  Keep a Changelog (keepachangelog.com):
+    ## [2.0.0] - 2025-01-15
+    ### Breaking Changes
+    - Removed GET /api/v1/widgets endpoint
+    - Changed user.id type from int to UUID
+    ### Added
+    - POST /api/v2/bulk-widgets endpoint
+    ### Deprecated
+    - GET /api/v2/legacy-search (use /api/v2/search)
+
+  Semantic Release + Conventional Commits:
+    feat!: breaking change → MAJOR bump
+    feat: new feature → MINOR bump
+    fix: bug fix → PATCH bump
+
+Migration guides:
+  Document: old field → new field mapping
+  Provide: code examples for each language/SDK
+  Include: test cases for migration validation
+  Host at: /docs/migration/v1-to-v2
+
+API changelog automation:
+  oasdiff: fast OpenAPI diff tool with breaking change detection
+    oasdiff diff old.yaml new.yaml
+    oasdiff breaking old.yaml new.yaml  — only breaking changes
+    oasdiff changelog old.yaml new.yaml — human-readable log
+  Optic: API version control and changelog generation
+  Spectral: OpenAPI linting with custom rules"
+}
+
+type ApiVersioningSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+const API_VERSIONING_SECTIONS: &[ApiVersioningSection] = &[
+    (
+        "strategies",
+        &[
+            "versioning-strategies",
+            "url-versioning",
+            "header-versioning",
+            "query-versioning",
+            "content-negotiation",
+            "accept-header",
+            "vendor-media-type",
+            "deprecation-header",
+            "sunset-header",
+        ],
+        s_apiv_strategies,
+    ),
+    (
+        "semver",
+        &[
+            "api-semver",
+            "breaking-changes",
+            "non-breaking-changes",
+            "backwards-compatibility",
+            "postel-law",
+            "contract-testing",
+            "pact-testing",
+            "spring-contract",
+        ],
+        s_apiv_semver,
+    ),
+    (
+        "routing",
+        &[
+            "version-routing",
+            "nginx-versioning",
+            "api-gateway-versioning",
+            "express-versioning",
+            "fastapi-versioning",
+            "go-versioning",
+            "kong-routing",
+            "version-lifecycle",
+        ],
+        s_apiv_routing,
+    ),
+    (
+        "graphql",
+        &[
+            "graphql-versioning",
+            "graphql-evolution",
+            "schema-deprecation",
+            "apollo-federation",
+            "persisted-queries",
+            "rover-cli",
+            "graphql-contracts",
+            "github-preview-headers",
+        ],
+        s_apiv_graphql,
+    ),
+    (
+        "hypermedia",
+        &[
+            "hateoas",
+            "hal-format",
+            "json-api",
+            "siren-hypermedia",
+            "collection-json",
+            "openapi-links",
+            "richardson-maturity",
+            "rest-level-3",
+        ],
+        s_apiv_hypermedia,
+    ),
+    (
+        "docs",
+        &[
+            "api-docs",
+            "openapi-changelog",
+            "swagger-versioning",
+            "keep-a-changelog",
+            "semantic-release",
+            "migration-guide",
+            "oasdiff",
+            "spectral-linting",
+            "optic-versioning",
+        ],
+        s_apiv_docs,
+    ),
+];
+
+pub fn api_versioning_calc(query: &str) -> String {
+    let q = query.trim().to_lowercase();
+    if q.is_empty() || q == "list" || q == "help" {
+        let topics: Vec<&str> = API_VERSIONING_SECTIONS.iter().map(|(n, _, _)| *n).collect();
+        return format!(
+            "api-versioning topics: {}\nUse: --api-versioning <topic>  or  --api-versioning all",
+            topics.join(", ")
+        );
+    }
+    if q == "all" {
+        return API_VERSIONING_SECTIONS
+            .iter()
+            .map(|(n, _, f)| format!("── {} ──\n{}", n, f()))
+            .collect::<Vec<_>>()
+            .join("\n\n");
+    }
+    for (name, aliases, func) in API_VERSIONING_SECTIONS {
+        if q == *name || aliases.iter().any(|a| q == *a || q.contains(a)) {
+            return func().to_string();
+        }
+    }
+    format!(
+        "Unknown api-versioning topic: '{}'\nAvailable: {}",
+        query.trim(),
+        API_VERSIONING_SECTIONS
+            .iter()
+            .map(|(n, _, _)| *n)
+            .collect::<Vec<_>>()
+            .join(", ")
+    )
+}
+
+// ── message-queue ─────────────────────────────────────────────────────────────
+
+fn s_mq_kafka() -> &'static str {
+    "Apache Kafka — Core Concepts & CLI
+Architecture:
+  Broker: server storing/serving messages
+  Topic: named stream; partitioned for parallelism
+  Partition: ordered, immutable log; offset tracks position
+  Producer: publishes to topic (chooses partition via key hash or round-robin)
+  Consumer: reads from partition; tracks offset (committed to __consumer_offsets)
+  Consumer Group: load-balances partitions across members (each partition → 1 consumer)
+  Zookeeper/KRaft: cluster coordination (KRaft mode since Kafka 3.3)
+
+CLI (kafka-*):
+  kafka-topics.sh --create --topic my-topic --partitions 3 --replication-factor 2 --bootstrap-server localhost:9092
+  kafka-topics.sh --list --bootstrap-server localhost:9092
+  kafka-topics.sh --describe --topic my-topic --bootstrap-server localhost:9092
+  kafka-console-producer.sh --topic my-topic --bootstrap-server localhost:9092
+  kafka-console-consumer.sh --topic my-topic --from-beginning --bootstrap-server localhost:9092
+  kafka-consumer-groups.sh --list --bootstrap-server localhost:9092
+  kafka-consumer-groups.sh --describe --group my-group --bootstrap-server localhost:9092
+  kafka-consumer-groups.sh --reset-offsets --to-earliest --group my-group --topic my-topic --execute --bootstrap-server localhost:9092
+
+Key configs (producer):
+  acks=all              — wait for all replicas (durability)
+  retries=3             — retry on transient failures
+  linger.ms=5           — batch delay (throughput vs latency)
+  compression.type=lz4  — compress batches
+
+Key configs (consumer):
+  auto.offset.reset=earliest|latest
+  enable.auto.commit=false  — manual commit for exactly-once semantics
+  max.poll.records=500
+  session.timeout.ms=30000
+
+Retention:
+  retention.ms=604800000  — 7 days (default)
+  retention.bytes=-1      — unlimited (by default)
+  log.cleanup.policy=compact  — keep latest value per key (log compaction)"
+}
+
+fn s_mq_rabbitmq() -> &'static str {
+    "RabbitMQ — Core Concepts & Patterns
+Architecture:
+  Exchange: receives messages; routes to queues via bindings
+  Queue: buffer holding messages until consumed
+  Binding: rule connecting exchange to queue (routing key or pattern)
+  Channel: lightweight connection multiplexed over AMQP connection
+  Virtual Host (vhost): namespace for exchanges/queues (tenant isolation)
+
+Exchange types:
+  direct   — route by exact routing key match
+  fanout   — broadcast to all bound queues (routing key ignored)
+  topic    — route by pattern (#=multi-word, *=single-word): logs.*.error, logs.#
+  headers  — route by message header values (rarely used)
+  default  — pre-declared empty-name direct exchange; routes to queue named by routing key
+
+CLI (rabbitmqctl / rabbitmq-management API):
+  rabbitmqctl list_queues name messages consumers
+  rabbitmqctl list_exchanges
+  rabbitmqctl list_bindings
+  rabbitmqctl purge_queue my-queue
+  rabbitmqctl delete_queue my-queue
+  curl -u guest:guest http://localhost:15672/api/queues
+
+Message acknowledgement:
+  basic.ack   — message processed; remove from queue
+  basic.nack  — failed; requeue or dead-letter
+  basic.reject — reject single message
+
+Dead Letter Exchange (DLX):
+  x-dead-letter-exchange: dlx-exchange  (queue argument)
+  x-dead-letter-routing-key: dead.letter
+  Messages dead-lettered on: reject/nack, TTL expiry, queue length exceeded
+
+Common patterns:
+  Work queue: multiple consumers on one queue (round-robin dispatch)
+  Publish/Subscribe: fanout exchange → N queues
+  RPC: reply-to + correlation-id header for request/reply
+  Priority queue: x-max-priority: 10 (queue arg); priority: N (message property)
+  Delayed retry: TTL + DLX for exponential backoff retry queue"
+}
+
+fn s_mq_patterns() -> &'static str {
+    "Message Queue Patterns
+Competing consumers (work queue):
+  Multiple consumers on same queue.
+  Each message consumed by exactly one worker.
+  Scale: add consumers to increase throughput.
+  Use for: background jobs, task queues, email sending.
+
+Publish/Subscribe:
+  Producer sends once; N subscribers each receive a copy.
+  Kafka: each consumer group gets full copy.
+  RabbitMQ: fanout exchange + separate queue per subscriber.
+  Use for: event broadcasting, audit logs, cache invalidation.
+
+Dead Letter Queue (DLQ):
+  Messages that fail processing → DLQ for inspection/retry.
+  SQS: redrive policy; RabbitMQ: DLX; Kafka: manual DLQ topic.
+  Alert on DLQ depth; process with replay tooling.
+
+Outbox pattern:
+  Avoid dual-write problem (DB + message queue in same transaction).
+  Write event to outbox table in same DB transaction.
+  Separate poller/CDC reads outbox → publishes to queue.
+  Guarantees exactly-once publishing.
+  Tools: Debezium (CDC), Transactional outbox libraries.
+
+Saga pattern:
+  Distributed transaction alternative — sequence of local transactions.
+  Choreography: each service publishes events; others react.
+  Orchestration: central saga orchestrator sends commands to services.
+  Compensating transactions: undo steps on failure.
+
+Event sourcing:
+  Store state changes as immutable events; replay to rebuild state.
+  Event store: append-only log (Kafka, EventStoreDB).
+  Projections: aggregate events into read models.
+
+CQRS (Command Query Responsibility Segregation):
+  Write side: commands → events → event store.
+  Read side: projections from events → optimized query models.
+  Works well with event sourcing and message queues.
+
+Backpressure:
+  Consumer signals it cannot keep up → producer slows.
+  Kafka: consumer lag monitoring (kafka-consumer-groups.sh).
+  RabbitMQ: consumer prefetch (basic.qos, prefetch_count).
+  SQS: visibility timeout + WaitTimeSeconds for long-polling."
+}
+
+fn s_mq_sqs() -> &'static str {
+    "AWS SQS, SNS & EventBridge
+SQS (Simple Queue Service):
+  Standard queue: at-least-once, best-effort ordering, unlimited throughput
+  FIFO queue: exactly-once, strict ordering, 300 TPS (3000 with batching)
+
+AWS CLI:
+  aws sqs create-queue --queue-name my-queue
+  aws sqs send-message --queue-url $URL --message-body 'hello'
+  aws sqs receive-message --queue-url $URL --max-number-of-messages 10
+  aws sqs delete-message --queue-url $URL --receipt-handle $HANDLE
+  aws sqs get-queue-attributes --queue-url $URL --attribute-names All
+
+Key settings:
+  VisibilityTimeout: seconds message hidden after receive (default 30s; set = max processing time)
+  MessageRetentionPeriod: 1min–14 days (default 4 days)
+  ReceiveMessageWaitTimeSeconds: 0–20s; 20 = long polling (cost efficient)
+  MaximumMessageSize: 256 KB
+
+Dead Letter Queue (SQS):
+  Redrive policy: { \"deadLetterTargetArn\": \"arn:...\", \"maxReceiveCount\": 3 }
+  After maxReceiveCount failures → message moved to DLQ.
+  Monitor DLQ depth; set alarm.
+
+SNS (Simple Notification Service):
+  Fan-out to SQS queues, Lambda, HTTP/S, email, SMS.
+  Topic: aws sns create-topic --name my-topic
+  Subscribe: aws sns subscribe --topic-arn $ARN --protocol sqs --notification-endpoint $QUEUE_ARN
+  Publish: aws sns publish --topic-arn $ARN --message 'hello'
+  Filter policy: route subset of events to specific subscriptions.
+
+EventBridge (formerly CloudWatch Events):
+  Event bus: default (AWS services) or custom.
+  Rules: match events by pattern → route to targets (Lambda, SQS, Step Functions).
+  Schema registry: automatically infer event schemas.
+  Event patterns: { \"source\": [\"myapp\"], \"detail-type\": [\"OrderPlaced\"] }
+  Pipes: direct source-to-target with optional filtering and enrichment."
+}
+
+fn s_mq_reliability() -> &'static str {
+    "Message Queue Reliability & Delivery Guarantees
+Delivery semantics:
+  At-most-once:   message may be lost; never duplicated. Fast but lossy.
+  At-least-once:  message always delivered; may duplicate. Most common.
+  Exactly-once:   never lost or duplicated. Complex; requires coordination.
+
+Kafka exactly-once:
+  Producer: enable.idempotence=true + transactional.id
+  Consumer: isolation.level=read_committed
+  Transactions: producer.beginTransaction(); send(); producer.commitTransaction()
+  Kafka Streams: processing.guarantee=exactly_once_v2
+
+RabbitMQ reliability:
+  Publisher confirms: channel.confirmSelect(); channel.waitForConfirmsOrDie()
+  Persistent messages: delivery_mode=2 + durable queue + durable exchange
+  Consumer acks: manual ack; requeue=false to DLQ on failure
+  HA: quorum queues (replicated via Raft; replace classic mirrored queues)
+
+SQS:
+  FIFO: exactly-once within 5 min deduplication window (MessageDeduplicationId)
+  Standard: at-least-once; idempotent consumers required
+
+Idempotency:
+  Assign unique message ID; store processed IDs in DB/Redis.
+  Check before processing: if ID seen → skip; else process + record.
+  Use Redis SET NX with TTL: SET idempotency:msgId 1 NX EX 86400
+
+Consumer resilience:
+  Exponential backoff retry: 1s → 2s → 4s → 8s → DLQ
+  Circuit breaker around downstream calls in consumer
+  Poison pill detection: N failures → DLQ without further retries
+  Graceful shutdown: drain in-flight messages before SIGTERM
+
+Monitoring:
+  Kafka: consumer lag, under-replicated partitions, ISR size
+  RabbitMQ: queue depth, consumer count, message rates
+  SQS: ApproximateNumberOfMessagesNotVisible, ApproximateAgeOfOldestMessage
+  Alert: DLQ depth > 0, consumer lag growing, queue depth > threshold"
+}
+
+fn s_mq_schema() -> &'static str {
+    "Message Schema & Serialization
+Avro (Confluent Schema Registry):
+  Binary, compact, schema embedded in registry (not in message).
+  Schema evolution: full/backward/forward compatibility modes.
+  confluent_kafka + fastavro (Python); avro-rs (Rust)
+  Schema registry: POST /subjects/my-topic-value/versions
+  Compatibility check: PUT /config/my-topic-value { \"compatibility\": \"BACKWARD\" }
+
+Protocol Buffers (Protobuf):
+  Binary, self-describing with proto file.
+  Works with Kafka: protobuf serializer in confluent-kafka.
+  Schema registry supports protobuf subjects.
+  Backwards compatible: add fields with new numbers; never reuse numbers.
+
+JSON Schema:
+  Human readable; larger message size.
+  Confluent schema registry supports JSON schema.
+  Use for debug/dev; prefer Avro/Protobuf for production throughput.
+
+CloudEvents (CNCF standard):
+  Envelope format for events across brokers.
+  Required attrs: specversion, id, source, type
+  Optional: time, datacontenttype, subject, schema
+  { \"specversion\": \"1.0\", \"type\": \"com.example.order.created\",
+    \"source\": \"/orders\", \"id\": \"uuid\", \"data\": {...} }
+  SDKs: cloudevents/sdk-python, cloudevents/sdk-go, cloudevents/sdk-javascript
+
+Schema evolution rules (Avro backward compat):
+  Safe: add field with default; remove field with default; rename alias
+  Unsafe: add required field; remove field without default; change type
+  Full compat: both backward + forward safe simultaneously
+
+AsyncAPI (OpenAPI for async):
+  Describes message-driven APIs (Kafka topics, AMQP exchanges, WebSocket).
+  asyncapi: '2.6.0'
+  channels: { user/created: { subscribe: { message: { $ref: '#/components/messages/UserCreated' } } } }
+  Tools: AsyncAPI Studio, asyncapi/generator for docs/code"
+}
+
+type MessageQueueSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+const MESSAGE_QUEUE_SECTIONS: &[MessageQueueSection] = &[
+    (
+        "kafka",
+        &[
+            "apache-kafka",
+            "kafka-topics",
+            "kafka-producer",
+            "kafka-consumer",
+            "kafka-cli",
+            "consumer-group",
+            "kafka-partitions",
+            "kafka-retention",
+            "kafka-config",
+            "kraft-mode",
+        ],
+        s_mq_kafka,
+    ),
+    (
+        "rabbitmq",
+        &[
+            "rabbit-mq",
+            "amqp",
+            "rabbit-exchange",
+            "rabbit-queue",
+            "rabbit-binding",
+            "fanout-exchange",
+            "topic-exchange",
+            "dead-letter-exchange",
+            "dlx",
+            "rabbitmqctl",
+            "rabbit-ack",
+        ],
+        s_mq_rabbitmq,
+    ),
+    (
+        "patterns",
+        &[
+            "queue-patterns",
+            "competing-consumers",
+            "publish-subscribe",
+            "dead-letter-queue",
+            "dlq",
+            "outbox-pattern",
+            "saga-pattern",
+            "event-sourcing-mq",
+            "cqrs-mq",
+            "backpressure-mq",
+        ],
+        s_mq_patterns,
+    ),
+    (
+        "sqs",
+        &[
+            "aws-sqs",
+            "aws-sns",
+            "eventbridge",
+            "sqs-fifo",
+            "sqs-standard",
+            "visibility-timeout",
+            "redrive-policy",
+            "sns-fanout",
+            "event-bridge-rules",
+            "sqs-long-polling",
+        ],
+        s_mq_sqs,
+    ),
+    (
+        "reliability",
+        &[
+            "delivery-guarantees",
+            "at-least-once",
+            "exactly-once",
+            "kafka-transactions",
+            "publisher-confirms",
+            "consumer-acks",
+            "idempotency-mq",
+            "quorum-queues",
+            "poison-pill",
+            "exponential-backoff-mq",
+        ],
+        s_mq_reliability,
+    ),
+    (
+        "schema",
+        &[
+            "message-schema",
+            "avro-kafka",
+            "schema-registry",
+            "protobuf-kafka",
+            "cloudevents",
+            "asyncapi",
+            "schema-evolution",
+            "json-schema-mq",
+            "backward-compat-schema",
+        ],
+        s_mq_schema,
+    ),
+];
+
+pub fn message_queue_calc(query: &str) -> String {
+    let q = query.trim().to_lowercase();
+    if q.is_empty() || q == "list" || q == "help" {
+        let topics: Vec<&str> = MESSAGE_QUEUE_SECTIONS.iter().map(|(n, _, _)| *n).collect();
+        return format!(
+            "message-queue topics: {}\nUse: --message-queue <topic>  or  --message-queue all",
+            topics.join(", ")
+        );
+    }
+    if q == "all" {
+        return MESSAGE_QUEUE_SECTIONS
+            .iter()
+            .map(|(n, _, f)| format!("── {} ──\n{}", n, f()))
+            .collect::<Vec<_>>()
+            .join("\n\n");
+    }
+    for (name, aliases, func) in MESSAGE_QUEUE_SECTIONS {
+        if q == *name || aliases.iter().any(|a| q == *a || q.contains(a)) {
+            return func().to_string();
+        }
+    }
+    format!(
+        "Unknown message-queue topic: '{}'\nAvailable: {}",
+        query.trim(),
+        MESSAGE_QUEUE_SECTIONS
+            .iter()
+            .map(|(n, _, _)| *n)
+            .collect::<Vec<_>>()
+            .join(", ")
+    )
+}
+
+// ── caching-ref ───────────────────────────────────────────────────────────────
+
+fn s_cache_strategies() -> &'static str {
+    "Caching Strategies
+Cache-aside (lazy loading):
+  App checks cache → miss → load from DB → write to cache → return.
+  Pro: only requested data cached; cache failure is non-fatal.
+  Con: cache miss = 3 operations; initial cold cache is slow.
+  Use for: read-heavy workloads with unpredictable access patterns.
+
+Write-through:
+  Write to cache + DB synchronously on every write.
+  Pro: cache always warm; no stale data.
+  Con: write latency; cached data may never be read (cache pollution).
+  Use for: data that is read soon after write.
+
+Write-behind (write-back):
+  Write to cache; async flush to DB later.
+  Pro: low write latency.
+  Con: data loss risk if cache fails before flush.
+  Use for: high-write workloads where eventual persistence is acceptable.
+
+Read-through:
+  Cache sits in front of DB; cache fetches from DB on miss automatically.
+  Pro: app only talks to cache.
+  Con: cache layer must implement fetch logic.
+  Use for: CDN, reverse proxy caches.
+
+Refresh-ahead:
+  Cache proactively refreshes entries before they expire.
+  Pro: no cache miss latency for popular data.
+  Con: wastes resources refreshing data that may not be requested.
+
+Cache invalidation patterns:
+  TTL (time-to-live): automatic expiry; simplest but may serve stale.
+  Event-driven: invalidate on DB change event (CDC/outbox).
+  Version key: embed version in cache key (user:123:v2); change key = instant invalidation.
+  Cache tags: group related keys; invalidate by tag.
+
+Thundering herd (cache stampede):
+  Many requests simultaneously hit empty cache → overload DB.
+  Solutions: mutex lock on cache miss; probabilistic early expiration; background refresh."
+}
+
+fn s_cache_redis() -> &'static str {
+    "Redis — Commands & Patterns
+Install: docker run -d -p 6379:6379 redis:alpine
+CLI: redis-cli -h localhost -p 6379
+
+Data structures:
+  String:  SET key value [EX seconds] [NX|XX]   GET key   INCR key   GETSET key newval
+  Hash:    HSET hash field value   HGET hash field   HMGET hash f1 f2   HGETALL hash
+  List:    LPUSH list val   RPUSH list val   LPOP list   BLPOP list 0 (blocking)   LRANGE list 0 -1
+  Set:     SADD set val   SISMEMBER set val   SMEMBERS set   SUNION s1 s2   SINTER s1 s2
+  ZSet:    ZADD zset score member   ZRANGE zset 0 -1 WITHSCORES   ZRANGEBYSCORE zset 0 100
+  Bitmap:  SETBIT key offset 1   GETBIT key offset   BITCOUNT key
+  HLL:     PFADD hll val   PFCOUNT hll   (probabilistic; ~0.8% error; constant memory)
+  Stream:  XADD stream * field val   XREAD COUNT 10 STREAMS stream 0   XGROUP CREATE
+
+TTL:
+  EXPIRE key 300         — set TTL seconds
+  PEXPIRE key 300000     — set TTL milliseconds
+  TTL key                — remaining TTL (-1=none; -2=not exist)
+  PERSIST key            — remove TTL
+
+Atomic operations:
+  MULTI / EXEC           — transaction block (all or nothing)
+  WATCH key + MULTI      — optimistic locking (EXEC fails if watched key changed)
+  Lua scripting:         EVAL \"return redis.call('GET', KEYS[1])\" 1 mykey
+
+Pub/Sub:
+  SUBSCRIBE channel      — subscribe
+  PUBLISH channel msg    — publish
+  PSUBSCRIBE pattern     — pattern subscribe
+
+Cluster & HA:
+  Redis Sentinel: HA with automatic failover (no data sharding)
+  Redis Cluster: automatic sharding (16384 hash slots); 3+ master nodes
+  CLUSTER INFO; CLUSTER NODES
+  Keyslot: all keys in same slot needed for multi-key commands: {user:1}.name, {user:1}.email
+
+Eviction policies (maxmemory-policy):
+  noeviction, allkeys-lru, allkeys-lfu, volatile-lru, volatile-lfu, allkeys-random"
+}
+
+fn s_cache_http() -> &'static str {
+    "HTTP Caching & CDN
+Cache-Control directives:
+  no-store           — never cache (sensitive data: auth pages, health records)
+  no-cache           — store but revalidate before each use
+  private            — user-specific; CDN must not cache; browser can
+  public             — CDN and browser can cache
+  max-age=N          — seconds until stale (browser)
+  s-maxage=N         — CDN TTL (overrides max-age for shared caches)
+  stale-while-revalidate=N — serve stale while refreshing in background
+  stale-if-error=N   — serve stale if origin returns 5xx
+  immutable          — never revalidate (use with content-hashed URLs)
+  must-revalidate    — after max-age, must revalidate (no stale-while-revalidate)
+
+Conditional requests:
+  ETag: \"abc123\"     — entity tag; client sends If-None-Match: \"abc123\"
+  Last-Modified: Thu, 01 Jan 2025 00:00:00 GMT  → If-Modified-Since
+  304 Not Modified    — serve from cache; no body
+
+Vary header:
+  Vary: Accept-Encoding   — separate cache entry per encoding
+  Vary: Accept, Origin    — essential with CORS to prevent serving wrong response
+  Avoid Vary: Cookie      — nearly uncacheable; carve out static from dynamic
+
+Cache-busting strategies:
+  Fingerprint in filename:  /app.a1b2c3d4.js
+  Hash in URL:              /app.js?v=abc123
+  Static assets:            Cache-Control: max-age=31536000, immutable
+  HTML/API:                 Cache-Control: no-cache (revalidate always)
+
+CDN configuration:
+  Origin shield: CDN → shield PoP → origin (reduces origin load)
+  TTL hierarchy: browser < edge < origin shield
+  Purge API: Cloudflare: cf-purge; AWS CloudFront: create-invalidation
+  Surrogate-Control: Cloudflare/Fastly internal TTL header
+  Cache-Tag: Fastly surrogate key; Cloudflare cache tag for group purge
+
+Cloudflare Page Rules / Cache Rules:
+  Cache Level: Bypass / Ignore Query String / Standard / Everything
+  Edge Cache TTL: override Cache-Control for CDN
+  Browser Cache TTL: set browser max-age regardless of origin headers"
+}
+
+fn s_cache_app() -> &'static str {
+    "Application-Level Caching
+Memoization:
+  Python: @functools.lru_cache(maxsize=128) or @functools.cache
+  Python (disk): joblib.Memory; diskcache
+  Node.js: manual Map or mem package
+  Rust: once_cell::sync::Lazy; memoize crate
+
+In-process cache libraries:
+  Java: Caffeine (W-TinyLFU; high performance)
+  Go: ristretto (Dgraph; TTL + admission control)
+  Rust: quick_cache, mini_moka
+  Node.js: lru-cache (npm); node-cache
+  .NET: IMemoryCache (built-in); LazyCache
+
+Cache key design:
+  Include all dimensions that affect the value: user, locale, version, permissions.
+  Keep keys short but descriptive: user:123:profile vs u123p
+  Hash long inputs: cache:sha256(sql_query) for query result caching
+  Namespace with prefix: myapp:v2:resource_type:id
+
+Two-level caching (L1/L2):
+  L1: in-process (microsecond; bounded by process memory)
+  L2: Redis/Memcached (millisecond; shared across instances)
+  Pattern: check L1 → miss → check L2 → miss → DB → populate L2 → populate L1
+
+Distributed cache consistency:
+  Cache-aside: eventual consistency acceptable for most reads.
+  Write: update DB → invalidate cache (delete, not update) → next read repopulates.
+  Avoid cache update: race between concurrent writes causes stale data.
+  Fence tokens: DB write returns version; cache write includes version; skip if stale.
+
+Session storage:
+  Redis: SET session:<id> <json> EX 3600
+  Sticky sessions: route same user to same instance (defeats horizontal scaling)
+  Distributed session: store in Redis; share across all instances
+  JWT alternative: stateless; no server-side session storage needed"
+}
+
+fn s_cache_memcached() -> &'static str {
+    "Memcached Reference
+Use cases: simple key-value string caching; highest throughput for simple ops.
+vs Redis: no persistence, no data structures, no pub/sub, no cluster replication.
+Best for: object caching, page fragment caching, session storage (basic).
+
+CLI (telnet or memccat):
+  telnet localhost 11211
+  set mykey 0 300 5     — flags=0, exptime=300s, bytes=5
+  hello
+  get mykey
+  delete mykey
+  stats                  — server statistics
+  flush_all              — clear all keys (dangerous!)
+
+Python (pymemcache):
+  from pymemcache.client.base import Client
+  c = Client(('localhost', 11211))
+  c.set('key', 'value', expire=300)
+  c.get('key')
+  c.delete('key')
+  c.set_many({'k1': 'v1', 'k2': 'v2'}, expire=60)
+
+Multi-get (efficient batch read):
+  c.get_many(['k1', 'k2', 'k3'])   — single network round trip
+
+Consistent hashing (multi-node):
+  pymemcache: HashClient(['host1:11211', 'host2:11211'])  — distributes keys
+  Consistent hash: adding/removing node only remaps ~1/N keys (vs modular hash remaps all)
+
+Key expiration strategies:
+  Lazy expiration: expired items removed on access (no background purge)
+  Eviction policy: LRU by default (oldest unused item evicted when memory full)
+  Touch command: TOUCH key <exptime>  — extend TTL without re-setting
+
+Slab allocator:
+  Memory divided into slab classes (size buckets); items fit nearest slab.
+  stats slabs; stats items  — inspect allocation
+  -m 512: set memory limit (MB); -M: disable eviction (returns error on full)"
+}
+
+fn s_cache_patterns() -> &'static str {
+    "Cache Patterns & Anti-Patterns
+Cache stampede prevention:
+  Mutex / lock: only one process fetches from DB; others wait.
+    Redis: SET lock:key 1 NX PX 5000  — distributed lock (5s timeout)
+    Release: DEL lock:key
+  XFetch (probabilistic early expiration):
+    if current_time - (delta * beta * ln(rand())) > expiry: refresh now
+    Automatically spreads cache refresh across time window
+  Background refresh: async worker refreshes before expiry; stale OK during refresh.
+
+Cache key versioning:
+  Embed schema version in key: user:v3:123
+  Bump version when data shape changes — old keys expire naturally.
+  Global version invalidation: GET global_version; use as prefix → increment = full clear.
+
+Cache warming:
+  Pre-populate cache on deploy: script reads hot data from DB → loads to Redis.
+  Gradual warm: replay recent traffic log against new cache instance.
+  Lazy warm: first requests are slow; cache fills organically.
+
+Negative caching:
+  Cache DB misses (empty results) to avoid repeated DB hits for non-existent keys.
+  SET user:9999 \"\" EX 60  — short TTL for negative entries.
+
+Anti-patterns:
+  Caching mutable data without invalidation → permanent stale data.
+  Using cache as primary store → data loss on eviction.
+  Caching at every layer without understanding which layer owns validity.
+  Cache key collisions from poor namespace design.
+  Storing serialized ORM objects → schema changes break deserialization silently.
+  Long TTL for frequently-changing data → misleads users.
+  No monitoring → silent cache degradation undetected.
+
+Read-your-writes consistency:
+  Problem: user writes → hit replica (reads from DB replica, not primary) → sees old value.
+  Solution: route reads to primary for 1-2 seconds after user write.
+  Or: invalidate cache on write; next read from primary repopulates."
+}
+
+type CachingRefSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+const CACHING_REF_SECTIONS: &[CachingRefSection] = &[
+    (
+        "strategies",
+        &[
+            "cache-strategies",
+            "cache-aside",
+            "write-through",
+            "write-behind",
+            "read-through",
+            "refresh-ahead",
+            "cache-invalidation",
+            "thundering-herd",
+            "cache-stampede",
+            "cache-ttl",
+        ],
+        s_cache_strategies,
+    ),
+    (
+        "redis",
+        &[
+            "redis-commands",
+            "redis-data-structures",
+            "redis-hash",
+            "redis-sorted-set",
+            "redis-stream",
+            "redis-pubsub",
+            "redis-cluster",
+            "redis-sentinel",
+            "redis-lua",
+            "redis-eviction",
+            "redis-ttl",
+        ],
+        s_cache_redis,
+    ),
+    (
+        "http",
+        &[
+            "http-caching",
+            "cache-control-header",
+            "etag-caching",
+            "cdn-caching",
+            "cache-busting",
+            "immutable-cache",
+            "stale-while-revalidate",
+            "vary-header",
+            "cloudflare-cache",
+            "surrogate-key",
+        ],
+        s_cache_http,
+    ),
+    (
+        "app",
+        &[
+            "application-cache",
+            "memoization",
+            "lru-cache",
+            "caffeine-cache",
+            "ristretto-cache",
+            "cache-key-design",
+            "two-level-cache",
+            "distributed-session",
+            "l1-l2-cache",
+        ],
+        s_cache_app,
+    ),
+    (
+        "memcached",
+        &[
+            "memcache",
+            "memcached-commands",
+            "pymemcache",
+            "consistent-hashing-cache",
+            "slab-allocator",
+            "multi-get",
+            "memcached-eviction",
+            "touch-command",
+        ],
+        s_cache_memcached,
+    ),
+    (
+        "patterns",
+        &[
+            "cache-patterns",
+            "stampede-prevention",
+            "distributed-lock-cache",
+            "xfetch",
+            "cache-warming",
+            "negative-caching",
+            "cache-versioning",
+            "read-your-writes",
+            "cache-anti-patterns",
+        ],
+        s_cache_patterns,
+    ),
+];
+
+pub fn caching_ref_calc(query: &str) -> String {
+    let q = query.trim().to_lowercase();
+    if q.is_empty() || q == "list" || q == "help" {
+        let topics: Vec<&str> = CACHING_REF_SECTIONS.iter().map(|(n, _, _)| *n).collect();
+        return format!(
+            "caching-ref topics: {}\nUse: --caching-ref <topic>  or  --caching-ref all",
+            topics.join(", ")
+        );
+    }
+    if q == "all" {
+        return CACHING_REF_SECTIONS
+            .iter()
+            .map(|(n, _, f)| format!("── {} ──\n{}", n, f()))
+            .collect::<Vec<_>>()
+            .join("\n\n");
+    }
+    for (name, aliases, func) in CACHING_REF_SECTIONS {
+        if q == *name || aliases.iter().any(|a| q == *a || q.contains(a)) {
+            return func().to_string();
+        }
+    }
+    format!(
+        "Unknown caching-ref topic: '{}'\nAvailable: {}",
+        query.trim(),
+        CACHING_REF_SECTIONS
+            .iter()
+            .map(|(n, _, _)| *n)
+            .collect::<Vec<_>>()
+            .join(", ")
+    )
+}
+
+// ── load-testing ─────────────────────────────────────────────────────────────
+
+fn s_lt_k6() -> &'static str {
+    "k6 — Load Testing Tool
+Install: brew install k6 / winget install k6 / docker run grafana/k6
+
+Basic script (script.js):
+  import http from 'k6/http';
+  import { check, sleep } from 'k6';
+  export const options = { vus: 10, duration: '30s' };
+  export default function () {
+    const res = http.get('https://test.k6.io');
+    check(res, { 'status is 200': (r) => r.status === 200 });
+    sleep(1);
+  }
+
+Run: k6 run script.js
+Run with overrides: k6 run --vus 50 --duration 60s script.js
+
+Stages (ramp-up/down):
+  export const options = {
+    stages: [
+      { duration: '30s', target: 20 },   // ramp up
+      { duration: '1m',  target: 20 },   // steady
+      { duration: '10s', target: 0 },    // ramp down
+    ],
+  };
+
+Scenarios (advanced):
+  export const options = { scenarios: {
+    constant_load: { executor: 'constant-vus', vus: 10, duration: '1m' },
+    spike: { executor: 'ramping-vus', startVUs: 0, stages: [...], startTime: '1m' },
+  }};
+  Executors: constant-vus, ramping-vus, constant-arrival-rate, ramping-arrival-rate, per-vu-iterations
+
+Checks & thresholds:
+  export const options = { thresholds: {
+    http_req_duration: ['p(95)<500'],   // 95th percentile < 500ms
+    http_req_failed: ['rate<0.01'],     // error rate < 1%
+    checks: ['rate>0.99'],
+  }};
+
+HTTP methods:
+  http.get(url, params)
+  http.post(url, body, params)
+  http.put / http.patch / http.del
+  params: { headers: { 'Content-Type': 'application/json' }, tags: { name: 'my-request' } }
+
+Environment variables: k6 run -e API_URL=https://api.example.com script.js
+  In script: const url = __ENV.API_URL;
+
+Output: k6 run --out json=results.json script.js
+  Grafana k6 Cloud: k6 cloud script.js"
+}
+
+fn s_lt_wrk() -> &'static str {
+    "wrk & wrk2 — HTTP Benchmarking
+wrk — fast benchmarking with Lua scripting:
+  Install: brew install wrk
+  Basic: wrk -t12 -c400 -d30s http://localhost:8080/
+    -t: threads (rule of thumb: 2x CPU cores)
+    -c: connections (concurrent)
+    -d: duration
+  With Lua script: wrk -t4 -c100 -d30s -s post.lua http://localhost:8080/api/users
+
+Lua script examples:
+  POST with JSON body:
+    wrk.method = \"POST\"
+    wrk.body   = '{\"name\":\"test\"}'
+    wrk.headers[\"Content-Type\"] = \"application/json\"
+
+  Dynamic body per request:
+    local counter = 0
+    request = function()
+      counter = counter + 1
+      return wrk.format(nil, nil, nil, '{\"id\":' .. counter .. '}')
+    end
+
+wrk output:
+  Latency: avg, stdev, max, +/- stdev
+  Req/Sec: throughput per thread
+  Latency Distribution: 50%, 75%, 90%, 99%
+  Total requests, transfer, errors (socket, connect, read, write, timeout)
+
+wrk2 — constant-rate testing (Coordinated Omission Fix):
+  wrk2 -t2 -c100 -d30s -R1000 http://localhost:8080/
+    -R: request rate (per second across all connections)
+  Captures actual latency distribution including queueing (Coordinated Omission fix)
+
+vegeta — attack and report:
+  Install: brew install vegeta
+  echo 'GET http://localhost:8080/' | vegeta attack -rate=100 -duration=30s | vegeta report
+  echo 'GET http://localhost:8080/' | vegeta attack -rate=100 -duration=30s | vegeta report -type=hdrplot > latency.hdr
+  vegeta plot results.bin > plot.html
+  -rate=0 for max throughput; -max-workers=N for connection limit
+
+hey — simple HTTP load tool:
+  go install github.com/rakyll/hey@latest
+  hey -n 10000 -c 200 http://localhost:8080/
+    -n: total requests; -c: concurrency
+  hey -z 30s -c 100 http://localhost:8080/  — duration mode"
+}
+
+fn s_lt_locust() -> &'static str {
+    "Locust — Python Load Testing Framework
+Install: pip install locust
+Run: locust -f locustfile.py --host http://localhost:8080
+
+Basic locustfile.py:
+  from locust import HttpUser, task, between
+  class WebUser(HttpUser):
+    wait_time = between(1, 3)
+    @task(3)
+    def view_index(self):
+      self.client.get(\"/\")
+    @task(1)
+    def post_data(self):
+      self.client.post(\"/api/data\", json={\"key\": \"value\"})
+    def on_start(self):     # called once per user
+      self.client.post(\"/login\", json={\"user\": \"test\", \"pass\": \"test\"})
+
+Task weights: @task(3) = 3x more likely than @task(1)
+
+Headless mode (CI):
+  locust -f locustfile.py --headless -u 100 -r 10 --run-time 1m --host http://localhost:8080
+    -u: total users; -r: spawn rate (users/second)
+
+Custom wait times:
+  wait_time = constant(1)               — fixed 1s
+  wait_time = between(0.5, 2.5)         — random 0.5-2.5s
+  wait_time = constant_throughput(2)    — 2 tasks/sec per user (Coordinated Omission safe)
+
+TaskSet (reusable task groups):
+  from locust import TaskSet
+  class UserBehavior(TaskSet):
+    @task
+    def get_dashboard(self): self.client.get(\"/dashboard\")
+    @task
+    def stop(self): self.interrupt()  — exit TaskSet
+
+Response validation:
+  with self.client.get(\"/api/users\", catch_response=True) as response:
+    if response.json()[\"count\"] < 1:
+      response.failure(\"No users found\")
+
+Distributed mode:
+  Master: locust -f locustfile.py --master
+  Worker: locust -f locustfile.py --worker --master-host=192.168.1.1
+  Docker Compose: scale worker service for distributed test"
+}
+
+fn s_lt_metrics() -> &'static str {
+    "Load Testing Metrics & Interpretation
+Key metrics:
+  Throughput (RPS):       requests per second — capacity
+  Latency (p50/p95/p99):  percentile response times — user experience
+  Error rate:             % of failed requests — reliability
+  Concurrency:            active virtual users — load level
+  Saturation:             resource utilization (CPU/RAM/connections) at the tested system
+
+Percentiles vs averages:
+  Average hides outliers — p99 reveals worst-case user experience.
+  p50: median — typical user experience.
+  p95: 95% of users experience this or better — standard SLO metric.
+  p99: 99th percentile — tail latency; impacts 1% of requests.
+  p99.9: 1-in-1000; important for high-volume systems.
+
+SLO/SLA targets (common):
+  Web API: p95 < 200ms, p99 < 500ms, error rate < 0.1%
+  Database query: p95 < 50ms
+  Background job: p99 < 5s
+  Availability: 99.9% = 8.7h downtime/year; 99.99% = 52min/year
+
+Coordinated Omission problem:
+  Tools that only measure response time of sent requests miss queue wait time.
+  wrk/hey have this problem; wrk2/k6 (arrival-rate executor) / HDR histogram fix it.
+  Real user latency includes time waiting to be served.
+
+Amdahl's Law scaling limit:
+  Speedup = 1 / (S + (1-S)/N)  — S = serial fraction; N = parallelism
+  If 5% of code is serial, max speedup is 20x regardless of cores.
+
+Little's Law:
+  L = λ * W  — L=queue length, λ=arrival rate, W=time in system
+  Throughput = concurrent_users / avg_response_time
+
+Flame graph during load test:
+  CPU profiling while load test runs reveals hot code paths.
+  Java: async-profiler; Go: pprof; Rust: cargo-flamegraph + perf record.
+
+Capacity planning:
+  Find the knee of the curve: RPS where latency starts climbing steeply.
+  Target 60-70% of max observed throughput for production headroom.
+  Test: ramp up → find saturation point → back off 30-40%."
+}
+
+fn s_lt_scenarios() -> &'static str {
+    "Load Test Scenarios & Patterns
+Smoke test:
+  Minimal load (1-5 users); verify system works at all.
+  Catches obvious issues before investing in heavier tests.
+
+Load test:
+  Expected normal load (e.g. 100 concurrent); validate performance meets SLO.
+  Duration: 10-30 minutes to capture steady state.
+
+Stress test:
+  Above normal load; find breaking point.
+  Ramp up gradually; note where errors begin and latency degrades.
+  Goal: understand system limits, not destroy it.
+
+Spike test:
+  Sudden large traffic increase (10x in seconds).
+  Tests autoscaling, circuit breakers, connection pools.
+  k6: stages with near-instant ramp from 0 → 500 → 0 VUs.
+
+Soak test (endurance test):
+  Sustained normal load for hours or days.
+  Catches memory leaks, connection pool exhaustion, disk fill.
+
+Breakpoint test:
+  Continuously increase load until failure.
+  Automated: increment RPS until error rate > 5% or latency > threshold.
+
+Realistic traffic patterns:
+  Use production traffic logs to derive URL distribution and user flows.
+  Import HAR files into k6 (k6 convert my.har > script.js).
+  Model think time (sleep) based on real session analytics.
+
+Warm-up phase:
+  Always ramp up first — avoid instant spike invalidating results.
+  JVM: JIT compilation; connection pools need time to fill.
+  DNS cache, TLS handshakes: first requests artificially slow.
+
+CI integration:
+  Run smoke test on every PR (< 1 minute).
+  Run load test on staging before production deploy.
+  GitHub Actions: k6 run --out cloud script.js (Grafana Cloud k6)
+  Fail build if thresholds exceeded: exit code 99 = threshold failure."
+}
+
+fn s_lt_profiling() -> &'static str {
+    "Profiling During Load Tests
+Go pprof (built-in):
+  import _ \"net/http/pprof\"
+  go tool pprof http://localhost:6060/debug/pprof/profile?seconds=30
+  go tool pprof http://localhost:6060/debug/pprof/heap
+  go tool pprof http://localhost:6060/debug/pprof/goroutine
+  go tool pprof -http=:8080 profile.out  — web UI
+
+Python (py-spy):
+  py-spy record -o profile.svg --pid PID --duration 30
+  py-spy top --pid PID  — live top-like view
+  Works without modifying code; handles GIL correctly.
+
+Node.js:
+  node --prof app.js; node --prof-process isolate-*.log > processed.txt
+  clinic.js: clinic doctor -- node app.js  — flame, heap, bubbleprof
+
+Java (async-profiler):
+  asprof -d 30 -f profile.html PID
+  asprof -e cpu,alloc,lock -d 30 -f profile.html PID
+  -f *.html: interactive flamegraph; -f *.jfr: JFR format
+
+Rust (perf + cargo-flamegraph):
+  cargo flamegraph --bin myserver  — run under load; Ctrl+C to stop
+  CARGO_PROFILE_RELEASE_DEBUG=true cargo flamegraph
+
+Database query analysis during load:
+  PostgreSQL: SELECT * FROM pg_stat_activity WHERE state='active';
+  PostgreSQL: SELECT * FROM pg_stat_statements ORDER BY total_time DESC LIMIT 20;
+  MySQL: SHOW PROCESSLIST; SHOW STATUS LIKE 'Slow_queries';
+  Enable slow query log: slow_query_log=1, long_query_time=1
+
+Connection pool monitoring:
+  PostgreSQL: SELECT count(*), state FROM pg_stat_activity GROUP BY state;
+  Redis: INFO clients; connected_clients, blocked_clients
+  HikariCP (Java): HikariCP MBean: ActiveConnections, PendingThreads, IdleConnections"
+}
+
+type LoadTestingSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+const LOAD_TESTING_SECTIONS: &[LoadTestingSection] = &[
+    (
+        "k6",
+        &[
+            "k6-load-test",
+            "k6-script",
+            "k6-options",
+            "k6-stages",
+            "k6-scenarios",
+            "k6-thresholds",
+            "k6-checks",
+            "k6-executors",
+            "k6-cloud",
+            "grafana-k6",
+        ],
+        s_lt_k6,
+    ),
+    (
+        "wrk",
+        &[
+            "wrk-benchmark",
+            "wrk2",
+            "wrk-lua",
+            "vegeta",
+            "hey-load",
+            "ab-bench",
+            "apache-bench",
+            "wrk-output",
+            "constant-rate-testing",
+        ],
+        s_lt_wrk,
+    ),
+    (
+        "locust",
+        &[
+            "locust-load",
+            "locustfile",
+            "locust-tasks",
+            "locust-headless",
+            "locust-distributed",
+            "locust-taskset",
+            "locust-wait-time",
+            "locust-response-validation",
+        ],
+        s_lt_locust,
+    ),
+    (
+        "metrics",
+        &[
+            "load-test-metrics",
+            "percentiles",
+            "p95",
+            "p99",
+            "throughput-rps",
+            "latency-distribution",
+            "coordinated-omission",
+            "slo-metrics",
+            "amdahl-law",
+            "littles-law",
+            "capacity-planning",
+        ],
+        s_lt_metrics,
+    ),
+    (
+        "scenarios",
+        &[
+            "load-test-scenarios",
+            "smoke-test",
+            "stress-test",
+            "spike-test",
+            "soak-test",
+            "breakpoint-test",
+            "endurance-test",
+            "load-test-ci",
+            "har-import",
+            "warm-up-phase",
+        ],
+        s_lt_scenarios,
+    ),
+    (
+        "profiling",
+        &[
+            "load-test-profiling",
+            "go-pprof",
+            "py-spy",
+            "node-profiling",
+            "clinic-js",
+            "async-profiler-load",
+            "cargo-flamegraph-load",
+            "db-profiling-load",
+            "connection-pool-monitoring",
+        ],
+        s_lt_profiling,
+    ),
+];
+
+pub fn load_testing_calc(query: &str) -> String {
+    let q = query.trim().to_lowercase();
+    if q.is_empty() || q == "list" || q == "help" {
+        let topics: Vec<&str> = LOAD_TESTING_SECTIONS.iter().map(|(n, _, _)| *n).collect();
+        return format!(
+            "load-testing topics: {}\nUse: --load-testing <topic>  or  --load-testing all",
+            topics.join(", ")
+        );
+    }
+    if q == "all" {
+        return LOAD_TESTING_SECTIONS
+            .iter()
+            .map(|(n, _, f)| format!("── {} ──\n{}", n, f()))
+            .collect::<Vec<_>>()
+            .join("\n\n");
+    }
+    for (name, aliases, func) in LOAD_TESTING_SECTIONS {
+        if q == *name || aliases.iter().any(|a| q == *a || q.contains(a)) {
+            return func().to_string();
+        }
+    }
+    format!(
+        "Unknown load-testing topic: '{}'\nAvailable: {}",
+        query.trim(),
+        LOAD_TESTING_SECTIONS
+            .iter()
+            .map(|(n, _, _)| *n)
+            .collect::<Vec<_>>()
+            .join(", ")
+    )
+}
