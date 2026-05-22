@@ -2196,6 +2196,38 @@ pub struct CliCockpit {
         long,
         help_heading = "Math & Science",
         value_name = "QUERY",
+        help = "Linux performance tooling reference — offline replacement for perf-wiki. Topics: perf, ebpf, ftrace, flamegraph, memory, syscall. Aliases: perf-tool, perf-stat, bpftrace, bcc-tools, kprobe, opensnoop, kernel-tracer, function-graph, flame-graph, brendan-gregg, off-cpu, valgrind, asan-rust, strace, ltrace, and more. Examples: hematite --linux-perf ebpf | hematite --linux-perf flamegraph | hematite --linux-perf all"
+    )]
+    pub linux_perf: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Math & Science",
+        value_name = "QUERY",
+        help = "Database migration reference — offline replacement for Flyway/Liquibase/Atlas docs. Topics: concepts, flyway, liquibase, atlas, patterns, rollback. Aliases: schema-migration, flyway-migrate, flyway-cli, liquibase-changeset, atlas-schema, zero-downtime-migration, expand-contract, concurrent-index, migration-rollback, transactional-ddl, and more. Examples: hematite --db-migrations flyway | hematite --db-migrations patterns | hematite --db-migrations all"
+    )]
+    pub db_migrations: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Math & Science",
+        value_name = "QUERY",
+        help = "OAuth 2.0 and OIDC reference — offline replacement for oauth.net docs. Topics: flows, tokens, oidc, security, providers, jwt. Aliases: authorization-code, pkce, client-credentials, refresh-token-flow, access-token, id-token, jwt-verification, openid-connect, oidc-scopes, discovery-endpoint, auth0, okta, azure-ad, jsonwebtoken, rs256, and more. Examples: hematite --oauth-ref flows | hematite --oauth-ref tokens | hematite --oauth-ref all"
+    )]
+    pub oauth_ref: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Math & Science",
+        value_name = "QUERY",
+        help = "Kubernetes security reference — offline replacement for k8s security docs. Topics: rbac, netpol, podsec, secrets, supply, audit. Aliases: kubernetes-rbac, rolebinding, serviceaccount-rbac, network-policy, default-deny, pod-security-standards, security-context, runasnonroot, encryption-at-rest, external-secrets, vault-agent, image-signing, cosign, falco, kube-bench, and more. Examples: hematite --k8s-security rbac | hematite --k8s-security podsec | hematite --k8s-security all"
+    )]
+    pub k8s_security: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Math & Science",
+        value_name = "QUERY",
         help = "Lorem ipsum generator — offline replacement for lipsum.com. Commands: (bare) or <N> = N paragraphs (default 1); words <N> = N words; sentences <N> = N sentences. Examples: hematite --lorem | hematite --lorem 3 | hematite --lorem 'words 50' | hematite --lorem 'sentences 5'"
     )]
     pub lorem: Option<String>,

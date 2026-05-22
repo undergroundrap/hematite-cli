@@ -1129,6 +1129,10 @@ mod tests {
             http_security: None,
             grpc_ref: None,
             wasm_runtime: None,
+            linux_perf: None,
+            db_migrations: None,
+            oauth_ref: None,
+            k8s_security: None,
             pdf_extract_helper: None,
             teleported_from: None,
         };

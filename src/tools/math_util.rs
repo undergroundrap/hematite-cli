@@ -52741,3 +52741,1548 @@ pub fn wasm_runtime_calc(query: &str) -> String {
             .join(", ")
     )
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Wave 36: --linux-perf, --db-migrations, --oauth-ref, --k8s-security
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ── linux-perf ───────────────────────────────────────────────────────────────
+
+fn s_lp_perf() -> &'static str {
+    "Linux perf — Performance Analysis Tool
+Install: apt install linux-perf / dnf install perf
+Requires: kernel ≥ 2.6.31; some events need root or paranoia=1.
+
+Record & report:
+  perf stat ./myapp              — counters: cycles, instructions, cache-misses
+  perf stat -e cycles,instructions,cache-misses,page-faults ./myapp
+  perf record ./myapp            — sample CPU (default: cycles, 1kHz)
+  perf record -g ./myapp         — with call-graph (for flamegraphs)
+  perf record -F 99 -g -p PID   — 99 Hz, attach to running process
+  perf report                    — interactive TUI report
+  perf report --stdio            — non-interactive output
+  perf annotate                  — source/ASM annotation (needs debug info)
+  perf top                       — live top-like profiler
+  perf top -p PID                — attach to specific process
+
+Call graph modes:
+  --call-graph fp         — frame pointer (fastest, may be inaccurate)
+  --call-graph dwarf      — DWARF debug info (accurate, larger)
+  --call-graph lbr        — Last Branch Record (Intel; no overhead, shallow)
+
+Flame graph (Brendan Gregg):
+  perf record -F 99 -ag -- sleep 30
+  perf script | stackcollapse-perf.pl | flamegraph.pl > flame.svg
+  git clone https://github.com/brendangregg/FlameGraph
+
+Hardware events:
+  perf list                      — list all available events
+  perf stat -e LLC-load-misses,LLC-store-misses ./app   — cache analysis
+  perf stat -e branch-misses,branch-instructions ./app  — branch predictor
+
+PMU (Performance Monitoring Units):
+  perf stat -e cpu/event=0xc0,umask=0x00/ ./app  — raw PMU events
+  Intel Top-Down: perf stat -M TopdownL1 ./app   — IPC, frontend/backend bound
+
+Memory access patterns:
+  perf mem record ./app          — memory access sampling
+  perf mem report                — latency per access
+  perf c2c record                — cache-to-cache false sharing detection
+  perf c2c report"
+}
+
+fn s_lp_ebpf() -> &'static str {
+    "eBPF — Extended Berkeley Packet Filter
+What: Linux kernel virtual machine for safe user-space programs run in kernel.
+Use cases: tracing, networking, security, observability — without kernel modules.
+
+bcc (BPF Compiler Collection) — Python + C:
+  apt install bpfcc-tools
+  opensnoop-bpfcc         — trace open() syscalls
+  execsnoop-bpfcc         — trace exec() calls
+  tcpconnect-bpfcc        — trace TCP connections
+  funccount-bpfcc 'vfs_*' — count VFS function calls
+  trace-bpfcc 'p::do_sys_open \"filename: %s\", arg2' — trace with format
+  biolatency-bpfcc        — block I/O latency histogram
+  runqlat-bpfcc           — CPU run queue latency
+  profile-bpfcc           — CPU profiling via sampling
+  profile-bpfcc -F 99 30  — 99 Hz sample for 30 seconds
+
+bpftrace — awk-like eBPF scripting:
+  apt install bpftrace
+  bpftrace -e 'tracepoint:syscalls:sys_enter_open { printf(\"%s %s\\n\", comm, str(args->filename)); }'
+  bpftrace -e 'kprobe:do_sys_open { @[comm] = count(); }'
+  bpftrace -e 'profile:hz:99 { @[kstack] = count(); }'   — CPU flame data
+  bpftrace -e 'tracepoint:block:block_rq_issue { @bytes = hist(args->bytes); }'
+  bpftrace -l 'tracepoint:syscalls:*'    — list available tracepoints
+  bpftrace -l 'kprobe:*tcp*'            — list TCP kprobes
+
+Cilium eBPF (Go library):
+  High-level Go API for eBPF programs without CGo.
+
+Libbpf + CO-RE (portable eBPF):
+  BTF (BPF Type Format): type info embedded in kernel; programs portable across versions.
+  CO-RE: Compile Once, Run Everywhere — relocations at load time.
+
+Key eBPF program types:
+  kprobe/kretprobe  — kernel function entry/exit
+  tracepoint        — static kernel tracepoints (stable ABI)
+  uprobe/uretprobe  — user-space function entry/exit
+  XDP               — eXpress Data Path (packet processing at driver)
+  tc                — traffic control (socket-level)
+  LSM               — Linux Security Module hooks
+  perf_event        — PMU sampling
+
+Maps (shared state kernel↔user):
+  BPF_MAP_TYPE_HASH, BPF_MAP_TYPE_ARRAY
+  BPF_MAP_TYPE_PERF_EVENT_ARRAY, BPF_MAP_TYPE_RING_BUF
+  BPF_MAP_TYPE_LRU_HASH, BPF_MAP_TYPE_PERCPU_ARRAY"
+}
+
+fn s_lp_ftrace() -> &'static str {
+    "ftrace — Linux Kernel Function Tracer
+Location: /sys/kernel/debug/tracing/
+Mount: mount -t tracefs nodev /sys/kernel/debug/tracing
+
+Basic tracing:
+  echo function > current_tracer          — trace all kernel functions
+  echo 1 > tracing_on                    — enable tracing
+  echo 0 > tracing_on                    — disable
+  cat trace                              — read trace buffer
+  cat trace_pipe                         — stream live (consumer)
+
+Function graph tracer (call tree with timing):
+  echo function_graph > current_tracer
+  echo do_sys_open > set_graph_function  — trace specific function subtree
+
+Available tracers:
+  cat available_tracers                  — nop, function, function_graph, blk, mmiotrace, hwlat
+
+Filter functions:
+  echo vfs_read > set_ftrace_filter      — only trace vfs_read
+  echo '*tcp*' > set_ftrace_filter       — glob matching
+  cat available_filter_functions | grep tcp
+
+Tracepoints:
+  echo 1 > events/syscalls/sys_enter_read/enable
+  echo 1 > events/net/net_dev_queue/enable
+  echo 0 > events/enable                 — disable all events
+
+Filtering by PID:
+  echo PID > set_ftrace_pid              — trace only this PID
+  echo > set_ftrace_pid                  — clear filter
+
+trace-cmd (ftrace frontend):
+  apt install trace-cmd
+  trace-cmd record -p function_graph -g do_sys_open ./app
+  trace-cmd report
+  trace-cmd start -e syscalls           — start event tracing
+  trace-cmd stop; trace-cmd show
+
+KernelShark: GUI for trace-cmd output.
+
+perf-ftrace:
+  perf ftrace -t function -p PID        — function tracer via perf
+  perf ftrace latency -T do_sys_open    — max latency between events"
+}
+
+fn s_lp_flamegraph() -> &'static str {
+    "Flame Graphs & Visualization
+Brendan Gregg's FlameGraph scripts:
+  git clone https://github.com/brendangregg/FlameGraph
+  cd FlameGraph
+
+CPU flame graph (perf):
+  perf record -F 99 -ag -- sleep 30
+  perf script > out.perf
+  ./stackcollapse-perf.pl out.perf > out.folded
+  ./flamegraph.pl out.folded > cpu-flame.svg
+
+CPU flame graph (bpftrace):
+  bpftrace -e 'profile:hz:99 { @[kstack, ustack, comm] = count(); }' > out.bpftrace
+  ./stackcollapse-bpftrace.pl out.bpftrace > out.folded
+  ./flamegraph.pl out.folded > cpu-flame.svg
+
+Off-CPU flame graph (blocking time):
+  bpftrace -e 'tracepoint:sched:sched_switch { if (args->prev_state != TASK_RUNNING) {
+    @[kstack] = sum(nsecs); } }' > offcpu.bt
+  (or use offcputime-bpfcc)
+
+Differential flame graphs (before vs after):
+  ./difffolded.pl before.folded after.folded | ./flamegraph.pl > diff.svg
+  Red = regression; blue = improvement
+
+Memory flame graphs:
+  valgrind --tool=massif --pages-as-heap=yes ./app
+  ms_print massif.out.* | head -100
+
+Async Profiler (JVM):
+  apt install async-profiler / download from github.com/async-profiler/async-profiler
+  asprof -d 30 -f profile.html PID       — alloc/cpu/lock profiling
+  asprof -e alloc -d 30 -f alloc.html PID — allocation flame graph
+
+Hotspot legend:
+  Wide frames = most time (hot path)
+  Tall frames = deep call stacks
+  Plateaus = loops (no deeper calls)
+
+Inferno (Rust flamegraph):
+  cargo install inferno
+  perf script | inferno-collapse-perf | inferno-flamegraph > flame.svg
+  cargo flamegraph --bin mybin          — automated via cargo-flamegraph"
+}
+
+fn s_lp_memory() -> &'static str {
+    "Linux Memory Analysis
+/proc virtual files:
+  /proc/meminfo             — system-wide memory stats
+  /proc/PID/smaps           — per-VMA memory maps with RSS, PSS, swap
+  /proc/PID/maps            — virtual memory areas
+  /proc/PID/status          — VmRSS, VmSize, VmPeak per process
+
+Commands:
+  free -h                   — RAM + swap summary
+  vmstat 1                  — per-second memory/swap/IO/CPU stats
+  vmstat -s                 — memory event counters
+  slabtop                   — kernel slab allocator usage
+  cat /proc/slabinfo        — raw slab data
+
+Page fault analysis:
+  perf stat -e page-faults,minor-faults,major-faults ./app
+  sar -B 1                  — page-in/page-out rates (sysstat)
+
+Memory leak detection:
+  valgrind --leak-check=full ./app
+  AddressSanitizer (ASan): -fsanitize=address (Rust: RUSTFLAGS=-Zsanitizer=address)
+  Heaptrack: heaptrack ./app; heaptrack_gui heaptrack.app.PID.gz
+  memleak-bpfcc             — eBPF-based leak tracer (no recompile needed)
+
+NUMA topology:
+  numactl --hardware         — NUMA node layout
+  numastat -p PID            — per-NUMA-node allocation for process
+  perf stat -e node-load-misses,node-store-misses ./app
+
+Huge Pages:
+  cat /proc/meminfo | grep Huge
+  echo 128 > /proc/sys/vm/nr_hugepages  — allocate 128 x 2MB huge pages
+  mmap with MAP_HUGETLB or use libhugetlbfs
+
+Swap analysis:
+  swapon -s                  — swap partitions/files
+  vmstat -s | grep swap      — swap in/out events
+  smem -r -p | head          — proportional set size per process"
+}
+
+fn s_lp_syscall() -> &'static str {
+    "System Call Tracing & Analysis
+strace — trace syscalls:
+  strace ./app                   — trace all syscalls
+  strace -p PID                  — attach to running process
+  strace -e trace=network ./app  — only network syscalls
+  strace -e trace=file ./app     — file-related syscalls
+  strace -e trace=open,read,write,close ./app
+  strace -c ./app                — summary table: count, errors, time
+  strace -T ./app                — show time spent in each syscall
+  strace -tt ./app               — absolute timestamps
+  strace -f ./app                — follow forks
+  strace -o output.txt ./app     — write to file
+
+ltrace — trace library calls:
+  ltrace ./app
+  ltrace -e malloc+free ./app    — only malloc/free
+
+Syscall categories:
+  trace=file: open, read, write, close, stat, lstat, access, unlink, rename
+  trace=network: socket, connect, bind, listen, accept, send, recv
+  trace=process: fork, clone, execve, wait4, exit
+  trace=memory: mmap, mprotect, madvise, brk
+  trace=ipc: pipe, socketpair, semget, msgget, shmget
+  trace=signal: kill, sigaction, sigprocmask, rt_sigreturn
+
+ausyscall — map syscall numbers to names:
+  ausyscall --dump             — dump all syscall names/numbers
+  ausyscall openat             — print number for openat
+
+seccomp — syscall filtering (security):
+  seccomp-bpf: attach BPF filter to process; whitelist/blacklist syscalls
+  libseccomp: C library for building filters
+  Docker default: uses seccomp profile to block dangerous syscalls (keyctl, etc.)
+  strace -e seccomp ./app   — trace seccomp calls"
+}
+
+type LinuxPerfSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+const LINUX_PERF_SECTIONS: &[LinuxPerfSection] = &[
+    (
+        "perf",
+        &[
+            "perf-tool",
+            "perf-stat",
+            "perf-record",
+            "perf-report",
+            "perf-annotate",
+            "perf-top",
+            "perf-flamegraph",
+            "hardware-counters",
+            "pmu-events",
+            "cpu-profiling",
+        ],
+        s_lp_perf,
+    ),
+    (
+        "ebpf",
+        &[
+            "bpf",
+            "bpftrace",
+            "bcc-tools",
+            "opensnoop",
+            "execsnoop",
+            "tcpconnect",
+            "biolatency",
+            "runqlat",
+            "kprobe",
+            "uprobe",
+            "xdp-ebpf",
+            "tracepoint-ebpf",
+            "ebpf-maps",
+            "libbpf",
+            "co-re",
+        ],
+        s_lp_ebpf,
+    ),
+    (
+        "ftrace",
+        &[
+            "kernel-tracer",
+            "function-tracer",
+            "function-graph",
+            "trace-cmd",
+            "tracepoints",
+            "kernelshark",
+            "set-ftrace-filter",
+            "ftrace-pid",
+        ],
+        s_lp_ftrace,
+    ),
+    (
+        "flamegraph",
+        &[
+            "flame-graph",
+            "brendan-gregg",
+            "stackcollapse",
+            "differential-flamegraph",
+            "off-cpu",
+            "async-profiler",
+            "inferno-flamegraph",
+            "cargo-flamegraph",
+            "jvm-profiling",
+        ],
+        s_lp_flamegraph,
+    ),
+    (
+        "memory",
+        &[
+            "memory-analysis",
+            "proc-meminfo",
+            "smaps",
+            "valgrind",
+            "heaptrack",
+            "address-sanitizer",
+            "asan-rust",
+            "numa-analysis",
+            "huge-pages",
+            "swap-analysis",
+            "memleak",
+        ],
+        s_lp_memory,
+    ),
+    (
+        "syscall",
+        &[
+            "syscall-tracing",
+            "strace",
+            "ltrace",
+            "strace-summary",
+            "strace-network",
+            "strace-file",
+            "ausyscall",
+            "seccomp-bpf",
+            "libseccomp",
+            "ptrace",
+        ],
+        s_lp_syscall,
+    ),
+];
+
+pub fn linux_perf_calc(query: &str) -> String {
+    let q = query.trim().to_lowercase();
+    if q.is_empty() || q == "list" || q == "help" {
+        let topics: Vec<&str> = LINUX_PERF_SECTIONS.iter().map(|(n, _, _)| *n).collect();
+        return format!(
+            "linux-perf topics: {}\nUse: --linux-perf <topic>  or  --linux-perf all",
+            topics.join(", ")
+        );
+    }
+    if q == "all" {
+        return LINUX_PERF_SECTIONS
+            .iter()
+            .map(|(n, _, f)| format!("── {} ──\n{}", n, f()))
+            .collect::<Vec<_>>()
+            .join("\n\n");
+    }
+    for (name, aliases, func) in LINUX_PERF_SECTIONS {
+        if q == *name || aliases.iter().any(|a| q == *a || q.contains(a)) {
+            return func().to_string();
+        }
+    }
+    format!(
+        "Unknown linux-perf topic: '{}'\nAvailable: {}",
+        query.trim(),
+        LINUX_PERF_SECTIONS
+            .iter()
+            .map(|(n, _, _)| *n)
+            .collect::<Vec<_>>()
+            .join(", ")
+    )
+}
+
+// ── db-migrations ────────────────────────────────────────────────────────────
+
+fn s_dbm_concepts() -> &'static str {
+    "Database Migrations — Core Concepts
+Why migrations:
+  Version-control your database schema alongside application code.
+  Enable reproducible, automated deployment across environments.
+  Provide rollback path for schema changes.
+
+Migration approaches:
+  Versioned (sequential): V1__create_users.sql, V2__add_email.sql
+    Pros: clear history, ordered execution
+    Cons: conflicts in team branches, hard to rename without renumbering
+  State-based (declarative): define desired schema; tool diffs and generates
+    Pros: merge-friendly; e.g. Flyway Teams, Atlas, sqitch declarative mode
+    Cons: tool must understand all DDL constructs
+
+Migration file naming (Flyway convention):
+  Versioned:  V{version}__{description}.sql    e.g. V3__add_user_index.sql
+  Repeatable: R__{description}.sql             e.g. R__refresh_view.sql
+  Undo:       U{version}__{description}.sql    e.g. U3__add_user_index.sql (Teams)
+
+Safe schema change patterns (online DDL):
+  Add nullable column: safe, instant on most DBs (no lock)
+  Add column with default: safe in PostgreSQL 11+ (stored default); unsafe in older
+  Add NOT NULL column: add nullable → backfill → add constraint → set NOT NULL
+  Rename column: add new column → backfill → update app → drop old
+  Rename table: create new → copy data → update references → drop old
+  Add index: CREATE INDEX CONCURRENTLY (PostgreSQL); avoid table lock
+  Drop column: remove from app code first → deploy → then drop in migration
+
+Expand-contract (parallel change):
+  Phase 1 (expand): add new column/table alongside old
+  Phase 2: migrate data, update app to use new schema
+  Phase 3 (contract): remove old column/table after all app instances updated
+  Needed for zero-downtime deployments with rolling restarts."
+}
+
+fn s_dbm_flyway() -> &'static str {
+    "Flyway — Java-based Migration Tool
+Install: brew install flyway / docker run flyway/flyway / Maven/Gradle plugin
+
+CLI usage:
+  flyway -url=jdbc:postgresql://host/db -user=user -password=pass migrate
+  flyway info          — list migrations and their status
+  flyway migrate       — apply pending migrations
+  flyway validate      — check migration checksums match DB history
+  flyway repair        — fix failed migrations (manual intervention marker)
+  flyway clean         — drop all objects in schema (NEVER in prod)
+  flyway baseline      — mark existing DB at version N (for adopting Flyway)
+  flyway undo          — undo last migration (Teams edition)
+
+Configuration (flyway.conf):
+  flyway.url=jdbc:postgresql://localhost:5432/mydb
+  flyway.user=myuser
+  flyway.password=mypassword
+  flyway.locations=filesystem:db/migrations,classpath:db/migrations
+  flyway.baselineOnMigrate=true
+  flyway.outOfOrder=false
+
+Versioning strategies:
+  Sequential integers:   V1, V2, V3 — simple, merge conflicts in branches
+  Timestamps:            V20240115120000 — avoids merge conflicts
+  Mixed:                 V1.2.3 — semver alignment
+
+flyway_schema_history table:
+  installed_rank, version, description, type, script, checksum, installed_by, success
+
+Java / Spring Boot:
+  spring.flyway.enabled=true
+  spring.flyway.locations=classpath:db/migration
+  Runs automatically at startup; blocks start if pending migrations exist.
+
+Gradle:
+  id 'org.flywaydb.flyway' version '10.x'
+  flyway { url = '...'; user = '...'; password = '...' }
+  ./gradlew flywayMigrate"
+}
+
+fn s_dbm_liquibase() -> &'static str {
+    "Liquibase — XML/YAML/JSON/SQL Migration Tool
+Install: brew install liquibase / docker pull liquibase/liquibase
+
+Changelog formats (master changelog):
+  XML:  <databaseChangeLog xmlns=\"...\"> <include file=\"v1/create_users.xml\"/> </databaseChangeLog>
+  YAML: databaseChangeLog: - include: { file: v1/create_users.yaml }
+  SQL:  --liquibase formatted sql; --changeset author:id
+
+Changeset (SQL format):
+  --liquibase formatted sql
+  --changeset alice:1
+  CREATE TABLE users (id SERIAL PRIMARY KEY, email VARCHAR(255) NOT NULL);
+  --rollback DROP TABLE users;
+
+  --changeset alice:2
+  ALTER TABLE users ADD COLUMN created_at TIMESTAMPTZ DEFAULT NOW();
+  --rollback ALTER TABLE users DROP COLUMN created_at;
+
+CLI usage:
+  liquibase --url=jdbc:postgresql://host/db --username=user --password=pass update
+  liquibase status          — list pending changesets
+  liquibase updateCount 3   — apply next 3 changesets
+  liquibase rollback --tag v1.0   — rollback to tag
+  liquibase rollbackCount 2       — rollback last 2 changesets
+  liquibase generateChangeLog     — reverse-engineer existing DB
+  liquibase diff                  — compare two databases
+  liquibase tag v1.0              — tag current state
+
+databasechangelog table:
+  id, author, filename, dateexecuted, orderexecuted, md5sum, description, tag, liquibase
+
+Context and labels:
+  --contexts production              — only run changesets labeled production
+  --labels hotfix                    — subset of changesets
+  changeset context=\"test\" — only run in test environment
+
+Preconditions:
+  <preConditions onFail=\"HALT\"> <tableExists tableName=\"users\"/> </preConditions>"
+}
+
+fn s_dbm_atlas() -> &'static str {
+    "Atlas — Modern Database Schema Tool
+Install: brew install ariga/tap/atlas / curl -sSf https://atlasgo.sh | sh
+
+Inspect existing schema:
+  atlas schema inspect -u \"postgres://user:pass@localhost:5432/mydb\" > schema.hcl
+  atlas schema inspect --format '{{ json . }}' -u \"postgres://...\"
+
+Apply schema changes:
+  atlas schema apply -u \"postgres://...\" --to file://schema.hcl
+  atlas schema apply --dry-run              — preview SQL without applying
+
+Migrate workflow (versioned):
+  atlas migrate diff --to file://schema.hcl --dir file://migrations  — generate migration
+  atlas migrate apply -u \"postgres://...\"                           — apply pending
+  atlas migrate lint --dir file://migrations                         — check for issues
+  atlas migrate validate --dir file://migrations                     — validate files
+  atlas migrate status -u \"postgres://...\"                         — show status
+
+HCL schema definition:
+  table \"users\" {
+    schema = schema.public
+    column \"id\" { type = int; identity {} }
+    column \"email\" { type = varchar(255); null = false }
+    primary_key { columns = [column.id] }
+    index \"idx_email\" { columns = [column.email]; unique = true }
+  }
+
+Supported databases: PostgreSQL, MySQL/MariaDB, SQLite, MariaDB, SQL Server, ClickHouse, Redshift
+Cloud: Atlas Cloud — schema CI/CD, schema registry, drift detection
+
+Terraform provider:
+  provider \"atlas\" {}
+  resource \"atlas_migration\" \"app\" { url = \"...\"; dir = \"migrations/\" }
+
+GitHub Actions:
+  - uses: ariga/setup-atlas@v0
+  - run: atlas migrate lint --dir file://migrations --dev-url $DEV_URL"
+}
+
+fn s_dbm_patterns() -> &'static str {
+    "DB Migration Patterns & Best Practices
+Zero-downtime migrations:
+  Never lock tables in production during peak traffic.
+  Add nullable column → always safe (instant metadata change in modern DBs).
+  Add index: PostgreSQL: CREATE INDEX CONCURRENTLY; MySQL: online DDL (InnoDB).
+  Rename: always use expand-contract over in-place rename.
+  Foreign keys: add with NOT VALID → VALIDATE CONSTRAINT later.
+    ALTER TABLE orders ADD CONSTRAINT fk_user FOREIGN KEY (user_id) REFERENCES users(id) NOT VALID;
+    ALTER TABLE orders VALIDATE CONSTRAINT fk_user;  -- runs online, row-by-row
+
+Backfill strategy:
+  Update in batches to avoid long locks and replication lag:
+  UPDATE users SET verified=false WHERE id BETWEEN 1 AND 10000 AND verified IS NULL;
+  Use pg_sleep(0.05) between batches to throttle.
+
+Data migration vs schema migration:
+  Separate: schema migrations (DDL) in migration tool; data transforms in application code or separate script.
+  Data migrations in migration tool: risk of long-running transactions; test with EXPLAIN ANALYZE.
+
+Multi-step NOT NULL addition (PostgreSQL):
+  1. ALTER TABLE t ADD COLUMN c INT DEFAULT 0;       -- instant (stored default pg11+)
+  2. -- backfill any rows not yet set (if pre-pg11 or custom logic)
+  3. ALTER TABLE t ALTER COLUMN c SET NOT NULL;       -- instant once all rows filled
+
+Testing migrations:
+  Integration test: apply all migrations to a fresh DB; run app tests.
+  Rollback test: apply migration → rollback → re-apply.
+  CI: spin up DB container, run migrations, run tests, tear down.
+
+Squashing migrations:
+  Periodically squash old migrations into a baseline for new environments.
+  Keep original history in a legacy/ folder for audit trail.
+  Flyway: use baseline; Liquibase: use generateChangeLog from current state.
+
+Schema drift detection:
+  Atlas drift: atlas schema diff between live DB and HCL definition.
+  Liquibase: liquibase diff against a reference DB.
+  Alert if live schema diverges from migration history (ops safety net)."
+}
+
+fn s_dbm_rollback() -> &'static str {
+    "DB Migration Rollback Strategies
+Automated rollback (tool-native):
+  Flyway (Community): no undo; must write down migration manually.
+  Flyway (Teams): U{version} undo scripts; flyway undo.
+  Liquibase: --rollback in each changeset; rollback, rollbackCount, rollbackToDate.
+  Atlas: atlas schema apply reverts to previous HCL state.
+
+Manual rollback approach:
+  Write paired V{n}_down.sql for every V{n}_up.sql — stored in repo.
+  On incident: psql -f V5_down.sql; psql -f V4_down.sql (in order).
+  Automate: Makefile target: make rollback VERSION=4.
+
+Blue-green deployment (no migration risk):
+  Run two identical DB instances; migrate only on green.
+  Cut traffic over when green is validated; keep blue as rollback.
+  Limitation: schema must be backward-compatible during cutover.
+
+Feature flags + schema:
+  Keep old column during transition; flag decides which code path runs.
+  Roll out schema change → enable flag → validate → remove old schema.
+
+Snapshot-based rollback:
+  Take DB snapshot before migration: pg_dump or cloud snapshot.
+  Restore on failure — fast but causes data loss for writes during migration.
+  Only acceptable for offline migrations or low-write windows.
+
+PostgreSQL transaction DDL:
+  BEGIN;
+  ALTER TABLE users ADD COLUMN nickname VARCHAR(100);
+  -- run app tests against this transaction
+  ROLLBACK;   -- or COMMIT
+  DDL inside transactions works in PostgreSQL (not MySQL).
+  Wrap migration in transaction; any error causes full rollback.
+
+Git tagging for rollback point:
+  Tag both app code and migration state together: git tag v1.5.0-pre-migration.
+  Rollback = revert app code to tag + apply DB down scripts."
+}
+
+type DbMigrationsSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+const DB_MIGRATIONS_SECTIONS: &[DbMigrationsSection] = &[
+    (
+        "concepts",
+        &[
+            "migration-concepts",
+            "schema-migration",
+            "versioned-migration",
+            "expand-contract",
+            "online-ddl",
+            "zero-downtime-migration",
+            "safe-schema-changes",
+            "migration-patterns",
+        ],
+        s_dbm_concepts,
+    ),
+    (
+        "flyway",
+        &[
+            "flyway-migrate",
+            "flyway-cli",
+            "flyway-config",
+            "flyway-history",
+            "flyway-baseline",
+            "flyway-repair",
+            "flyway-validate",
+            "spring-flyway",
+        ],
+        s_dbm_flyway,
+    ),
+    (
+        "liquibase",
+        &[
+            "liquibase-migrate",
+            "liquibase-changeset",
+            "liquibase-changelog",
+            "liquibase-rollback",
+            "liquibase-tag",
+            "liquibase-context",
+            "liquibase-diff",
+            "liquibase-sql",
+        ],
+        s_dbm_liquibase,
+    ),
+    (
+        "atlas",
+        &[
+            "atlas-migrate",
+            "atlas-schema",
+            "atlas-inspect",
+            "atlas-apply",
+            "atlas-hcl",
+            "atlas-lint",
+            "atlas-drift",
+            "atlas-terraform",
+            "atlas-cloud",
+        ],
+        s_dbm_atlas,
+    ),
+    (
+        "patterns",
+        &[
+            "migration-best-practices",
+            "backfill-strategy",
+            "concurrent-index",
+            "not-null-migration",
+            "foreign-key-migration",
+            "data-migration",
+            "squash-migrations",
+            "schema-drift",
+        ],
+        s_dbm_patterns,
+    ),
+    (
+        "rollback",
+        &[
+            "migration-rollback",
+            "undo-migration",
+            "flyway-undo",
+            "liquibase-rollback-strategy",
+            "blue-green-migration",
+            "snapshot-rollback",
+            "transactional-ddl",
+            "feature-flag-migration",
+        ],
+        s_dbm_rollback,
+    ),
+];
+
+pub fn db_migrations_calc(query: &str) -> String {
+    let q = query.trim().to_lowercase();
+    if q.is_empty() || q == "list" || q == "help" {
+        let topics: Vec<&str> = DB_MIGRATIONS_SECTIONS.iter().map(|(n, _, _)| *n).collect();
+        return format!(
+            "db-migrations topics: {}\nUse: --db-migrations <topic>  or  --db-migrations all",
+            topics.join(", ")
+        );
+    }
+    if q == "all" {
+        return DB_MIGRATIONS_SECTIONS
+            .iter()
+            .map(|(n, _, f)| format!("── {} ──\n{}", n, f()))
+            .collect::<Vec<_>>()
+            .join("\n\n");
+    }
+    for (name, aliases, func) in DB_MIGRATIONS_SECTIONS {
+        if q == *name || aliases.iter().any(|a| q == *a || q.contains(a)) {
+            return func().to_string();
+        }
+    }
+    format!(
+        "Unknown db-migrations topic: '{}'\nAvailable: {}",
+        query.trim(),
+        DB_MIGRATIONS_SECTIONS
+            .iter()
+            .map(|(n, _, _)| *n)
+            .collect::<Vec<_>>()
+            .join(", ")
+    )
+}
+
+// ── oauth-ref ─────────────────────────────────────────────────────────────────
+
+fn s_oauth_flows() -> &'static str {
+    "OAuth 2.0 Flows (Grant Types)
+Authorization Code (recommended for web apps):
+  1. App redirects to /authorize?response_type=code&client_id=...&redirect_uri=...&scope=...&state=...
+  2. User authenticates and consents.
+  3. Auth server redirects to redirect_uri?code=AUTH_CODE&state=...
+  4. App POSTs to /token: grant_type=authorization_code&code=AUTH_CODE&redirect_uri=...&client_id=...&client_secret=...
+  5. Server returns access_token, refresh_token, expires_in.
+  Use PKCE for public clients (SPAs, mobile).
+
+PKCE (Proof Key for Code Exchange — RFC 7636):
+  code_verifier: random 43-128 char string (URL-safe base64)
+  code_challenge: BASE64URL(SHA256(code_verifier))
+  Add to authorize: &code_challenge=...&code_challenge_method=S256
+  Include in token request: &code_verifier=...
+  Prevents authorization code interception.
+
+Client Credentials (machine-to-machine):
+  POST /token: grant_type=client_credentials&client_id=...&client_secret=...&scope=...
+  No user; service-to-service authentication.
+  Returns access_token (no refresh_token).
+
+Implicit (DEPRECATED):
+  Tokens returned in URL fragment — insecure in modern browsers.
+  Replace with Authorization Code + PKCE.
+
+Resource Owner Password Credentials (DEPRECATED for public use):
+  POST /token: grant_type=password&username=...&password=...&client_id=...
+  Only for trusted first-party apps; migrating legacy systems.
+
+Device Authorization (TV/CLI):
+  POST /device_authorization → device_code, user_code, verification_uri
+  User visits verification_uri and enters user_code on separate device.
+  App polls /token with device_code until user approves or timeout.
+
+Refresh Token:
+  POST /token: grant_type=refresh_token&refresh_token=...&client_id=...&client_secret=...
+  Returns new access_token (and possibly new refresh_token — rotate on use).
+  Refresh token rotation: invalidate old refresh token on every use."
+}
+
+fn s_oauth_tokens() -> &'static str {
+    "OAuth 2.0 & OIDC Tokens
+Access Token:
+  Short-lived (15min–1hr typical). Proves authorization.
+  Opaque (server looks up in DB) or JWT (self-contained, verified locally).
+  Sent as: Authorization: Bearer <token>
+
+Refresh Token:
+  Long-lived (days–months). Used to get new access tokens.
+  Must be stored securely (httpOnly cookie or secure storage, never localStorage).
+  Rotate on every use (RFC 6819 security best practice).
+  Revoke on logout, password change, suspicious activity.
+
+ID Token (OIDC):
+  JWT containing claims about the authenticated user.
+  Audience: must be your client_id.
+  Issued by: iss claim must match provider URL.
+  Must verify: signature, iss, aud, exp, nonce (if sent).
+
+JWT structure (base64url encoded, dot-separated):
+  Header.Payload.Signature
+  Header: { \"alg\": \"RS256\", \"kid\": \"key-id\", \"typ\": \"JWT\" }
+  Payload: { \"sub\": \"user123\", \"iss\": \"https://auth.example.com\", \"aud\": \"client_id\",
+             \"exp\": 1700000000, \"iat\": 1699990000, \"jti\": \"unique-id\" }
+  Signature: RSA-SHA256(base64url(header) + '.' + base64url(payload), private_key)
+
+JWT verification steps:
+  1. Decode header — get alg and kid.
+  2. Fetch JWKS from /.well-known/jwks.json (cache with TTL).
+  3. Find matching key by kid.
+  4. Verify signature.
+  5. Check exp > now.
+  6. Check iss matches expected issuer.
+  7. Check aud contains your client_id.
+  8. Check nonce if used (OIDC).
+
+Token introspection (RFC 7662):
+  POST /introspect with token — server returns active: true/false + claims.
+  Used for opaque tokens or when freshness is critical.
+
+Token revocation (RFC 7009):
+  POST /revoke with token + token_type_hint (access_token or refresh_token)."
+}
+
+fn s_oauth_oidc() -> &'static str {
+    "OpenID Connect (OIDC) — Authentication on top of OAuth 2.0
+Purpose: OAuth 2.0 handles authorization; OIDC adds authentication (who the user is).
+
+Discovery endpoint:
+  GET /.well-known/openid-configuration
+  Returns: authorization_endpoint, token_endpoint, userinfo_endpoint, jwks_uri, issuer, scopes_supported
+
+Scopes:
+  openid   — required; triggers OIDC and ID token issuance
+  profile  — name, given_name, family_name, picture, locale
+  email    — email, email_verified
+  address  — address claim
+  phone    — phone_number, phone_number_verified
+  offline_access — request refresh token
+
+Standard OIDC claims:
+  sub      — subject identifier (stable, unique per user+issuer)
+  name, given_name, family_name, middle_name, nickname
+  preferred_username, picture, website, email, email_verified
+  gender, birthdate, zoneinfo, locale, phone_number
+  address  — JSON object: formatted, street_address, locality, region, postal_code, country
+  updated_at — seconds since epoch
+
+UserInfo endpoint:
+  GET /userinfo with Authorization: Bearer <access_token>
+  Returns claims based on granted scopes.
+
+Nonce:
+  Random string sent in authorization request; included in ID token nonce claim.
+  Prevents replay attacks — must verify on receipt.
+
+PKCE + OIDC for SPAs (current best practice):
+  Authorization Code flow + PKCE + short-lived access tokens + rotating refresh tokens stored in httpOnly cookie.
+
+Logout:
+  RP-Initiated Logout: GET /logout?id_token_hint=...&post_logout_redirect_uri=...
+  Session management: check_session_iframe for cross-origin session state.
+  Front-channel / back-channel logout for distributed logout."
+}
+
+fn s_oauth_security() -> &'static str {
+    "OAuth 2.0 Security Best Practices (RFC 9700)
+State parameter:
+  Always send random state; verify on redirect.
+  Prevents CSRF against the redirect endpoint.
+
+Redirect URI validation:
+  Register exact URIs — no wildcards in production.
+  Validate strict equality (not prefix or regex) on authorization server.
+  Open redirect via redirect_uri is a critical vulnerability.
+
+PKCE:
+  Mandatory for public clients (SPAs, native apps).
+  Recommended for confidential clients too (defense in depth).
+  Use S256 only; never plain.
+
+Token storage:
+  Access tokens: memory only for SPAs (not localStorage — XSS risk).
+  Refresh tokens: httpOnly Secure SameSite=Strict cookie (XSS-resistant).
+  Native apps: OS keychain / secure storage.
+
+Token leakage:
+  Never log tokens.
+  Never include tokens in URLs (end up in server logs, Referer header, history).
+  Always use Authorization header.
+
+Mix-up attacks:
+  Attacker tricks client into sending code to wrong token endpoint.
+  Mitigation: verify iss in authorization response; use metadata endpoint.
+
+Token binding (future):
+  Bind token to TLS channel or DPoP (Demonstrating Proof of Possession — RFC 9449).
+  DPoP: access token bound to client's public key; server verifies proof.
+  Header: DPoP: <signed-JWT-with-ath-claim>
+
+Client authentication:
+  client_secret_basic: HTTP Basic Auth — simplest.
+  client_secret_post: secret in POST body — avoid if possible.
+  private_key_jwt: client signs JWT with its private key — most secure.
+  mTLS: mutual TLS client certificate (RFC 8705) — best for M2M.
+
+Scope minimization:
+  Request only scopes needed for the current action.
+  Never request offline_access unless refresh is required."
+}
+
+fn s_oauth_providers() -> &'static str {
+    "OAuth 2.0 / OIDC Provider Reference
+Auth0:
+  Discovery: https://{tenant}.auth0.com/.well-known/openid-configuration
+  npm: @auth0/auth0-react, @auth0/auth0-spa-js, auth0 (Node.js)
+  Token endpoint: https://{tenant}.auth0.com/oauth/token
+
+Okta:
+  Discovery: https://{tenant}.okta.com/oauth2/default/.well-known/openid-configuration
+  SDK: @okta/okta-react, @okta/okta-auth-js
+  PKCE SPA: OktaAuth({ issuer, clientId, redirectUri, scopes: ['openid', 'profile'] })
+
+Microsoft Entra ID (Azure AD):
+  Discovery: https://login.microsoftonline.com/{tenant}/v2.0/.well-known/openid-configuration
+  MSAL: @azure/msal-browser, @azure/msal-react, microsoft-authentication-library
+  Token endpoint: https://login.microsoftonline.com/{tenant}/oauth2/v2.0/token
+  Scopes: openid, profile, email, offline_access, User.Read (MS Graph)
+
+Google:
+  Discovery: https://accounts.google.com/.well-known/openid-configuration
+  Token endpoint: https://oauth2.googleapis.com/token
+  npm: google-auth-library, passport-google-oauth20
+
+Keycloak (self-hosted):
+  Discovery: https://{host}/realms/{realm}/.well-known/openid-configuration
+  Admin API: https://{host}/admin/realms/{realm}/users
+  npm: keycloak-js, @react-keycloak/web
+
+AWS Cognito:
+  Discovery: https://cognito-idp.{region}.amazonaws.com/{pool-id}/.well-known/openid-configuration
+  npm: amazon-cognito-identity-js, @aws-amplify/auth
+
+Passport.js (Node.js middleware):
+  passport-oauth2, passport-openidconnect, passport-google-oauth20
+  app.use(passport.authenticate('google', { scope: ['email', 'profile'] }))
+
+Next-Auth / Auth.js:
+  providers: [ GoogleProvider({clientId, clientSecret}), GithubProvider({...}) ]
+  Works with Next.js, SvelteKit, SolidStart — handles PKCE, CSRF, sessions."
+}
+
+fn s_oauth_jwt() -> &'static str {
+    "JWT Libraries & Implementation
+Node.js (jsonwebtoken):
+  const jwt = require('jsonwebtoken');
+  const token = jwt.sign({ sub: userId, aud: 'myapp' }, secret, { expiresIn: '15m', algorithm: 'HS256' });
+  const payload = jwt.verify(token, secret, { audience: 'myapp' });
+
+Node.js (jose — RSA/EC/Ed25519):
+  import { SignJWT, jwtVerify, createRemoteJWKSet } from 'jose';
+  const jwks = createRemoteJWKSet(new URL('https://auth.example.com/.well-known/jwks.json'));
+  const { payload } = await jwtVerify(token, jwks, { audience: 'myapp', issuer: 'https://auth.example.com' });
+
+Rust (jsonwebtoken):
+  use jsonwebtoken::{encode, decode, Header, Validation, EncodingKey, DecodingKey};
+  let token = encode(&Header::default(), &claims, &EncodingKey::from_secret(secret))?;
+  let data = decode::<Claims>(&token, &DecodingKey::from_secret(secret), &Validation::default())?;
+
+Go (golang-jwt/jwt):
+  token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
+  signed, _ := token.SignedString(privateKey)
+  parsed, _ := jwt.ParseWithClaims(signed, &Claims{}, func(t *jwt.Token) (interface{}, error) { return publicKey, nil })
+
+Python (PyJWT):
+  import jwt
+  token = jwt.encode({'sub': uid, 'exp': datetime.utcnow() + timedelta(minutes=15)}, secret, algorithm='HS256')
+  payload = jwt.decode(token, secret, algorithms=['HS256'], audience='myapp')
+
+Algorithm selection:
+  HS256/HS384/HS512: symmetric HMAC — simple; same key signs and verifies; good for single service.
+  RS256/RS384/RS512: RSA asymmetric — private key signs; public key verifies; good for distributed.
+  ES256/ES384: ECDSA — shorter keys/signatures than RSA; same security level.
+  EdDSA (Ed25519): modern; fast; small signatures; use with jose library.
+
+Never use: alg: none (accept unsigned tokens) — major vulnerability.
+Reject: alg: HS256 when expecting RS256 — algorithm confusion attack."
+}
+
+type OauthRefSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+const OAUTH_REF_SECTIONS: &[OauthRefSection] = &[
+    (
+        "flows",
+        &[
+            "oauth-flows",
+            "authorization-code",
+            "pkce",
+            "client-credentials",
+            "device-flow",
+            "refresh-token-flow",
+            "implicit-deprecated",
+            "password-grant",
+        ],
+        s_oauth_flows,
+    ),
+    (
+        "tokens",
+        &[
+            "oauth-tokens",
+            "access-token",
+            "refresh-token",
+            "id-token",
+            "jwt-structure",
+            "jwt-verification",
+            "token-introspection",
+            "token-revocation",
+            "bearer-token",
+        ],
+        s_oauth_tokens,
+    ),
+    (
+        "oidc",
+        &[
+            "openid-connect",
+            "oidc-scopes",
+            "oidc-claims",
+            "discovery-endpoint",
+            "userinfo-endpoint",
+            "oidc-nonce",
+            "oidc-logout",
+            "oidc-session",
+        ],
+        s_oauth_oidc,
+    ),
+    (
+        "security",
+        &[
+            "oauth-security",
+            "state-parameter",
+            "redirect-uri-validation",
+            "token-storage",
+            "token-leakage",
+            "dpop",
+            "private-key-jwt",
+            "mtls-oauth",
+            "scope-minimization",
+            "mix-up-attack",
+        ],
+        s_oauth_security,
+    ),
+    (
+        "providers",
+        &[
+            "auth0",
+            "okta",
+            "azure-ad",
+            "entra-id",
+            "google-oauth",
+            "keycloak",
+            "aws-cognito",
+            "passport-js",
+            "nextauth",
+            "auth-js",
+        ],
+        s_oauth_providers,
+    ),
+    (
+        "jwt",
+        &[
+            "jwt-libraries",
+            "jsonwebtoken",
+            "jose-library",
+            "rust-jwt",
+            "go-jwt",
+            "python-jwt",
+            "jwt-algorithms",
+            "rs256",
+            "hs256",
+            "es256",
+        ],
+        s_oauth_jwt,
+    ),
+];
+
+pub fn oauth_ref_calc(query: &str) -> String {
+    let q = query.trim().to_lowercase();
+    if q.is_empty() || q == "list" || q == "help" {
+        let topics: Vec<&str> = OAUTH_REF_SECTIONS.iter().map(|(n, _, _)| *n).collect();
+        return format!(
+            "oauth-ref topics: {}\nUse: --oauth-ref <topic>  or  --oauth-ref all",
+            topics.join(", ")
+        );
+    }
+    if q == "all" {
+        return OAUTH_REF_SECTIONS
+            .iter()
+            .map(|(n, _, f)| format!("── {} ──\n{}", n, f()))
+            .collect::<Vec<_>>()
+            .join("\n\n");
+    }
+    for (name, aliases, func) in OAUTH_REF_SECTIONS {
+        if q == *name || aliases.iter().any(|a| q == *a || q.contains(a)) {
+            return func().to_string();
+        }
+    }
+    format!(
+        "Unknown oauth-ref topic: '{}'\nAvailable: {}",
+        query.trim(),
+        OAUTH_REF_SECTIONS
+            .iter()
+            .map(|(n, _, _)| *n)
+            .collect::<Vec<_>>()
+            .join(", ")
+    )
+}
+
+// ── k8s-security ──────────────────────────────────────────────────────────────
+
+fn s_k8ss_rbac() -> &'static str {
+    "Kubernetes RBAC (Role-Based Access Control)
+Core objects:
+  Role           — namespaced; grants permissions within one namespace
+  ClusterRole    — cluster-wide; grants permissions across all namespaces
+  RoleBinding    — binds Role or ClusterRole to subjects in one namespace
+  ClusterRoleBinding — binds ClusterRole to subjects cluster-wide
+
+Subject types:
+  User, Group, ServiceAccount
+
+Role example:
+  apiVersion: rbac.authorization.k8s.io/v1
+  kind: Role
+  metadata: { namespace: default, name: pod-reader }
+  rules:
+  - apiGroups: [\"\"]
+    resources: [\"pods\", \"pods/log\"]
+    verbs: [\"get\", \"list\", \"watch\"]
+
+ClusterRole for read-only:
+  rules:
+  - apiGroups: [\"*\"]
+    resources: [\"*\"]
+    verbs: [\"get\", \"list\", \"watch\"]
+
+RoleBinding example:
+  subjects:
+  - kind: ServiceAccount
+    name: my-app
+    namespace: default
+  roleRef: { kind: Role, name: pod-reader, apiGroup: rbac.authorization.k8s.io }
+
+kubectl RBAC:
+  kubectl create role pod-reader --verb=get,list,watch --resource=pods -n default
+  kubectl create rolebinding my-binding --role=pod-reader --serviceaccount=default:my-app
+  kubectl auth can-i list pods --as system:serviceaccount:default:my-app
+  kubectl auth can-i --list --as system:serviceaccount:default:my-app
+
+Least-privilege ServiceAccount:
+  Create dedicated ServiceAccount per workload.
+  Bind only required Roles — never cluster-admin for workloads.
+  automountServiceAccountToken: false unless token is needed."
+}
+
+fn s_k8ss_netpol() -> &'static str {
+    "Kubernetes Network Policies
+Default behavior: all pods can communicate with all pods (no policies = allow all).
+Requires: CNI plugin that supports NetworkPolicy (Calico, Cilium, Weave Net).
+Flannel alone does NOT enforce NetworkPolicy.
+
+Default deny all ingress:
+  spec:
+    podSelector: {}
+    policyTypes: [Ingress]
+
+Default deny all egress:
+  spec:
+    podSelector: {}
+    policyTypes: [Egress]
+
+Allow only from specific namespace:
+  spec:
+    podSelector: { matchLabels: { app: backend } }
+    ingress:
+    - from:
+      - namespaceSelector: { matchLabels: { name: production } }
+        podSelector: { matchLabels: { app: frontend } }
+
+Allow specific port from specific pod:
+  ingress:
+  - from: [{ podSelector: { matchLabels: { app: frontend } } }]
+    ports: [{ protocol: TCP, port: 8080 }]
+
+Allow DNS egress (essential — often forgotten):
+  egress:
+  - to: []
+    ports: [{ protocol: UDP, port: 53 }, { protocol: TCP, port: 53 }]
+
+Cilium NetworkPolicy (L7):
+  CiliumNetworkPolicy — allows HTTP method/path filtering:
+    toPorts:
+    - ports: [{ port: \"80\", protocol: TCP }]
+      rules:
+        http:
+        - method: GET
+          path: /api/health
+
+Zero-trust approach:
+  1. Apply default-deny-all to all namespaces.
+  2. Add explicit allow rules per workload pair.
+  3. Allow only necessary egress (DNS, specific services).
+  4. Use namespace labels for cross-namespace policies."
+}
+
+fn s_k8ss_podsec() -> &'static str {
+    "Kubernetes Pod Security
+Pod Security Standards (PSS) — built-in since K8s 1.25:
+  Privileged: no restrictions (cluster-infra only)
+  Baseline:   prevents known privilege escalations
+  Restricted: heavily hardened, follows security best practices
+
+Enforce via namespace label:
+  kubectl label namespace myns pod-security.kubernetes.io/enforce=restricted
+  kubectl label namespace myns pod-security.kubernetes.io/warn=restricted
+  kubectl label namespace myns pod-security.kubernetes.io/audit=restricted
+
+Security context (Pod-level):
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 3000
+    fsGroup: 2000
+    seccompProfile: { type: RuntimeDefault }
+
+Security context (Container-level):
+  securityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop: [ALL]
+      add: [NET_BIND_SERVICE]   # only if port < 1024
+    privileged: false
+
+Minimal container hardening checklist:
+  - runAsNonRoot: true
+  - allowPrivilegeEscalation: false
+  - readOnlyRootFilesystem: true
+  - capabilities drop ALL
+  - No hostPID, hostIPC, hostNetwork: true
+  - No hostPath volumes unless necessary
+  - resources.limits set (CPU + memory)
+  - Image pinned to digest (not mutable tag)
+
+Seccomp profiles:
+  RuntimeDefault: use container runtime default (recommended)
+  Localhost: custom profile from /var/lib/kubelet/seccomp/
+  Unconfined: no restrictions (avoid)
+
+AppArmor:
+  annotations:
+    container.apparmor.security.beta.kubernetes.io/mycontainer: runtime/default"
+}
+
+fn s_k8ss_secrets() -> &'static str {
+    "Kubernetes Secrets Management
+Base64 is NOT encryption — Secrets are base64-encoded by default.
+Enable encryption at rest: EncryptionConfig with aescbc or secretbox.
+
+Encrypting secrets at rest:
+  kind: EncryptionConfiguration
+  resources:
+  - resources: [secrets]
+    providers:
+    - aescbc: { keys: [{ name: key1, secret: <32-byte-base64> }] }
+    - identity: {}
+  Set --encryption-provider-config on kube-apiserver.
+
+External secrets managers (recommended for production):
+  External Secrets Operator (ESO): syncs from AWS SSM/Secrets Manager, Vault, GCP SM, Azure Key Vault.
+    kind: ExternalSecret
+    spec:
+      secretStoreRef: { name: vault-backend }
+      data: [{ secretKey: db-password, remoteRef: { key: prod/db, property: password } }]
+  Sealed Secrets (Bitnami): encrypt secrets for git storage; controller decrypts in cluster.
+    kubeseal --cert mycert.pem < secret.yaml > sealed-secret.yaml
+
+Vault + Agent Sidecar:
+  Vault Agent Injector: injects secret file into pod via init container + sidecar.
+  annotations:
+    vault.hashicorp.com/agent-inject: \"true\"
+    vault.hashicorp.com/role: \"my-app\"
+    vault.hashicorp.com/agent-inject-secret-db: \"secret/db\"
+
+Secret best practices:
+  Never commit secrets to git (use .gitignore + pre-commit hooks).
+  Use imagePullSecrets for registry auth, not mounted secrets.
+  Set secretKeyRef in env vars instead of mounting full secret volumes where possible.
+  Rotate secrets regularly; use short-lived tokens (IRSA, Workload Identity).
+  Audit secret access: enable audit logging for secrets resource.
+  RBAC: restrict secret GET/LIST — list allows reading all values in namespace."
+}
+
+fn s_k8ss_supply() -> &'static str {
+    "Kubernetes Supply Chain & Image Security
+Image signing (Sigstore / cosign):
+  cosign sign --key cosign.key myimage:latest
+  cosign verify --key cosign.pub myimage:latest
+  Keyless signing: cosign sign --identity-token (via OIDC, no key needed)
+  Policy enforcement: Kyverno or OPA Gatekeeper verifies signature before admit.
+
+Image scanning:
+  Trivy (most popular):
+    trivy image myimage:latest                — scan for CVEs
+    trivy image --severity CRITICAL,HIGH myimage:latest
+    trivy k8s --report summary cluster        — scan entire cluster
+    trivy fs .                               — scan repo/filesystem
+  Grype: grype myimage:latest
+  Snyk: snyk container test myimage:latest
+  AWS ECR, GCR, ACR: built-in scanning on push.
+
+SBOM (Software Bill of Materials):
+  syft myimage:latest -o cyclonedx-json > sbom.json
+  trivy image --format cyclonedx myimage:latest
+  cosign attach sbom --sbom sbom.json myimage:latest
+
+Admission controllers:
+  OPA Gatekeeper: Rego policies enforced at admission.
+  Kyverno: Kubernetes-native policies (YAML), no Rego needed.
+    kind: ClusterPolicy — validate, mutate, generate, verifyImages
+  Pod Security Admission (built-in): enforces PSS levels (see pod-security).
+
+Image pinning:
+  Use digest instead of tag: myimage@sha256:abc123... — immutable reference.
+  Tags are mutable; digest is not — prevents supply chain substitution.
+
+Runtime security:
+  Falco: eBPF-based runtime threat detection.
+    Rules: detect unexpected syscalls, shell spawned in container, sensitive file access.
+    kubectl exec -it falco-pod -- falco-rules list
+  Seccomp / AppArmor / SELinux: reduce syscall attack surface (see pod-security)."
+}
+
+fn s_k8ss_audit() -> &'static str {
+    "Kubernetes Audit Logging & Compliance
+Audit policy (kube-apiserver --audit-policy-file):
+  apiVersion: audit.k8s.io/v1
+  kind: Policy
+  rules:
+  - level: None
+    resources: [{ group: \"\", resources: [\"events\"] }]
+  - level: RequestResponse
+    resources: [{ group: \"\", resources: [\"secrets\", \"configmaps\"] }]
+  - level: Metadata
+    verbs: [\"create\", \"update\", \"delete\", \"patch\"]
+  - level: None
+    users: [\"system:kube-proxy\"]
+  - level: Request
+    omitStages: [RequestReceived]
+
+Audit levels:
+  None:            do not log
+  Metadata:        log request metadata (user, verb, resource, time) — no body
+  Request:         log metadata + request body
+  RequestResponse: log metadata + request + response bodies
+
+Common compliance rules:
+  Log all secret reads: level: RequestResponse resources: [secrets]
+  Log all RBAC changes: resources: [roles, rolebindings, clusterroles, clusterrolebindings]
+  Log exec/port-forward: subresources: [\"exec\", \"portforward\", \"attach\"]
+
+Forwarding audit logs:
+  --audit-log-path=/var/log/kubernetes/audit.log
+  --audit-log-maxage=30 --audit-log-maxbackup=10 --audit-log-maxsize=100
+  Forward to SIEM: Fluentd/Fluent Bit → Elasticsearch/Splunk/Datadog
+
+CIS Kubernetes Benchmark:
+  kube-bench: automated CIS benchmark check.
+    docker run --rm --network host -v $(pwd):/host aquasec/kube-bench:latest
+  Checks: API server flags, RBAC, pod security, audit logging, network policies, secrets.
+
+Compliance tools:
+  Starboard / Trivy Operator: CIS benchmark + vulnerability reports as CRDs.
+  Polaris: best-practice auditing for deployments.
+  kubeaudit: CLI audit tool — namespace, RBAC, image, securityContext checks."
+}
+
+type K8sSecuritySection = (&'static str, &'static [&'static str], fn() -> &'static str);
+const K8S_SECURITY_SECTIONS: &[K8sSecuritySection] = &[
+    (
+        "rbac",
+        &[
+            "kubernetes-rbac",
+            "k8s-rbac",
+            "role",
+            "clusterrole",
+            "rolebinding",
+            "clusterrolebinding",
+            "serviceaccount-rbac",
+            "least-privilege-k8s",
+            "can-i",
+        ],
+        s_k8ss_rbac,
+    ),
+    (
+        "netpol",
+        &[
+            "network-policy",
+            "kubernetes-network-policy",
+            "default-deny",
+            "ingress-policy",
+            "egress-policy",
+            "cilium-policy",
+            "calico-policy",
+            "zero-trust-k8s",
+            "l7-policy",
+        ],
+        s_k8ss_netpol,
+    ),
+    (
+        "podsec",
+        &[
+            "pod-security",
+            "pod-security-standards",
+            "pss",
+            "security-context",
+            "runasnonroot",
+            "allowprivilegeescalation",
+            "readonlyrootfilesystem",
+            "capabilities-drop",
+            "seccomp-k8s",
+            "apparmor-k8s",
+        ],
+        s_k8ss_podsec,
+    ),
+    (
+        "secrets",
+        &[
+            "k8s-secrets",
+            "kubernetes-secrets",
+            "encryption-at-rest",
+            "external-secrets",
+            "sealed-secrets",
+            "vault-agent",
+            "hashicorp-vault-k8s",
+            "secret-rotation",
+            "irsa",
+            "workload-identity",
+        ],
+        s_k8ss_secrets,
+    ),
+    (
+        "supply",
+        &[
+            "supply-chain-security",
+            "image-signing",
+            "cosign",
+            "sigstore",
+            "image-scanning",
+            "trivy-k8s",
+            "sbom-k8s",
+            "admission-controller",
+            "kyverno",
+            "opa-gatekeeper",
+            "falco",
+            "image-digest",
+        ],
+        s_k8ss_supply,
+    ),
+    (
+        "audit",
+        &[
+            "k8s-audit",
+            "kubernetes-audit",
+            "audit-policy",
+            "audit-levels",
+            "kube-bench",
+            "cis-benchmark",
+            "compliance-k8s",
+            "polaris-k8s",
+            "starboard",
+            "kubeaudit",
+        ],
+        s_k8ss_audit,
+    ),
+];
+
+pub fn k8s_security_calc(query: &str) -> String {
+    let q = query.trim().to_lowercase();
+    if q.is_empty() || q == "list" || q == "help" {
+        let topics: Vec<&str> = K8S_SECURITY_SECTIONS.iter().map(|(n, _, _)| *n).collect();
+        return format!(
+            "k8s-security topics: {}\nUse: --k8s-security <topic>  or  --k8s-security all",
+            topics.join(", ")
+        );
+    }
+    if q == "all" {
+        return K8S_SECURITY_SECTIONS
+            .iter()
+            .map(|(n, _, f)| format!("── {} ──\n{}", n, f()))
+            .collect::<Vec<_>>()
+            .join("\n\n");
+    }
+    for (name, aliases, func) in K8S_SECURITY_SECTIONS {
+        if q == *name || aliases.iter().any(|a| q == *a || q.contains(a)) {
+            return func().to_string();
+        }
+    }
+    format!(
+        "Unknown k8s-security topic: '{}'\nAvailable: {}",
+        query.trim(),
+        K8S_SECURITY_SECTIONS
+            .iter()
+            .map(|(n, _, _)| *n)
+            .collect::<Vec<_>>()
+            .join(", ")
+    )
+}

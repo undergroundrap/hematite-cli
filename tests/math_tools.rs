@@ -9,18 +9,18 @@ use hematite::tools::math_util::{
     cloud_native_calc, cloud_ref_calc, color_calc, color_names_calc, combinatorics_calc,
     compiler_ref_calc, complex_calc, concurrency_ref_calc, container_ref_calc, cron_calc,
     crypto_ref_calc, css_ref_calc, csv_calc, curl_calc, data_formats_calc, database_adv_calc,
-    datetime_calc, db_design_calc, design_patterns_calc, devops_ref_calc, diff_calc,
-    docker_adv_calc, docker_compose_calc, docker_ref_calc, duration_calc, electrical_calc,
-    encode_calc, escape_calc, event_driven_calc, find_calc, fraction_calc, geometry_calc,
-    git_adv_calc, git_internals_calc, git_ref_calc, gitignore_calc, go_ref_calc, grep_calc,
-    grpc_ref_calc, hash_calc, headers_calc, health_calc, http_adv_calc, http_calc,
+    datetime_calc, db_design_calc, db_migrations_calc, design_patterns_calc, devops_ref_calc,
+    diff_calc, docker_adv_calc, docker_compose_calc, docker_ref_calc, duration_calc,
+    electrical_calc, encode_calc, escape_calc, event_driven_calc, find_calc, fraction_calc,
+    geometry_calc, git_adv_calc, git_internals_calc, git_ref_calc, gitignore_calc, go_ref_calc,
+    grep_calc, grpc_ref_calc, hash_calc, headers_calc, health_calc, http_adv_calc, http_calc,
     http_headers_calc, http_security_calc, http_status_calc, id_gen_calc, ip_calc, jinja_calc,
-    jq_calc, js_ref_calc, json_calc, json_path_calc, jwt_calc, k8s_ref_calc, kbd_calc,
-    kubectl_calc, license_calc, linux_adv_calc, linux_kernel_calc, linux_sys_calc, lorem_calc,
-    make_calc, makefile_calc, markdown_calc, matrix_calc, mime_calc, ml_ref_calc,
-    monitoring_ref_calc, net_calc, network_ref_calc, networking_adv_calc, nginx_calc, npm_calc,
-    number_format, number_theory_calc, observability_calc, oop_ref_calc, openssl_calc,
-    percent_calc, perf_ref_calc, physics_calc, port_calc, postgres_calc, prob_calc,
+    jq_calc, js_ref_calc, json_calc, json_path_calc, jwt_calc, k8s_ref_calc, k8s_security_calc,
+    kbd_calc, kubectl_calc, license_calc, linux_adv_calc, linux_kernel_calc, linux_perf_calc,
+    linux_sys_calc, lorem_calc, make_calc, makefile_calc, markdown_calc, matrix_calc, mime_calc,
+    ml_ref_calc, monitoring_ref_calc, net_calc, network_ref_calc, networking_adv_calc, nginx_calc,
+    npm_calc, number_format, number_theory_calc, oauth_ref_calc, observability_calc, oop_ref_calc,
+    openssl_calc, percent_calc, perf_ref_calc, physics_calc, port_calc, postgres_calc, prob_calc,
     protocols_ref_calc, python_data_calc, python_ref_calc, regex_adv_calc, regex_calc,
     regex_engine_calc, regex_patterns_calc, regex_ref_calc, regex_test_calc, roman_calc,
     rust_adv_calc, rust_patterns_calc, rust_ref_calc, search_ref_calc, security_ref_calc,
@@ -24172,5 +24172,825 @@ fn wasm_runtime_unknown_no_panic() {
 #[test]
 fn wasm_runtime_empty_no_panic() {
     let out = wasm_runtime_calc("");
+    assert!(!out.is_empty());
+}
+
+// ─── Wave 36: linux_perf_calc tests ──────────────────────────────────────────
+
+#[test]
+fn linux_perf_list_no_panic() {
+    let out = linux_perf_calc("list");
+    assert!(!out.is_empty());
+}
+
+#[test]
+fn linux_perf_all_no_panic() {
+    let out = linux_perf_calc("all");
+    assert!(
+        out.contains("perf") || out.contains("eBPF") || out.contains("ftrace"),
+        "all: {out}"
+    );
+}
+
+#[test]
+fn linux_perf_perf_topic() {
+    let out = linux_perf_calc("perf");
+    assert!(
+        out.contains("perf stat") || out.contains("perf record") || out.contains("flame"),
+        "perf: {out}"
+    );
+}
+
+#[test]
+fn linux_perf_perf_stat_alias() {
+    let out = linux_perf_calc("perf-stat");
+    assert!(!out.is_empty(), "perf-stat: {out}");
+}
+
+#[test]
+fn linux_perf_perf_record_alias() {
+    let out = linux_perf_calc("perf-record");
+    assert!(!out.is_empty(), "perf-record: {out}");
+}
+
+#[test]
+fn linux_perf_hardware_counters_alias() {
+    let out = linux_perf_calc("hardware-counters");
+    assert!(!out.is_empty(), "hardware-counters: {out}");
+}
+
+#[test]
+fn linux_perf_cpu_profiling_alias() {
+    let out = linux_perf_calc("cpu-profiling");
+    assert!(!out.is_empty(), "cpu-profiling: {out}");
+}
+
+#[test]
+fn linux_perf_ebpf_topic() {
+    let out = linux_perf_calc("ebpf");
+    assert!(
+        out.contains("eBPF") || out.contains("bpf") || out.contains("bpftrace"),
+        "ebpf: {out}"
+    );
+}
+
+#[test]
+fn linux_perf_bpftrace_alias() {
+    let out = linux_perf_calc("bpftrace");
+    assert!(!out.is_empty(), "bpftrace: {out}");
+}
+
+#[test]
+fn linux_perf_bcc_tools_alias() {
+    let out = linux_perf_calc("bcc-tools");
+    assert!(!out.is_empty(), "bcc-tools: {out}");
+}
+
+#[test]
+fn linux_perf_opensnoop_alias() {
+    let out = linux_perf_calc("opensnoop");
+    assert!(!out.is_empty(), "opensnoop: {out}");
+}
+
+#[test]
+fn linux_perf_kprobe_alias() {
+    let out = linux_perf_calc("kprobe");
+    assert!(!out.is_empty(), "kprobe: {out}");
+}
+
+#[test]
+fn linux_perf_xdp_ebpf_alias() {
+    let out = linux_perf_calc("xdp-ebpf");
+    assert!(!out.is_empty(), "xdp-ebpf: {out}");
+}
+
+#[test]
+fn linux_perf_ftrace_topic() {
+    let out = linux_perf_calc("ftrace");
+    assert!(
+        out.contains("ftrace") || out.contains("tracer") || out.contains("tracing"),
+        "ftrace: {out}"
+    );
+}
+
+#[test]
+fn linux_perf_kernel_tracer_alias() {
+    let out = linux_perf_calc("kernel-tracer");
+    assert!(!out.is_empty(), "kernel-tracer: {out}");
+}
+
+#[test]
+fn linux_perf_function_graph_alias() {
+    let out = linux_perf_calc("function-graph");
+    assert!(!out.is_empty(), "function-graph: {out}");
+}
+
+#[test]
+fn linux_perf_trace_cmd_alias() {
+    let out = linux_perf_calc("trace-cmd");
+    assert!(!out.is_empty(), "trace-cmd: {out}");
+}
+
+#[test]
+fn linux_perf_flamegraph_topic() {
+    let out = linux_perf_calc("flamegraph");
+    assert!(
+        out.contains("flame") || out.contains("Flame") || out.contains("Gregg"),
+        "flamegraph: {out}"
+    );
+}
+
+#[test]
+fn linux_perf_flame_graph_alias() {
+    let out = linux_perf_calc("flame-graph");
+    assert!(!out.is_empty(), "flame-graph: {out}");
+}
+
+#[test]
+fn linux_perf_brendan_gregg_alias() {
+    let out = linux_perf_calc("brendan-gregg");
+    assert!(!out.is_empty(), "brendan-gregg: {out}");
+}
+
+#[test]
+fn linux_perf_off_cpu_alias() {
+    let out = linux_perf_calc("off-cpu");
+    assert!(!out.is_empty(), "off-cpu: {out}");
+}
+
+#[test]
+fn linux_perf_cargo_flamegraph_alias() {
+    let out = linux_perf_calc("cargo-flamegraph");
+    assert!(!out.is_empty(), "cargo-flamegraph: {out}");
+}
+
+#[test]
+fn linux_perf_memory_topic() {
+    let out = linux_perf_calc("memory");
+    assert!(
+        out.contains("memory") || out.contains("valgrind") || out.contains("NUMA"),
+        "memory: {out}"
+    );
+}
+
+#[test]
+fn linux_perf_valgrind_alias() {
+    let out = linux_perf_calc("valgrind");
+    assert!(!out.is_empty(), "valgrind: {out}");
+}
+
+#[test]
+fn linux_perf_asan_rust_alias() {
+    let out = linux_perf_calc("asan-rust");
+    assert!(!out.is_empty(), "asan-rust: {out}");
+}
+
+#[test]
+fn linux_perf_huge_pages_alias() {
+    let out = linux_perf_calc("huge-pages");
+    assert!(!out.is_empty(), "huge-pages: {out}");
+}
+
+#[test]
+fn linux_perf_syscall_topic() {
+    let out = linux_perf_calc("syscall");
+    assert!(
+        out.contains("strace") || out.contains("syscall") || out.contains("ltrace"),
+        "syscall: {out}"
+    );
+}
+
+#[test]
+fn linux_perf_strace_alias() {
+    let out = linux_perf_calc("strace");
+    assert!(!out.is_empty(), "strace: {out}");
+}
+
+#[test]
+fn linux_perf_ltrace_alias() {
+    let out = linux_perf_calc("ltrace");
+    assert!(!out.is_empty(), "ltrace: {out}");
+}
+
+#[test]
+fn linux_perf_seccomp_bpf_alias() {
+    let out = linux_perf_calc("seccomp-bpf");
+    assert!(!out.is_empty(), "seccomp-bpf: {out}");
+}
+
+#[test]
+fn linux_perf_unknown_no_panic() {
+    let out = linux_perf_calc("nonexistent-topic");
+    assert!(!out.is_empty());
+}
+
+#[test]
+fn linux_perf_empty_no_panic() {
+    let out = linux_perf_calc("");
+    assert!(!out.is_empty());
+}
+
+// ─── Wave 36: db_migrations_calc tests ───────────────────────────────────────
+
+#[test]
+fn db_migrations_list_no_panic() {
+    let out = db_migrations_calc("list");
+    assert!(!out.is_empty());
+}
+
+#[test]
+fn db_migrations_all_no_panic() {
+    let out = db_migrations_calc("all");
+    assert!(
+        out.contains("migration") || out.contains("Flyway") || out.contains("schema"),
+        "all: {out}"
+    );
+}
+
+#[test]
+fn db_migrations_concepts_topic() {
+    let out = db_migrations_calc("concepts");
+    assert!(
+        out.contains("migration") || out.contains("schema") || out.contains("DDL"),
+        "concepts: {out}"
+    );
+}
+
+#[test]
+fn db_migrations_schema_migration_alias() {
+    let out = db_migrations_calc("schema-migration");
+    assert!(!out.is_empty(), "schema-migration: {out}");
+}
+
+#[test]
+fn db_migrations_expand_contract_alias() {
+    let out = db_migrations_calc("expand-contract");
+    assert!(!out.is_empty(), "expand-contract: {out}");
+}
+
+#[test]
+fn db_migrations_zero_downtime_alias() {
+    let out = db_migrations_calc("zero-downtime-migration");
+    assert!(!out.is_empty(), "zero-downtime-migration: {out}");
+}
+
+#[test]
+fn db_migrations_flyway_topic() {
+    let out = db_migrations_calc("flyway");
+    assert!(
+        out.contains("flyway") || out.contains("Flyway") || out.contains("migrate"),
+        "flyway: {out}"
+    );
+}
+
+#[test]
+fn db_migrations_flyway_migrate_alias() {
+    let out = db_migrations_calc("flyway-migrate");
+    assert!(!out.is_empty(), "flyway-migrate: {out}");
+}
+
+#[test]
+fn db_migrations_flyway_baseline_alias() {
+    let out = db_migrations_calc("flyway-baseline");
+    assert!(!out.is_empty(), "flyway-baseline: {out}");
+}
+
+#[test]
+fn db_migrations_spring_flyway_alias() {
+    let out = db_migrations_calc("spring-flyway");
+    assert!(!out.is_empty(), "spring-flyway: {out}");
+}
+
+#[test]
+fn db_migrations_liquibase_topic() {
+    let out = db_migrations_calc("liquibase");
+    assert!(
+        out.contains("Liquibase") || out.contains("liquibase") || out.contains("changeset"),
+        "liquibase: {out}"
+    );
+}
+
+#[test]
+fn db_migrations_liquibase_changeset_alias() {
+    let out = db_migrations_calc("liquibase-changeset");
+    assert!(!out.is_empty(), "liquibase-changeset: {out}");
+}
+
+#[test]
+fn db_migrations_liquibase_rollback_alias() {
+    let out = db_migrations_calc("liquibase-rollback");
+    assert!(!out.is_empty(), "liquibase-rollback: {out}");
+}
+
+#[test]
+fn db_migrations_atlas_topic() {
+    let out = db_migrations_calc("atlas");
+    assert!(
+        out.contains("atlas") || out.contains("Atlas") || out.contains("HCL"),
+        "atlas: {out}"
+    );
+}
+
+#[test]
+fn db_migrations_atlas_schema_alias() {
+    let out = db_migrations_calc("atlas-schema");
+    assert!(!out.is_empty(), "atlas-schema: {out}");
+}
+
+#[test]
+fn db_migrations_atlas_hcl_alias() {
+    let out = db_migrations_calc("atlas-hcl");
+    assert!(!out.is_empty(), "atlas-hcl: {out}");
+}
+
+#[test]
+fn db_migrations_atlas_drift_alias() {
+    let out = db_migrations_calc("atlas-drift");
+    assert!(!out.is_empty(), "atlas-drift: {out}");
+}
+
+#[test]
+fn db_migrations_patterns_topic() {
+    let out = db_migrations_calc("patterns");
+    assert!(
+        out.contains("backfill") || out.contains("index") || out.contains("NOT NULL"),
+        "patterns: {out}"
+    );
+}
+
+#[test]
+fn db_migrations_backfill_strategy_alias() {
+    let out = db_migrations_calc("backfill-strategy");
+    assert!(!out.is_empty(), "backfill-strategy: {out}");
+}
+
+#[test]
+fn db_migrations_concurrent_index_alias() {
+    let out = db_migrations_calc("concurrent-index");
+    assert!(!out.is_empty(), "concurrent-index: {out}");
+}
+
+#[test]
+fn db_migrations_schema_drift_alias() {
+    let out = db_migrations_calc("schema-drift");
+    assert!(!out.is_empty(), "schema-drift: {out}");
+}
+
+#[test]
+fn db_migrations_rollback_topic() {
+    let out = db_migrations_calc("rollback");
+    assert!(
+        out.contains("rollback") || out.contains("undo") || out.contains("revert"),
+        "rollback: {out}"
+    );
+}
+
+#[test]
+fn db_migrations_undo_migration_alias() {
+    let out = db_migrations_calc("undo-migration");
+    assert!(!out.is_empty(), "undo-migration: {out}");
+}
+
+#[test]
+fn db_migrations_transactional_ddl_alias() {
+    let out = db_migrations_calc("transactional-ddl");
+    assert!(!out.is_empty(), "transactional-ddl: {out}");
+}
+
+#[test]
+fn db_migrations_snapshot_rollback_alias() {
+    let out = db_migrations_calc("snapshot-rollback");
+    assert!(!out.is_empty(), "snapshot-rollback: {out}");
+}
+
+#[test]
+fn db_migrations_unknown_no_panic() {
+    let out = db_migrations_calc("nonexistent-topic");
+    assert!(!out.is_empty());
+}
+
+#[test]
+fn db_migrations_empty_no_panic() {
+    let out = db_migrations_calc("");
+    assert!(!out.is_empty());
+}
+
+// ─── Wave 36: oauth_ref_calc tests ───────────────────────────────────────────
+
+#[test]
+fn oauth_ref_list_no_panic() {
+    let out = oauth_ref_calc("list");
+    assert!(!out.is_empty());
+}
+
+#[test]
+fn oauth_ref_all_no_panic() {
+    let out = oauth_ref_calc("all");
+    assert!(
+        out.contains("OAuth") || out.contains("token") || out.contains("PKCE"),
+        "all: {out}"
+    );
+}
+
+#[test]
+fn oauth_ref_flows_topic() {
+    let out = oauth_ref_calc("flows");
+    assert!(
+        out.contains("Authorization Code")
+            || out.contains("PKCE")
+            || out.contains("authorization_code"),
+        "flows: {out}"
+    );
+}
+
+#[test]
+fn oauth_ref_authorization_code_alias() {
+    let out = oauth_ref_calc("authorization-code");
+    assert!(!out.is_empty(), "authorization-code: {out}");
+}
+
+#[test]
+fn oauth_ref_pkce_alias() {
+    let out = oauth_ref_calc("pkce");
+    assert!(!out.is_empty(), "pkce: {out}");
+}
+
+#[test]
+fn oauth_ref_client_credentials_alias() {
+    let out = oauth_ref_calc("client-credentials");
+    assert!(!out.is_empty(), "client-credentials: {out}");
+}
+
+#[test]
+fn oauth_ref_device_flow_alias() {
+    let out = oauth_ref_calc("device-flow");
+    assert!(!out.is_empty(), "device-flow: {out}");
+}
+
+#[test]
+fn oauth_ref_refresh_token_flow_alias() {
+    let out = oauth_ref_calc("refresh-token-flow");
+    assert!(!out.is_empty(), "refresh-token-flow: {out}");
+}
+
+#[test]
+fn oauth_ref_tokens_topic() {
+    let out = oauth_ref_calc("tokens");
+    assert!(
+        out.contains("access_token") || out.contains("Access Token") || out.contains("JWT"),
+        "tokens: {out}"
+    );
+}
+
+#[test]
+fn oauth_ref_access_token_alias() {
+    let out = oauth_ref_calc("access-token");
+    assert!(!out.is_empty(), "access-token: {out}");
+}
+
+#[test]
+fn oauth_ref_id_token_alias() {
+    let out = oauth_ref_calc("id-token");
+    assert!(!out.is_empty(), "id-token: {out}");
+}
+
+#[test]
+fn oauth_ref_jwt_verification_alias() {
+    let out = oauth_ref_calc("jwt-verification");
+    assert!(!out.is_empty(), "jwt-verification: {out}");
+}
+
+#[test]
+fn oauth_ref_token_introspection_alias() {
+    let out = oauth_ref_calc("token-introspection");
+    assert!(!out.is_empty(), "token-introspection: {out}");
+}
+
+#[test]
+fn oauth_ref_oidc_topic() {
+    let out = oauth_ref_calc("oidc");
+    assert!(
+        out.contains("OpenID") || out.contains("OIDC") || out.contains("openid"),
+        "oidc: {out}"
+    );
+}
+
+#[test]
+fn oauth_ref_openid_connect_alias() {
+    let out = oauth_ref_calc("openid-connect");
+    assert!(!out.is_empty(), "openid-connect: {out}");
+}
+
+#[test]
+fn oauth_ref_oidc_scopes_alias() {
+    let out = oauth_ref_calc("oidc-scopes");
+    assert!(!out.is_empty(), "oidc-scopes: {out}");
+}
+
+#[test]
+fn oauth_ref_discovery_endpoint_alias() {
+    let out = oauth_ref_calc("discovery-endpoint");
+    assert!(!out.is_empty(), "discovery-endpoint: {out}");
+}
+
+#[test]
+fn oauth_ref_security_topic() {
+    let out = oauth_ref_calc("security");
+    assert!(
+        out.contains("state") || out.contains("PKCE") || out.contains("redirect"),
+        "security: {out}"
+    );
+}
+
+#[test]
+fn oauth_ref_state_parameter_alias() {
+    let out = oauth_ref_calc("state-parameter");
+    assert!(!out.is_empty(), "state-parameter: {out}");
+}
+
+#[test]
+fn oauth_ref_token_storage_alias() {
+    let out = oauth_ref_calc("token-storage");
+    assert!(!out.is_empty(), "token-storage: {out}");
+}
+
+#[test]
+fn oauth_ref_dpop_alias() {
+    let out = oauth_ref_calc("dpop");
+    assert!(!out.is_empty(), "dpop: {out}");
+}
+
+#[test]
+fn oauth_ref_providers_topic() {
+    let out = oauth_ref_calc("providers");
+    assert!(
+        out.contains("Auth0") || out.contains("Okta") || out.contains("Google"),
+        "providers: {out}"
+    );
+}
+
+#[test]
+fn oauth_ref_auth0_alias() {
+    let out = oauth_ref_calc("auth0");
+    assert!(!out.is_empty(), "auth0: {out}");
+}
+
+#[test]
+fn oauth_ref_okta_alias() {
+    let out = oauth_ref_calc("okta");
+    assert!(!out.is_empty(), "okta: {out}");
+}
+
+#[test]
+fn oauth_ref_azure_ad_alias() {
+    let out = oauth_ref_calc("azure-ad");
+    assert!(!out.is_empty(), "azure-ad: {out}");
+}
+
+#[test]
+fn oauth_ref_keycloak_alias() {
+    let out = oauth_ref_calc("keycloak");
+    assert!(!out.is_empty(), "keycloak: {out}");
+}
+
+#[test]
+fn oauth_ref_nextauth_alias() {
+    let out = oauth_ref_calc("nextauth");
+    assert!(!out.is_empty(), "nextauth: {out}");
+}
+
+#[test]
+fn oauth_ref_jwt_topic() {
+    let out = oauth_ref_calc("jwt");
+    assert!(
+        out.contains("jwt") || out.contains("JWT") || out.contains("jsonwebtoken"),
+        "jwt: {out}"
+    );
+}
+
+#[test]
+fn oauth_ref_jsonwebtoken_alias() {
+    let out = oauth_ref_calc("jsonwebtoken");
+    assert!(!out.is_empty(), "jsonwebtoken: {out}");
+}
+
+#[test]
+fn oauth_ref_rs256_alias() {
+    let out = oauth_ref_calc("rs256");
+    assert!(!out.is_empty(), "rs256: {out}");
+}
+
+#[test]
+fn oauth_ref_unknown_no_panic() {
+    let out = oauth_ref_calc("nonexistent-topic");
+    assert!(!out.is_empty());
+}
+
+#[test]
+fn oauth_ref_empty_no_panic() {
+    let out = oauth_ref_calc("");
+    assert!(!out.is_empty());
+}
+
+// ─── Wave 36: k8s_security_calc tests ────────────────────────────────────────
+
+#[test]
+fn k8s_security_list_no_panic() {
+    let out = k8s_security_calc("list");
+    assert!(!out.is_empty());
+}
+
+#[test]
+fn k8s_security_all_no_panic() {
+    let out = k8s_security_calc("all");
+    assert!(
+        out.contains("RBAC") || out.contains("rbac") || out.contains("security"),
+        "all: {out}"
+    );
+}
+
+#[test]
+fn k8s_security_rbac_topic() {
+    let out = k8s_security_calc("rbac");
+    assert!(
+        out.contains("Role") || out.contains("rbac") || out.contains("ServiceAccount"),
+        "rbac: {out}"
+    );
+}
+
+#[test]
+fn k8s_security_kubernetes_rbac_alias() {
+    let out = k8s_security_calc("kubernetes-rbac");
+    assert!(!out.is_empty(), "kubernetes-rbac: {out}");
+}
+
+#[test]
+fn k8s_security_rolebinding_alias() {
+    let out = k8s_security_calc("rolebinding");
+    assert!(!out.is_empty(), "rolebinding: {out}");
+}
+
+#[test]
+fn k8s_security_can_i_alias() {
+    let out = k8s_security_calc("can-i");
+    assert!(!out.is_empty(), "can-i: {out}");
+}
+
+#[test]
+fn k8s_security_netpol_topic() {
+    let out = k8s_security_calc("netpol");
+    assert!(
+        out.contains("NetworkPolicy") || out.contains("network policy") || out.contains("deny"),
+        "netpol: {out}"
+    );
+}
+
+#[test]
+fn k8s_security_network_policy_alias() {
+    let out = k8s_security_calc("network-policy");
+    assert!(!out.is_empty(), "network-policy: {out}");
+}
+
+#[test]
+fn k8s_security_default_deny_alias() {
+    let out = k8s_security_calc("default-deny");
+    assert!(!out.is_empty(), "default-deny: {out}");
+}
+
+#[test]
+fn k8s_security_zero_trust_k8s_alias() {
+    let out = k8s_security_calc("zero-trust-k8s");
+    assert!(!out.is_empty(), "zero-trust-k8s: {out}");
+}
+
+#[test]
+fn k8s_security_podsec_topic() {
+    let out = k8s_security_calc("podsec");
+    assert!(
+        out.contains("security") || out.contains("nonRoot") || out.contains("seccompProfile"),
+        "podsec: {out}"
+    );
+}
+
+#[test]
+fn k8s_security_pod_security_standards_alias() {
+    let out = k8s_security_calc("pod-security-standards");
+    assert!(!out.is_empty(), "pod-security-standards: {out}");
+}
+
+#[test]
+fn k8s_security_runasnonroot_alias() {
+    let out = k8s_security_calc("runasnonroot");
+    assert!(!out.is_empty(), "runasnonroot: {out}");
+}
+
+#[test]
+fn k8s_security_capabilities_drop_alias() {
+    let out = k8s_security_calc("capabilities-drop");
+    assert!(!out.is_empty(), "capabilities-drop: {out}");
+}
+
+#[test]
+fn k8s_security_secrets_topic() {
+    let out = k8s_security_calc("secrets");
+    assert!(
+        out.contains("secret") || out.contains("Secret") || out.contains("Vault"),
+        "secrets: {out}"
+    );
+}
+
+#[test]
+fn k8s_security_encryption_at_rest_alias() {
+    let out = k8s_security_calc("encryption-at-rest");
+    assert!(!out.is_empty(), "encryption-at-rest: {out}");
+}
+
+#[test]
+fn k8s_security_external_secrets_alias() {
+    let out = k8s_security_calc("external-secrets");
+    assert!(!out.is_empty(), "external-secrets: {out}");
+}
+
+#[test]
+fn k8s_security_vault_agent_alias() {
+    let out = k8s_security_calc("vault-agent");
+    assert!(!out.is_empty(), "vault-agent: {out}");
+}
+
+#[test]
+fn k8s_security_sealed_secrets_alias() {
+    let out = k8s_security_calc("sealed-secrets");
+    assert!(!out.is_empty(), "sealed-secrets: {out}");
+}
+
+#[test]
+fn k8s_security_supply_topic() {
+    let out = k8s_security_calc("supply");
+    assert!(
+        out.contains("cosign") || out.contains("Trivy") || out.contains("signing"),
+        "supply: {out}"
+    );
+}
+
+#[test]
+fn k8s_security_image_signing_alias() {
+    let out = k8s_security_calc("image-signing");
+    assert!(!out.is_empty(), "image-signing: {out}");
+}
+
+#[test]
+fn k8s_security_cosign_alias() {
+    let out = k8s_security_calc("cosign");
+    assert!(!out.is_empty(), "cosign: {out}");
+}
+
+#[test]
+fn k8s_security_falco_alias() {
+    let out = k8s_security_calc("falco");
+    assert!(!out.is_empty(), "falco: {out}");
+}
+
+#[test]
+fn k8s_security_kyverno_alias() {
+    let out = k8s_security_calc("kyverno");
+    assert!(!out.is_empty(), "kyverno: {out}");
+}
+
+#[test]
+fn k8s_security_audit_topic() {
+    let out = k8s_security_calc("audit");
+    assert!(
+        out.contains("audit") || out.contains("Audit") || out.contains("kube-bench"),
+        "audit: {out}"
+    );
+}
+
+#[test]
+fn k8s_security_k8s_audit_alias() {
+    let out = k8s_security_calc("k8s-audit");
+    assert!(!out.is_empty(), "k8s-audit: {out}");
+}
+
+#[test]
+fn k8s_security_kube_bench_alias() {
+    let out = k8s_security_calc("kube-bench");
+    assert!(!out.is_empty(), "kube-bench: {out}");
+}
+
+#[test]
+fn k8s_security_cis_benchmark_alias() {
+    let out = k8s_security_calc("cis-benchmark");
+    assert!(!out.is_empty(), "cis-benchmark: {out}");
+}
+
+#[test]
+fn k8s_security_unknown_no_panic() {
+    let out = k8s_security_calc("nonexistent-topic");
+    assert!(!out.is_empty());
+}
+
+#[test]
+fn k8s_security_empty_no_panic() {
+    let out = k8s_security_calc("");
     assert!(!out.is_empty());
 }
