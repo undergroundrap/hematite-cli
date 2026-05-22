@@ -49089,3 +49089,1109 @@ pub fn protocols_ref_calc(query: &str) -> String {
         query.trim()
     )
 }
+
+// ── Wave 33: container_ref_calc ───────────────────────────────────────────────
+
+type ContainerSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+
+fn s_cont_namespaces() -> &'static str {
+    "── Linux Namespaces ──
+Namespaces: kernel feature isolating system resources per process group
+  Types (8): pid, mnt, net, uts, ipc, user, cgroup, time
+  pid namespace: process isolation; init (PID 1) inside container; getpid() returns 1
+    /proc/self/status: NSpid shows PID in each namespace
+    zombie reaping: container init must reap children (tini, dumb-init)
+  mnt namespace: isolated filesystem view; pivot_root / chroot to change root
+    bind mounts: mount --bind /host/path /container/path; share specific directories
+    tmpfs: mount tmpfs /tmp; ephemeral; cleared on container stop
+  net namespace: isolated network stack; own interfaces, routing table, iptables rules
+    veth pair: virtual ethernet pair; one end in container, one in host
+    bridge (docker0): connects veth pairs; NAT via iptables MASQUERADE rule
+    host networking: --network host; share host net namespace; no isolation
+  uts namespace: isolated hostname and domain name; each container has own hostname
+  ipc namespace: isolated IPC (shared memory, semaphores, message queues)
+  user namespace: map UID/GID inside container to different UID/GID on host
+    rootless containers: user namespace maps uid=0 inside to unprivileged uid on host
+    newuidmap/newgidmap: set up UID maps from /etc/subuid, /etc/subgid
+  cgroup namespace: isolated view of cgroup hierarchy; /proc/self/cgroup shows /
+  time namespace: isolated CLOCK_BOOTTIME and CLOCK_MONOTONIC offsets
+Namespace syscalls: clone(CLONE_NEWNS|...), unshare(), setns()
+  nsenter: enter existing namespace; nsenter -t <pid> --net -- ip a"
+}
+
+fn s_cont_cgroups() -> &'static str {
+    "── Control Groups (cgroups) ──
+cgroups: kernel mechanism to limit and account resource usage per process group
+  v1: multiple hierarchies; one controller per hierarchy; legacy; complex
+  v2 (unified hierarchy): single tree; all controllers; default in modern distros
+    /sys/fs/cgroup/: root; each cgroup = directory; settings = files in directory
+cgroup v2 key controllers:
+  cpu: cpu.max = 'quota period'; 100000 200000 = 50% of one CPU; cpu.weight for shares
+  memory: memory.max = hard limit (OOM); memory.high = soft limit (throttle); memory.min = guarantee
+    memory.current: current usage; memory.events: oom count
+    OOM: when memory.max exceeded; kernel kills highest OOM score process in cgroup
+  io: io.max = 'MAJOR:MINOR rbps= wbps= riops= wiops='; block device limits
+    io.latency: SLA-based scheduling; io.weight: proportional scheduling
+  pids: pids.max = process count limit; prevent fork bombs
+  cpuset: cpuset.cpus = '0-3'; pin to specific CPUs; cpuset.mems for NUMA
+Docker resource flags: --memory, --cpus, --cpu-shares, --pids-limit, --blkio-weight
+  --memory=512m: sets memory.max; --memory-swap: total mem+swap limit
+  --cpus=1.5: sets cpu.max = 150000 100000
+  kubernetes: resources.limits.memory -> memory.max; resources.requests -> memory.min/cpu.weight
+cgroup path in container: /proc/1/cgroup shows /kubepods/burstable/pod<uid>/<container-id>"
+}
+
+fn s_cont_oci() -> &'static str {
+    "── OCI Spec & Container Formats ──
+OCI (Open Container Initiative): specs for container image and runtime interop
+  image-spec: image layout; index.json, manifests, configs, layers (OCI image format)
+  runtime-spec: container runtime behavior; config.json describes container to create
+  distribution-spec: HTTP API for registries; pull/push protocol
+Image format:
+  Manifest: JSON; references config and layer blobs by digest (sha256:...)
+  Config: JSON; env vars, entrypoint, cmd, exposed ports, labels, rootfs layer list
+  Layers: tar.gz (gzip) or tar.zst (zstd) diffs; applied in order to build rootfs
+  Index (manifest list): multi-arch manifest; selects platform-specific manifest
+  Digest: sha256 of content; immutable reference; tag is mutable pointer to digest
+  OCI Layout: dir with oci-layout, index.json, blobs/sha256/ -- skopeo, buildah, crane
+Image registries: Docker Hub, GHCR, ECR, GCR, ACR, Harbor (self-hosted)
+  crane: go tool; inspect/copy/mutate images without daemon
+  skopeo: copy images between registries; inspect without pulling
+  cosign: sign and verify OCI images with keyless signing (Sigstore/OIDC)
+OCI runtime spec config.json:
+  process: args, env, cwd, capabilities, rlimits, user
+  mounts: destination, type, source, options (bind, ro, noexec, nosuid)
+  linux: namespaces, devices, cgroupsPath, seccomp, apparmor, maskedPaths
+  hooks: prestart, createRuntime, createContainer, startContainer, poststart, poststop"
+}
+
+fn s_cont_runtimes() -> &'static str {
+    "── Container Runtimes ──
+Runtime hierarchy:
+  High-level (CRI): containerd, CRI-O -- manage images, snapshots, networking
+  Low-level (OCI): runc, crun, gVisor (runsc), Kata Containers -- actually runs container
+  CRI (Container Runtime Interface): gRPC API; kubelet -> CRI -> high-level runtime
+containerd: industry default; manages entire lifecycle
+  Namespaces: containerd.io/namespace label; k8s.io for Kubernetes workloads
+  Snapshotter: overlayfs (default), btrfs, zfs, devmapper, native
+  nerdctl: Docker-compatible CLI for containerd; nerdctl run, nerdctl compose
+  crictl: CRI debugging; crictl --runtime-endpoint unix:///run/containerd/containerd.sock ps
+runc: reference OCI runtime; written in Go; libcontainer underneath
+  runc create/start/kill/delete; runc spec > config.json to generate template
+  runc exec --pid-file runc.pid <container-id> -- <cmd>: run in existing container
+crun: OCI runtime in C; faster startup; lower memory; fully runc-compatible
+gVisor (runsc): user-space kernel (Sentry); intercepts syscalls; stronger isolation
+  Two modes: ptrace (any arch), KVM (hardware acceleration); used in Google Cloud Run
+Kata Containers: lightweight VM per container; hardware isolation; OCI-compatible
+  kata-agent inside VM; virtio-fs for shared filesystem; QEMU or Cloud Hypervisor VMM
+snapshotter / overlay:
+  overlayfs: union mount; lowerdir (image layers) + upperdir (writable) + workdir
+  /var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/: snapshots directory
+  layer reuse: multiple containers share same lower layers; only upper layer is per-container"
+}
+
+fn s_cont_build() -> &'static str {
+    "── Container Build ──
+Dockerfile best practices:
+  Layer caching: COPY package.json . && RUN npm install before COPY . . -- deps cached
+  Multi-stage: FROM build AS builder; FROM runtime; COPY --from=builder /app /app
+    Final image has no build tools; smaller attack surface; smaller size
+  .dockerignore: exclude .git, node_modules, target/ from build context
+  Minimize layers: chain RUN commands with &&; clean up in same layer (apt-get clean)
+  Non-root: USER 1000:1000; create user in Dockerfile; don't run as root
+  Explicit tags: FROM ubuntu:22.04 not FROM ubuntu:latest -- reproducible builds
+  COPY vs ADD: prefer COPY; ADD auto-extracts tar and fetches URLs (surprising behavior)
+  ENTRYPOINT + CMD: ENTRYPOINT defines executable; CMD provides default args (overridable)
+    exec form: ['nginx', '-g', 'daemon off;'] -- direct exec, PID 1, signal handling works
+    shell form: nginx -g 'daemon off;' -- spawns sh -c; PID 1 is sh; signals not forwarded
+Build tools:
+  BuildKit (moby/buildkit): parallel stage building; cache mounts; secret mounts; SSH agent
+    RUN --mount=type=cache,target=/root/.cargo/registry cargo build: persistent cache
+    RUN --mount=type=secret,id=npmrc cat /run/secrets/npmrc: inject secret without layer
+  kaniko: build in Kubernetes without Docker daemon; runs as unprivileged container
+  buildah: rootless OCI image builds; compatible with Podman
+  ko: build Go containers without Dockerfile; direct binary injection into base image
+  docker build --provenance=true --sbom=true: SLSA provenance + SBOM attestation
+Image size reduction:
+  distroless: no shell, no package manager; only app + runtime deps; gcr.io/distroless/
+  scratch: empty base; for static binaries (Go, Rust musl); FROM scratch; COPY binary /
+  alpine: 5MB base; musl libc; some gotchas with DNS (need to add ca-certificates)"
+}
+
+fn s_cont_security() -> &'static str {
+    "── Container Security ──
+Capabilities: Linux capabilities split root privileges into granular permissions
+  Drop all, add needed: --cap-drop=ALL --cap-add=NET_BIND_SERVICE
+  Dangerous caps: CAP_SYS_ADMIN (almost root), CAP_NET_ADMIN, CAP_SYS_PTRACE
+  Default Docker caps: CHOWN, SETUID, SETGID, NET_BIND_SERVICE, KILL, MKNOD, NET_RAW, ...
+  capsh --print: show current capabilities; getpcaps <pid>: show process caps
+Seccomp: filter syscalls; default Docker profile blocks ~44 dangerous calls
+  Custom profile: {defaultAction: SCMP_ACT_ALLOW, syscalls: [{names:[...], action:SCMP_ACT_ERRNO}]}
+  docker run --security-opt seccomp=profile.json: apply custom profile
+AppArmor: MAC (Mandatory Access Control); profile restricts file access, capabilities, network
+  docker-default AppArmor profile: applied automatically in supported environments
+  aa-genprof: generate profile for application
+  aa-status: show loaded profiles
+Rootless containers: run entire Docker/Podman daemon as non-root
+  Podman: rootless by default; user namespaces; no daemon required
+  Docker rootless: dockerd-rootless-setuptool.sh; storage at ~/docker
+Read-only rootfs: docker run --read-only --tmpfs /tmp: immutable container fs
+Image scanning:
+  trivy: CVE scanner; trivy image nginx:latest; scans OS packages + language deps
+  grype: Anchore CVE scanner; grype nginx:latest
+  Dockerfile linting: hadolint; catches common mistakes and security issues
+Supply chain:
+  SBOM: Software Bill of Materials; syft, docker sbom; enumerate all packages
+  cosign verify --key cosign.pub: verify image signature before deployment
+  SLSA framework: supply chain security levels; provenance attestation"
+}
+
+const CONTAINER_SECTIONS: &[ContainerSection] = &[
+    (
+        "namespaces",
+        &[
+            "pid-namespace",
+            "mnt-namespace",
+            "net-namespace",
+            "uts",
+            "ipc-namespace",
+            "user-namespace",
+            "rootless",
+            "veth",
+            "pivot-root",
+        ],
+        s_cont_namespaces,
+    ),
+    (
+        "cgroups",
+        &[
+            "cgroup-v2",
+            "cpu-limit",
+            "memory-limit",
+            "oom-killer",
+            "pids-limit",
+            "cpuset",
+            "blkio",
+            "cgroup-hierarchy",
+            "cpu-shares",
+        ],
+        s_cont_cgroups,
+    ),
+    (
+        "oci",
+        &[
+            "oci-image",
+            "oci-runtime",
+            "manifest",
+            "image-layers",
+            "image-digest",
+            "image-index",
+            "cosign",
+            "skopeo",
+            "crane",
+            "oci-spec",
+        ],
+        s_cont_oci,
+    ),
+    (
+        "runtimes",
+        &[
+            "containerd",
+            "runc",
+            "crun",
+            "gvisor",
+            "kata",
+            "crictl",
+            "nerdctl",
+            "overlayfs",
+            "snapshotter",
+            "cri-interface",
+        ],
+        s_cont_runtimes,
+    ),
+    (
+        "build",
+        &[
+            "dockerfile",
+            "multi-stage",
+            "buildkit",
+            "kaniko",
+            "distroless",
+            "scratch-image",
+            "layer-caching",
+            "dockerignore",
+            "buildah",
+        ],
+        s_cont_build,
+    ),
+    (
+        "security",
+        &[
+            "capabilities",
+            "seccomp",
+            "apparmor",
+            "rootless-docker",
+            "read-only-fs",
+            "trivy",
+            "grype",
+            "sbom",
+            "slsa",
+            "hadolint",
+        ],
+        s_cont_security,
+    ),
+];
+
+pub fn container_ref_calc(query: &str) -> String {
+    let q = query.trim().to_lowercase();
+    if q.is_empty() || q == "list" || q == "help" {
+        let topics: Vec<&str> = CONTAINER_SECTIONS.iter().map(|(n, _, _)| *n).collect();
+        return format!(
+            "container-ref topics: {}\nUse: --container-ref <topic>  or  --container-ref all",
+            topics.join(", ")
+        );
+    }
+    if q == "all" {
+        return CONTAINER_SECTIONS
+            .iter()
+            .map(|(_, _, f)| f())
+            .collect::<Vec<_>>()
+            .join("\n\n");
+    }
+    for (name, aliases, func) in CONTAINER_SECTIONS {
+        if q == *name || aliases.iter().any(|a| q == *a || q.contains(a)) {
+            return func().to_string();
+        }
+    }
+    format!(
+        "No topic found for '{}'. Try: --container-ref list",
+        query.trim()
+    )
+}
+
+// ── Wave 33: regex_engine_calc ────────────────────────────────────────────────
+
+type RegexEngineSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+
+fn s_re_theory() -> &'static str {
+    "── Regex Engine Theory ──
+Regular expressions: formal language defined by grammar; recognized by finite automata
+  Kleene closure: regular languages closed under union, concat, Kleene star
+  Regex operations: union (a|b), concatenation (ab), repetition (a*), optional (a?)
+NFA (Nondeterministic Finite Automaton): Thompson construction; each regex op -> NFA fragment
+  Epsilon transitions: follow without consuming input; allows nondeterminism
+  Simulation: maintain set of active states; O(n*m) time where n=text, m=regex
+  No catastrophic backtracking; linear time on any input
+DFA (Deterministic Finite Automaton): subset construction from NFA; one active state
+  O(n) time; O(2^m) states (worst case); actually small for most practical regexes
+  Lazy DFA: build states on demand; re2, grep, Rust regex crate use this approach
+Backtracking engines (PCRE, Python re, Java, .NET, JS):
+  DFS through NFA states; try alternatives in order; backtrack on failure
+  Exponential worst case: (a+)+ on 'aaab' = catastrophic backtracking (ReDoS)
+  Possessive quantifiers a++ and atomic groups (?>...) cut backtracking branches
+  Regex crate (Rust): NFA/DFA hybrid; guaranteed O(n) time; no backtracking; no lookaround
+  Oniguruma, PCRE2: backtracking; supports backreferences and lookaround
+RE2: linear-time regex engine; no backreferences; Google; used in Go, Rust regex
+  Forbidden features: backreferences (\\1), lookahead (?=), lookbehind (?<=), possessive
+  Safety: guaranteed linear time; suitable for untrusted regex input
+POSIX semantics: leftmost-longest match; differs from PCRE leftmost-first
+  BRE (Basic RE): older; escaping needed for +,?,|; grep default
+  ERE (Extended RE): modern; +,?,| without escaping; grep -E, egrep"
+}
+
+fn s_re_syntax() -> &'static str {
+    "── Regex Syntax Reference ──
+Anchors: ^ (line start), $ (line end), \\A (string start), \\Z (string end), \\b (word boundary)
+  Multiline mode: (?m) makes ^ and $ match line boundaries not just string boundaries
+  \\B: non-word boundary; \\b\\w+\\b matches whole words
+Character classes:
+  [abc]: match a, b, or c; [a-z]: range; [^abc]: negation
+  \\d=digit, \\D=non-digit, \\w=word char [a-zA-Z0-9_], \\W=non-word, \\s=whitespace, \\S=non-ws
+  POSIX: [:alpha:], [:digit:], [:space:], [:upper:], [:lower:], [:alnum:], [:punct:]
+  Unicode: \\p{Letter}, \\p{Digit}, \\p{Lu} (uppercase letter), \\p{sc=Latin}
+Quantifiers:
+  * (0+), + (1+), ? (0 or 1), {n} (exactly n), {n,} (n+), {n,m} (n to m)
+  Greedy (default): match as much as possible; a+ on 'aaa' -> 'aaa'
+  Lazy/non-greedy: add ?; a+? on 'aaa' -> 'a'
+  Possessive: add +; a++ on 'aaa' -> 'aaa'; no backtracking; PCRE/Java only
+Groups and alternation:
+  (abc): capturing group; numbered from 1; (?P<name>...) named group (Python/PCRE2)
+  (?:abc): non-capturing group; grouping without capture overhead
+  (a|b|c): alternation; first match wins (left-to-right) in backtracking engines
+Lookaround (PCRE only, not RE2/Rust):
+  (?=pattern): positive lookahead; assert pattern follows; \\w+(?=ing)
+  (?!pattern): negative lookahead; assert pattern does not follow
+  (?<=pattern): positive lookbehind; assert pattern precedes; fixed-width in most engines
+  (?<!pattern): negative lookbehind
+Backreferences: \\1 refers to first capture group; (\\w+) \\1 matches repeated words
+Flags: i (case insensitive), m (multiline), s (dotall: . matches \\n), x (verbose/extended)
+  Verbose mode (?x): whitespace ignored; # comments; write readable complex patterns"
+}
+
+fn s_re_advanced() -> &'static str {
+    "── Advanced Regex Patterns ──
+Atomic groups (PCRE): (?>pattern); if group matches, don't backtrack into it
+  (?>a|ab)c on 'abc': tries 'a', succeeds, commits; then fails on 'c' mismatch; no retry
+  Equivalent to possessive (?:pattern)+ but more general
+Conditional: (?(condition)yes|no); rarely portable; PCRE/Perl
+  (?(1)then|else): branch on whether group 1 was captured
+  (?(?=lookahead)then|else): branch on lookahead result
+Subroutines (PCRE2): (?&name) or (?1) recurse into named/numbered group; for recursive grammars
+  Balanced brackets: \\((?:[^()]|(?R))*\\) -- recursive; not in RE2
+Unicode properties:
+  \\p{L}: any letter; \\p{Lu}: uppercase; \\p{Ll}: lowercase; \\p{N}: number
+  \\p{P}: punctuation; \\p{Z}: separator; \\p{Emoji}: emoji characters
+  Grapheme cluster: \\X (PCRE2); matches full grapheme including combining chars
+Email regex (simplified): [a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}
+URL regex: https?://[\\w\\-]+(\\.[\\w\\-]+)+([\\w\\-\\._~:/?#\\[\\]@!$&'()*+,;=.]+)?
+IPv4: (?:25[0-5]|2[0-4]\\d|[01]?\\d\\d?)\\.(?:25[0-5]|2[0-4]\\d|[01]?\\d\\d?){3}
+Date: (?:19|20)\\d\\d[-/](?:0[1-9]|1[0-2])[-/](?:0[1-9]|[12]\\d|3[01])
+Password strength: (?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[^a-zA-Z\\d]).{12,}
+  Four lookaheads: lowercase, uppercase, digit, special char; 12+ length"
+}
+
+fn s_re_rust() -> &'static str {
+    "── Regex in Rust ──
+regex crate: safe; RE2-compatible; O(n) guarantee; no backtracking
+  Regex::new(r'\\d+'): compile; cache compiled regex (lazy_static! or once_cell)
+  re.is_match(text): bool; re.find(text): Option<Match>; re.find_iter(text): iterator
+  re.captures(text): Option<Captures>; caps[0] = full match; caps[1] = group 1
+  re.captures_iter(text): all matches with captures
+  re.replace(text, replacement): first; re.replace_all(text, replacement): all
+  re.split(text): split on pattern; re.splitn(text, n): limit splits
+  Replacement with captures: re.replace(text, '${1}-${2}') uses named/numbered groups
+  r#'...'# raw strings: no escape needed for backslashes; preferred for regex literals
+  Named groups: (?P<year>\\d{4}) -- caps.name('year').map(|m| m.as_str())
+regex-automata crate: lower-level; DFA/NFA directly; meta::Regex for full feature set
+  regex_automata::meta::Regex: same API as regex; can configure engine type
+  HybridMatcher: lazy DFA; good balance of compile time and match time
+fancy-regex crate: supports lookahead/lookbehind/backreferences; uses backtracking fallback
+  Falls back to backtracking only for features RE2 can't handle; most patterns stay fast
+PCRE2 crate (pcre2): wraps libpcre2; full PCRE2 feature set; requires C library
+Performance tips:
+  Avoid re-compiling; use lazy_static!: lazy_static!{ static ref RE: Regex = Regex::new(...).unwrap(); }
+  regex::RegexSet: match multiple patterns in one pass; O(n) per set
+  bytes::Regex: match on &[u8]; avoids UTF-8 validation for binary data"
+}
+
+fn s_re_performance() -> &'static str {
+    "── Regex Performance & ReDoS ──
+ReDoS (Regular Expression Denial of Service): catastrophic backtracking; exponential time
+  Vulnerable pattern: (a+)+ or (a|a)+ or (?:.*,)* -- ambiguous quantifiers
+  Attack: input 'aaaa...aaab' causes engine to try all 2^n backtrack paths
+  Detection: rxxr2, regexploit tools; test with long strings ending in no-match char
+  Prevention: use RE2-compatible patterns; rewrite with possessive/atomic groups
+  Linear-time alternatives: Rust regex, Go regexp, re2 library, Java java.util.regex (not linear!)
+Pattern optimization:
+  Anchor patterns: ^..$ when input is bounded; avoids scanning entire string
+  Order alternation by frequency: (common|rare) not (rare|common)
+  Character class vs alternation: [aeiou] faster than (a|e|i|o|u)
+  Prefix literalization: engines extract literal prefixes; 'hello\\w+' skips to 'hello' first
+  Avoid .*  at start: scanning entire input; anchor or use find-semantics
+Profiling:
+  regex-automata Captures overhead: use find() when captures not needed
+  cargo-flamegraph: profile actual hot paths; regex time often in loop overhead not compile
+  Benchmark with criterion: measure match time vs compile time; pre-compile outside loop
+PCRE2 JIT: pcre2_jit_compile(); 2-10x faster for complex patterns
+  jit_stack: allocate for large patterns; default stack sometimes too small
+DFA precompilation: for high-throughput; precompile to DFA; fast match at cost of memory
+  Hyperscan (Intel): SIMD DFA; thousands of patterns; used in Snort/Suricata IDS"
+}
+
+fn s_re_tools() -> &'static str {
+    "── Regex Tools & Testing ──
+Online tools:
+  regex101.com: best; PCRE/Python/JS/Go/Rust engines; step debugger; explanation tree
+  regexr.com: JS-based; visual match highlighting; community patterns library
+  regexplanet.com: Java/Go/Python/Haskell engines; multi-language testing
+  debuggex.com: visual NFA diagram; see the state machine your regex compiles to
+CLI tools:
+  grep -P: PCRE mode; grep -E: extended regex; grep -o: print only matching part
+  ripgrep (rg): Rust; RE2 semantics; fast; -P for PCRE2 mode; -g for glob filters
+  GNU sed: s/pattern/replacement/flags; p (print), g (global), I (case-insensitive)
+  awk: /pattern/ { action }; split($0, arr, pattern); gensub for group replacement
+  perl -pe 's/pattern/replacement/g': in-place text transform; full PCRE support
+Testing strategies:
+  Positive cases: all valid inputs that should match
+  Negative cases: invalid inputs that must not match
+  Edge cases: empty string, single char, unicode, very long input
+  Boundary cases: ^ and $ anchors; first and last characters
+  Property-based testing: quickcheck/proptest; generate inputs; verify invariants
+  Regression tests: add case for every reported false positive/negative
+Building regex incrementally:
+  Start with literal; add char classes; add quantifiers; add groups
+  Comment each part with verbose mode (?x): makes complex patterns maintainable
+  Version control your regex patterns; test suite is the spec"
+}
+
+const REGEX_ENGINE_SECTIONS: &[RegexEngineSection] = &[
+    (
+        "theory",
+        &[
+            "nfa",
+            "dfa",
+            "backtracking",
+            "thompson-construction",
+            "subset-construction",
+            "redos",
+            "linear-time",
+            "re2-theory",
+            "kleene",
+        ],
+        s_re_theory,
+    ),
+    (
+        "syntax",
+        &[
+            "anchors",
+            "character-classes",
+            "quantifiers",
+            "lookahead",
+            "lookbehind",
+            "lookaround",
+            "backreference",
+            "named-groups",
+            "flags",
+        ],
+        s_re_syntax,
+    ),
+    (
+        "advanced",
+        &[
+            "atomic-groups",
+            "possessive-quantifiers",
+            "conditional-regex",
+            "subroutines",
+            "unicode-properties",
+            "grapheme-cluster",
+            "recursive-regex",
+        ],
+        s_re_advanced,
+    ),
+    (
+        "rust-regex",
+        &[
+            "regex-crate",
+            "regex-automata",
+            "fancy-regex",
+            "pcre2-crate",
+            "lazy-static-regex",
+            "regex-set",
+            "named-captures-rust",
+        ],
+        s_re_rust,
+    ),
+    (
+        "performance",
+        &[
+            "regex-performance",
+            "regex-optimization",
+            "catastrophic-backtracking",
+            "pcre2-jit",
+            "hyperscan",
+            "dfa-precompile",
+            "anchor-pattern",
+        ],
+        s_re_performance,
+    ),
+    (
+        "tools",
+        &[
+            "regex101",
+            "regexr",
+            "grep-regex",
+            "ripgrep-regex",
+            "sed-regex",
+            "awk-regex",
+            "regex-testing",
+            "regex-debug",
+        ],
+        s_re_tools,
+    ),
+];
+
+pub fn regex_engine_calc(query: &str) -> String {
+    let q = query.trim().to_lowercase();
+    if q.is_empty() || q == "list" || q == "help" {
+        let topics: Vec<&str> = REGEX_ENGINE_SECTIONS.iter().map(|(n, _, _)| *n).collect();
+        return format!(
+            "regex-engine topics: {}\nUse: --regex-engine <topic>  or  --regex-engine all",
+            topics.join(", ")
+        );
+    }
+    if q == "all" {
+        return REGEX_ENGINE_SECTIONS
+            .iter()
+            .map(|(_, _, f)| f())
+            .collect::<Vec<_>>()
+            .join("\n\n");
+    }
+    for (name, aliases, func) in REGEX_ENGINE_SECTIONS {
+        if q == *name || aliases.iter().any(|a| q == *a || q.contains(a)) {
+            return func().to_string();
+        }
+    }
+    format!(
+        "No topic found for '{}'. Try: --regex-engine list",
+        query.trim()
+    )
+}
+
+// ── Wave 33: git_internals_calc ───────────────────────────────────────────────
+
+type GitInternalsSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+
+fn s_git_objects() -> &'static str {
+    "── Git Object Model ──
+Git stores everything as content-addressed objects in .git/objects/
+  Objects hashed with SHA-1 (legacy) or SHA-256 (--object-format=sha256, git >= 2.29)
+  Address: sha = hash(type SP size NUL content); first 2 chars = directory, rest = filename
+Object types:
+  blob: file content; no filename or permissions; deduplication across commits/branches
+    git hash-object -w file: write blob; git cat-file -p <hash>: print content
+  tree: directory listing; entries = {mode, name, hash}; mode: 100644 (file), 100755 (exec), 120000 (symlink), 040000 (dir)
+    git ls-tree HEAD: list tree; git ls-tree -r --name-only HEAD: all files recursively
+  commit: snapshot pointer; fields: tree, parent(s), author, committer, message
+    Merge commit: two+ parents; git cat-file -p HEAD shows both
+    git cat-file commit HEAD: raw commit object content
+  tag: annotated tag; points to commit with tagger, message, optional PGP signature
+    Lightweight tag: just a ref pointer (not an object); git tag v1 = lightweight
+    Annotated: git tag -a v1 -m 'msg' = creates tag object; recommended for releases
+References (.git/refs/ and .git/packed-refs):
+  branch: .git/refs/heads/<name>; just a file containing commit hash
+  remote: .git/refs/remotes/<remote>/<branch>
+  HEAD: .git/HEAD; either 'ref: refs/heads/main' (attached) or detached SHA
+  Packed refs: .git/packed-refs; older/remote refs consolidated into single file
+Object inspection:
+  git cat-file -t <hash>: type; git cat-file -p <hash>: pretty-print; git cat-file -s <hash>: size
+  git rev-parse HEAD~3: resolve ref to hash; git rev-parse --short HEAD: short hash
+  git ls-files --stage: index (staging area); git ls-files -u: unmerged files"
+}
+
+fn s_git_pack() -> &'static str {
+    "── Pack Files & Storage ──
+Loose objects: .git/objects/<2>/<38>; one file per object; created on every commit
+  Inefficient for many objects; git gc packs loose objects into pack files
+Pack files: .git/objects/pack/*.pack + *.idx; binary format storing many objects
+  Delta compression: store diffs between similar objects (blob versions, similar files)
+  git gc: runs auto-packing; pack-refs; prune unreachable objects
+  git gc --aggressive: more compression; slower; run occasionally on large repos
+  git count-objects -vH: show loose object count and pack file sizes
+Pack index (.idx): enables fast object lookup in pack without scanning
+  idx v2: offset table, crc32 per object; git pack-objects, git index-pack
+git pack-objects: create pack file; git unpack-objects: extract loose objects from pack
+Shallow clones: .git/shallow lists boundary commits; parents beyond treated as root
+  git clone --depth 1: fetch only latest commit; no history
+  git fetch --unshallow: convert to full clone
+  git fetch --deepen=N: extend by N more commits
+Alternates: .git/objects/info/alternates; share object store between repos
+  git clone --reference /path/to/other/repo: use alternates; saves disk; linked checkout
+Partial clone: git clone --filter=blob:none: omit blobs; fetch on demand
+  --filter=tree:0: omit all trees; minimal clone; very fast; downloads as needed
+  git sparse-checkout: only check out specific paths; combined with partial clone
+Worktrees: git worktree add ../branch-dir branch-name
+  Multiple working trees from same repo; separate .git/worktrees/<name>/
+  git worktree list; git worktree remove <path>; worktree HEAD detached by default if new branch"
+}
+
+fn s_git_plumbing() -> &'static str {
+    "── Git Plumbing Commands ──
+Index (staging area): .git/index; binary; fast snapshot of working tree
+  git update-index --add --cacheinfo 100644,<blob-hash>,filename: manual staging
+  git read-tree <tree-hash>: load tree into index; git write-tree: index -> tree object
+  git ls-files --stage: show index content with modes and hashes
+Low-level commit creation:
+  blob=$(git hash-object -w file): write blob
+  tree=$(git write-tree): write current index as tree
+  commit=$(echo 'msg' | git commit-tree $tree -p HEAD): create commit object
+  git update-ref refs/heads/main $commit: move branch to new commit
+Diff plumbing:
+  git diff-index HEAD: index vs HEAD; git diff-files: working tree vs index
+  git diff-tree -r <hash1> <hash2>: list changed files between two commits
+Ref operations:
+  git symbolic-ref HEAD: read/write HEAD; git symbolic-ref HEAD refs/heads/other: switch branch
+  git update-ref refs/heads/branch <hash>: set ref; git update-ref -d refs/heads/branch: delete
+  git for-each-ref --format='%(refname) %(objectname:short)' refs/heads: iterate refs
+Merge plumbing:
+  git merge-base A B: find common ancestor; git merge-tree: 3-way merge without checkout
+  git read-tree -m -u $(git merge-base A B) A B: 3-way merge into index
+Object traversal:
+  git rev-list HEAD: all reachable commits from HEAD; --count, --all, --since, --until
+  git log --pretty=format:'%H %T %P': hash, tree, parents per commit
+  git show-ref: list all refs; git verify-pack -v .git/objects/pack/*.idx: inspect pack"
+}
+
+fn s_git_reflog() -> &'static str {
+    "── Reflog & Recovery ──
+Reflog: .git/logs/refs/heads/<branch> and .git/logs/HEAD; every ref movement logged
+  git reflog: show HEAD reflog; HEAD@{0} = current; HEAD@{1} = previous position
+  git reflog show main: show main branch reflog
+  git reflog --all: all reflogs; git reflog show --date=iso: with timestamps
+  git diff HEAD@{2}: diff current HEAD against where HEAD was 2 moves ago
+Recovery scenarios:
+  Deleted branch: git reflog to find last commit hash; git branch recovered <hash>
+  Accidental reset: git reset --hard HEAD@{N} to undo the reset
+  Dropped stash: git stash list (empty); git fsck --unreachable | grep commit; git stash apply <hash>
+  Lost commit after rebase: git reflog to find pre-rebase SHA; git checkout -b recovery <sha>
+git fsck: check object store integrity; find dangling/unreachable objects
+  git fsck --lost-found: write dangling blobs to .git/lost-found/other/
+  git fsck --unreachable: list unreachable objects; useful for finding dropped commits
+  Dangling blob: blob not referenced by any tree; may be staged/WIP content
+Reflog expiry: default 90 days (unreachable objects), 30 days for gc.reflogExpire setting
+  git reflog expire --expire=now --all: immediately expire all reflog entries
+  git gc --prune=now: immediately GC unreachable objects (dangerous: no recovery after)
+ORIG_HEAD, MERGE_HEAD, CHERRY_PICK_HEAD:
+  ORIG_HEAD: saved before merge/rebase/reset; git reset --hard ORIG_HEAD undoes them
+  FETCH_HEAD: what was just fetched; git merge FETCH_HEAD after git fetch
+  MERGE_HEAD: the commit being merged (during conflict resolution)
+  CHERRY_PICK_HEAD: commit being cherry-picked (during conflict)"
+}
+
+fn s_git_rewrite() -> &'static str {
+    "── History Rewriting ──
+Interactive rebase: git rebase -i HEAD~N; rewrite last N commits
+  Commands: pick (keep), reword (edit msg), edit (amend), squash (merge into prev), fixup (squash, drop msg)
+  drop: remove commit; exec: run shell command after commit; break: pause for manual work
+  git rebase -i --autosquash: auto-apply fixup! and squash! commit messages
+  Splitting a commit: edit; git reset HEAD^; stage partial; commit; continue
+  Rebase conflicts: git add, git rebase --continue; git rebase --abort to cancel
+filter-branch (legacy): rewrite history via shell scripts; slow; replaced by git-filter-repo
+git-filter-repo: fast Python tool for history rewriting
+  Remove file from all history: git filter-repo --path secret.txt --invert-paths
+  Rename directory: git filter-repo --path-rename old/path:new/path
+  Strip large files: git filter-repo --strip-blobs-bigger-than 10M
+  Rewrite email: git filter-repo --email-callback 'return email.replace(b\"old@\", b\"new@\")'
+git commit --amend: modify last commit (msg and/or content); rewrites SHA
+  Danger: never amend pushed commits (breaks collaborators); safe for local unpushed
+Squash merges: git merge --squash branch: stage all changes as single uncommitted change
+  Then git commit; creates clean single commit; no merge commit; loses individual history
+git cherry-pick: apply specific commits to current branch; creates new commit with same changes
+  git cherry-pick A..B: range (exclusive A); git cherry-pick A^..B: range (inclusive A)
+  -n (--no-commit): stage changes without committing; useful for partial cherry-picks
+Forced push safety: git push --force-with-lease: only force if remote matches expected state
+  Safer than --force; prevents overwriting others' pushes; use for published rewrites"
+}
+
+fn s_git_advanced_ops() -> &'static str {
+    "── Advanced Git Operations ──
+Bisect: binary search for bug-introducing commit
+  git bisect start; git bisect bad HEAD; git bisect good v1.0
+  git bisect run ./test.sh: automated; script exits 0=good, 1=bad, 125=skip
+  git bisect reset: return to original HEAD; git bisect log: show session
+Submodules: repo inside repo; .gitmodules; separate HEAD per submodule
+  git submodule add <url> path: add; git submodule update --init --recursive: clone+checkout
+  git submodule update --remote: update to latest remote commit
+  Detached HEAD in submodule: normal; commit inside, update .gitmodules, then commit parent
+  Gotcha: git clone doesn't init submodules; need --recurse-submodules or update after
+Subtrees: alternative to submodules; squash external repo into subdirectory
+  git subtree add --prefix=lib/ <url> main --squash
+  git subtree pull --prefix=lib/ <url> main --squash: update
+  No .gitmodules; no detached HEAD; works transparently for non-subtree users
+Stash: save dirty working tree; stack of stashes
+  git stash push -m 'msg' -u: include untracked; git stash list; git stash pop/apply/drop
+  git stash push --patch: interactively select hunks to stash
+  git stash branch <name>: create branch from stash; resolves conflicts elegantly
+Notes: git notes add -m 'note' <commit>: attach metadata without changing SHA
+  git notes show HEAD; pushed separately: git push origin refs/notes/*
+  Use case: CI build results, code review URLs attached to commits
+Hooks: .git/hooks/ scripts; pre-commit, commit-msg, pre-push, post-merge, etc.
+  pre-commit: lint/format check before commit; husky (Node) or pre-commit (Python) manage
+  commit-msg: validate commit message format; conventional commits enforcement
+  pre-push: run tests before push; use wisely (slow hooks frustrate developers)
+  Core.hooksPath: set global hooks dir; git config core.hooksPath ~/.git-hooks"
+}
+
+const GIT_INTERNALS_SECTIONS: &[GitInternalsSection] = &[
+    (
+        "objects",
+        &[
+            "git-objects",
+            "blob",
+            "tree-object",
+            "commit-object",
+            "tag-object",
+            "cat-file",
+            "hash-object",
+            "object-store",
+            "sha256-git",
+        ],
+        s_git_objects,
+    ),
+    (
+        "pack-files",
+        &[
+            "pack",
+            "packfile",
+            "git-gc",
+            "delta-compression",
+            "shallow-clone",
+            "partial-clone",
+            "alternates",
+            "sparse-checkout",
+            "worktree",
+        ],
+        s_git_pack,
+    ),
+    (
+        "plumbing",
+        &[
+            "git-plumbing",
+            "update-index",
+            "write-tree",
+            "read-tree",
+            "commit-tree",
+            "rev-list",
+            "for-each-ref",
+            "diff-index",
+            "merge-base",
+        ],
+        s_git_plumbing,
+    ),
+    (
+        "reflog",
+        &[
+            "git-reflog",
+            "recovery",
+            "orig-head",
+            "fetch-head",
+            "merge-head",
+            "git-fsck",
+            "dangling-objects",
+            "lost-found",
+            "reflog-expiry",
+        ],
+        s_git_reflog,
+    ),
+    (
+        "rewrite",
+        &[
+            "interactive-rebase",
+            "git-filter-repo",
+            "squash-commits",
+            "cherry-pick",
+            "force-with-lease",
+            "filter-branch",
+            "amend-commit",
+            "fixup-commit",
+        ],
+        s_git_rewrite,
+    ),
+    (
+        "advanced-ops",
+        &[
+            "git-bisect",
+            "git-submodules",
+            "git-subtree",
+            "git-stash",
+            "git-notes",
+            "git-hooks",
+            "pre-commit-hook",
+            "hooks-path",
+            "bisect-run",
+        ],
+        s_git_advanced_ops,
+    ),
+];
+
+pub fn git_internals_calc(query: &str) -> String {
+    let q = query.trim().to_lowercase();
+    if q.is_empty() || q == "list" || q == "help" {
+        let topics: Vec<&str> = GIT_INTERNALS_SECTIONS.iter().map(|(n, _, _)| *n).collect();
+        return format!(
+            "git-internals topics: {}\nUse: --git-internals <topic>  or  --git-internals all",
+            topics.join(", ")
+        );
+    }
+    if q == "all" {
+        return GIT_INTERNALS_SECTIONS
+            .iter()
+            .map(|(_, _, f)| f())
+            .collect::<Vec<_>>()
+            .join("\n\n");
+    }
+    for (name, aliases, func) in GIT_INTERNALS_SECTIONS {
+        if q == *name || aliases.iter().any(|a| q == *a || q.contains(a)) {
+            return func().to_string();
+        }
+    }
+    format!(
+        "No topic found for '{}'. Try: --git-internals list",
+        query.trim()
+    )
+}
+
+// ── Wave 33: data_formats_calc ────────────────────────────────────────────────
+
+type DataFormatSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+
+fn s_df_binary() -> &'static str {
+    "── Binary Serialization Formats ──
+MessagePack: binary JSON; compact; typed; widely supported
+  Integers: 1-9 bytes depending on value; fixint (1 byte for -32 to 127)
+  Strings: 1-5 byte prefix + UTF-8 bytes; blobs: binary type
+  Collections: fixmap/fixarray for small; map16/map32/array16/array32 for large
+  Use case: Redis, RPC protocols, game state; 20-50% smaller than JSON
+  Libraries: rmp-serde (Rust), msgpack (Python), @msgpack/msgpack (JS)
+CBOR (RFC 7049/8949): Concise Binary Object Representation; JSON superset
+  Major types: unsigned int, negative int, byte string, text string, array, map, tag, float
+  Self-described: type information in header byte; decodable without schema
+  Tags: extensible; tag 0 = datetime, tag 1 = epoch, tag 32 = URI, tag 37 = UUID
+  Use case: COSE (CBOR Object Signing), CTAP2 (FIDO2), IoT, CDDL schema language
+FlatBuffers (Google): zero-copy access; no parsing step; direct memory access
+  Generated code from .fbs schema; access fields without full deserialization
+  Mutable (FlatBuffers2) and immutable variants; tables with optional fields
+  Use case: game engines, high-frequency trading, embedded; faster than protobuf for read-heavy
+Cap'n Proto: zero-copy; no encode/decode; memory map and access directly
+  Arena allocation; built-in RPC (Cap'n Proto RPC); fields never removed from wire format
+  Capnp-rust: safe Rust bindings; check-access for bounds; build-flat for construction
+Protocol Buffers (protobuf):
+  Binary wire format; field numbers not names; varint encoding for integers
+  Unknown fields preserved across versions (newer field nums just passed through)
+  proto3: all fields optional; no required; default to zero/empty
+  Well-known types: Timestamp, Duration, Any, FieldMask, Struct (dynamic JSON-like)"
+}
+
+fn s_df_columnar() -> &'static str {
+    "── Columnar Formats ──
+Column-oriented storage: store all values of a column together; optimal for analytics
+  Row-oriented (CSV, JSON lines): good for OLTP; scan all columns per row
+  Column-oriented: skip unused columns; compress similar values; SIMD operations
+Apache Parquet: column-oriented; nested data model; Dremel encoding
+  Row groups: horizontal partitions; each group = column chunks for each column
+  Column statistics: min/max/null_count per row group; enables predicate pushdown
+  Encoding: dictionary (low cardinality), RLE, bit-packing, delta encoding
+  Compression: Snappy (default), Gzip, Brotli, Zstd (fastest compression/decompression)
+  Schema: Thrift-based; embedded in footer; supports nested structs and lists
+  Tools: parquet-tools, DuckDB parquet_scan(), pandas read_parquet(), polars
+  Partitioning: Hive-style /year=2024/month=01/; enables partition pruning in query engines
+Apache ORC: Optimized Row Columnar; alternative to Parquet; Hive native format
+  Lightweight indexes: row group stats; bloom filters per stripe
+  ACID transactions: Hive ACID support; insert-only and full ACID modes
+  Stripe: ORC's row group equivalent; default 250MB
+Apache Arrow: in-memory columnar; zero-copy IPC; language-agnostic
+  Arrow IPC: file format (.arrow) and stream format; fast inter-process data exchange
+  Arrow Flight: gRPC-based data transport for Arrow batches; replaces ODBC/JDBC in analytics
+  DataFusion: Rust query engine using Arrow; embedded in InfluxDB, Delta Lake, Comet
+  Polars: built on Arrow; Rust DataFrame library; SIMD optimized; eager + lazy API
+  PyArrow: Python Arrow bindings; interop with pandas, numpy, dask
+DuckDB: embedded OLAP; reads Parquet/CSV/Arrow/JSON natively; SQL; vectorized engine
+  SELECT * FROM read_parquet('data/*.parquet') WHERE date > '2024-01-01'
+  Pushes predicates into Parquet reader; only reads needed row groups + columns"
+}
+
+fn s_df_streaming() -> &'static str {
+    "── Streaming & Event Formats ──
+Apache Avro: row-based; schema embedded or in registry; self-describing binary
+  Schema evolution: forward/backward compatibility rules
+  Writer schema vs reader schema: field projection and defaults on read
+  JSON schema: {type: record, name: User, fields: [{name: id, type: long}, ...]}
+  Schema Registry: Confluent Schema Registry; register, evolve, enforce compatibility
+  Confluent wire format: 5-byte prefix (magic byte + schema ID); before Avro payload
+  Use case: Kafka messages; schema enforced at producer; consumers evolve independently
+  Avro IDL: .avdl file; more readable than JSON schema; compiled to .avsc
+Kafka message formats:
+  Key + Value + Headers; key optional but critical for partitioning and compaction
+  Null tombstone: value=null message; triggers log compaction deletion for that key
+  Timestamp types: CreateTime (producer) vs LogAppendTime (broker); CreateTime preferred
+  Message batching: RecordBatch; compressed together; one producer call = one batch
+Protobuf for streaming:
+  Length-prefixed framing: uint32 size (big-endian or varint) + protobuf bytes
+  gRPC streaming: framed with 5 bytes (compressed flag + message length)
+  delimited_message_set: write multiple protos to stream without schema
+JSON Lines (NDJSON/jsonl): one JSON object per line; easy streaming and append
+  tail -f file.jsonl | jq '.': stream parse; grep friendly
+  Kafka JSON: serialize as JSON Lines; no schema enforcement; common in small teams
+Thrift: Facebook; IDL-based; multiple serialization protocols (Binary, Compact, JSON)
+  Service definition: methods, exceptions, structs in .thrift; generate clients/servers
+  Compact protocol: varint + zigzag; 30-40% smaller than Binary; default in Scribe/HBase"
+}
+
+fn s_df_text() -> &'static str {
+    "── Text & Structured Text Formats ──
+JSON: ubiquitous; human-readable; strict subset of JavaScript
+  Numbers: no integers vs floats distinction; 64-bit float; integer precision to 2^53
+  Strings: always UTF-8; escape \\uXXXX for non-BMP; \\n \\t \\\\ \\\" escapes
+  Limitations: no comments, no trailing commas, no binary, no dates (use ISO 8601 strings)
+  JSONC: JSON with Comments; VSCode settings; not standard; not parseable by JSON parsers
+  JSON5: superset; comments, trailing commas, unquoted keys; not widely supported
+  JSON Schema: validate documents; $schema, type, required, properties, pattern, enum
+  NDJSON / JSON Lines: one document per line; streaming-friendly; log formats
+YAML: superset of JSON; human-friendly; complex; many gotchas
+  Implicit typing: 'yes' -> true, '2024' -> integer, '1e3' -> float; use quotes to prevent
+  Multiline strings: | (literal, preserve newlines), > (folded, newlines -> spaces)
+  Anchors & aliases: &anchor and *alias for DRY; <<: *merge for map merging
+  YAML 1.2 vs 1.1: 1.2 fixes yes/no/on/off boolean; PyYAML still uses 1.1
+  Lint: yamllint; validate: kubeval (K8s), ajv (JSON Schema); convert: yq
+TOML: Tom's Obvious, Minimal Language; config files; Rust ecosystem (Cargo.toml)
+  Strong types: string, integer, float, boolean, datetime, array, table
+  Datetime: 1979-05-27T07:32:00Z; RFC 3339 with timezone; local date/time also valid
+  Array of tables: [[products]]; each creates new entry in products array
+  Inline tables: {key = value}; must be single-line; no trailing commas
+  vs YAML: less ambiguous; more limited (no anchors); better for config files
+INI / .env: key=value; sections [section]; no types; everything is string
+  dotenv format: KEY=value; no spaces around =; quotes optional; # for comments
+  12-factor app: configuration in environment; .env for local dev; never commit secrets"
+}
+
+fn s_df_schema() -> &'static str {
+    "── Schema & Data Modeling ──
+JSON Schema (draft-07 / 2020-12):
+  type, properties, required, additionalProperties, patternProperties
+  Validation keywords: minimum, maximum, minLength, maxLength, pattern, enum, const
+  Composition: allOf (AND), anyOf (OR), oneOf (exactly one), not
+  References: $ref to reuse definitions; $defs for local definitions
+  discriminator: const or enum in property to guide oneOf selection
+  OpenAPI 3.x uses JSON Schema subset with extensions (nullable, discriminator)
+Avro schema evolution rules:
+  Backward compatible: new schema reads old data (add field with default, delete field)
+  Forward compatible: old schema reads new data (delete field with default, add field)
+  Full compatible: both; fields always have defaults; never rename fields
+Protobuf compatibility:
+  Add field with new number: backward + forward compatible
+  Remove field: mark reserved; reserved 3; reserved 'old_field_name';
+  Change type: only widening types work (int32 -> int64); changing semantics is breaking
+  Rename field: safe (wire uses numbers not names); update generated code
+Delta Lake / Iceberg table formats:
+  Atomic table operations via metadata log; time-travel via snapshot IDs
+  Schema evolution: add/rename/drop columns; Iceberg supports column renaming safely
+  Partition evolution: Iceberg; change partition scheme without rewriting data
+  Compaction: bin-pack small files into larger ones; Z-order for multi-dim filtering
+  Unity Catalog / AWS Glue: central metadata catalog; governance across Delta/Iceberg tables"
+}
+
+fn s_df_compression() -> &'static str {
+    "── Compression Algorithms ──
+Lossless compression trade-offs: ratio vs speed vs memory
+Snappy (Google): fast; modest ratio; 250-500 MB/s compress, 500+ MB/s decompress
+  No checksum built-in; framing format adds checksums; Parquet default
+  Use case: Kafka messages, Parquet, intermediate data; speed over ratio
+LZ4: extremely fast; 500-2000 MB/s compress/decompress; low memory; block + frame format
+  LZ4 Frame: seekable; checksums; default for streaming
+  LZ4 HC: higher compression, slower; LZ4_MAX_CLEVEL=12
+  Use case: real-time systems, network transfers, Redis RDB
+Zstd (Zstandard): balanced; tunable levels 1-22; level 3 comparable to zlib at 3-5x speed
+  Dictionary training: zstd --train samples/*.json -o dict; dramatically improves small-file ratio
+  Seekable format: independent frames; random-access without full decompress
+  Use case: log compression, Parquet/ORC, Docker layers, npm packages
+gzip / zlib: DEFLATE algorithm; universal compatibility; good ratio; slower than Zstd/LZ4
+  Level 1 (fast) to 9 (best ratio); level 6 default; transparent HTTP Content-Encoding
+  pigz: parallel gzip; split file into blocks; compress in parallel; same output as gzip
+Brotli: better ratio than gzip; especially for text; browser-native (Content-Encoding: br)
+  Level 1-11; level 4-6 for real-time; level 11 for static assets; slower at max level
+  Use case: static web assets, npm packages; not ideal for general-purpose data pipeline
+Compression in data pipelines:
+  Columnar + compression: column values correlated -> dictionary/RLE very effective
+  Parquet: per-column compression; each column uses best algorithm for its data type
+  Block size matters: compress larger blocks for better ratio; LZ4 window size
+  Transparent vs explicit: S3 + Content-Encoding for transparent; filename extension explicit"
+}
+
+const DATA_FORMAT_SECTIONS: &[DataFormatSection] = &[
+    (
+        "binary",
+        &[
+            "msgpack",
+            "cbor",
+            "flatbuffers",
+            "capnproto",
+            "protobuf-format",
+            "messagepack",
+            "zero-copy",
+        ],
+        s_df_binary,
+    ),
+    (
+        "columnar",
+        &[
+            "parquet",
+            "orc",
+            "apache-arrow",
+            "duckdb-format",
+            "row-groups",
+            "predicate-pushdown",
+            "polars-format",
+        ],
+        s_df_columnar,
+    ),
+    (
+        "streaming",
+        &[
+            "avro",
+            "schema-registry",
+            "kafka-format",
+            "thrift",
+            "ndjson-stream",
+            "jsonl-stream",
+            "length-prefixed",
+        ],
+        s_df_streaming,
+    ),
+    (
+        "text",
+        &[
+            "json-format",
+            "yaml-format",
+            "toml-format",
+            "jsonschema",
+            "json5",
+            "jsonc",
+            "dotenv-format",
+            "ini-format",
+        ],
+        s_df_text,
+    ),
+    (
+        "schema",
+        &[
+            "json-schema",
+            "avro-evolution",
+            "protobuf-evolution",
+            "delta-lake",
+            "iceberg",
+            "schema-evolution",
+            "unity-catalog",
+        ],
+        s_df_schema,
+    ),
+    (
+        "compression",
+        &[
+            "snappy",
+            "lz4",
+            "zstd",
+            "gzip-compression",
+            "brotli",
+            "deflate",
+            "columnar-compression",
+            "pigz",
+        ],
+        s_df_compression,
+    ),
+];
+
+pub fn data_formats_calc(query: &str) -> String {
+    let q = query.trim().to_lowercase();
+    if q.is_empty() || q == "list" || q == "help" {
+        let topics: Vec<&str> = DATA_FORMAT_SECTIONS.iter().map(|(n, _, _)| *n).collect();
+        return format!(
+            "data-formats topics: {}\nUse: --data-formats <topic>  or  --data-formats all",
+            topics.join(", ")
+        );
+    }
+    if q == "all" {
+        return DATA_FORMAT_SECTIONS
+            .iter()
+            .map(|(_, _, f)| f())
+            .collect::<Vec<_>>()
+            .join("\n\n");
+    }
+    for (name, aliases, func) in DATA_FORMAT_SECTIONS {
+        if q == *name || aliases.iter().any(|a| q == *a || q.contains(a)) {
+            return func().to_string();
+        }
+    }
+    format!(
+        "No topic found for '{}'. Try: --data-formats list",
+        query.trim()
+    )
+}

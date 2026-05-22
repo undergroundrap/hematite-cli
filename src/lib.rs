@@ -2098,6 +2098,38 @@ pub struct CliCockpit {
 
     #[arg(
         long,
+        help_heading = "Developer Toolkit",
+        value_name = "QUERY",
+        help = "Container internals reference — offline replacement for Docker/containerd docs. Topics: namespaces, cgroups, oci, runtimes, build, security. Aliases: pid-namespace, cgroup-v2, overlayfs, runc, containerd, dockerfile, multi-stage, buildkit, seccomp, and more. Examples: hematite --container-ref namespaces | hematite --container-ref cgroups | hematite --container-ref build | hematite --container-ref all"
+    )]
+    pub container_ref: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Developer Toolkit",
+        value_name = "QUERY",
+        help = "Regex engine reference — offline replacement for regex docs and regex101 for concepts. Topics: theory, syntax, advanced, rust-regex, performance, tools. Aliases: nfa, dfa, backtracking, lookahead, possessive-quantifiers, regex-crate, redos, and more. Examples: hematite --regex-engine theory | hematite --regex-engine syntax | hematite --regex-engine rust-regex | hematite --regex-engine all"
+    )]
+    pub regex_engine: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Developer Toolkit",
+        value_name = "QUERY",
+        help = "Git internals reference — offline replacement for Git docs and Pro Git book. Topics: objects, pack-files, plumbing, reflog, rewrite, advanced-ops. Aliases: blob, cat-file, git-gc, git-reflog, interactive-rebase, git-bisect, git-submodules, and more. Examples: hematite --git-internals objects | hematite --git-internals reflog | hematite --git-internals rewrite | hematite --git-internals all"
+    )]
+    pub git_internals: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Developer Toolkit",
+        value_name = "QUERY",
+        help = "Data serialization formats reference — offline replacement for format docs. Topics: binary, columnar, streaming, text, schema, compression. Aliases: msgpack, parquet, avro, json-format, yaml-format, toml-format, zstd, lz4, snappy, and more. Examples: hematite --data-formats binary | hematite --data-formats columnar | hematite --data-formats compression | hematite --data-formats all"
+    )]
+    pub data_formats: Option<String>,
+
+    #[arg(
+        long,
         help_heading = "Math & Science",
         value_name = "QUERY",
         help = "Lorem ipsum generator — offline replacement for lipsum.com. Commands: (bare) or <N> = N paragraphs (default 1); words <N> = N words; sentences <N> = N sentences. Examples: hematite --lorem | hematite --lorem 3 | hematite --lorem 'words 50' | hematite --lorem 'sentences 5'"

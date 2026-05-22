@@ -1117,6 +1117,10 @@ mod tests {
             monitoring_ref: None,
             search_ref: None,
             protocols_ref: None,
+            container_ref: None,
+            regex_engine: None,
+            git_internals: None,
+            data_formats: None,
             pdf_extract_helper: None,
             teleported_from: None,
         };

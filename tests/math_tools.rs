@@ -7,19 +7,20 @@ use hematite::tools::math_util::{
     ascii_table_calc, auth_ref_calc, awk_calc, bash_adv_calc, bash_ref_calc, bitwise_calc,
     case_calc, chars_calc, checksum_calc, chemistry_calc, chmod_calc, cicd_ref_calc, cipher_calc,
     cloud_ref_calc, color_calc, color_names_calc, combinatorics_calc, compiler_ref_calc,
-    complex_calc, cron_calc, crypto_ref_calc, css_ref_calc, csv_calc, curl_calc, database_adv_calc,
-    datetime_calc, db_design_calc, design_patterns_calc, devops_ref_calc, diff_calc,
-    docker_adv_calc, docker_compose_calc, docker_ref_calc, duration_calc, electrical_calc,
-    encode_calc, escape_calc, event_driven_calc, find_calc, fraction_calc, geometry_calc,
-    git_adv_calc, git_ref_calc, gitignore_calc, go_ref_calc, grep_calc, hash_calc, headers_calc,
-    health_calc, http_adv_calc, http_calc, http_headers_calc, http_status_calc, id_gen_calc,
-    ip_calc, jinja_calc, jq_calc, js_ref_calc, json_calc, json_path_calc, jwt_calc, k8s_ref_calc,
-    kbd_calc, kubectl_calc, license_calc, linux_adv_calc, linux_kernel_calc, linux_sys_calc,
-    lorem_calc, make_calc, makefile_calc, markdown_calc, matrix_calc, mime_calc, ml_ref_calc,
-    monitoring_ref_calc, net_calc, network_ref_calc, networking_adv_calc, nginx_calc, npm_calc,
-    number_format, number_theory_calc, observability_calc, oop_ref_calc, openssl_calc,
-    percent_calc, perf_ref_calc, physics_calc, port_calc, postgres_calc, prob_calc,
-    protocols_ref_calc, python_data_calc, python_ref_calc, regex_adv_calc, regex_calc,
+    complex_calc, container_ref_calc, cron_calc, crypto_ref_calc, css_ref_calc, csv_calc,
+    curl_calc, data_formats_calc, database_adv_calc, datetime_calc, db_design_calc,
+    design_patterns_calc, devops_ref_calc, diff_calc, docker_adv_calc, docker_compose_calc,
+    docker_ref_calc, duration_calc, electrical_calc, encode_calc, escape_calc, event_driven_calc,
+    find_calc, fraction_calc, geometry_calc, git_adv_calc, git_internals_calc, git_ref_calc,
+    gitignore_calc, go_ref_calc, grep_calc, hash_calc, headers_calc, health_calc, http_adv_calc,
+    http_calc, http_headers_calc, http_status_calc, id_gen_calc, ip_calc, jinja_calc, jq_calc,
+    js_ref_calc, json_calc, json_path_calc, jwt_calc, k8s_ref_calc, kbd_calc, kubectl_calc,
+    license_calc, linux_adv_calc, linux_kernel_calc, linux_sys_calc, lorem_calc, make_calc,
+    makefile_calc, markdown_calc, matrix_calc, mime_calc, ml_ref_calc, monitoring_ref_calc,
+    net_calc, network_ref_calc, networking_adv_calc, nginx_calc, npm_calc, number_format,
+    number_theory_calc, observability_calc, oop_ref_calc, openssl_calc, percent_calc,
+    perf_ref_calc, physics_calc, port_calc, postgres_calc, prob_calc, protocols_ref_calc,
+    python_data_calc, python_ref_calc, regex_adv_calc, regex_calc, regex_engine_calc,
     regex_ref_calc, regex_test_calc, roman_calc, rust_adv_calc, rust_patterns_calc, rust_ref_calc,
     search_ref_calc, security_ref_calc, security_scan_calc, sed_calc, semver_calc, set_calc,
     sort_viz, spark_calc, sql_adv_calc, sql_fmt_calc, sql_ref_calc, ssh_ref_calc, ssl_calc,
@@ -21624,4 +21625,713 @@ fn protocols_ref_case_insensitive() {
 fn protocols_ref_whitespace_trimmed() {
     let out = protocols_ref_calc("  tls  ");
     assert!(out.contains("TLS"), "{out}");
+}
+
+// ── container_ref_calc ────────────────────────────────────────────────────────
+
+#[test]
+fn container_ref_empty_returns_topic_list() {
+    let out = container_ref_calc("");
+    assert!(out.contains("container-ref topics:"), "{out}");
+    assert!(out.contains("namespaces"), "{out}");
+    assert!(out.contains("build"), "{out}");
+}
+
+#[test]
+fn container_ref_nomatch_returns_hint() {
+    let out = container_ref_calc("zzznomatch");
+    assert!(out.contains("No topic found"), "{out}");
+    assert!(out.contains("container-ref list"), "{out}");
+}
+
+#[test]
+fn container_ref_all_returns_all_sections() {
+    let out = container_ref_calc("all");
+    assert!(out.contains("Linux Namespaces"), "{out}");
+    assert!(out.contains("Control Groups"), "{out}");
+    assert!(out.contains("OCI"), "{out}");
+    assert!(out.contains("Container Runtimes"), "{out}");
+    assert!(out.contains("Container Build"), "{out}");
+    assert!(out.contains("Container Security"), "{out}");
+}
+
+#[test]
+fn container_ref_namespaces_by_name() {
+    let out = container_ref_calc("namespaces");
+    assert!(out.contains("pid namespace"), "{out}");
+    assert!(out.contains("veth"), "{out}");
+}
+
+#[test]
+fn container_ref_namespaces_via_pid_namespace_alias() {
+    let out = container_ref_calc("pid-namespace");
+    assert!(out.contains("pid namespace"), "{out}");
+}
+
+#[test]
+fn container_ref_namespaces_via_user_namespace_alias() {
+    let out = container_ref_calc("user-namespace");
+    assert!(out.contains("user namespace"), "{out}");
+}
+
+#[test]
+fn container_ref_namespaces_via_rootless_alias() {
+    let out = container_ref_calc("rootless");
+    assert!(out.contains("rootless"), "{out}");
+}
+
+#[test]
+fn container_ref_cgroups_by_name() {
+    let out = container_ref_calc("cgroups");
+    assert!(out.contains("Control Groups"), "{out}");
+    assert!(out.contains("memory.max"), "{out}");
+}
+
+#[test]
+fn container_ref_cgroups_via_cgroup_v2_alias() {
+    let out = container_ref_calc("cgroup-v2");
+    assert!(out.contains("v2"), "{out}");
+}
+
+#[test]
+fn container_ref_cgroups_via_oom_killer_alias() {
+    let out = container_ref_calc("oom-killer");
+    assert!(out.contains("OOM"), "{out}");
+}
+
+#[test]
+fn container_ref_cgroups_via_cpu_limit_alias() {
+    let out = container_ref_calc("cpu-limit");
+    assert!(out.contains("cpu"), "{out}");
+}
+
+#[test]
+fn container_ref_oci_by_name() {
+    let out = container_ref_calc("oci");
+    assert!(out.contains("OCI"), "{out}");
+    assert!(out.contains("Manifest"), "{out}");
+}
+
+#[test]
+fn container_ref_oci_via_manifest_alias() {
+    let out = container_ref_calc("manifest");
+    assert!(out.contains("Manifest"), "{out}");
+}
+
+#[test]
+fn container_ref_oci_via_cosign_alias() {
+    let out = container_ref_calc("cosign");
+    assert!(out.contains("cosign"), "{out}");
+}
+
+#[test]
+fn container_ref_runtimes_by_name() {
+    let out = container_ref_calc("runtimes");
+    assert!(out.contains("containerd"), "{out}");
+    assert!(out.contains("runc"), "{out}");
+}
+
+#[test]
+fn container_ref_runtimes_via_containerd_alias() {
+    let out = container_ref_calc("containerd");
+    assert!(out.contains("containerd"), "{out}");
+}
+
+#[test]
+fn container_ref_runtimes_via_gvisor_alias() {
+    let out = container_ref_calc("gvisor");
+    assert!(out.contains("gVisor"), "{out}");
+}
+
+#[test]
+fn container_ref_runtimes_via_overlayfs_alias() {
+    let out = container_ref_calc("overlayfs");
+    assert!(out.contains("overlayfs"), "{out}");
+}
+
+#[test]
+fn container_ref_build_by_name() {
+    let out = container_ref_calc("build");
+    assert!(out.contains("Dockerfile"), "{out}");
+    assert!(out.contains("Multi-stage"), "{out}");
+}
+
+#[test]
+fn container_ref_build_via_dockerfile_alias() {
+    let out = container_ref_calc("dockerfile");
+    assert!(out.contains("Dockerfile"), "{out}");
+}
+
+#[test]
+fn container_ref_build_via_buildkit_alias() {
+    let out = container_ref_calc("buildkit");
+    assert!(out.contains("BuildKit"), "{out}");
+}
+
+#[test]
+fn container_ref_build_via_distroless_alias() {
+    let out = container_ref_calc("distroless");
+    assert!(out.contains("distroless"), "{out}");
+}
+
+#[test]
+fn container_ref_security_by_name() {
+    let out = container_ref_calc("security");
+    assert!(out.contains("Capabilities"), "{out}");
+    assert!(out.contains("Seccomp"), "{out}");
+}
+
+#[test]
+fn container_ref_security_via_seccomp_alias() {
+    let out = container_ref_calc("seccomp");
+    assert!(out.contains("Seccomp"), "{out}");
+}
+
+#[test]
+fn container_ref_security_via_trivy_alias() {
+    let out = container_ref_calc("trivy");
+    assert!(out.contains("trivy"), "{out}");
+}
+
+#[test]
+fn container_ref_case_insensitive() {
+    let out = container_ref_calc("NAMESPACES");
+    assert!(
+        out.contains("pid namespace") || out.contains("Linux Namespaces"),
+        "{out}"
+    );
+}
+
+// ── regex_engine_calc ─────────────────────────────────────────────────────────
+
+#[test]
+fn regex_engine_empty_returns_topic_list() {
+    let out = regex_engine_calc("");
+    assert!(out.contains("regex-engine topics:"), "{out}");
+    assert!(out.contains("theory"), "{out}");
+    assert!(out.contains("tools"), "{out}");
+}
+
+#[test]
+fn regex_engine_nomatch_returns_hint() {
+    let out = regex_engine_calc("zzznomatch");
+    assert!(out.contains("No topic found"), "{out}");
+    assert!(out.contains("regex-engine list"), "{out}");
+}
+
+#[test]
+fn regex_engine_all_returns_all_sections() {
+    let out = regex_engine_calc("all");
+    assert!(out.contains("Regex Engine Theory"), "{out}");
+    assert!(out.contains("Regex Syntax"), "{out}");
+    assert!(out.contains("Advanced Regex"), "{out}");
+    assert!(out.contains("Regex in Rust"), "{out}");
+    assert!(out.contains("Regex Performance"), "{out}");
+    assert!(out.contains("Regex Tools"), "{out}");
+}
+
+#[test]
+fn regex_engine_theory_by_name() {
+    let out = regex_engine_calc("theory");
+    assert!(out.contains("NFA"), "{out}");
+    assert!(out.contains("DFA"), "{out}");
+}
+
+#[test]
+fn regex_engine_theory_via_nfa_alias() {
+    let out = regex_engine_calc("nfa");
+    assert!(out.contains("NFA"), "{out}");
+}
+
+#[test]
+fn regex_engine_theory_via_dfa_alias() {
+    let out = regex_engine_calc("dfa");
+    assert!(out.contains("DFA"), "{out}");
+}
+
+#[test]
+fn regex_engine_theory_via_backtracking_alias() {
+    let out = regex_engine_calc("backtracking");
+    assert!(out.contains("backtracking"), "{out}");
+}
+
+#[test]
+fn regex_engine_theory_via_redos_alias() {
+    let out = regex_engine_calc("redos");
+    assert!(
+        out.contains("ReDoS") || out.contains("backtracking"),
+        "{out}"
+    );
+}
+
+#[test]
+fn regex_engine_syntax_by_name() {
+    let out = regex_engine_calc("syntax");
+    assert!(out.contains("Anchors"), "{out}");
+    assert!(out.contains("Quantifiers"), "{out}");
+}
+
+#[test]
+fn regex_engine_syntax_via_anchors_alias() {
+    let out = regex_engine_calc("anchors");
+    assert!(out.contains("Anchors"), "{out}");
+}
+
+#[test]
+fn regex_engine_syntax_via_lookahead_alias() {
+    let out = regex_engine_calc("lookahead");
+    assert!(out.contains("lookahead"), "{out}");
+}
+
+#[test]
+fn regex_engine_syntax_via_quantifiers_alias() {
+    let out = regex_engine_calc("quantifiers");
+    assert!(out.contains("Quantifiers"), "{out}");
+}
+
+#[test]
+fn regex_engine_advanced_by_name() {
+    let out = regex_engine_calc("advanced");
+    assert!(out.contains("Atomic groups"), "{out}");
+    assert!(out.contains("Email regex"), "{out}");
+}
+
+#[test]
+fn regex_engine_advanced_via_atomic_groups_alias() {
+    let out = regex_engine_calc("atomic-groups");
+    assert!(out.contains("Atomic groups"), "{out}");
+}
+
+#[test]
+fn regex_engine_advanced_via_possessive_alias() {
+    let out = regex_engine_calc("possessive-quantifiers");
+    assert!(out.contains("Possessive"), "{out}");
+}
+
+#[test]
+fn regex_engine_rust_by_name() {
+    let out = regex_engine_calc("rust-regex");
+    assert!(out.contains("regex crate"), "{out}");
+    assert!(out.contains("O(n)"), "{out}");
+}
+
+#[test]
+fn regex_engine_rust_via_regex_crate_alias() {
+    let out = regex_engine_calc("regex-crate");
+    assert!(out.contains("regex crate"), "{out}");
+}
+
+#[test]
+fn regex_engine_rust_via_lazy_static_alias() {
+    let out = regex_engine_calc("lazy-static-regex");
+    assert!(out.contains("lazy_static"), "{out}");
+}
+
+#[test]
+fn regex_engine_performance_by_name() {
+    let out = regex_engine_calc("performance");
+    assert!(out.contains("ReDoS"), "{out}");
+    assert!(out.contains("Vulnerable pattern"), "{out}");
+}
+
+#[test]
+fn regex_engine_performance_via_catastrophic_alias() {
+    let out = regex_engine_calc("catastrophic-backtracking");
+    assert!(out.contains("catastrophic"), "{out}");
+}
+
+#[test]
+fn regex_engine_performance_via_hyperscan_alias() {
+    let out = regex_engine_calc("hyperscan");
+    assert!(out.contains("Hyperscan"), "{out}");
+}
+
+#[test]
+fn regex_engine_tools_by_name() {
+    let out = regex_engine_calc("tools");
+    assert!(out.contains("regex101"), "{out}");
+    assert!(out.contains("grep"), "{out}");
+}
+
+#[test]
+fn regex_engine_tools_via_regex101_alias() {
+    let out = regex_engine_calc("regex101");
+    assert!(out.contains("regex101"), "{out}");
+}
+
+#[test]
+fn regex_engine_tools_via_ripgrep_alias() {
+    let out = regex_engine_calc("ripgrep-regex");
+    assert!(out.contains("ripgrep"), "{out}");
+}
+
+#[test]
+fn regex_engine_case_insensitive() {
+    let out = regex_engine_calc("THEORY");
+    assert!(out.contains("NFA") || out.contains("DFA"), "{out}");
+}
+
+// ── git_internals_calc ────────────────────────────────────────────────────────
+
+#[test]
+fn git_internals_empty_returns_topic_list() {
+    let out = git_internals_calc("");
+    assert!(out.contains("git-internals topics:"), "{out}");
+    assert!(out.contains("objects"), "{out}");
+    assert!(out.contains("reflog"), "{out}");
+}
+
+#[test]
+fn git_internals_nomatch_returns_hint() {
+    let out = git_internals_calc("zzznomatch");
+    assert!(out.contains("No topic found"), "{out}");
+    assert!(out.contains("git-internals list"), "{out}");
+}
+
+#[test]
+fn git_internals_all_returns_all_sections() {
+    let out = git_internals_calc("all");
+    assert!(out.contains("Git Object Model"), "{out}");
+    assert!(out.contains("Pack Files"), "{out}");
+    assert!(out.contains("Plumbing"), "{out}");
+    assert!(out.contains("Reflog"), "{out}");
+    assert!(out.contains("History Rewriting"), "{out}");
+    assert!(out.contains("Advanced Git Operations"), "{out}");
+}
+
+#[test]
+fn git_internals_objects_by_name() {
+    let out = git_internals_calc("objects");
+    assert!(out.contains("blob"), "{out}");
+    assert!(out.contains("commit"), "{out}");
+}
+
+#[test]
+fn git_internals_objects_via_blob_alias() {
+    let out = git_internals_calc("blob");
+    assert!(out.contains("blob"), "{out}");
+}
+
+#[test]
+fn git_internals_objects_via_cat_file_alias() {
+    let out = git_internals_calc("cat-file");
+    assert!(out.contains("cat-file"), "{out}");
+}
+
+#[test]
+fn git_internals_objects_via_hash_object_alias() {
+    let out = git_internals_calc("hash-object");
+    assert!(out.contains("hash-object"), "{out}");
+}
+
+#[test]
+fn git_internals_pack_files_by_name() {
+    let out = git_internals_calc("pack-files");
+    assert!(out.contains("Pack files"), "{out}");
+    assert!(out.contains("git gc"), "{out}");
+}
+
+#[test]
+fn git_internals_pack_via_pack_alias() {
+    let out = git_internals_calc("pack");
+    assert!(out.contains("Pack"), "{out}");
+}
+
+#[test]
+fn git_internals_pack_via_shallow_clone_alias() {
+    let out = git_internals_calc("shallow-clone");
+    assert!(out.contains("Shallow"), "{out}");
+}
+
+#[test]
+fn git_internals_pack_via_worktree_alias() {
+    let out = git_internals_calc("worktree");
+    assert!(out.contains("worktree"), "{out}");
+}
+
+#[test]
+fn git_internals_plumbing_by_name() {
+    let out = git_internals_calc("plumbing");
+    assert!(out.contains("index"), "{out}");
+    assert!(out.contains("write-tree"), "{out}");
+}
+
+#[test]
+fn git_internals_plumbing_via_write_tree_alias() {
+    let out = git_internals_calc("write-tree");
+    assert!(out.contains("write-tree"), "{out}");
+}
+
+#[test]
+fn git_internals_plumbing_via_rev_list_alias() {
+    let out = git_internals_calc("rev-list");
+    assert!(out.contains("rev-list"), "{out}");
+}
+
+#[test]
+fn git_internals_reflog_by_name() {
+    let out = git_internals_calc("reflog");
+    assert!(out.contains("reflog"), "{out}");
+    assert!(out.contains("Recovery"), "{out}");
+}
+
+#[test]
+fn git_internals_reflog_via_recovery_alias() {
+    let out = git_internals_calc("recovery");
+    assert!(out.contains("Recovery"), "{out}");
+}
+
+#[test]
+fn git_internals_reflog_via_git_fsck_alias() {
+    let out = git_internals_calc("git-fsck");
+    assert!(out.contains("fsck"), "{out}");
+}
+
+#[test]
+fn git_internals_reflog_via_orig_head_alias() {
+    let out = git_internals_calc("orig-head");
+    assert!(out.contains("ORIG_HEAD"), "{out}");
+}
+
+#[test]
+fn git_internals_rewrite_by_name() {
+    let out = git_internals_calc("rewrite");
+    assert!(out.contains("rebase"), "{out}");
+    assert!(out.contains("git-filter-repo"), "{out}");
+}
+
+#[test]
+fn git_internals_rewrite_via_interactive_rebase_alias() {
+    let out = git_internals_calc("interactive-rebase");
+    assert!(out.contains("Interactive rebase"), "{out}");
+}
+
+#[test]
+fn git_internals_rewrite_via_cherry_pick_alias() {
+    let out = git_internals_calc("cherry-pick");
+    assert!(out.contains("cherry-pick"), "{out}");
+}
+
+#[test]
+fn git_internals_rewrite_via_force_with_lease_alias() {
+    let out = git_internals_calc("force-with-lease");
+    assert!(out.contains("force-with-lease"), "{out}");
+}
+
+#[test]
+fn git_internals_advanced_ops_by_name() {
+    let out = git_internals_calc("advanced-ops");
+    assert!(out.contains("Bisect"), "{out}");
+    assert!(out.contains("Submodules"), "{out}");
+}
+
+#[test]
+fn git_internals_advanced_ops_via_bisect_run_alias() {
+    let out = git_internals_calc("bisect-run");
+    assert!(out.contains("bisect"), "{out}");
+}
+
+#[test]
+fn git_internals_advanced_ops_via_git_hooks_alias() {
+    let out = git_internals_calc("git-hooks");
+    assert!(out.contains("Hooks"), "{out}");
+}
+
+#[test]
+fn git_internals_case_insensitive() {
+    let out = git_internals_calc("OBJECTS");
+    assert!(out.contains("blob") || out.contains("Git Object"), "{out}");
+}
+
+// ── data_formats_calc ─────────────────────────────────────────────────────────
+
+#[test]
+fn data_formats_empty_returns_topic_list() {
+    let out = data_formats_calc("");
+    assert!(out.contains("data-formats topics:"), "{out}");
+    assert!(out.contains("binary"), "{out}");
+    assert!(out.contains("compression"), "{out}");
+}
+
+#[test]
+fn data_formats_nomatch_returns_hint() {
+    let out = data_formats_calc("zzznomatch");
+    assert!(out.contains("No topic found"), "{out}");
+    assert!(out.contains("data-formats list"), "{out}");
+}
+
+#[test]
+fn data_formats_all_returns_all_sections() {
+    let out = data_formats_calc("all");
+    assert!(out.contains("MessagePack"), "{out}");
+    assert!(out.contains("Parquet"), "{out}");
+    assert!(out.contains("Avro"), "{out}");
+    assert!(out.contains("JSON"), "{out}");
+    assert!(out.contains("JSON Schema"), "{out}");
+    assert!(out.contains("Snappy"), "{out}");
+}
+
+#[test]
+fn data_formats_binary_by_name() {
+    let out = data_formats_calc("binary");
+    assert!(out.contains("MessagePack"), "{out}");
+    assert!(out.contains("FlatBuffers"), "{out}");
+}
+
+#[test]
+fn data_formats_binary_via_msgpack_alias() {
+    let out = data_formats_calc("msgpack");
+    assert!(out.contains("MessagePack"), "{out}");
+}
+
+#[test]
+fn data_formats_binary_via_cbor_alias() {
+    let out = data_formats_calc("cbor");
+    assert!(out.contains("CBOR"), "{out}");
+}
+
+#[test]
+fn data_formats_binary_via_flatbuffers_alias() {
+    let out = data_formats_calc("flatbuffers");
+    assert!(out.contains("FlatBuffers"), "{out}");
+}
+
+#[test]
+fn data_formats_columnar_by_name() {
+    let out = data_formats_calc("columnar");
+    assert!(out.contains("Parquet"), "{out}");
+    assert!(out.contains("Arrow"), "{out}");
+}
+
+#[test]
+fn data_formats_columnar_via_parquet_alias() {
+    let out = data_formats_calc("parquet");
+    assert!(out.contains("Parquet"), "{out}");
+}
+
+#[test]
+fn data_formats_columnar_via_duckdb_alias() {
+    let out = data_formats_calc("duckdb-format");
+    assert!(out.contains("DuckDB"), "{out}");
+}
+
+#[test]
+fn data_formats_columnar_via_predicate_pushdown_alias() {
+    let out = data_formats_calc("predicate-pushdown");
+    assert!(out.contains("predicate"), "{out}");
+}
+
+#[test]
+fn data_formats_streaming_by_name() {
+    let out = data_formats_calc("streaming");
+    assert!(out.contains("Avro"), "{out}");
+    assert!(out.contains("Schema Registry"), "{out}");
+}
+
+#[test]
+fn data_formats_streaming_via_avro_alias() {
+    let out = data_formats_calc("avro");
+    assert!(out.contains("Avro"), "{out}");
+}
+
+#[test]
+fn data_formats_streaming_via_schema_registry_alias() {
+    let out = data_formats_calc("schema-registry");
+    assert!(out.contains("Schema Registry"), "{out}");
+}
+
+#[test]
+fn data_formats_text_by_name() {
+    let out = data_formats_calc("text");
+    assert!(out.contains("JSON"), "{out}");
+    assert!(out.contains("YAML"), "{out}");
+}
+
+#[test]
+fn data_formats_text_via_json_format_alias() {
+    let out = data_formats_calc("json-format");
+    assert!(out.contains("JSON"), "{out}");
+}
+
+#[test]
+fn data_formats_text_via_yaml_format_alias() {
+    let out = data_formats_calc("yaml-format");
+    assert!(out.contains("YAML"), "{out}");
+}
+
+#[test]
+fn data_formats_text_via_toml_format_alias() {
+    let out = data_formats_calc("toml-format");
+    assert!(out.contains("TOML"), "{out}");
+}
+
+#[test]
+fn data_formats_schema_by_name() {
+    let out = data_formats_calc("schema");
+    assert!(out.contains("JSON Schema"), "{out}");
+    assert!(out.contains("Delta Lake"), "{out}");
+}
+
+#[test]
+fn data_formats_schema_via_json_schema_alias() {
+    let out = data_formats_calc("json-schema");
+    assert!(out.contains("JSON Schema"), "{out}");
+}
+
+#[test]
+fn data_formats_schema_via_delta_lake_alias() {
+    let out = data_formats_calc("delta-lake");
+    assert!(out.contains("Delta Lake"), "{out}");
+}
+
+#[test]
+fn data_formats_schema_via_iceberg_alias() {
+    let out = data_formats_calc("iceberg");
+    assert!(out.contains("Iceberg"), "{out}");
+}
+
+#[test]
+fn data_formats_compression_by_name() {
+    let out = data_formats_calc("compression");
+    assert!(out.contains("Snappy"), "{out}");
+    assert!(out.contains("Zstd"), "{out}");
+}
+
+#[test]
+fn data_formats_compression_via_zstd_alias() {
+    let out = data_formats_calc("zstd");
+    assert!(out.contains("Zstd"), "{out}");
+}
+
+#[test]
+fn data_formats_compression_via_lz4_alias() {
+    let out = data_formats_calc("lz4");
+    assert!(out.contains("LZ4"), "{out}");
+}
+
+#[test]
+fn data_formats_compression_via_snappy_alias() {
+    let out = data_formats_calc("snappy");
+    assert!(out.contains("Snappy"), "{out}");
+}
+
+#[test]
+fn data_formats_compression_via_brotli_alias() {
+    let out = data_formats_calc("brotli");
+    assert!(out.contains("Brotli"), "{out}");
+}
+
+#[test]
+fn data_formats_case_insensitive() {
+    let out = data_formats_calc("BINARY");
+    assert!(
+        out.contains("MessagePack") || out.contains("FlatBuffers"),
+        "{out}"
+    );
+}
+
+#[test]
+fn data_formats_whitespace_trimmed() {
+    let out = data_formats_calc("  columnar  ");
+    assert!(out.contains("Parquet"), "{out}");
 }
