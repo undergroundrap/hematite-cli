@@ -1121,6 +1121,10 @@ mod tests {
             regex_engine: None,
             git_internals: None,
             data_formats: None,
+            web_perf: None,
+            sql_tuning: None,
+            concurrency: None,
+            cloud_native: None,
             pdf_extract_helper: None,
             teleported_from: None,
         };

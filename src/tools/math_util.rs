@@ -50195,3 +50195,1124 @@ pub fn data_formats_calc(query: &str) -> String {
         query.trim()
     )
 }
+
+// ── Wave 34: web_perf_calc ────────────────────────────────────────────────────
+
+type WebPerfSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+
+fn s_wp_cwv() -> &'static str {
+    "── Core Web Vitals ──
+Core Web Vitals (CWV): Google's three key user-experience metrics
+  LCP (Largest Contentful Paint): loading performance; measures time to render largest visible element
+    Good: ≤2.5s; Needs improvement: 2.5-4s; Poor: >4s
+    Largest element: typically hero image, H1 text block, or video poster
+    Optimize: preload LCP image; eliminate render-blocking resources; fast TTFB; CDN; compress images
+  FID (First Input Delay) / INP (Interaction to Next Paint): interactivity; replaced FID in 2024
+    INP: Good: ≤200ms; Needs improvement: 200-500ms; Poor: >500ms
+    Optimize: break up long tasks (yield to main thread); reduce JS execution time; defer non-critical JS
+    Long task: >50ms JS blocking the main thread; use Scheduler API or setTimeout(0) to yield
+  CLS (Cumulative Layout Shift): visual stability; unexpected layout shifts score
+    Good: ≤0.1; Needs improvement: 0.1-0.25; Poor: >0.25
+    Causes: images without dimensions, ads, dynamically injected content, web fonts (FOUT)
+    Fix: always set width/height on img; size placeholders for ads; font-display: optional or swap
+Other key metrics:
+  TTFB (Time to First Byte): server response time; ≤800ms target; affected by server, CDN, cache
+  FCP (First Contentful Paint): first pixels rendered; ≤1.8s target; eliminate render-blocking
+  TBT (Total Blocking Time): sum of long task durations; proxy for INP; lighthouse metric
+  TTI (Time to Interactive): when page reliably responds to input; code-split to reduce JS
+Tools: Google PageSpeed Insights, Lighthouse, CrUX (Chrome UX Report), WebPageTest
+  web-vitals JS library: measure in production; send to analytics; RUM (Real User Monitoring)"
+}
+
+fn s_wp_rendering() -> &'static str {
+    "── Critical Render Path ──
+Critical Render Path: DOM + CSSOM -> Render Tree -> Layout -> Paint -> Composite
+  DOM: HTML parsed to DOM tree; parser blocked by synchronous <script> tags
+  CSSOM: CSS parsed to CSSOM; render-blocking; all CSS must be parsed before first paint
+  Render tree: DOM + CSSOM merged; only visible elements; position and style computed
+  Layout (reflow): calculate geometry; expensive; triggered by DOM read-after-write
+  Paint: fill pixels; repaint triggered by color/visibility changes
+  Composite: GPU layers composed; cheap; transform/opacity changes stay in composite layer
+Render-blocking resources:
+  CSS: always render-blocking; inline critical CSS; defer non-critical with media queries
+    <link rel=stylesheet media='print' onload='this.media=all'>
+  JavaScript: by default render-blocking; use defer or async
+    defer: downloads in parallel, executes after HTML parsed, before DOMContentLoaded
+    async: downloads in parallel, executes immediately on download; order not guaranteed
+  Preloads: <link rel=preload href=font.woff2 as=font crossorigin>: fetch early, not blocking
+  Preconnect: <link rel=preconnect href=https://fonts.gstatic.com>: early TCP+TLS
+Script loading strategies:
+  <script defer>: safe default for most scripts; ordered execution; after HTML parsed
+  <script async>: analytics, non-critical scripts; order not guaranteed
+  <script type=module>: deferred by default; same as defer
+  Dynamic import(): import('./module.js').then(m => m.init()): lazy load on demand
+Reflow triggers: offsetWidth/Height reads after DOM mutations; window.getComputedStyle
+  Batch DOM reads before writes; use requestAnimationFrame for visual updates
+  will-change: transform: hint browser to create GPU layer; use sparingly"
+}
+
+fn s_wp_caching() -> &'static str {
+    "── HTTP Caching ──
+Cache-Control directives:
+  max-age=N: cache for N seconds (browser + shared caches)
+  s-maxage=N: override max-age for shared caches (CDN); private caches use max-age
+  no-cache: must revalidate with server before serving (can still cache); not 'no cache'
+  no-store: never cache; use for sensitive data (forms, bank pages)
+  private: browser only; CDN must not cache; default for authenticated responses
+  public: anyone can cache (CDN, proxies); explicit for public assets
+  immutable: content won't change; skip revalidation for max-age period; Chrome 75+
+  stale-while-revalidate=N: serve stale while fetching fresh in background
+  stale-if-error=N: serve stale if origin error; resilience
+Hashing strategy (fingerprinting):
+  Static assets (JS, CSS, images): include content hash in filename (/app.a1b2c3d4.js)
+  Set Cache-Control: public, max-age=31536000, immutable (1 year, never revalidate)
+  HTML documents: Cache-Control: no-cache or short max-age + ETag; never immutable
+ETag validation:
+  ETag: strong hash of content; If-None-Match header for conditional GET
+  Last-Modified: timestamp; If-Modified-Since header; less precise than ETag
+  304 Not Modified: server confirms cached copy still valid; no body; fast
+Service Worker cache:
+  Cache API: cache.put(request, response); cache.match(request)
+  Workbox: Google library; strategies: CacheFirst, NetworkFirst, StaleWhileRevalidate, NetworkOnly
+  Background sync: queue failed requests; replay when network recovers
+Vary header: CDN creates separate cache entry per Vary value
+  Vary: Accept-Encoding: separate entries for gzip, br, identity
+  Vary: Cookie: avoid for CDN caching; creates unbounded cache entries"
+}
+
+fn s_wp_cdn() -> &'static str {
+    "── CDN & Edge Performance ──
+CDN fundamentals: globally distributed PoPs cache content close to users
+  Edge caching: Cache-Control public response cached at CDN edge; TTL from max-age/s-maxage
+  Purging: API call to invalidate cache; instant or propagated (60s typical)
+  Cache key: URL by default; can vary on headers, cookies, query params
+CDN configuration best practices:
+  Long TTL for hashed assets: max-age=31536000, immutable; CDN cache + browser cache
+  Short TTL for HTML: 60-300s; or use stale-while-revalidate; re-cache on deploy
+  Geo-routing: route to nearest PoP; reduce latency by 50-100ms for distant users
+  Anycast: single IP; BGP routes to nearest PoP; transparent to clients
+  Shield/Origin shield: intermediate PoP in front of origin; reduce origin load
+HTTP/2 and HTTP/3 at CDN edge:
+  Multiplexing: H2 over single connection; CDN-to-browser H2; origin connection may be H1
+  HTTP/3 (QUIC): Cloudflare, Fastly, Google support H3; reduces handshake latency
+  TLS termination at edge: CDN terminates TLS; back-haul to origin may be HTTP or HTTPS
+Image CDN:
+  Cloudinary, Imgix, Fastly IO: resize + format convert at edge; no origin processing
+  srcset + sizes: browser selects right image; img srcset='img-400w.jpg 400w, img-800w.jpg 800w'
+  WebP / AVIF: 30-60% smaller than JPEG; serve modern format via Accept header
+  Accept: image/avif,image/webp -> CDN serves AVIF/WebP; legacy browsers get JPEG
+Edge functions / Compute@Edge:
+  Cloudflare Workers, Fastly Compute, Lambda@Edge: run JS/Wasm at edge PoPs
+  A/B testing, auth, personalization, header manipulation without origin round-trip
+  Cold start: ~0ms for workers (isolated V8 contexts); ~100ms for Lambda@Edge"
+}
+
+fn s_wp_bundling() -> &'static str {
+    "── JavaScript Bundling & Optimization ──
+Bundle splitting:
+  Entry points: separate bundle per page/feature; don't ship React + admin bundle to home page
+  Dynamic imports: import('./heavy.js'): browser fetches only when needed
+  Vendor chunk: separate node_modules bundle; changes less often; better long-term caching
+  Route-based splitting: Next.js/Remix/Vite do this automatically per route
+Tree shaking: dead code elimination; bundler removes unused exports
+  Requires ES modules (import/export); CommonJS (require) is not tree-shakeable
+  Side-effect-free: sideEffects: false in package.json tells bundler no side effects
+  Pure annotations: /*@__PURE__*/ before function call; marks as side-effect free
+Code optimization:
+  Minification: remove whitespace, rename variables; Terser, SWC, esbuild minifiers
+  Gzip / Brotli: server-level; Brotli 15-20% better than gzip; pre-compress static assets
+  Scope hoisting / module concatenation: flatten modules into single scope; reduces function calls
+  Differential serving: <script type=module> (modern) + nomodule (legacy); smaller modern bundle
+Bundle analysis tools:
+  webpack-bundle-analyzer: treemap of bundle contents; find bloat
+  source-map-explorer: same for any source-map
+  bundlejs.com: measure package size before importing
+  Import cost VS Code extension: show import size inline
+Build tool comparison:
+  Vite: ESBuild dev server (fast); Rollup production builds; HMR without full bundling
+  esbuild: 10-100x faster than webpack; Go-based; limited plugin ecosystem
+  Turbopack: incremental; Rust-based; Next.js 13+ dev server; production mode in progress
+  Rollup: best tree-shaking; libraries; Vite production target
+  webpack: most mature; largest ecosystem; slower than esbuild/Vite for large codebases"
+}
+
+fn s_wp_images() -> &'static str {
+    "── Image Optimization ──
+Format selection:
+  AVIF: best compression (50% over JPEG); limited decode speed; browser support: Chrome/FF/Safari 16+
+  WebP: good compression (30% over JPEG); wide support; use as primary with JPEG fallback
+  JPEG: photos; lossy; quality 80-85 good balance; progressive JPEG for perceived performance
+  PNG: lossless; UI screenshots, icons with transparency; use SVG for icons/logos
+  SVG: vector; infinite scaling; text-based; compress with svgo; inline for above-fold icons
+  GIF: avoid; use video (MP4/WebM) for animations; video/webm 5-10x smaller than GIF
+Responsive images:
+  srcset: browser chooses based on viewport/DPR; img srcset='sm.jpg 480w, lg.jpg 1080w' sizes='(max-width:600px) 480px, 1080px'
+  <picture>: art direction; serve different crops per breakpoint; or serve AVIF/WebP with fallback
+  DPR (Device Pixel Ratio): Retina = 2x; serve 2x images to retina; use image CDN to avoid large originals
+Lazy loading:
+  loading=lazy: native; browser defers offscreen images; <img loading='lazy' src='...' width=800 height=600>
+  Always set width and height: prevents layout shift (CLS) as image loads
+  LCP images: never lazy-load; add fetchpriority=high to preload; avoid loading=lazy on hero
+Compression tools:
+  Squoosh.app: browser-based; compare formats; choose quality settings
+  sharp (Node): high-performance server-side; resize + convert + compress in pipeline
+  libvips: underlying library for sharp; C; fast
+  ImageMagick: general purpose; slower than vips; good for batch scripts
+Placeholders:
+  LQIP (Low Quality Image Placeholder): tiny blurred version shown while loading
+  BlurHash: compact string encoding of blurred placeholder; decode in browser
+  Dominant color: single color placeholder; no bandwidth; used by YouTube"
+}
+
+const WEB_PERF_SECTIONS: &[WebPerfSection] = &[
+    (
+        "cwv",
+        &[
+            "core-web-vitals",
+            "lcp",
+            "inp",
+            "fid",
+            "cls",
+            "ttfb",
+            "fcp",
+            "tbt",
+            "tti",
+            "lighthouse-metrics",
+            "rum",
+        ],
+        s_wp_cwv,
+    ),
+    (
+        "rendering",
+        &[
+            "critical-render-path",
+            "render-blocking",
+            "reflow",
+            "paint",
+            "composite",
+            "defer-async",
+            "preload",
+            "preconnect",
+            "will-change",
+        ],
+        s_wp_rendering,
+    ),
+    (
+        "caching",
+        &[
+            "http-caching",
+            "cache-control",
+            "etag",
+            "service-worker-cache",
+            "workbox",
+            "immutable-cache",
+            "stale-while-revalidate",
+            "cache-fingerprint",
+        ],
+        s_wp_caching,
+    ),
+    (
+        "cdn",
+        &[
+            "content-delivery",
+            "edge-caching",
+            "cloudflare",
+            "image-cdn",
+            "edge-functions",
+            "anycast",
+            "origin-shield",
+            "http3-cdn",
+        ],
+        s_wp_cdn,
+    ),
+    (
+        "bundling",
+        &[
+            "bundle-splitting",
+            "tree-shaking",
+            "code-splitting",
+            "webpack",
+            "vite-build",
+            "esbuild",
+            "turbopack",
+            "rollup",
+            "differential-serving",
+        ],
+        s_wp_bundling,
+    ),
+    (
+        "images",
+        &[
+            "image-optimization",
+            "avif",
+            "webp",
+            "srcset",
+            "lazy-loading",
+            "lqip",
+            "responsive-images",
+            "sharp-tool",
+            "blurhash",
+        ],
+        s_wp_images,
+    ),
+];
+
+pub fn web_perf_calc(query: &str) -> String {
+    let q = query.trim().to_lowercase();
+    if q.is_empty() || q == "list" || q == "help" {
+        let topics: Vec<&str> = WEB_PERF_SECTIONS.iter().map(|(n, _, _)| *n).collect();
+        return format!(
+            "web-perf topics: {}\nUse: --web-perf <topic>  or  --web-perf all",
+            topics.join(", ")
+        );
+    }
+    if q == "all" {
+        return WEB_PERF_SECTIONS
+            .iter()
+            .map(|(_, _, f)| f())
+            .collect::<Vec<_>>()
+            .join("\n\n");
+    }
+    for (name, aliases, func) in WEB_PERF_SECTIONS {
+        if q == *name || aliases.iter().any(|a| q == *a || q.contains(a)) {
+            return func().to_string();
+        }
+    }
+    format!(
+        "No topic found for '{}'. Try: --web-perf list",
+        query.trim()
+    )
+}
+
+// ── Wave 34: sql_tuning_calc ──────────────────────────────────────────────────
+
+type SqlTuningSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+
+fn s_sq_explain() -> &'static str {
+    "── EXPLAIN & Execution Plans ──
+EXPLAIN: show query plan without executing; EXPLAIN ANALYZE: execute and show actual stats
+  PostgreSQL: EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) SELECT ...;
+    Node types: Seq Scan, Index Scan, Index Only Scan, Bitmap Index Scan, Hash Join, Nested Loop, Merge Join
+    cost=startup..total: planner estimate; rows: estimated rows; actual time: real ms
+    Buffers: shared hit (cache) vs read (disk); high reads = need index or more cache
+  MySQL: EXPLAIN SELECT ...; EXPLAIN FORMAT=JSON ...;
+    type: ALL (full scan, bad), index, range, ref, eq_ref, const (best)
+    key: which index used; rows: estimated rows scanned; Extra: Using index, Using filesort
+  pgAdmin / EXPLAIN depesz.com: visual plan with color-coded expensive nodes
+Seq Scan vs Index Scan:
+  Seq Scan: full table scan; good when fetching >10-20% of rows (low selectivity)
+  Index Scan: follow index to fetch rows; heap page I/O per row; good for <5% of rows
+  Index Only Scan: all needed columns in index; no heap access; fastest; needs VACUUM
+  Bitmap Heap Scan: collect all qualifying index entries first; sort by heap block; fewer seeks
+    Used when multiple index conditions OR'd; efficient for medium selectivity
+Join types:
+  Nested Loop: outer row * inner row scans; good when inner is indexed and small result
+  Hash Join: build hash table from smaller table; probe with larger; good for large unsorted sets
+  Merge Join: both sides sorted; merge in one pass; needs sort or sorted indexes
+  Cost order: Merge < Hash < Nested Loop for large sets; NL best with index on inner
+Key EXPLAIN insights:
+  Filter rows removed: high removal after scan = missing index or wrong index used
+  Sort Method: external merge = spill to disk; increase work_mem to avoid
+  rows=1000 actual rows=1: bad statistics; run ANALYZE; update statistics target"
+}
+
+fn s_sq_indexes() -> &'static str {
+    "── Index Design ──
+B-tree index (default): ordered; supports =, <, >, BETWEEN, LIKE 'prefix%', ORDER BY
+  Composite index: index on (a, b, c); queries on (a), (a,b), (a,b,c) can use it
+    Leading column rule: query MUST filter on leftmost column(s)
+    Index skip scan (MySQL 8+, some DBs): skip over leading column values; helps (a,b) queries
+  Covering index: include all SELECT/WHERE columns; enables Index Only Scan
+    PostgreSQL INCLUDE clause: CREATE INDEX idx ON t (a, b) INCLUDE (c, d);
+  Index vs table scan: rule of thumb <5% rows -> use index; >20% rows -> seq scan wins
+Hash index: equality only; not ordered; smaller than B-tree; not crash-safe pre-PG10
+  Use case: high-selectivity equality lookups; PostgreSQL automatically uses when appropriate
+GIN index (Generalized Inverted Index): full-text search, arrays, JSONB
+  CREATE INDEX idx ON t USING GIN (content gin_trgm_ops); -- trigram-based LIKE/ILIKE
+  CREATE INDEX idx ON t USING GIN (tags); -- array @> operator
+  CREATE INDEX idx ON t USING GIN (data jsonb_path_ops); -- JSONB containment @>
+GiST index: geometric types, full-text (tsvector), exclusion constraints
+  CREATE INDEX idx ON locations USING GIST (geom); -- PostGIS spatial index
+  Exclusion constraint: CREATE TABLE t (EXCLUDE USING GIST (room WITH =, during WITH &&));
+BRIN (Block Range Index): tiny; good for large append-only tables with natural sort
+  Stores min/max per block range; does not reduce I/O for random access
+  CREATE INDEX idx ON events USING BRIN (created_at); -- time-series, IoT data
+Partial index: indexes only rows matching WHERE clause; smaller; faster
+  CREATE INDEX idx ON orders (status) WHERE status = 'pending'; -- only pending orders
+Expression index: index on expression or function result
+  CREATE INDEX idx ON users (lower(email)); -- enable WHERE lower(email) = 'x'
+  Query must use EXACT same expression to match the index"
+}
+
+fn s_sq_statistics() -> &'static str {
+    "── Query Optimizer Statistics ──
+PostgreSQL statistics:
+  pg_statistic: per-column statistics; n_distinct, correlation, MCVs, histograms
+  pg_stats view: human-readable; SELECT * FROM pg_stats WHERE tablename='orders';
+  ANALYZE table: update statistics; run after bulk loads; autovacuum runs automatically
+  statistics target: default 100; ALTER TABLE t ALTER COLUMN c SET STATISTICS 500;
+    More buckets -> better estimates for skewed data; costs more to collect
+  n_distinct: estimated distinct values; negative = fraction of rows (e.g., -0.5 = 50% distinct)
+  correlation: physical ordering vs logical; 1.0 = ordered (heap matches index order); 0 = random
+    Low correlation -> bitmap scan preferred over index scan for range queries
+  MCV (Most Common Values): stored with frequencies; exact estimates for popular values
+  Histogram bounds: range buckets for distribution; enables range predicate estimates
+Extended statistics (PG 10+):
+  CREATE STATISTICS s1 ON a, b FROM t; -- capture column correlation
+  CREATE STATISTICS s2 (ndistinct) ON a, b FROM t;
+  Helps with queries on multiple columns from same table where columns are correlated
+MySQL statistics:
+  SHOW TABLE STATUS: row count estimate; INFORMATION_SCHEMA.STATISTICS for index details
+  ANALYZE TABLE t: update index statistics; innodb_stats_sample_pages controls accuracy
+  histogram: ANALYZE TABLE t UPDATE HISTOGRAM ON col WITH 100 BUCKETS; -- MySQL 8+
+Plan stability: PostgreSQL uses statistics + cost model; plans can change after ANALYZE
+  plan_cache_mode: force_generic_plan / force_custom_plan; auto_explain for logging
+  pg_hint_plan extension: embed hints in comment: /*+ IndexScan(t idx_name) */"
+}
+
+fn s_sq_optimizer() -> &'static str {
+    "── Query Optimizer Hints ──
+PostgreSQL optimizer settings (session-level):
+  SET enable_seqscan = off; -- force index use; diagnostic only, not production
+  SET enable_hashjoin = off; SET enable_mergejoin = off; -- force nested loop
+  SET work_mem = '256MB'; -- per-sort/hash operation; multiple can run in parallel
+  SET join_collapse_limit = 1; -- disable join reordering; use explicit join order
+  SET random_page_cost = 1.1; -- for SSD; default 4.0 assumes rotational disk
+  SET effective_cache_size = '8GB'; -- estimate of OS+PG cache; affects index cost model
+pg_hint_plan extension (PostgreSQL):
+  /*+ SeqScan(t) */: force seq scan; /*+ IndexScan(t idx_name) */: force index
+  /*+ HashJoin(t1 t2) */: force hash join; /*+ Leading(t1 t2 t3) */: join order
+  /*+ Rows(t #1000) */: row estimate hint; correct bad statistics impact
+MySQL optimizer hints (8.0+):
+  SELECT /*+ INDEX(t idx_name) */ ...; -- hint index use
+  SELECT /*+ NO_INDEX_MERGE(t) */ ...; -- disable index merge
+  SELECT /*+ JOIN_ORDER(t1, t2, t3) */ ...; -- fix join order
+  SELECT /*+ HASH_JOIN(t1 t2) */ ...; -- force hash join (MySQL 8.0.18+)
+  STRAIGHT_JOIN: join tables in FROM order; global alternative to hint
+SQL Server hints:
+  SELECT ... FROM t WITH (INDEX(idx_name)): table hint; force index
+  OPTION (HASH JOIN): query hint; force join type
+  OPTION (OPTIMIZE FOR (@param = 1)): optimize for specific param value
+  OPTION (RECOMPILE): recompile plan each execution; for skewed parameters
+Query rewrite patterns:
+  Avoid function on indexed column: WHERE YEAR(created_at)=2024 -> WHERE created_at BETWEEN '2024-01-01' AND '2024-12-31'
+  OFFSET pagination: slow at high offsets; use keyset pagination: WHERE id > :last_id ORDER BY id LIMIT 20
+  Exists vs Count: IF EXISTS(SELECT 1 FROM t WHERE ...) vs SELECT COUNT(*); EXISTS short-circuits"
+}
+
+fn s_sq_partitioning() -> &'static str {
+    "── Table Partitioning ──
+PostgreSQL partitioning (declarative, PG 10+):
+  Range: by date range; most common; CREATE TABLE t PARTITION BY RANGE (created_at)
+    CREATE TABLE t_2024 PARTITION OF t FOR VALUES FROM ('2024-01-01') TO ('2025-01-01')
+  List: by discrete values; CREATE TABLE t PARTITION BY LIST (status)
+    CREATE TABLE t_active PARTITION OF t FOR VALUES IN ('active', 'trial')
+  Hash: distribute evenly; CREATE TABLE t PARTITION BY HASH (user_id)
+    CREATE TABLE t_0 PARTITION OF t FOR VALUES WITH (MODULUS 4, REMAINDER 0)
+  Partition pruning: query on partition key filters scans to relevant partitions; EXPLAIN shows
+  Indexes: local by default; each partition has its own index; no global indexes
+  Constraint exclusion: SET constraint_exclusion = partition; needed for pre-PG11 inheritance
+MySQL partitioning:
+  RANGE/LIST/HASH/KEY partitioning; similar to PostgreSQL
+  Note: foreign keys not supported across partitions; all unique keys must include partition key
+Partition maintenance:
+  Attach/detach: ALTER TABLE t ATTACH PARTITION t_2025 FOR VALUES FROM ('2025-01-01') TO ('2026-01-01')
+  Detach for archiving: ALTER TABLE t DETACH PARTITION t_old; -- fast; rename and archive
+  Rolling window: create new partition + drop oldest; minimal locking; avoid DELETE on large tables
+Performance benefits:
+  Partition pruning: queries touch only relevant partitions; critical for large time-series tables
+  Index size: smaller per-partition indexes fit in cache better; faster range scans
+  Bulk operations: load into staging table; ATTACH PARTITION is near-instant; no row-by-row insert
+  Vacuum efficiency: autovacuum runs per partition; old partition rarely vacuumed; detach when cold"
+}
+
+fn s_sq_advanced() -> &'static str {
+    "── Advanced SQL Patterns ──
+Window functions:
+  OVER(): defines partition and ordering for window calculation; does not reduce rows
+  ROW_NUMBER() OVER (PARTITION BY dept ORDER BY salary DESC): rank within group
+  LAG(val, 1) OVER (ORDER BY date): previous row value; LEAD: next row value
+  SUM(amount) OVER (PARTITION BY month ORDER BY date ROWS UNBOUNDED PRECEDING): running total
+  NTILE(4) OVER (ORDER BY score): quartile assignment; PERCENT_RANK(); CUME_DIST()
+  FILTER clause: SUM(amount) FILTER (WHERE status='paid') OVER (...): conditional aggregation
+CTEs (Common Table Expressions):
+  WITH cte AS (SELECT ...): named temp result; improves readability; one pass in most DBs
+  Recursive CTE: WITH RECURSIVE cte AS (base_case UNION ALL recursive_case): tree traversal
+  Materialized CTE: PostgreSQL 12+ inlines by default; WITH cte AS MATERIALIZED (...): force materialize
+  Window with CTE: clean separation of window calc from outer aggregation
+LATERAL join: each row in left table can reference current row in subquery
+  SELECT u.*, recent.* FROM users u, LATERAL (SELECT * FROM orders o WHERE o.user_id=u.id ORDER BY created_at DESC LIMIT 3) recent;
+  Replaces correlated subqueries; can be indexed; PostgreSQL, MySQL 8+
+JSONB queries (PostgreSQL):
+  ->> 'key': extract as text; -> 'key': extract as JSONB
+  @>: containment; jsonb_col @> '{\"status\":\"active\"}': contains JSON
+  jsonb_path_query(col, '$.items[*].price'): JSONPath; find nested values
+  jsonb_agg / jsonb_object_agg: aggregate rows into JSON array/object
+  Index: CREATE INDEX idx ON t USING GIN (data jsonb_path_ops);
+Upsert:
+  PostgreSQL: INSERT ... ON CONFLICT (key) DO UPDATE SET col=EXCLUDED.col;
+  MySQL: INSERT ... ON DUPLICATE KEY UPDATE col=VALUES(col); or REPLACE INTO (delete+insert)
+  MERGE (SQL standard): WHEN MATCHED THEN UPDATE; WHEN NOT MATCHED THEN INSERT; SQL Server, Oracle, BigQuery"
+}
+
+const SQL_TUNING_SECTIONS: &[SqlTuningSection] = &[
+    (
+        "explain",
+        &[
+            "execution-plan",
+            "explain-analyze",
+            "seq-scan",
+            "index-scan",
+            "bitmap-scan",
+            "nested-loop",
+            "hash-join",
+            "merge-join",
+            "explain-buffers",
+        ],
+        s_sq_explain,
+    ),
+    (
+        "indexes",
+        &[
+            "index-design",
+            "btree-index",
+            "gin-index",
+            "gist-index",
+            "brin-index",
+            "partial-index",
+            "expression-index",
+            "covering-index",
+            "composite-index",
+        ],
+        s_sq_indexes,
+    ),
+    (
+        "statistics",
+        &[
+            "query-statistics",
+            "pg-stats",
+            "analyze-table",
+            "histogram-stats",
+            "n-distinct",
+            "correlation-stat",
+            "extended-statistics",
+            "autovacuum",
+        ],
+        s_sq_statistics,
+    ),
+    (
+        "optimizer",
+        &[
+            "optimizer-hints",
+            "pg-hint-plan",
+            "work-mem",
+            "join-collapse",
+            "random-page-cost",
+            "enable-seqscan",
+            "mysql-hints",
+            "keyset-pagination",
+        ],
+        s_sq_optimizer,
+    ),
+    (
+        "partitioning",
+        &[
+            "table-partitioning",
+            "range-partition",
+            "list-partition",
+            "hash-partition",
+            "partition-pruning",
+            "attach-partition",
+            "detach-partition",
+            "rolling-window",
+        ],
+        s_sq_partitioning,
+    ),
+    (
+        "advanced-sql",
+        &[
+            "window-functions",
+            "row-number",
+            "cte",
+            "recursive-cte",
+            "lateral-join",
+            "jsonb-queries",
+            "upsert",
+            "merge-statement",
+            "json-aggregation",
+        ],
+        s_sq_advanced,
+    ),
+];
+
+pub fn sql_tuning_calc(query: &str) -> String {
+    let q = query.trim().to_lowercase();
+    if q.is_empty() || q == "list" || q == "help" {
+        let topics: Vec<&str> = SQL_TUNING_SECTIONS.iter().map(|(n, _, _)| *n).collect();
+        return format!(
+            "sql-tuning topics: {}\nUse: --sql-tuning <topic>  or  --sql-tuning all",
+            topics.join(", ")
+        );
+    }
+    if q == "all" {
+        return SQL_TUNING_SECTIONS
+            .iter()
+            .map(|(_, _, f)| f())
+            .collect::<Vec<_>>()
+            .join("\n\n");
+    }
+    for (name, aliases, func) in SQL_TUNING_SECTIONS {
+        if q == *name || aliases.iter().any(|a| q == *a || q.contains(a)) {
+            return func().to_string();
+        }
+    }
+    format!(
+        "No topic found for '{}'. Try: --sql-tuning list",
+        query.trim()
+    )
+}
+
+// ── Wave 34: concurrency_ref_calc ─────────────────────────────────────────────
+
+type ConcurrencySection = (&'static str, &'static [&'static str], fn() -> &'static str);
+
+fn s_conc_primitives() -> &'static str {
+    "── Concurrency Primitives ──
+Mutex (Mutual Exclusion Lock): serializes access to shared resource
+  Rust: Mutex<T>; lock() returns MutexGuard; poisoning on panic releases lock
+  C++: std::mutex + std::lock_guard<std::mutex> or std::unique_lock (lockable)
+  Java: synchronized block or ReentrantLock (tryLock, timeout, interruptible)
+  Deadlock: two threads each hold a lock the other needs; prevention: consistent lock ordering
+  Lock contention: threads waiting; measure with perf/eBPF mutex contention tools
+RwLock (Read-Write Lock): multiple readers OR one writer; prefer when reads dominate
+  Rust: RwLock<T>; read() vs write(); N concurrent readers; writer starvation risk
+  Optimistic locking: read without lock; validate version before write; retry on conflict
+  Stamp Locking: StampedLock (Java); optimistic read (validateStamp); avoids read starvation
+Semaphore: count-based; permit pool; limit concurrent access to N resources
+  Tokio: tokio::sync::Semaphore; acquire().await; RAII permit released on drop
+  Rate limiting, connection pool size limiting, bounded parallelism
+Condition variable: atomically release lock and wait for signal
+  wait(lock, predicate): spurious wakeup safe; while (!pred) cv.wait(lock);
+  notify_one() / notify_all(): wake one or all waiting threads
+  Rust: Condvar with Mutex; Java: Object.wait/notify; C++: std::condition_variable
+Barriers: synchronize a fixed number of threads at a point; all must arrive before any proceed
+  CyclicBarrier (Java): reusable; reset after release; phases
+  Rust: no std barrier in async; use tokio::sync::Barrier
+Monitor: OOP concept combining mutex + condition variable; Java synchronized methods"
+}
+
+fn s_conc_atomics() -> &'static str {
+    "── Atomics & Memory Ordering ──
+Atomic operations: CPU guarantees single indivisible read-modify-write; no lock needed
+  Load, Store, Swap (exchange), Compare-And-Swap (CAS), Fetch-Add, Fetch-Sub
+  ABA problem: CAS fails to detect if value changed A->B->A; use versioned CAS or LL/SC
+  Rust: std::sync::atomic::{AtomicBool, AtomicI32, AtomicUsize, AtomicPtr}
+    load(Ordering), store(v, Ordering), fetch_add(n, Ordering), compare_exchange(old, new, success, failure)
+  C++: std::atomic<T>; Java: java.util.concurrent.atomic.*
+Memory ordering (memory model):
+  Relaxed: no ordering guarantees; only atomicity; use for counters not controlling other memory
+    Ordering::Relaxed; memory_order_relaxed
+  Acquire/Release: synchronizes-with relationship; establishes happens-before
+    Release: store that releases; all writes before release are visible after paired acquire
+    Acquire: load that acquires; reads effects of the release store and everything before it
+    Rust: Ordering::Release on store; Ordering::Acquire on load
+  AcqRel: both acquire and release; for RMW operations (fetch_add on shared flag)
+  SeqCst: total sequential ordering; all threads agree on modification order; strongest; default in Java
+    Most expensive; use Relaxed/Release/Acquire when possible
+  Fence: std::atomic_thread_fence(Ordering): standalone barrier without atomic op
+  Happens-before: guarantees visibility; A happens-before B means B sees all of A's writes
+Cache coherence: MESI protocol; cores maintain coherent view; false sharing = different vars in same cache line
+  False sharing: pad structs to 64-byte cache line; #[repr(align(64))] in Rust; @Contended in Java"
+}
+
+fn s_conc_channels() -> &'static str {
+    "── Channels & Message Passing ──
+Channel: typed queue between sender and receiver; no shared state
+  MPSC (Multi-Producer Single-Consumer): most common; multiple senders, one receiver
+    Rust std: std::sync::mpsc::channel(); tx.send(val); rx.recv()
+    Tokio: tokio::sync::mpsc::channel(buffer_size); tx.send(val).await; rx.recv().await
+  MPMC (Multi-Producer Multi-Consumer): multiple senders AND receivers
+    Crossbeam: crossbeam::channel::bounded/unbounded; select! for multiple channels
+    Tokio broadcast: every receiver gets every message; Tokio watch: only latest value
+  Oneshot: single send; promise/future pattern
+    tokio::sync::oneshot; often used to send result back from spawned task
+Backpressure:
+  Bounded channel: sender blocks/returns error when full; prevents unbounded memory growth
+  Unbounded channel: always succeeds; OOM risk under sustained overload
+  select! + backpressure: Tokio; try_send to avoid blocking; drop work or slow producer
+Channel semantics:
+  Rendezvous (sync, size=0): sender blocks until receiver is ready; explicit synchronization
+  Buffered: send proceeds until buffer full; decouples producer/consumer speed
+  Async channel: send/recv are futures; don't block OS thread; stack-friendly
+Go channels:
+  make(chan int, n): buffered; make(chan int): unbounded
+  select { case v := <-ch1: ... case ch2 <- val: ... default: ...}: non-blocking select
+  close(ch): signal no more values; range over channel reads until closed
+Actor model: Erlang/Akka/Actix; each actor has own mailbox; no shared state; message-passing only
+  Tokio actors: spawn task with Receiver<Message>; respond via oneshot; supervise via JoinHandle"
+}
+
+fn s_conc_lockfree() -> &'static str {
+    "── Lock-Free Data Structures ──
+Lock-free: progress guarantee; at least one thread makes progress per step
+  Wait-free: stronger; every thread completes in finite steps regardless of other threads
+  Obstruction-free: weakest; makes progress if run in isolation
+CAS loop (Compare-And-Swap): fundamental lock-free building block
+  loop { let old = atomic.load(Relaxed); if atomic.compare_exchange(old, new(old), ...).is_ok() { break } }
+  ABA hazard: address reuse; mitigate with hazard pointers or epoch-based reclamation
+  Backoff: exponential backoff on CAS failure; reduce contention on hot atomics
+Lock-free queue (Michael-Scott queue):
+  Two atomics: head and tail pointers; CAS on tail for enqueue; CAS on head for dequeue
+  Used in Java ConcurrentLinkedQueue; crossbeam SegQueue
+  Ticket spinlock: fetch_add for ticket; spin on turn counter; fair FIFO ordering
+Lock-free stack (Treiber stack):
+  Push: CAS head from old_head to new_node(next=old_head)
+  Pop: CAS head from old_head to old_head.next
+  ABA problem in pop if address reused between load and CAS; epoch reclamation needed
+Memory reclamation:
+  Epoch-based (crossbeam epoch): defer deallocation until no thread in previous epoch; low overhead
+  Hazard pointers: each thread announces pointers it's reading; reclaim only unannounced pointers
+  Seqlock: even sequence = no write; odd = write in progress; read retries if odd; readers stall-free
+LMAX Disruptor pattern: ring buffer with sequence numbers; no CAS on fast path; cache-friendly
+  Used in high-frequency trading; better cache utilization than queue implementations"
+}
+
+fn s_conc_async() -> &'static str {
+    "── Async Concurrency ──
+Async/await model: suspend without blocking OS thread; single-threaded coroutine-like
+  Futures (Rust): lazy; polled by executor; Pending or Ready; zero-cost abstraction
+  Task: spawned future running on executor; tokio::spawn returns JoinHandle
+  Executor: runtime that polls futures; work-stealing scheduler (Tokio); single-threaded (tokio::spawn_local)
+Tokio runtime:
+  multi_thread: N worker threads (default = CPU count); work-stealing; most apps
+  current_thread: single thread; good for embedded or simpler apps
+  tokio::spawn: spawn concurrent task; runs to completion or until JoinHandle dropped
+  JoinHandle: await to get result; abort() to cancel; drop to detach (task keeps running)
+  tokio::select!: concurrently await multiple futures; first to complete wins; others cancelled
+  tokio::join!: concurrently await all; wait for all to complete; no cancellation
+Structured concurrency:
+  JoinSet (Tokio 0.2.18+): collection of spawned tasks; await all with join_next
+  TaskGroup (hypothetical): parent cancels children on drop; prevents leak
+  abort-on-drop: drop JoinHandle cancels task in some frameworks; Tokio does NOT abort on drop
+Cancellation:
+  CancellationToken (Tokio): propagate cancel signal; child tokens; is_cancelled(); cancelled().await
+  Select with timeout: tokio::time::timeout(Duration, future).await
+  Abort: JoinHandle.abort(); task may not stop immediately; cooperative cancel with token preferred
+Async pitfalls:
+  Blocking in async: std::thread::sleep or heavy CPU in async task blocks thread; use spawn_blocking
+  spawn_blocking: runs closure on dedicated thread pool; returns JoinHandle<T>
+  .await point in mutex: holding std::sync::Mutex across .await = deadlock if thread re-used; use tokio::sync::Mutex
+  Unbounded channel in async: still OOM risk; always use bounded channels with backpressure"
+}
+
+fn s_conc_patterns() -> &'static str {
+    "── Concurrency Patterns ──
+Thread pool: reuse OS threads; avoid spawn/join overhead per task
+  Rayon: data parallelism; par_iter(); work-stealing; CPU-bound tasks
+  ThreadPool (std / custom): I/O-bound tasks; bounded size; queue with backpressure
+Producer-Consumer: producer generates work; consumer processes; buffer between them
+  Channel as buffer; bounded channel provides backpressure to producer
+  Multiple consumers: drain workqueue in parallel; topic subscriptions
+Pipeline: chain of stages; each stage on separate thread/task; backpressure flows upstream
+  Tokio streams: StreamExt; map, filter, buffer_unordered for async pipelines
+  buffer_unordered(N): run up to N futures concurrently; maintain stream order
+Fan-out / Fan-in:
+  Fan-out: distribute work to N workers; bounded mpsc per worker or shared channel
+  Fan-in: collect results; mpsc receiver reading from all workers; or join!
+  Tokio FuturesUnordered: run N futures; yield results as ready; no fixed order
+Timeout and retry:
+  tokio::time::timeout(Duration, future): returns Err(Elapsed) on timeout
+  Exponential backoff: start 100ms; double; jitter ±10%; max 30s; respect deadline budget
+  Circuit breaker: fail fast when error rate high; half-open probe; auto-recover
+Work stealing:
+  Rayon and Tokio schedulers use work-stealing deques; idle threads steal from busy ones
+  Cache effects: stealing may break cache affinity; locality hints with spawn_local
+Graceful shutdown:
+  Signal handler: SIGINT/SIGTERM; set atomic flag; tasks poll flag or use CancellationToken
+  Drain: stop accepting new work; wait for in-flight tasks; JoinSet::join_all
+  Timeout on drain: force exit after N seconds even if tasks not done"
+}
+
+const CONCURRENCY_SECTIONS: &[ConcurrencySection] = &[
+    (
+        "primitives",
+        &[
+            "mutex",
+            "rwlock",
+            "semaphore",
+            "condition-variable",
+            "barrier-sync",
+            "monitor-pattern",
+            "lock-contention",
+            "deadlock",
+            "spinlock",
+        ],
+        s_conc_primitives,
+    ),
+    (
+        "atomics",
+        &[
+            "atomic-ops",
+            "memory-ordering",
+            "acquire-release",
+            "seqcst",
+            "cas-loop",
+            "relaxed-ordering",
+            "false-sharing",
+            "cache-line",
+            "memory-fence",
+        ],
+        s_conc_atomics,
+    ),
+    (
+        "channels",
+        &[
+            "channel-mpsc",
+            "channel-mpmc",
+            "oneshot-channel",
+            "backpressure",
+            "bounded-channel",
+            "crossbeam-channel",
+            "actor-model",
+            "go-channels",
+        ],
+        s_conc_channels,
+    ),
+    (
+        "lock-free",
+        &[
+            "lock-free-queue",
+            "lock-free-stack",
+            "treiber-stack",
+            "hazard-pointers",
+            "epoch-reclamation",
+            "disruptor-pattern",
+            "seqlock",
+            "aba-problem",
+        ],
+        s_conc_lockfree,
+    ),
+    (
+        "async",
+        &[
+            "async-await",
+            "tokio-runtime",
+            "tokio-spawn",
+            "tokio-select",
+            "structured-concurrency",
+            "cancellation-token",
+            "spawn-blocking",
+            "join-set",
+        ],
+        s_conc_async,
+    ),
+    (
+        "patterns",
+        &[
+            "thread-pool",
+            "producer-consumer",
+            "pipeline-pattern",
+            "fan-out",
+            "fan-in",
+            "work-stealing",
+            "graceful-shutdown",
+            "futures-unordered",
+            "rayon",
+        ],
+        s_conc_patterns,
+    ),
+];
+
+pub fn concurrency_ref_calc(query: &str) -> String {
+    let q = query.trim().to_lowercase();
+    if q.is_empty() || q == "list" || q == "help" {
+        let topics: Vec<&str> = CONCURRENCY_SECTIONS.iter().map(|(n, _, _)| *n).collect();
+        return format!(
+            "concurrency topics: {}\nUse: --concurrency <topic>  or  --concurrency all",
+            topics.join(", ")
+        );
+    }
+    if q == "all" {
+        return CONCURRENCY_SECTIONS
+            .iter()
+            .map(|(_, _, f)| f())
+            .collect::<Vec<_>>()
+            .join("\n\n");
+    }
+    for (name, aliases, func) in CONCURRENCY_SECTIONS {
+        if q == *name || aliases.iter().any(|a| q == *a || q.contains(a)) {
+            return func().to_string();
+        }
+    }
+    format!(
+        "No topic found for '{}'. Try: --concurrency list",
+        query.trim()
+    )
+}
+
+// ── Wave 34: cloud_native_calc ────────────────────────────────────────────────
+
+type CloudNativeSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+
+fn s_cn_12factor() -> &'static str {
+    "── 12-Factor App ──
+12-Factor: methodology for building scalable, maintainable cloud-native apps
+  1. Codebase: one codebase per app tracked in version control; multiple deploys from same repo
+  2. Dependencies: explicitly declare in manifest (Cargo.toml, package.json, requirements.txt); no system packages
+  3. Config: store in environment variables; never in code; 12-factor distinguishes config from code
+     Config = anything that varies between environments (dev/staging/prod): URLs, credentials, feature flags
+  4. Backing services: treat databases, queues, SMTP as attached resources; swap without code changes
+     DATABASE_URL, REDIS_URL; dev: localhost; prod: managed service; same code
+  5. Build, release, run: strictly separate stages; build=code+deps; release=build+config; run=execute release
+  6. Processes: stateless; share-nothing; store state in backing service (DB, cache, object store)
+     No sticky sessions; any instance can handle any request
+  7. Port binding: self-contained; exports service via port; no runtime injection of container
+     Embedded HTTP server (Actix, Express); listen on $PORT; reverse proxy in front
+  8. Concurrency: scale out via process model; horizontal scaling; different process types (web, worker)
+  9. Disposability: fast startup (<seconds); graceful shutdown; drain in-flight requests on SIGTERM
+  10. Dev/prod parity: minimize gap; same backing services in all envs; same container image
+  11. Logs: treat as event streams; write to stdout; log aggregator collects; no files
+  12. Admin processes: one-off admin tasks as the same release; run in same environment (kubectl exec)
+Beyond 12-factor:
+  API first: contract before implementation; OpenAPI spec; enables parallel frontend/backend dev
+  Telemetry: structured logs + metrics + traces baked in from start; OTel instrumentation
+  Auth: externalized to identity provider; JWT validation in app; no auth in business logic"
+}
+
+fn s_cn_patterns() -> &'static str {
+    "── Cloud-Native Patterns ──
+Circuit Breaker: prevent cascading failures; stop calling failing service
+  States: Closed (normal) -> Open (failing, fast-fail) -> Half-Open (probe) -> Closed
+  Threshold: N failures in M seconds opens circuit; one success in half-open closes it
+  Libraries: Hystrix (deprecated), Resilience4j (Java), tokio-retry + custom state (Rust)
+  Fallback: return cached data, default value, or error to user; don't propagate cascade
+Bulkhead: isolate resources per consumer; pool per downstream service
+  Thread pool bulkhead: separate pool per dependency; DB pool vs API pool
+  Semaphore bulkhead: limit concurrent calls to each dependency; tokio::sync::Semaphore
+Retry with exponential backoff + jitter:
+  Max retries: 3; initial_delay: 100ms; multiplier: 2x; jitter: ±25%; max: 30s
+  Retry-After header: respect server-specified retry delay; avoid thundering herd
+  Idempotency: only retry idempotent operations; POST may not be safe to retry
+Saga pattern: distributed transaction alternative; sequence of local transactions + compensations
+  Choreography: each service publishes events; other services react; decoupled; harder to trace
+  Orchestration: central saga orchestrator; sends commands; receives replies; easier to trace
+  Compensating transaction: undo local transaction if later step fails; eventual consistency
+CQRS (Command Query Responsibility Segregation): separate write model from read model
+  Write model: normalized; handles commands; emits events
+  Read model: denormalized; optimized for queries; updated by event handler
+  Eventual consistency: read model may lag behind write model; acceptable for most use cases
+Strangler Fig: incrementally migrate legacy system; new features in new service; route via proxy
+  Anti-corruption layer: translates between old and new domain models; prevents legacy contamination"
+}
+
+fn s_cn_service_mesh() -> &'static str {
+    "── Service Mesh ──
+Service mesh: infrastructure layer for service-to-service communication; sidecar proxy pattern
+  Sidecar: proxy container in same pod; intercepts all network traffic; app unaware
+  Control plane: configures proxies; distributes certificates and routing rules; Istiod, Linkerd2
+  Data plane: sidecar proxies; handle actual traffic; Envoy (Istio), linkerd-proxy (Linkerd)
+Istio features:
+  mTLS: automatic mutual TLS between all services; zero-trust networking; PeerAuthentication policy
+  Traffic management: VirtualService (routing rules), DestinationRule (load balancing, circuit breaker)
+  Weighted routing: canary deployment; VirtualService weight: 90/10 old/new version split
+  Fault injection: test resilience; delay 5s for 50% of requests; abort with 503 for 10%
+  Observability: automatic metrics (Prometheus), traces (Jaeger/Zipkin), logs; without code changes
+Linkerd2: lighter weight; Rust data plane (linkerd-proxy); auto-mTLS; lower overhead than Istio
+  Best for: smaller clusters; lower complexity; auto-observability without full Istio config
+Envoy proxy (standalone or as sidecar):
+  Listeners -> Filters -> Clusters -> Endpoints routing model
+  Dynamic xDS API: CDS, EDS, LDS, RDS, SDS; control plane pushes config
+  Advanced load balancing: round-robin, least-request, consistent hashing, zone-aware
+Service mesh alternatives:
+  Consul Connect: Consul-native; sidecar-optional; integrates with Vault for certificates
+  Cilium eBPF: eBPF-based; no sidecar; kernel-level network enforcement; lower overhead
+  SPIFFE/SPIRE: workload identity framework; short-lived X.509 certs; used by Istio and Consul"
+}
+
+fn s_cn_observability() -> &'static str {
+    "── Cloud-Native Observability ──
+Three pillars: Metrics + Logs + Traces; plus Profiles (continuous profiling)
+Metrics (Prometheus + Grafana stack):
+  Instrumentation: expose /metrics endpoint; prometheus crate (Rust), micrometer (Java), prom-client (Node)
+  Recording rules: pre-aggregate expensive queries; store as new time series
+  Alerting: PrometheusRule CRDs in Kubernetes; route to Alertmanager; escalate to PagerDuty
+  Long-term storage: Thanos (sidecar + store gateway) or Cortex/Mimir for multi-tenant
+Distributed tracing (OTel + Jaeger/Tempo):
+  Instrumentation: OTel SDK; trace context in HTTP headers (W3C traceparent)
+  Sampling strategy: head-based (100% dev, 1% prod) or tail-based (Tempo + Grafana Alloy)
+  Root cause analysis: find slow spans; find error spans; correlate with metrics (exemplars)
+Logging (Loki stack or ELK):
+  Log aggregation: Promtail or Fluent Bit; scrape pod logs; ship to Loki or Elasticsearch
+  Structured JSON: mandatory in production; key fields: level, timestamp, trace_id, span_id, service
+  Log levels: ERROR (alert) -> WARN (investigate) -> INFO (normal) -> DEBUG (dev-only)
+  Cardinality: don't put user IDs in log labels (Loki stream selectors); put in log line
+Kubernetes observability:
+  kube-state-metrics: K8s object state as metrics (deployment replicas, pod phases)
+  node-exporter: host-level metrics (CPU, memory, disk, network)
+  metrics-server: pod CPU/memory for HPA and kubectl top
+  OpenCost / Kubecost: per-namespace/team cost attribution from cloud billing data"
+}
+
+fn s_cn_deployment() -> &'static str {
+    "── Deployment Strategies ──
+Rolling update: replace pods gradually; default K8s; zero downtime; slow rollback
+  maxSurge: how many extra pods during rollout; maxUnavailable: how many can be down
+  readinessProbe: gates pod from receiving traffic; critical for zero-downtime rollouts
+  livenessProbe: restart pod if stuck; startupProbe: longer grace period for slow-start apps
+Blue-Green deployment: two identical environments; switch traffic instantly; fast rollback
+  Double the infrastructure cost; feature flags preferred for cost-sensitive orgs
+  Smoke test green before switching; instant rollback = flip load balancer target
+  K8s: two deployments; switch Service selector label; or use Argo Rollouts
+Canary deployment: route small % to new version; expand gradually; automated analysis
+  Argo Rollouts: canary with automated metric analysis; pause/promote/abort steps
+  Flagger: Kubernetes operator; canary + blue-green + A/B testing; Prometheus integration
+  K8s native: two deployments different replica counts; 90/10 traffic split
+  Feature flags: LaunchDarkly, Unleash, flagsmith; decouple deploy from release; instant rollback
+GitOps: declarative infra in Git; controller syncs cluster state to match Git
+  ArgoCD: pull-based; watches Git; applies manifests; drift detection; rollback via Git revert
+  Flux v2: GitOps toolkit; multi-cluster; Helm controller; Kustomize integration
+  App-of-apps: ArgoCD Application that manages other Applications; hierarchical structure
+Progressive delivery: combine canary + feature flags + automated rollback
+  Automated rollback: if error rate or latency exceeds threshold in canary window, abort
+  Experimentation: A/B test with real user traffic; measure business metrics not just SLOs"
+}
+
+fn s_cn_events() -> &'static str {
+    "── Event-Driven & Messaging ──
+Event sourcing: store events not current state; replay to rebuild state
+  Event: immutable record of what happened; UserCreated, OrderPlaced, PaymentFailed
+  Aggregate: domain object; processes commands; emits events; rebuilt by replaying events
+  Event store: append-only log; EventStoreDB, Kafka (with compaction off), PostgreSQL events table
+  Snapshot: periodic state snapshot; replay from snapshot instead of all history; performance
+  CQRS complement: event sourcing + CQRS natural fit; events update read models
+  Idempotency key: process event exactly once; store processed event IDs; dedup on replay
+Kafka patterns:
+  Compacted topics: retain only latest value per key; state replication; consumer rebuild from scratch
+  Dead letter queue (DLQ): route failed messages; DLQ topic; alert on DLQ growth
+  Consumer groups: each group gets all messages independently; scale by adding consumers to group
+  Exactly-once semantics (EOS): idempotent producer + transactional API; end-to-end exactly-once
+  Kafka Streams: stateful stream processing on JVM; KTable (compacted state store); joins
+Outbox pattern: atomic write to DB + message to broker; avoids dual-write inconsistency
+  Write event to outbox table in same DB transaction as business data
+  Outbox processor (Debezium CDC or polling): reads outbox, publishes to Kafka, marks processed
+  Guarantees: event published if and only if transaction commits; no lost or duplicate events
+Event mesh / CloudEvents:
+  CloudEvents spec: standard event envelope; specversion, type, source, id, time, data
+  AsyncAPI: document event-driven APIs; like OpenAPI but for async/event protocols
+  Event catalog: document events across teams; schema registry integration; lineage"
+}
+
+const CLOUD_NATIVE_SECTIONS: &[CloudNativeSection] = &[
+    (
+        "12factor",
+        &[
+            "twelve-factor",
+            "twelve-factor-app",
+            "config-env",
+            "stateless-process",
+            "backing-services",
+            "port-binding",
+            "disposability",
+            "dev-prod-parity",
+        ],
+        s_cn_12factor,
+    ),
+    (
+        "patterns",
+        &[
+            "cloud-patterns",
+            "circuit-breaker",
+            "bulkhead",
+            "retry-pattern",
+            "saga-pattern",
+            "cqrs-pattern",
+            "strangler-fig",
+            "anti-corruption-layer",
+        ],
+        s_cn_patterns,
+    ),
+    (
+        "service-mesh",
+        &[
+            "istio",
+            "linkerd",
+            "envoy-proxy",
+            "mtls-mesh",
+            "traffic-management",
+            "virtual-service",
+            "fault-injection",
+            "spiffe",
+            "cilium",
+        ],
+        s_cn_service_mesh,
+    ),
+    (
+        "observability",
+        &[
+            "cloud-observability",
+            "prometheus-stack",
+            "distributed-tracing",
+            "log-aggregation",
+            "kube-state-metrics",
+            "opencost",
+            "metrics-server",
+        ],
+        s_cn_observability,
+    ),
+    (
+        "deployment",
+        &[
+            "rolling-update",
+            "blue-green",
+            "canary-deployment",
+            "gitops",
+            "argocd",
+            "flagger",
+            "argo-rollouts",
+            "progressive-delivery",
+            "feature-flags",
+        ],
+        s_cn_deployment,
+    ),
+    (
+        "events",
+        &[
+            "event-sourcing",
+            "event-store",
+            "outbox-pattern",
+            "kafka-patterns",
+            "cloudevents",
+            "asyncapi",
+            "exactly-once",
+            "dead-letter-queue",
+        ],
+        s_cn_events,
+    ),
+];
+
+pub fn cloud_native_calc(query: &str) -> String {
+    let q = query.trim().to_lowercase();
+    if q.is_empty() || q == "list" || q == "help" {
+        let topics: Vec<&str> = CLOUD_NATIVE_SECTIONS.iter().map(|(n, _, _)| *n).collect();
+        return format!(
+            "cloud-native topics: {}\nUse: --cloud-native <topic>  or  --cloud-native all",
+            topics.join(", ")
+        );
+    }
+    if q == "all" {
+        return CLOUD_NATIVE_SECTIONS
+            .iter()
+            .map(|(_, _, f)| f())
+            .collect::<Vec<_>>()
+            .join("\n\n");
+    }
+    for (name, aliases, func) in CLOUD_NATIVE_SECTIONS {
+        if q == *name || aliases.iter().any(|a| q == *a || q.contains(a)) {
+            return func().to_string();
+        }
+    }
+    format!(
+        "No topic found for '{}'. Try: --cloud-native list",
+        query.trim()
+    )
+}

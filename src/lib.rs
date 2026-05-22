@@ -2132,6 +2132,38 @@ pub struct CliCockpit {
         long,
         help_heading = "Math & Science",
         value_name = "QUERY",
+        help = "Web performance reference — offline replacement for web.dev/performance. Topics: cwv, rendering, caching, cdn, bundling, images. Aliases: core-web-vitals, lcp, inp, cls, ttfb, critical-render-path, cache-control, service-worker-cache, bundle-splitting, tree-shaking, image-optimization, avif, webp, and more. Examples: hematite --web-perf cwv | hematite --web-perf caching | hematite --web-perf all"
+    )]
+    pub web_perf: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Math & Science",
+        value_name = "QUERY",
+        help = "SQL query tuning reference — offline replacement for use-the-index-luke.com. Topics: explain, indexes, statistics, optimizer, partitioning, advanced-sql. Aliases: execution-plan, btree-index, gin-index, partial-index, pg-stats, work-mem, range-partition, window-functions, cte, recursive-cte, lateral-join, and more. Examples: hematite --sql-tuning explain | hematite --sql-tuning indexes | hematite --sql-tuning all"
+    )]
+    pub sql_tuning: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Math & Science",
+        value_name = "QUERY",
+        help = "Concurrency patterns reference — offline replacement for concurrency docs. Topics: primitives, atomics, channels, lock-free, async, patterns. Aliases: mutex, rwlock, semaphore, acquire-release, seqcst, cas-loop, channel-mpsc, backpressure, lock-free-queue, hazard-pointers, async-await, tokio-runtime, thread-pool, producer-consumer, rayon, and more. Examples: hematite --concurrency atomics | hematite --concurrency async | hematite --concurrency all"
+    )]
+    pub concurrency: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Math & Science",
+        value_name = "QUERY",
+        help = "Cloud-native patterns reference — offline replacement for cloud docs. Topics: 12factor, patterns, service-mesh, observability, deployment, events. Aliases: twelve-factor, circuit-breaker, bulkhead, saga-pattern, cqrs-pattern, istio, envoy-proxy, prometheus-stack, distributed-tracing, blue-green, canary-deployment, gitops, event-sourcing, outbox-pattern, and more. Examples: hematite --cloud-native 12factor | hematite --cloud-native patterns | hematite --cloud-native all"
+    )]
+    pub cloud_native: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Math & Science",
+        value_name = "QUERY",
         help = "Lorem ipsum generator — offline replacement for lipsum.com. Commands: (bare) or <N> = N paragraphs (default 1); words <N> = N words; sentences <N> = N sentences. Examples: hematite --lorem | hematite --lorem 3 | hematite --lorem 'words 50' | hematite --lorem 'sentences 5'"
     )]
     pub lorem: Option<String>,
