@@ -61167,3 +61167,1378 @@ pub fn cloud_cost_calc(query: &str) -> String {
             .join(", ")
     )
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Wave 41: --http2, --oauth2-flow, --linux-net, --prom-ref
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ── http2 ─────────────────────────────────────────────────────────────────────
+
+fn s_h2_http2() -> &'static str {
+    "HTTP/2 Reference
+Key improvements over HTTP/1.1:
+  Binary framing (not text) → smaller overhead, easier parsing
+  Multiplexing: multiple concurrent streams over single TCP connection
+    Eliminates head-of-line blocking at application layer
+  Header compression (HPACK): static + dynamic table; ~30% reduction
+  Server push: server proactively sends resources before client asks
+  Stream prioritization: weight + dependency tree
+
+HTTP/2 stream states:
+  idle → open → half-closed (local/remote) → closed
+  Stream ID: odd for client-initiated; even for server push
+  RST_STREAM frame: cancel stream without closing connection
+  SETTINGS frame: negotiates parameters (max concurrent streams, initial window)
+
+HPACK header compression:
+  Static table: 61 predefined headers (e.g. :method GET = index 2)
+  Dynamic table: learnt headers appended during session
+  Huffman encoding: further compress header values
+  Never index: mark sensitive headers (Authorization) as non-indexable
+  HPACK bomb risk: excessive decompression → limit dynamic table size
+
+HTTP/2 flow control:
+  Per-stream AND per-connection window sizes
+  WINDOW_UPDATE frame: receiver signals it can accept more data
+  Default: 65535 bytes initial window
+  Connection window: sum of all stream windows
+  Sender blocks when window exhausted (back-pressure)
+
+Enabling HTTP/2:
+  nginx: listen 443 ssl http2;  (TLS required in all browsers)
+  apache: LoadModule http2_module; Protocols h2 http/1.1
+  Go: http.ListenAndServeTLS → auto-enables h2
+  Node.js: const server = http2.createSecureServer({key, cert}, handler)
+  curl: curl --http2 https://example.com
+
+Debugging:
+  curl -v --http2 https://example.com 2>&1 | grep -E 'Using HTTP|< HTTP'
+  nghttp -v https://example.com              # dedicated h2 client
+  Wireshark: filter tls; decode as HTTP/2
+  Chrome: chrome://net-export/ → import in https://netlog-viewer.appspot.com
+  HTTP/2 header: :status, :method, :path, :scheme, :authority  (pseudo-headers)"
+}
+
+fn s_h2_http3() -> &'static str {
+    "HTTP/3 & QUIC Reference
+HTTP/3 uses QUIC (UDP-based transport) instead of TCP:
+  QUIC: multiplexing without TCP head-of-line blocking
+  0-RTT connection resumption (vs TLS 1.3 1-RTT; previous session key reuse)
+  Connection migration: change IP/port without reconnecting (mobile handover)
+  Per-stream encryption: each QUIC stream independently encrypted
+  Built-in TLS 1.3 (QUIC cannot run without TLS)
+  UDP: no kernel-level head-of-line blocking between streams
+
+QUIC internals:
+  QUIC frames: STREAM, ACK, PADDING, RST_STREAM, STOP_SENDING, CRYPTO, etc.
+  Packet numbers: never reuse; PN encryption hides traffic patterns
+  Connection IDs: used instead of 4-tuple; enables migration
+  Loss recovery: faster; no ambiguity in retransmit ACKs (unlike TCP)
+  Congestion control: CUBIC or BBR (same algorithms, QUIC-level)
+  Initial handshake: QUIC+TLS combined; server config sent encrypted
+
+Enabling HTTP/3:
+  nginx (1.25+): listen 443 quic reuseport; add_header Alt-Svc 'h3=\":443\"; ma=86400';
+  caddy: automatic (built-in HTTP/3 support)
+  cloudflare: automatic for all zones
+  chrome://flags → enable QUIC
+  curl: curl --http3 https://example.com  (requires quic-enabled build)
+
+Browser detection:
+  Alt-Svc: h3=\":443\"; ma=86400   (server advertises HTTP/3 support)
+  HTTP/3: connection: QUIC/UDP port 443
+  Fallback: browser falls back to TCP if UDP blocked (firewalls)
+
+QUIC & HTTP/3 status (2024):
+  Chrome/Firefox/Edge/Safari: full support
+  ~25% of all HTTPS traffic uses HTTP/3 (growing)
+  Cloudflare, Google, Meta: serving HTTP/3 by default
+  NGINX: stable in 1.25.x; QUIC library (boringssl fork)
+  Go: quic-go library; standard library QUIC planned"
+}
+
+fn s_h2_grpc() -> &'static str {
+    "gRPC over HTTP/2 Reference
+gRPC uses HTTP/2 streams for:
+  Unary RPC: 1 request + 1 response = 1 stream
+  Server streaming: 1 request + N responses = 1 stream
+  Client streaming: N requests + 1 response = 1 stream
+  Bidirectional: N requests + N responses = 1 stream (full duplex)
+
+Framing:
+  Each gRPC message = HTTP/2 DATA frame(s)
+  Prefixed with: 1 byte (compression flag) + 4 bytes (message length)
+  Headers: :method POST; :path /package.Service/Method; content-type: application/grpc
+  Trailers: grpc-status, grpc-message (sent as HTTP/2 HEADERS with END_STREAM)
+
+gRPC status codes (common):
+  0  OK
+  1  CANCELLED
+  2  UNKNOWN
+  3  INVALID_ARGUMENT
+  4  DEADLINE_EXCEEDED
+  5  NOT_FOUND
+  13 INTERNAL
+  14 UNAVAILABLE  (retry-able)
+  16 UNAUTHENTICATED
+
+Deadlines and cancellation:
+  grpc-timeout: 5S, 100m, 1H  (header; client-side deadline)
+  ctx, cancel := context.WithTimeout(ctx, 5*time.Second)  // Go
+  All RPCs should set a deadline; server checks ctx.Done()
+
+gRPC-Web (browser to gRPC):
+  Browsers cannot send HTTP/2 trailers → gRPC-Web wraps trailers in body
+  Envoy: grpc_web filter auto-translates gRPC-Web → gRPC
+  grpc-web npm package: replaces gRPC stub in browser code
+  Alternative: Connect protocol (Buf) — JSON/binary, works over HTTP/1.1 and HTTP/2
+
+Load balancing gRPC:
+  Client-side (recommended): round-robin resolver with service discovery
+  Server-side L7 LB (Envoy/nginx): understands HTTP/2 multiplexing; routes per RPC
+  L4 LB (HAProxy TCP): routes per connection, not per stream (less efficient)
+
+Reflection:
+  grpc_cli ls localhost:50051         # list services
+  grpcurl -plaintext localhost:50051 list
+  grpcurl -plaintext -d '{}' localhost:50051 pkg.Service/Method"
+}
+
+fn s_h2_push_and_preload() -> &'static str {
+    "HTTP/2 Server Push & Resource Hints
+Server Push:
+  Server preemptively sends resources to client cache before request
+  Use case: push critical CSS/JS with the HTML document
+  nginx: http2_push /style.css; http2_push /app.js;
+  Link header triggers push: Link: </style.css>; rel=preload; as=style
+  Deprecated in Chrome 106 (Feb 2022) for unpredictable caching issues
+  Status (2024): most browsers dropped push; use <link rel=preload> instead
+
+Resource hints (HTTP header, replaces push):
+  Link: </style.css>; rel=preload; as=style
+  Link: </font.woff2>; rel=preload; as=font; crossorigin
+  Link: </api>; rel=preconnect
+  103 Early Hints: server sends Link headers before full response
+    HTTP/1.1 103 Early Hints
+    Link: </style.css>; rel=preload; as=style
+  nginx early hints: return 103; add_header Link ...;
+
+Priority hints (modern):
+  <img src=\"hero.jpg\" fetchpriority=\"high\">
+  <script src=\"non-critical.js\" fetchpriority=\"low\">
+  Priority header: Priority: u=3, i  (urgency 0-7, incremental flag)
+
+HTTP/2 multiplexing best practices:
+  Combine fewer but larger requests (opposite of HTTP/1 domain sharding)
+  Remove HTTP/1.1 workarounds: domain sharding, cookie-less domains
+  Keep connections alive: connection reuse is free in HTTP/2
+  Long-lived connections: one connection handles all requests to origin
+  Bandwidth: set SETTINGS_INITIAL_WINDOW_SIZE large (>65535) for fast links
+
+Connection coalescing:
+  Browsers merge connections to same IP + certificate (Subject Alt Names)
+  Useful for CDN origins: reduce connection count
+  TLS Session tickets: fast resumption across connections"
+}
+
+fn s_h2_sse_websockets() -> &'static str {
+    "SSE, WebSockets & Long Polling Comparison
+Server-Sent Events (SSE):
+  Unidirectional: server → client only
+  HTTP/1.1 and HTTP/2: works on both
+  Auto-reconnect: EventSource retries automatically
+  Format: data: payload\\n\\n  (double newline = end of event)
+         id: 123\\n  (last event ID for reconnect)
+         event: type\\n  (custom event name)
+         retry: 5000\\n  (reconnect delay ms)
+  Best for: live feeds, notifications, dashboards, log streaming
+  Headers: Content-Type: text/event-stream; Cache-Control: no-cache
+
+WebSockets:
+  Bidirectional: client ↔ server after upgrade
+  HTTP/1.1 upgrade (wss:// = TLS)
+  Framing: binary or text frames; ping/pong heartbeat
+  Best for: chat, games, collaborative editing, trading
+  Not native HTTP/2 (HTTP/2 has own streams; WebSocket over HTTP/2 RFC 8441)
+
+Long polling:
+  Client sends request; server holds until event; client re-requests after
+  Simple but inefficient: TCP overhead per poll
+  Use: fallback when SSE/WebSocket unavailable
+
+HTTP/2 streams vs WebSocket:
+  HTTP/2 stream: request/response model; server can push but stream closes
+  WebSocket: persistent full-duplex; custom framing
+  gRPC bidirectional: HTTP/2 streams with framing (structured; protobuf)
+  SSE over HTTP/2: multiplexed; many SSE streams on one TCP connection
+
+Choosing:
+  SSE: server pushes updates; client doesn't send messages back
+  WebSocket: interactive; client sends messages frequently
+  gRPC stream: structured typed protocol; microservices
+  Long-poll: legacy; no SSE/WS support (very old browsers)"
+}
+
+type Http2Section = (&'static str, &'static [&'static str], fn() -> &'static str);
+const HTTP2_SECTIONS: &[Http2Section] = &[
+    (
+        "http2",
+        &[
+            "http2-ref",
+            "http-2",
+            "h2",
+            "multiplexing",
+            "hpack",
+            "header-compression",
+            "http2-streams",
+            "http2-nginx",
+            "http2-flow-control",
+            "http2-settings",
+            "binary-framing",
+        ],
+        s_h2_http2,
+    ),
+    (
+        "http3",
+        &[
+            "http3-ref",
+            "http-3",
+            "h3",
+            "quic",
+            "quic-protocol",
+            "http3-nginx",
+            "http3-chrome",
+            "alt-svc",
+            "connection-migration",
+            "0-rtt",
+            "udp-transport",
+        ],
+        s_h2_http3,
+    ),
+    (
+        "grpc",
+        &[
+            "grpc-http2",
+            "grpc-framing",
+            "grpc-status",
+            "grpc-deadline",
+            "grpc-web",
+            "grpc-lb",
+            "grpc-reflection",
+            "grpcurl",
+            "connect-protocol",
+            "grpc-trailers",
+            "grpc-streaming",
+        ],
+        s_h2_grpc,
+    ),
+    (
+        "push",
+        &[
+            "server-push",
+            "http2-push",
+            "103-early-hints",
+            "early-hints",
+            "resource-hints-h2",
+            "priority-hints",
+            "fetchpriority",
+            "connection-coalescing",
+            "http2-best-practices",
+            "link-preload",
+        ],
+        s_h2_push_and_preload,
+    ),
+    (
+        "sse",
+        &[
+            "server-sent-events-h2",
+            "sse-vs-websocket",
+            "long-polling",
+            "http2-vs-websocket",
+            "eventsource-h2",
+            "sse-format",
+            "websocket-h2",
+            "websocket-framing",
+            "choose-transport",
+        ],
+        s_h2_sse_websockets,
+    ),
+];
+
+pub fn http2_calc(query: &str) -> String {
+    let q = query.trim().to_lowercase();
+    if q.is_empty() || q == "list" || q == "help" {
+        let topics: Vec<&str> = HTTP2_SECTIONS.iter().map(|(n, _, _)| *n).collect();
+        return format!(
+            "http2 topics: {}\nUse: --http2 <topic>  or  --http2 all",
+            topics.join(", ")
+        );
+    }
+    if q == "all" {
+        return HTTP2_SECTIONS
+            .iter()
+            .map(|(n, _, f)| format!("── {} ──\n{}", n, f()))
+            .collect::<Vec<_>>()
+            .join("\n\n");
+    }
+    for (name, aliases, func) in HTTP2_SECTIONS {
+        if q == *name || aliases.iter().any(|a| q == *a || q.contains(a)) {
+            return func().to_string();
+        }
+    }
+    format!(
+        "Unknown http2 topic: '{}'\nAvailable: {}",
+        query.trim(),
+        HTTP2_SECTIONS
+            .iter()
+            .map(|(n, _, _)| *n)
+            .collect::<Vec<_>>()
+            .join(", ")
+    )
+}
+
+// ── oauth2-flow ────────────────────────────────────────────────────────────────
+
+fn s_oa_auth_code() -> &'static str {
+    "OAuth2 Authorization Code + PKCE
+Authorization Code flow (web apps):
+  1. Client redirects user to authorization server:
+     GET /authorize?
+       response_type=code
+       &client_id=CLIENT_ID
+       &redirect_uri=https://app.com/callback
+       &scope=openid profile email
+       &state=RANDOM_STATE          ← CSRF protection
+  2. User authenticates + consents
+  3. Auth server redirects back: /callback?code=AUTH_CODE&state=STATE
+  4. Client verifies state; exchanges code:
+     POST /token
+       grant_type=authorization_code
+       &code=AUTH_CODE
+       &redirect_uri=https://app.com/callback
+       &client_id=CLIENT_ID
+       &client_secret=CLIENT_SECRET
+  5. Response: {access_token, token_type, expires_in, refresh_token, id_token}
+
+PKCE (Proof Key for Code Exchange — for public/mobile clients):
+  Prevents auth code interception attacks
+  code_verifier: 43-128 chars, cryptographically random (URL-safe base64)
+  code_challenge = BASE64URL(SHA256(code_verifier))
+  code_challenge_method = S256
+
+  Step 1 adds: &code_challenge=CHALLENGE&code_challenge_method=S256
+  Step 4 adds: &code_verifier=VERIFIER (instead of client_secret)
+
+  JavaScript:
+    const verifier = crypto.randomBytes(32).toString('base64url');
+    const challenge = crypto.createHash('sha256').update(verifier).digest('base64url');
+
+Token refresh:
+  POST /token
+    grant_type=refresh_token
+    &refresh_token=REFRESH_TOKEN
+    &client_id=CLIENT_ID
+    &client_secret=CLIENT_SECRET  (if confidential client)
+  Response: new access_token (+ new refresh_token if rotation enabled)
+
+Security:
+  state: random per request; validate before token exchange (CSRF)
+  nonce: in OIDC; validate id_token contains same nonce (replay)
+  redirect_uri: must match exactly registered URI
+  Short access token lifetime: 15-60 minutes
+  Rotate refresh tokens on use"
+}
+
+fn s_oa_client_creds() -> &'static str {
+    "OAuth2 Client Credentials & Device Flow
+Client Credentials (machine-to-machine):
+  No user involved; client authenticates directly
+  POST /token
+    grant_type=client_credentials
+    &client_id=CLIENT_ID
+    &client_secret=CLIENT_SECRET
+    &scope=api.read api.write
+  Response: {access_token, token_type, expires_in}
+  No refresh token (re-request when expired)
+  Use case: service-to-service API calls, background workers, CLIs
+
+Device Authorization (for input-limited devices):
+  1. Device requests code:
+     POST /device_authorization
+       client_id=CLIENT_ID
+       &scope=profile
+     Response: {device_code, user_code, verification_uri, expires_in, interval}
+  2. Device shows: 'Visit https://example.com/activate and enter: ABCD-1234'
+  3. Device polls (at interval seconds):
+     POST /token
+       grant_type=urn:ietf:params:oauth:grant-type:device_code
+       &device_code=DEVICE_CODE
+       &client_id=CLIENT_ID
+     While response is: error=authorization_pending → keep polling
+     When user completes: response with access_token
+  Use case: smart TVs, CLI tools, IoT devices
+
+Resource Owner Password Credentials (ROPC):
+  DEPRECATED: avoid for new applications
+  POST /token
+    grant_type=password
+    &username=user&password=pass
+    &client_id=CLIENT_ID&scope=api
+  Risks: client handles raw credentials; no phishing protection
+  Only acceptable: highly trusted first-party apps during migration
+
+Implicit flow:
+  DEPRECATED: access token returned in URL fragment (no code exchange)
+  Replaced by: Authorization Code + PKCE (even for SPAs)
+  Reason: tokens in URLs → browser history + referrer header leakage"
+}
+
+fn s_oa_tokens() -> &'static str {
+    "OAuth2 Tokens & Token Lifecycle
+Access token:
+  Short-lived credential for API access (15–60 min typical)
+  Bearer: sent in Authorization: Bearer TOKEN header
+  JWT or opaque string (authorization server decides)
+  Validate at resource server: sig + exp + aud + iss
+  For JWTs: fetch JWKS from /.well-known/jwks.json; cache keys
+
+Refresh token:
+  Long-lived (days–weeks); exchange for new access token
+  Stored server-side and/or in httpOnly cookie
+  Never in localStorage (XSS risk)
+  Refresh token rotation: issue new RT on each use; invalidate old
+  Detect token reuse: reuse = compromise; revoke family
+
+ID token (OIDC):
+  JWT containing user identity; for client app only
+  Claims: sub (user ID), iss, aud, exp, iat, nonce
+  Optional: name, email, picture, profile
+  MUST validate: sig, exp, aud == client_id, iss, nonce
+  NOT for API access; pass access_token to APIs
+
+Token introspection (RFC 7662):
+  POST /introspect
+    token=ACCESS_TOKEN
+    &token_type_hint=access_token
+  Headers: Authorization: Basic base64(client_id:client_secret)
+  Response: {active: true, scope, sub, exp, iat, client_id}
+  Use: resource servers that cannot validate JWTs
+
+Token revocation (RFC 7009):
+  POST /revoke
+    token=TOKEN
+    &token_type_hint=refresh_token
+  Response: 200 OK (even if token already invalid)
+
+Dynamic Client Registration (RFC 7591):
+  POST /register
+    {\"client_name\": \"My App\", \"redirect_uris\": [...], \"grant_types\": [...]}
+  Returns: client_id, client_secret, registration_access_token
+
+Token binding:
+  DPoP (Demonstration of Proof-of-Possession): bind token to key pair
+  mTLS: bind token to client certificate (RFC 8705)
+  Sender-constrained tokens: stolen tokens useless without private key"
+}
+
+fn s_oa_oidc() -> &'static str {
+    "OpenID Connect (OIDC) Reference
+OIDC = OAuth2 + identity layer
+  Authorization Code flow returns id_token (JWT) + access_token
+  Scope: openid (required) + profile, email, phone, address
+  Discovery: GET /.well-known/openid-configuration → all endpoints + JWKS URI
+
+UserInfo endpoint:
+  GET /userinfo
+  Authorization: Bearer ACCESS_TOKEN
+  Response: {sub, name, email, picture, ...}
+  Note: id_token claims may be stale; UserInfo is authoritative
+
+OIDC claims:
+  sub          unique user identifier (never changes)
+  email        user@example.com
+  email_verified  boolean
+  name         full name
+  given_name, family_name
+  picture      URL to profile photo
+  locale, zoneinfo
+  updated_at   seconds since epoch
+
+Provider examples:
+  Google:  accounts.google.com/.well-known/openid-configuration
+  Microsoft: login.microsoftonline.com/common/v2.0/.well-known/openid-configuration
+  GitHub: github.com (OAuth2 only, not full OIDC)
+  Keycloak: <base>/.well-known/openid-configuration
+  Auth0: <tenant>.auth0.com/.well-known/openid-configuration
+
+PKCE with OIDC:
+  Add nonce parameter (random; stored in session):
+    GET /authorize?...&nonce=RANDOM_NONCE
+  Validate nonce in id_token equals stored nonce
+
+Front-channel logout:
+  GET /logout?id_token_hint=ID_TOKEN&post_logout_redirect_uri=https://app.com
+
+Back-channel logout (OIDC Core 1.0 + OIDC Back-Channel Logout 1.0):
+  Auth server POSTs logout_token (JWT) to registered back_channel_logout_uri
+  Client invalidates sessions for sub in logout_token"
+}
+
+fn s_oa_security() -> &'static str {
+    "OAuth2 Security Best Practices
+Common vulnerabilities:
+  Open redirect: unvalidated redirect_uri; whitelist exact URIs at registration
+  CSRF: missing/invalid state parameter; validate state before token exchange
+  Auth code injection: state + PKCE mitigate; bind code to session
+  Token leakage in URL: use POST method; check Referrer-Policy
+  Confused deputy: validate aud claim to prevent one API accepting another's token
+  Mix-up attack: bind authorization response to correct auth server (iss in response)
+
+Secure storage:
+  Web: httpOnly, Secure, SameSite=Lax cookie for refresh token
+       In-memory variable for access token (cleared on refresh)
+       Never localStorage (XSS accessible)
+  Mobile: OS secure keychain (Keychain on iOS, Keystore on Android)
+  Server: encrypted database; application-level encryption for high-value tokens
+
+BCP (RFC 9700 OAuth 2.0 Security Best Current Practice):
+  Always use PKCE for all client types (public and confidential)
+  Auth Code flow + PKCE replaces Implicit and ROPC
+  Use exact redirect_uri matching (no wildcard)
+  Short access token lifetime; use refresh tokens
+  Sender-constrained tokens (DPoP or mTLS) for high-security APIs
+  Rotate refresh tokens; detect reuse (compromise indicator)
+  Rate-limit token endpoints; monitor for abuse
+
+JWKS key rotation:
+  Cache JWKS with TTL (max-age from Cache-Control)
+  On 'kid not found': refresh JWKS once; don't loop
+  Key rotation: auth server adds new key before retiring old
+  Validate: kid header → find key in JWKS → verify signature
+  Tools: node-jwks-rsa, python-jose, golang/x/oauth2
+
+Rate of token expiry:
+  access_token: 5-60 min (shorter = more secure; more refresh overhead)
+  refresh_token: days to weeks (longer = better UX; higher value target)
+  id_token: same as access_token (use only for authentication, not API calls)"
+}
+
+type Oauth2FlowSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+const OAUTH2_FLOW_SECTIONS: &[Oauth2FlowSection] = &[
+    (
+        "auth-code",
+        &[
+            "auth-code-flow",
+            "authorization-code",
+            "pkce",
+            "code-challenge",
+            "code-verifier",
+            "oauth2-web",
+            "oauth2-spa",
+            "token-refresh",
+            "oauth2-callback",
+            "state-csrf",
+            "oauth2-redirect",
+        ],
+        s_oa_auth_code,
+    ),
+    (
+        "client-creds",
+        &[
+            "client-credentials",
+            "machine-to-machine",
+            "m2m",
+            "device-flow",
+            "device-authorization",
+            "oauth2-device",
+            "ropc",
+            "implicit-flow",
+            "oauth2-deprecated",
+            "service-account",
+        ],
+        s_oa_client_creds,
+    ),
+    (
+        "tokens",
+        &[
+            "token-lifecycle",
+            "bearer-token",
+            "access-token",
+            "refresh-token",
+            "token-rotation",
+            "id-token",
+            "token-introspection",
+            "token-revocation",
+            "dpop",
+            "sender-constrained",
+            "jwks-rotation",
+        ],
+        s_oa_tokens,
+    ),
+    (
+        "oidc",
+        &[
+            "openid-connect",
+            "oidc-discovery",
+            "oidc-claims",
+            "userinfo",
+            "openid-configuration",
+            "oidc-nonce",
+            "oidc-providers",
+            "front-channel-logout",
+            "back-channel-logout",
+            "oidc-scope",
+        ],
+        s_oa_oidc,
+    ),
+    (
+        "security",
+        &[
+            "oauth2-security",
+            "oauth2-vulnerabilities",
+            "open-redirect",
+            "token-storage",
+            "bcp-oauth2",
+            "jwks-key-rotation",
+            "refresh-token-rotation",
+            "token-leakage",
+            "confused-deputy",
+            "mix-up-attack",
+        ],
+        s_oa_security,
+    ),
+];
+
+pub fn oauth2_flow_calc(query: &str) -> String {
+    let q = query.trim().to_lowercase();
+    if q.is_empty() || q == "list" || q == "help" {
+        let topics: Vec<&str> = OAUTH2_FLOW_SECTIONS.iter().map(|(n, _, _)| *n).collect();
+        return format!(
+            "oauth2-flow topics: {}\nUse: --oauth2-flow <topic>  or  --oauth2-flow all",
+            topics.join(", ")
+        );
+    }
+    if q == "all" {
+        return OAUTH2_FLOW_SECTIONS
+            .iter()
+            .map(|(n, _, f)| format!("── {} ──\n{}", n, f()))
+            .collect::<Vec<_>>()
+            .join("\n\n");
+    }
+    for (name, aliases, func) in OAUTH2_FLOW_SECTIONS {
+        if q == *name || aliases.iter().any(|a| q == *a || q.contains(a)) {
+            return func().to_string();
+        }
+    }
+    format!(
+        "Unknown oauth2-flow topic: '{}'\nAvailable: {}",
+        query.trim(),
+        OAUTH2_FLOW_SECTIONS
+            .iter()
+            .map(|(n, _, _)| *n)
+            .collect::<Vec<_>>()
+            .join(", ")
+    )
+}
+
+// ── linux-net ─────────────────────────────────────────────────────────────────
+
+fn s_ln_ip() -> &'static str {
+    "Linux ip Command Reference (iproute2)
+Addresses:
+  ip addr show                     # all interfaces
+  ip addr show dev eth0            # specific interface
+  ip addr add 192.168.1.10/24 dev eth0
+  ip addr del 192.168.1.10/24 dev eth0
+  ip addr flush dev eth0           # remove all addresses from interface
+
+Links (interfaces):
+  ip link show                     # list all interfaces + state
+  ip link set eth0 up
+  ip link set eth0 down
+  ip link set eth0 mtu 9000        # jumbo frames
+  ip link set eth0 promisc on      # promiscuous mode
+  ip link add veth0 type veth peer name veth1  # create veth pair
+  ip link add br0 type bridge      # create bridge
+  ip link set eth0 master br0      # attach to bridge
+  ip link del veth0                # delete (also removes peer)
+
+Routes:
+  ip route show                    # routing table
+  ip route show table main
+  ip route show table local        # local/broadcast routes
+  ip route add 10.0.0.0/8 via 192.168.1.1
+  ip route add default via 192.168.1.1 dev eth0
+  ip route del default
+  ip route get 8.8.8.8             # show which route would be used
+  ip route flush cache
+  ip route add 10.0.0.0/8 via 192.168.1.1 metric 100
+
+Policy routing (multiple tables):
+  ip rule show
+  ip rule add from 192.168.2.0/24 table 200
+  ip route add default via 10.0.0.1 table 200
+  echo '200 custom' >> /etc/iproute2/rt_tables
+
+Namespaces:
+  ip netns add myns
+  ip netns list
+  ip netns exec myns ip addr show  # run command in namespace
+  ip link set eth1 netns myns      # move interface to namespace
+  ip netns del myns
+  # Enter namespace interactively:
+  nsenter --net=/run/netns/myns bash"
+}
+
+fn s_ln_iptables() -> &'static str {
+    "iptables & nftables Reference
+iptables basics:
+  Tables: filter (default), nat, mangle, raw, security
+  Chains: INPUT, OUTPUT, FORWARD (filter); PREROUTING, POSTEROUTING (nat/mangle)
+  Actions: ACCEPT, DROP, REJECT, LOG, MASQUERADE, DNAT, SNAT, RETURN
+
+Common iptables commands:
+  iptables -L -v -n                      # list all rules
+  iptables -L INPUT -v -n --line-numbers # list INPUT chain
+  iptables -F                            # flush all rules (careful!)
+  iptables -F INPUT                      # flush INPUT chain only
+  iptables -P INPUT DROP                 # default policy DROP
+  iptables -P FORWARD DROP
+  iptables -P OUTPUT ACCEPT
+
+  # Allow established/related connections
+  iptables -A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+  # Allow loopback
+  iptables -A INPUT -i lo -j ACCEPT
+  # Allow SSH
+  iptables -A INPUT -p tcp --dport 22 -j ACCEPT
+  # Allow HTTP/HTTPS
+  iptables -A INPUT -p tcp -m multiport --dports 80,443 -j ACCEPT
+  # NAT masquerade (outbound internet through eth0)
+  iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
+  # DNAT (port forward)
+  iptables -t nat -A PREROUTING -p tcp --dport 80 -j DNAT --to-destination 192.168.1.10:8080
+  # Save/restore
+  iptables-save > /etc/iptables/rules.v4
+  iptables-restore < /etc/iptables/rules.v4
+
+nftables (modern replacement):
+  nft list ruleset                       # view all rules
+  nft flush ruleset                      # clear all
+  nft add table inet filter
+  nft add chain inet filter input { type filter hook input priority 0\\; policy drop\\; }
+  nft add rule inet filter input ct state established,related accept
+  nft add rule inet filter input tcp dport 22 accept
+  # Save: nft list ruleset > /etc/nftables.conf
+  systemctl enable nftables"
+}
+
+fn s_ln_tc() -> &'static str {
+    "Traffic Control (tc) & Network Namespaces
+tc qdisc (queuing disciplines):
+  tc qdisc show dev eth0            # show current qdisc
+  tc qdisc add dev eth0 root netem delay 100ms   # simulate 100ms latency
+  tc qdisc add dev eth0 root netem delay 100ms 10ms  # 100ms ± 10ms jitter
+  tc qdisc add dev eth0 root netem loss 5%           # 5% packet loss
+  tc qdisc add dev eth0 root netem delay 50ms loss 2% corrupt 1%
+  tc qdisc del dev eth0 root        # remove traffic control
+  # Rate limiting:
+  tc qdisc add dev eth0 root tbf rate 1mbit burst 32kbit latency 400ms
+  # fq_codel (fair queue, CoDel — low latency default in Linux):
+  tc qdisc add dev eth0 root fq_codel
+
+tc class (hierarchical bandwidth sharing):
+  tc qdisc add dev eth0 root handle 1: htb default 30
+  tc class add dev eth0 parent 1: classid 1:1 htb rate 100mbit
+  tc class add dev eth0 parent 1:1 classid 1:10 htb rate 30mbit  # class 1
+  tc class add dev eth0 parent 1:1 classid 1:20 htb rate 60mbit  # class 2
+  tc filter add dev eth0 parent 1:0 protocol ip u32 match ip dport 80 0xffff flowid 1:10
+
+Network namespaces for testing:
+  # Create isolated network pair
+  ip netns add ns1
+  ip netns add ns2
+  ip link add veth1 type veth peer name veth2
+  ip link set veth1 netns ns1
+  ip link set veth2 netns ns2
+  ip netns exec ns1 ip addr add 10.0.0.1/30 dev veth1
+  ip netns exec ns2 ip addr add 10.0.0.2/30 dev veth2
+  ip netns exec ns1 ip link set veth1 up
+  ip netns exec ns2 ip link set veth2 up
+  ip netns exec ns1 ping 10.0.0.2
+
+Bridge networking:
+  ip link add name br0 type bridge
+  ip link set br0 up
+  ip link set eth0 master br0
+  ip link set eth1 master br0
+  ip addr add 192.168.1.1/24 dev br0
+  # Or use brctl (legacy):
+  brctl addbr br0; brctl addif br0 eth0"
+}
+
+fn s_ln_bonding() -> &'static str {
+    "Bonding, VLAN & Advanced Interfaces
+VLAN (802.1Q):
+  ip link add link eth0 name eth0.100 type vlan id 100
+  ip link set eth0.100 up
+  ip addr add 192.168.100.1/24 dev eth0.100
+  # Or nmcli: nmcli conn add type vlan con-name vlan100 dev eth0 id 100 ip4 192.168.100.1/24
+
+Bonding (link aggregation):
+  modprobe bonding
+  ip link add bond0 type bond
+  ip link set bond0 type bond mode active-backup  # or: balance-rr, 802.3ad (LACP), balance-alb
+  ip link set eth0 master bond0
+  ip link set eth1 master bond0
+  ip link set bond0 up
+  ip addr add 192.168.1.10/24 dev bond0
+  cat /proc/net/bonding/bond0              # status
+
+Bonding modes:
+  mode 0 (balance-rr): round-robin; load balance + redundancy
+  mode 1 (active-backup): one active; failover; no switch config needed
+  mode 4 (802.3ad/LACP): requires switch LACP; true link aggregation
+  mode 5 (balance-tlb): adaptive transmit; no special switch needed
+  mode 6 (balance-alb): adaptive load balance; both TX and RX
+
+MACVLAN (multiple MACs on one interface):
+  ip link add macvlan0 link eth0 type macvlan mode bridge
+  ip addr add 192.168.1.20/24 dev macvlan0
+  ip link set macvlan0 up
+  # Modes: private, vepa, bridge, passthru
+
+IPVLAN:
+  ip link add ipvlan0 link eth0 type ipvlan mode l2
+  # Shares MAC; different IPs; useful for containers
+
+Dummy interface (testing/loopback):
+  ip link add dummy0 type dummy
+  ip addr add 10.200.0.1/32 dev dummy0
+  ip link set dummy0 up
+
+TUN/TAP:
+  ip tuntap add mode tun tun0   # L3 TUN (VPN, routing)
+  ip tuntap add mode tap tap0   # L2 TAP (bridge, VM)"
+}
+
+fn s_ln_tools() -> &'static str {
+    "Linux Network Diagnostic Tools
+ss (socket statistics — modern netstat):
+  ss -tlnp                         # listening TCP sockets + PIDs
+  ss -ulnp                         # listening UDP sockets + PIDs
+  ss -tnp                          # established TCP + PIDs
+  ss -s                            # summary
+  ss -o state established '( sport = :https or dport = :https )'
+  ss -tlnp src :8080
+  ss -K dst 192.168.1.1            # kill all connections to IP
+
+ip neighbor (ARP/NDP table):
+  ip neigh show                    # ARP table
+  ip neigh flush all               # flush ARP cache
+  ip neigh add 192.168.1.1 lladdr aa:bb:cc:dd:ee:ff dev eth0
+
+ethtool (NIC stats and config):
+  ethtool eth0                     # link speed, duplex, negotiation
+  ethtool -S eth0                  # NIC statistics (RX/TX errors, drops)
+  ethtool -k eth0                  # offload features
+  ethtool -K eth0 tso off          # disable TCP segmentation offload
+  ethtool -g eth0                  # ring buffer sizes
+  ethtool -G eth0 rx 4096          # set RX ring buffer
+
+tcpdump:
+  tcpdump -i eth0 -n               # capture on interface, no DNS
+  tcpdump -i eth0 port 443         # HTTPS traffic
+  tcpdump -i any host 8.8.8.8      # to/from specific host
+  tcpdump -w /tmp/cap.pcap -i eth0 # write to file
+  tcpdump -r /tmp/cap.pcap         # read from file
+  tcpdump -A port 80               # ASCII payload (HTTP)
+  tcpdump -X icmp                  # hex + ASCII
+  tcpdump 'tcp[tcpflags] & tcp-syn != 0'  # SYN packets only
+
+Performance:
+  iperf3 -s                        # server
+  iperf3 -c server -t 30           # TCP bandwidth test
+  iperf3 -c server -u -b 100M      # UDP test at 100Mbps
+  ping -f -c 1000 host             # flood ping (latency under load)
+  mtr --report host                # traceroute + continuous ping"
+}
+
+type LinuxNetSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+const LINUX_NET_SECTIONS: &[LinuxNetSection] = &[
+    (
+        "ip",
+        &[
+            "ip-command",
+            "iproute2",
+            "ip-addr",
+            "ip-link",
+            "ip-route",
+            "ip-netns",
+            "ip-rule",
+            "policy-routing",
+            "linux-routes",
+            "network-namespaces",
+            "veth-pair",
+            "linux-bridge",
+        ],
+        s_ln_ip,
+    ),
+    (
+        "iptables",
+        &[
+            "iptables-ref",
+            "netfilter",
+            "nftables",
+            "iptables-chains",
+            "iptables-nat",
+            "iptables-masquerade",
+            "iptables-dnat",
+            "conntrack",
+            "iptables-save",
+            "packet-filtering",
+        ],
+        s_ln_iptables,
+    ),
+    (
+        "tc",
+        &[
+            "traffic-control",
+            "tc-netem",
+            "tc-qdisc",
+            "tc-htb",
+            "rate-limiting",
+            "packet-loss-sim",
+            "latency-simulation",
+            "bandwidth-shaping",
+            "fq-codel",
+            "tc-filter",
+        ],
+        s_ln_tc,
+    ),
+    (
+        "bonding",
+        &[
+            "link-aggregation",
+            "vlan-linux",
+            "macvlan",
+            "ipvlan",
+            "tun-tap",
+            "dummy-interface",
+            "bonding-linux",
+            "lacp-linux",
+            "802-3ad",
+            "bond-modes",
+        ],
+        s_ln_bonding,
+    ),
+    (
+        "tools",
+        &[
+            "linux-net-tools",
+            "ss-command",
+            "ethtool",
+            "tcpdump-linux",
+            "iperf3",
+            "ip-neigh",
+            "arp-linux",
+            "network-stats",
+            "mtr",
+            "socket-stats",
+        ],
+        s_ln_tools,
+    ),
+];
+
+pub fn linux_net_calc(query: &str) -> String {
+    let q = query.trim().to_lowercase();
+    if q.is_empty() || q == "list" || q == "help" {
+        let topics: Vec<&str> = LINUX_NET_SECTIONS.iter().map(|(n, _, _)| *n).collect();
+        return format!(
+            "linux-net topics: {}\nUse: --linux-net <topic>  or  --linux-net all",
+            topics.join(", ")
+        );
+    }
+    if q == "all" {
+        return LINUX_NET_SECTIONS
+            .iter()
+            .map(|(n, _, f)| format!("── {} ──\n{}", n, f()))
+            .collect::<Vec<_>>()
+            .join("\n\n");
+    }
+    for (name, aliases, func) in LINUX_NET_SECTIONS {
+        if q == *name || aliases.iter().any(|a| q == *a || q.contains(a)) {
+            return func().to_string();
+        }
+    }
+    format!(
+        "Unknown linux-net topic: '{}'\nAvailable: {}",
+        query.trim(),
+        LINUX_NET_SECTIONS
+            .iter()
+            .map(|(n, _, _)| *n)
+            .collect::<Vec<_>>()
+            .join(", ")
+    )
+}
+
+// ── prom-ref ──────────────────────────────────────────────────────────────────
+
+fn s_pr_promql() -> &'static str {
+    "PromQL Reference
+Data types:
+  Instant vector: set of time series, each with one sample at a given time
+  Range vector: set of time series, each with a range of samples
+  Scalar: numeric value
+  String: string literal (rare)
+
+Selectors:
+  http_requests_total                            # all time series with this name
+  http_requests_total{job=\"api\", status=\"200\"}   # with labels
+  http_requests_total{status=~\"2..\"}             # regex match
+  http_requests_total{status!~\"5..\"}             # regex no-match
+  {__name__=~\"http_.*\"}                          # match by name regex
+
+Rate functions (for counters):
+  rate(http_requests_total[5m])                  # per-second rate over 5m window
+  irate(http_requests_total[5m])                 # instant rate (last 2 samples)
+  increase(http_requests_total[1h])              # total increase over 1h
+
+Aggregation operators:
+  sum(rate(http_requests_total[5m]))             # sum all series
+  sum by (job)(rate(http_requests_total[5m]))    # sum, keep 'job' label
+  sum without (instance)(...)                    # sum, drop 'instance' label
+  avg, min, max, count, stddev, stdvar, topk, bottomk, quantile
+
+Binary operators:
+  http_errors / http_requests_total              # error rate
+  http_requests_total > 100                      # filter: only series with value > 100
+  on(instance) group_left(job) up                # join with labels
+
+Functions:
+  histogram_quantile(0.99, rate(http_duration_bucket[5m]))  # p99 from histogram
+  delta(cpu_temp_celsius[10m])                    # difference (gauges)
+  predict_linear(disk_bytes[1h], 4*3600)          # predict 4h from now
+  absent(up{job=\"myapp\"})                        # alert if metric missing
+  changes(config_reloaded_total[10m])            # number of value changes
+  clamp(metric, 0, 100)                          # clamp values
+  label_replace(metric, \"new\", \"$1\", \"old\", \"(.*)\")  # rename/create label"
+}
+
+fn s_pr_recording() -> &'static str {
+    "Recording Rules & Alerting Rules
+Recording rules (pre-compute expensive queries):
+  # prometheus.yml or rules file
+  groups:
+    - name: example.rules
+      interval: 60s
+      rules:
+        - record: job:http_requests:rate5m
+          expr: sum by (job)(rate(http_requests_total[5m]))
+        - record: instance:node_cpu_usage:avg
+          expr: 1 - avg by (instance)(rate(node_cpu_seconds_total{mode=\"idle\"}[5m]))
+
+  Naming convention: level:metric:operations
+    level: aggregation level (job, instance, cluster)
+    metric: the metric being recorded
+    operations: operations applied (rate5m, avg, sum)
+
+Alert rules:
+  groups:
+    - name: alerts
+      rules:
+        - alert: HighErrorRate
+          expr: rate(http_errors_total[5m]) / rate(http_requests_total[5m]) > 0.05
+          for: 5m                   # must be true for 5 min before firing
+          labels:
+            severity: critical
+          annotations:
+            summary: 'High error rate on {{ $labels.job }}'
+            description: 'Error rate {{ $value | humanizePercentage }} on {{ $labels.instance }}'
+
+        - alert: ServiceDown
+          expr: up == 0
+          for: 2m
+          labels:
+            severity: warning
+          annotations:
+            summary: 'Service {{ $labels.job }} is down'
+
+  Alert states: pending (for duration not met) → firing → resolved
+  $value: current metric value
+  $labels: map of labels on the series
+  humanize: 1234567 → 1.23M; humanizeDuration: 3600 → 1h; humanizePercentage: 0.05 → 5.00%
+
+Alertmanager routing:
+  route:
+    receiver: default
+    group_by: [alertname, job]
+    group_wait: 30s
+    group_interval: 5m
+    repeat_interval: 4h
+    routes:
+      - match: { severity: critical }
+        receiver: pagerduty
+      - match_re: { job: 'db-.*' }
+        receiver: database-team
+  receivers:
+    - name: default
+      slack_configs:
+        - api_url: https://hooks.slack.com/...
+          channel: '#alerts'"
+}
+
+fn s_pr_grafana() -> &'static str {
+    "Grafana Reference
+Dashboard basics:
+  Panels: graph, stat, gauge, bar chart, heatmap, logs, table, alert list
+  Variables: $instance, $job — dropdown filters; change all panels at once
+    Type: Query (from Prometheus labels), Interval, Custom, Constant, Textbox
+  Repeat panels: repeat for each variable value
+  Links: panel links to drill-down dashboards or external URLs
+
+Useful panel tricks:
+  Stat panel: last value with color thresholds (green < 80%, yellow < 95%, red)
+  Graph: legend format {{instance}} (uses Prometheus labels)
+  Heatmap: histogram_quantile over time; shows latency distribution
+  Alert threshold lines: add constant transform or override
+
+PromQL in Grafana:
+  $__rate_interval: auto-adjusts to scrape interval (better than hardcoded [5m])
+  $__interval: variable for step interval (use in range vectors)
+  $__range: total dashboard time range
+  sum by (le)(increase(request_duration_bucket[$__rate_interval]))  # histogram
+
+Grafana provisioning (IaC):
+  datasources/prometheus.yaml:
+    apiVersion: 1
+    datasources:
+      - name: Prometheus
+        type: prometheus
+        url: http://prometheus:9090
+        isDefault: true
+  dashboards/: JSON dashboard files; provision from folder
+
+Loki (log aggregation):
+  {job=\"nginx\"} |= \"error\"               # filter logs
+  {job=\"nginx\"} | json | status=500       # parse JSON, filter field
+  rate({job=\"nginx\"}[5m])                 # log rate
+  sum by (status) (count_over_time({job=\"nginx\"} | json [5m]))
+
+Tempo (distributed tracing):
+  Grafana → Explore → Tempo
+  TraceQL: { .service.name=\"api\" && duration > 1s }
+  Exemplars: link Prometheus metrics to traces (scrape with exemplars=true)"
+}
+
+fn s_pr_exporters() -> &'static str {
+    "Prometheus Exporters & Instrumentation
+Key exporters:
+  node_exporter: OS/hardware metrics (CPU, RAM, disk, network)
+    systemctl start node_exporter; scrape localhost:9100/metrics
+  kube-state-metrics: Kubernetes object state (pod status, deployment replicas)
+  cAdvisor: container resource usage (CPU, RAM, disk per container)
+  blackbox_exporter: probe HTTP/HTTPS/DNS/TCP/ICMP (uptime monitoring)
+  mysqld_exporter, postgres_exporter: DB metrics
+  redis_exporter, kafka_exporter: app-layer metrics
+  process_exporter: per-process CPU/memory
+
+Key node_exporter metrics:
+  node_cpu_seconds_total{mode}    CPU time by mode (idle, user, system, iowait)
+  node_memory_MemAvailable_bytes  available RAM
+  node_filesystem_avail_bytes     disk free
+  node_network_receive_bytes_total, node_network_transmit_bytes_total
+  node_load1, node_load5, node_load15  load average
+
+Instrumenting your app:
+  Go: prometheus/client_golang
+    var requestCount = prometheus.NewCounterVec(prometheus.CounterOpts{
+        Name: \"http_requests_total\",
+        Help: \"Total HTTP requests\",
+    }, []string{\"method\", \"path\", \"status\"})
+    prometheus.MustRegister(requestCount)
+    http.Handle(\"/metrics\", promhttp.Handler())
+
+  Python: prometheus_client
+    from prometheus_client import Counter, Histogram, start_http_server
+    REQUEST_TIME = Histogram('request_processing_seconds', 'Time spent processing request')
+    @REQUEST_TIME.time()
+    def process_request(): ...
+
+  Metric types:
+    Counter: monotonically increasing (requests, errors, bytes)
+    Gauge: up/down value (temperature, active connections, queue depth)
+    Histogram: distribution + sum + count; quantile via histogram_quantile
+    Summary: quantiles at client (expensive; prefer Histogram + server-side quantile)
+
+Scrape config:
+  scrape_configs:
+    - job_name: 'my-app'
+      scrape_interval: 15s
+      static_configs:
+        - targets: ['app1:8080', 'app2:8080']
+      relabel_configs:
+        - source_labels: [__address__]
+          target_label: instance"
+}
+
+fn s_pr_alerting() -> &'static str {
+    "SLOs, Burn Rates & Alerting Strategy
+SLO basics:
+  SLI: Service Level Indicator (what you measure — error rate, latency)
+  SLO: Service Level Objective (target — 99.9% success rate over 30 days)
+  SLA: contractual SLO with consequences
+  Error budget: allowed failures = (1 - SLO) × window
+    99.9% over 30 days → 0.1% × 30d × 24h × 60m = 43.2 minutes of downtime
+
+Multi-window multi-burn-rate alerting (Google SRE Book):
+  Fast burn (1h + 5m): catches fast incidents
+    burn_rate > 14x → 2% budget in 1h
+  Slow burn (6h + 30m): catches slow degradation
+    burn_rate > 6x → 5% budget in 6h
+  Very slow burn (24h + 6h):
+    burn_rate > 3x → 10% budget in 24h
+
+Example alert (99.9% SLO, 1h window):
+  expr: |
+    (
+      sum(rate(http_errors_total[1h])) / sum(rate(http_requests_total[1h]))
+      > (1 - 0.999) * 14
+    ) and (
+      sum(rate(http_errors_total[5m])) / sum(rate(http_requests_total[5m]))
+      > (1 - 0.999) * 14
+    )
+  for: 2m
+  labels: { severity: critical }
+
+Noisy alert fixes:
+  Increase 'for' duration (pending → firing threshold)
+  Add inhibit rules in Alertmanager (suppress derived alerts when root fires)
+  Group related alerts (group_by in Alertmanager)
+  Route by severity: critical → page, warning → ticket
+
+Runbook annotations:
+  annotations:
+    runbook_url: https://wiki.internal/runbooks/{{ $labels.alertname }}
+    description: 'P99 latency {{ $value }}ms > 500ms on {{ $labels.job }}'
+
+Silences:
+  amtool silence add alertname=ServiceDown job=my-svc --duration=2h --comment 'maintenance'
+  amtool silence expire <id>"
+}
+
+type PromRefSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+const PROM_REF_SECTIONS: &[PromRefSection] = &[
+    (
+        "promql",
+        &[
+            "prometheus-query",
+            "promql-ref",
+            "rate-function",
+            "histogram-quantile",
+            "aggregation",
+            "binary-operators",
+            "promql-functions",
+            "instant-vector",
+            "range-vector",
+            "label-selectors",
+            "promql-syntax",
+        ],
+        s_pr_promql,
+    ),
+    (
+        "recording",
+        &[
+            "recording-rules",
+            "alert-rules",
+            "alerting-rules",
+            "prometheus-rules",
+            "alertmanager-routing",
+            "alert-labels",
+            "alert-annotations",
+            "pending-firing",
+            "alertmanager-config",
+        ],
+        s_pr_recording,
+    ),
+    (
+        "grafana",
+        &[
+            "grafana-ref",
+            "grafana-panels",
+            "grafana-variables",
+            "grafana-provisioning",
+            "loki-ref",
+            "logql",
+            "tempo-tracing",
+            "traceql",
+            "grafana-exemplars",
+            "grafana-dashboard",
+        ],
+        s_pr_grafana,
+    ),
+    (
+        "exporters",
+        &[
+            "prometheus-exporters",
+            "node-exporter",
+            "kube-state-metrics",
+            "blackbox-exporter",
+            "prometheus-instrumentation",
+            "go-client",
+            "python-client",
+            "counter-gauge-histogram",
+            "scrape-config",
+            "relabeling",
+        ],
+        s_pr_exporters,
+    ),
+    (
+        "alerting",
+        &[
+            "slo-alerting",
+            "burn-rate",
+            "error-budget",
+            "multi-burn-rate",
+            "sli-slo-sla",
+            "noisy-alerts",
+            "alertmanager-silences",
+            "runbook-annotations",
+            "sre-alerting",
+            "alert-strategy",
+        ],
+        s_pr_alerting,
+    ),
+];
+
+pub fn prom_ref_calc(query: &str) -> String {
+    let q = query.trim().to_lowercase();
+    if q.is_empty() || q == "list" || q == "help" {
+        let topics: Vec<&str> = PROM_REF_SECTIONS.iter().map(|(n, _, _)| *n).collect();
+        return format!(
+            "prom-ref topics: {}\nUse: --prom-ref <topic>  or  --prom-ref all",
+            topics.join(", ")
+        );
+    }
+    if q == "all" {
+        return PROM_REF_SECTIONS
+            .iter()
+            .map(|(n, _, f)| format!("── {} ──\n{}", n, f()))
+            .collect::<Vec<_>>()
+            .join("\n\n");
+    }
+    for (name, aliases, func) in PROM_REF_SECTIONS {
+        if q == *name || aliases.iter().any(|a| q == *a || q.contains(a)) {
+            return func().to_string();
+        }
+    }
+    format!(
+        "Unknown prom-ref topic: '{}'\nAvailable: {}",
+        query.trim(),
+        PROM_REF_SECTIONS
+            .iter()
+            .map(|(n, _, _)| *n)
+            .collect::<Vec<_>>()
+            .join(", ")
+    )
+}

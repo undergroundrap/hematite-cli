@@ -2354,6 +2354,38 @@ pub struct CliCockpit {
 
     #[arg(
         long,
+        help_heading = "Developer Toolkit",
+        value_name = "QUERY",
+        help = "HTTP/2, HTTP/3, gRPC, server push & SSE reference — offline replacement for http2.github.io and RFC docs. Topics: http2, http3, grpc, push, sse. Aliases: h2, h3, quic, hpack, multiplexing, grpc-framing, grpc-status, server-push, 103-early-hints, sse-vs-websocket, websocket-h2. Examples: hematite --http2 h2 | hematite --http2 grpc | hematite --http2 all"
+    )]
+    pub http2: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Developer Toolkit",
+        value_name = "QUERY",
+        help = "OAuth 2.0 / OIDC flows reference — offline replacement for oauth.net and OpenID docs. Topics: auth-code, client-creds, tokens, oidc, security. Aliases: pkce, code-challenge, authorization-code, client-credentials, machine-to-machine, device-flow, bearer-token, refresh-token, openid-connect, oidc-discovery, oauth2-vulnerabilities. Examples: hematite --oauth2-flow pkce | hematite --oauth2-flow tokens | hematite --oauth2-flow all"
+    )]
+    pub oauth2_flow: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Developer Toolkit",
+        value_name = "QUERY",
+        help = "Linux networking reference — offline replacement for iproute2 man pages and netfilter docs. Topics: ip, iptables, tc, bonding, tools. Aliases: ip-command, iproute2, iptables-ref, nftables, traffic-control, tc-netem, rate-limiting, vlan-linux, bonding-linux, ethtool, tcpdump-linux, iperf3. Examples: hematite --linux-net ip | hematite --linux-net iptables | hematite --linux-net all"
+    )]
+    pub linux_net: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Developer Toolkit",
+        value_name = "QUERY",
+        help = "Prometheus / Grafana / alerting reference — offline replacement for prometheus.io and grafana.com docs. Topics: promql, recording, grafana, exporters, alerting. Aliases: prometheus-query, rate-function, histogram-quantile, recording-rules, alert-rules, alertmanager-routing, grafana-ref, loki-ref, node-exporter, burn-rate, slo-alerting. Examples: hematite --prom-ref promql | hematite --prom-ref alerting | hematite --prom-ref all"
+    )]
+    pub prom_ref: Option<String>,
+
+    #[arg(
+        long,
         help_heading = "Math & Science",
         value_name = "QUERY",
         help = "Lorem ipsum generator — offline replacement for lipsum.com. Commands: (bare) or <N> = N paragraphs (default 1); words <N> = N words; sentences <N> = N sentences. Examples: hematite --lorem | hematite --lorem 3 | hematite --lorem 'words 50' | hematite --lorem 'sentences 5'"

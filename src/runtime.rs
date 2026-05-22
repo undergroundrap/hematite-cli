@@ -1149,6 +1149,10 @@ mod tests {
             sql_window: None,
             css_grid: None,
             cloud_cost: None,
+            http2: None,
+            oauth2_flow: None,
+            linux_net: None,
+            prom_ref: None,
             pdf_extract_helper: None,
             teleported_from: None,
         };

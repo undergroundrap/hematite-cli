@@ -5,35 +5,36 @@
 use hematite::tools::math_util::{
     accessibility_calc, algo_ref_calc, ansible_calc, api_design_calc, api_gateway_calc,
     api_versioning_calc, ascii_calc, ascii_table_calc, auth_ref_calc, awk_calc, bash_adv_calc,
-    bash_ref_calc, bitwise_calc, browser_dev_calc, caching_ref_calc, case_calc,
-    chars_calc, checksum_calc, chemistry_calc, chmod_calc, cicd_ref_calc, cipher_calc,
-    cloud_cost_calc, cloud_native_calc, cloud_ref_calc, color_calc, color_names_calc,
-    combinatorics_calc, compiler_ref_calc, complex_calc, concurrency_ref_calc, container_ref_calc,
-    cron_calc, crypto_adv_calc, crypto_ref_calc, css_grid_calc, css_ref_calc,
-    csv_calc, curl_calc, data_formats_calc, data_pipeline_calc, database_adv_calc, datetime_calc,
-    db_design_calc, db_migrations_calc, design_patterns_calc, devops_ref_calc, diff_calc,
-    docker_adv_calc, docker_compose_calc, docker_ref_calc, duration_calc, electrical_calc,
-    encode_calc, escape_calc, event_driven_calc, find_calc, fraction_calc, geometry_calc,
-    git_adv_calc, git_internals_calc, git_ref_calc, gitignore_calc, go_ref_calc, grep_calc,
-    grpc_ref_calc, hash_calc, headers_calc, health_calc, http_adv_calc, http_calc,
-    http_headers_calc, http_security_calc, http_status_calc, id_gen_calc, ip_calc, jinja_calc,
-    jq_calc, js_ref_calc, json_calc, json_path_calc, jwt_calc, k8s_ref_calc, k8s_security_calc,
-    kbd_calc, kubectl_calc, license_calc, linux_adv_calc, linux_kernel_calc, linux_perf_calc,
+    bash_ref_calc, bitwise_calc, browser_dev_calc, caching_ref_calc, case_calc, chars_calc,
+    checksum_calc, chemistry_calc, chmod_calc, cicd_ref_calc, cipher_calc, cloud_cost_calc,
+    cloud_native_calc, cloud_ref_calc, color_calc, color_names_calc, combinatorics_calc,
+    compiler_ref_calc, complex_calc, concurrency_ref_calc, container_ref_calc, cron_calc,
+    crypto_adv_calc, crypto_ref_calc, css_grid_calc, css_ref_calc, csv_calc, curl_calc,
+    data_formats_calc, data_pipeline_calc, database_adv_calc, datetime_calc, db_design_calc,
+    db_migrations_calc, design_patterns_calc, devops_ref_calc, diff_calc, docker_adv_calc,
+    docker_compose_calc, docker_ref_calc, duration_calc, electrical_calc, encode_calc, escape_calc,
+    event_driven_calc, find_calc, fraction_calc, geometry_calc, git_adv_calc, git_internals_calc,
+    git_ref_calc, gitignore_calc, go_ref_calc, grep_calc, grpc_ref_calc, hash_calc, headers_calc,
+    health_calc, http2_calc, http_adv_calc, http_calc, http_headers_calc, http_security_calc,
+    http_status_calc, id_gen_calc, ip_calc, jinja_calc, jq_calc, js_ref_calc, json_calc,
+    json_path_calc, jwt_calc, k8s_ref_calc, k8s_security_calc, kbd_calc, kubectl_calc,
+    license_calc, linux_adv_calc, linux_kernel_calc, linux_net_calc, linux_perf_calc,
     linux_sys_calc, load_testing_calc, lorem_calc, make_calc, makefile_calc, markdown_calc,
     matrix_calc, message_queue_calc, mime_calc, ml_ref_calc, monitoring_ref_calc, net_calc,
     network_ref_calc, networking_adv_calc, nginx_calc, npm_calc, number_format, number_theory_calc,
-    oauth_ref_calc, observability_adv_calc, observability_calc, oop_ref_calc, openssl_calc,
-    percent_calc, perf_ref_calc, physics_calc, port_calc, postgres_calc, prob_calc,
-    protocols_ref_calc, python_data_calc, python_ref_calc, regex_adv_calc, regex_calc,
-    regex_engine_calc, regex_patterns_calc, regex_ref_calc, regex_test_calc, regex_viz_calc,
-    roman_calc, rust_adv_calc, rust_async_calc, rust_patterns_calc, rust_ref_calc,
-    search_ref_calc, security_ref_calc, security_scan_calc, security_tools_calc, sed_calc, semver_calc, service_mesh_calc, set_calc, sort_viz, spark_calc,
-    sql_adv_calc, sql_fmt_calc, sql_ref_calc, sql_tuning_calc, sql_window_calc, ssh_ref_calc,
-    ssl_calc, stats_calc, string_dist, systemd_adv_calc, systemd_calc, table_calc, tar_calc,
-    template_calc, terminal_tools_calc, terraform_adv_calc, terraform_calc, testing_ref_calc,
-    text_stats, timestamp_calc, tmux_calc, toml_calc, trig_calc, ts_ref_calc, typescript_adv_calc,
-    tz_calc, unicode_ref_calc, url_calc, uuid_calc, validate_calc, vim_adv_calc, vim_calc,
-    wasm_ref_calc, wasm_runtime_calc, web_perf_calc, xml_calc, yaml_calc,
+    oauth2_flow_calc, oauth_ref_calc, observability_adv_calc, observability_calc, oop_ref_calc,
+    openssl_calc, percent_calc, perf_ref_calc, physics_calc, port_calc, postgres_calc, prob_calc,
+    prom_ref_calc, protocols_ref_calc, python_data_calc, python_ref_calc, regex_adv_calc,
+    regex_calc, regex_engine_calc, regex_patterns_calc, regex_ref_calc, regex_test_calc,
+    regex_viz_calc, roman_calc, rust_adv_calc, rust_async_calc, rust_patterns_calc, rust_ref_calc,
+    search_ref_calc, security_ref_calc, security_scan_calc, security_tools_calc, sed_calc,
+    semver_calc, service_mesh_calc, set_calc, sort_viz, spark_calc, sql_adv_calc, sql_fmt_calc,
+    sql_ref_calc, sql_tuning_calc, sql_window_calc, ssh_ref_calc, ssl_calc, stats_calc,
+    string_dist, systemd_adv_calc, systemd_calc, table_calc, tar_calc, template_calc,
+    terminal_tools_calc, terraform_adv_calc, terraform_calc, testing_ref_calc, text_stats,
+    timestamp_calc, tmux_calc, toml_calc, trig_calc, ts_ref_calc, typescript_adv_calc, tz_calc,
+    unicode_ref_calc, url_calc, uuid_calc, validate_calc, vim_adv_calc, vim_calc, wasm_ref_calc,
+    wasm_runtime_calc, web_perf_calc, xml_calc, yaml_calc,
 };
 
 // ─── Cipher tests ────────────────────────────────────────────────────────────
@@ -29531,4 +29532,870 @@ fn test_cloud_cost_no_panic_uppercase() {
             || out.contains("Inform")
             || out.contains("Optimize")
     );
+}
+
+// ─── http2_calc ───────────────────────────────────────────────────────────────
+
+#[test]
+fn test_http2_list() {
+    let out = http2_calc("list");
+    assert!(out.contains("http2 topics"));
+    assert!(out.contains("http2"));
+    assert!(out.contains("grpc"));
+    assert!(out.contains("sse"));
+}
+
+#[test]
+fn test_http2_help() {
+    let out = http2_calc("help");
+    assert!(out.contains("http2 topics"));
+}
+
+#[test]
+fn test_http2_empty() {
+    let out = http2_calc("");
+    assert!(out.contains("http2 topics"));
+}
+
+#[test]
+fn test_http2_all_contains_sections() {
+    let out = http2_calc("all");
+    assert!(out.contains("── http2 ──"));
+    assert!(out.contains("── http3 ──"));
+    assert!(out.contains("── grpc ──"));
+    assert!(out.contains("── push ──"));
+    assert!(out.contains("── sse ──"));
+}
+
+#[test]
+fn test_http2_topic_http2() {
+    let out = http2_calc("http2");
+    assert!(out.contains("HTTP/2") || out.contains("HTTP/1.1") || out.contains("Multiplexing"));
+}
+
+#[test]
+fn test_http2_alias_h2() {
+    let out = http2_calc("h2");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_http2_alias_multiplexing() {
+    let out = http2_calc("multiplexing");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_http2_alias_hpack() {
+    let out = http2_calc("hpack");
+    assert!(out.contains("HPACK") || out.contains("header") || !out.contains("Unknown"));
+}
+
+#[test]
+fn test_http2_alias_binary_framing() {
+    let out = http2_calc("binary-framing");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_http2_topic_http3() {
+    let out = http2_calc("http3");
+    assert!(out.contains("HTTP/3") || out.contains("QUIC") || out.contains("UDP"));
+}
+
+#[test]
+fn test_http2_alias_h3() {
+    let out = http2_calc("h3");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_http2_alias_quic() {
+    let out = http2_calc("quic");
+    assert!(out.contains("QUIC") || !out.contains("Unknown"));
+}
+
+#[test]
+fn test_http2_alias_alt_svc() {
+    let out = http2_calc("alt-svc");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_http2_alias_connection_migration() {
+    let out = http2_calc("connection-migration");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_http2_topic_grpc() {
+    let out = http2_calc("grpc");
+    assert!(out.contains("gRPC") || out.contains("RPC") || out.contains("protobuf"));
+}
+
+#[test]
+fn test_http2_alias_grpc_framing() {
+    let out = http2_calc("grpc-framing");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_http2_alias_grpc_status() {
+    let out = http2_calc("grpc-status");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_http2_alias_grpcurl() {
+    let out = http2_calc("grpcurl");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_http2_alias_grpc_web() {
+    let out = http2_calc("grpc-web");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_http2_topic_push() {
+    let out = http2_calc("push");
+    assert!(out.contains("push") || out.contains("Push") || out.contains("preload"));
+}
+
+#[test]
+fn test_http2_alias_server_push() {
+    let out = http2_calc("server-push");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_http2_alias_early_hints() {
+    let out = http2_calc("103-early-hints");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_http2_alias_fetchpriority() {
+    let out = http2_calc("fetchpriority");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_http2_topic_sse() {
+    let out = http2_calc("sse");
+    assert!(out.contains("SSE") || out.contains("EventSource") || out.contains("WebSocket"));
+}
+
+#[test]
+fn test_http2_alias_sse_format() {
+    let out = http2_calc("sse-format");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_http2_alias_websocket_h2() {
+    let out = http2_calc("websocket-h2");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_http2_alias_long_polling() {
+    let out = http2_calc("long-polling");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_http2_alias_choose_transport() {
+    let out = http2_calc("choose-transport");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_http2_unknown_query() {
+    let out = http2_calc("nonexistent-topic-xyz");
+    assert!(out.contains("Unknown http2 topic"));
+}
+
+// ─── oauth2_flow_calc ─────────────────────────────────────────────────────────
+
+#[test]
+fn test_oauth2_flow_list() {
+    let out = oauth2_flow_calc("list");
+    assert!(out.contains("oauth2-flow topics"));
+    assert!(out.contains("auth-code"));
+    assert!(out.contains("tokens"));
+    assert!(out.contains("oidc"));
+}
+
+#[test]
+fn test_oauth2_flow_help() {
+    let out = oauth2_flow_calc("help");
+    assert!(out.contains("oauth2-flow topics"));
+}
+
+#[test]
+fn test_oauth2_flow_empty() {
+    let out = oauth2_flow_calc("");
+    assert!(out.contains("oauth2-flow topics"));
+}
+
+#[test]
+fn test_oauth2_flow_all_contains_sections() {
+    let out = oauth2_flow_calc("all");
+    assert!(out.contains("── auth-code ──"));
+    assert!(out.contains("── client-creds ──"));
+    assert!(out.contains("── tokens ──"));
+    assert!(out.contains("── oidc ──"));
+    assert!(out.contains("── security ──"));
+}
+
+#[test]
+fn test_oauth2_flow_topic_auth_code() {
+    let out = oauth2_flow_calc("auth-code");
+    assert!(
+        out.contains("Authorization Code")
+            || out.contains("authorization_code")
+            || out.contains("PKCE")
+    );
+}
+
+#[test]
+fn test_oauth2_flow_alias_pkce() {
+    let out = oauth2_flow_calc("pkce");
+    assert!(out.contains("PKCE") || out.contains("code_verifier") || !out.contains("Unknown"));
+}
+
+#[test]
+fn test_oauth2_flow_alias_authorization_code() {
+    let out = oauth2_flow_calc("authorization-code");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_oauth2_flow_alias_code_challenge() {
+    let out = oauth2_flow_calc("code-challenge");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_oauth2_flow_alias_token_refresh() {
+    let out = oauth2_flow_calc("token-refresh");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_oauth2_flow_topic_client_creds() {
+    let out = oauth2_flow_calc("client-creds");
+    assert!(
+        out.contains("client_credentials")
+            || out.contains("machine")
+            || out.contains("Client Credentials")
+    );
+}
+
+#[test]
+fn test_oauth2_flow_alias_client_credentials() {
+    let out = oauth2_flow_calc("client-credentials");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_oauth2_flow_alias_machine_to_machine() {
+    let out = oauth2_flow_calc("machine-to-machine");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_oauth2_flow_alias_device_flow() {
+    let out = oauth2_flow_calc("device-flow");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_oauth2_flow_alias_implicit_flow() {
+    let out = oauth2_flow_calc("implicit-flow");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_oauth2_flow_topic_tokens() {
+    let out = oauth2_flow_calc("tokens");
+    assert!(out.contains("access") || out.contains("refresh") || out.contains("token"));
+}
+
+#[test]
+fn test_oauth2_flow_alias_bearer_token() {
+    let out = oauth2_flow_calc("bearer-token");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_oauth2_flow_alias_refresh_token() {
+    let out = oauth2_flow_calc("refresh-token");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_oauth2_flow_alias_token_rotation() {
+    let out = oauth2_flow_calc("token-rotation");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_oauth2_flow_alias_dpop() {
+    let out = oauth2_flow_calc("dpop");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_oauth2_flow_alias_jwks_rotation() {
+    let out = oauth2_flow_calc("jwks-rotation");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_oauth2_flow_topic_oidc() {
+    let out = oauth2_flow_calc("oidc");
+    assert!(out.contains("OIDC") || out.contains("OpenID") || out.contains("id_token"));
+}
+
+#[test]
+fn test_oauth2_flow_alias_openid_connect() {
+    let out = oauth2_flow_calc("openid-connect");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_oauth2_flow_alias_oidc_discovery() {
+    let out = oauth2_flow_calc("oidc-discovery");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_oauth2_flow_alias_userinfo() {
+    let out = oauth2_flow_calc("userinfo");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_oauth2_flow_topic_security() {
+    let out = oauth2_flow_calc("security");
+    assert!(out.contains("security") || out.contains("vulnerability") || out.contains("PKCE"));
+}
+
+#[test]
+fn test_oauth2_flow_alias_oauth2_vulnerabilities() {
+    let out = oauth2_flow_calc("oauth2-vulnerabilities");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_oauth2_flow_alias_token_storage() {
+    let out = oauth2_flow_calc("token-storage");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_oauth2_flow_alias_bcp_oauth2() {
+    let out = oauth2_flow_calc("bcp-oauth2");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_oauth2_flow_alias_confused_deputy() {
+    let out = oauth2_flow_calc("confused-deputy");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_oauth2_flow_unknown_query() {
+    let out = oauth2_flow_calc("nonexistent-oauth-xyz");
+    assert!(out.contains("Unknown oauth2-flow topic"));
+}
+
+// ─── linux_net_calc ───────────────────────────────────────────────────────────
+
+#[test]
+fn test_linux_net_list() {
+    let out = linux_net_calc("list");
+    assert!(out.contains("linux-net topics"));
+    assert!(out.contains("ip"));
+    assert!(out.contains("iptables"));
+    assert!(out.contains("tools"));
+}
+
+#[test]
+fn test_linux_net_help() {
+    let out = linux_net_calc("help");
+    assert!(out.contains("linux-net topics"));
+}
+
+#[test]
+fn test_linux_net_empty() {
+    let out = linux_net_calc("");
+    assert!(out.contains("linux-net topics"));
+}
+
+#[test]
+fn test_linux_net_all_contains_sections() {
+    let out = linux_net_calc("all");
+    assert!(out.contains("── ip ──"));
+    assert!(out.contains("── iptables ──"));
+    assert!(out.contains("── tc ──"));
+    assert!(out.contains("── bonding ──"));
+    assert!(out.contains("── tools ──"));
+}
+
+#[test]
+fn test_linux_net_topic_ip() {
+    let out = linux_net_calc("ip");
+    assert!(out.contains("ip addr") || out.contains("ip link") || out.contains("iproute2"));
+}
+
+#[test]
+fn test_linux_net_alias_ip_command() {
+    let out = linux_net_calc("ip-command");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_linux_net_alias_iproute2() {
+    let out = linux_net_calc("iproute2");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_linux_net_alias_ip_route() {
+    let out = linux_net_calc("ip-route");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_linux_net_alias_policy_routing() {
+    let out = linux_net_calc("policy-routing");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_linux_net_alias_network_namespaces() {
+    let out = linux_net_calc("network-namespaces");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_linux_net_alias_veth_pair() {
+    let out = linux_net_calc("veth-pair");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_linux_net_topic_iptables() {
+    let out = linux_net_calc("iptables");
+    assert!(out.contains("iptables") || out.contains("filter") || out.contains("ACCEPT"));
+}
+
+#[test]
+fn test_linux_net_alias_iptables_ref() {
+    let out = linux_net_calc("iptables-ref");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_linux_net_alias_nftables() {
+    let out = linux_net_calc("nftables");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_linux_net_alias_conntrack() {
+    let out = linux_net_calc("conntrack");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_linux_net_alias_iptables_nat() {
+    let out = linux_net_calc("iptables-nat");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_linux_net_alias_packet_filtering() {
+    let out = linux_net_calc("packet-filtering");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_linux_net_topic_tc() {
+    let out = linux_net_calc("tc");
+    assert!(out.contains("tc qdisc") || out.contains("netem") || out.contains("traffic"));
+}
+
+#[test]
+fn test_linux_net_alias_traffic_control() {
+    let out = linux_net_calc("traffic-control");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_linux_net_alias_tc_netem() {
+    let out = linux_net_calc("tc-netem");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_linux_net_alias_rate_limiting() {
+    let out = linux_net_calc("rate-limiting");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_linux_net_alias_latency_simulation() {
+    let out = linux_net_calc("latency-simulation");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_linux_net_alias_bandwidth_shaping() {
+    let out = linux_net_calc("bandwidth-shaping");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_linux_net_topic_bonding() {
+    let out = linux_net_calc("bonding");
+    assert!(out.contains("bond") || out.contains("VLAN") || out.contains("aggregation"));
+}
+
+#[test]
+fn test_linux_net_alias_vlan_linux() {
+    let out = linux_net_calc("vlan-linux");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_linux_net_alias_bonding_linux() {
+    let out = linux_net_calc("bonding-linux");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_linux_net_alias_lacp_linux() {
+    let out = linux_net_calc("lacp-linux");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_linux_net_alias_macvlan() {
+    let out = linux_net_calc("macvlan");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_linux_net_alias_tun_tap() {
+    let out = linux_net_calc("tun-tap");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_linux_net_topic_tools() {
+    let out = linux_net_calc("tools");
+    assert!(out.contains("ss") || out.contains("tcpdump") || out.contains("ethtool"));
+}
+
+#[test]
+fn test_linux_net_alias_ethtool() {
+    let out = linux_net_calc("ethtool");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_linux_net_alias_tcpdump_linux() {
+    let out = linux_net_calc("tcpdump-linux");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_linux_net_alias_iperf3() {
+    let out = linux_net_calc("iperf3");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_linux_net_alias_ss_command() {
+    let out = linux_net_calc("ss-command");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_linux_net_alias_socket_stats() {
+    let out = linux_net_calc("socket-stats");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_linux_net_unknown_query() {
+    let out = linux_net_calc("nonexistent-topic-xyz");
+    assert!(out.contains("Unknown linux-net topic"));
+}
+
+// ─── prom_ref_calc ────────────────────────────────────────────────────────────
+
+#[test]
+fn test_prom_ref_list() {
+    let out = prom_ref_calc("list");
+    assert!(out.contains("prom-ref topics"));
+    assert!(out.contains("promql"));
+    assert!(out.contains("grafana"));
+    assert!(out.contains("alerting"));
+}
+
+#[test]
+fn test_prom_ref_help() {
+    let out = prom_ref_calc("help");
+    assert!(out.contains("prom-ref topics"));
+}
+
+#[test]
+fn test_prom_ref_empty() {
+    let out = prom_ref_calc("");
+    assert!(out.contains("prom-ref topics"));
+}
+
+#[test]
+fn test_prom_ref_all_contains_sections() {
+    let out = prom_ref_calc("all");
+    assert!(out.contains("── promql ──"));
+    assert!(out.contains("── recording ──"));
+    assert!(out.contains("── grafana ──"));
+    assert!(out.contains("── exporters ──"));
+    assert!(out.contains("── alerting ──"));
+}
+
+#[test]
+fn test_prom_ref_topic_promql() {
+    let out = prom_ref_calc("promql");
+    assert!(out.contains("PromQL") || out.contains("rate(") || out.contains("instant vector"));
+}
+
+#[test]
+fn test_prom_ref_alias_rate_function() {
+    let out = prom_ref_calc("rate-function");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_prom_ref_alias_histogram_quantile() {
+    let out = prom_ref_calc("histogram-quantile");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_prom_ref_alias_aggregation() {
+    let out = prom_ref_calc("aggregation");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_prom_ref_alias_label_selectors() {
+    let out = prom_ref_calc("label-selectors");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_prom_ref_alias_promql_syntax() {
+    let out = prom_ref_calc("promql-syntax");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_prom_ref_alias_prometheus_query() {
+    let out = prom_ref_calc("prometheus-query");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_prom_ref_alias_binary_operators() {
+    let out = prom_ref_calc("binary-operators");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_prom_ref_topic_recording() {
+    let out = prom_ref_calc("recording");
+    assert!(out.contains("record:") || out.contains("recording") || out.contains("Recording"));
+}
+
+#[test]
+fn test_prom_ref_alias_recording_rules() {
+    let out = prom_ref_calc("recording-rules");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_prom_ref_alias_alert_rules() {
+    let out = prom_ref_calc("alert-rules");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_prom_ref_alias_alertmanager_routing() {
+    let out = prom_ref_calc("alertmanager-routing");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_prom_ref_alias_alert_annotations() {
+    let out = prom_ref_calc("alert-annotations");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_prom_ref_alias_pending_firing() {
+    let out = prom_ref_calc("pending-firing");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_prom_ref_topic_grafana() {
+    let out = prom_ref_calc("grafana");
+    assert!(out.contains("Grafana") || out.contains("panel") || out.contains("dashboard"));
+}
+
+#[test]
+fn test_prom_ref_alias_grafana_ref() {
+    let out = prom_ref_calc("grafana-ref");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_prom_ref_alias_loki_ref() {
+    let out = prom_ref_calc("loki-ref");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_prom_ref_alias_grafana_panels() {
+    let out = prom_ref_calc("grafana-panels");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_prom_ref_alias_traceql() {
+    let out = prom_ref_calc("traceql");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_prom_ref_alias_grafana_provisioning() {
+    let out = prom_ref_calc("grafana-provisioning");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_prom_ref_topic_exporters() {
+    let out = prom_ref_calc("exporters");
+    assert!(out.contains("node_exporter") || out.contains("exporter") || out.contains("Counter"));
+}
+
+#[test]
+fn test_prom_ref_alias_node_exporter() {
+    let out = prom_ref_calc("node-exporter");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_prom_ref_alias_blackbox_exporter() {
+    let out = prom_ref_calc("blackbox-exporter");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_prom_ref_alias_prometheus_instrumentation() {
+    let out = prom_ref_calc("prometheus-instrumentation");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_prom_ref_alias_scrape_config() {
+    let out = prom_ref_calc("scrape-config");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_prom_ref_alias_counter_gauge_histogram() {
+    let out = prom_ref_calc("counter-gauge-histogram");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_prom_ref_alias_kube_state_metrics() {
+    let out = prom_ref_calc("kube-state-metrics");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_prom_ref_topic_alerting() {
+    let out = prom_ref_calc("alerting");
+    assert!(out.contains("SLO") || out.contains("burn") || out.contains("error budget"));
+}
+
+#[test]
+fn test_prom_ref_alias_slo_alerting() {
+    let out = prom_ref_calc("slo-alerting");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_prom_ref_alias_burn_rate() {
+    let out = prom_ref_calc("burn-rate");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_prom_ref_alias_error_budget() {
+    let out = prom_ref_calc("error-budget");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_prom_ref_alias_sli_slo_sla() {
+    let out = prom_ref_calc("sli-slo-sla");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_prom_ref_alias_noisy_alerts() {
+    let out = prom_ref_calc("noisy-alerts");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_prom_ref_alias_runbook_annotations() {
+    let out = prom_ref_calc("runbook-annotations");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_prom_ref_alias_alertmanager_silences() {
+    let out = prom_ref_calc("alertmanager-silences");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_prom_ref_alias_multi_burn_rate() {
+    let out = prom_ref_calc("multi-burn-rate");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_prom_ref_alias_sre_alerting() {
+    let out = prom_ref_calc("sre-alerting");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_prom_ref_unknown_query() {
+    let out = prom_ref_calc("nonexistent-topic-xyz");
+    assert!(out.contains("Unknown prom-ref topic"));
 }
