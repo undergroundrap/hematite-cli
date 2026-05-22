@@ -2322,6 +2322,38 @@ pub struct CliCockpit {
 
     #[arg(
         long,
+        help_heading = "Developer Toolkit",
+        value_name = "QUERY",
+        help = "Regex visualizer & pattern library — offline replacement for regex101.com. Topics: syntax, breakdown, lookahead, performance, common. Aliases: regex-syntax, character-classes, quantifiers, pattern-breakdown, email-regex, catastrophic-backtracking, nfa-dfa, rust-regex, common-regex, validation-regex. Examples: hematite --regex-viz syntax | hematite --regex-viz breakdown | hematite --regex-viz all"
+    )]
+    pub regex_viz: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Developer Toolkit",
+        value_name = "QUERY",
+        help = "SQL window functions reference — offline replacement for PostgreSQL/MySQL window docs. Topics: basics, ranking, offset, frames, practical. Aliases: over-clause, row-number, rank, dense-rank, lag-lead, rows-between, moving-average, gaps-islands, sessionization, window-frames. Examples: hematite --sql-window basics | hematite --sql-window ranking | hematite --sql-window all"
+    )]
+    pub sql_window: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Developer Toolkit",
+        value_name = "QUERY",
+        help = "CSS Grid & Flexbox reference — offline replacement for css-tricks.com complete guides. Topics: grid, flexbox, layouts, responsive, tricks. Aliases: css-grid, css-flexbox, holy-grail, auto-fit, fr-unit, justify-content, media-queries, clamp, container-queries, subgrid, css-variables. Examples: hematite --css-grid grid | hematite --css-grid flexbox | hematite --css-grid all"
+    )]
+    pub css_grid: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Developer Toolkit",
+        value_name = "QUERY",
+        help = "Cloud cost optimization reference — offline replacement for AWS/GCP/Azure cost docs. Topics: aws, gcp, azure, finops, tools. Aliases: aws-savings-plans, gcp-cud, azure-reservations, finops, infracost, kubecost, rightsizing, spot-instances, tagging-strategy, unit-economics, cloud-custodian. Examples: hematite --cloud-cost aws | hematite --cloud-cost finops | hematite --cloud-cost all"
+    )]
+    pub cloud_cost: Option<String>,
+
+    #[arg(
+        long,
         help_heading = "Math & Science",
         value_name = "QUERY",
         help = "Lorem ipsum generator — offline replacement for lipsum.com. Commands: (bare) or <N> = N paragraphs (default 1); words <N> = N words; sentences <N> = N sentences. Examples: hematite --lorem | hematite --lorem 3 | hematite --lorem 'words 50' | hematite --lorem 'sentences 5'"

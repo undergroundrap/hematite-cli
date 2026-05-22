@@ -59713,3 +59713,1457 @@ pub fn rust_async_calc(query: &str) -> String {
             .join(", ")
     )
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Wave 40: --regex-viz, --sql-window, --css-grid, --cloud-cost
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ── regex-viz ─────────────────────────────────────────────────────────────────
+
+fn s_rv_syntax() -> &'static str {
+    "Regex Syntax Visual Breakdown
+Character classes:
+  [abc]      matches a, b, or c  (character set)
+  [^abc]     matches anything except a, b, c  (negated set)
+  [a-z]      matches lowercase a through z  (range)
+  [A-Za-z0-9]  alphanumeric  (combined ranges)
+  .          matches any character except newline  (wildcard)
+  \\w         word character = [A-Za-z0-9_]
+  \\W         non-word character = [^A-Za-z0-9_]
+  \\d         digit = [0-9]
+  \\D         non-digit = [^0-9]
+  \\s         whitespace = [ \\t\\r\\n\\f\\v]
+  \\S         non-whitespace
+  \\b         word boundary (between \\w and \\W)
+  \\B         non-word boundary
+
+Quantifiers:
+  *          0 or more  (greedy)
+  +          1 or more  (greedy)
+  ?          0 or 1  (greedy; also makes optional)
+  {n}        exactly n times
+  {n,}       n or more times
+  {n,m}      between n and m times
+  *?  +?  ??  {n,m}?   lazy (non-greedy): match as few as possible
+
+Anchors:
+  ^          start of string (or start of line with m flag)
+  $          end of string (or end of line with m flag)
+  \\A         start of string (no multiline)
+  \\Z         end of string (no multiline)
+  \\b         word boundary
+  \\B         non-word boundary
+
+Alternation and grouping:
+  a|b        matches a or b  (alternation)
+  (abc)      capturing group  (captured in $1, \\1)
+  (?:abc)    non-capturing group  (group without capture)
+  (?<name>)  named capture group  (Python: (?P<name>))
+  (?=abc)    positive lookahead (followed by abc)
+  (?!abc)    negative lookahead (not followed by abc)
+  (?<=abc)   positive lookbehind (preceded by abc)
+  (?<!abc)   negative lookbehind (not preceded by abc)
+
+Flags:
+  i   case-insensitive
+  g   global (find all matches, not just first)
+  m   multiline (^ and $ match line boundaries)
+  s   dotAll (. matches newline)
+  x   verbose/extended (ignore whitespace + allow comments)"
+}
+
+fn s_rv_breakdown() -> &'static str {
+    "Pattern Breakdown Examples
+Email: ^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$
+  ^                       start of string
+  [a-zA-Z0-9._%+-]+       local part: letters, digits, ._%+- (1 or more)
+  @                       literal @
+  [a-zA-Z0-9.-]+          domain name: letters, digits, . and - (1 or more)
+  \\.                      escaped dot (literal .)
+  [a-zA-Z]{2,}            TLD: letters only, 2 or more characters
+  $                       end of string
+
+URL: https?://[\\w.-]+(?:\\.[\\w.]+)+[\\w\\-._~:/?#\\[\\]@!$&'()*+,;=.]+
+  https?                  'http' followed by optional 's'
+  ://                     literal ://
+  [\\w.-]+                 hostname characters
+  (?:\\.[\\w.]+)+           one or more dotted segments (non-capturing)
+  [\\w\\-._~:/?#...]+       path, query, fragment characters
+
+IPv4: ^(?:25[0-5]|2[0-4]\\d|[01]?\\d\\d?)\\.(?:25[0-5]|2[0-4]\\d|[01]?\\d\\d?)\\.(?:25[0-5]|2[0-4]\\d|[01]?\\d\\d?)\\.(?:25[0-5]|2[0-4]\\d|[01]?\\d\\d?)$
+  (?:25[0-5]|2[0-4]\\d|[01]?\\d\\d?)   one octet: 250-255, 200-249, 0-199
+  \\.                                   literal dot
+  (repeated 4 times)
+
+ISO date: ^\\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\\d|3[01])$
+  ^\\d{4}                 4-digit year
+  -(?:0[1-9]|1[0-2])     month: 01-09 or 10-12
+  -(?:0[1-9]|[12]\\d|3[01])  day: 01-09, 10-29, 30-31
+  $                      end
+
+Hex color: ^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$
+  ^#                     starts with #
+  [0-9a-fA-F]{3}         3-digit shorthand (e.g. #fff)
+  |                      or
+  [0-9a-fA-F]{6}         6-digit full (e.g. #ffffff)
+  $                      end
+
+Phone (US): ^\\+?1?[-.\\s]?\\(?[0-9]{3}\\)?[-.\\s]?[0-9]{3}[-.\\s]?[0-9]{4}$
+  \\+?1?                  optional country code +1
+  [-.\\s]?               optional separator
+  \\(?[0-9]{3}\\)?        area code, optional parens
+  [0-9]{3}[-.\\s]?       exchange
+  [0-9]{4}               subscriber number"
+}
+
+fn s_rv_lookahead() -> &'static str {
+    "Lookaheads, Lookbehinds & Advanced Groups
+Lookahead:
+  foo(?=bar)     matches 'foo' only if followed by 'bar'
+                 Input: 'foobar' → matches 'foo'
+                 Input: 'foobaz' → no match
+  foo(?!bar)     matches 'foo' only if NOT followed by 'bar'
+                 Input: 'foobaz' → matches 'foo'
+                 Input: 'foobar' → no match
+
+Lookbehind:
+  (?<=foo)bar    matches 'bar' only if preceded by 'foo'
+                 Input: 'foobar' → matches 'bar'
+                 Input: 'bazbar' → no match
+  (?<!foo)bar    matches 'bar' only if NOT preceded by 'foo'
+                 Input: 'bazbar' → matches 'bar'
+                 Input: 'foobar' → no match
+
+Password strength: (?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[^A-Za-z\\d]).{8,}
+  (?=.*[a-z])         must contain lowercase
+  (?=.*[A-Z])         must contain uppercase
+  (?=.*\\d)           must contain digit
+  (?=.*[^A-Za-z\\d])  must contain special char
+  .{8,}               at least 8 chars total
+
+Named captures:
+  (?<year>\\d{4})-(?<month>\\d{2})-(?<day>\\d{2})
+  Python: match.group('year')
+  JS:     match.groups.year
+  Rust:   caps.name(\"year\")
+  PHP:    $matches['year']
+
+Backreferences:
+  (\\w+)\\s+\\1        matches repeated word: 'the the', 'a a'
+  (['\"]).+?\\1        matches quoted string using same quote type
+
+Non-backtracking (atomic group):
+  (?>pattern)    PHP/PCRE: match pattern, give nothing back
+  (?:pattern)++  Java: possessive quantifier (no backtrack)
+
+Conditional:
+  (?(1)yes|no)   if group 1 matched: 'yes' branch; else 'no' branch  (PCRE)
+
+Unicode:
+  \\p{L}         any letter (Unicode; needs u flag in JS)
+  \\p{N}         any number
+  \\p{Lu}        uppercase letter
+  \\p{Ll}        lowercase letter
+  \\p{Script=Greek}  Greek script
+  \\X            any Unicode grapheme cluster  (PCRE)"
+}
+
+fn s_rv_performance() -> &'static str {
+    "Regex Performance & Catastrophic Backtracking
+Catastrophic backtracking:
+  Pattern: (a+)+$
+  Input: 'aaaaaaaab'
+  Problem: exponential backtracking — 2^n states explored
+  Why: outer + and inner + both try to consume 'a'; on failure,
+       engine tries all 2^n ways to split the a's between them
+
+  Pattern: (\\d+)+     matching '12345678x'
+  Same problem: each subset of digit groups tried
+
+  Pattern: .*a.*b.*c  on very long strings without a,b,c
+  Problem: O(n^3) worst case
+
+How to avoid:
+  1. Use atomic groups / possessive quantifiers: (a++)+ or (?>a+)+
+  2. Use anchors: ^...$  (reduces search space)
+  3. Flatten alternatives: (foo|foobar) → (foobar|foo)  (longer first)
+  4. Avoid nested quantifiers on overlapping patterns
+  5. Use non-backtracking engines for known-safe patterns (RE2, Rust regex)
+
+Engine types:
+  NFA (most engines): Perl, PCRE, Python re, Java, .NET, JS
+    Supports lookahead, backreferences; backtracking risk
+  DFA (guaranteed linear): RE2, Rust regex, grep, awk
+    No backreferences or lookahead; O(n) guaranteed
+  Hybrid: .NET, Java (java.util.regex)
+
+Benchmarking:
+  Rust: use criterion; avoid cloning Regex per call (compile once, use Arc)
+  Python: import re; re.compile(pattern) at module level
+  JS: cache regex outside loops; avoid /regex/ literals inside loops
+
+Rust regex crate specifics:
+  use regex::Regex;
+  let re = Regex::new(r\"\\d{4}\").unwrap();   // compile once
+  let cap = re.captures(text)?;
+  cap[0]         // full match
+  cap[1]         // first capture group
+  re.is_match(text)          // bool
+  re.find_iter(text)         // all non-overlapping matches
+  re.replace_all(text, \"X\")  // replace
+  re.split(text)             // split"
+}
+
+fn s_rv_common() -> &'static str {
+    "Common Regex Patterns Library
+Validation:
+  Email (simple):   ^[\\w.%+-]+@[\\w.-]+\\.[A-Za-z]{2,}$
+  Email (RFC 5322): complex — use a library for strict compliance
+  URL:              https?://[\\S]+
+  IPv4:             ^(\\d{1,3}\\.){3}\\d{1,3}$  (loose; use stricter for validation)
+  IPv6:             ^([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}$  (simplified)
+  UUID:             ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$
+  MAC address:      ^([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}$
+  Semantic version: ^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-(\\S+))?$
+  Credit card:      ^(?:4[0-9]{12}(?:[0-9]{3})?|5[1-5][0-9]{14}|3[47][0-9]{13})$
+  SSN:              ^\\d{3}-\\d{2}-\\d{4}$
+  Zip code (US):    ^\\d{5}(-\\d{4})?$
+  Postal (CA):      ^[A-Za-z]\\d[A-Za-z]\\s?\\d[A-Za-z]\\d$
+
+Extraction:
+  HTML tags:        <([a-zA-Z][a-zA-Z0-9]*)\\b[^>]*>
+  HTML attributes:  (\\w+)=[\"']([^\"']*)[\"']
+  CSS class names:  class=[\"'][^\"']*[\"']
+  JSON key-value:   \"(\\w+)\":\\s*\"([^\"]*)\"
+  Markdown links:   \\[([^\\]]+)\\]\\(([^\\)]+)\\)
+  Markdown headers: ^(#{1,6})\\s+(.+)$
+
+Text processing:
+  Blank lines:      ^\\s*$
+  Leading spaces:   ^\\s+
+  Trailing spaces:  \\s+$
+  Double spaces:    \\s{2,}
+  Camel to snake:   ([A-Z])  → _$1 (lowercase) [do in two passes]
+  Words:            \\b\\w+\\b
+  Numbers:          -?\\d+\\.?\\d*
+  Comments (//):    //.*$
+  Comments (/* */): /\\*[\\s\\S]*?\\*/
+
+Code:
+  Function names:   \\bfn\\s+(\\w+)\\s*\\(   (Rust)
+  Import lines:     ^import\\s+.*$           (Python/JS)
+  TODO comments:    \\bTODO\\b[:\\s](.*)$
+  Log lines:        ^\\[?(\\d{4}-\\d{2}-\\d{2})\\]?\\s*(ERROR|WARN|INFO|DEBUG)"
+}
+
+type RegexVizSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+const REGEX_VIZ_SECTIONS: &[RegexVizSection] = &[
+    (
+        "syntax",
+        &[
+            "regex-syntax",
+            "character-classes",
+            "quantifiers",
+            "anchors",
+            "flags",
+            "regex-groups",
+            "regex-alternation",
+            "regex-charclass",
+            "word-boundary",
+            "lookahead-lookbehind",
+            "named-capture",
+        ],
+        s_rv_syntax,
+    ),
+    (
+        "breakdown",
+        &[
+            "pattern-breakdown",
+            "regex-breakdown",
+            "email-regex",
+            "url-regex",
+            "ipv4-regex",
+            "iso-date-regex",
+            "hex-color-regex",
+            "phone-regex",
+            "regex-examples",
+            "regex-explain",
+        ],
+        s_rv_breakdown,
+    ),
+    (
+        "lookahead",
+        &[
+            "lookahead",
+            "lookbehind",
+            "lookahead-lookbehind",
+            "regex-lookahead",
+            "regex-lookbehind",
+            "password-regex",
+            "atomic-group",
+            "backreference",
+            "conditional-regex",
+            "unicode-regex",
+        ],
+        s_rv_lookahead,
+    ),
+    (
+        "performance",
+        &[
+            "regex-performance",
+            "catastrophic-backtracking",
+            "backtracking",
+            "regex-engine",
+            "nfa-dfa",
+            "re2-engine",
+            "rust-regex",
+            "regex-compile",
+            "possessive-quantifier",
+            "regex-benchmark",
+        ],
+        s_rv_performance,
+    ),
+    (
+        "common",
+        &[
+            "common-regex",
+            "regex-library",
+            "regex-patterns",
+            "validation-regex",
+            "email-validation",
+            "url-validation",
+            "uuid-regex",
+            "credit-card-regex",
+            "regex-extraction",
+            "code-regex",
+            "log-regex",
+        ],
+        s_rv_common,
+    ),
+];
+
+pub fn regex_viz_calc(query: &str) -> String {
+    let q = query.trim().to_lowercase();
+    if q.is_empty() || q == "list" || q == "help" {
+        let topics: Vec<&str> = REGEX_VIZ_SECTIONS.iter().map(|(n, _, _)| *n).collect();
+        return format!(
+            "regex-viz topics: {}\nUse: --regex-viz <topic>  or  --regex-viz all",
+            topics.join(", ")
+        );
+    }
+    if q == "all" {
+        return REGEX_VIZ_SECTIONS
+            .iter()
+            .map(|(n, _, f)| format!("── {} ──\n{}", n, f()))
+            .collect::<Vec<_>>()
+            .join("\n\n");
+    }
+    for (name, aliases, func) in REGEX_VIZ_SECTIONS {
+        if q == *name || aliases.iter().any(|a| q == *a || q.contains(a)) {
+            return func().to_string();
+        }
+    }
+    format!(
+        "Unknown regex-viz topic: '{}'\nAvailable: {}",
+        query.trim(),
+        REGEX_VIZ_SECTIONS
+            .iter()
+            .map(|(n, _, _)| *n)
+            .collect::<Vec<_>>()
+            .join(", ")
+    )
+}
+
+// ── sql-window ────────────────────────────────────────────────────────────────
+
+fn s_sw_basics() -> &'static str {
+    "SQL Window Functions Basics
+Syntax:
+  function_name(args) OVER (
+      [PARTITION BY col1, col2]
+      [ORDER BY col3 [ASC|DESC]]
+      [ROWS|RANGE BETWEEN frame_start AND frame_end]
+  )
+
+Key difference vs aggregate:
+  Aggregate (GROUP BY): collapses rows into one per group
+  Window function:      keeps all rows; adds computed column alongside
+
+Simple examples:
+  -- Row number within each department, ordered by salary
+  SELECT name, dept, salary,
+         ROW_NUMBER() OVER (PARTITION BY dept ORDER BY salary DESC) AS rn
+  FROM employees;
+
+  -- Running total of sales by date
+  SELECT date, amount,
+         SUM(amount) OVER (ORDER BY date) AS running_total
+  FROM sales;
+
+  -- Rank all employees globally by salary
+  SELECT name, salary,
+         RANK() OVER (ORDER BY salary DESC) AS salary_rank
+  FROM employees;
+
+  -- Percent of total per department
+  SELECT dept, amount,
+         amount / SUM(amount) OVER (PARTITION BY dept) * 100 AS pct_of_dept
+  FROM sales;
+
+OVER() with no arguments:
+  -- Applies function over entire result set (no partition, no order)
+  SELECT name, salary,
+         AVG(salary) OVER () AS avg_all
+  FROM employees;
+
+Filtering window results (use subquery/CTE):
+  -- Get only the top earner per department
+  SELECT * FROM (
+      SELECT *, ROW_NUMBER() OVER (PARTITION BY dept ORDER BY salary DESC) AS rn
+      FROM employees
+  ) ranked WHERE rn = 1;"
+}
+
+fn s_sw_ranking() -> &'static str {
+    "Ranking Window Functions
+ROW_NUMBER():
+  Assigns unique sequential integers; no ties
+  OVER (PARTITION BY dept ORDER BY salary DESC)
+  Same salary in dept → arbitrary order; guaranteed unique
+
+RANK():
+  Ties get same rank; next rank skips (1,1,3)
+  SELECT name, salary, RANK() OVER (ORDER BY salary DESC)
+  Useful: sports leaderboards, top-N with ties included
+
+DENSE_RANK():
+  Ties get same rank; next rank does NOT skip (1,1,2)
+  Preferred when you want 'top 3 salary levels'
+
+NTILE(n):
+  Divides rows into n roughly equal buckets
+  NTILE(4) OVER (ORDER BY score DESC) → quartiles 1–4
+  NTILE(100) → percentiles
+  Uneven division: earlier buckets get extra row
+
+PERCENT_RANK():
+  (rank - 1) / (total_rows - 1)
+  Range: 0.0 to 1.0
+  First row: 0.0; last row: 1.0
+
+CUME_DIST():
+  Fraction of rows ≤ current row's value
+  (rows with value ≤ current) / total_rows
+  Range: 0+ to 1.0; last row always 1.0
+
+Practical: paginate with ROW_NUMBER
+  SELECT * FROM (
+      SELECT *, ROW_NUMBER() OVER (ORDER BY created_at DESC) AS rn
+      FROM posts
+  ) p WHERE rn BETWEEN 21 AND 40;  -- page 2 (20 per page)
+
+Practical: de-duplicate keep latest
+  DELETE FROM events
+  WHERE id NOT IN (
+      SELECT id FROM (
+          SELECT id, ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY created_at DESC) AS rn
+          FROM events
+      ) t WHERE rn = 1
+  );"
+}
+
+fn s_sw_offset() -> &'static str {
+    "LAG, LEAD & Offset Functions
+LAG(col, offset, default):
+  Access previous row's value within partition
+  LAG(amount, 1, 0) OVER (PARTITION BY user ORDER BY date)
+  → previous row's amount; 0 if no previous row
+
+LEAD(col, offset, default):
+  Access next row's value within partition
+  LEAD(amount, 1, NULL) OVER (ORDER BY date)
+  → next row's amount; NULL if no next row
+
+Month-over-month change:
+  SELECT month, revenue,
+         LAG(revenue) OVER (ORDER BY month) AS prev_month,
+         revenue - LAG(revenue) OVER (ORDER BY month) AS delta,
+         (revenue - LAG(revenue) OVER (ORDER BY month))
+           / NULLIF(LAG(revenue) OVER (ORDER BY month), 0) * 100 AS pct_change
+  FROM monthly_sales;
+
+Day-over-day within user:
+  SELECT user_id, date, sessions,
+         LEAD(sessions) OVER (PARTITION BY user_id ORDER BY date) AS next_day,
+         sessions - LAG(sessions) OVER (PARTITION BY user_id ORDER BY date) AS delta
+  FROM user_activity;
+
+FIRST_VALUE(col):
+  First value in the window frame
+  FIRST_VALUE(price) OVER (PARTITION BY ticker ORDER BY date)
+  → IPO/first recorded price
+
+LAST_VALUE(col):
+  Last value in the frame (often needs ROWS BETWEEN ... UNBOUNDED FOLLOWING)
+  LAST_VALUE(price) OVER (
+      PARTITION BY ticker ORDER BY date
+      ROWS BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING
+  )
+
+NTH_VALUE(col, n):
+  n-th value in the window frame  (PostgreSQL 11+, not in all DBs)
+  NTH_VALUE(score, 2) OVER (ORDER BY score DESC) → second highest"
+}
+
+fn s_sw_frames() -> &'static str {
+    "Window Frame Specification
+Frame syntax:
+  ROWS BETWEEN start AND end
+  RANGE BETWEEN start AND end   (default: RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
+  GROUPS BETWEEN start AND end  (PostgreSQL 11+; counts peer groups)
+
+Frame bounds:
+  UNBOUNDED PRECEDING    from the first row of the partition
+  n PRECEDING            n rows/ranges before current
+  CURRENT ROW            the current row
+  n FOLLOWING            n rows/ranges after current
+  UNBOUNDED FOLLOWING    to the last row of the partition
+
+Common frames:
+  ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW   → running total/cumulative
+  ROWS BETWEEN 2 PRECEDING AND CURRENT ROW           → 3-row moving avg (current + 2 prior)
+  ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING           → centered 3-row window
+  ROWS BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING   → reverse running total
+  ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING → entire partition (= no frame clause)
+
+ROWS vs RANGE:
+  ROWS: counts physical rows
+  RANGE: treats rows with equal ORDER BY values as a group
+  Example: with ties in date, RANGE sums all same-date rows; ROWS only prior physical rows
+  Recommendation: use ROWS for predictable behavior
+
+7-day moving average:
+  SELECT date, revenue,
+         AVG(revenue) OVER (
+             ORDER BY date
+             ROWS BETWEEN 6 PRECEDING AND CURRENT ROW
+         ) AS moving_avg_7d
+  FROM daily_revenue;
+
+Cumulative distribution (manual):
+  SELECT date, amount,
+         SUM(amount) OVER (ORDER BY date ROWS UNBOUNDED PRECEDING) AS cumulative,
+         SUM(amount) OVER () AS total,
+         SUM(amount) OVER (ORDER BY date ROWS UNBOUNDED PRECEDING)
+           / SUM(amount) OVER () * 100 AS cum_pct
+  FROM sales;"
+}
+
+fn s_sw_practical() -> &'static str {
+    "Window Functions: Practical Patterns
+Gaps and islands:
+  -- Find consecutive runs of active days
+  SELECT user_id, MIN(date) AS start, MAX(date) AS end
+  FROM (
+      SELECT user_id, date,
+             date - INTERVAL '1 day' * ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY date) AS grp
+      FROM active_days
+  ) g GROUP BY user_id, grp;
+
+Median (no built-in in many DBs):
+  SELECT PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY salary) AS median
+  FROM employees;
+  -- Window version (PostgreSQL):
+  SELECT name, salary,
+         PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY salary) OVER (PARTITION BY dept) AS dept_median
+  FROM employees;
+
+Pivot with window functions:
+  SELECT dept,
+         SUM(CASE WHEN year = 2022 THEN revenue END) AS y2022,
+         SUM(CASE WHEN year = 2023 THEN revenue END) AS y2023,
+         SUM(CASE WHEN year = 2024 THEN revenue END) AS y2024
+  FROM revenue GROUP BY dept;
+
+Sessionization (gap = 30 min = new session):
+  SELECT user_id, event_time,
+         SUM(is_new_session) OVER (PARTITION BY user_id ORDER BY event_time) AS session_id
+  FROM (
+      SELECT user_id, event_time,
+             CASE WHEN event_time - LAG(event_time) OVER (PARTITION BY user_id ORDER BY event_time)
+                       > INTERVAL '30 minutes' OR
+                       LAG(event_time) OVER (PARTITION BY user_id ORDER BY event_time) IS NULL
+                  THEN 1 ELSE 0 END AS is_new_session
+      FROM events
+  ) t;
+
+Running distinct count (approximate):
+  -- Not directly possible with window functions; use CTE with DISTINCT:
+  SELECT date, COUNT(DISTINCT user_id) OVER (ORDER BY date) -- NOT STANDARD; use subquery
+
+Performance tips:
+  Add index on (partition_col, order_col) for window function queries
+  Materialized CTE can pre-sort before window functions
+  Avoid window functions on very large unindexed tables without LIMIT in outer query"
+}
+
+type SqlWindowSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+const SQL_WINDOW_SECTIONS: &[SqlWindowSection] = &[
+    (
+        "basics",
+        &[
+            "window-basics",
+            "over-clause",
+            "partition-by",
+            "sql-window-intro",
+            "window-vs-aggregate",
+            "running-total",
+            "over-empty",
+            "window-syntax",
+            "sql-analytics",
+            "window-filter",
+        ],
+        s_sw_basics,
+    ),
+    (
+        "ranking",
+        &[
+            "rank-functions",
+            "row-number",
+            "rank",
+            "dense-rank",
+            "ntile",
+            "percent-rank",
+            "cume-dist",
+            "sql-ranking",
+            "top-n-per-group",
+            "paginate-sql",
+            "dedup-sql",
+        ],
+        s_sw_ranking,
+    ),
+    (
+        "offset",
+        &[
+            "lag-lead",
+            "lag-function",
+            "lead-function",
+            "first-value",
+            "last-value",
+            "nth-value",
+            "mom-change",
+            "month-over-month",
+            "day-over-day",
+            "offset-functions",
+        ],
+        s_sw_offset,
+    ),
+    (
+        "frames",
+        &[
+            "window-frames",
+            "rows-between",
+            "range-between",
+            "unbounded-preceding",
+            "moving-average",
+            "rolling-average",
+            "cumulative-sum",
+            "rows-vs-range",
+            "frame-bounds",
+            "7-day-average",
+        ],
+        s_sw_frames,
+    ),
+    (
+        "practical",
+        &[
+            "window-patterns",
+            "gaps-islands",
+            "sessionization",
+            "median-sql",
+            "sql-pivot",
+            "running-distinct",
+            "window-performance",
+            "sql-analytics-patterns",
+            "consecutive-dates",
+            "session-analysis",
+        ],
+        s_sw_practical,
+    ),
+];
+
+pub fn sql_window_calc(query: &str) -> String {
+    let q = query.trim().to_lowercase();
+    if q.is_empty() || q == "list" || q == "help" {
+        let topics: Vec<&str> = SQL_WINDOW_SECTIONS.iter().map(|(n, _, _)| *n).collect();
+        return format!(
+            "sql-window topics: {}\nUse: --sql-window <topic>  or  --sql-window all",
+            topics.join(", ")
+        );
+    }
+    if q == "all" {
+        return SQL_WINDOW_SECTIONS
+            .iter()
+            .map(|(n, _, f)| format!("── {} ──\n{}", n, f()))
+            .collect::<Vec<_>>()
+            .join("\n\n");
+    }
+    for (name, aliases, func) in SQL_WINDOW_SECTIONS {
+        if q == *name || aliases.iter().any(|a| q == *a || q.contains(a)) {
+            return func().to_string();
+        }
+    }
+    format!(
+        "Unknown sql-window topic: '{}'\nAvailable: {}",
+        query.trim(),
+        SQL_WINDOW_SECTIONS
+            .iter()
+            .map(|(n, _, _)| *n)
+            .collect::<Vec<_>>()
+            .join(", ")
+    )
+}
+
+// ── css-grid ──────────────────────────────────────────────────────────────────
+
+fn s_cg_grid() -> &'static str {
+    "CSS Grid Reference
+Container properties:
+  display: grid;
+  grid-template-columns: 200px 1fr 1fr;      /* 3 cols: fixed + 2 flexible */
+  grid-template-columns: repeat(3, 1fr);      /* 3 equal cols */
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));  /* responsive */
+  grid-template-rows: auto 1fr auto;          /* rows */
+  grid-template-areas:
+    'header header header'
+    'sidebar main main'
+    'footer footer footer';
+  gap: 16px;                  /* row-gap + column-gap */
+  row-gap: 16px;
+  column-gap: 24px;
+  justify-items: start | end | center | stretch;   /* align items horizontally */
+  align-items: start | end | center | stretch;     /* align items vertically */
+  place-items: center;                             /* shorthand: align justify */
+  justify-content: start | end | center | space-between | space-around | space-evenly;
+  align-content: start | end | center | stretch | space-between;
+
+Item properties:
+  grid-column: 1 / 3;        /* span from col line 1 to 3 */
+  grid-column: 1 / span 2;   /* start at col 1, span 2 */
+  grid-row: 1 / 3;
+  grid-area: header;          /* use named area from grid-template-areas */
+  grid-area: 1 / 1 / 3 / 4;  /* row-start / col-start / row-end / col-end */
+  justify-self: start | end | center | stretch;
+  align-self: start | end | center | stretch;
+  place-self: center;
+
+fr unit:
+  1fr = 1 fraction of available space after fixed widths removed
+  grid-template-columns: 200px 1fr 2fr;
+  → col1: 200px; col2: gets 1/3 of remaining; col3: gets 2/3 of remaining
+
+Implicit grid:
+  grid-auto-rows: minmax(100px, auto);    /* size of implicitly created rows */
+  grid-auto-columns: 1fr;
+  grid-auto-flow: row | column | dense;  /* dense: fill holes"
+}
+
+fn s_cg_flexbox() -> &'static str {
+    "CSS Flexbox Reference
+Container properties:
+  display: flex;
+  flex-direction: row | row-reverse | column | column-reverse;
+  flex-wrap: nowrap | wrap | wrap-reverse;
+  flex-flow: row wrap;          /* shorthand for direction + wrap */
+  justify-content: flex-start | flex-end | center | space-between | space-around | space-evenly;
+  align-items: stretch | flex-start | flex-end | center | baseline;
+  align-content: flex-start | flex-end | center | stretch | space-between | space-around;
+                /* multi-line alignment (when flex-wrap: wrap) */
+  gap: 16px;
+  row-gap: 16px;
+  column-gap: 16px;
+
+Item properties:
+  flex-grow: 0;    /* factor for growing (0 = don't grow) */
+  flex-shrink: 1;  /* factor for shrinking (0 = don't shrink) */
+  flex-basis: auto | 200px | 30%;   /* initial main size */
+  flex: 1;         /* shorthand: flex-grow: 1; flex-shrink: 1; flex-basis: 0% */
+  flex: 1 1 200px; /* grow shrink basis */
+  flex: none;      /* flex: 0 0 auto (no grow/shrink) */
+  align-self: auto | stretch | flex-start | flex-end | center | baseline;
+  order: 0;        /* visual order; negative = before default */
+  min-width: 0;    /* critical: prevents overflow when flex-basis: 0 */
+
+Common patterns:
+  /* Centering */
+  display: flex; justify-content: center; align-items: center;
+
+  /* Equal columns */
+  .item { flex: 1; }
+
+  /* Sidebar + main */
+  .sidebar { flex: 0 0 240px; }
+  .main { flex: 1 1 auto; min-width: 0; }
+
+  /* Push last item to end */
+  .last { margin-left: auto; }
+
+  /* Vertical centering in column */
+  flex-direction: column; justify-content: center;
+
+  /* Responsive nav */
+  @media (max-width: 600px) { flex-direction: column; }"
+}
+
+fn s_cg_layouts() -> &'static str {
+    "CSS Layout Patterns
+Holy grail layout (header, sidebar, main, aside, footer):
+  .page {
+    display: grid;
+    grid-template:
+      'header header header' auto
+      'sidebar main aside' 1fr
+      'footer footer footer' auto
+      / 200px 1fr 200px;
+    min-height: 100vh;
+  }
+  .header { grid-area: header; }
+  .sidebar { grid-area: sidebar; }
+  .main { grid-area: main; }
+  .aside { grid-area: aside; }
+  .footer { grid-area: footer; }
+
+Responsive card grid:
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 24px;
+  }
+  /* auto-fit: remove empty columns when fewer items */
+  /* auto-fill: keep empty column tracks (good for animations) */
+
+Masonry-like grid:
+  .masonry {
+    columns: 3;           /* CSS columns (not grid) */
+    column-gap: 16px;
+  }
+  .item { break-inside: avoid; margin-bottom: 16px; }
+  /* True masonry: grid-template-rows: masonry (experimental, Firefox only) */
+
+Sticky sidebar:
+  .layout { display: grid; grid-template-columns: 1fr 300px; align-items: start; }
+  .sidebar { position: sticky; top: 16px; }
+
+Full-page hero with centered content:
+  .hero {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100svh;  /* svh = small viewport height (mobile-safe) */
+  }
+
+CSS subgrid (align nested items to parent grid):
+  .card-grid { display: grid; grid-template-columns: repeat(3, 1fr); }
+  .card { display: grid; grid-row: span 3; grid-template-rows: subgrid; }
+  /* All cards' internal rows align with parent grid lines */
+
+Container queries (responsive components):
+  .card-container { container-type: inline-size; }
+  @container (min-width: 400px) {
+    .card { flex-direction: row; }
+  }
+
+Aspect ratio:
+  .video-wrapper { aspect-ratio: 16 / 9; width: 100%; }
+  .square { aspect-ratio: 1; }"
+}
+
+fn s_cg_responsive() -> &'static str {
+    "Responsive Design Patterns
+Breakpoint strategy:
+  /* Mobile-first (recommended) */
+  .element { font-size: 16px; }          /* base/mobile */
+  @media (min-width: 600px) { ... }      /* sm: tablet */
+  @media (min-width: 900px) { ... }      /* md: desktop */
+  @media (min-width: 1200px) { ... }     /* lg: wide */
+  @media (min-width: 1800px) { ... }     /* xl: ultrawide */
+
+Common breakpoints:
+  Tailwind: sm=640, md=768, lg=1024, xl=1280, 2xl=1536
+  Bootstrap: sm=576, md=768, lg=992, xl=1200, xxl=1400
+  Material UI: xs<600, sm≥600, md≥900, lg≥1200, xl≥1536
+
+Fluid typography (clamp):
+  font-size: clamp(1rem, 2.5vw, 2rem);
+  /* min: 1rem, preferred: 2.5vw, max: 2rem */
+  /* Scales smoothly between breakpoints */
+
+  h1 { font-size: clamp(1.5rem, 5vw + 1rem, 4rem); }
+
+Fluid spacing:
+  padding: clamp(1rem, 5%, 3rem);
+
+Viewport units:
+  vw   1% of viewport width
+  vh   1% of viewport height
+  svh  small viewport height (excludes mobile browser chrome)
+  dvh  dynamic viewport height (adapts to browser chrome)
+  lvh  large viewport height (with chrome hidden)
+  vmin min(vw, vh)
+  vmax max(vw, vh)
+
+Responsive images:
+  <img sizes=\"(max-width: 600px) 100vw, (max-width: 1200px) 50vw, 33vw\"
+       srcset=\"img-sm.webp 400w, img-md.webp 800w, img-lg.webp 1200w\"
+       src=\"img-md.webp\" alt=\"...\">
+
+Touch targets (WCAG 2.5.5):
+  min-height: 44px; min-width: 44px;  /* iOS HIG */
+  /* or Material: 48x48dp */
+
+Print styles:
+  @media print {
+    nav, .ads { display: none; }
+    a[href]::after { content: ' (' attr(href) ')'; }
+    body { font-size: 12pt; }
+  }"
+}
+
+fn s_cg_tricks() -> &'static str {
+    "CSS Layout Tricks & Modern Features
+Logical properties (writing-mode aware):
+  margin-inline: auto;        /* margin-left + margin-right */
+  margin-block: 16px;         /* margin-top + margin-bottom */
+  padding-inline-start: 16px; /* padding-left in LTR, right in RTL */
+  border-inline-end: 1px solid;
+  inset: 0;                   /* top: 0; right: 0; bottom: 0; left: 0 */
+  inset-inline: 16px;         /* left + right */
+
+Modern selectors:
+  :is(h1, h2, h3) { ... }    /* matches any of the selectors */
+  :not(.active)               /* negation */
+  :has(img) { ... }           /* parent has img child (CSS4; 2023 support) */
+  :where(.class) { ... }      /* like :is() but zero specificity */
+  p + p { }                   /* adjacent sibling */
+  p ~ p { }                   /* general sibling */
+
+CSS custom properties (variables):
+  :root { --color-brand: #2196F3; --spacing-md: 16px; }
+  .button { background: var(--color-brand); padding: var(--spacing-md); }
+  /* With fallback: */ color: var(--missing, black);
+
+Scroll snap:
+  .container { scroll-snap-type: x mandatory; overflow-x: scroll; display: flex; }
+  .slide { scroll-snap-align: start; flex: 0 0 100%; }
+
+Sticky headers with z-index:
+  header { position: sticky; top: 0; z-index: 100; background: white; }
+
+CSS animations:
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .element { animation: fadeIn 0.3s ease-out; }
+  /* Performance: only animate transform and opacity (compositor-only) */
+
+Grid auto-placement with dense:
+  .gallery {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    grid-auto-flow: dense;
+  }
+  .tall { grid-row: span 2; }  /* dense fills gaps left by tall items */
+
+Truncate text:
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+
+Multi-line clamp:
+  display: -webkit-box; -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3; overflow: hidden;"
+}
+
+type CssGridSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+const CSS_GRID_SECTIONS: &[CssGridSection] = &[
+    (
+        "grid",
+        &[
+            "css-grid",
+            "grid-template",
+            "grid-columns",
+            "grid-rows",
+            "grid-areas",
+            "grid-gap",
+            "fr-unit",
+            "auto-fit",
+            "auto-fill",
+            "implicit-grid",
+            "grid-area",
+            "grid-placement",
+        ],
+        s_cg_grid,
+    ),
+    (
+        "flexbox",
+        &[
+            "css-flexbox",
+            "flex-container",
+            "flex-item",
+            "justify-content",
+            "align-items",
+            "flex-grow",
+            "flex-shrink",
+            "flex-basis",
+            "flex-wrap",
+            "align-self",
+            "flex-direction",
+            "flexbox-patterns",
+        ],
+        s_cg_flexbox,
+    ),
+    (
+        "layouts",
+        &[
+            "css-layouts",
+            "holy-grail",
+            "card-grid",
+            "masonry",
+            "sticky-sidebar",
+            "hero-layout",
+            "subgrid",
+            "container-queries",
+            "aspect-ratio",
+            "css-patterns",
+        ],
+        s_cg_layouts,
+    ),
+    (
+        "responsive",
+        &[
+            "responsive-design",
+            "breakpoints",
+            "media-queries",
+            "fluid-typography",
+            "clamp",
+            "viewport-units",
+            "svh-dvh",
+            "responsive-images",
+            "touch-targets",
+            "print-styles",
+            "mobile-first",
+        ],
+        s_cg_responsive,
+    ),
+    (
+        "tricks",
+        &[
+            "css-tricks",
+            "logical-properties",
+            "css-variables",
+            "custom-properties",
+            "scroll-snap",
+            "css-animations",
+            "keyframes",
+            "css-selectors",
+            "css-has",
+            "text-overflow",
+            "multi-line-clamp",
+            "grid-dense",
+        ],
+        s_cg_tricks,
+    ),
+];
+
+pub fn css_grid_calc(query: &str) -> String {
+    let q = query.trim().to_lowercase();
+    if q.is_empty() || q == "list" || q == "help" {
+        let topics: Vec<&str> = CSS_GRID_SECTIONS.iter().map(|(n, _, _)| *n).collect();
+        return format!(
+            "css-grid topics: {}\nUse: --css-grid <topic>  or  --css-grid all",
+            topics.join(", ")
+        );
+    }
+    if q == "all" {
+        return CSS_GRID_SECTIONS
+            .iter()
+            .map(|(n, _, f)| format!("── {} ──\n{}", n, f()))
+            .collect::<Vec<_>>()
+            .join("\n\n");
+    }
+    for (name, aliases, func) in CSS_GRID_SECTIONS {
+        if q == *name || aliases.iter().any(|a| q == *a || q.contains(a)) {
+            return func().to_string();
+        }
+    }
+    format!(
+        "Unknown css-grid topic: '{}'\nAvailable: {}",
+        query.trim(),
+        CSS_GRID_SECTIONS
+            .iter()
+            .map(|(n, _, _)| *n)
+            .collect::<Vec<_>>()
+            .join(", ")
+    )
+}
+
+// ── cloud-cost ────────────────────────────────────────────────────────────────
+
+fn s_cc_aws() -> &'static str {
+    "AWS Cost Optimization
+Savings Plans vs Reserved Instances:
+  Savings Plans (recommended):
+    Compute SP: any instance family/region/OS — most flexible
+    EC2 SP: specific family+region — up to 72% off On-Demand
+    SageMaker SP: ML workloads
+    Commitment: 1 or 3 year, hourly $$ amount
+    No capacity reservation (unlike Reserved Instances)
+  Reserved Instances:
+    Standard RI: 72% discount; specific instance type/AZ
+    Convertible RI: 54% discount; can change family/OS/tenancy
+    Scheduled RI: specific time windows; deprecated in most regions
+    Zonal RI: capacity reservation; regional RI: flexible, no reservation
+
+Spot Instances:
+  Up to 90% off On-Demand; can be interrupted with 2-min notice
+  Use for: batch jobs, CI runners, fault-tolerant stateless workloads
+  Spot Fleet: request mix of instance types; auto-replace interrupted
+  EC2 Auto Scaling: set spot mix % alongside On-Demand
+  AWS Batch: managed spot integration
+
+Rightsizing:
+  AWS Compute Optimizer: ML-driven rightsizing recs (EC2, ECS, Lambda, EBS)
+  Trusted Advisor: cost optimization checks
+  CloudWatch: CPU util < 20% for 4 weeks → downsize
+  T-series (burstable): t3/t4g good for spiky dev workloads
+  Graviton: arm64; 20% cheaper + better perf for many workloads
+
+Storage cost reduction:
+  S3 Intelligent-Tiering: auto move between frequent/infrequent/archive
+  S3 Lifecycle policies: transition after N days (e.g. 30d → IA, 90d → Glacier)
+  EBS: gp2 → gp3 migration (same performance, 20% cheaper; free baseline IOPs)
+  EBS snapshots: incremental; delete old snapshots; use Data Lifecycle Manager
+  Delete unattached EBS volumes (common waste)
+
+Networking:
+  Data transfer OUT to internet: most expensive; $0.09/GB in us-east-1
+  Same AZ traffic: free
+  Cross-AZ traffic: $0.01/GB each direction
+  CloudFront: cache at edge; reduces origin data transfer cost
+  VPC Endpoints (Gateway): free S3/DynamoDB access without NAT Gateway cost
+  NAT Gateway: $0.045/GB processed — expensive for heavy traffic; consider VPC endpoints
+
+Cost monitoring:
+  AWS Budgets: alert when cost > threshold; hourly/daily/monthly
+  Cost Explorer: trend analysis; RI/SP utilization; anomaly detection
+  Cost Anomaly Detection: ML-based; alerts on unusual spend
+  Resource tagging: tag all resources with project/env/team; Cost Allocation Tags"
+}
+
+fn s_cc_gcp() -> &'static str {
+    "GCP Cost Optimization
+Committed Use Discounts (CUD):
+  Resource-based CUD: commit to specific vCPU/memory (1 or 3 year)
+    Compute-optimized: up to 57% off
+    General-purpose: up to 57% off
+  Spend-based CUD: commit to minimum monthly $ in Cloud SQL or GKE
+  No upfront payment required; invoiced monthly
+
+Sustained Use Discounts (SUD):
+  Automatic: runs > 25% of month → incremental discount
+  Max: ~30% at 100% of month (on eligible resources: N-series VMs)
+  No commitment; applies to Compute Engine, GKE worker nodes
+  Not combinable with CUD on same resource
+
+Preemptible VMs / Spot VMs:
+  Preemptible: 60-91% off; max 24h runtime; may be preempted
+  Spot VM (successor): no max runtime; variable pricing; may be preempted
+  Good for: batch processing, fault-tolerant workloads, CI
+
+Rightsizing:
+  Cloud Recommender: automated recommendations for idle/underutilized VMs
+  VM machine series: E2 (cost-optimized, shared-core), N2 (balanced), C3 (compute)
+  Confidential VMs: only enable when needed (40% cost increase)
+  Custom machine types: exact vCPU/memory needed
+
+Storage:
+  Cloud Storage classes: Standard → Nearline (30-day min) → Coldline (90-day min) → Archive (1-year min)
+  Autoclass: automatic class management based on access patterns
+  Lifecycle policies: transition/delete objects after N days
+  Regional vs multi-regional: 2x cheaper for regional; use multi-regional for global access
+
+BigQuery:
+  On-demand: $6.25/TB scanned — partition tables, cluster by query columns
+  Reservations (flat-rate): committed slot hours; better for heavy workloads
+  BI Engine: in-memory analysis; avoids repeated scan costs
+  TABLE_DATE_RANGE → use partition filters to avoid full table scans
+
+Cost visibility:
+  Cloud Billing Budgets + alerts
+  Billing data export to BigQuery → custom dashboards in Looker Studio
+  Recommender Hub: central view of all cost recommendations"
+}
+
+fn s_cc_azure() -> &'static str {
+    "Azure Cost Optimization
+Reserved Instances (Azure Reservations):
+  1 or 3 year commitment; up to 72% off pay-as-you-go
+  Applies to: VMs, SQL Database, Cosmos DB, Redis, App Service, etc.
+  Scope: shared (all subs in billing account) or single subscription
+  Instance size flexibility: B/D/E series automatically cover similar sizes
+  Exchange or cancel with penalty (before buy check cancellation policy)
+
+Azure Hybrid Benefit:
+  Bring existing Windows Server licenses → up to 40% off
+  Bring SQL Server licenses → up to 55% off
+  Combine with Reserved Instances for maximum savings (up to 80%)
+  Azure DevTest pricing: dev/test non-production VMs
+
+Spot VMs:
+  Up to 90% off; evicted when Azure needs capacity
+  Good for: batch workloads, dev/test, stateless apps
+  Azure Spot VMs in VMSS (Virtual Machine Scale Sets)
+
+Rightsizing:
+  Azure Advisor: recommendations for underutilized VMs (<5% CPU avg over 14 days)
+  Autoscale: VMSS, App Service plan auto-scale
+  Azure Monitor: CPU/memory metrics for rightsizing decisions
+  B-series VMs: burstable; good for intermittent workloads
+
+Storage:
+  Blob storage tiers: Hot → Cool (30-day min) → Cold (90-day) → Archive (180-day)
+  Lifecycle Management: auto-tier or delete blobs by age/last-access
+  Managed Disks: delete unattached disks; downgrade P30 to P20 for dev
+  Azure Files: Standard (HDD) vs Premium (SSD); use Standard for backup/archive
+
+Networking:
+  Outbound data: first 100GB/month free; then $0.087/GB (West Europe)
+  Cross-region traffic: charged; use traffic routing to minimize
+  Private Endpoints: keep traffic on Microsoft backbone; avoid internet egress
+  Azure Front Door / CDN: cache static assets; reduce origin egress
+
+Cost management:
+  Azure Cost Management + Billing: budgets, alerts, cost analysis
+  Cost allocation tags: enforce via Azure Policy
+  Dev/Test subscriptions: significant discounts for dev workloads
+  Azure Reservations: export utilization report to find unused reservations"
+}
+
+fn s_cc_finops() -> &'static str {
+    "FinOps Principles & Multi-Cloud Cost Strategy
+FinOps Foundation framework:
+  Inform → Optimize → Operate (continuous cycle)
+  Inform: visibility into who spends what
+  Optimize: eliminate waste, right-size, commit
+  Operate: policies, culture, continuous improvement
+
+Unit economics:
+  Cost per transaction: total cloud cost / transactions processed
+  Cost per customer: cloud cost / active customers
+  Cost per feature: tag resources to feature; track over time
+  Alert when cost-per-unit spikes → efficiency regression
+
+Tagging strategy:
+  Required tags: project, environment, team, cost-center, owner
+  Enforce with: AWS SCPs/Config, GCP Organization Policy, Azure Policy
+  Cost allocation tags: propagate to billing reports
+  Untagged budget: allocate % of untagged to teams proportionally
+
+Waste identification:
+  Idle resources: EC2/VMs with <5% CPU for 2+ weeks
+  Orphaned resources: unattached EBS/managed disks, unused EIPs/IPs
+  Oversized: p90 CPU < 20%; downsize to next smaller family
+  Dev environments left running: enforce auto-shutdown (e.g. 8pm shutdown policy)
+  Old snapshots: >90 days without access, no lifecycle policy
+  Unused data transfer: large cross-AZ or internet egress with no CDN
+
+Commitment coverage targets:
+  80% of steady-state workloads covered by savings plans/reservations
+  Reserve at p50 usage; On-Demand for burst above p50
+  Review quarterly; adjust if utilization drops below 80%
+
+Kubernetes cost optimization:
+  Cluster right-sizing: Kubernetes resource requests vs actual usage
+  Tools: Kubecost, OpenCost, CAST AI, Spot by NetApp
+  Node auto-provisioning: Karpenter (AWS), GKE Autopilot
+  Namespace cost allocation: chargeback to teams
+  Bin packing: pack more pods per node (request accuracy critical)
+
+Architecture for cost:
+  Serverless where possible: Lambda, Cloud Functions, Cloud Run — pay per use
+  Managed services vs self-hosted: factor ops cost (engineering time is expensive)
+  Event-driven over always-on: reduce idle compute
+  Caching: ElastiCache/Memorystore reduces expensive DB queries
+  CDN for static: S3+CloudFront or GCS+Cloud CDN; eliminates compute costs"
+}
+
+fn s_cc_tools() -> &'static str {
+    "Cloud Cost Tooling & Automation
+AWS native:
+  aws ce get-cost-and-usage --time-period Start=2024-01-01,End=2024-02-01 \
+    --granularity MONTHLY --metrics BlendedCost AmortizedCost
+  aws ce get-rightsizing-recommendation --service AmazonEC2
+  aws compute-optimizer get-ec2-instance-recommendations
+  aws budgets describe-budgets --account-id 123456789012
+  aws savingsplans describe-savings-plans-utilization-details
+
+Infracost (IaC cost estimation):
+  infracost breakdown --path .           # Terraform cost breakdown
+  infracost diff --path .                # cost change of plan
+  infracost comment github ...           # PR comment with cost diff
+  Integrates: Terraform, Terragrunt, Pulumi, Crossplane
+
+OpenCost / Kubecost (Kubernetes):
+  kubectl port-forward -n kubecost svc/kubecost-cost-analyzer 9090
+  # Dashboard: namespace, deployment, pod cost breakdown
+  opencost allocation --window 7d        # last 7 days cost by namespace
+
+Cloud Custodian (policy-as-code):
+  # Delete unattached EBS volumes older than 7 days:
+  policies:
+    - name: ebs-unattached-delete
+      resource: ebs
+      filters:
+        - State: available
+        - type: age
+          days: 7
+      actions:
+        - delete
+  custodian run -s output/ policy.yml
+
+Terraform cost estimation:
+  # In CI: infracost diff compares plan to baseline
+  # Atlantis integration: automatic cost comment on PR
+  # Spacelift, env0: built-in cost estimation on plan
+
+Anomaly detection:
+  AWS Cost Anomaly Detection: auto-creates monitors; SNS alerts
+  GCP: Billing alerts + BigQuery export + Looker Studio anomaly chart
+  Azure: Cost Management anomaly detection (preview)
+  Open-source: Anodot, CloudHealth by VMware, Cloudability
+
+Showback/chargeback:
+  AWS: Cost Allocation Tags + Cost Explorer by tag
+  GCP: Labels + BigQuery billing export + project-per-team
+  Azure: Management Groups + Cost Management scope per team
+  Tools: Apptio Cloudability, CloudHealth, Spot.io"
+}
+
+type CloudCostSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+const CLOUD_COST_SECTIONS: &[CloudCostSection] = &[
+    (
+        "aws",
+        &[
+            "aws-cost",
+            "aws-savings-plans",
+            "aws-reserved-instances",
+            "spot-instances",
+            "aws-rightsizing",
+            "s3-cost",
+            "ebs-cost",
+            "aws-data-transfer",
+            "aws-graviton",
+            "compute-optimizer",
+            "aws-budgets",
+        ],
+        s_cc_aws,
+    ),
+    (
+        "gcp",
+        &[
+            "gcp-cost",
+            "gcp-cud",
+            "gcp-sustained-use",
+            "preemptible-vms",
+            "gcp-spot",
+            "gcp-rightsizing",
+            "cloud-storage-cost",
+            "bigquery-cost",
+            "gcp-reservations",
+            "gcp-recommender",
+            "gcp-billing",
+        ],
+        s_cc_gcp,
+    ),
+    (
+        "azure",
+        &[
+            "azure-cost",
+            "azure-reservations",
+            "azure-hybrid-benefit",
+            "azure-spot",
+            "azure-rightsizing",
+            "azure-blob-tiers",
+            "azure-networking-cost",
+            "azure-advisor",
+            "azure-hybrid",
+            "azure-devtest",
+            "azure-budgets",
+        ],
+        s_cc_azure,
+    ),
+    (
+        "finops",
+        &[
+            "cloud-cost-strategy",
+            "finops",
+            "unit-economics",
+            "tagging-strategy",
+            "cost-allocation-tags",
+            "waste-identification",
+            "idle-resources",
+            "commitment-coverage",
+            "kubernetes-cost",
+            "cost-architecture",
+        ],
+        s_cc_finops,
+    ),
+    (
+        "tools",
+        &[
+            "cost-tools",
+            "infracost",
+            "kubecost",
+            "opencost",
+            "cloud-custodian",
+            "cost-anomaly",
+            "showback-chargeback",
+            "cost-estimation",
+            "cost-automation",
+            "cost-monitoring",
+            "aws-ce",
+        ],
+        s_cc_tools,
+    ),
+];
+
+pub fn cloud_cost_calc(query: &str) -> String {
+    let q = query.trim().to_lowercase();
+    if q.is_empty() || q == "list" || q == "help" {
+        let topics: Vec<&str> = CLOUD_COST_SECTIONS.iter().map(|(n, _, _)| *n).collect();
+        return format!(
+            "cloud-cost topics: {}\nUse: --cloud-cost <topic>  or  --cloud-cost all",
+            topics.join(", ")
+        );
+    }
+    if q == "all" {
+        return CLOUD_COST_SECTIONS
+            .iter()
+            .map(|(n, _, f)| format!("── {} ──\n{}", n, f()))
+            .collect::<Vec<_>>()
+            .join("\n\n");
+    }
+    for (name, aliases, func) in CLOUD_COST_SECTIONS {
+        if q == *name || aliases.iter().any(|a| q == *a || q.contains(a)) {
+            return func().to_string();
+        }
+    }
+    format!(
+        "Unknown cloud-cost topic: '{}'\nAvailable: {}",
+        query.trim(),
+        CLOUD_COST_SECTIONS
+            .iter()
+            .map(|(n, _, _)| *n)
+            .collect::<Vec<_>>()
+            .join(", ")
+    )
+}

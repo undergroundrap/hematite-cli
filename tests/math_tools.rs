@@ -5,35 +5,35 @@
 use hematite::tools::math_util::{
     accessibility_calc, algo_ref_calc, ansible_calc, api_design_calc, api_gateway_calc,
     api_versioning_calc, ascii_calc, ascii_table_calc, auth_ref_calc, awk_calc, bash_adv_calc,
-    bash_ref_calc, bitwise_calc, browser_dev_calc, caching_ref_calc, case_calc, chars_calc,
-    checksum_calc, chemistry_calc, chmod_calc, cicd_ref_calc, cipher_calc, cloud_native_calc,
-    cloud_ref_calc, color_calc, color_names_calc, combinatorics_calc, compiler_ref_calc,
-    complex_calc, concurrency_ref_calc, container_ref_calc, cron_calc, crypto_adv_calc,
-    crypto_ref_calc, css_ref_calc, csv_calc, curl_calc, data_formats_calc, data_pipeline_calc,
-    database_adv_calc, datetime_calc, db_design_calc, db_migrations_calc, design_patterns_calc,
-    devops_ref_calc, diff_calc, docker_adv_calc, docker_compose_calc, docker_ref_calc,
-    duration_calc, electrical_calc, encode_calc, escape_calc, event_driven_calc, find_calc,
-    fraction_calc, geometry_calc, git_adv_calc, git_internals_calc, git_ref_calc, gitignore_calc,
-    go_ref_calc, grep_calc, grpc_ref_calc, hash_calc, headers_calc, health_calc, http_adv_calc,
-    http_calc, http_headers_calc, http_security_calc, http_status_calc, id_gen_calc, ip_calc,
-    jinja_calc, jq_calc, js_ref_calc, json_calc, json_path_calc, jwt_calc, k8s_ref_calc,
-    k8s_security_calc, kbd_calc, kubectl_calc, license_calc, linux_adv_calc, linux_kernel_calc,
-    linux_perf_calc, linux_sys_calc, load_testing_calc, lorem_calc, make_calc, makefile_calc,
-    markdown_calc, matrix_calc, message_queue_calc, mime_calc, ml_ref_calc, monitoring_ref_calc,
-    net_calc, network_ref_calc, networking_adv_calc, nginx_calc, npm_calc, number_format,
-    number_theory_calc, oauth_ref_calc, observability_adv_calc, observability_calc, oop_ref_calc,
-    openssl_calc, percent_calc, perf_ref_calc, physics_calc, port_calc, postgres_calc, prob_calc,
+    bash_ref_calc, bitwise_calc, browser_dev_calc, caching_ref_calc, case_calc,
+    chars_calc, checksum_calc, chemistry_calc, chmod_calc, cicd_ref_calc, cipher_calc,
+    cloud_cost_calc, cloud_native_calc, cloud_ref_calc, color_calc, color_names_calc,
+    combinatorics_calc, compiler_ref_calc, complex_calc, concurrency_ref_calc, container_ref_calc,
+    cron_calc, crypto_adv_calc, crypto_ref_calc, css_grid_calc, css_ref_calc,
+    csv_calc, curl_calc, data_formats_calc, data_pipeline_calc, database_adv_calc, datetime_calc,
+    db_design_calc, db_migrations_calc, design_patterns_calc, devops_ref_calc, diff_calc,
+    docker_adv_calc, docker_compose_calc, docker_ref_calc, duration_calc, electrical_calc,
+    encode_calc, escape_calc, event_driven_calc, find_calc, fraction_calc, geometry_calc,
+    git_adv_calc, git_internals_calc, git_ref_calc, gitignore_calc, go_ref_calc, grep_calc,
+    grpc_ref_calc, hash_calc, headers_calc, health_calc, http_adv_calc, http_calc,
+    http_headers_calc, http_security_calc, http_status_calc, id_gen_calc, ip_calc, jinja_calc,
+    jq_calc, js_ref_calc, json_calc, json_path_calc, jwt_calc, k8s_ref_calc, k8s_security_calc,
+    kbd_calc, kubectl_calc, license_calc, linux_adv_calc, linux_kernel_calc, linux_perf_calc,
+    linux_sys_calc, load_testing_calc, lorem_calc, make_calc, makefile_calc, markdown_calc,
+    matrix_calc, message_queue_calc, mime_calc, ml_ref_calc, monitoring_ref_calc, net_calc,
+    network_ref_calc, networking_adv_calc, nginx_calc, npm_calc, number_format, number_theory_calc,
+    oauth_ref_calc, observability_adv_calc, observability_calc, oop_ref_calc, openssl_calc,
+    percent_calc, perf_ref_calc, physics_calc, port_calc, postgres_calc, prob_calc,
     protocols_ref_calc, python_data_calc, python_ref_calc, regex_adv_calc, regex_calc,
-    regex_engine_calc, regex_patterns_calc, regex_ref_calc, regex_test_calc, roman_calc,
-    rust_adv_calc, rust_async_calc, rust_patterns_calc, rust_ref_calc, search_ref_calc,
-    security_ref_calc, security_scan_calc, security_tools_calc, sed_calc, semver_calc,
-    service_mesh_calc, set_calc, sort_viz, spark_calc, sql_adv_calc, sql_fmt_calc, sql_ref_calc,
-    sql_tuning_calc, ssh_ref_calc, ssl_calc, stats_calc, string_dist, systemd_adv_calc,
-    systemd_calc, table_calc, tar_calc, template_calc, terminal_tools_calc, terraform_adv_calc,
-    terraform_calc, testing_ref_calc, text_stats, timestamp_calc, tmux_calc, toml_calc, trig_calc,
-    ts_ref_calc, typescript_adv_calc, tz_calc, unicode_ref_calc, url_calc, uuid_calc,
-    validate_calc, vim_adv_calc, vim_calc, wasm_ref_calc, wasm_runtime_calc, web_perf_calc,
-    xml_calc, yaml_calc,
+    regex_engine_calc, regex_patterns_calc, regex_ref_calc, regex_test_calc, regex_viz_calc,
+    roman_calc, rust_adv_calc, rust_async_calc, rust_patterns_calc, rust_ref_calc,
+    search_ref_calc, security_ref_calc, security_scan_calc, security_tools_calc, sed_calc, semver_calc, service_mesh_calc, set_calc, sort_viz, spark_calc,
+    sql_adv_calc, sql_fmt_calc, sql_ref_calc, sql_tuning_calc, sql_window_calc, ssh_ref_calc,
+    ssl_calc, stats_calc, string_dist, systemd_adv_calc, systemd_calc, table_calc, tar_calc,
+    template_calc, terminal_tools_calc, terraform_adv_calc, terraform_calc, testing_ref_calc,
+    text_stats, timestamp_calc, tmux_calc, toml_calc, trig_calc, ts_ref_calc, typescript_adv_calc,
+    tz_calc, unicode_ref_calc, url_calc, uuid_calc, validate_calc, vim_adv_calc, vim_calc,
+    wasm_ref_calc, wasm_runtime_calc, web_perf_calc, xml_calc, yaml_calc,
 };
 
 // ─── Cipher tests ────────────────────────────────────────────────────────────
@@ -28222,4 +28222,1313 @@ fn test_browser_dev_no_panic_uppercase() {
     let out = browser_dev_calc("DEVTOOLS");
     assert!(!out.is_empty());
     assert!(out.contains("DevTools") || out.contains("Network") || out.contains("Lighthouse"));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Wave 40 tests: --regex-viz, --sql-window, --css-grid, --cloud-cost
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ─── regex_viz_calc ──────────────────────────────────────────────────────────
+
+#[test]
+fn test_regex_viz_list() {
+    let out = regex_viz_calc("list");
+    assert!(out.contains("regex-viz topics"));
+    assert!(out.contains("syntax"));
+    assert!(out.contains("common"));
+}
+
+#[test]
+fn test_regex_viz_help() {
+    let out = regex_viz_calc("help");
+    assert!(out.contains("regex-viz topics"));
+}
+
+#[test]
+fn test_regex_viz_empty() {
+    let out = regex_viz_calc("");
+    assert!(out.contains("regex-viz topics"));
+}
+
+#[test]
+fn test_regex_viz_all_contains_sections() {
+    let out = regex_viz_calc("all");
+    assert!(out.contains("── syntax ──"));
+    assert!(out.contains("── breakdown ──"));
+    assert!(out.contains("── lookahead ──"));
+    assert!(out.contains("── performance ──"));
+    assert!(out.contains("── common ──"));
+}
+
+#[test]
+fn test_regex_viz_syntax_topic() {
+    let out = regex_viz_calc("syntax");
+    assert!(out.contains("\\w") || out.contains("\\d") || out.contains("Character classes"));
+}
+
+#[test]
+fn test_regex_viz_syntax_character_classes() {
+    let out = regex_viz_calc("character-classes");
+    assert!(out.contains("[abc]") || out.contains("character"));
+}
+
+#[test]
+fn test_regex_viz_syntax_quantifiers() {
+    let out = regex_viz_calc("quantifiers");
+    assert!(out.contains("Quantifiers") || out.contains("{n,m}") || out.contains("greedy"));
+}
+
+#[test]
+fn test_regex_viz_syntax_anchors() {
+    let out = regex_viz_calc("anchors");
+    assert!(out.contains("Anchors") || out.contains("^") || out.contains("\\b"));
+}
+
+#[test]
+fn test_regex_viz_syntax_flags() {
+    let out = regex_viz_calc("flags");
+    assert!(out.contains("case-insensitive") || out.contains("global") || out.contains("Flags"));
+}
+
+#[test]
+fn test_regex_viz_syntax_named_capture() {
+    let out = regex_viz_calc("named-capture");
+    assert!(out.contains("named capture") || out.contains("(?<") || out.contains("Named capture"));
+}
+
+#[test]
+fn test_regex_viz_syntax_word_boundary() {
+    let out = regex_viz_calc("word-boundary");
+    assert!(out.contains("\\b") || out.contains("word boundary"));
+}
+
+#[test]
+fn test_regex_viz_breakdown_topic() {
+    let out = regex_viz_calc("breakdown");
+    assert!(out.contains("Email") || out.contains("IPv4") || out.contains("Pattern Breakdown"));
+}
+
+#[test]
+fn test_regex_viz_breakdown_email() {
+    let out = regex_viz_calc("email-regex");
+    assert!(out.contains("Email") || out.contains("@") || out.contains("local part"));
+}
+
+#[test]
+fn test_regex_viz_breakdown_url() {
+    let out = regex_viz_calc("url-regex");
+    assert!(out.contains("URL") || out.contains("https") || out.contains("hostname"));
+}
+
+#[test]
+fn test_regex_viz_breakdown_ipv4() {
+    let out = regex_viz_calc("ipv4-regex");
+    assert!(out.contains("IPv4") || out.contains("octet") || out.contains("25[0-5]"));
+}
+
+#[test]
+fn test_regex_viz_breakdown_iso_date() {
+    let out = regex_viz_calc("iso-date-regex");
+    assert!(out.contains("ISO date") || out.contains("\\d{4}") || out.contains("year"));
+}
+
+#[test]
+fn test_regex_viz_breakdown_hex_color() {
+    let out = regex_viz_calc("hex-color-regex");
+    assert!(out.contains("Hex color") || out.contains("#") || out.contains("ffffff"));
+}
+
+#[test]
+fn test_regex_viz_breakdown_phone() {
+    let out = regex_viz_calc("phone-regex");
+    assert!(out.contains("Phone") || out.contains("area code") || out.contains("country code"));
+}
+
+#[test]
+fn test_regex_viz_breakdown_regex_examples() {
+    let out = regex_viz_calc("regex-examples");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_regex_viz_lookahead_topic() {
+    let out = regex_viz_calc("lookahead");
+    assert!(out.contains("Lookahead") || out.contains("(?=") || out.contains("lookahead"));
+}
+
+#[test]
+fn test_regex_viz_lookahead_lookbehind() {
+    let out = regex_viz_calc("lookbehind");
+    assert!(out.contains("Lookbehind") || out.contains("(?<=") || out.contains("lookbehind"));
+}
+
+#[test]
+fn test_regex_viz_lookahead_password() {
+    let out = regex_viz_calc("password-regex");
+    assert!(out.contains("Password") || out.contains("(?=.*[a-z])") || out.contains("strength"));
+}
+
+#[test]
+fn test_regex_viz_lookahead_named_captures() {
+    let out = regex_viz_calc("regex-lookahead");
+    assert!(out.contains("(?=") || out.contains("(?!") || out.contains("Lookahead"));
+}
+
+#[test]
+fn test_regex_viz_lookahead_backreference() {
+    let out = regex_viz_calc("backreference");
+    assert!(
+        out.contains("Backreference")
+            || out.contains("\\\\1")
+            || out.contains("backreference")
+            || out.contains("repeated word")
+    );
+}
+
+#[test]
+fn test_regex_viz_lookahead_unicode() {
+    let out = regex_viz_calc("unicode-regex");
+    assert!(out.contains("Unicode") || out.contains("\\\\p{") || out.contains("\\p{"));
+}
+
+#[test]
+fn test_regex_viz_performance_topic() {
+    let out = regex_viz_calc("performance");
+    assert!(
+        out.contains("performance") || out.contains("backtracking") || out.contains("Performance")
+    );
+}
+
+#[test]
+fn test_regex_viz_performance_catastrophic() {
+    let out = regex_viz_calc("catastrophic-backtracking");
+    assert!(out.contains("backtracking") || out.contains("exponential"));
+}
+
+#[test]
+fn test_regex_viz_performance_engine_types() {
+    let out = regex_viz_calc("nfa-dfa");
+    assert!(out.contains("NFA") || out.contains("DFA") || out.contains("RE2"));
+}
+
+#[test]
+fn test_regex_viz_performance_re2() {
+    let out = regex_viz_calc("re2-engine");
+    assert!(out.contains("RE2") || out.contains("linear") || out.contains("O(n)"));
+}
+
+#[test]
+fn test_regex_viz_performance_rust_regex() {
+    let out = regex_viz_calc("rust-regex");
+    assert!(out.contains("Rust") || out.contains("regex::Regex") || out.contains("regex crate"));
+}
+
+#[test]
+fn test_regex_viz_performance_possessive() {
+    let out = regex_viz_calc("possessive-quantifier");
+    assert!(out.contains("possessive") || out.contains("atomic") || out.contains("backtrack"));
+}
+
+#[test]
+fn test_regex_viz_common_topic() {
+    let out = regex_viz_calc("common");
+    assert!(out.contains("Email") || out.contains("UUID") || out.contains("Common Regex"));
+}
+
+#[test]
+fn test_regex_viz_common_library() {
+    let out = regex_viz_calc("regex-library");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_regex_viz_common_validation() {
+    let out = regex_viz_calc("validation-regex");
+    assert!(out.contains("Email") || out.contains("UUID") || out.contains("Validation"));
+}
+
+#[test]
+fn test_regex_viz_common_uuid() {
+    let out = regex_viz_calc("uuid-regex");
+    assert!(out.contains("UUID") || out.contains("[0-9a-f]{8}"));
+}
+
+#[test]
+fn test_regex_viz_common_log() {
+    let out = regex_viz_calc("log-regex");
+    assert!(
+        out.contains("Log")
+            || out.contains("ERROR")
+            || out.contains("WARN")
+            || out.contains("INFO")
+    );
+}
+
+#[test]
+fn test_regex_viz_common_code() {
+    let out = regex_viz_calc("code-regex");
+    assert!(out.contains("TODO") || out.contains("import") || out.contains("Code"));
+}
+
+#[test]
+fn test_regex_viz_unknown() {
+    let out = regex_viz_calc("nonexistent-xyz");
+    assert!(out.contains("Unknown") || out.contains("Available"));
+}
+
+#[test]
+fn test_regex_viz_no_panic_whitespace() {
+    let out = regex_viz_calc("  syntax  ");
+    assert!(!out.is_empty());
+    assert!(out.contains("\\w") || out.contains("\\d") || out.contains("Character"));
+}
+
+#[test]
+fn test_regex_viz_no_panic_uppercase() {
+    let out = regex_viz_calc("SYNTAX");
+    assert!(!out.is_empty());
+    assert!(
+        out.contains("\\w")
+            || out.contains("\\d")
+            || out.contains("character")
+            || out.contains("Character")
+    );
+}
+
+// ─── sql_window_calc ─────────────────────────────────────────────────────────
+
+#[test]
+fn test_sql_window_list() {
+    let out = sql_window_calc("list");
+    assert!(out.contains("sql-window topics"));
+    assert!(out.contains("basics"));
+    assert!(out.contains("ranking"));
+}
+
+#[test]
+fn test_sql_window_help() {
+    let out = sql_window_calc("help");
+    assert!(out.contains("sql-window topics"));
+}
+
+#[test]
+fn test_sql_window_empty() {
+    let out = sql_window_calc("");
+    assert!(out.contains("sql-window topics"));
+}
+
+#[test]
+fn test_sql_window_all_contains_sections() {
+    let out = sql_window_calc("all");
+    assert!(out.contains("── basics ──"));
+    assert!(out.contains("── ranking ──"));
+    assert!(out.contains("── offset ──"));
+    assert!(out.contains("── frames ──"));
+    assert!(out.contains("── practical ──"));
+}
+
+#[test]
+fn test_sql_window_basics_topic() {
+    let out = sql_window_calc("basics");
+    assert!(out.contains("OVER") || out.contains("PARTITION BY") || out.contains("Window"));
+}
+
+#[test]
+fn test_sql_window_basics_over_clause() {
+    let out = sql_window_calc("over-clause");
+    assert!(out.contains("OVER") || out.contains("window function"));
+}
+
+#[test]
+fn test_sql_window_basics_partition_by() {
+    let out = sql_window_calc("partition-by");
+    assert!(out.contains("PARTITION BY") || out.contains("partition"));
+}
+
+#[test]
+fn test_sql_window_basics_vs_aggregate() {
+    let out = sql_window_calc("window-vs-aggregate");
+    assert!(out.contains("aggregate") || out.contains("Aggregate") || out.contains("GROUP BY"));
+}
+
+#[test]
+fn test_sql_window_basics_running_total() {
+    let out = sql_window_calc("running-total");
+    assert!(out.contains("running") || out.contains("SUM") || out.contains("cumulative"));
+}
+
+#[test]
+fn test_sql_window_basics_syntax() {
+    let out = sql_window_calc("window-syntax");
+    assert!(out.contains("ROWS") || out.contains("RANGE") || out.contains("frame"));
+}
+
+#[test]
+fn test_sql_window_basics_filter() {
+    let out = sql_window_calc("window-filter");
+    assert!(
+        out.contains("WHERE")
+            || out.contains("subquery")
+            || out.contains("CTE")
+            || out.contains("filter")
+    );
+}
+
+#[test]
+fn test_sql_window_ranking_topic() {
+    let out = sql_window_calc("ranking");
+    assert!(out.contains("ROW_NUMBER") || out.contains("RANK") || out.contains("DENSE_RANK"));
+}
+
+#[test]
+fn test_sql_window_ranking_row_number() {
+    let out = sql_window_calc("row-number");
+    assert!(out.contains("ROW_NUMBER") || out.contains("row number"));
+}
+
+#[test]
+fn test_sql_window_ranking_rank() {
+    let out = sql_window_calc("rank");
+    assert!(out.contains("RANK") || out.contains("rank"));
+}
+
+#[test]
+fn test_sql_window_ranking_dense_rank() {
+    let out = sql_window_calc("dense-rank");
+    assert!(out.contains("DENSE_RANK") || out.contains("dense"));
+}
+
+#[test]
+fn test_sql_window_ranking_ntile() {
+    let out = sql_window_calc("ntile");
+    assert!(out.contains("NTILE") || out.contains("quartile") || out.contains("percentile"));
+}
+
+#[test]
+fn test_sql_window_ranking_percent_rank() {
+    let out = sql_window_calc("percent-rank");
+    assert!(out.contains("PERCENT_RANK") || out.contains("percent_rank"));
+}
+
+#[test]
+fn test_sql_window_ranking_cume_dist() {
+    let out = sql_window_calc("cume-dist");
+    assert!(out.contains("CUME_DIST") || out.contains("cumulative distribution"));
+}
+
+#[test]
+fn test_sql_window_ranking_top_n() {
+    let out = sql_window_calc("top-n-per-group");
+    assert!(out.contains("ROW_NUMBER") || out.contains("rn = 1") || out.contains("top"));
+}
+
+#[test]
+fn test_sql_window_ranking_paginate() {
+    let out = sql_window_calc("paginate-sql");
+    assert!(out.contains("ROW_NUMBER") || out.contains("page") || out.contains("BETWEEN"));
+}
+
+#[test]
+fn test_sql_window_ranking_dedup() {
+    let out = sql_window_calc("dedup-sql");
+    assert!(out.contains("ROW_NUMBER") || out.contains("dedup") || out.contains("duplicate"));
+}
+
+#[test]
+fn test_sql_window_offset_topic() {
+    let out = sql_window_calc("offset");
+    assert!(out.contains("LAG") || out.contains("LEAD") || out.contains("offset"));
+}
+
+#[test]
+fn test_sql_window_offset_lag() {
+    let out = sql_window_calc("lag-function");
+    assert!(out.contains("LAG") || out.contains("previous row"));
+}
+
+#[test]
+fn test_sql_window_offset_lead() {
+    let out = sql_window_calc("lead-function");
+    assert!(out.contains("LEAD") || out.contains("next row"));
+}
+
+#[test]
+fn test_sql_window_offset_first_value() {
+    let out = sql_window_calc("first-value");
+    assert!(out.contains("FIRST_VALUE") || out.contains("first value"));
+}
+
+#[test]
+fn test_sql_window_offset_last_value() {
+    let out = sql_window_calc("last-value");
+    assert!(
+        out.contains("LAST_VALUE")
+            || out.contains("last value")
+            || out.contains("UNBOUNDED FOLLOWING")
+    );
+}
+
+#[test]
+fn test_sql_window_offset_nth_value() {
+    let out = sql_window_calc("nth-value");
+    assert!(out.contains("NTH_VALUE") || out.contains("n-th") || out.contains("second highest"));
+}
+
+#[test]
+fn test_sql_window_offset_mom_change() {
+    let out = sql_window_calc("mom-change");
+    assert!(
+        out.contains("month")
+            || out.contains("LAG")
+            || out.contains("delta")
+            || out.contains("pct_change")
+    );
+}
+
+#[test]
+fn test_sql_window_offset_lag_lead() {
+    let out = sql_window_calc("lag-lead");
+    assert!(out.contains("LAG") && out.contains("LEAD"));
+}
+
+#[test]
+fn test_sql_window_frames_topic() {
+    let out = sql_window_calc("frames");
+    assert!(out.contains("ROWS BETWEEN") || out.contains("RANGE BETWEEN") || out.contains("frame"));
+}
+
+#[test]
+fn test_sql_window_frames_rows_between() {
+    let out = sql_window_calc("rows-between");
+    assert!(out.contains("ROWS BETWEEN") || out.contains("UNBOUNDED PRECEDING"));
+}
+
+#[test]
+fn test_sql_window_frames_range_between() {
+    let out = sql_window_calc("range-between");
+    assert!(out.contains("RANGE") || out.contains("range"));
+}
+
+#[test]
+fn test_sql_window_frames_unbounded_preceding() {
+    let out = sql_window_calc("unbounded-preceding");
+    assert!(out.contains("UNBOUNDED PRECEDING") || out.contains("unbounded"));
+}
+
+#[test]
+fn test_sql_window_frames_moving_average() {
+    let out = sql_window_calc("moving-average");
+    assert!(out.contains("moving") || out.contains("AVG") || out.contains("PRECEDING"));
+}
+
+#[test]
+fn test_sql_window_frames_7day_average() {
+    let out = sql_window_calc("7-day-average");
+    assert!(out.contains("7") || out.contains("moving") || out.contains("ROWS BETWEEN 6"));
+}
+
+#[test]
+fn test_sql_window_frames_cumulative_sum() {
+    let out = sql_window_calc("cumulative-sum");
+    assert!(
+        out.contains("cumulative") || out.contains("SUM") || out.contains("UNBOUNDED PRECEDING")
+    );
+}
+
+#[test]
+fn test_sql_window_frames_rows_vs_range() {
+    let out = sql_window_calc("rows-vs-range");
+    assert!(out.contains("ROWS") && out.contains("RANGE"));
+}
+
+#[test]
+fn test_sql_window_practical_topic() {
+    let out = sql_window_calc("practical");
+    assert!(
+        out.contains("gaps")
+            || out.contains("island")
+            || out.contains("session")
+            || out.contains("Practical")
+    );
+}
+
+#[test]
+fn test_sql_window_practical_gaps_islands() {
+    let out = sql_window_calc("gaps-islands");
+    assert!(out.contains("gaps") || out.contains("island") || out.contains("consecutive"));
+}
+
+#[test]
+fn test_sql_window_practical_sessionization() {
+    let out = sql_window_calc("sessionization");
+    assert!(out.contains("session") || out.contains("30 min") || out.contains("session_id"));
+}
+
+#[test]
+fn test_sql_window_practical_median() {
+    let out = sql_window_calc("median-sql");
+    assert!(out.contains("PERCENTILE_CONT") || out.contains("median") || out.contains("0.5"));
+}
+
+#[test]
+fn test_sql_window_practical_pivot() {
+    let out = sql_window_calc("sql-pivot");
+    assert!(out.contains("CASE WHEN") || out.contains("pivot") || out.contains("Pivot"));
+}
+
+#[test]
+fn test_sql_window_practical_performance() {
+    let out = sql_window_calc("window-performance");
+    assert!(
+        out.contains("index")
+            || out.contains("Index")
+            || out.contains("performance")
+            || out.contains("Performance")
+    );
+}
+
+#[test]
+fn test_sql_window_practical_consecutive_dates() {
+    let out = sql_window_calc("consecutive-dates");
+    assert!(out.contains("consecutive") || out.contains("ROW_NUMBER") || out.contains("date"));
+}
+
+#[test]
+fn test_sql_window_unknown() {
+    let out = sql_window_calc("nonexistent-xyz");
+    assert!(out.contains("Unknown") || out.contains("Available"));
+}
+
+#[test]
+fn test_sql_window_no_panic_whitespace() {
+    let out = sql_window_calc("  basics  ");
+    assert!(!out.is_empty());
+    assert!(out.contains("OVER") || out.contains("window"));
+}
+
+#[test]
+fn test_sql_window_no_panic_uppercase() {
+    let out = sql_window_calc("RANKING");
+    assert!(!out.is_empty());
+    assert!(out.contains("ROW_NUMBER") || out.contains("RANK") || out.contains("rank"));
+}
+
+// ─── css_grid_calc ───────────────────────────────────────────────────────────
+
+#[test]
+fn test_css_grid_list() {
+    let out = css_grid_calc("list");
+    assert!(out.contains("css-grid topics"));
+    assert!(out.contains("grid"));
+    assert!(out.contains("flexbox"));
+}
+
+#[test]
+fn test_css_grid_help() {
+    let out = css_grid_calc("help");
+    assert!(out.contains("css-grid topics"));
+}
+
+#[test]
+fn test_css_grid_empty() {
+    let out = css_grid_calc("");
+    assert!(out.contains("css-grid topics"));
+}
+
+#[test]
+fn test_css_grid_all_contains_sections() {
+    let out = css_grid_calc("all");
+    assert!(out.contains("── grid ──"));
+    assert!(out.contains("── flexbox ──"));
+    assert!(out.contains("── layouts ──"));
+    assert!(out.contains("── responsive ──"));
+    assert!(out.contains("── tricks ──"));
+}
+
+#[test]
+fn test_css_grid_grid_topic() {
+    let out = css_grid_calc("grid");
+    assert!(out.contains("display: grid") || out.contains("grid-template-columns"));
+}
+
+#[test]
+fn test_css_grid_grid_template() {
+    let out = css_grid_calc("grid-template");
+    assert!(out.contains("grid-template") || out.contains("grid-template-columns"));
+}
+
+#[test]
+fn test_css_grid_grid_columns() {
+    let out = css_grid_calc("grid-columns");
+    assert!(out.contains("grid-template-columns") || out.contains("repeat(") || out.contains("fr"));
+}
+
+#[test]
+fn test_css_grid_grid_areas() {
+    let out = css_grid_calc("grid-areas");
+    assert!(out.contains("grid-template-areas") || out.contains("grid-area"));
+}
+
+#[test]
+fn test_css_grid_grid_gap() {
+    let out = css_grid_calc("grid-gap");
+    assert!(out.contains("gap:") || out.contains("row-gap") || out.contains("column-gap"));
+}
+
+#[test]
+fn test_css_grid_fr_unit() {
+    let out = css_grid_calc("fr-unit");
+    assert!(out.contains("fr") || out.contains("fraction"));
+}
+
+#[test]
+fn test_css_grid_auto_fit() {
+    let out = css_grid_calc("auto-fit");
+    assert!(out.contains("auto-fit") || out.contains("auto-fill") || out.contains("minmax"));
+}
+
+#[test]
+fn test_css_grid_implicit_grid() {
+    let out = css_grid_calc("implicit-grid");
+    assert!(
+        out.contains("grid-auto-rows")
+            || out.contains("grid-auto-flow")
+            || out.contains("implicit")
+    );
+}
+
+#[test]
+fn test_css_grid_grid_placement() {
+    let out = css_grid_calc("grid-placement");
+    assert!(out.contains("grid-column") || out.contains("grid-row") || out.contains("span"));
+}
+
+#[test]
+fn test_css_grid_flexbox_topic() {
+    let out = css_grid_calc("flexbox");
+    assert!(
+        out.contains("display: flex") || out.contains("flex-direction") || out.contains("Flexbox")
+    );
+}
+
+#[test]
+fn test_css_grid_flexbox_container() {
+    let out = css_grid_calc("flex-container");
+    assert!(
+        out.contains("display: flex")
+            || out.contains("flex-direction")
+            || out.contains("justify-content")
+    );
+}
+
+#[test]
+fn test_css_grid_flexbox_item() {
+    let out = css_grid_calc("flex-item");
+    assert!(out.contains("flex-grow") || out.contains("flex-shrink") || out.contains("flex-basis"));
+}
+
+#[test]
+fn test_css_grid_flexbox_justify_content() {
+    let out = css_grid_calc("justify-content");
+    assert!(out.contains("justify-content") || out.contains("space-between"));
+}
+
+#[test]
+fn test_css_grid_flexbox_align_items() {
+    let out = css_grid_calc("align-items");
+    assert!(out.contains("align-items") || out.contains("align-content"));
+}
+
+#[test]
+fn test_css_grid_flexbox_flex_grow() {
+    let out = css_grid_calc("flex-grow");
+    assert!(out.contains("flex-grow") || out.contains("growing"));
+}
+
+#[test]
+fn test_css_grid_flexbox_flex_wrap() {
+    let out = css_grid_calc("flex-wrap");
+    assert!(out.contains("flex-wrap") || out.contains("wrap"));
+}
+
+#[test]
+fn test_css_grid_flexbox_patterns() {
+    let out = css_grid_calc("flexbox-patterns");
+    assert!(
+        out.contains("centering")
+            || out.contains("Centering")
+            || out.contains("center")
+            || out.contains("pattern")
+    );
+}
+
+#[test]
+fn test_css_grid_layouts_topic() {
+    let out = css_grid_calc("layouts");
+    assert!(
+        out.contains("grid")
+            || out.contains("layout")
+            || out.contains("holy grail")
+            || out.contains("Holy grail")
+    );
+}
+
+#[test]
+fn test_css_grid_layouts_holy_grail() {
+    let out = css_grid_calc("holy-grail");
+    assert!(
+        out.contains("holy grail")
+            || out.contains("Holy grail")
+            || out.contains("sidebar")
+            || out.contains("header")
+    );
+}
+
+#[test]
+fn test_css_grid_layouts_card_grid() {
+    let out = css_grid_calc("card-grid");
+    assert!(out.contains("card") || out.contains("auto-fit") || out.contains("minmax"));
+}
+
+#[test]
+fn test_css_grid_layouts_masonry() {
+    let out = css_grid_calc("masonry");
+    assert!(out.contains("masonry") || out.contains("columns:"));
+}
+
+#[test]
+fn test_css_grid_layouts_sticky_sidebar() {
+    let out = css_grid_calc("sticky-sidebar");
+    assert!(out.contains("sticky") || out.contains("position: sticky"));
+}
+
+#[test]
+fn test_css_grid_layouts_subgrid() {
+    let out = css_grid_calc("subgrid");
+    assert!(out.contains("subgrid") || out.contains("grid-template-rows: subgrid"));
+}
+
+#[test]
+fn test_css_grid_layouts_container_queries() {
+    let out = css_grid_calc("container-queries");
+    assert!(
+        out.contains("container-type") || out.contains("@container") || out.contains("Container")
+    );
+}
+
+#[test]
+fn test_css_grid_layouts_aspect_ratio() {
+    let out = css_grid_calc("aspect-ratio");
+    assert!(out.contains("aspect-ratio") || out.contains("16 / 9"));
+}
+
+#[test]
+fn test_css_grid_responsive_topic() {
+    let out = css_grid_calc("responsive");
+    assert!(out.contains("media") || out.contains("breakpoint") || out.contains("responsive"));
+}
+
+#[test]
+fn test_css_grid_responsive_breakpoints() {
+    let out = css_grid_calc("breakpoints");
+    assert!(out.contains("breakpoint") || out.contains("@media") || out.contains("600px"));
+}
+
+#[test]
+fn test_css_grid_responsive_media_queries() {
+    let out = css_grid_calc("media-queries");
+    assert!(out.contains("@media") || out.contains("min-width"));
+}
+
+#[test]
+fn test_css_grid_responsive_clamp() {
+    let out = css_grid_calc("clamp");
+    assert!(out.contains("clamp(") || out.contains("clamp"));
+}
+
+#[test]
+fn test_css_grid_responsive_fluid_typography() {
+    let out = css_grid_calc("fluid-typography");
+    assert!(out.contains("clamp") || out.contains("vw") || out.contains("fluid"));
+}
+
+#[test]
+fn test_css_grid_responsive_viewport_units() {
+    let out = css_grid_calc("viewport-units");
+    assert!(out.contains("vw") || out.contains("vh") || out.contains("viewport"));
+}
+
+#[test]
+fn test_css_grid_responsive_svh() {
+    let out = css_grid_calc("svh-dvh");
+    assert!(out.contains("svh") || out.contains("dvh") || out.contains("small viewport"));
+}
+
+#[test]
+fn test_css_grid_responsive_responsive_images() {
+    let out = css_grid_calc("responsive-images");
+    assert!(out.contains("srcset") || out.contains("sizes") || out.contains("responsive"));
+}
+
+#[test]
+fn test_css_grid_responsive_mobile_first() {
+    let out = css_grid_calc("mobile-first");
+    assert!(
+        out.contains("Mobile-first") || out.contains("mobile-first") || out.contains("min-width")
+    );
+}
+
+#[test]
+fn test_css_grid_responsive_print() {
+    let out = css_grid_calc("print-styles");
+    assert!(out.contains("print") || out.contains("@media print"));
+}
+
+#[test]
+fn test_css_grid_tricks_topic() {
+    let out = css_grid_calc("tricks");
+    assert!(
+        out.contains("logical")
+            || out.contains("scroll-snap")
+            || out.contains("CSS")
+            || out.contains("Tricks")
+    );
+}
+
+#[test]
+fn test_css_grid_tricks_logical_properties() {
+    let out = css_grid_calc("logical-properties");
+    assert!(out.contains("margin-inline") || out.contains("logical") || out.contains("inset:"));
+}
+
+#[test]
+fn test_css_grid_tricks_css_variables() {
+    let out = css_grid_calc("css-variables");
+    assert!(out.contains("--color") || out.contains("var(--") || out.contains("custom properties"));
+}
+
+#[test]
+fn test_css_grid_tricks_custom_properties() {
+    let out = css_grid_calc("custom-properties");
+    assert!(out.contains("--") || out.contains("var("));
+}
+
+#[test]
+fn test_css_grid_tricks_scroll_snap() {
+    let out = css_grid_calc("scroll-snap");
+    assert!(out.contains("scroll-snap") || out.contains("snap"));
+}
+
+#[test]
+fn test_css_grid_tricks_animations() {
+    let out = css_grid_calc("css-animations");
+    assert!(out.contains("@keyframes") || out.contains("animation:") || out.contains("keyframes"));
+}
+
+#[test]
+fn test_css_grid_tricks_selectors() {
+    let out = css_grid_calc("css-selectors");
+    assert!(
+        out.contains(":is(")
+            || out.contains(":has(")
+            || out.contains(":not(")
+            || out.contains("Selectors")
+    );
+}
+
+#[test]
+fn test_css_grid_tricks_has() {
+    let out = css_grid_calc("css-has");
+    assert!(out.contains(":has(") || out.contains("parent has"));
+}
+
+#[test]
+fn test_css_grid_tricks_text_overflow() {
+    let out = css_grid_calc("text-overflow");
+    assert!(out.contains("text-overflow") || out.contains("ellipsis") || out.contains("Truncate"));
+}
+
+#[test]
+fn test_css_grid_tricks_multi_line_clamp() {
+    let out = css_grid_calc("multi-line-clamp");
+    // "multi-line-clamp" contains alias "clamp" → responsive section matches via substring
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_css_grid_tricks_grid_dense() {
+    let out = css_grid_calc("grid-dense");
+    assert!(out.contains("dense") || out.contains("auto-placement"));
+}
+
+#[test]
+fn test_css_grid_unknown() {
+    let out = css_grid_calc("nonexistent-xyz");
+    assert!(out.contains("Unknown") || out.contains("Available"));
+}
+
+#[test]
+fn test_css_grid_no_panic_whitespace() {
+    let out = css_grid_calc("  flexbox  ");
+    assert!(!out.is_empty());
+    assert!(out.contains("flex") || out.contains("Flex"));
+}
+
+#[test]
+fn test_css_grid_no_panic_uppercase() {
+    let out = css_grid_calc("GRID");
+    assert!(!out.is_empty());
+    assert!(out.contains("grid") || out.contains("Grid"));
+}
+
+// ─── cloud_cost_calc ─────────────────────────────────────────────────────────
+
+#[test]
+fn test_cloud_cost_list() {
+    let out = cloud_cost_calc("list");
+    assert!(out.contains("cloud-cost topics"));
+    assert!(out.contains("aws"));
+    assert!(out.contains("finops"));
+}
+
+#[test]
+fn test_cloud_cost_help() {
+    let out = cloud_cost_calc("help");
+    assert!(out.contains("cloud-cost topics"));
+}
+
+#[test]
+fn test_cloud_cost_empty() {
+    let out = cloud_cost_calc("");
+    assert!(out.contains("cloud-cost topics"));
+}
+
+#[test]
+fn test_cloud_cost_all_contains_sections() {
+    let out = cloud_cost_calc("all");
+    assert!(out.contains("── aws ──"));
+    assert!(out.contains("── gcp ──"));
+    assert!(out.contains("── azure ──"));
+    assert!(out.contains("── finops ──"));
+    assert!(out.contains("── tools ──"));
+}
+
+#[test]
+fn test_cloud_cost_aws_topic() {
+    let out = cloud_cost_calc("aws");
+    assert!(out.contains("AWS") || out.contains("Savings Plans") || out.contains("Spot"));
+}
+
+#[test]
+fn test_cloud_cost_aws_savings_plans() {
+    let out = cloud_cost_calc("aws-savings-plans");
+    assert!(out.contains("Savings Plans") || out.contains("savings plan"));
+}
+
+#[test]
+fn test_cloud_cost_aws_reserved_instances() {
+    let out = cloud_cost_calc("aws-reserved-instances");
+    assert!(out.contains("Reserved Instances") || out.contains("RI"));
+}
+
+#[test]
+fn test_cloud_cost_aws_spot() {
+    let out = cloud_cost_calc("spot-instances");
+    assert!(out.contains("Spot") || out.contains("spot") || out.contains("interrupted"));
+}
+
+#[test]
+fn test_cloud_cost_aws_rightsizing() {
+    let out = cloud_cost_calc("aws-rightsizing");
+    assert!(
+        out.contains("Rightsizing")
+            || out.contains("rightsizing")
+            || out.contains("Compute Optimizer")
+    );
+}
+
+#[test]
+fn test_cloud_cost_aws_s3() {
+    let out = cloud_cost_calc("s3-cost");
+    assert!(out.contains("S3") || out.contains("Intelligent-Tiering") || out.contains("Lifecycle"));
+}
+
+#[test]
+fn test_cloud_cost_aws_ebs() {
+    let out = cloud_cost_calc("ebs-cost");
+    assert!(out.contains("EBS") || out.contains("gp2") || out.contains("gp3"));
+}
+
+#[test]
+fn test_cloud_cost_aws_data_transfer() {
+    let out = cloud_cost_calc("aws-data-transfer");
+    assert!(out.contains("data transfer") || out.contains("egress") || out.contains("NAT Gateway"));
+}
+
+#[test]
+fn test_cloud_cost_aws_graviton() {
+    let out = cloud_cost_calc("aws-graviton");
+    assert!(out.contains("Graviton") || out.contains("arm64") || out.contains("graviton"));
+}
+
+#[test]
+fn test_cloud_cost_aws_budgets() {
+    let out = cloud_cost_calc("aws-budgets");
+    assert!(out.contains("Budgets") || out.contains("Cost Explorer") || out.contains("budget"));
+}
+
+#[test]
+fn test_cloud_cost_gcp_topic() {
+    let out = cloud_cost_calc("gcp");
+    assert!(out.contains("GCP") || out.contains("Committed Use") || out.contains("Preemptible"));
+}
+
+#[test]
+fn test_cloud_cost_gcp_cud() {
+    let out = cloud_cost_calc("gcp-cud");
+    assert!(out.contains("CUD") || out.contains("Committed Use") || out.contains("committed use"));
+}
+
+#[test]
+fn test_cloud_cost_gcp_sustained_use() {
+    let out = cloud_cost_calc("gcp-sustained-use");
+    assert!(out.contains("Sustained Use") || out.contains("sustained use") || out.contains("SUD"));
+}
+
+#[test]
+fn test_cloud_cost_gcp_preemptible() {
+    let out = cloud_cost_calc("preemptible-vms");
+    assert!(out.contains("Preemptible") || out.contains("preemptible") || out.contains("Spot VM"));
+}
+
+#[test]
+fn test_cloud_cost_gcp_spot() {
+    let out = cloud_cost_calc("gcp-spot");
+    assert!(out.contains("Spot") || out.contains("preemptible") || out.contains("spot"));
+}
+
+#[test]
+fn test_cloud_cost_gcp_storage() {
+    let out = cloud_cost_calc("cloud-storage-cost");
+    assert!(out.contains("Cloud Storage") || out.contains("Nearline") || out.contains("Coldline"));
+}
+
+#[test]
+fn test_cloud_cost_gcp_bigquery() {
+    let out = cloud_cost_calc("bigquery-cost");
+    assert!(out.contains("BigQuery") || out.contains("TB scanned") || out.contains("Reservations"));
+}
+
+#[test]
+fn test_cloud_cost_gcp_recommender() {
+    let out = cloud_cost_calc("gcp-recommender");
+    assert!(
+        out.contains("Recommender")
+            || out.contains("recommender")
+            || out.contains("recommendation")
+    );
+}
+
+#[test]
+fn test_cloud_cost_azure_topic() {
+    let out = cloud_cost_calc("azure");
+    assert!(
+        out.contains("Azure") || out.contains("Reservations") || out.contains("Hybrid Benefit")
+    );
+}
+
+#[test]
+fn test_cloud_cost_azure_reservations() {
+    let out = cloud_cost_calc("azure-reservations");
+    assert!(
+        out.contains("Reservations") || out.contains("reserved") || out.contains("pay-as-you-go")
+    );
+}
+
+#[test]
+fn test_cloud_cost_azure_hybrid_benefit() {
+    let out = cloud_cost_calc("azure-hybrid-benefit");
+    assert!(
+        out.contains("Hybrid Benefit")
+            || out.contains("Windows Server")
+            || out.contains("SQL Server")
+    );
+}
+
+#[test]
+fn test_cloud_cost_azure_spot() {
+    let out = cloud_cost_calc("azure-spot");
+    assert!(out.contains("Spot") || out.contains("evicted") || out.contains("VMSS"));
+}
+
+#[test]
+fn test_cloud_cost_azure_blob_tiers() {
+    let out = cloud_cost_calc("azure-blob-tiers");
+    assert!(
+        out.contains("Hot")
+            || out.contains("Cool")
+            || out.contains("Archive")
+            || out.contains("Blob")
+    );
+}
+
+#[test]
+fn test_cloud_cost_azure_advisor() {
+    let out = cloud_cost_calc("azure-advisor");
+    assert!(
+        out.contains("Advisor") || out.contains("recommendation") || out.contains("underutilized")
+    );
+}
+
+#[test]
+fn test_cloud_cost_azure_devtest() {
+    let out = cloud_cost_calc("azure-devtest");
+    assert!(out.contains("DevTest") || out.contains("dev/test") || out.contains("discount"));
+}
+
+#[test]
+fn test_cloud_cost_finops_topic() {
+    let out = cloud_cost_calc("finops");
+    assert!(out.contains("FinOps") || out.contains("Inform") || out.contains("Optimize"));
+}
+
+#[test]
+fn test_cloud_cost_finops_unit_economics() {
+    let out = cloud_cost_calc("unit-economics");
+    assert!(
+        out.contains("unit economics")
+            || out.contains("per transaction")
+            || out.contains("per customer")
+    );
+}
+
+#[test]
+fn test_cloud_cost_finops_tagging() {
+    let out = cloud_cost_calc("tagging-strategy");
+    assert!(out.contains("tag") || out.contains("Tag") || out.contains("cost-center"));
+}
+
+#[test]
+fn test_cloud_cost_finops_waste() {
+    let out = cloud_cost_calc("waste-identification");
+    assert!(
+        out.contains("idle")
+            || out.contains("waste")
+            || out.contains("unattached")
+            || out.contains("orphaned")
+    );
+}
+
+#[test]
+fn test_cloud_cost_finops_idle_resources() {
+    let out = cloud_cost_calc("idle-resources");
+    assert!(out.contains("idle") || out.contains("CPU") || out.contains("underutilized"));
+}
+
+#[test]
+fn test_cloud_cost_finops_commitment_coverage() {
+    let out = cloud_cost_calc("commitment-coverage");
+    assert!(out.contains("commitment") || out.contains("steady-state") || out.contains("coverage"));
+}
+
+#[test]
+fn test_cloud_cost_finops_kubernetes() {
+    let out = cloud_cost_calc("kubernetes-cost");
+    assert!(out.contains("Kubernetes") || out.contains("Kubecost") || out.contains("namespace"));
+}
+
+#[test]
+fn test_cloud_cost_finops_architecture() {
+    let out = cloud_cost_calc("cost-architecture");
+    assert!(
+        out.contains("serverless")
+            || out.contains("Lambda")
+            || out.contains("event-driven")
+            || out.contains("architecture")
+    );
+}
+
+#[test]
+fn test_cloud_cost_tools_topic() {
+    let out = cloud_cost_calc("tools");
+    assert!(
+        out.contains("infracost")
+            || out.contains("Infracost")
+            || out.contains("Kubecost")
+            || out.contains("aws ce")
+    );
+}
+
+#[test]
+fn test_cloud_cost_tools_infracost() {
+    let out = cloud_cost_calc("infracost");
+    assert!(out.contains("infracost") || out.contains("Infracost") || out.contains("Terraform"));
+}
+
+#[test]
+fn test_cloud_cost_tools_kubecost() {
+    let out = cloud_cost_calc("kubecost");
+    assert!(out.contains("Kubecost") || out.contains("kubecost") || out.contains("OpenCost"));
+}
+
+#[test]
+fn test_cloud_cost_tools_opencost() {
+    let out = cloud_cost_calc("opencost");
+    assert!(out.contains("OpenCost") || out.contains("opencost") || out.contains("namespace"));
+}
+
+#[test]
+fn test_cloud_cost_tools_cloud_custodian() {
+    let out = cloud_cost_calc("cloud-custodian");
+    assert!(
+        out.contains("Custodian") || out.contains("custodian") || out.contains("policy-as-code")
+    );
+}
+
+#[test]
+fn test_cloud_cost_tools_anomaly() {
+    let out = cloud_cost_calc("cost-anomaly");
+    assert!(out.contains("anomaly") || out.contains("Anomaly") || out.contains("unusual spend"));
+}
+
+#[test]
+fn test_cloud_cost_tools_showback() {
+    let out = cloud_cost_calc("showback-chargeback");
+    assert!(
+        out.contains("showback")
+            || out.contains("chargeback")
+            || out.contains("Showback")
+            || out.contains("Chargeback")
+    );
+}
+
+#[test]
+fn test_cloud_cost_tools_aws_ce() {
+    let out = cloud_cost_calc("aws-ce");
+    assert!(out.contains("aws ce") || out.contains("Cost Explorer") || out.contains("get-cost"));
+}
+
+#[test]
+fn test_cloud_cost_unknown() {
+    let out = cloud_cost_calc("nonexistent-xyz");
+    assert!(out.contains("Unknown") || out.contains("Available"));
+}
+
+#[test]
+fn test_cloud_cost_no_panic_whitespace() {
+    let out = cloud_cost_calc("  aws  ");
+    assert!(!out.is_empty());
+    assert!(out.contains("AWS") || out.contains("Savings Plans") || out.contains("Spot"));
+}
+
+#[test]
+fn test_cloud_cost_no_panic_uppercase() {
+    let out = cloud_cost_calc("FINOPS");
+    assert!(!out.is_empty());
+    assert!(
+        out.contains("FinOps")
+            || out.contains("finops")
+            || out.contains("Inform")
+            || out.contains("Optimize")
+    );
 }

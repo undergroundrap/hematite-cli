@@ -1145,6 +1145,10 @@ mod tests {
             crypto_adv: None,
             browser_dev: None,
             rust_async: None,
+            regex_viz: None,
+            sql_window: None,
+            css_grid: None,
+            cloud_cost: None,
             pdf_extract_helper: None,
             teleported_from: None,
         };
