@@ -2290,6 +2290,38 @@ pub struct CliCockpit {
 
     #[arg(
         long,
+        help_heading = "Developer Toolkit",
+        value_name = "QUERY",
+        help = "Security tools reference — offline replacement for OWASP and tool docs. Topics: nmap, web, sast, network, hardening, cloud-sec. Aliases: nmap-scan, owasp-zap, burp-suite, sqlmap, semgrep, trivy-scan, snyk, wireshark, metasploit, linux-hardening, cis-benchmark, aws-security, kube-bench, falco-security. Examples: hematite --security-tools nmap | hematite --security-tools owasp-zap | hematite --security-tools all"
+    )]
+    pub security_tools: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Developer Toolkit",
+        value_name = "QUERY",
+        help = "Advanced cryptography reference — offline replacement for crypto docs. Topics: tls, pki, jwt-adv, primitives, mtls. Aliases: tls-deep-dive, tls13, tls-handshake, lets-encrypt, acme-protocol, certbot, cert-manager, jwt-advanced, jwt-vulnerabilities, paseto, aes-gcm, ed25519, argon2, mutual-tls, client-certificates. Examples: hematite --crypto-adv tls | hematite --crypto-adv jwt-adv | hematite --crypto-adv all"
+    )]
+    pub crypto_adv: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Developer Toolkit",
+        value_name = "QUERY",
+        help = "Browser dev tools reference — offline replacement for MDN and DevTools docs. Topics: devtools, web-apis, pwa, websocket, performance. Aliases: chrome-devtools, core-web-vitals, lighthouse-audit, fetch-api, intersection-observer, service-workers, workbox, websocket-api, webrtc, critical-rendering-path, code-splitting. Examples: hematite --browser-dev devtools | hematite --browser-dev pwa | hematite --browser-dev all"
+    )]
+    pub browser_dev: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Developer Toolkit",
+        value_name = "QUERY",
+        help = "Rust async reference — offline replacement for Tokio and async-std docs. Topics: tokio, channels, streams, axum, patterns. Aliases: tokio-runtime, tokio-spawn, tokio-select, mpsc-channel, oneshot-channel, broadcast-channel, watch-channel, async-streams, tokio-stream, axum-framework, axum-extractors, async-trait, cancellation-token. Examples: hematite --rust-async tokio | hematite --rust-async channels | hematite --rust-async all"
+    )]
+    pub rust_async: Option<String>,
+
+    #[arg(
+        long,
         help_heading = "Math & Science",
         value_name = "QUERY",
         help = "Lorem ipsum generator — offline replacement for lipsum.com. Commands: (bare) or <N> = N paragraphs (default 1); words <N> = N words; sentences <N> = N sentences. Examples: hematite --lorem | hematite --lorem 3 | hematite --lorem 'words 50' | hematite --lorem 'sentences 5'"

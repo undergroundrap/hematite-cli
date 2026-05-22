@@ -1141,6 +1141,10 @@ mod tests {
             observability_adv: None,
             terminal_tools: None,
             data_pipeline: None,
+            security_tools: None,
+            crypto_adv: None,
+            browser_dev: None,
+            rust_async: None,
             pdf_extract_helper: None,
             teleported_from: None,
         };

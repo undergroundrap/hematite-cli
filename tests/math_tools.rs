@@ -5,34 +5,35 @@
 use hematite::tools::math_util::{
     accessibility_calc, algo_ref_calc, ansible_calc, api_design_calc, api_gateway_calc,
     api_versioning_calc, ascii_calc, ascii_table_calc, auth_ref_calc, awk_calc, bash_adv_calc,
-    bash_ref_calc, bitwise_calc, caching_ref_calc, case_calc, chars_calc, checksum_calc,
-    chemistry_calc, chmod_calc, cicd_ref_calc, cipher_calc, cloud_native_calc, cloud_ref_calc,
-    color_calc, color_names_calc, combinatorics_calc, compiler_ref_calc, complex_calc,
-    concurrency_ref_calc, container_ref_calc, cron_calc, crypto_ref_calc, css_ref_calc, csv_calc,
-    curl_calc, data_formats_calc, data_pipeline_calc, database_adv_calc, datetime_calc,
-    db_design_calc, db_migrations_calc, design_patterns_calc, devops_ref_calc, diff_calc,
-    docker_adv_calc, docker_compose_calc, docker_ref_calc, duration_calc, electrical_calc,
-    encode_calc, escape_calc, event_driven_calc, find_calc, fraction_calc, geometry_calc,
-    git_adv_calc, git_internals_calc, git_ref_calc, gitignore_calc, go_ref_calc, grep_calc,
-    grpc_ref_calc, hash_calc, headers_calc, health_calc, http_adv_calc, http_calc,
-    http_headers_calc, http_security_calc, http_status_calc, id_gen_calc, ip_calc, jinja_calc,
-    jq_calc, js_ref_calc, json_calc, json_path_calc, jwt_calc, k8s_ref_calc, k8s_security_calc,
-    kbd_calc, kubectl_calc, license_calc, linux_adv_calc, linux_kernel_calc, linux_perf_calc,
-    linux_sys_calc, load_testing_calc, lorem_calc, make_calc, makefile_calc, markdown_calc,
-    matrix_calc, message_queue_calc, mime_calc, ml_ref_calc, monitoring_ref_calc, net_calc,
-    network_ref_calc, networking_adv_calc, nginx_calc, npm_calc, number_format, number_theory_calc,
-    oauth_ref_calc, observability_adv_calc, observability_calc, oop_ref_calc, openssl_calc,
-    percent_calc, perf_ref_calc, physics_calc, port_calc, postgres_calc, prob_calc,
+    bash_ref_calc, bitwise_calc, browser_dev_calc, caching_ref_calc, case_calc, chars_calc,
+    checksum_calc, chemistry_calc, chmod_calc, cicd_ref_calc, cipher_calc, cloud_native_calc,
+    cloud_ref_calc, color_calc, color_names_calc, combinatorics_calc, compiler_ref_calc,
+    complex_calc, concurrency_ref_calc, container_ref_calc, cron_calc, crypto_adv_calc,
+    crypto_ref_calc, css_ref_calc, csv_calc, curl_calc, data_formats_calc, data_pipeline_calc,
+    database_adv_calc, datetime_calc, db_design_calc, db_migrations_calc, design_patterns_calc,
+    devops_ref_calc, diff_calc, docker_adv_calc, docker_compose_calc, docker_ref_calc,
+    duration_calc, electrical_calc, encode_calc, escape_calc, event_driven_calc, find_calc,
+    fraction_calc, geometry_calc, git_adv_calc, git_internals_calc, git_ref_calc, gitignore_calc,
+    go_ref_calc, grep_calc, grpc_ref_calc, hash_calc, headers_calc, health_calc, http_adv_calc,
+    http_calc, http_headers_calc, http_security_calc, http_status_calc, id_gen_calc, ip_calc,
+    jinja_calc, jq_calc, js_ref_calc, json_calc, json_path_calc, jwt_calc, k8s_ref_calc,
+    k8s_security_calc, kbd_calc, kubectl_calc, license_calc, linux_adv_calc, linux_kernel_calc,
+    linux_perf_calc, linux_sys_calc, load_testing_calc, lorem_calc, make_calc, makefile_calc,
+    markdown_calc, matrix_calc, message_queue_calc, mime_calc, ml_ref_calc, monitoring_ref_calc,
+    net_calc, network_ref_calc, networking_adv_calc, nginx_calc, npm_calc, number_format,
+    number_theory_calc, oauth_ref_calc, observability_adv_calc, observability_calc, oop_ref_calc,
+    openssl_calc, percent_calc, perf_ref_calc, physics_calc, port_calc, postgres_calc, prob_calc,
     protocols_ref_calc, python_data_calc, python_ref_calc, regex_adv_calc, regex_calc,
     regex_engine_calc, regex_patterns_calc, regex_ref_calc, regex_test_calc, roman_calc,
-    rust_adv_calc, rust_patterns_calc, rust_ref_calc, search_ref_calc, security_ref_calc,
-    security_scan_calc, sed_calc, semver_calc, service_mesh_calc, set_calc, sort_viz, spark_calc,
-    sql_adv_calc, sql_fmt_calc, sql_ref_calc, sql_tuning_calc, ssh_ref_calc, ssl_calc, stats_calc,
-    string_dist, systemd_adv_calc, systemd_calc, table_calc, tar_calc, template_calc,
-    terminal_tools_calc, terraform_adv_calc, terraform_calc, testing_ref_calc, text_stats,
-    timestamp_calc, tmux_calc, toml_calc, trig_calc, ts_ref_calc, typescript_adv_calc, tz_calc,
-    unicode_ref_calc, url_calc, uuid_calc, validate_calc, vim_adv_calc, vim_calc, wasm_ref_calc,
-    wasm_runtime_calc, web_perf_calc, xml_calc, yaml_calc,
+    rust_adv_calc, rust_async_calc, rust_patterns_calc, rust_ref_calc, search_ref_calc,
+    security_ref_calc, security_scan_calc, security_tools_calc, sed_calc, semver_calc,
+    service_mesh_calc, set_calc, sort_viz, spark_calc, sql_adv_calc, sql_fmt_calc, sql_ref_calc,
+    sql_tuning_calc, ssh_ref_calc, ssl_calc, stats_calc, string_dist, systemd_adv_calc,
+    systemd_calc, table_calc, tar_calc, template_calc, terminal_tools_calc, terraform_adv_calc,
+    terraform_calc, testing_ref_calc, text_stats, timestamp_calc, tmux_calc, toml_calc, trig_calc,
+    ts_ref_calc, typescript_adv_calc, tz_calc, unicode_ref_calc, url_calc, uuid_calc,
+    validate_calc, vim_adv_calc, vim_calc, wasm_ref_calc, wasm_runtime_calc, web_perf_calc,
+    xml_calc, yaml_calc,
 };
 
 // ─── Cipher tests ────────────────────────────────────────────────────────────
@@ -26844,4 +26845,1381 @@ fn data_pipeline_unknown_no_panic() {
 fn data_pipeline_empty_no_panic() {
     let out = data_pipeline_calc("");
     assert!(!out.is_empty());
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Wave 39 tests: --security-tools, --crypto-adv, --browser-dev, --rust-async
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ─── security_tools_calc ─────────────────────────────────────────────────────
+
+#[test]
+fn test_security_tools_list() {
+    let out = security_tools_calc("list");
+    assert!(out.contains("security-tools topics"));
+    assert!(out.contains("nmap"));
+    assert!(out.contains("sast"));
+}
+
+#[test]
+fn test_security_tools_help() {
+    let out = security_tools_calc("help");
+    assert!(out.contains("security-tools topics"));
+}
+
+#[test]
+fn test_security_tools_empty() {
+    let out = security_tools_calc("");
+    assert!(out.contains("security-tools topics"));
+}
+
+#[test]
+fn test_security_tools_all_contains_sections() {
+    let out = security_tools_calc("all");
+    assert!(out.contains("── nmap ──"));
+    assert!(out.contains("── web ──"));
+    assert!(out.contains("── sast ──"));
+    assert!(out.contains("── network ──"));
+    assert!(out.contains("── hardening ──"));
+    assert!(out.contains("── cloud-sec ──"));
+}
+
+#[test]
+fn test_security_tools_nmap_topic() {
+    let out = security_tools_calc("nmap");
+    assert!(out.contains("nmap"));
+    assert!(out.contains("-sV"));
+}
+
+#[test]
+fn test_security_tools_nmap_syn_scan() {
+    let out = security_tools_calc("nmap");
+    assert!(out.contains("SYN scan") || out.contains("-sS"));
+}
+
+#[test]
+fn test_security_tools_nmap_nse() {
+    let out = security_tools_calc("nmap");
+    assert!(out.contains("NSE") || out.contains("--script"));
+}
+
+#[test]
+fn test_security_tools_nmap_timing() {
+    let out = security_tools_calc("nmap");
+    assert!(out.contains("-T4") || out.contains("-T3") || out.contains("timing"));
+}
+
+#[test]
+fn test_security_tools_nmap_os_detection() {
+    let out = security_tools_calc("nmap");
+    assert!(out.contains("OS detection") || out.contains("-O"));
+}
+
+#[test]
+fn test_security_tools_nmap_alias_scan() {
+    let out = security_tools_calc("nmap-scan");
+    assert!(out.contains("nmap") && out.contains("-sV"));
+}
+
+#[test]
+fn test_security_tools_nmap_alias_nse() {
+    let out = security_tools_calc("nse-scripts");
+    assert!(out.contains("NSE") || out.contains("--script"));
+}
+
+#[test]
+fn test_security_tools_nmap_alias_port_scanning() {
+    let out = security_tools_calc("port-scanning");
+    assert!(out.contains("nmap") || out.contains("port"));
+}
+
+#[test]
+fn test_security_tools_nmap_all_ports() {
+    let out = security_tools_calc("nmap-all-ports");
+    assert!(out.contains("-p-") || out.contains("65535"));
+}
+
+#[test]
+fn test_security_tools_web_topic() {
+    let out = security_tools_calc("web");
+    assert!(out.contains("OWASP") || out.contains("Burp"));
+}
+
+#[test]
+fn test_security_tools_web_owasp_zap() {
+    let out = security_tools_calc("owasp-zap");
+    assert!(out.contains("ZAP") || out.contains("zap"));
+}
+
+#[test]
+fn test_security_tools_web_burp_suite() {
+    let out = security_tools_calc("burp-suite");
+    assert!(out.contains("Burp") || out.contains("burp"));
+}
+
+#[test]
+fn test_security_tools_web_sqlmap() {
+    let out = security_tools_calc("sqlmap");
+    assert!(out.contains("sqlmap") || out.contains("SQL injection"));
+}
+
+#[test]
+fn test_security_tools_web_nikto() {
+    let out = security_tools_calc("web");
+    assert!(out.contains("nikto"));
+}
+
+#[test]
+fn test_security_tools_web_ffuf() {
+    let out = security_tools_calc("web");
+    assert!(out.contains("ffuf"));
+}
+
+#[test]
+fn test_security_tools_web_owasp_top10() {
+    let out = security_tools_calc("owasp-top-10");
+    assert!(
+        out.contains("A01")
+            || out.contains("Broken Access Control")
+            || out.contains("OWASP Top 10")
+    );
+}
+
+#[test]
+fn test_security_tools_sast_topic() {
+    let out = security_tools_calc("sast");
+    assert!(out.contains("SAST") || out.contains("Semgrep") || out.contains("Trivy"));
+}
+
+#[test]
+fn test_security_tools_sast_semgrep() {
+    let out = security_tools_calc("semgrep");
+    assert!(out.contains("semgrep"));
+}
+
+#[test]
+fn test_security_tools_sast_trivy() {
+    let out = security_tools_calc("trivy-scan");
+    assert!(out.contains("trivy") || out.contains("Trivy"));
+}
+
+#[test]
+fn test_security_tools_sast_snyk() {
+    let out = security_tools_calc("snyk");
+    assert!(out.contains("snyk") || out.contains("Snyk"));
+}
+
+#[test]
+fn test_security_tools_sast_gitleaks() {
+    let out = security_tools_calc("gitleaks");
+    assert!(out.contains("GitLeaks") || out.contains("gitleaks"));
+}
+
+#[test]
+fn test_security_tools_sast_trufflehog() {
+    let out = security_tools_calc("trufflehog");
+    assert!(out.contains("TruffleHog") || out.contains("trufflehog"));
+}
+
+#[test]
+fn test_security_tools_sast_grype() {
+    let out = security_tools_calc("grype");
+    assert!(out.contains("grype"));
+}
+
+#[test]
+fn test_security_tools_sast_container_scanning() {
+    let out = security_tools_calc("container-scanning");
+    assert!(out.contains("Trivy") || out.contains("trivy") || out.contains("container"));
+}
+
+#[test]
+fn test_security_tools_network_topic() {
+    let out = security_tools_calc("network");
+    assert!(out.contains("Wireshark") || out.contains("tcpdump") || out.contains("netcat"));
+}
+
+#[test]
+fn test_security_tools_network_wireshark() {
+    let out = security_tools_calc("wireshark");
+    assert!(out.contains("Wireshark") || out.contains("tshark"));
+}
+
+#[test]
+fn test_security_tools_network_tshark() {
+    let out = security_tools_calc("tshark");
+    assert!(out.contains("tshark"));
+}
+
+#[test]
+fn test_security_tools_network_tcpdump() {
+    let out = security_tools_calc("tcpdump");
+    assert!(out.contains("tcpdump"));
+}
+
+#[test]
+fn test_security_tools_network_netcat() {
+    let out = security_tools_calc("netcat-sec");
+    assert!(out.contains("netcat") || out.contains("nc "));
+}
+
+#[test]
+fn test_security_tools_network_metasploit() {
+    let out = security_tools_calc("metasploit");
+    assert!(out.contains("Metasploit") || out.contains("msfconsole"));
+}
+
+#[test]
+fn test_security_tools_network_hashcat() {
+    let out = security_tools_calc("hashcat");
+    assert!(out.contains("hashcat") || out.contains("Hashcat"));
+}
+
+#[test]
+fn test_security_tools_network_john_ripper() {
+    let out = security_tools_calc("john-ripper");
+    assert!(out.contains("john") || out.contains("John"));
+}
+
+#[test]
+fn test_security_tools_network_password_cracking() {
+    let out = security_tools_calc("password-cracking");
+    assert!(out.contains("hashcat") || out.contains("john") || out.contains("rockyou"));
+}
+
+#[test]
+fn test_security_tools_hardening_topic() {
+    let out = security_tools_calc("hardening");
+    assert!(out.contains("hardening") || out.contains("Hardening"));
+}
+
+#[test]
+fn test_security_tools_hardening_linux() {
+    let out = security_tools_calc("linux-hardening");
+    assert!(out.contains("Linux") || out.contains("sysctl") || out.contains("ASLR"));
+}
+
+#[test]
+fn test_security_tools_hardening_ssh() {
+    let out = security_tools_calc("ssh-hardening");
+    assert!(out.contains("SSH") || out.contains("sshd_config") || out.contains("PermitRootLogin"));
+}
+
+#[test]
+fn test_security_tools_hardening_cis() {
+    let out = security_tools_calc("cis-benchmark");
+    assert!(out.contains("CIS") || out.contains("benchmark"));
+}
+
+#[test]
+fn test_security_tools_hardening_docker() {
+    let out = security_tools_calc("docker-hardening");
+    assert!(out.contains("Docker") || out.contains("--read-only") || out.contains("--cap-drop"));
+}
+
+#[test]
+fn test_security_tools_hardening_security_headers() {
+    let out = security_tools_calc("security-headers");
+    assert!(
+        out.contains("Strict-Transport-Security")
+            || out.contains("Content-Security-Policy")
+            || out.contains("X-Frame-Options")
+    );
+}
+
+#[test]
+fn test_security_tools_hardening_pentest_phases() {
+    let out = security_tools_calc("pentest-phases");
+    assert!(
+        out.contains("Reconnaissance") || out.contains("Scanning") || out.contains("Exploitation")
+    );
+}
+
+#[test]
+fn test_security_tools_cloud_topic() {
+    let out = security_tools_calc("cloud-sec");
+    assert!(out.contains("Cloud") || out.contains("AWS") || out.contains("kube-bench"));
+}
+
+#[test]
+fn test_security_tools_cloud_aws() {
+    let out = security_tools_calc("aws-security");
+    assert!(out.contains("AWS") || out.contains("aws iam") || out.contains("guardduty"));
+}
+
+#[test]
+fn test_security_tools_cloud_scoutsuite() {
+    let out = security_tools_calc("cloud-security");
+    assert!(out.contains("ScoutSuite") || out.contains("Prowler") || out.contains("scout aws"));
+}
+
+#[test]
+fn test_security_tools_cloud_kube_bench() {
+    let out = security_tools_calc("kube-bench");
+    assert!(out.contains("kube-bench") || out.contains("CIS Kubernetes"));
+}
+
+#[test]
+fn test_security_tools_cloud_falco() {
+    let out = security_tools_calc("falco-security");
+    assert!(out.contains("Falco") || out.contains("falco"));
+}
+
+#[test]
+fn test_security_tools_cloud_vault() {
+    let out = security_tools_calc("cloud-sec");
+    assert!(out.contains("Vault") || out.contains("vault"));
+}
+
+#[test]
+fn test_security_tools_cloud_sealed_secrets() {
+    let out = security_tools_calc("sealed-secrets");
+    assert!(
+        out.contains("Sealed Secrets")
+            || out.contains("kubeseal")
+            || out.contains("External Secrets")
+    );
+}
+
+#[test]
+fn test_security_tools_unknown() {
+    let out = security_tools_calc("nonexistent-xyz");
+    assert!(out.contains("Unknown") || out.contains("Available"));
+}
+
+#[test]
+fn test_security_tools_no_panic_whitespace() {
+    let out = security_tools_calc("  nmap  ");
+    assert!(!out.is_empty());
+    assert!(out.contains("nmap") || out.contains("-sV"));
+}
+
+// ─── crypto_adv_calc ─────────────────────────────────────────────────────────
+
+#[test]
+fn test_crypto_adv_list() {
+    let out = crypto_adv_calc("list");
+    assert!(out.contains("crypto-adv topics"));
+    assert!(out.contains("tls"));
+    assert!(out.contains("pki"));
+}
+
+#[test]
+fn test_crypto_adv_help() {
+    let out = crypto_adv_calc("help");
+    assert!(out.contains("crypto-adv topics"));
+}
+
+#[test]
+fn test_crypto_adv_empty() {
+    let out = crypto_adv_calc("");
+    assert!(out.contains("crypto-adv topics"));
+}
+
+#[test]
+fn test_crypto_adv_all_contains_sections() {
+    let out = crypto_adv_calc("all");
+    assert!(out.contains("── tls ──"));
+    assert!(out.contains("── pki ──"));
+    assert!(out.contains("── jwt-adv ──"));
+    assert!(out.contains("── primitives ──"));
+    assert!(out.contains("── mtls ──"));
+}
+
+#[test]
+fn test_crypto_adv_tls_topic() {
+    let out = crypto_adv_calc("tls");
+    assert!(out.contains("TLS") || out.contains("tls"));
+}
+
+#[test]
+fn test_crypto_adv_tls_handshake() {
+    let out = crypto_adv_calc("tls-handshake");
+    assert!(out.contains("handshake") || out.contains("ClientHello") || out.contains("ECDHE"));
+}
+
+#[test]
+fn test_crypto_adv_tls13_alias() {
+    let out = crypto_adv_calc("tls13");
+    assert!(out.contains("TLS 1.3") || out.contains("1.3"));
+}
+
+#[test]
+fn test_crypto_adv_tls_openssl() {
+    let out = crypto_adv_calc("openssl-tls");
+    assert!(out.contains("openssl") || out.contains("s_client"));
+}
+
+#[test]
+fn test_crypto_adv_tls_nginx() {
+    let out = crypto_adv_calc("nginx-ssl");
+    assert!(out.contains("NGINX") || out.contains("ssl_protocols") || out.contains("ssl_ciphers"));
+}
+
+#[test]
+fn test_crypto_adv_tls_cipher_suites() {
+    let out = crypto_adv_calc("tls");
+    assert!(out.contains("AES_128_GCM") || out.contains("AES_256_GCM") || out.contains("CHACHA20"));
+}
+
+#[test]
+fn test_crypto_adv_tls_ocsp() {
+    let out = crypto_adv_calc("ocsp-stapling");
+    assert!(out.contains("OCSP") || out.contains("ocsp"));
+}
+
+#[test]
+fn test_crypto_adv_pki_topic() {
+    let out = crypto_adv_calc("pki");
+    assert!(out.contains("PKI") || out.contains("Certificate") || out.contains("certbot"));
+}
+
+#[test]
+fn test_crypto_adv_pki_lets_encrypt() {
+    let out = crypto_adv_calc("lets-encrypt");
+    assert!(out.contains("Let's Encrypt") || out.contains("certbot") || out.contains("ACME"));
+}
+
+#[test]
+fn test_crypto_adv_pki_certbot() {
+    let out = crypto_adv_calc("certbot");
+    assert!(out.contains("certbot"));
+}
+
+#[test]
+fn test_crypto_adv_pki_cert_manager() {
+    let out = crypto_adv_calc("cert-manager");
+    assert!(out.contains("cert-manager") || out.contains("ClusterIssuer"));
+}
+
+#[test]
+fn test_crypto_adv_pki_x509_fields() {
+    let out = crypto_adv_calc("x509");
+    assert!(out.contains("X.509") || out.contains("Subject") || out.contains("SAN"));
+}
+
+#[test]
+fn test_crypto_adv_pki_wildcard() {
+    let out = crypto_adv_calc("wildcard-cert");
+    assert!(out.contains("Wildcard") || out.contains("*.example.com"));
+}
+
+#[test]
+fn test_crypto_adv_pki_acme_protocol() {
+    let out = crypto_adv_calc("acme-protocol");
+    assert!(out.contains("ACME") || out.contains("acme") || out.contains("certbot"));
+}
+
+#[test]
+fn test_crypto_adv_jwt_adv_topic() {
+    let out = crypto_adv_calc("jwt-adv");
+    assert!(out.contains("JWT") || out.contains("PASETO"));
+}
+
+#[test]
+fn test_crypto_adv_jwt_advanced_alias() {
+    let out = crypto_adv_calc("jwt-advanced");
+    assert!(out.contains("JWT") || out.contains("RS256") || out.contains("ES256"));
+}
+
+#[test]
+fn test_crypto_adv_jwt_vulnerabilities() {
+    let out = crypto_adv_calc("jwt-vulnerabilities");
+    assert!(
+        out.contains("alg:none")
+            || out.contains("Algorithm confusion")
+            || out.contains("vulnerabilities")
+    );
+}
+
+#[test]
+fn test_crypto_adv_jwt_paseto() {
+    let out = crypto_adv_calc("paseto");
+    assert!(out.contains("PASETO") || out.contains("Ed25519") || out.contains("v4.public"));
+}
+
+#[test]
+fn test_crypto_adv_jwt_oidc() {
+    let out = crypto_adv_calc("oidc-tokens");
+    assert!(out.contains("OIDC") || out.contains("id_token") || out.contains("openid"));
+}
+
+#[test]
+fn test_crypto_adv_jwt_algorithms() {
+    let out = crypto_adv_calc("jwt-algorithms");
+    assert!(out.contains("HS256") || out.contains("RS256") || out.contains("ES256"));
+}
+
+#[test]
+fn test_crypto_adv_jwt_jwks() {
+    let out = crypto_adv_calc("jwks");
+    assert!(out.contains("JWKS") || out.contains("jwks.json") || out.contains("public keys"));
+}
+
+#[test]
+fn test_crypto_adv_primitives_topic() {
+    let out = crypto_adv_calc("primitives");
+    assert!(out.contains("AES") || out.contains("Argon2") || out.contains("Ed25519"));
+}
+
+#[test]
+fn test_crypto_adv_primitives_aes_gcm() {
+    let out = crypto_adv_calc("aes-gcm");
+    assert!(out.contains("AES-256-GCM") || out.contains("AES") || out.contains("GCM"));
+}
+
+#[test]
+fn test_crypto_adv_primitives_ed25519() {
+    let out = crypto_adv_calc("ed25519");
+    assert!(out.contains("Ed25519"));
+}
+
+#[test]
+fn test_crypto_adv_primitives_argon2() {
+    let out = crypto_adv_calc("argon2");
+    assert!(out.contains("Argon2") || out.contains("argon2"));
+}
+
+#[test]
+fn test_crypto_adv_primitives_bcrypt() {
+    let out = crypto_adv_calc("bcrypt-hash");
+    assert!(out.contains("bcrypt"));
+}
+
+#[test]
+fn test_crypto_adv_primitives_sha256() {
+    let out = crypto_adv_calc("primitives");
+    assert!(out.contains("SHA-256") || out.contains("SHA-3") || out.contains("BLAKE2"));
+}
+
+#[test]
+fn test_crypto_adv_primitives_hkdf() {
+    let out = crypto_adv_calc("hkdf");
+    assert!(out.contains("HKDF") || out.contains("hkdf"));
+}
+
+#[test]
+fn test_crypto_adv_primitives_csprng() {
+    let out = crypto_adv_calc("csprng");
+    assert!(
+        out.contains("urandom")
+            || out.contains("CSPRNG")
+            || out.contains("cryptographically secure")
+    );
+}
+
+#[test]
+fn test_crypto_adv_primitives_encoding() {
+    let out = crypto_adv_calc("encoding-vs-encryption");
+    assert!(out.contains("Base64") || out.contains("Encoding") || out.contains("reversible"));
+}
+
+#[test]
+fn test_crypto_adv_primitives_key_sizes() {
+    let out = crypto_adv_calc("key-sizes");
+    assert!(out.contains("RSA") || out.contains("3072") || out.contains("4096"));
+}
+
+#[test]
+fn test_crypto_adv_mtls_topic() {
+    let out = crypto_adv_calc("mtls");
+    assert!(out.contains("mTLS") || out.contains("mutual TLS") || out.contains("Mutual TLS"));
+}
+
+#[test]
+fn test_crypto_adv_mtls_alias_mutual() {
+    let out = crypto_adv_calc("mutual-tls");
+    assert!(out.contains("mTLS") || out.contains("mutual") || out.contains("ssl_verify_client"));
+}
+
+#[test]
+fn test_crypto_adv_mtls_client_certs() {
+    let out = crypto_adv_calc("client-certificates");
+    assert!(out.contains("client") && (out.contains("cert") || out.contains("certificate")));
+}
+
+#[test]
+fn test_crypto_adv_mtls_nginx_config() {
+    let out = crypto_adv_calc("mtls-nginx");
+    assert!(
+        out.contains("NGINX")
+            || out.contains("ssl_verify_client")
+            || out.contains("ssl_client_certificate")
+    );
+}
+
+#[test]
+fn test_crypto_adv_mtls_go_client() {
+    let out = crypto_adv_calc("mtls-go");
+    assert!(out.contains("Go") || out.contains("tls.Config") || out.contains("LoadX509KeyPair"));
+}
+
+#[test]
+fn test_crypto_adv_mtls_spiffe() {
+    let out = crypto_adv_calc("spiffe-mtls");
+    assert!(out.contains("SPIFFE") || out.contains("SPIRE") || out.contains("SVID"));
+}
+
+#[test]
+fn test_crypto_adv_mtls_cert_pinning() {
+    let out = crypto_adv_calc("cert-pinning");
+    assert!(out.contains("pinning") || out.contains("SPKI") || out.contains("Certificate pinning"));
+}
+
+#[test]
+fn test_crypto_adv_unknown() {
+    let out = crypto_adv_calc("nonexistent-xyz");
+    assert!(out.contains("Unknown") || out.contains("Available"));
+}
+
+#[test]
+fn test_crypto_adv_no_panic_whitespace() {
+    let out = crypto_adv_calc("  tls  ");
+    assert!(!out.is_empty());
+    assert!(out.contains("TLS") || out.contains("ECDHE"));
+}
+
+// ─── browser_dev_calc ────────────────────────────────────────────────────────
+
+#[test]
+fn test_browser_dev_list() {
+    let out = browser_dev_calc("list");
+    assert!(out.contains("browser-dev topics"));
+    assert!(out.contains("devtools"));
+    assert!(out.contains("pwa"));
+}
+
+#[test]
+fn test_browser_dev_help() {
+    let out = browser_dev_calc("help");
+    assert!(out.contains("browser-dev topics"));
+}
+
+#[test]
+fn test_browser_dev_empty() {
+    let out = browser_dev_calc("");
+    assert!(out.contains("browser-dev topics"));
+}
+
+#[test]
+fn test_browser_dev_all_contains_sections() {
+    let out = browser_dev_calc("all");
+    assert!(out.contains("── devtools ──"));
+    assert!(out.contains("── web-apis ──"));
+    assert!(out.contains("── pwa ──"));
+    assert!(out.contains("── websocket ──"));
+    assert!(out.contains("── performance ──"));
+}
+
+#[test]
+fn test_browser_dev_devtools_topic() {
+    let out = browser_dev_calc("devtools");
+    assert!(out.contains("DevTools") || out.contains("devtools"));
+}
+
+#[test]
+fn test_browser_dev_devtools_network_tab() {
+    let out = browser_dev_calc("network-tab");
+    assert!(out.contains("Network") || out.contains("HAR") || out.contains("XHR"));
+}
+
+#[test]
+fn test_browser_dev_devtools_chrome_alias() {
+    let out = browser_dev_calc("chrome-devtools");
+    assert!(out.contains("DevTools") || out.contains("Network") || out.contains("Lighthouse"));
+}
+
+#[test]
+fn test_browser_dev_devtools_core_web_vitals() {
+    let out = browser_dev_calc("core-web-vitals");
+    assert!(
+        out.contains("LCP")
+            || out.contains("CLS")
+            || out.contains("INP")
+            || out.contains("Core Web Vitals")
+    );
+}
+
+#[test]
+fn test_browser_dev_devtools_lighthouse() {
+    let out = browser_dev_calc("lighthouse-audit");
+    assert!(out.contains("Lighthouse") || out.contains("lighthouse"));
+}
+
+#[test]
+fn test_browser_dev_devtools_console_tricks() {
+    let out = browser_dev_calc("console-tricks");
+    assert!(
+        out.contains("console.time") || out.contains("console.table") || out.contains("console")
+    );
+}
+
+#[test]
+fn test_browser_dev_devtools_performance_tab() {
+    let out = browser_dev_calc("performance-tab");
+    assert!(
+        out.contains("Performance") || out.contains("flame chart") || out.contains("Long Tasks")
+    );
+}
+
+#[test]
+fn test_browser_dev_devtools_sources_debugger() {
+    let out = browser_dev_calc("sources-debugger");
+    assert!(out.contains("Logpoints") || out.contains("breakpoint") || out.contains("Sources"));
+}
+
+#[test]
+fn test_browser_dev_devtools_application_tab() {
+    let out = browser_dev_calc("application-tab");
+    assert!(
+        out.contains("LocalStorage")
+            || out.contains("Service Worker")
+            || out.contains("Application")
+    );
+}
+
+#[test]
+fn test_browser_dev_web_apis_topic() {
+    let out = browser_dev_calc("web-apis");
+    assert!(out.contains("Fetch") || out.contains("Observer") || out.contains("Web API"));
+}
+
+#[test]
+fn test_browser_dev_web_apis_fetch() {
+    let out = browser_dev_calc("fetch-api");
+    assert!(out.contains("fetch") || out.contains("Fetch"));
+}
+
+#[test]
+fn test_browser_dev_web_apis_intersection_observer() {
+    let out = browser_dev_calc("intersection-observer");
+    assert!(out.contains("IntersectionObserver") || out.contains("Intersection Observer"));
+}
+
+#[test]
+fn test_browser_dev_web_apis_mutation_observer() {
+    let out = browser_dev_calc("mutation-observer");
+    assert!(out.contains("MutationObserver") || out.contains("Mutation"));
+}
+
+#[test]
+fn test_browser_dev_web_apis_resize_observer() {
+    let out = browser_dev_calc("resize-observer");
+    assert!(out.contains("ResizeObserver") || out.contains("Resize"));
+}
+
+#[test]
+fn test_browser_dev_web_apis_web_workers() {
+    let out = browser_dev_calc("web-workers");
+    assert!(out.contains("Worker") || out.contains("worker"));
+}
+
+#[test]
+fn test_browser_dev_web_apis_indexeddb() {
+    let out = browser_dev_calc("indexeddb");
+    assert!(out.contains("IndexedDB") || out.contains("indexeddb"));
+}
+
+#[test]
+fn test_browser_dev_web_apis_clipboard() {
+    let out = browser_dev_calc("clipboard-api");
+    assert!(out.contains("clipboard") || out.contains("Clipboard"));
+}
+
+#[test]
+fn test_browser_dev_web_apis_notifications() {
+    let out = browser_dev_calc("notifications-api");
+    assert!(out.contains("Notification") || out.contains("requestPermission"));
+}
+
+#[test]
+fn test_browser_dev_pwa_topic() {
+    let out = browser_dev_calc("pwa");
+    assert!(out.contains("PWA") || out.contains("Service Worker") || out.contains("Progressive"));
+}
+
+#[test]
+fn test_browser_dev_pwa_service_workers() {
+    let out = browser_dev_calc("service-workers");
+    assert!(
+        out.contains("Service Worker") || out.contains("serviceWorker") || out.contains("sw.js")
+    );
+}
+
+#[test]
+fn test_browser_dev_pwa_lifecycle() {
+    let out = browser_dev_calc("service-worker-lifecycle");
+    assert!(out.contains("Install") || out.contains("Activate") || out.contains("lifecycle"));
+}
+
+#[test]
+fn test_browser_dev_pwa_workbox() {
+    let out = browser_dev_calc("workbox");
+    assert!(out.contains("Workbox") || out.contains("workbox"));
+}
+
+#[test]
+fn test_browser_dev_pwa_manifest() {
+    let out = browser_dev_calc("web-app-manifest");
+    assert!(out.contains("manifest") || out.contains("Manifest"));
+}
+
+#[test]
+fn test_browser_dev_pwa_caching_strategies() {
+    let out = browser_dev_calc("caching-strategies-sw");
+    assert!(
+        out.contains("Cache-first")
+            || out.contains("Network-first")
+            || out.contains("Stale-while-revalidate")
+    );
+}
+
+#[test]
+fn test_browser_dev_pwa_push_notifications() {
+    let out = browser_dev_calc("push-notifications");
+    assert!(out.contains("pushManager") || out.contains("VAPID") || out.contains("Push"));
+}
+
+#[test]
+fn test_browser_dev_pwa_background_sync() {
+    let out = browser_dev_calc("background-sync");
+    assert!(
+        out.contains("Background Sync") || out.contains("sync.register") || out.contains("sync")
+    );
+}
+
+#[test]
+fn test_browser_dev_pwa_requirements() {
+    let out = browser_dev_calc("pwa-requirements");
+    assert!(out.contains("HTTPS") || out.contains("Manifest") || out.contains("Service Worker"));
+}
+
+#[test]
+fn test_browser_dev_websocket_topic() {
+    let out = browser_dev_calc("websocket");
+    assert!(out.contains("WebSocket") || out.contains("websocket"));
+}
+
+#[test]
+fn test_browser_dev_websocket_api_alias() {
+    let out = browser_dev_calc("websocket-api");
+    assert!(out.contains("WebSocket") || out.contains("ws.send"));
+}
+
+#[test]
+fn test_browser_dev_websocket_sse() {
+    let out = browser_dev_calc("sse-events");
+    assert!(out.contains("SSE") || out.contains("EventSource") || out.contains("Server-Sent"));
+}
+
+#[test]
+fn test_browser_dev_websocket_socket_io() {
+    let out = browser_dev_calc("socket-io");
+    assert!(out.contains("Socket.io") || out.contains("socket.emit") || out.contains("io("));
+}
+
+#[test]
+fn test_browser_dev_websocket_webrtc() {
+    let out = browser_dev_calc("webrtc");
+    assert!(out.contains("WebRTC") || out.contains("RTCPeerConnection"));
+}
+
+#[test]
+fn test_browser_dev_websocket_getuseermedia() {
+    let out = browser_dev_calc("getuseermedia");
+    assert!(out.contains("getUserMedia") || out.contains("MediaDevices"));
+}
+
+#[test]
+fn test_browser_dev_websocket_reconnect() {
+    let out = browser_dev_calc("reconnect-websocket");
+    assert!(out.contains("Reconnect") || out.contains("reconnect") || out.contains("setTimeout"));
+}
+
+#[test]
+fn test_browser_dev_performance_topic() {
+    let out = browser_dev_calc("performance");
+    assert!(
+        out.contains("Performance") || out.contains("Critical Rendering") || out.contains("LCP")
+    );
+}
+
+#[test]
+fn test_browser_dev_performance_critical_rendering() {
+    let out = browser_dev_calc("critical-rendering-path");
+    assert!(
+        out.contains("Critical Rendering Path")
+            || out.contains("Render Tree")
+            || out.contains("CSSOM")
+    );
+}
+
+#[test]
+fn test_browser_dev_performance_resource_hints() {
+    let out = browser_dev_calc("resource-hints");
+    assert!(out.contains("preload") || out.contains("prefetch") || out.contains("preconnect"));
+}
+
+#[test]
+fn test_browser_dev_performance_image_optimization() {
+    let out = browser_dev_calc("image-optimization");
+    assert!(out.contains("WebP") || out.contains("srcset") || out.contains("loading=\"lazy\""));
+}
+
+#[test]
+fn test_browser_dev_performance_code_splitting() {
+    let out = browser_dev_calc("code-splitting");
+    assert!(
+        out.contains("code splitting")
+            || out.contains("import()")
+            || out.contains("dynamic import")
+    );
+}
+
+#[test]
+fn test_browser_dev_performance_tree_shaking() {
+    let out = browser_dev_calc("tree-shaking");
+    assert!(
+        out.contains("Tree shaking")
+            || out.contains("tree shaking")
+            || out.contains("unused exports")
+    );
+}
+
+#[test]
+fn test_browser_dev_performance_bundle_analysis() {
+    let out = browser_dev_calc("bundle-analysis");
+    assert!(
+        out.contains("webpack-bundle-analyzer")
+            || out.contains("bundle-analyzer")
+            || out.contains("source-map-explorer")
+    );
+}
+
+#[test]
+fn test_browser_dev_performance_layout_thrashing() {
+    let out = browser_dev_calc("layout-thrashing");
+    assert!(
+        out.contains("layout thrashing")
+            || out.contains("DOM reads")
+            || out.contains("requestAnimationFrame")
+    );
+}
+
+#[test]
+fn test_browser_dev_performance_content_visibility() {
+    let out = browser_dev_calc("content-visibility");
+    assert!(out.contains("content-visibility") || out.contains("off-screen"));
+}
+
+#[test]
+fn test_browser_dev_unknown() {
+    let out = browser_dev_calc("nonexistent-xyz");
+    assert!(out.contains("Unknown") || out.contains("Available"));
+}
+
+#[test]
+fn test_browser_dev_no_panic_whitespace() {
+    let out = browser_dev_calc("  pwa  ");
+    assert!(!out.is_empty());
+    assert!(out.contains("PWA") || out.contains("Service Worker") || out.contains("Progressive"));
+}
+
+// ─── rust_async_calc ─────────────────────────────────────────────────────────
+
+#[test]
+fn test_rust_async_list() {
+    let out = rust_async_calc("list");
+    assert!(out.contains("rust-async topics"));
+    assert!(out.contains("tokio"));
+    assert!(out.contains("axum"));
+}
+
+#[test]
+fn test_rust_async_help() {
+    let out = rust_async_calc("help");
+    assert!(out.contains("rust-async topics"));
+}
+
+#[test]
+fn test_rust_async_empty() {
+    let out = rust_async_calc("");
+    assert!(out.contains("rust-async topics"));
+}
+
+#[test]
+fn test_rust_async_all_contains_sections() {
+    let out = rust_async_calc("all");
+    assert!(out.contains("── tokio ──"));
+    assert!(out.contains("── channels ──"));
+    assert!(out.contains("── streams ──"));
+    assert!(out.contains("── axum ──"));
+    assert!(out.contains("── patterns ──"));
+}
+
+#[test]
+fn test_rust_async_tokio_topic() {
+    let out = rust_async_calc("tokio");
+    assert!(out.contains("Tokio") || out.contains("tokio"));
+}
+
+#[test]
+fn test_rust_async_tokio_main_alias() {
+    let out = rust_async_calc("tokio-main");
+    assert!(out.contains("tokio::main") || out.contains("#[tokio::main]"));
+}
+
+#[test]
+fn test_rust_async_tokio_spawn_alias() {
+    let out = rust_async_calc("tokio-spawn");
+    assert!(out.contains("tokio::spawn") || out.contains("spawn"));
+}
+
+#[test]
+fn test_rust_async_tokio_join() {
+    let out = rust_async_calc("tokio-join");
+    assert!(out.contains("join!") || out.contains("tokio::join"));
+}
+
+#[test]
+fn test_rust_async_tokio_select() {
+    let out = rust_async_calc("tokio-select");
+    assert!(out.contains("select!") || out.contains("tokio::select"));
+}
+
+#[test]
+fn test_rust_async_tokio_timer() {
+    let out = rust_async_calc("tokio-timer");
+    assert!(out.contains("sleep") || out.contains("interval") || out.contains("timeout"));
+}
+
+#[test]
+fn test_rust_async_tokio_sleep() {
+    let out = rust_async_calc("tokio-sleep");
+    assert!(out.contains("tokio::time::sleep") || out.contains("sleep"));
+}
+
+#[test]
+fn test_rust_async_tokio_timeout() {
+    let out = rust_async_calc("tokio-timeout");
+    assert!(out.contains("timeout") || out.contains("time::timeout"));
+}
+
+#[test]
+fn test_rust_async_tokio_spawn_blocking() {
+    let out = rust_async_calc("spawn-blocking");
+    assert!(out.contains("spawn_blocking") || out.contains("blocking"));
+}
+
+#[test]
+fn test_rust_async_tokio_shutdown() {
+    let out = rust_async_calc("tokio-shutdown");
+    assert!(out.contains("shutdown") || out.contains("ctrl_c") || out.contains("broadcast"));
+}
+
+#[test]
+fn test_rust_async_tokio_config() {
+    let out = rust_async_calc("tokio-config");
+    assert!(
+        out.contains("Builder")
+            || out.contains("worker_threads")
+            || out.contains("new_multi_thread")
+    );
+}
+
+#[test]
+fn test_rust_async_tokio_current_thread() {
+    let out = rust_async_calc("current-thread");
+    assert!(out.contains("current_thread") || out.contains("single-thread"));
+}
+
+#[test]
+fn test_rust_async_channels_topic() {
+    let out = rust_async_calc("channels");
+    assert!(
+        out.contains("mpsc")
+            || out.contains("oneshot")
+            || out.contains("broadcast")
+            || out.contains("Channel")
+    );
+}
+
+#[test]
+fn test_rust_async_channels_mpsc() {
+    let out = rust_async_calc("mpsc-channel");
+    assert!(out.contains("mpsc") || out.contains("multi-producer"));
+}
+
+#[test]
+fn test_rust_async_channels_oneshot() {
+    let out = rust_async_calc("oneshot-channel");
+    assert!(out.contains("oneshot") || out.contains("one-shot"));
+}
+
+#[test]
+fn test_rust_async_channels_broadcast() {
+    let out = rust_async_calc("broadcast-channel");
+    assert!(out.contains("broadcast") || out.contains("fan-out"));
+}
+
+#[test]
+fn test_rust_async_channels_watch() {
+    let out = rust_async_calc("watch-channel");
+    assert!(out.contains("watch") || out.contains("latest-value"));
+}
+
+#[test]
+fn test_rust_async_channels_mutex() {
+    let out = rust_async_calc("tokio-mutex");
+    assert!(out.contains("Mutex") || out.contains("lock().await"));
+}
+
+#[test]
+fn test_rust_async_channels_semaphore() {
+    let out = rust_async_calc("tokio-semaphore");
+    assert!(out.contains("Semaphore") || out.contains("acquire"));
+}
+
+#[test]
+fn test_rust_async_channels_notify() {
+    let out = rust_async_calc("tokio-notify");
+    assert!(out.contains("Notify") || out.contains("notify_one") || out.contains("notified"));
+}
+
+#[test]
+fn test_rust_async_channels_barrier() {
+    let out = rust_async_calc("tokio-barrier");
+    assert!(out.contains("Barrier") || out.contains("barrier.wait"));
+}
+
+#[test]
+fn test_rust_async_channels_rwlock() {
+    let out = rust_async_calc("tokio-rwlock");
+    assert!(
+        out.contains("RwLock") || out.contains("read().await") || out.contains("write().await")
+    );
+}
+
+#[test]
+fn test_rust_async_streams_topic() {
+    let out = rust_async_calc("streams");
+    assert!(out.contains("Stream") || out.contains("futures") || out.contains("tokio_stream"));
+}
+
+#[test]
+fn test_rust_async_streams_tokio_stream_alias() {
+    let out = rust_async_calc("tokio-stream");
+    assert!(
+        out.contains("tokio_stream") || out.contains("ReceiverStream") || out.contains("StreamExt")
+    );
+}
+
+#[test]
+fn test_rust_async_streams_futures_stream() {
+    let out = rust_async_calc("futures-stream");
+    assert!(out.contains("futures") || out.contains("StreamExt"));
+}
+
+#[test]
+fn test_rust_async_streams_buffer_unordered() {
+    let out = rust_async_calc("buffer-unordered");
+    assert!(out.contains("buffer_unordered") || out.contains("concurrent"));
+}
+
+#[test]
+fn test_rust_async_streams_for_each_concurrent() {
+    let out = rust_async_calc("for-each-concurrent");
+    assert!(out.contains("for_each_concurrent") || out.contains("concurrent"));
+}
+
+#[test]
+fn test_rust_async_streams_pin() {
+    let out = rust_async_calc("pin-future");
+    assert!(out.contains("Pin") || out.contains("pin_mut") || out.contains("Box::pin"));
+}
+
+#[test]
+fn test_rust_async_streams_boxed_future() {
+    let out = rust_async_calc("boxed-future");
+    assert!(out.contains("boxed") || out.contains("Box<dyn Future") || out.contains("dyn Future"));
+}
+
+#[test]
+fn test_rust_async_streams_async_stream_macro() {
+    let out = rust_async_calc("async-stream");
+    assert!(out.contains("async_stream") || out.contains("stream!") || out.contains("yield"));
+}
+
+#[test]
+fn test_rust_async_axum_topic() {
+    let out = rust_async_calc("axum");
+    assert!(out.contains("Axum") || out.contains("axum") || out.contains("Router"));
+}
+
+#[test]
+fn test_rust_async_axum_framework_alias() {
+    let out = rust_async_calc("axum-framework");
+    assert!(out.contains("axum") || out.contains("Router"));
+}
+
+#[test]
+fn test_rust_async_axum_router() {
+    let out = rust_async_calc("axum-router");
+    assert!(out.contains("Router") || out.contains("routing::get"));
+}
+
+#[test]
+fn test_rust_async_axum_extractors() {
+    let out = rust_async_calc("axum-extractors");
+    assert!(
+        out.contains("Extractor")
+            || out.contains("Path(")
+            || out.contains("Query(")
+            || out.contains("Json(")
+    );
+}
+
+#[test]
+fn test_rust_async_axum_state() {
+    let out = rust_async_calc("axum-state");
+    assert!(out.contains("State(") || out.contains("with_state") || out.contains("state"));
+}
+
+#[test]
+fn test_rust_async_axum_middleware() {
+    let out = rust_async_calc("axum-middleware");
+    assert!(out.contains("middleware") || out.contains("TraceLayer") || out.contains("layer("));
+}
+
+#[test]
+fn test_rust_async_axum_error() {
+    let out = rust_async_calc("axum-error");
+    assert!(
+        out.contains("IntoResponse")
+            || out.contains("StatusCode")
+            || out.contains("Error handling")
+    );
+}
+
+#[test]
+fn test_rust_async_axum_websocket() {
+    let out = rust_async_calc("axum-websocket");
+    assert!(
+        out.contains("WebSocket") || out.contains("WebSocketUpgrade") || out.contains("ws_handler")
+    );
+}
+
+#[test]
+fn test_rust_async_axum_tower_http() {
+    let out = rust_async_calc("tower-http");
+    assert!(out.contains("tower-http") || out.contains("tower_http") || out.contains("TraceLayer"));
+}
+
+#[test]
+fn test_rust_async_axum_json() {
+    let out = rust_async_calc("axum-json");
+    assert!(out.contains("Json(") || out.contains("Json<") || out.contains("serde_json"));
+}
+
+#[test]
+fn test_rust_async_patterns_topic() {
+    let out = rust_async_calc("patterns");
+    assert!(
+        out.contains("Async Patterns")
+            || out.contains("async_trait")
+            || out.contains("CancellationToken")
+    );
+}
+
+#[test]
+fn test_rust_async_patterns_async_trait() {
+    let out = rust_async_calc("async-trait");
+    assert!(out.contains("async_trait") || out.contains("async fn") || out.contains("trait"));
+}
+
+#[test]
+fn test_rust_async_patterns_error_handling() {
+    let out = rust_async_calc("async-error");
+    assert!(out.contains("anyhow") || out.contains("context") || out.contains("Result"));
+}
+
+#[test]
+fn test_rust_async_patterns_concurrent_requests() {
+    let out = rust_async_calc("concurrent-requests");
+    assert!(
+        out.contains("join_all") || out.contains("buffer_unordered") || out.contains("concurrent")
+    );
+}
+
+#[test]
+fn test_rust_async_patterns_actor() {
+    let out = rust_async_calc("actor-pattern");
+    assert!(out.contains("Actor") || out.contains("actor") || out.contains("mpsc::Receiver"));
+}
+
+#[test]
+fn test_rust_async_patterns_cancellation_token() {
+    let out = rust_async_calc("cancellation-token");
+    assert!(
+        out.contains("CancellationToken")
+            || out.contains("cancellation")
+            || out.contains("cancel()")
+    );
+}
+
+#[test]
+fn test_rust_async_patterns_tracing() {
+    let out = rust_async_calc("tracing-async");
+    assert!(
+        out.contains("tracing")
+            || out.contains("#[instrument]")
+            || out.contains("tracing_subscriber")
+    );
+}
+
+#[test]
+fn test_rust_async_patterns_join_all() {
+    let out = rust_async_calc("join-all");
+    assert!(out.contains("join_all") || out.contains("join"));
+}
+
+#[test]
+fn test_rust_async_unknown() {
+    let out = rust_async_calc("nonexistent-xyz");
+    assert!(out.contains("Unknown") || out.contains("Available"));
+}
+
+#[test]
+fn test_rust_async_no_panic_whitespace() {
+    let out = rust_async_calc("  tokio  ");
+    assert!(!out.is_empty());
+    assert!(out.contains("Tokio") || out.contains("tokio::spawn") || out.contains("tokio::main"));
+}
+
+#[test]
+fn test_rust_async_no_panic_uppercase() {
+    let out = rust_async_calc("TOKIO");
+    assert!(!out.is_empty());
+    assert!(out.contains("Tokio") || out.contains("tokio"));
+}
+
+#[test]
+fn test_security_tools_no_panic_uppercase() {
+    let out = security_tools_calc("NMAP");
+    assert!(!out.is_empty());
+    assert!(out.contains("nmap") || out.contains("-sV"));
+}
+
+#[test]
+fn test_crypto_adv_no_panic_uppercase() {
+    let out = crypto_adv_calc("TLS");
+    assert!(!out.is_empty());
+    assert!(out.contains("TLS") || out.contains("ECDHE"));
+}
+
+#[test]
+fn test_browser_dev_no_panic_uppercase() {
+    let out = browser_dev_calc("DEVTOOLS");
+    assert!(!out.is_empty());
+    assert!(out.contains("DevTools") || out.contains("Network") || out.contains("Lighthouse"));
 }

