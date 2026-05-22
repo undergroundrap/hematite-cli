@@ -9,29 +9,30 @@ use hematite::tools::math_util::{
     chemistry_calc, chmod_calc, cicd_ref_calc, cipher_calc, cloud_native_calc, cloud_ref_calc,
     color_calc, color_names_calc, combinatorics_calc, compiler_ref_calc, complex_calc,
     concurrency_ref_calc, container_ref_calc, cron_calc, crypto_ref_calc, css_ref_calc, csv_calc,
-    curl_calc, data_formats_calc, database_adv_calc, datetime_calc, db_design_calc,
-    db_migrations_calc, design_patterns_calc, devops_ref_calc, diff_calc, docker_adv_calc,
-    docker_compose_calc, docker_ref_calc, duration_calc, electrical_calc, encode_calc, escape_calc,
-    event_driven_calc, find_calc, fraction_calc, geometry_calc, git_adv_calc, git_internals_calc,
-    git_ref_calc, gitignore_calc, go_ref_calc, grep_calc, grpc_ref_calc, hash_calc, headers_calc,
-    health_calc, http_adv_calc, http_calc, http_headers_calc, http_security_calc, http_status_calc,
-    id_gen_calc, ip_calc, jinja_calc, jq_calc, js_ref_calc, json_calc, json_path_calc, jwt_calc,
-    k8s_ref_calc, k8s_security_calc, kbd_calc, kubectl_calc, license_calc, linux_adv_calc,
-    linux_kernel_calc, linux_perf_calc, linux_sys_calc, load_testing_calc, lorem_calc, make_calc,
-    makefile_calc, markdown_calc, matrix_calc, message_queue_calc, mime_calc, ml_ref_calc,
-    monitoring_ref_calc, net_calc, network_ref_calc, networking_adv_calc, nginx_calc, npm_calc,
-    number_format, number_theory_calc, oauth_ref_calc, observability_calc, oop_ref_calc,
-    openssl_calc, percent_calc, perf_ref_calc, physics_calc, port_calc, postgres_calc, prob_calc,
+    curl_calc, data_formats_calc, data_pipeline_calc, database_adv_calc, datetime_calc,
+    db_design_calc, db_migrations_calc, design_patterns_calc, devops_ref_calc, diff_calc,
+    docker_adv_calc, docker_compose_calc, docker_ref_calc, duration_calc, electrical_calc,
+    encode_calc, escape_calc, event_driven_calc, find_calc, fraction_calc, geometry_calc,
+    git_adv_calc, git_internals_calc, git_ref_calc, gitignore_calc, go_ref_calc, grep_calc,
+    grpc_ref_calc, hash_calc, headers_calc, health_calc, http_adv_calc, http_calc,
+    http_headers_calc, http_security_calc, http_status_calc, id_gen_calc, ip_calc, jinja_calc,
+    jq_calc, js_ref_calc, json_calc, json_path_calc, jwt_calc, k8s_ref_calc, k8s_security_calc,
+    kbd_calc, kubectl_calc, license_calc, linux_adv_calc, linux_kernel_calc, linux_perf_calc,
+    linux_sys_calc, load_testing_calc, lorem_calc, make_calc, makefile_calc, markdown_calc,
+    matrix_calc, message_queue_calc, mime_calc, ml_ref_calc, monitoring_ref_calc, net_calc,
+    network_ref_calc, networking_adv_calc, nginx_calc, npm_calc, number_format, number_theory_calc,
+    oauth_ref_calc, observability_adv_calc, observability_calc, oop_ref_calc, openssl_calc,
+    percent_calc, perf_ref_calc, physics_calc, port_calc, postgres_calc, prob_calc,
     protocols_ref_calc, python_data_calc, python_ref_calc, regex_adv_calc, regex_calc,
     regex_engine_calc, regex_patterns_calc, regex_ref_calc, regex_test_calc, roman_calc,
     rust_adv_calc, rust_patterns_calc, rust_ref_calc, search_ref_calc, security_ref_calc,
-    security_scan_calc, sed_calc, semver_calc, set_calc, sort_viz, spark_calc, sql_adv_calc,
-    sql_fmt_calc, sql_ref_calc, sql_tuning_calc, ssh_ref_calc, ssl_calc, stats_calc, string_dist,
-    systemd_adv_calc, systemd_calc, table_calc, tar_calc, template_calc, terraform_adv_calc,
-    terraform_calc, testing_ref_calc, text_stats, timestamp_calc, tmux_calc, toml_calc, trig_calc,
-    ts_ref_calc, typescript_adv_calc, tz_calc, unicode_ref_calc, url_calc, uuid_calc,
-    validate_calc, vim_adv_calc, vim_calc, wasm_ref_calc, wasm_runtime_calc, web_perf_calc,
-    xml_calc, yaml_calc,
+    security_scan_calc, sed_calc, semver_calc, service_mesh_calc, set_calc, sort_viz, spark_calc,
+    sql_adv_calc, sql_fmt_calc, sql_ref_calc, sql_tuning_calc, ssh_ref_calc, ssl_calc, stats_calc,
+    string_dist, systemd_adv_calc, systemd_calc, table_calc, tar_calc, template_calc,
+    terminal_tools_calc, terraform_adv_calc, terraform_calc, testing_ref_calc, text_stats,
+    timestamp_calc, tmux_calc, toml_calc, trig_calc, ts_ref_calc, typescript_adv_calc, tz_calc,
+    unicode_ref_calc, url_calc, uuid_calc, validate_calc, vim_adv_calc, vim_calc, wasm_ref_calc,
+    wasm_runtime_calc, web_perf_calc, xml_calc, yaml_calc,
 };
 
 // ─── Cipher tests ────────────────────────────────────────────────────────────
@@ -25582,7 +25583,10 @@ fn caching_ref_stale_while_revalidate_alias() {
 fn caching_ref_app_topic() {
     let out = caching_ref_calc("app");
     assert!(
-        out.contains("Memoization") || out.contains("memoization") || out.contains("LRU") || out.contains("Cache key"),
+        out.contains("Memoization")
+            || out.contains("memoization")
+            || out.contains("LRU")
+            || out.contains("Cache key"),
         "app: {out}"
     );
 }
@@ -25925,5 +25929,919 @@ fn load_testing_unknown_no_panic() {
 #[test]
 fn load_testing_empty_no_panic() {
     let out = load_testing_calc("");
+    assert!(!out.is_empty());
+}
+
+// ─── Wave 38: service_mesh_calc tests ────────────────────────────────────────
+
+#[test]
+fn service_mesh_list_no_panic() {
+    let out = service_mesh_calc("list");
+    assert!(!out.is_empty());
+}
+
+#[test]
+fn service_mesh_all_contains_istio() {
+    let out = service_mesh_calc("all");
+    assert!(
+        out.contains("istio") || out.contains("Istio") || out.contains("mesh"),
+        "all: {out}"
+    );
+}
+
+#[test]
+fn service_mesh_istio_topic() {
+    let out = service_mesh_calc("istio");
+    assert!(
+        out.contains("Istio") || out.contains("VirtualService") || out.contains("istioctl"),
+        "istio: {out}"
+    );
+}
+
+#[test]
+fn service_mesh_istio_mesh_alias() {
+    let out = service_mesh_calc("istio-mesh");
+    assert!(!out.is_empty(), "istio-mesh: {out}");
+}
+
+#[test]
+fn service_mesh_virtualservice_alias() {
+    let out = service_mesh_calc("virtualservice");
+    assert!(!out.is_empty(), "virtualservice: {out}");
+}
+
+#[test]
+fn service_mesh_destinationrule_alias() {
+    let out = service_mesh_calc("destinationrule");
+    assert!(!out.is_empty(), "destinationrule: {out}");
+}
+
+#[test]
+fn service_mesh_istioctl_alias() {
+    let out = service_mesh_calc("istioctl");
+    assert!(!out.is_empty(), "istioctl: {out}");
+}
+
+#[test]
+fn service_mesh_fault_injection_alias() {
+    let out = service_mesh_calc("fault-injection");
+    assert!(!out.is_empty(), "fault-injection: {out}");
+}
+
+#[test]
+fn service_mesh_istio_retry_alias() {
+    let out = service_mesh_calc("istio-retry");
+    assert!(!out.is_empty(), "istio-retry: {out}");
+}
+
+#[test]
+fn service_mesh_envoy_topic() {
+    let out = service_mesh_calc("envoy");
+    assert!(
+        out.contains("Envoy") || out.contains("cluster") || out.contains("listener"),
+        "envoy: {out}"
+    );
+}
+
+#[test]
+fn service_mesh_envoy_proxy_alias() {
+    let out = service_mesh_calc("envoy-proxy");
+    assert!(!out.is_empty(), "envoy-proxy: {out}");
+}
+
+#[test]
+fn service_mesh_xds_api_alias() {
+    let out = service_mesh_calc("xds-api");
+    assert!(!out.is_empty(), "xds-api: {out}");
+}
+
+#[test]
+fn service_mesh_envoy_filter_alias() {
+    let out = service_mesh_calc("envoy-filter");
+    assert!(!out.is_empty(), "envoy-filter: {out}");
+}
+
+#[test]
+fn service_mesh_envoy_admin_alias() {
+    let out = service_mesh_calc("envoy-admin");
+    assert!(!out.is_empty(), "envoy-admin: {out}");
+}
+
+#[test]
+fn service_mesh_linkerd_topic() {
+    let out = service_mesh_calc("linkerd");
+    assert!(
+        out.contains("Linkerd") || out.contains("linkerd") || out.contains("inject"),
+        "linkerd: {out}"
+    );
+}
+
+#[test]
+fn service_mesh_linkerd_inject_alias() {
+    let out = service_mesh_calc("linkerd-inject");
+    assert!(!out.is_empty(), "linkerd-inject: {out}");
+}
+
+#[test]
+fn service_mesh_linkerd_viz_alias() {
+    let out = service_mesh_calc("linkerd-viz");
+    assert!(!out.is_empty(), "linkerd-viz: {out}");
+}
+
+#[test]
+fn service_mesh_retry_budget_alias() {
+    let out = service_mesh_calc("retry-budget");
+    assert!(!out.is_empty(), "retry-budget: {out}");
+}
+
+#[test]
+fn service_mesh_traffic_split_alias() {
+    let out = service_mesh_calc("traffic-split");
+    assert!(!out.is_empty(), "traffic-split: {out}");
+}
+
+#[test]
+fn service_mesh_patterns_topic() {
+    let out = service_mesh_calc("patterns");
+    assert!(
+        out.contains("canary") || out.contains("circuit") || out.contains("SPIFFE"),
+        "patterns: {out}"
+    );
+}
+
+#[test]
+fn service_mesh_canary_mesh_alias() {
+    let out = service_mesh_calc("canary-mesh");
+    assert!(!out.is_empty(), "canary-mesh: {out}");
+}
+
+#[test]
+fn service_mesh_circuit_breaker_mesh_alias() {
+    let out = service_mesh_calc("circuit-breaker-mesh");
+    assert!(!out.is_empty(), "circuit-breaker-mesh: {out}");
+}
+
+#[test]
+fn service_mesh_spiffe_alias() {
+    let out = service_mesh_calc("spiffe");
+    assert!(!out.is_empty(), "spiffe: {out}");
+}
+
+#[test]
+fn service_mesh_ambient_mesh_alias() {
+    let out = service_mesh_calc("ambient-mesh");
+    assert!(!out.is_empty(), "ambient-mesh: {out}");
+}
+
+#[test]
+fn service_mesh_consul_topic() {
+    let out = service_mesh_calc("consul");
+    assert!(
+        out.contains("Consul") || out.contains("consul") || out.contains("intention"),
+        "consul: {out}"
+    );
+}
+
+#[test]
+fn service_mesh_consul_connect_alias() {
+    let out = service_mesh_calc("consul-connect");
+    assert!(!out.is_empty(), "consul-connect: {out}");
+}
+
+#[test]
+fn service_mesh_consul_intentions_alias() {
+    let out = service_mesh_calc("consul-intentions");
+    assert!(!out.is_empty(), "consul-intentions: {out}");
+}
+
+#[test]
+fn service_mesh_consul_kv_alias() {
+    let out = service_mesh_calc("consul-kv");
+    assert!(!out.is_empty(), "consul-kv: {out}");
+}
+
+#[test]
+fn service_mesh_dapr_topic() {
+    let out = service_mesh_calc("dapr");
+    assert!(
+        out.contains("Dapr") || out.contains("dapr") || out.contains("sidecar"),
+        "dapr: {out}"
+    );
+}
+
+#[test]
+fn service_mesh_dapr_state_alias() {
+    let out = service_mesh_calc("dapr-state");
+    assert!(!out.is_empty(), "dapr-state: {out}");
+}
+
+#[test]
+fn service_mesh_dapr_pubsub_alias() {
+    let out = service_mesh_calc("dapr-pubsub");
+    assert!(!out.is_empty(), "dapr-pubsub: {out}");
+}
+
+#[test]
+fn service_mesh_dapr_resiliency_alias() {
+    let out = service_mesh_calc("dapr-resiliency");
+    assert!(!out.is_empty(), "dapr-resiliency: {out}");
+}
+
+#[test]
+fn service_mesh_unknown_no_panic() {
+    let out = service_mesh_calc("nonexistent-topic");
+    assert!(!out.is_empty());
+}
+
+#[test]
+fn service_mesh_empty_no_panic() {
+    let out = service_mesh_calc("");
+    assert!(!out.is_empty());
+}
+
+// ─── Wave 38: observability_adv_calc tests ───────────────────────────────────
+
+#[test]
+fn observability_adv_list_no_panic() {
+    let out = observability_adv_calc("list");
+    assert!(!out.is_empty());
+}
+
+#[test]
+fn observability_adv_all_contains_otel() {
+    let out = observability_adv_calc("all");
+    assert!(
+        out.contains("otel") || out.contains("OpenTelemetry") || out.contains("trace"),
+        "all: {out}"
+    );
+}
+
+#[test]
+fn observability_adv_otel_topic() {
+    let out = observability_adv_calc("otel");
+    assert!(
+        out.contains("OpenTelemetry") || out.contains("OTLP") || out.contains("tracer"),
+        "otel: {out}"
+    );
+}
+
+#[test]
+fn observability_adv_opentelemetry_alias() {
+    let out = observability_adv_calc("opentelemetry");
+    assert!(!out.is_empty(), "opentelemetry: {out}");
+}
+
+#[test]
+fn observability_adv_otlp_alias() {
+    let out = observability_adv_calc("otlp");
+    assert!(!out.is_empty(), "otlp: {out}");
+}
+
+#[test]
+fn observability_adv_otel_collector_alias() {
+    let out = observability_adv_calc("otel-collector");
+    assert!(!out.is_empty(), "otel-collector: {out}");
+}
+
+#[test]
+fn observability_adv_otel_sampling_alias() {
+    let out = observability_adv_calc("otel-sampling");
+    assert!(!out.is_empty(), "otel-sampling: {out}");
+}
+
+#[test]
+fn observability_adv_tracing_topic() {
+    let out = observability_adv_calc("tracing");
+    assert!(
+        out.contains("trace") || out.contains("span") || out.contains("Jaeger"),
+        "tracing: {out}"
+    );
+}
+
+#[test]
+fn observability_adv_distributed_tracing_alias() {
+    let out = observability_adv_calc("distributed-tracing");
+    assert!(!out.is_empty(), "distributed-tracing: {out}");
+}
+
+#[test]
+fn observability_adv_jaeger_tracing_alias() {
+    let out = observability_adv_calc("jaeger-tracing");
+    assert!(!out.is_empty(), "jaeger-tracing: {out}");
+}
+
+#[test]
+fn observability_adv_tail_sampling_alias() {
+    let out = observability_adv_calc("tail-sampling");
+    assert!(!out.is_empty(), "tail-sampling: {out}");
+}
+
+#[test]
+fn observability_adv_traceql_alias() {
+    let out = observability_adv_calc("traceql");
+    assert!(!out.is_empty(), "traceql: {out}");
+}
+
+#[test]
+fn observability_adv_tempo_tracing_alias() {
+    let out = observability_adv_calc("tempo-tracing");
+    assert!(!out.is_empty(), "tempo-tracing: {out}");
+}
+
+#[test]
+fn observability_adv_metrics_topic() {
+    let out = observability_adv_calc("metrics");
+    assert!(
+        out.contains("histogram") || out.contains("SLO") || out.contains("PromQL"),
+        "metrics: {out}"
+    );
+}
+
+#[test]
+fn observability_adv_error_budget_alias() {
+    let out = observability_adv_calc("error-budget");
+    assert!(!out.is_empty(), "error-budget: {out}");
+}
+
+#[test]
+fn observability_adv_burn_rate_alias() {
+    let out = observability_adv_calc("burn-rate");
+    assert!(!out.is_empty(), "burn-rate: {out}");
+}
+
+#[test]
+fn observability_adv_sli_slo_sla_alias() {
+    let out = observability_adv_calc("sli-slo-sla");
+    assert!(!out.is_empty(), "sli-slo-sla: {out}");
+}
+
+#[test]
+fn observability_adv_cardinality_control_alias() {
+    let out = observability_adv_calc("cardinality-control");
+    assert!(!out.is_empty(), "cardinality-control: {out}");
+}
+
+#[test]
+fn observability_adv_logging_topic() {
+    let out = observability_adv_calc("logging");
+    assert!(
+        out.contains("log") || out.contains("Loki") || out.contains("ELK"),
+        "logging: {out}"
+    );
+}
+
+#[test]
+fn observability_adv_structured_logging_alias() {
+    let out = observability_adv_calc("structured-logging");
+    assert!(!out.is_empty(), "structured-logging: {out}");
+}
+
+#[test]
+fn observability_adv_loki_logging_alias() {
+    let out = observability_adv_calc("loki-logging");
+    assert!(!out.is_empty(), "loki-logging: {out}");
+}
+
+#[test]
+fn observability_adv_elk_stack_alias() {
+    let out = observability_adv_calc("elk-stack");
+    assert!(!out.is_empty(), "elk-stack: {out}");
+}
+
+#[test]
+fn observability_adv_logql_alias() {
+    let out = observability_adv_calc("logql");
+    assert!(!out.is_empty(), "logql: {out}");
+}
+
+#[test]
+fn observability_adv_alerting_topic() {
+    let out = observability_adv_calc("alerting");
+    assert!(
+        out.contains("Alertmanager") || out.contains("alert") || out.contains("PagerDuty"),
+        "alerting: {out}"
+    );
+}
+
+#[test]
+fn observability_adv_alertmanager_alias() {
+    let out = observability_adv_calc("alertmanager");
+    assert!(!out.is_empty(), "alertmanager: {out}");
+}
+
+#[test]
+fn observability_adv_alert_fatigue_alias() {
+    let out = observability_adv_calc("alert-fatigue");
+    assert!(!out.is_empty(), "alert-fatigue: {out}");
+}
+
+#[test]
+fn observability_adv_on_call_alias() {
+    let out = observability_adv_calc("on-call");
+    assert!(!out.is_empty(), "on-call: {out}");
+}
+
+#[test]
+fn observability_adv_dashboards_topic() {
+    let out = observability_adv_calc("dashboards");
+    assert!(
+        out.contains("Grafana") || out.contains("dashboard") || out.contains("USE"),
+        "dashboards: {out}"
+    );
+}
+
+#[test]
+fn observability_adv_grafana_dashboards_alias() {
+    let out = observability_adv_calc("grafana-dashboards");
+    assert!(!out.is_empty(), "grafana-dashboards: {out}");
+}
+
+#[test]
+fn observability_adv_use_method_alias() {
+    let out = observability_adv_calc("use-method");
+    assert!(!out.is_empty(), "use-method: {out}");
+}
+
+#[test]
+fn observability_adv_red_method_alias() {
+    let out = observability_adv_calc("red-method");
+    assert!(!out.is_empty(), "red-method: {out}");
+}
+
+#[test]
+fn observability_adv_unknown_no_panic() {
+    let out = observability_adv_calc("nonexistent-topic");
+    assert!(!out.is_empty());
+}
+
+#[test]
+fn observability_adv_empty_no_panic() {
+    let out = observability_adv_calc("");
+    assert!(!out.is_empty());
+}
+
+// ─── Wave 38: terminal_tools_calc tests ──────────────────────────────────────
+
+#[test]
+fn terminal_tools_list_no_panic() {
+    let out = terminal_tools_calc("list");
+    assert!(!out.is_empty());
+}
+
+#[test]
+fn terminal_tools_all_contains_fzf() {
+    let out = terminal_tools_calc("all");
+    assert!(
+        out.contains("fzf") || out.contains("fuzzy") || out.contains("terminal"),
+        "all: {out}"
+    );
+}
+
+#[test]
+fn terminal_tools_fzf_topic() {
+    let out = terminal_tools_calc("fzf");
+    assert!(
+        out.contains("fzf") || out.contains("fuzzy") || out.contains("Ctrl"),
+        "fzf: {out}"
+    );
+}
+
+#[test]
+fn terminal_tools_fuzzy_finder_alias() {
+    let out = terminal_tools_calc("fuzzy-finder");
+    assert!(!out.is_empty(), "fuzzy-finder: {out}");
+}
+
+#[test]
+fn terminal_tools_fzf_preview_alias() {
+    let out = terminal_tools_calc("fzf-preview");
+    assert!(!out.is_empty(), "fzf-preview: {out}");
+}
+
+#[test]
+fn terminal_tools_fzf_ctrl_r_alias() {
+    let out = terminal_tools_calc("fzf-ctrl-r");
+    assert!(!out.is_empty(), "fzf-ctrl-r: {out}");
+}
+
+#[test]
+fn terminal_tools_fzf_shell_alias() {
+    let out = terminal_tools_calc("fzf-shell");
+    assert!(!out.is_empty(), "fzf-shell: {out}");
+}
+
+#[test]
+fn terminal_tools_ripgrep_topic() {
+    let out = terminal_tools_calc("ripgrep");
+    assert!(
+        out.contains("ripgrep") || out.contains("rg") || out.contains("pattern"),
+        "ripgrep: {out}"
+    );
+}
+
+#[test]
+fn terminal_tools_rg_search_alias() {
+    let out = terminal_tools_calc("rg-search");
+    assert!(!out.is_empty(), "rg-search: {out}");
+}
+
+#[test]
+fn terminal_tools_ripgrep_types_alias() {
+    let out = terminal_tools_calc("ripgrep-types");
+    assert!(!out.is_empty(), "ripgrep-types: {out}");
+}
+
+#[test]
+fn terminal_tools_ripgrep_json_alias() {
+    let out = terminal_tools_calc("ripgrep-json");
+    assert!(!out.is_empty(), "ripgrep-json: {out}");
+}
+
+#[test]
+fn terminal_tools_rg_context_alias() {
+    let out = terminal_tools_calc("rg-context");
+    assert!(!out.is_empty(), "rg-context: {out}");
+}
+
+#[test]
+fn terminal_tools_shell_tools_topic() {
+    let out = terminal_tools_calc("shell-tools");
+    assert!(
+        out.contains("eza") || out.contains("bat") || out.contains("zoxide"),
+        "shell-tools: {out}"
+    );
+}
+
+#[test]
+fn terminal_tools_modern_cli_alias() {
+    let out = terminal_tools_calc("modern-cli");
+    assert!(!out.is_empty(), "modern-cli: {out}");
+}
+
+#[test]
+fn terminal_tools_eza_ls_alias() {
+    let out = terminal_tools_calc("eza-ls");
+    assert!(!out.is_empty(), "eza-ls: {out}");
+}
+
+#[test]
+fn terminal_tools_bat_cat_alias() {
+    let out = terminal_tools_calc("bat-cat");
+    assert!(!out.is_empty(), "bat-cat: {out}");
+}
+
+#[test]
+fn terminal_tools_delta_diff_alias() {
+    let out = terminal_tools_calc("delta-diff");
+    assert!(!out.is_empty(), "delta-diff: {out}");
+}
+
+#[test]
+fn terminal_tools_hyperfine_alias() {
+    let out = terminal_tools_calc("hyperfine");
+    assert!(!out.is_empty(), "hyperfine: {out}");
+}
+
+#[test]
+fn terminal_tools_zsh_topic() {
+    let out = terminal_tools_calc("zsh");
+    assert!(
+        out.contains("zsh") || out.contains("Zsh") || out.contains("zinit"),
+        "zsh: {out}"
+    );
+}
+
+#[test]
+fn terminal_tools_zsh_config_alias() {
+    let out = terminal_tools_calc("zsh-config");
+    assert!(!out.is_empty(), "zsh-config: {out}");
+}
+
+#[test]
+fn terminal_tools_zsh_plugins_alias() {
+    let out = terminal_tools_calc("zsh-plugins");
+    assert!(!out.is_empty(), "zsh-plugins: {out}");
+}
+
+#[test]
+fn terminal_tools_starship_prompt_alias() {
+    let out = terminal_tools_calc("starship-prompt");
+    assert!(!out.is_empty(), "starship-prompt: {out}");
+}
+
+#[test]
+fn terminal_tools_oh_my_zsh_alias() {
+    let out = terminal_tools_calc("oh-my-zsh");
+    assert!(!out.is_empty(), "oh-my-zsh: {out}");
+}
+
+#[test]
+fn terminal_tools_tmux_adv_topic() {
+    let out = terminal_tools_calc("tmux-adv");
+    assert!(
+        out.contains("tmux") || out.contains("session") || out.contains("pane"),
+        "tmux-adv: {out}"
+    );
+}
+
+#[test]
+fn terminal_tools_tmux_advanced_alias() {
+    let out = terminal_tools_calc("tmux-advanced");
+    assert!(!out.is_empty(), "tmux-advanced: {out}");
+}
+
+#[test]
+fn terminal_tools_tpm_plugins_alias() {
+    let out = terminal_tools_calc("tpm-plugins");
+    assert!(!out.is_empty(), "tpm-plugins: {out}");
+}
+
+#[test]
+fn terminal_tools_tmux_resurrect_alias() {
+    let out = terminal_tools_calc("tmux-resurrect");
+    assert!(!out.is_empty(), "tmux-resurrect: {out}");
+}
+
+#[test]
+fn terminal_tools_tmux_scripting_alias() {
+    let out = terminal_tools_calc("tmux-scripting");
+    assert!(!out.is_empty(), "tmux-scripting: {out}");
+}
+
+#[test]
+fn terminal_tools_wezterm_topic() {
+    let out = terminal_tools_calc("wezterm");
+    assert!(
+        out.contains("WezTerm") || out.contains("wezterm") || out.contains("Kitty"),
+        "wezterm: {out}"
+    );
+}
+
+#[test]
+fn terminal_tools_terminal_emulator_alias() {
+    let out = terminal_tools_calc("terminal-emulator");
+    assert!(!out.is_empty(), "terminal-emulator: {out}");
+}
+
+#[test]
+fn terminal_tools_nerd_fonts_alias() {
+    let out = terminal_tools_calc("nerd-fonts");
+    assert!(!out.is_empty(), "nerd-fonts: {out}");
+}
+
+#[test]
+fn terminal_tools_true_color_terminal_alias() {
+    let out = terminal_tools_calc("true-color-terminal");
+    assert!(!out.is_empty(), "true-color-terminal: {out}");
+}
+
+#[test]
+fn terminal_tools_unknown_no_panic() {
+    let out = terminal_tools_calc("nonexistent-topic");
+    assert!(!out.is_empty());
+}
+
+#[test]
+fn terminal_tools_empty_no_panic() {
+    let out = terminal_tools_calc("");
+    assert!(!out.is_empty());
+}
+
+// ─── Wave 38: data_pipeline_calc tests ───────────────────────────────────────
+
+#[test]
+fn data_pipeline_list_no_panic() {
+    let out = data_pipeline_calc("list");
+    assert!(!out.is_empty());
+}
+
+#[test]
+fn data_pipeline_all_contains_dbt() {
+    let out = data_pipeline_calc("all");
+    assert!(
+        out.contains("dbt") || out.contains("pipeline") || out.contains("Airflow"),
+        "all: {out}"
+    );
+}
+
+#[test]
+fn data_pipeline_dbt_topic() {
+    let out = data_pipeline_calc("dbt");
+    assert!(
+        out.contains("dbt") || out.contains("model") || out.contains("materialization"),
+        "dbt: {out}"
+    );
+}
+
+#[test]
+fn data_pipeline_dbt_models_alias() {
+    let out = data_pipeline_calc("dbt-models");
+    assert!(!out.is_empty(), "dbt-models: {out}");
+}
+
+#[test]
+fn data_pipeline_dbt_incremental_alias() {
+    let out = data_pipeline_calc("dbt-incremental");
+    assert!(!out.is_empty(), "dbt-incremental: {out}");
+}
+
+#[test]
+fn data_pipeline_dbt_tests_alias() {
+    let out = data_pipeline_calc("dbt-tests");
+    assert!(!out.is_empty(), "dbt-tests: {out}");
+}
+
+#[test]
+fn data_pipeline_dbt_sources_alias() {
+    let out = data_pipeline_calc("dbt-sources");
+    assert!(!out.is_empty(), "dbt-sources: {out}");
+}
+
+#[test]
+fn data_pipeline_dbt_build_alias() {
+    let out = data_pipeline_calc("dbt-build");
+    assert!(!out.is_empty(), "dbt-build: {out}");
+}
+
+#[test]
+fn data_pipeline_airflow_topic() {
+    let out = data_pipeline_calc("airflow");
+    assert!(
+        out.contains("Airflow") || out.contains("DAG") || out.contains("Operator"),
+        "airflow: {out}"
+    );
+}
+
+#[test]
+fn data_pipeline_apache_airflow_alias() {
+    let out = data_pipeline_calc("apache-airflow");
+    assert!(!out.is_empty(), "apache-airflow: {out}");
+}
+
+#[test]
+fn data_pipeline_airflow_dag_alias() {
+    let out = data_pipeline_calc("airflow-dag");
+    assert!(!out.is_empty(), "airflow-dag: {out}");
+}
+
+#[test]
+fn data_pipeline_airflow_operators_alias() {
+    let out = data_pipeline_calc("airflow-operators");
+    assert!(!out.is_empty(), "airflow-operators: {out}");
+}
+
+#[test]
+fn data_pipeline_airflow_xcom_alias() {
+    let out = data_pipeline_calc("airflow-xcom");
+    assert!(!out.is_empty(), "airflow-xcom: {out}");
+}
+
+#[test]
+fn data_pipeline_spark_topic() {
+    let out = data_pipeline_calc("spark");
+    assert!(
+        out.contains("Spark") || out.contains("DataFrame") || out.contains("executor"),
+        "spark: {out}"
+    );
+}
+
+#[test]
+fn data_pipeline_pyspark_alias() {
+    let out = data_pipeline_calc("pyspark");
+    assert!(!out.is_empty(), "pyspark: {out}");
+}
+
+#[test]
+fn data_pipeline_spark_sql_alias() {
+    let out = data_pipeline_calc("spark-sql");
+    assert!(!out.is_empty(), "spark-sql: {out}");
+}
+
+#[test]
+fn data_pipeline_spark_joins_alias() {
+    let out = data_pipeline_calc("spark-joins");
+    assert!(!out.is_empty(), "spark-joins: {out}");
+}
+
+#[test]
+fn data_pipeline_aqe_spark_alias() {
+    let out = data_pipeline_calc("aqe-spark");
+    assert!(!out.is_empty(), "aqe-spark: {out}");
+}
+
+#[test]
+fn data_pipeline_streaming_topic() {
+    let out = data_pipeline_calc("streaming");
+    assert!(
+        out.contains("Kafka") || out.contains("Flink") || out.contains("window"),
+        "streaming: {out}"
+    );
+}
+
+#[test]
+fn data_pipeline_kafka_streams_alias() {
+    let out = data_pipeline_calc("kafka-streams");
+    assert!(!out.is_empty(), "kafka-streams: {out}");
+}
+
+#[test]
+fn data_pipeline_apache_flink_alias() {
+    let out = data_pipeline_calc("apache-flink");
+    assert!(!out.is_empty(), "apache-flink: {out}");
+}
+
+#[test]
+fn data_pipeline_exactly_once_streaming_alias() {
+    let out = data_pipeline_calc("exactly-once-streaming");
+    assert!(!out.is_empty(), "exactly-once-streaming: {out}");
+}
+
+#[test]
+fn data_pipeline_tumbling_window_alias() {
+    let out = data_pipeline_calc("tumbling-window");
+    assert!(!out.is_empty(), "tumbling-window: {out}");
+}
+
+#[test]
+fn data_pipeline_etl_topic() {
+    let out = data_pipeline_calc("etl");
+    assert!(
+        out.contains("ETL") || out.contains("ELT") || out.contains("ingestion"),
+        "etl: {out}"
+    );
+}
+
+#[test]
+fn data_pipeline_etl_patterns_alias() {
+    let out = data_pipeline_calc("etl-patterns");
+    assert!(!out.is_empty(), "etl-patterns: {out}");
+}
+
+#[test]
+fn data_pipeline_debezium_cdc_alias() {
+    let out = data_pipeline_calc("debezium-cdc");
+    assert!(!out.is_empty(), "debezium-cdc: {out}");
+}
+
+#[test]
+fn data_pipeline_data_quality_alias() {
+    let out = data_pipeline_calc("data-quality");
+    assert!(!out.is_empty(), "data-quality: {out}");
+}
+
+#[test]
+fn data_pipeline_change_data_capture_alias() {
+    let out = data_pipeline_calc("change-data-capture");
+    assert!(!out.is_empty(), "change-data-capture: {out}");
+}
+
+#[test]
+fn data_pipeline_lakehouse_topic() {
+    let out = data_pipeline_calc("lakehouse");
+    assert!(
+        out.contains("Delta") || out.contains("Iceberg") || out.contains("DuckDB"),
+        "lakehouse: {out}"
+    );
+}
+
+#[test]
+fn data_pipeline_delta_lake_alias() {
+    let out = data_pipeline_calc("delta-lake");
+    assert!(!out.is_empty(), "delta-lake: {out}");
+}
+
+#[test]
+fn data_pipeline_apache_iceberg_alias() {
+    let out = data_pipeline_calc("apache-iceberg");
+    assert!(!out.is_empty(), "apache-iceberg: {out}");
+}
+
+#[test]
+fn data_pipeline_duckdb_alias() {
+    let out = data_pipeline_calc("duckdb");
+    assert!(!out.is_empty(), "duckdb: {out}");
+}
+
+#[test]
+fn data_pipeline_parquet_alias() {
+    let out = data_pipeline_calc("parquet");
+    assert!(!out.is_empty(), "parquet: {out}");
+}
+
+#[test]
+fn data_pipeline_delta_timetravel_alias() {
+    let out = data_pipeline_calc("delta-timetravel");
+    assert!(!out.is_empty(), "delta-timetravel: {out}");
+}
+
+#[test]
+fn data_pipeline_unknown_no_panic() {
+    let out = data_pipeline_calc("nonexistent-topic");
+    assert!(!out.is_empty());
+}
+
+#[test]
+fn data_pipeline_empty_no_panic() {
+    let out = data_pipeline_calc("");
     assert!(!out.is_empty());
 }

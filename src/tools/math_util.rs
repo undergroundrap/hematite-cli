@@ -55837,3 +55837,2088 @@ pub fn load_testing_calc(query: &str) -> String {
             .join(", ")
     )
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Wave 38: --service-mesh, --observability-adv, --terminal-tools, --data-pipeline
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ── service-mesh ─────────────────────────────────────────────────────────────
+
+fn s_sm_istio() -> &'static str {
+    "Istio Service Mesh
+Installation:
+  istioctl install --set profile=demo -y
+  kubectl label namespace default istio-injection=enabled
+  kubectl rollout restart deployment/<name>   # inject sidecar
+
+Profiles: minimal, default, demo, openshift, external, empty, preview
+
+Traffic Management:
+  VirtualService: routing rules (weight, header match, retries, timeouts)
+  DestinationRule: subsets, load balancing, circuit breaker
+  Gateway: ingress/egress for mesh edge
+  ServiceEntry: register external services inside mesh
+
+VirtualService example:
+  apiVersion: networking.istio.io/v1alpha3
+  kind: VirtualService
+  metadata: { name: reviews }
+  spec:
+    hosts: [reviews]
+    http:
+    - match: [{headers: {end-user: {exact: jason}}}]
+      route: [{destination: {host: reviews, subset: v2}}]
+    - route: [{destination: {host: reviews, subset: v3}}]
+
+DestinationRule circuit breaker:
+  trafficPolicy:
+    outlierDetection:
+      consecutive5xxErrors: 5
+      interval: 30s
+      baseEjectionTime: 30s
+      maxEjectionPercent: 100
+
+Fault injection:
+  fault:
+    delay: { percentage: {value: 10}, fixedDelay: 7s }
+    abort: { percentage: {value: 5}, httpStatus: 500 }
+
+Retry policy:
+  retries:
+    attempts: 3
+    perTryTimeout: 2s
+    retryOn: gateway-error,connect-failure,retriable-4xx
+
+mTLS enforcement:
+  apiVersion: security.istio.io/v1beta1
+  kind: PeerAuthentication
+  spec:
+    mtls: {mode: STRICT}
+
+AuthorizationPolicy:
+  action: ALLOW / DENY
+  rules.from: source principals / namespaces
+  rules.to: methods, paths
+
+Observability (auto-wired):
+  Prometheus → metrics (Envoy xDS stats)
+  Grafana    → dashboards (Kiali for mesh topology)
+  Jaeger/Zipkin → distributed tracing
+  Kiali      → real-time mesh topology UI
+
+istioctl commands:
+  istioctl analyze                    # config validation
+  istioctl proxy-status               # Envoy sync status
+  istioctl proxy-config cluster <pod> # upstream cluster config
+  istioctl dashboard kiali            # open Kiali UI"
+}
+
+fn s_sm_envoy() -> &'static str {
+    "Envoy Proxy Reference
+Core concepts:
+  Listener  → downstream connection entry point (bind address:port)
+  Cluster   → upstream group of endpoints with load balancing
+  Route     → listener → virtual host → route → cluster mapping
+  Filter    → request/response processing chain (L4 and L7)
+
+Static config skeleton:
+  static_resources:
+    listeners:
+    - address: {socket_address: {address: 0.0.0.0, port_value: 10000}}
+      filter_chains:
+      - filters:
+        - name: envoy.filters.network.http_connection_manager
+          typed_config:
+            '@type': type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+            stat_prefix: ingress_http
+            route_config:
+              name: local_route
+              virtual_hosts:
+              - name: backend
+                domains: ['*']
+                routes:
+                - match: {prefix: '/'}
+                  route: {cluster: service_envoyproxy_io}
+            http_filters:
+            - name: envoy.filters.http.router
+    clusters:
+    - name: service_envoyproxy_io
+      connect_timeout: 30s
+      type: LOGICAL_DNS
+      dns_lookup_family: V4_ONLY
+      load_assignment:
+        cluster_name: service_envoyproxy_io
+        endpoints:
+        - lb_endpoints:
+          - endpoint: {address: {socket_address: {address: www.envoyproxy.io, port_value: 443}}}
+
+xDS (dynamic config) APIs:
+  LDS: Listener Discovery Service
+  CDS: Cluster Discovery Service
+  RDS: Route Discovery Service
+  EDS: Endpoint Discovery Service
+  SDS: Secret Discovery Service
+  ADS: Aggregated Discovery Service (recommended; single stream)
+
+Health checking:
+  health_checks:
+  - timeout: 1s
+    interval: 10s
+    unhealthy_threshold: 3
+    healthy_threshold: 2
+    http_health_check: {path: /healthz}
+
+Outlier detection:
+  outlier_detection:
+    consecutive_5xx: 5
+    interval: 10s
+    base_ejection_time: 30s
+    max_ejection_percent: 10
+
+Admin API:
+  GET /stats/prometheus
+  POST /healthcheck/fail   # mark unhealthy
+  GET /clusters           # runtime cluster state
+  GET /config_dump        # full xDS state
+
+HTTP filters (common):
+  envoy.filters.http.router           (required last filter)
+  envoy.filters.http.ratelimit        (rate limiting)
+  envoy.filters.http.jwt_authn        (JWT validation)
+  envoy.filters.http.ext_authz        (external authorization)
+  envoy.filters.http.cors             (CORS handling)
+  envoy.filters.http.grpc_web         (gRPC-Web bridge)"
+}
+
+fn s_sm_linkerd() -> &'static str {
+    "Linkerd Service Mesh
+Installation:
+  curl --proto '=https' --tlsv1.2 -sSfL https://run.linkerd.io/install | sh
+  linkerd check --pre                 # pre-install check
+  linkerd install --crds | kubectl apply -f -
+  linkerd install | kubectl apply -f -
+  linkerd check                       # post-install check
+
+Inject sidecar (proxy):
+  kubectl annotate namespace default linkerd.io/inject=enabled
+  linkerd inject deployment.yaml | kubectl apply -f -
+  linkerd inject --manual deployment.yaml  # manual annotation
+
+Traffic policies:
+  TrafficSplit (SMI): split traffic between services by weight
+  ServiceProfile: per-route metrics, retries, timeouts
+    apiVersion: linkerd.io/v1alpha2
+    kind: ServiceProfile
+    spec:
+      routes:
+      - name: GET /users/{id}
+        condition: {method: GET, pathRegex: /users/[0-9]+}
+        timeout: 300ms
+        retryBudget: {retryRatio: 0.2, minRetriesPerSecond: 10, ttl: 10s}
+
+mTLS: automatic for pod-to-pod; uses SPIFFE/X.509 certs auto-rotated by Linkerd CA
+
+Observability:
+  linkerd viz install | kubectl apply -f -
+  linkerd viz dashboard                   # web UI
+  linkerd viz stat deploy                 # per-deployment golden signals
+  linkerd viz top deploy/<name>           # live per-route stats (like top(1))
+  linkerd viz tap deploy/<name>           # live request stream
+  linkerd viz routes deploy/<name>        # per-route success rate + latency
+
+Multicluster:
+  linkerd multicluster install | kubectl apply -f -
+  linkerd multicluster link --cluster-name east > east-link.yaml
+  kubectl apply -f east-link.yaml --context=west
+
+Extensions:
+  linkerd-smi  (SMI TrafficSplit support)
+  linkerd-jaeger (Jaeger tracing)
+  linkerd-viz  (dashboard + Prometheus + Grafana)
+
+Debugging:
+  linkerd check --proxy        # proxy-level checks
+  linkerd diagnostics proxy-metrics <pod>
+  kubectl exec -it <pod> -c linkerd-proxy -- wget -qO- localhost:4191/metrics"
+}
+
+fn s_sm_patterns() -> &'static str {
+    "Service Mesh Patterns & Concepts
+Core problems solved by a service mesh:
+  mTLS between services (automatic certificate rotation)
+  Observability without code changes (L7 metrics/traces injected)
+  Traffic management (canary, blue/green, A/B without deploy changes)
+  Resilience (retries, timeouts, circuit breakers at proxy level)
+  Policy enforcement (authorization at network layer)
+
+Sidecar vs ambient mesh:
+  Sidecar: Envoy proxy injected per pod; proven, high isolation; extra CPU/RAM/latency
+  Ambient (Istio 1.22+): ztunnel node-level L4 + waypoint proxy L7; no sidecar injection
+  Linkerd: ultra-light Rust proxies; lower overhead than Envoy sidecar
+
+Traffic splitting patterns:
+  Canary deployment: route N% to new version; monitor error rate; increment or rollback
+  Blue/Green: route 0% to new (green) until validated; switch 100%; instant rollback
+  A/B testing: route by header/cookie/user; compare conversion; not for reliability testing
+  Shadow/mirroring: duplicate traffic to shadow cluster; validate without user impact
+
+Circuit breaker states:
+  Closed  → normal operation; requests pass through
+  Open    → failures exceeded threshold; requests fail fast without calling upstream
+  Half-Open → probe requests allowed; success resets to Closed; failure reopens
+
+Retry budget (Linkerd model):
+  Budget: allow retries only if retry rate < budget ratio of requests
+  Prevents retry storms: total retries ≤ 20% of original requests by default
+  Prefer retry budget over fixed retry count (avoids amplification)
+
+Service mesh vs API gateway:
+  API gateway: edge (N→1); external client traffic; auth, routing, rate limiting
+  Service mesh: internal (N→N); east-west traffic; mTLS, observability, resilience
+  Typical stack: API gateway at ingress + service mesh inside cluster
+
+SPIFFE/SPIRE identity:
+  SPIFFE: standard for workload identity (SVID = SPIFFE Verifiable Identity Doc)
+  SVID formats: X.509 cert or JWT
+  SPIRE: reference SPIFFE implementation; issues SVIDs based on node/workload attestors
+  Trust domain: spiffe://cluster.local/ns/default/sa/backend
+
+Observability golden signals (via mesh):
+  Latency: p50/p95/p99 per route
+  Traffic: requests per second
+  Errors: 5xx rate, timeout rate
+  Saturation: connection pool utilization, queue depth"
+}
+
+fn s_sm_consul() -> &'static str {
+    "Consul Connect (Service Mesh)
+Install / agent:
+  consul agent -dev                      # dev mode (single node)
+  consul agent -config-dir=/etc/consul.d # production
+  consul members                         # cluster membership
+  consul catalog services                # registered services
+
+Service registration (JSON):
+  {
+    \"service\": {
+      \"name\": \"web\",
+      \"port\": 8080,
+      \"connect\": {\"sidecar_service\": {}},
+      \"check\": {\"http\": \"http://localhost:8080/health\", \"interval\": \"10s\"}
+    }
+  }
+
+Intentions (L4 policy):
+  consul intention create -allow web api   # allow web → api
+  consul intention create -deny  '*' '*'   # default deny all
+  consul intention list
+
+Service discovery:
+  DNS: <service>.service.consul
+  API: GET /v1/health/service/<name>?passing=true
+  curl http://127.0.0.1:8500/v1/catalog/service/api
+
+Key/Value store:
+  consul kv put config/db/host localhost
+  consul kv get config/db/host
+  consul kv delete config/db/host
+  consul kv export > backup.json
+
+Watches (reactive config):
+  consul watch -type=key -key=config/db/host <handler>
+
+Consul on Kubernetes (consul-k8s):
+  helm repo add hashicorp https://helm.releases.hashicorp.com
+  helm install consul hashicorp/consul --set global.name=consul
+  kubectl annotate pod <name> consul.hashicorp.com/connect-inject=true
+
+ACL tokens:
+  consul acl bootstrap                     # generate initial token
+  consul acl token create -policy-name=<p> # create token
+  CONSUL_HTTP_TOKEN=<token> consul members # use token
+
+Gossip encryption:
+  consul keygen                            # generate 32-byte base64 key
+  encrypt = \"<key>\"  in agent config
+
+Telemetry:
+  Prometheus: telemetry { prometheus_retention_time = \"24h\" }
+  GET http://localhost:8500/v1/agent/metrics?format=prometheus"
+}
+
+fn s_sm_dapr() -> &'static str {
+    "Dapr (Distributed Application Runtime)
+Init:
+  dapr init                              # local (Docker-based)
+  dapr init -k                           # Kubernetes
+  dapr dashboard -k                      # open dashboard
+
+Run sidecar:
+  dapr run --app-id myapp --app-port 8080 -- ./myapp
+  dapr run --app-id myapp --dapr-http-port 3500 --app-port 8080 -- node app.js
+
+Building blocks:
+  Service invocation:  POST http://localhost:3500/v1.0/invoke/<app-id>/method/<method>
+  State management:    POST /v1.0/state/<store>   body: [{key,value}]
+                       GET  /v1.0/state/<store>/<key>
+  Pub/Sub:             POST /v1.0/publish/<pubsub>/<topic>   body: {data}
+                       Subscribe: annotate endpoint with dapr-app-subscription
+  Bindings:            Input binding → POST to /binding-name  Output binding → POST /v1.0/bindings/<name>
+  Secrets:             GET /v1.0/secrets/<store>/<key>
+  Config:              GET /v1.0-alpha1/configuration/<store>?key=<k>
+  Distributed lock:    POST /v1.0-beta1/lock/<store>/<resourceId>
+  Workflow:            Dapr Workflow SDK (Go/Python/.NET); durable task framework
+
+Component YAML:
+  apiVersion: dapr.io/v1alpha1
+  kind: Component
+  metadata: {name: statestore, namespace: default}
+  spec:
+    type: state.redis
+    version: v1
+    metadata:
+    - name: redisHost
+      value: localhost:6379
+    - name: redisPassword
+      value: \"\"
+
+Observability:
+  Traces: automatic with Zipkin/Jaeger/OTLP component
+  Metrics: Prometheus endpoint on :9090 (sidecar)
+  Logs: structured JSON; integrate with Loki/ELK
+
+Resiliency policies (resiliency.yaml):
+  policies:
+    retries:
+      myRetry: {policy: exponential, duration: 5s, maxInterval: 15s, maxRetries: 3}
+    circuitBreakers:
+      myCB: {maxRequests: 1, interval: 10s, timeout: 30s, trip: consecutiveFailures > 5}
+    timeouts:
+      myTimeout: 30s
+  targets:
+    apps:
+      appB:
+        retry: myRetry
+        circuitBreaker: myCB
+        timeout: myTimeout
+
+CLI:
+  dapr list                              # running app instances
+  dapr logs -a myapp                     # app logs
+  dapr stop -a myapp                     # stop app
+  dapr components -k                     # list Kubernetes components
+  dapr configurations -k                 # list Kubernetes configurations"
+}
+
+type ServiceMeshSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+const SERVICE_MESH_SECTIONS: &[ServiceMeshSection] = &[
+    (
+        "istio",
+        &[
+            "istio-mesh",
+            "istio-install",
+            "virtualservice",
+            "destinationrule",
+            "istio-gateway",
+            "serviceentry",
+            "peerauthentication",
+            "authorizationpolicy",
+            "istioctl",
+            "kiali",
+            "istio-mtls",
+            "fault-injection",
+            "istio-retry",
+        ],
+        s_sm_istio,
+    ),
+    (
+        "envoy",
+        &[
+            "envoy-proxy",
+            "envoy-config",
+            "xds-api",
+            "lds-xds",
+            "cds-xds",
+            "rds-xds",
+            "eds-xds",
+            "ads-xds",
+            "envoy-filter",
+            "envoy-cluster",
+            "envoy-listener",
+            "envoy-health",
+            "envoy-outlier",
+            "envoy-admin",
+        ],
+        s_sm_envoy,
+    ),
+    (
+        "linkerd",
+        &[
+            "linkerd-mesh",
+            "linkerd-inject",
+            "linkerd-viz",
+            "serviceprofile",
+            "linkerd-mtls",
+            "traffic-split",
+            "linkerd-multicluster",
+            "linkerd-tap",
+            "linkerd-top",
+            "retry-budget",
+            "linkerd-routes",
+            "linkerd-jaeger",
+        ],
+        s_sm_linkerd,
+    ),
+    (
+        "patterns",
+        &[
+            "mesh-patterns",
+            "canary-mesh",
+            "blue-green-mesh",
+            "ab-testing-mesh",
+            "shadow-traffic",
+            "traffic-mirroring",
+            "circuit-breaker-mesh",
+            "spiffe",
+            "spire",
+            "ambient-mesh",
+            "sidecar-proxy",
+            "mesh-vs-gateway",
+            "golden-signals-mesh",
+        ],
+        s_sm_patterns,
+    ),
+    (
+        "consul",
+        &[
+            "consul-connect",
+            "consul-mesh",
+            "consul-intentions",
+            "consul-service",
+            "consul-kv",
+            "consul-watch",
+            "consul-acl",
+            "consul-gossip",
+            "consul-k8s",
+            "consul-dns",
+            "consul-health",
+            "consul-telemetry",
+        ],
+        s_sm_consul,
+    ),
+    (
+        "dapr",
+        &[
+            "dapr-sidecar",
+            "dapr-state",
+            "dapr-pubsub",
+            "dapr-bindings",
+            "dapr-secrets",
+            "dapr-workflow",
+            "dapr-resiliency",
+            "dapr-components",
+            "dapr-invoke",
+            "dapr-observability",
+            "dapr-init",
+            "dapr-cli",
+        ],
+        s_sm_dapr,
+    ),
+];
+
+pub fn service_mesh_calc(query: &str) -> String {
+    let q = query.trim().to_lowercase();
+    if q.is_empty() || q == "list" || q == "help" {
+        let topics: Vec<&str> = SERVICE_MESH_SECTIONS.iter().map(|(n, _, _)| *n).collect();
+        return format!(
+            "service-mesh topics: {}\nUse: --service-mesh <topic>  or  --service-mesh all",
+            topics.join(", ")
+        );
+    }
+    if q == "all" {
+        return SERVICE_MESH_SECTIONS
+            .iter()
+            .map(|(n, _, f)| format!("── {} ──\n{}", n, f()))
+            .collect::<Vec<_>>()
+            .join("\n\n");
+    }
+    for (name, aliases, func) in SERVICE_MESH_SECTIONS {
+        if q == *name || aliases.iter().any(|a| q == *a || q.contains(a)) {
+            return func().to_string();
+        }
+    }
+    format!(
+        "Unknown service-mesh topic: '{}'\nAvailable: {}",
+        query.trim(),
+        SERVICE_MESH_SECTIONS
+            .iter()
+            .map(|(n, _, _)| *n)
+            .collect::<Vec<_>>()
+            .join(", ")
+    )
+}
+
+// ── observability-adv ─────────────────────────────────────────────────────────
+
+fn s_oa_otel() -> &'static str {
+    "OpenTelemetry (OTel) Reference
+Core signal types:
+  Traces:  end-to-end request spans across services
+  Metrics: numeric measurements over time (counters, gauges, histograms)
+  Logs:    timestamped records with structured fields (in preview)
+
+SDK setup (Go):
+  provider := trace.NewTracerProvider(
+      trace.WithBatcher(otlpExporter),
+      trace.WithResource(resource.NewWithAttributes(
+          semconv.SchemaURL,
+          semconv.ServiceNameKey.String(\"my-service\"),
+      )),
+  )
+  otel.SetTracerProvider(provider)
+  tracer := otel.Tracer(\"my-service\")
+
+SDK setup (Python):
+  from opentelemetry import trace
+  from opentelemetry.sdk.trace import TracerProvider
+  from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+  provider = TracerProvider()
+  provider.add_span_processor(BatchSpanProcessor(OTLPSpanExporter()))
+  trace.set_tracer_provider(provider)
+  tracer = trace.get_tracer(__name__)
+
+SDK setup (Java):
+  // Zero-code: java -javaagent:opentelemetry-javaagent.jar -jar myapp.jar
+  // Or manual SDK with io.opentelemetry:opentelemetry-api
+
+Instrumentation (Go):
+  ctx, span := tracer.Start(ctx, \"operation-name\")
+  defer span.End()
+  span.SetAttributes(attribute.String(\"user.id\", userID))
+  span.AddEvent(\"cache-miss\")
+  span.RecordError(err)
+
+OTLP exporter config (env vars):
+  OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318   # HTTP/protobuf
+  OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317   # gRPC
+  OTEL_SERVICE_NAME=my-service
+  OTEL_RESOURCE_ATTRIBUTES=deployment.environment=production
+  OTEL_TRACES_SAMPLER=parentbased_traceidratio
+  OTEL_TRACES_SAMPLER_ARG=0.1                         # 10% sampling
+
+Semantic conventions (key attributes):
+  http.method, http.url, http.status_code
+  db.system, db.statement, db.name
+  rpc.system, rpc.method, rpc.service
+  messaging.system, messaging.destination
+
+Collector config:
+  receivers:  [otlp, prometheus, jaeger, zipkin]
+  processors: [batch, memory_limiter, resource, attributes]
+  exporters:  [otlp, prometheus, jaeger, loki, logging]
+  service:
+    pipelines:
+      traces:   {receivers: [otlp], processors: [batch], exporters: [jaeger]}
+      metrics:  {receivers: [otlp], processors: [batch], exporters: [prometheus]}
+
+Propagation (distributed context):
+  W3C TraceContext (recommended): traceparent / tracestate headers
+  B3 (Zipkin): X-B3-TraceId / X-B3-SpanId / X-B3-Sampled
+  Baggage: otel.propagators=tracecontext,baggage"
+}
+
+fn s_oa_tracing() -> &'static str {
+    "Distributed Tracing Reference
+Trace anatomy:
+  Trace  = tree of spans representing a single request end-to-end
+  Span   = unit of work: name, trace_id, span_id, parent_span_id, start, duration, status
+  SpanContext = {trace_id (128-bit), span_id (64-bit), trace_flags, trace_state}
+
+Trace IDs:
+  W3C format: traceparent: 00-<trace_id>-<parent_id>-<flags>
+  flags: 01 = sampled, 00 = not sampled
+
+Sampling strategies:
+  Head-based (at trace start):
+    Always-on: 100% — use only in dev/test
+    Probability: sample_rate=0.1 → 10% of traces
+    Rate-limiting: N traces/sec regardless of load
+  Tail-based (after trace complete):
+    Policy-based: always sample errors, slow traces >500ms, specific users
+    Requires collector buffering (OTel Collector tail sampling processor)
+  Parent-based: respect upstream sampling decision
+
+Tail sampling config (OTel Collector):
+  processors:
+    tail_sampling:
+      decision_wait: 10s
+      policies:
+      - name: errors, type: status_code, status_code: {status_codes: [ERROR]}
+      - name: slow-traces, type: latency, latency: {threshold_ms: 500}
+      - name: sample-rest, type: probabilistic, probabilistic: {sampling_percentage: 10}
+
+Jaeger:
+  docker run -d --name jaeger -p 16686:16686 -p 4317:4317 -p 4318:4318 jaegertracing/all-in-one
+  UI: http://localhost:16686
+  Storage: Cassandra, Elasticsearch, Badger (in-memory dev)
+  jaeger-collector: receives spans; jaeger-query: serves UI
+
+Tempo (Grafana):
+  Storage: object store (S3, GCS, local) — no index, just trace ID lookup
+  Integration: Grafana 7.5+ → Explore → Tempo; correlate with Loki logs
+  TraceQL query language:
+    {.http.url = \"/api/users\" && duration > 500ms}
+    {.service.name = \"frontend\"} | avg(duration)
+
+Zipkin:
+  docker run -d -p 9411:9411 openzipkin/zipkin
+  Reporters: HTTP (POST /api/v2/spans), Kafka, RabbitMQ
+  Brave (Java), brave-instrumentation, zipkin-go
+
+Span attributes best practices:
+  Tag request inputs (method, path, user ID) — not PII
+  Tag response outcomes (status_code, error type)
+  Tag resource identifiers (db.name, queue.name, cache.key)
+  Keep cardinality manageable: avoid full URLs with IDs as tag values
+
+Correlation: logs ↔ traces:
+  Log the trace_id and span_id in every log line
+  Loki: {app=\"web\"} |= \"traceID=4bf92f3577b34da6\" → link to Tempo
+  Elastic: use ECS fields trace.id / transaction.id"
+}
+
+fn s_oa_metrics() -> &'static str {
+    "Advanced Metrics & SLO Reference
+Prometheus metric types:
+  Counter:   monotonically increasing (requests_total, errors_total)
+  Gauge:     arbitrary up/down (memory_bytes, goroutines)
+  Histogram: configurable buckets, _count, _sum, _bucket (latency)
+  Summary:   client-side quantiles (less flexible, avoid for new metrics)
+
+Histogram best practices:
+  le buckets: 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10
+  Calculate real percentiles: histogram_quantile(0.95, rate(http_duration_bucket[5m]))
+  Avoid Summary for cross-instance aggregation (quantiles can't be merged)
+
+Recording rules (pre-compute expensive queries):
+  - record: job:http_requests:rate5m
+    expr: sum(rate(http_requests_total[5m])) by (job)
+
+PromQL essentials:
+  rate(counter[5m])                    # per-second rate over 5-min window
+  increase(counter[1h])                # total increase over 1 hour
+  histogram_quantile(0.99, rate(h_bucket[5m]))  # p99
+  sum(metric) by (label)               # aggregate
+  topk(5, sum(metric) by (service))    # top 5 services
+  absent(metric{job=\"critical\"})        # alert when metric disappears
+  predict_linear(metric[1h], 4*3600)   # predict value in 4h
+
+SLI/SLO/SLA:
+  SLI: measurable indicator (request success rate, latency p99)
+  SLO: target value for SLI (99.9% success rate over 30 days)
+  SLA: contractual consequence of missing SLO
+  Error budget: 100% - SLO target (0.1% = 43.2 min/month downtime)
+
+Error budget alerting (burn rate):
+  Fast burn:  14.4× rate, window 1h  → alert immediately (page)
+  Slow burn:  6× rate, window 6h     → alert (ticket)
+  Multiwindow: combine fast 1h + slow 5m to avoid flapping
+
+Grafana alert rules (v9+):
+  Expression: Classic condition OR Math / Reduce / Resample
+  Contact points: Slack, PagerDuty, OpsGenie, email, webhook
+  Notification policies: match labels → route to contact point
+  Silences: mute matching alerts for duration
+
+Cardinality control:
+  Each unique label combination = one time series
+  Problematic: user_id, request_id, session_id as labels → millions of series
+  Safe labels: method, status_code, service, environment, region
+  Measure cardinality: topk(10, count by (__name__)({job=\"app\"}))
+  Limit with relabel_configs: drop high-cardinality labels pre-scrape
+
+OpenMetrics standard:
+  Supersedes Prometheus text format; backward-compatible
+  Adds: Unit, info metric type, state-sets, created timestamps
+  OTLP can export to Prometheus-compatible format"
+}
+
+fn s_oa_logging() -> &'static str {
+    "Structured Logging & Log Aggregation
+Structured logging principles:
+  Output JSON: {\"level\":\"info\",\"ts\":\"2025-01-01T12:00:00Z\",\"msg\":\"request\",\"method\":\"GET\",\"path\":\"/api\",\"status\":200,\"duration_ms\":12}
+  Include: timestamp (ISO8601/RFC3339), level, message, service, trace_id, span_id, request_id
+  Avoid: string interpolation with variable data (breaks log parsing)
+  Log at boundaries: request in, request out, external calls, state changes
+
+Go (zap):
+  logger, _ := zap.NewProduction()
+  logger.Info(\"request\", zap.String(\"method\", \"GET\"), zap.Int(\"status\", 200), zap.Duration(\"duration\", d))
+
+Python (structlog):
+  import structlog
+  log = structlog.get_logger()
+  log.info(\"request\", method=\"GET\", status=200, duration_ms=12)
+
+ELK Stack:
+  Elasticsearch: store + search + aggregate logs
+  Logstash: collect, parse, enrich, output (heavy; Filebeat preferred)
+  Kibana: visualize (Discover, Dashboard, Lens)
+  Filebeat: lightweight log shipper (sidecar or DaemonSet)
+  Filebeat config:
+    filebeat.inputs:
+    - type: container
+      paths: [/var/log/containers/*.log]
+    output.elasticsearch:
+      hosts: [\"elasticsearch:9200\"]
+      index: \"logs-%{[agent.version]}-%{+yyyy.MM.dd}\"
+
+Loki + Grafana:
+  Loki: log aggregation without full-text index (stores labels + compressed chunks)
+  LogQL queries:
+    {app=\"web\", env=\"prod\"} |= \"error\"
+    {app=\"web\"} | json | status_code >= 500
+    sum(rate({app=\"web\"}[5m])) by (status_code)
+    {app=\"web\"} | pattern `<_> <method> <path> <status> <_>`
+  Promtail: log collector for Loki (like Filebeat for ELK)
+
+Fluentd / Fluent Bit:
+  Fluent Bit: C-based, minimal footprint; ideal for Kubernetes DaemonSet
+  Fluentd: Ruby; heavier but richer plugin ecosystem
+  fluent-bit config: INPUT → FILTER → OUTPUT
+    [INPUT]  Name tail, Path /var/log/*.log
+    [FILTER] Name kubernetes, Kube_URL https://kubernetes.default.svc:443
+    [OUTPUT] Name loki, Host loki, port 3100
+
+Log levels:
+  FATAL: unrecoverable error (process exits)
+  ERROR: error that requires attention (request failed, external call failed)
+  WARN: unexpected but handled (retry succeeded, deprecated path used)
+  INFO: normal operational events (request handled, job completed)
+  DEBUG: developer diagnostics (function entered, variable values)
+  TRACE: very fine-grained (loop iterations) — never in production
+
+Log retention:
+  Hot (recent): Elasticsearch / Loki (query fast)
+  Warm: compressed object storage (S3, GCS)
+  Cold: glacier / archive (compliance only)
+  Typical: 7–30d hot, 90d warm, 7yr cold (compliance)"
+}
+
+fn s_oa_alerting() -> &'static str {
+    "Alertmanager & Alerting Patterns
+Alertmanager configuration:
+  global:
+    smtp_smarthost: smtp.example.com:587
+    slack_api_url: https://hooks.slack.com/services/xxx
+  route:
+    receiver: default
+    group_by: [alertname, cluster, service]
+    group_wait: 30s
+    group_interval: 5m
+    repeat_interval: 4h
+    routes:
+    - match: {severity: critical}
+      receiver: pagerduty
+      continue: false
+    - match: {severity: warning}
+      receiver: slack
+  receivers:
+  - name: pagerduty
+    pagerduty_configs:
+    - service_key: <key>
+  - name: slack
+    slack_configs:
+    - channel: #alerts
+      title: '{{ template \"slack.title\" . }}'
+      text: '{{ template \"slack.text\" . }}'
+  inhibit_rules:
+  - source_match: {severity: critical}
+    target_match: {severity: warning}
+    equal: [alertname, cluster, service]
+
+Prometheus alerting rules:
+  groups:
+  - name: application
+    rules:
+    - alert: HighErrorRate
+      expr: rate(http_requests_total{status=~\"5..\"}[5m]) / rate(http_requests_total[5m]) > 0.05
+      for: 5m
+      labels: {severity: critical}
+      annotations:
+        summary: \"High error rate on {{ $labels.service }}\"
+        description: \"Error rate is {{ humanizePercentage $value }}\"
+    - alert: HighLatency
+      expr: histogram_quantile(0.95, rate(http_duration_seconds_bucket[5m])) > 1
+      for: 10m
+      labels: {severity: warning}
+
+On-call best practices:
+  Mean Time to Detect (MTTD): alert must fire before users notice
+  Mean Time to Acknowledge (MTTA): SLA on response time (e.g. 5min)
+  Mean Time to Resolve (MTTR): SLA on resolution (e.g. 1h P1, 4h P2)
+  Runbooks: link in alert annotations; step-by-step triage
+  Alert fatigue: review fired alerts weekly; tune or remove noisy ones
+  Toil tracking: alerts requiring manual action weekly → automate
+
+PagerDuty escalation:
+  Service → Escalation Policy → On-Call schedule → User
+  Urgency: high (page immediately) vs low (no off-hours)
+  Response plays: automated runbooks, ChatOps bots, status page updates
+
+Symptom vs cause alerting:
+  Symptom (preferred): \"error rate > 5%\" — users are affected now
+  Cause (supplemental): \"DB connection pool exhausted\" — diagnose root cause
+  Never page only on cause: service may be degraded for unrelated reason"
+}
+
+fn s_oa_dashboards() -> &'static str {
+    "Grafana Dashboards & Observability Patterns
+Dashboard as code:
+  Grafonnet (Jsonnet library): generate dashboards programmatically
+  grafana-dashboard-go / grafana-foundation-sdk: Go SDK
+  Terraform grafana provider: manage dashboards in IaC
+  Grizzly (grafana/grizzly): push/pull dashboards from files
+
+Dashboard design:
+  Header row: golden signals summary (latency, traffic, errors, saturation)
+  Service rows: per-service breakdown
+  Infrastructure rows: host CPU/RAM/disk/network
+  Time range: 1h default; 15m for active incidents
+  Refresh: 30s during incidents; 5m steady-state
+
+Key panels:
+  Time series: latency percentiles, request rate, error rate
+  Stat / Big number: current error budget remaining, uptime
+  Heatmap: latency distribution over time
+  Bar chart: top N services by error rate
+  Table: current alerts with links to runbooks
+  Node Graph: service dependency map
+
+Variables for reusable dashboards:
+  $datasource  → select Prometheus source
+  $cluster     → multi-cluster support
+  $namespace   → Kubernetes namespace
+  $service     → service name
+  Chained variables: $service query based on selected $namespace
+
+Correlating signals:
+  Exemplars: single trace linked from a histogram data point (Grafana + Tempo)
+  Loki correlations: from Grafana panel → Explore → Loki → filter by trace_id
+  Metrics → Traces: click on spike in graph → jump to trace
+
+USE method (Brendan Gregg — resources):
+  U: Utilization (% time resource is busy)
+  S: Saturation (queue depth, wait time)
+  E: Errors (error events)
+  Apply to: CPU, memory, disk I/O, network, threads
+
+RED method (Tom Wilkie — services):
+  R: Rate (requests/sec)
+  E: Errors (errors/sec)
+  D: Duration (latency distribution)
+
+Four Golden Signals (Google SRE):
+  Latency, Traffic, Errors, Saturation
+
+Runbook template:
+  ## Alert: <Name>
+  ### What is happening?
+  ### Why does it matter? (user impact)
+  ### How to investigate (step-by-step with commands)
+  ### How to mitigate (quick fix)
+  ### How to resolve (permanent fix + postmortem link)"
+}
+
+type ObservabilityAdvSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+const OBSERVABILITY_ADV_SECTIONS: &[ObservabilityAdvSection] = &[
+    (
+        "otel",
+        &[
+            "opentelemetry",
+            "otel-sdk",
+            "otlp",
+            "otel-collector",
+            "otel-exporter",
+            "otel-propagation",
+            "w3c-tracecontext",
+            "otel-setup",
+            "otel-semconv",
+            "otel-resource",
+            "otel-sampling",
+        ],
+        s_oa_otel,
+    ),
+    (
+        "tracing",
+        &[
+            "distributed-tracing",
+            "jaeger-tracing",
+            "tempo-tracing",
+            "zipkin-tracing",
+            "span-attributes",
+            "trace-sampling",
+            "tail-sampling",
+            "head-sampling",
+            "traceql",
+            "traceparent",
+            "trace-anatomy",
+            "exemplars-tracing",
+        ],
+        s_oa_tracing,
+    ),
+    (
+        "metrics",
+        &[
+            "advanced-metrics",
+            "slo-metrics-adv",
+            "error-budget",
+            "burn-rate",
+            "recording-rules",
+            "promql-adv",
+            "histogram-quantile",
+            "cardinality-control",
+            "openmetrics",
+            "sli-slo-sla",
+            "multiwindow-alert",
+        ],
+        s_oa_metrics,
+    ),
+    (
+        "logging",
+        &[
+            "structured-logging",
+            "loki-logging",
+            "elk-stack",
+            "fluentd",
+            "fluent-bit",
+            "filebeat",
+            "logql",
+            "promtail",
+            "log-aggregation",
+            "log-retention",
+            "log-levels",
+            "zap-logger",
+            "structlog",
+        ],
+        s_oa_logging,
+    ),
+    (
+        "alerting",
+        &[
+            "alertmanager",
+            "alert-rules",
+            "pagerduty-alerts",
+            "slack-alerts",
+            "on-call",
+            "mttd-mttr",
+            "runbooks",
+            "alert-fatigue",
+            "symptom-alerting",
+            "inhibit-rules",
+            "escalation-policy",
+            "repeat-interval",
+        ],
+        s_oa_alerting,
+    ),
+    (
+        "dashboards",
+        &[
+            "grafana-dashboards",
+            "dashboard-as-code",
+            "grafonnet",
+            "use-method",
+            "red-method",
+            "golden-signals-obs",
+            "grafana-variables",
+            "grafana-exemplars",
+            "grafana-correlations",
+            "grafana-panels",
+            "runbook-template",
+        ],
+        s_oa_dashboards,
+    ),
+];
+
+pub fn observability_adv_calc(query: &str) -> String {
+    let q = query.trim().to_lowercase();
+    if q.is_empty() || q == "list" || q == "help" {
+        let topics: Vec<&str> = OBSERVABILITY_ADV_SECTIONS
+            .iter()
+            .map(|(n, _, _)| *n)
+            .collect();
+        return format!("observability-adv topics: {}\nUse: --observability-adv <topic>  or  --observability-adv all", topics.join(", "));
+    }
+    if q == "all" {
+        return OBSERVABILITY_ADV_SECTIONS
+            .iter()
+            .map(|(n, _, f)| format!("── {} ──\n{}", n, f()))
+            .collect::<Vec<_>>()
+            .join("\n\n");
+    }
+    for (name, aliases, func) in OBSERVABILITY_ADV_SECTIONS {
+        if q == *name || aliases.iter().any(|a| q == *a || q.contains(a)) {
+            return func().to_string();
+        }
+    }
+    format!(
+        "Unknown observability-adv topic: '{}'\nAvailable: {}",
+        query.trim(),
+        OBSERVABILITY_ADV_SECTIONS
+            .iter()
+            .map(|(n, _, _)| *n)
+            .collect::<Vec<_>>()
+            .join(", ")
+    )
+}
+
+// ── terminal-tools ────────────────────────────────────────────────────────────
+
+fn s_tt_fzf() -> &'static str {
+    "fzf — Fuzzy Finder Reference
+Install:
+  brew install fzf / apt install fzf / scoop install fzf
+  $(brew --prefix)/opt/fzf/install     # shell integration
+
+Basic usage:
+  fzf                                   # interactive file picker
+  fzf --multi                           # multi-select (Tab to mark)
+  fzf --preview 'cat {}'               # preview pane
+  fzf --preview 'bat --color=always {}' # syntax-highlighted preview
+  fzf --height 40% --layout=reverse    # compact bottom-up layout
+
+Key bindings (built-in):
+  Tab / Shift-Tab  multi-select toggle
+  Ctrl-A / Ctrl-D  select all / deselect all
+  Ctrl-Y / Ctrl-E  copy / expand to editor
+  Ctrl-/           toggle preview
+
+Shell integration (after fzf --install):
+  Ctrl-T: paste selected file path to command line
+  Ctrl-R: fuzzy search command history (replaces default Ctrl-R)
+  Alt-C:  cd into selected directory
+
+Useful combos:
+  vim $(fzf)
+  git checkout $(git branch | fzf)
+  kill -9 $(ps aux | fzf | awk '{print $2}')
+  docker exec -it $(docker ps | fzf | awk '{print $1}') bash
+  ssh $(cat ~/.ssh/config | grep '^Host ' | awk '{print $2}' | fzf)
+  code $(find . -name '*.ts' | fzf)
+
+Advanced options:
+  --query='initial query'
+  --select-1             # auto-select if only one match
+  --exit-0               # exit immediately if no match
+  --filter='pattern'     # non-interactive filter (like grep)
+  --sort / --no-sort
+  --tiebreak=length,begin,end,chunk
+
+Custom preview with bat:
+  export FZF_DEFAULT_OPTS='--preview \"bat --style=numbers --color=always --line-range :500 {}\"'
+  export FZF_DEFAULT_COMMAND='fd --type f --hidden --follow --exclude .git'
+
+fzf in scripts:
+  selected=$(echo -e 'option1\\noption2\\noption3' | fzf --prompt='Pick: ')
+  dirs=$(find . -type d | fzf --multi --prompt='Dirs: ')
+
+fd (rust alternative to find):
+  fd pattern               # find files by name
+  fd -e rs                 # find by extension
+  fd -H                    # include hidden
+  fd --type f pattern dir  # files only in dir"
+}
+
+fn s_tt_ripgrep() -> &'static str {
+    "ripgrep (rg) — Fast Grep Reference
+Install: brew install ripgrep / apt install ripgrep / scoop install ripgrep / cargo install ripgrep
+
+Basic usage:
+  rg pattern                   # search current dir recursively
+  rg pattern file.txt          # search in file
+  rg pattern dir/              # search in directory
+  rg -i pattern                # case-insensitive
+  rg -w word                   # whole word only
+  rg -v pattern                # invert match (non-matching lines)
+  rg -c pattern                # count matches per file
+  rg -l pattern                # list matching files only
+  rg -L pattern                # list non-matching files
+  rg -n pattern                # show line numbers (default)
+  rg -H                        # force show filenames
+
+Context:
+  rg -A 3 pattern              # 3 lines after match
+  rg -B 3 pattern              # 3 lines before match
+  rg -C 3 pattern              # 3 lines before and after
+
+File type filtering:
+  rg -t rust pattern           # Rust files only
+  rg -t py -t js pattern       # Python and JS files
+  rg --type-list               # list all supported types
+  rg --type-add 'config:*.toml,*.yaml' pattern
+
+Glob patterns:
+  rg pattern -g '*.rs'         # glob filter
+  rg pattern -g '!target/'     # exclude glob
+  rg pattern -g '!{node_modules,dist}/'
+
+Regex:
+  rg 'fn\\s+\\w+\\s*\\('           # find function definitions
+  rg '^#\\s+' README.md         # markdown headings
+  rg -P 'pattern'              # PCRE2 (Perl-compatible regex)
+  rg -F 'literal.string'       # treat as literal (no regex)
+
+Output formatting:
+  rg --json pattern            # JSON output (machine-readable)
+  rg --no-heading pattern      # grep-like output (file:line:match)
+  rg -r 'replacement' pattern  # replacement preview (no file write)
+  rg --heading pattern         # grouped by file (default)
+
+.ripgreprc config:
+  --smart-case
+  --follow
+  --hidden
+  --glob=!.git/
+
+Replacement / sed-like:
+  rg pattern -r 'replacement' --passthru > out.txt   # replace and output
+  rg -l pattern | xargs sed -i 's/pattern/replacement/g'  # actual file edit
+
+Performance tips:
+  rg is already fast (Rust, SIMD); for huge repos:
+    --threads=N              # parallel threads
+    --mmap                   # use mmap for large files
+    rg ignores .gitignore by default → fastest on repos
+  Compare: rg >> ag >> ack >> grep"
+}
+
+fn s_tt_shell_tools() -> &'static str {
+    "Modern Shell Tools Reference
+File listing:
+  eza (exa replacement): eza -la --git --icons    # ls with git status
+                         eza --tree --level=2      # tree view
+  broot: br                                        # interactive tree navigator
+  lsd: lsd -la --tree                              # icons + tree
+
+Navigation:
+  zoxide (z): z project-name      # frecency-based cd
+              zi                   # interactive fzf picker
+  autojump: j project             # similar to zoxide
+  ranger: ranger                  # vim-keybinding file manager
+  nnn: nnn                        # minimal file manager
+
+File viewing:
+  bat: bat file.rs                # cat with syntax highlighting
+       bat -n file.rs             # with line numbers
+       bat --diff file.rs         # like diff with bat
+  glow: glow README.md            # render markdown in terminal
+  fx: fx data.json                # interactive JSON viewer
+  jless: jless data.json          # read-only paged JSON viewer
+
+Text processing:
+  sd: sd 'from' 'to' file.txt    # sed replacement (simpler syntax)
+  choose: choose 1 3 5           # cut replacement (by field index)
+  dust: dust                     # du replacement (disk usage tree)
+  duf: duf                       # df replacement (disk usage)
+
+Process monitoring:
+  btop / bpytop / htop: improved top
+  procs: procs                   # ps replacement with color
+  bandwhich: bandwhich           # network utilization by process
+  bottom (btm): btm              # system resource monitor
+
+Git helpers:
+  delta: diff pager with syntax highlighting
+         git config --global core.pager delta
+  lazygit: lazygit               # TUI git client
+  gitui: gitui                   # another TUI git client
+  tig: tig                       # text-mode git UI (branch/log/diff/blame)
+  gh: gh pr create               # GitHub CLI
+
+JSON/YAML/TOML:
+  jq: jq '.users[] | select(.active)' data.json
+  yq: yq '.services.web.image' docker-compose.yml  # YAML/JSON/TOML
+  tomlq: tomlq '.package.version' Cargo.toml
+  gron: gron data.json           # make JSON greppable
+
+HTTP:
+  httpie: http GET api.example.com/users   # human-friendly curl
+  xh: xh GET api.example.com/users         # Rust httpie clone (faster)
+  curlie: curlie GET api.example.com/users  # curl + httpie syntax
+
+Benchmarking/timing:
+  hyperfine: hyperfine 'rg pattern' 'grep -r pattern'  # command benchmarker
+  time / GNU time: time ./script.sh
+  pv: cat large.file | pv > /dev/null   # progress + throughput"
+}
+
+fn s_tt_zsh() -> &'static str {
+    "Zsh Configuration & Plugins
+.zshrc essentials:
+  # History
+  HISTSIZE=100000
+  SAVEHIST=100000
+  setopt HIST_IGNORE_ALL_DUPS
+  setopt HIST_FIND_NO_DUPS
+  setopt SHARE_HISTORY            # share across sessions
+
+  # Navigation
+  setopt AUTO_CD                  # cd by typing directory name
+  setopt AUTO_PUSHD               # cd pushes to stack
+  setopt PUSHD_IGNORE_DUPS
+
+  # Completion
+  autoload -Uz compinit && compinit
+  zstyle ':completion:*' menu select
+  zstyle ':completion:*' matcher-list 'm:{a-zA-Z}={A-Za-z}'  # case-insensitive
+
+  # Keybindings
+  bindkey '^[[A' history-search-backward   # up arrow: history search
+  bindkey '^[[B' history-search-forward    # down arrow
+  bindkey '^[.' insert-last-word           # Alt-.: insert last arg
+
+Plugin managers:
+  zinit (fastest): source ~/.zinit/zinit.zsh
+    zinit light zsh-users/zsh-autosuggestions
+    zinit light zsh-users/zsh-syntax-highlighting
+    zinit light zsh-users/zsh-completions
+    zinit load agkozak/zsh-z
+
+  Oh-My-Zsh: sh -c \"$(curl -fsSL https://raw.github.com/ohmyzsh/ohmyzsh/master/tools/install.sh)\"
+    plugins=(git docker kubectl fzf z history-substring-search)
+
+  Zplug: zplug \"zsh-users/zsh-autosuggestions\"
+  Sheldon: fast; TOML config; lazy loading
+
+Must-have plugins:
+  zsh-autosuggestions:    grey ghost completions from history
+  zsh-syntax-highlighting: syntax colors as you type
+  zsh-completions:        extra completion definitions
+  fzf-tab:               replace zsh completion with fzf
+  zoxide:                z / zi navigation (zinit light ajeetdsouza/zoxide)
+
+Prompts:
+  Starship (cross-shell, Rust): eval \"$(starship init zsh)\"
+    Features: git, Docker, Kubernetes context, language versions
+    Config: ~/.config/starship.toml
+  Powerlevel10k: zinit ice depth=1; zinit light romkatv/powerlevel10k
+    p10k configure   # interactive wizard
+
+Aliases:
+  alias ls='eza --icons'
+  alias ll='eza -la --git --icons'
+  alias tree='eza --tree'
+  alias cat='bat'
+  alias grep='rg'
+  alias find='fd'
+  alias du='dust'
+  alias df='duf'
+  alias top='btop'
+  alias diff='delta'
+
+Functions:
+  # mkcd — make dir and cd into it
+  mkcd() { mkdir -p \"$1\" && cd \"$1\" }
+  # extract — universal archive extractor
+  extract() {
+    case \"$1\" in
+      *.tar.gz|*.tgz) tar xzf \"$1\" ;;
+      *.tar.bz2) tar xjf \"$1\" ;;
+      *.zip) unzip \"$1\" ;;
+      *.7z) 7z x \"$1\" ;;
+    esac
+  }"
+}
+
+fn s_tt_tmux_adv() -> &'static str {
+    "tmux Advanced Reference
+Session management:
+  tmux new -s main           # new named session
+  tmux attach -t main        # attach
+  tmux ls                    # list sessions
+  tmux kill-session -t main  # kill session
+  tmux switch -t other       # switch between sessions
+  Ctrl-B $                   # rename session
+  Ctrl-B (  / Ctrl-B )       # prev / next session
+  Ctrl-B L                   # last (toggle) session
+
+Window management:
+  Ctrl-B c       # new window
+  Ctrl-B ,       # rename window
+  Ctrl-B w       # interactive window list
+  Ctrl-B n / p   # next / prev window
+  Ctrl-B 0–9     # jump to window N
+  Ctrl-B &       # kill window
+
+Pane management:
+  Ctrl-B %       # split vertical
+  Ctrl-B \"       # split horizontal
+  Ctrl-B {/}     # swap panes
+  Ctrl-B Ctrl-Arrow  # resize pane
+  Ctrl-B z       # zoom/unzoom pane
+  Ctrl-B q       # show pane numbers
+  Ctrl-B x       # kill pane
+
+Copy mode (vi):
+  Ctrl-B [        # enter copy mode
+  v               # begin selection
+  y / Enter       # yank / copy
+  Ctrl-B ]        # paste
+
+Advanced .tmux.conf:
+  set -g default-terminal 'tmux-256color'
+  set -ga terminal-overrides ',*256col*:Tc'   # true color
+  set -g mouse on
+  set -g history-limit 50000
+  set -g base-index 1
+  setw -g pane-base-index 1
+  set -g renumber-windows on
+
+  # Vi keys in copy mode
+  setw -g mode-keys vi
+  bind-key -T copy-mode-vi v send -X begin-selection
+  bind-key -T copy-mode-vi y send -X copy-selection-and-cancel
+
+  # Easy splits with | and -
+  bind | split-window -h -c '#{pane_current_path}'
+  bind - split-window -v -c '#{pane_current_path}'
+  bind c new-window -c '#{pane_current_path}'
+
+  # Status bar
+  set -g status-left '#[fg=green]#S '
+  set -g status-right '#[fg=yellow]%H:%M '
+  set -g status-style bg=black,fg=white
+
+Plugins (TPM):
+  git clone https://github.com/tmux-plugins/tpm ~/.tmux/plugins/tpm
+  set -g @plugin 'tmux-plugins/tpm'
+  set -g @plugin 'tmux-plugins/tmux-resurrect'    # save/restore sessions
+  set -g @plugin 'tmux-plugins/tmux-continuum'    # auto-save
+  set -g @plugin 'tmux-plugins/tmux-yank'         # system clipboard
+  set -g @plugin 'christoomey/vim-tmux-navigator' # Ctrl-h/j/k/l navigation
+  run '~/.tmux/plugins/tpm/tpm'
+  Ctrl-B I   # install plugins
+
+Scripting sessions:
+  tmux new-session -d -s dev -x 220 -y 50
+  tmux send-keys -t dev 'cd ~/project && nvim' Enter
+  tmux split-window -t dev -h
+  tmux send-keys -t dev 'cargo watch -x test' Enter"
+}
+
+fn s_tt_wezterm() -> &'static str {
+    "WezTerm & Terminal Emulator Reference
+WezTerm (Rust-based, GPU-accelerated):
+  config: ~/.config/wezterm/wezterm.lua
+  local wezterm = require 'wezterm'
+  local config = wezterm.config_builder()
+  config.font = wezterm.font('JetBrains Mono', {weight='Bold'})
+  config.font_size = 13.0
+  config.color_scheme = 'Tokyo Night'
+  config.enable_tab_bar = true
+  config.hide_tab_bar_if_only_one_tab = true
+  config.window_background_opacity = 0.95
+  config.keys = {
+    {key='t', mods='CTRL|SHIFT', action=wezterm.action.SpawnTab 'CurrentPaneDomain'},
+    {key='w', mods='CTRL|SHIFT', action=wezterm.action.CloseCurrentTab{confirm=false}},
+  }
+  return config
+
+Multiplexing (built-in, no tmux needed):
+  Ctrl-Shift-Alt-%   vertical split
+  Ctrl-Shift-Alt-\"   horizontal split
+  Ctrl-Shift-Arrow   move between panes
+  Ctrl-Shift-Z       zoom pane
+
+Kitty (GPU-accelerated):
+  kitten ssh user@host     # SSH with full graphics support
+  kitten icat image.png    # display image in terminal
+  kitten diff file1 file2  # side-by-side diff
+  Ctrl-Shift-T             # new tab
+  Ctrl-Shift-Enter         # new window (pane)
+
+Alacritty (minimal, Rust):
+  Config: ~/.config/alacritty/alacritty.toml
+  font.size: 13.0
+  env: {TERM: xterm-256color}
+  No tabs/multiplexer built-in; pair with tmux
+
+Nerd Fonts (icons in terminal):
+  Install: brew install --cask font-jetbrains-mono-nerd-font
+  Required by: eza --icons, starship, powerlevel10k, lualine, etc.
+
+Terminal capabilities:
+  True color: TERM=xterm-256color + check echo $COLORTERM (=truecolor)
+  Unicode: LC_ALL=en_US.UTF-8
+  Sixel graphics: supported by kitty, iTerm2, WezTerm (images in terminal)
+  OSC 52: clipboard integration (copy from remote to local)
+  OSC 133: shell integration (semantic zones — mark prompts/output)
+
+Color schemes:
+  Tokyo Night, Catppuccin, Dracula, Nord, Gruvbox, One Dark, Solarized
+  Generate: base16-builder / terminal.sexy / gogh
+
+Font pairing:
+  JetBrains Mono Nerd Font  — balanced readability + icons
+  FiraCode Nerd Font         — ligatures
+  Hack Nerd Font             — compact
+  Iosevka                    — narrow, high-density"
+}
+
+type TerminalToolsSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+const TERMINAL_TOOLS_SECTIONS: &[TerminalToolsSection] = &[
+    (
+        "fzf",
+        &[
+            "fuzzy-finder",
+            "fzf-keybindings",
+            "fzf-preview",
+            "fzf-scripts",
+            "fzf-integration",
+            "fd-find",
+            "fzf-ctrl-r",
+            "fzf-ctrl-t",
+            "fzf-shell",
+        ],
+        s_tt_fzf,
+    ),
+    (
+        "ripgrep",
+        &[
+            "rg-search",
+            "ripgrep-options",
+            "ripgrep-types",
+            "ripgrep-glob",
+            "ripgrep-json",
+            "ripgrep-replace",
+            "ripgrep-config",
+            "rg-regex",
+            "rg-context",
+        ],
+        s_tt_ripgrep,
+    ),
+    (
+        "shell-tools",
+        &[
+            "modern-cli",
+            "eza-ls",
+            "bat-cat",
+            "zoxide-cd",
+            "dust-du",
+            "duf-df",
+            "btop-top",
+            "procs-ps",
+            "delta-diff",
+            "lazygit",
+            "httpie",
+            "hyperfine",
+            "glow-md",
+            "jq-fx",
+        ],
+        s_tt_shell_tools,
+    ),
+    (
+        "zsh",
+        &[
+            "zsh-config",
+            "zshrc",
+            "zsh-plugins",
+            "zinit",
+            "oh-my-zsh",
+            "zsh-completions",
+            "zsh-autosuggestions",
+            "zsh-syntax-highlighting",
+            "starship-prompt",
+            "powerlevel10k",
+            "zsh-aliases",
+            "zsh-functions",
+            "fzf-tab",
+        ],
+        s_tt_zsh,
+    ),
+    (
+        "tmux-adv",
+        &[
+            "tmux-advanced",
+            "tmux-sessions",
+            "tmux-plugins",
+            "tpm-plugins",
+            "tmux-resurrect",
+            "tmux-continuum",
+            "tmux-scripting",
+            "tmux-conf",
+            "tmux-copy-mode",
+            "tmux-true-color",
+            "vim-tmux-navigator",
+        ],
+        s_tt_tmux_adv,
+    ),
+    (
+        "wezterm",
+        &[
+            "terminal-emulator",
+            "wezterm-config",
+            "kitty-terminal",
+            "alacritty",
+            "nerd-fonts",
+            "terminal-colors",
+            "true-color-terminal",
+            "terminal-graphics",
+            "osc-52",
+            "color-schemes",
+            "terminal-font",
+        ],
+        s_tt_wezterm,
+    ),
+];
+
+pub fn terminal_tools_calc(query: &str) -> String {
+    let q = query.trim().to_lowercase();
+    if q.is_empty() || q == "list" || q == "help" {
+        let topics: Vec<&str> = TERMINAL_TOOLS_SECTIONS.iter().map(|(n, _, _)| *n).collect();
+        return format!(
+            "terminal-tools topics: {}\nUse: --terminal-tools <topic>  or  --terminal-tools all",
+            topics.join(", ")
+        );
+    }
+    if q == "all" {
+        return TERMINAL_TOOLS_SECTIONS
+            .iter()
+            .map(|(n, _, f)| format!("── {} ──\n{}", n, f()))
+            .collect::<Vec<_>>()
+            .join("\n\n");
+    }
+    for (name, aliases, func) in TERMINAL_TOOLS_SECTIONS {
+        if q == *name || aliases.iter().any(|a| q == *a || q.contains(a)) {
+            return func().to_string();
+        }
+    }
+    format!(
+        "Unknown terminal-tools topic: '{}'\nAvailable: {}",
+        query.trim(),
+        TERMINAL_TOOLS_SECTIONS
+            .iter()
+            .map(|(n, _, _)| *n)
+            .collect::<Vec<_>>()
+            .join(", ")
+    )
+}
+
+// ── data-pipeline ─────────────────────────────────────────────────────────────
+
+fn s_dp_dbt() -> &'static str {
+    "dbt (Data Build Tool) Reference
+Project structure:
+  models/          — SQL transforms (SELECT only; dbt adds CREATE TABLE/VIEW)
+  seeds/           — CSV files loaded as tables
+  snapshots/       — SCD type-2 tracking
+  tests/           — schema tests + custom SQL tests
+  macros/          — Jinja2 macros (functions)
+  analyses/        — exploratory SQL (not materialized)
+  dbt_project.yml  — project config
+
+CLI commands:
+  dbt init my_project              # scaffold project
+  dbt debug                        # test connection
+  dbt run                          # execute all models
+  dbt run --select model_name      # single model
+  dbt run --select tag:daily       # by tag
+  dbt run --select +model_name     # model + upstream
+  dbt run --select model_name+     # model + downstream
+  dbt test                         # run all tests
+  dbt test --select model_name     # test specific model
+  dbt build                        # run + test + seed + snapshot
+  dbt compile                      # render SQL without executing
+  dbt docs generate && dbt docs serve  # generate + serve lineage docs
+  dbt seed                         # load seed CSV files
+  dbt snapshot                     # run SCD snapshots
+  dbt source freshness             # check source freshness SLAs
+  dbt list --select +model_name    # show DAG nodes
+
+Materializations:
+  view:              default; recreated on every run
+  table:             full recreate (DROP + CREATE TABLE AS SELECT)
+  incremental:       only process new/changed rows; requires unique_key
+  ephemeral:         CTE; no DB object created; referenced inline
+
+Incremental model example:
+  {{config(materialized='incremental', unique_key='id')}}
+  SELECT id, amount, created_at FROM {{ source('raw', 'orders') }}
+  {% if is_incremental() %}
+    WHERE created_at > (SELECT MAX(created_at) FROM {{ this }})
+  {% endif %}
+
+Schema tests (YAML):
+  models:
+  - name: orders
+    columns:
+    - name: order_id
+      tests: [unique, not_null]
+    - name: status
+      tests:
+        - accepted_values: {values: [placed, shipped, completed, cancelled]}
+    - name: customer_id
+      tests:
+        - relationships: {to: ref('customers'), field: id}
+
+Sources:
+  sources:
+  - name: raw
+    database: analytics
+    schema: public
+    tables:
+    - name: orders
+      loaded_at_field: _loaded_at
+      freshness: {warn_after: {count: 6, period: hour}, error_after: {count: 24, period: hour}}
+
+Ref and source:
+  {{ ref('model_name') }}     — reference another dbt model
+  {{ source('raw', 'table') }} — reference external source table
+
+Packages:
+  packages.yml: [{package: dbt-labs/dbt_utils, version: '>=1.0.0'}]
+  dbt deps    # install packages
+  Useful: dbt_utils, dbt_expectations, dbt_audit_helper, elementary-data"
+}
+
+fn s_dp_airflow() -> &'static str {
+    "Apache Airflow Reference
+Core concepts:
+  DAG: Directed Acyclic Graph; unit of workflow; Python file in dags/
+  Task: unit of work (Operator instance)
+  Operator: defines task type (PythonOperator, BashOperator, etc.)
+  TaskInstance: single run of a task in a specific DAG run
+  XCom: cross-task communication (small data via DB; avoid large payloads)
+  Sensor: waits for condition (FileSensor, HttpSensor, ExternalTaskSensor)
+
+Minimal DAG:
+  from airflow import DAG
+  from airflow.operators.python import PythonOperator
+  from datetime import datetime
+
+  with DAG('my_dag', start_date=datetime(2025,1,1), schedule='@daily', catchup=False) as dag:
+      task1 = PythonOperator(task_id='extract', python_callable=extract)
+      task2 = PythonOperator(task_id='transform', python_callable=transform)
+      task1 >> task2       # set dependency
+
+Common operators:
+  PythonOperator: run Python callable
+  BashOperator:   run bash command
+  EmailOperator:  send email
+  BranchPythonOperator: conditional branching
+  DummyOperator / EmptyOperator: placeholder (start/end)
+  TriggerDagRunOperator: trigger another DAG
+  HttpOperator:   make HTTP call (airflow.providers.http)
+  PostgresOperator, BigQueryOperator, SnowflakeOperator: DB-specific
+
+Schedules:
+  '@hourly', '@daily', '@weekly', '@monthly', '@yearly', '@once', None
+  cron: '0 6 * * 1-5'   # 6am Mon-Fri
+  timedelta: schedule=timedelta(hours=6)
+
+Connections & Hooks:
+  Admin → Connections in UI
+  from airflow.hooks.postgres_hook import PostgresHook
+  hook = PostgresHook(postgres_conn_id='my_db')
+  df = hook.get_pandas_df(sql='SELECT * FROM orders LIMIT 100')
+
+Variables:
+  from airflow.models import Variable
+  val = Variable.get('my_key', default_var='default')
+  Variable.set('my_key', 'value')
+
+XCom:
+  ti.xcom_push(key='result', value=data)
+  ti.xcom_pull(task_ids='extract', key='result')
+
+Task groups:
+  from airflow.utils.task_group import TaskGroup
+  with TaskGroup('load_group') as load_group:
+      load_a = PythonOperator(...)
+      load_b = PythonOperator(...)
+
+Airflow on Kubernetes:
+  executor: KubernetesExecutor    # each task = pod
+  executor: CeleryExecutor + Redis # worker pool
+  Helm: helm repo add apache-airflow https://airflow.apache.org
+        helm install airflow apache-airflow/airflow
+
+CLI:
+  airflow dags list
+  airflow dags trigger my_dag
+  airflow dags pause / unpause my_dag
+  airflow tasks test my_dag task_id 2025-01-01
+  airflow db init / migrate"
+}
+
+fn s_dp_spark() -> &'static str {
+    "Apache Spark Reference
+Architecture:
+  Driver: orchestrates job; creates SparkContext/SparkSession
+  Cluster Manager: allocates resources (Standalone, YARN, Mesos, Kubernetes)
+  Executor: runs tasks on worker nodes; keeps data in memory/disk
+
+SparkSession (entry point):
+  from pyspark.sql import SparkSession
+  spark = SparkSession.builder \\
+      .appName('my-app') \\
+      .config('spark.executor.memory', '4g') \\
+      .config('spark.sql.shuffle.partitions', '200') \\
+      .getOrCreate()
+
+DataFrame API:
+  df = spark.read.csv('s3://bucket/data.csv', header=True, inferSchema=True)
+  df.printSchema()
+  df.show(5)
+  df.select('col1', 'col2').filter(df.col1 > 100).groupBy('col2').count()
+  df.write.parquet('s3://bucket/output/', mode='overwrite')
+
+Transformations vs Actions:
+  Transformations (lazy): select, filter, join, groupBy, withColumn, cache
+  Actions (trigger execution): show, count, collect, write, take, first
+
+Joins:
+  df1.join(df2, df1.id == df2.id, 'inner')    # inner join
+  df1.join(df2, 'id', 'left')                 # left outer
+  df1.join(broadcast(df2), 'id')              # broadcast small df
+
+Optimization:
+  Partition pruning: filter on partition columns (year=, month=)
+  Predicate pushdown: filters pushed to storage layer
+  AQE (Adaptive Query Execution): set spark.sql.adaptive.enabled=true
+  Broadcast join threshold: spark.sql.autoBroadcastJoinThreshold=10mb
+  Salting: add random prefix to keys for skewed joins
+
+SQL interface:
+  df.createOrReplaceTempView('orders')
+  spark.sql('SELECT date, sum(amount) FROM orders GROUP BY date').show()
+
+Structured Streaming:
+  stream = spark.readStream.format('kafka') \\
+      .option('kafka.bootstrap.servers', 'broker:9092') \\
+      .option('subscribe', 'events').load()
+  query = stream.writeStream.format('parquet') \\
+      .option('path', '/output') \\
+      .option('checkpointLocation', '/checkpoint') \\
+      .outputMode('append').start()
+  query.awaitTermination()
+
+PySpark performance:
+  Use Parquet/ORC, not CSV/JSON
+  Avoid collect() on large DataFrames
+  Use Catalyst expressions not Python UDFs (10-100× faster)
+  If UDF needed: use pandas_udf (Arrow-based vectorized)
+  Cache hot DataFrames: df.cache() / df.persist(StorageLevel.MEMORY_AND_DISK)
+
+Submit job:
+  spark-submit --master yarn --deploy-mode cluster \\
+    --num-executors 10 --executor-memory 4g --executor-cores 2 \\
+    my_job.py"
+}
+
+fn s_dp_streaming() -> &'static str {
+    "Streaming Pipelines Reference
+Kafka Streams (Java/Scala):
+  KStream: unbounded sequence of key-value records
+  KTable: changelog stream; latest value per key (like a DB table)
+  GlobalKTable: fully replicated; smaller; for reference data lookups
+
+  StreamsBuilder builder = new StreamsBuilder();
+  KStream<String, Order> orders = builder.stream(\"orders\");
+  KTable<String, Long> counts = orders
+      .groupBy((k, v) -> v.getCustomerId())
+      .count(Materialized.as(\"counts-store\"));
+  counts.toStream().to(\"customer-order-counts\");
+
+  KafkaStreams streams = new KafkaStreams(builder.build(), props);
+  streams.start();
+
+Flink (low-latency, stateful):
+  StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+  DataStream<String> source = env.addSource(new FlinkKafkaConsumer<>(...));
+  source.keyBy(event -> event.getUserId())
+        .window(TumblingEventTimeWindows.of(Time.minutes(5)))
+        .aggregate(new CountAggregator())
+        .addSink(new FlinkKafkaProducer<>(...));
+  env.execute();
+
+  Flink checkpointing:
+    env.enableCheckpointing(60_000);   // every 60s
+    env.getCheckpointConfig().setCheckpointingMode(CheckpointingMode.EXACTLY_ONCE);
+
+  Flink state backends: HashMapStateBackend (JVM heap), RocksDB (spills to disk)
+
+Windowing patterns:
+  Tumbling window: fixed, non-overlapping (5m window = [0:00,0:05), [0:05,0:10))
+  Sliding window:  fixed size, overlapping (5m window, 1m slide)
+  Session window:  gap-based (events close together = same session)
+  Global window:   infinite; user-defined trigger required
+
+Event time vs processing time:
+  Event time:      timestamp when event happened (correct but delayed by watermark)
+  Processing time: timestamp when system processes it (fast but wrong on late data)
+  Watermark:       estimate of how far behind event time can be
+    withWatermark(\"eventTime\", \"10 minutes\")  # allow 10min late arrivals
+
+Late data handling:
+  Watermark: define acceptable lateness window
+  Allowed lateness: update result up to N after window closes
+  Side outputs: route late data to separate stream for audit
+
+Exactly-once semantics:
+  Kafka transactions: producer transactions + consumer read_committed isolation
+  Flink exactly-once: checkpoints + Kafka transactional sink
+  Two-phase commit: Flink FlinkKafkaProducer in EXACTLY_ONCE semantic
+
+Backpressure:
+  Signal: downstream slow → upstream buffers fill → source slows
+  Flink: credit-based flow control (automatic)
+  Kafka Streams: natural backpressure via consumer poll
+  Monitor: Flink Dashboard backpressure indicators, Kafka consumer lag"
+}
+
+fn s_dp_etl() -> &'static str {
+    "ETL / ELT Patterns & Tools
+ETL vs ELT:
+  ETL: Extract → Transform → Load (transform before loading; traditional DW)
+  ELT: Extract → Load → Transform (load raw; transform in DW; modern cloud DW)
+  ELT preferred when: DW has compute power (BigQuery, Snowflake, Redshift, DuckDB)
+  ETL preferred when: sensitive data needs masking before landing in DW
+
+Batch ETL patterns:
+  Full refresh:    truncate → reload (simple; expensive for large tables)
+  Incremental:     load only new/changed rows; requires watermark or CDC
+  CDC (Change Data Capture): stream DB changes in real-time (Debezium, Airbyte)
+  Slowly Changing Dimension (SCD):
+    Type 1: overwrite (no history)
+    Type 2: new row with validity dates (full history)
+    Type 3: add prev_value column (last change only)
+
+Fivetran / Airbyte (managed connectors):
+  Fivetran: managed SaaS; 300+ connectors; automatic schema migration
+  Airbyte: open-source; self-hosted or cloud; 300+ connectors
+  Use for: Salesforce, HubSpot, Stripe, GitHub, databases → DW
+
+Debezium (CDC):
+  Reads DB write-ahead log (WAL) as Kafka topic stream
+  Connectors: PostgreSQL, MySQL, MongoDB, Oracle, SQL Server
+  connector.class=io.debezium.connector.postgresql.PostgresConnector
+  database.hostname=localhost, database.dbname=prod
+  topic.prefix=dbserver1 → topics: dbserver1.public.orders
+
+dlt (data load tool, Python):
+  import dlt
+  @dlt.resource
+  def get_orders(): yield from requests.get('/orders').json()
+  pipeline = dlt.pipeline(pipeline_name='orders', destination='bigquery', dataset_name='raw')
+  pipeline.run(get_orders())
+
+Data quality:
+  Great Expectations: suite.expect_column_values_to_not_be_null('order_id')
+  dbt tests: not_null, unique, accepted_values, relationships
+  Soda Core: checks.yml with checks for column metrics
+  Elementary (dbt): anomaly detection, schema changes as dbt tests
+
+Modern data stack:
+  Ingestion:   Fivetran / Airbyte / Debezium / dlt
+  Storage:     Snowflake / BigQuery / Redshift / DuckDB / Delta Lake / Iceberg
+  Transform:   dbt
+  Orchestrate: Airflow / Prefect / Dagster / Mage
+  Visualize:   Tableau / Looker / Metabase / Grafana / Superset"
+}
+
+fn s_dp_lakehouse() -> &'static str {
+    "Data Lakehouse: Delta Lake, Iceberg, DuckDB
+Delta Lake (Linux Foundation / Databricks):
+  Transaction log: _delta_log/  — JSON commit files + Parquet checkpoints
+  ACID transactions: serializable isolation on object storage
+  Schema enforcement: reject writes that don't match schema
+  Schema evolution: ALTER TABLE ADD COLUMN; mergeSchema=true
+  Time travel: SELECT * FROM events TIMESTAMP AS OF '2025-01-01'
+                SELECT * FROM events VERSION AS OF 10
+  OPTIMIZE: compact small files → larger Parquet files (Z-ordering)
+  VACUUM: remove old files beyond retention (default 7 days)
+  PySpark:
+    df.write.format('delta').mode('overwrite').save('/data/events')
+    spark.read.format('delta').load('/data/events').show()
+    DeltaTable.forPath(spark, '/data/events').update(condition='id=1', set={'col':'val'})
+
+Apache Iceberg:
+  Open table format (REST catalog, Glue, Hive Metastore, Nessie)
+  Row-level deletes: position deletes + equality deletes
+  Partition evolution: change partition strategy without rewriting data
+  Hidden partitioning: partition by day(event_time) — no user management
+  Catalog:
+    REST: spark.sql.catalog.rest.type=rest, .uri=http://catalog:8181
+  Compaction: spark.sql('CALL system.rewrite_data_files(\"db.table\")')
+  Branching: CREATE BRANCH audit IN db.table AS OF VERSION 5
+
+DuckDB (analytical, in-process):
+  import duckdb
+  con = duckdb.connect()
+  con.execute('SELECT * FROM read_parquet(\"data.parquet\") WHERE amount > 100').df()
+  con.execute('SELECT * FROM read_csv_auto(\"data.csv\")').df()
+  con.execute('COPY (SELECT ...) TO \"out.parquet\" (FORMAT PARQUET)')
+  con.execute('INSTALL httpfs; LOAD httpfs; SELECT * FROM read_parquet(\"s3://bucket/data.parquet\")')
+  # Works on files, S3, HTTP; no server needed; sub-second on GBs
+  duckdb.from_df(df).filter('amount > 100').to_df()     # pandas interop
+
+Data formats comparison:
+  Parquet: columnar; good for analytics; no native updates
+  ORC:     columnar; Hive ecosystem; better compression than Parquet
+  Avro:    row-based; schema evolution; great for Kafka messages
+  Arrow:   in-memory columnar; zero-copy between pandas/Spark/DuckDB
+  Iceberg/Delta on Parquet: transactional layer + Parquet storage
+  Delta Lake: Databricks-native, excellent Spark integration
+  Iceberg:    vendor-neutral, multi-engine (Spark, Flink, Trino, DuckDB)
+
+Object storage layout best practices:
+  Partition by date: s3://bucket/events/year=2025/month=01/day=15/
+  Avoid over-partitioning: too many small partitions hurt read performance
+  File size target: 128 MB–1 GB Parquet (compact with OPTIMIZE/rewrite)
+  Compaction frequency: daily or after high-volume loads"
+}
+
+type DataPipelineSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+const DATA_PIPELINE_SECTIONS: &[DataPipelineSection] = &[
+    (
+        "dbt",
+        &[
+            "dbt-models",
+            "dbt-tests",
+            "dbt-incremental",
+            "dbt-sources",
+            "dbt-ref",
+            "dbt-materializations",
+            "dbt-docs",
+            "dbt-packages",
+            "dbt-macros",
+            "dbt-seeds",
+            "dbt-snapshots",
+            "dbt-run",
+            "dbt-build",
+        ],
+        s_dp_dbt,
+    ),
+    (
+        "airflow",
+        &[
+            "apache-airflow",
+            "airflow-dag",
+            "airflow-operators",
+            "airflow-schedule",
+            "airflow-xcom",
+            "airflow-hooks",
+            "airflow-connections",
+            "airflow-kubernetes",
+            "airflow-celery",
+            "airflow-taskgroup",
+            "airflow-sensors",
+        ],
+        s_dp_airflow,
+    ),
+    (
+        "spark",
+        &[
+            "apache-spark",
+            "pyspark",
+            "spark-sql",
+            "spark-streaming",
+            "spark-dataframe",
+            "spark-joins",
+            "spark-optimization",
+            "aqe-spark",
+            "spark-submit",
+            "spark-kafka",
+            "spark-parquet",
+            "pandas-udf",
+        ],
+        s_dp_spark,
+    ),
+    (
+        "streaming",
+        &[
+            "kafka-streams",
+            "apache-flink",
+            "flink-streaming",
+            "windowing",
+            "event-time",
+            "watermark",
+            "exactly-once-streaming",
+            "backpressure",
+            "late-data",
+            "tumbling-window",
+            "sliding-window",
+            "session-window",
+        ],
+        s_dp_streaming,
+    ),
+    (
+        "etl",
+        &[
+            "etl-patterns",
+            "elt-patterns",
+            "fivetran",
+            "airbyte",
+            "debezium-cdc",
+            "dlt-python",
+            "great-expectations",
+            "soda-core",
+            "modern-data-stack",
+            "scd-type2",
+            "change-data-capture",
+            "data-quality",
+        ],
+        s_dp_etl,
+    ),
+    (
+        "lakehouse",
+        &[
+            "delta-lake",
+            "apache-iceberg",
+            "duckdb",
+            "data-formats",
+            "parquet",
+            "arrow-format",
+            "iceberg-catalog",
+            "delta-timetravel",
+            "delta-optimize",
+            "iceberg-branch",
+            "object-storage-layout",
+            "data-compaction",
+        ],
+        s_dp_lakehouse,
+    ),
+];
+
+pub fn data_pipeline_calc(query: &str) -> String {
+    let q = query.trim().to_lowercase();
+    if q.is_empty() || q == "list" || q == "help" {
+        let topics: Vec<&str> = DATA_PIPELINE_SECTIONS.iter().map(|(n, _, _)| *n).collect();
+        return format!(
+            "data-pipeline topics: {}\nUse: --data-pipeline <topic>  or  --data-pipeline all",
+            topics.join(", ")
+        );
+    }
+    if q == "all" {
+        return DATA_PIPELINE_SECTIONS
+            .iter()
+            .map(|(n, _, f)| format!("── {} ──\n{}", n, f()))
+            .collect::<Vec<_>>()
+            .join("\n\n");
+    }
+    for (name, aliases, func) in DATA_PIPELINE_SECTIONS {
+        if q == *name || aliases.iter().any(|a| q == *a || q.contains(a)) {
+            return func().to_string();
+        }
+    }
+    format!(
+        "Unknown data-pipeline topic: '{}'\nAvailable: {}",
+        query.trim(),
+        DATA_PIPELINE_SECTIONS
+            .iter()
+            .map(|(n, _, _)| *n)
+            .collect::<Vec<_>>()
+            .join(", ")
+    )
+}

@@ -2258,6 +2258,38 @@ pub struct CliCockpit {
 
     #[arg(
         long,
+        help_heading = "Developer Toolkit",
+        value_name = "QUERY",
+        help = "Service mesh reference — offline replacement for Istio/Envoy/Linkerd docs. Topics: istio, envoy, linkerd, patterns, consul, dapr. Aliases: virtualservice, destinationrule, istioctl, envoy-proxy, xds-api, linkerd-inject, traffic-split, mesh-patterns, canary-mesh, spiffe, consul-connect, dapr-sidecar, dapr-state, and more. Examples: hematite --service-mesh istio | hematite --service-mesh patterns | hematite --service-mesh all"
+    )]
+    pub service_mesh: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Developer Toolkit",
+        value_name = "QUERY",
+        help = "Advanced observability reference — offline replacement for OTel/Jaeger/Grafana docs. Topics: otel, tracing, metrics, logging, alerting, dashboards. Aliases: opentelemetry, otlp, distributed-tracing, jaeger-tracing, slo-metrics-adv, error-budget, structured-logging, loki-logging, alertmanager, grafana-dashboards, use-method, red-method, and more. Examples: hematite --observability-adv otel | hematite --observability-adv tracing | hematite --observability-adv all"
+    )]
+    pub observability_adv: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Developer Toolkit",
+        value_name = "QUERY",
+        help = "Terminal tools reference — offline replacement for fzf/ripgrep/zsh docs. Topics: fzf, ripgrep, shell-tools, zsh, tmux-adv, wezterm. Aliases: fuzzy-finder, rg-search, modern-cli, zsh-config, zsh-plugins, tmux-advanced, tpm-plugins, terminal-emulator, starship-prompt, powerlevel10k, eza-ls, bat-cat, and more. Examples: hematite --terminal-tools fzf | hematite --terminal-tools zsh | hematite --terminal-tools all"
+    )]
+    pub terminal_tools: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Developer Toolkit",
+        value_name = "QUERY",
+        help = "Data pipeline reference — offline replacement for dbt/Airflow/Spark docs. Topics: dbt, airflow, spark, streaming, etl, lakehouse. Aliases: dbt-models, apache-airflow, pyspark, kafka-streams, apache-flink, etl-patterns, delta-lake, apache-iceberg, duckdb, data-quality, debezium-cdc, and more. Examples: hematite --data-pipeline dbt | hematite --data-pipeline spark | hematite --data-pipeline all"
+    )]
+    pub data_pipeline: Option<String>,
+
+    #[arg(
+        long,
         help_heading = "Math & Science",
         value_name = "QUERY",
         help = "Lorem ipsum generator — offline replacement for lipsum.com. Commands: (bare) or <N> = N paragraphs (default 1); words <N> = N words; sentences <N> = N sentences. Examples: hematite --lorem | hematite --lorem 3 | hematite --lorem 'words 50' | hematite --lorem 'sentences 5'"

@@ -1137,6 +1137,10 @@ mod tests {
             message_queue: None,
             caching_ref: None,
             load_testing: None,
+            service_mesh: None,
+            observability_adv: None,
+            terminal_tools: None,
+            data_pipeline: None,
             pdf_extract_helper: None,
             teleported_from: None,
         };
