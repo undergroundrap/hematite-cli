@@ -63954,3 +63954,1442 @@ pub fn openapi_ref_calc(query: &str) -> String {
             .join(", ")
     )
 }
+
+// ════════════════════════════════════════════════════════════════
+// Wave 43: --graphql, --react-ref, --node-ref, --java-ref
+// ════════════════════════════════════════════════════════════════
+
+fn s_gq_queries() -> &'static str {
+    "GraphQL Queries & Mutations
+Query syntax:
+  query GetUser($id: ID!) {
+    user(id: $id) {
+      id
+      name
+      email
+      posts { title createdAt }
+    }
+  }
+
+Mutation syntax:
+  mutation CreatePost($input: CreatePostInput!) {
+    createPost(input: $input) {
+      id
+      title
+      author { name }
+    }
+  }
+
+Query variables (JSON):
+  { \"id\": \"123\" }
+
+Aliases:
+  query {
+    alice: user(id: \"1\") { name }
+    bob:   user(id: \"2\") { name }
+  }
+
+Fragments:
+  fragment UserFields on User {
+    id name email createdAt
+  }
+  query { user(id: \"1\") { ...UserFields posts { title } } }
+
+Inline fragments:
+  query { node(id: $id) {
+    ... on User { name email }
+    ... on Post { title body }
+  }}
+
+Directives:
+  query GetUser($withEmail: Boolean!) {
+    user(id: \"1\") {
+      name
+      email @include(if: $withEmail)
+      role  @skip(if: $hideRole)
+    }
+  }
+
+Field arguments:
+  query { posts(first: 10, after: \"cursor123\", orderBy: CREATED_AT_DESC) {
+    edges { node { title } cursor }
+    pageInfo { hasNextPage endCursor }
+  }}"
+}
+
+fn s_gq_schema() -> &'static str {
+    "GraphQL Schema Definition Language (SDL)
+Scalar types:
+  Int  Float  String  Boolean  ID  (+ custom scalars)
+
+Object types:
+  type User {
+    id:    ID!
+    name:  String!
+    email: String
+    posts: [Post!]!
+    role:  Role!
+  }
+
+Enum:
+  enum Role { ADMIN EDITOR VIEWER }
+
+Input types:
+  input CreateUserInput {
+    name:  String!
+    email: String!
+    role:  Role = VIEWER
+  }
+
+Interface:
+  interface Node { id: ID! }
+  type User implements Node { id: ID! name: String! }
+
+Union:
+  union SearchResult = User | Post | Comment
+  query { search(term: \"gql\") {
+    ... on User { name }
+    ... on Post { title }
+  }}
+
+Root types:
+  type Query    { user(id: ID!): User   posts: [Post!]! }
+  type Mutation { createUser(input: CreateUserInput!): User }
+  type Subscription { messageAdded(roomId: ID!): Message }
+
+Non-null and lists:
+  String    nullable string
+  String!   non-null string
+  [String]  nullable list of nullable strings
+  [String!]! non-null list of non-null strings
+
+Custom scalars:
+  scalar DateTime
+  scalar JSON
+  # Implemented in server resolver"
+}
+
+fn s_gq_subscriptions() -> &'static str {
+    "GraphQL Subscriptions & Real-time
+Subscription definition:
+  type Subscription {
+    messageAdded(roomId: ID!): Message!
+    userOnline: User!
+    orderUpdated(orderId: ID!): Order!
+  }
+
+Client subscription (Apollo):
+  const MESSAGES = gql`
+    subscription OnMessageAdded($roomId: ID!) {
+      messageAdded(roomId: $roomId) { id body author { name } }
+    }
+  `;
+  const { data } = useSubscription(MESSAGES, { variables: { roomId } });
+
+WebSocket transport (graphql-ws):
+  import { createClient } from 'graphql-ws';
+  const client = createClient({ url: 'wss://api.example.com/graphql' });
+  client.subscribe({ query: `subscription { ... }` }, {
+    next: (data) => console.log(data),
+    error: (err) => console.error(err),
+    complete: () => console.log('done'),
+  });
+
+Server-side (Node.js + graphql-ws):
+  import { useServer } from 'graphql-ws/lib/use/ws';
+  import { WebSocketServer } from 'ws';
+  const wsServer = new WebSocketServer({ server, path: '/graphql' });
+  useServer({ schema }, wsServer);
+
+SSE alternative (graphql-sse):
+  Useful when WebSockets blocked; HTTP/2 push supported
+  import { createHandler } from 'graphql-sse/lib/use/node';
+  app.use('/graphql/stream', createHandler({ schema }));
+
+Subscription vs polling:
+  Polling: setInterval(() => refetch(), 5000)  // simpler, more load
+  Subscription: real-time push, less server polling overhead
+  Live queries: @live directive (some implementations)"
+}
+
+fn s_gq_resolvers() -> &'static str {
+    "GraphQL Resolvers & DataLoader
+Resolver signature (JS):
+  fieldName(parent, args, context, info) => value
+
+Example resolvers:
+  const resolvers = {
+    Query: {
+      user: (_,  { id }, { db }) => db.users.findById(id),
+      posts: (_, { first, after }, { db }) =>
+        db.posts.paginate({ first, after }),
+    },
+    Mutation: {
+      createUser: (_, { input }, { db, user }) => {
+        if (!user) throw new AuthenticationError('login required');
+        return db.users.create(input);
+      },
+    },
+    User: {
+      posts: (user, _, { db }) => db.posts.findByAuthor(user.id),
+      fullName: (user) => `${user.firstName} ${user.lastName}`,
+    },
+  };
+
+DataLoader (N+1 fix):
+  import DataLoader from 'dataloader';
+  const userLoader = new DataLoader(async (ids) => {
+    const users = await db.users.findByIds(ids);
+    return ids.map(id => users.find(u => u.id === id));
+  });
+  // In resolver:
+  User: { posts: (user, _, { loaders }) => loaders.posts.load(user.id) }
+
+Context setup (Apollo Server):
+  const server = new ApolloServer({
+    schema,
+    context: ({ req }) => ({
+      db,
+      user: getUser(req.headers.authorization),
+      loaders: { posts: new DataLoader(batchPosts) },
+    }),
+  });
+
+Error handling:
+  throw new UserInputError('email invalid', { field: 'email' });
+  throw new AuthenticationError('login required');
+  throw new ForbiddenError('not allowed');
+  throw new ApolloError('custom', 'MY_ERROR_CODE');"
+}
+
+fn s_gq_tooling() -> &'static str {
+    "GraphQL Tooling & Clients
+Servers:
+  Apollo Server      npm i @apollo/server graphql
+  GraphQL Yoga       npm i graphql-yoga
+  Pothos             type-safe schema builder
+  Nexus              code-first schema
+  Hasura             auto-generate from Postgres
+  Strawberry (Py)    pip install strawberry-graphql
+
+Clients:
+  Apollo Client      npm i @apollo/client graphql
+  urql               npm i urql graphql  (lighter)
+  SWR + fetch        manual fetch + cache
+  TanStack Query     + graphql-request
+
+Apollo Client setup:
+  import { ApolloClient, InMemoryCache } from '@apollo/client';
+  const client = new ApolloClient({
+    uri: '/graphql',
+    cache: new InMemoryCache(),
+  });
+  // React: <ApolloProvider client={client}>
+
+Introspection / docs:
+  GraphiQL           browser IDE, ships with Apollo Sandbox
+  Apollo Studio      cloud sandbox + schema registry
+  Postman            supports GraphQL natively
+  Insomnia           GraphQL support built-in
+
+Code generation:
+  npm i -D @graphql-codegen/cli
+  # graphql.config.yml  ->  generates typed hooks/queries
+  npx graphql-codegen
+
+Persisted queries:
+  Reduces request size; client sends SHA-256 hash
+  Apollo: persistedQueries: { cache: new InMemoryLRUCache() }
+
+Schema linting:
+  graphql-inspector   compare schemas, detect breaking changes
+  eslint-plugin-graphql  lint .graphql files"
+}
+
+type GraphqlRefSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+const GRAPHQL_REF_SECTIONS: &[GraphqlRefSection] = &[
+    (
+        "queries",
+        &[
+            "graphql-queries",
+            "graphql-mutations",
+            "gql-query",
+            "graphql-variables",
+            "graphql-aliases",
+            "graphql-fragments",
+            "graphql-directives",
+            "graphql-arguments",
+            "gql-mutation",
+            "graphql-pagination",
+            "graphql-include-skip",
+        ],
+        s_gq_queries,
+    ),
+    (
+        "schema",
+        &[
+            "graphql-schema",
+            "sdl-graphql",
+            "graphql-types",
+            "graphql-scalars",
+            "graphql-enums",
+            "graphql-interfaces",
+            "graphql-unions",
+            "graphql-input",
+            "graphql-nonnull",
+            "graphql-list",
+            "schema-definition-language",
+        ],
+        s_gq_schema,
+    ),
+    (
+        "subscriptions",
+        &[
+            "graphql-subscriptions",
+            "graphql-realtime",
+            "graphql-ws",
+            "graphql-sse",
+            "graphql-websocket",
+            "graphql-live",
+            "graphql-push",
+            "graphql-streaming",
+            "sse-graphql",
+            "websocket-graphql",
+            "graphql-polling",
+        ],
+        s_gq_subscriptions,
+    ),
+    (
+        "resolvers",
+        &[
+            "graphql-resolvers",
+            "dataloader",
+            "n-plus-one-graphql",
+            "graphql-context",
+            "graphql-errors",
+            "graphql-auth",
+            "batch-loading",
+            "graphql-field-resolver",
+            "resolver-chain",
+            "graphql-middleware",
+            "apollo-context",
+        ],
+        s_gq_resolvers,
+    ),
+    (
+        "tooling",
+        &[
+            "apollo-server",
+            "graphql-yoga",
+            "apollo-client",
+            "graphql-codegen",
+            "graphql-inspector",
+            "graphiql",
+            "apollo-studio",
+            "graphql-tools",
+            "urql",
+            "graphql-request",
+            "persisted-queries",
+        ],
+        s_gq_tooling,
+    ),
+];
+
+pub fn graphql_ref_calc(query: &str) -> String {
+    let q = query.trim().to_lowercase();
+    if q.is_empty() || q == "list" || q == "help" {
+        let topics: Vec<&str> = GRAPHQL_REF_SECTIONS.iter().map(|(n, _, _)| *n).collect();
+        return format!(
+            "graphql topics: {}\nUse: --graphql <topic>  or  --graphql all",
+            topics.join(", ")
+        );
+    }
+    if q == "all" {
+        return GRAPHQL_REF_SECTIONS
+            .iter()
+            .map(|(n, _, f)| format!("── {} ──\n{}", n, f()))
+            .collect::<Vec<_>>()
+            .join("\n\n");
+    }
+    for (name, aliases, func) in GRAPHQL_REF_SECTIONS {
+        if q == *name || aliases.iter().any(|a| q == *a || q.contains(a)) {
+            return func().to_string();
+        }
+    }
+    format!(
+        "Unknown graphql topic: '{}'\nAvailable: {}",
+        query.trim(),
+        GRAPHQL_REF_SECTIONS
+            .iter()
+            .map(|(n, _, _)| *n)
+            .collect::<Vec<_>>()
+            .join(", ")
+    )
+}
+
+// ── react-ref ─────────────────────────────────────────────────
+
+fn s_rr_hooks() -> &'static str {
+    "React Hooks Reference
+useState:
+  const [count, setCount] = useState(0);
+  const [user, setUser]   = useState<User | null>(null);
+  setCount(prev => prev + 1);  // functional update
+
+useEffect:
+  useEffect(() => {
+    const sub = api.subscribe(id, setData);
+    return () => sub.unsubscribe();  // cleanup
+  }, [id]);  // re-run when id changes
+  // [] = mount/unmount only;  no array = every render
+
+useRef:
+  const inputRef = useRef<HTMLInputElement>(null);
+  inputRef.current?.focus();
+  const renderCount = useRef(0);  // mutable, no re-render
+
+useMemo / useCallback:
+  const sorted = useMemo(() => items.sort(cmp), [items]);
+  const handleClick = useCallback(() => doWork(id), [id]);
+
+useContext:
+  const theme = useContext(ThemeContext);
+
+useReducer:
+  const [state, dispatch] = useReducer(reducer, { count: 0 });
+  dispatch({ type: 'increment' });
+
+useId:
+  const id = useId();  // stable unique ID for accessibility
+
+useTransition:
+  const [isPending, startTransition] = useTransition();
+  startTransition(() => setFilter(val));  // non-urgent update
+
+useDeferredValue:
+  const deferred = useDeferredValue(query);  // like debounce
+
+useImperativeHandle:
+  useImperativeHandle(ref, () => ({ focus: () => inputRef.current?.focus() }));
+
+Custom hooks:
+  function useLocalStorage<T>(key: string, init: T) {
+    const [val, setVal] = useState<T>(() =>
+      JSON.parse(localStorage.getItem(key) ?? JSON.stringify(init)));
+    useEffect(() => localStorage.setItem(key, JSON.stringify(val)), [key, val]);
+    return [val, setVal] as const;
+  }"
+}
+
+fn s_rr_patterns() -> &'static str {
+    "React Patterns & Architecture
+Component types:
+  // Server Component (RSC) -- no state/effects
+  export default async function Page({ params }) {
+    const data = await fetch('/api/data');
+    return <div>{data.name}</div>;
+  }
+  // Client Component
+  'use client';
+  export function Counter() { ... }
+
+Lifting state:
+  Parent owns state; passes setter as prop to child.
+  When siblings need shared state, lift to LCA.
+
+Context pattern:
+  const ThemeCtx = createContext<Theme>('light');
+  export function ThemeProvider({ children }) {
+    const [theme, setTheme] = useState<Theme>('light');
+    return <ThemeCtx.Provider value={{ theme, setTheme }}>{children}</ThemeCtx.Provider>;
+  }
+
+Compound component:
+  <Select value={val} onChange={set}>
+    <Select.Option value=\"a\">A</Select.Option>
+    <Select.Option value=\"b\">B</Select.Option>
+  </Select>
+
+Render props / children as function:
+  <MouseTracker>{(pos) => <Cursor x={pos.x} y={pos.y} />}</MouseTracker>
+
+Error boundary:
+  class ErrorBoundary extends React.Component {
+    state = { error: null };
+    static getDerivedStateFromError(e) { return { error: e }; }
+    render() { return this.state.error ? <Fallback /> : this.props.children; }
+  }
+
+Portals:
+  ReactDOM.createPortal(<Modal />, document.body)
+
+Forward ref:
+  const Input = forwardRef<HTMLInputElement, Props>((props, ref) => (
+    <input ref={ref} {...props} />
+  ));"
+}
+
+fn s_rr_state() -> &'static str {
+    "React State Management
+Local state: useState, useReducer
+Server state:
+  TanStack Query (react-query):
+    const { data, isPending } = useQuery({
+      queryKey: ['user', id],
+      queryFn: () => api.getUser(id),
+      staleTime: 60_000,
+    });
+    const mutation = useMutation({ mutationFn: api.updateUser,
+      onSuccess: () => queryClient.invalidateQueries(['user']) });
+
+  SWR:
+    const { data } = useSWR(`/api/user/${id}`, fetcher);
+
+Zustand (global client state):
+  import { create } from 'zustand';
+  const useStore = create((set) => ({
+    count: 0,
+    inc: () => set((s) => ({ count: s.count + 1 })),
+  }));
+  const { count, inc } = useStore();
+
+Jotai (atomic):
+  const countAtom = atom(0);
+  const [count, setCount] = useAtom(countAtom);
+
+Redux Toolkit:
+  const slice = createSlice({
+    name: 'counter',
+    initialState: { value: 0 },
+    reducers: { increment: (s) => { s.value++ } },
+  });
+  store.dispatch(slice.actions.increment());
+
+URL state:
+  const [search, setSearch] = useSearchParams();  // Next.js / React Router
+  const q = search.get('q') ?? '';
+
+Form state:
+  React Hook Form:  const { register, handleSubmit } = useForm();
+  Formik:           const formik = useFormik({ ... });"
+}
+
+fn s_rr_rendering() -> &'static str {
+    "React Rendering & Performance
+Rendering triggers:
+  1. setState / dispatch called
+  2. Parent re-renders (props may be same)
+  3. Context value changes
+
+Bailout optimizations:
+  React.memo: skip re-render if props shallow-equal
+    const MemoComp = memo(MyComponent, (prev, next) => prev.id === next.id);
+  useMemo:    memoize expensive computation
+  useCallback: stable function reference for memo'd children
+
+Concurrent features:
+  Suspense:         <Suspense fallback={<Spinner />}><LazyComp /></Suspense>
+  lazy:             const LazyComp = lazy(() => import('./HeavyComp'));
+  useTransition:    mark state update as non-urgent
+  useDeferredValue: defer rendering of slow subtree
+
+Reconciliation:
+  React diffs virtual DOM; key prop is critical for list identity.
+  Bad: key={index}  (causes remounts on reorder)
+  Good: key={item.id}
+
+Profiling:
+  React DevTools Profiler -> record, inspect render times
+  <Profiler id=\"App\" onRender={callback}>
+  why-did-you-render npm package traces unexpected renders
+
+RSC streaming (Next.js App Router):
+  Server Components render on server; only RSC payload sent
+  Client Components hydrated on client
+  Streaming: loading.tsx shows while async Server Components fetch
+
+Virtualization (long lists):
+  react-virtual / @tanstack/react-virtual
+  react-window (legacy)
+  Only render visible rows; critical for 1000+ item lists"
+}
+
+fn s_rr_nextjs() -> &'static str {
+    "Next.js App Router Essentials
+File-based routing (app/):
+  app/page.tsx          ->  /
+  app/about/page.tsx    ->  /about
+  app/blog/[slug]/page.tsx  ->  /blog/:slug
+  app/layout.tsx        shared layout
+  app/loading.tsx       Suspense fallback
+  app/error.tsx         error boundary
+  app/not-found.tsx     404
+
+Data fetching (Server Components):
+  // No useEffect needed -- async component
+  export default async function Page({ params }) {
+    const data = await fetch(`https://api.example.com/posts/${params.id}`,
+      { next: { revalidate: 60 } });  // ISR
+    return <Post data={await data.json()} />;
+  }
+
+Route handlers (API routes):
+  // app/api/users/route.ts
+  export async function GET(request: Request) {
+    return Response.json({ users: await db.getUsers() });
+  }
+  export async function POST(request: Request) {
+    const body = await request.json();
+    return Response.json(await db.createUser(body), { status: 201 });
+  }
+
+Server Actions:
+  async function createPost(formData: FormData) {
+    'use server';
+    await db.posts.create({ title: formData.get('title') as string });
+    revalidatePath('/posts');
+  }
+  <form action={createPost}><input name=\"title\" /><button>Submit</button></form>
+
+Metadata:
+  export const metadata: Metadata = {
+    title: 'My Page',
+    description: 'Page description',
+    openGraph: { images: ['/og.png'] },
+  };
+
+Caching strategy:
+  fetch cache: 'force-cache' (default) | 'no-store' | { next: { revalidate: N } }
+  unstable_cache: server-side function memoization"
+}
+
+type ReactRefSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+const REACT_REF_SECTIONS: &[ReactRefSection] = &[
+    (
+        "hooks",
+        &[
+            "react-hooks",
+            "usestate",
+            "useeffect",
+            "useref",
+            "usememo",
+            "usecallback",
+            "usecontext",
+            "usereducer",
+            "usetransition",
+            "usedeferredvalue",
+            "useimperativehandle",
+            "custom-hooks",
+            "react-hooks-api",
+        ],
+        s_rr_hooks,
+    ),
+    (
+        "patterns",
+        &[
+            "react-patterns",
+            "compound-component",
+            "render-props",
+            "error-boundary",
+            "react-portal",
+            "forward-ref",
+            "react-context-pattern",
+            "lifting-state",
+            "rsc-pattern",
+            "server-component",
+            "client-component",
+        ],
+        s_rr_patterns,
+    ),
+    (
+        "state",
+        &[
+            "react-state",
+            "react-query",
+            "tanstack-query",
+            "zustand",
+            "jotai",
+            "redux-toolkit",
+            "swr-react",
+            "form-state",
+            "react-hook-form",
+            "url-state",
+            "global-state-react",
+        ],
+        s_rr_state,
+    ),
+    (
+        "rendering",
+        &[
+            "react-rendering",
+            "react-memo",
+            "react-reconciliation",
+            "react-concurrent",
+            "suspense-react",
+            "react-lazy",
+            "react-virtualization",
+            "react-profiler",
+            "react-performance",
+            "react-devtools",
+            "why-did-you-render",
+        ],
+        s_rr_rendering,
+    ),
+    (
+        "nextjs",
+        &[
+            "next-js",
+            "app-router",
+            "next-routing",
+            "server-actions",
+            "next-metadata",
+            "next-api-routes",
+            "next-data-fetching",
+            "next-caching",
+            "next-layout",
+            "isr-next",
+            "route-handlers",
+        ],
+        s_rr_nextjs,
+    ),
+];
+
+pub fn react_ref_calc(query: &str) -> String {
+    let q = query.trim().to_lowercase();
+    if q.is_empty() || q == "list" || q == "help" {
+        let topics: Vec<&str> = REACT_REF_SECTIONS.iter().map(|(n, _, _)| *n).collect();
+        return format!(
+            "react-ref topics: {}\nUse: --react-ref <topic>  or  --react-ref all",
+            topics.join(", ")
+        );
+    }
+    if q == "all" {
+        return REACT_REF_SECTIONS
+            .iter()
+            .map(|(n, _, f)| format!("── {} ──\n{}", n, f()))
+            .collect::<Vec<_>>()
+            .join("\n\n");
+    }
+    for (name, aliases, func) in REACT_REF_SECTIONS {
+        if q == *name || aliases.iter().any(|a| q == *a || q.contains(a)) {
+            return func().to_string();
+        }
+    }
+    format!(
+        "Unknown react-ref topic: '{}'\nAvailable: {}",
+        query.trim(),
+        REACT_REF_SECTIONS
+            .iter()
+            .map(|(n, _, _)| *n)
+            .collect::<Vec<_>>()
+            .join(", ")
+    )
+}
+
+// ── node-ref ──────────────────────────────────────────────────
+
+fn s_nr_core() -> &'static str {
+    "Node.js Core Modules
+fs (filesystem):
+  import fs from 'fs/promises';
+  const data = await fs.readFile('file.txt', 'utf8');
+  await fs.writeFile('out.txt', content, 'utf8');
+  await fs.mkdir('dir', { recursive: true });
+  const entries = await fs.readdir('.', { withFileTypes: true });
+  const stat = await fs.stat('file.txt');  // size, mtime, isFile()
+  await fs.rename('old.txt', 'new.txt');
+  await fs.unlink('file.txt');
+  for await (const chunk of fs.createReadStream('big.txt')) { ... }
+
+path:
+  import path from 'path';
+  path.join(__dirname, 'src', 'index.js')
+  path.resolve('./src/index.js')      // absolute path
+  path.basename('/a/b/file.js')       // 'file.js'
+  path.extname('file.js')             // '.js'
+  path.dirname('/a/b/file.js')        // '/a/b'
+  path.parse('/a/b/file.js')          // { root, dir, base, ext, name }
+  __dirname / import.meta.dirname     // ESM equivalent
+
+os:
+  os.platform()    'linux' | 'darwin' | 'win32'
+  os.arch()        'x64' | 'arm64'
+  os.cpus()        array of CPU info objects
+  os.totalmem() / os.freemem()
+  os.homedir() / os.tmpdir()
+  os.hostname()
+
+crypto:
+  crypto.randomUUID()
+  crypto.randomBytes(32).toString('hex')
+  crypto.createHash('sha256').update(data).digest('hex')
+  crypto.createHmac('sha256', secret).update(data).digest('hex')
+  const { publicKey, privateKey } = crypto.generateKeyPairSync('rsa', { modulusLength: 2048 })"
+}
+
+fn s_nr_streams() -> &'static str {
+    "Node.js Streams & Events
+EventEmitter:
+  import { EventEmitter } from 'events';
+  class Bus extends EventEmitter {}
+  const bus = new Bus();
+  bus.on('data', (payload) => console.log(payload));
+  bus.once('close', () => cleanup());
+  bus.emit('data', { id: 1 });
+  bus.removeAllListeners('data');
+
+Readable stream:
+  import { Readable } from 'stream';
+  const r = Readable.from([1, 2, 3]);
+  for await (const chunk of r) { process(chunk); }
+
+Writable stream:
+  process.stdout.write('hello');
+  fs.createWriteStream('out.txt');
+
+Transform stream (pipe):
+  import { createGzip } from 'zlib';
+  fs.createReadStream('in.txt')
+    .pipe(createGzip())
+    .pipe(fs.createWriteStream('out.txt.gz'));
+
+pipeline (error-safe):
+  import { pipeline } from 'stream/promises';
+  await pipeline(
+    fs.createReadStream('in.txt'),
+    createGzip(),
+    fs.createWriteStream('out.txt.gz')
+  );
+
+Web Streams API (Node 18+):
+  fetch() returns Response with .body as ReadableStream
+  new TransformStream() / new WritableStream()
+  ReadableStream.from(iterable)
+
+Buffer:
+  Buffer.from('hello', 'utf8')
+  Buffer.from(hexString, 'hex')
+  buf.toString('base64')
+  Buffer.concat([buf1, buf2])
+  Buffer.alloc(size)          // zero-filled
+  Buffer.allocUnsafe(size)    // faster, may contain old data"
+}
+
+fn s_nr_http() -> &'static str {
+    "Node.js HTTP & Networking
+HTTP server:
+  import http from 'http';
+  const server = http.createServer((req, res) => {
+    const body = [];
+    req.on('data', chunk => body.push(chunk));
+    req.on('end', () => {
+      const data = Buffer.concat(body).toString();
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true }));
+    });
+  });
+  server.listen(3000);
+
+fetch (Node 18+ built-in):
+  const res = await fetch('https://api.example.com/data', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const data = await res.json();
+
+URL:
+  const url = new URL('https://example.com/path?q=1#hash');
+  url.hostname  url.pathname  url.searchParams.get('q')
+  new URLSearchParams({ a: '1', b: '2' }).toString()  // 'a=1&b=2'
+
+Net (TCP):
+  import net from 'net';
+  const server = net.createServer(socket => {
+    socket.write('hello\n');
+    socket.on('data', data => console.log(data.toString()));
+  });
+  server.listen(8080);
+
+DNS:
+  import dns from 'dns/promises';
+  await dns.lookup('example.com')      // { address, family }
+  await dns.resolve4('example.com')    // ['93.184.216.34']
+  await dns.resolveMx('example.com')   // mail exchangers"
+}
+
+fn s_nr_workers() -> &'static str {
+    "Node.js Worker Threads & Cluster
+Worker Threads (CPU-bound):
+  import { Worker, isMainThread, parentPort, workerData } from 'worker_threads';
+  if (isMainThread) {
+    const worker = new Worker(__filename, { workerData: { n: 40 } });
+    worker.on('message', result => console.log(result));
+    worker.on('error', err => console.error(err));
+  } else {
+    const result = heavyCompute(workerData.n);
+    parentPort?.postMessage(result);
+  }
+
+SharedArrayBuffer + Atomics:
+  const sab = new SharedArrayBuffer(4);
+  const arr = new Int32Array(sab);
+  Atomics.add(arr, 0, 1);      // atomic increment
+  Atomics.load(arr, 0);         // atomic read
+
+Cluster (multi-process, HTTP load balancing):
+  import cluster from 'cluster';
+  import os from 'os';
+  if (cluster.isPrimary) {
+    for (let i = 0; i < os.cpus().length; i++) cluster.fork();
+    cluster.on('exit', () => cluster.fork());  // respawn on crash
+  } else {
+    startHttpServer();  // each worker listens on same port
+  }
+
+child_process:
+  import { execFile, spawn } from 'child_process';
+  const { stdout } = await execFile('git', ['log', '--oneline', '-10']);
+  const child = spawn('ffmpeg', ['-i', 'in.mp4', 'out.webm'], { stdio: 'inherit' });
+
+Process signals:
+  process.on('SIGTERM', () => gracefulShutdown());
+  process.on('uncaughtException', (err) => { log(err); process.exit(1); });
+  process.on('unhandledRejection', (reason) => log(reason));
+
+AsyncLocalStorage (request context):
+  import { AsyncLocalStorage } from 'async_hooks';
+  const als = new AsyncLocalStorage<{ requestId: string }>();
+  als.run({ requestId: uuid() }, () => handler(req, res));
+  als.getStore()?.requestId"
+}
+
+fn s_nr_runtime() -> &'static str {
+    "Node.js Runtime, ESM & Tooling
+ESM vs CommonJS:
+  ESM:  import x from './x.js'    export const y = 1
+        require type: \"module\" in package.json or .mjs extension
+        import.meta.url  import.meta.dirname (Node 22)
+  CJS:  const x = require('./x')  module.exports = { y: 1 }
+        __dirname  __filename  (not in ESM)
+
+Package.json exports:
+  \"exports\": {
+    \".\": { \"import\": \"./dist/index.js\", \"require\": \"./dist/index.cjs\" },
+    \"./utils\": \"./dist/utils.js\"
+  }
+
+Environment variables:
+  process.env.NODE_ENV   'development' | 'production' | 'test'
+  process.env.PORT       server port
+  Node 20.6+: --env-file .env  (no dotenv needed)
+
+Error types:
+  RangeError    value outside allowed range
+  TypeError     wrong type
+  ReferenceError  variable not defined
+  SyntaxError   parsing error
+
+Performance:
+  import { performance } from 'perf_hooks';
+  const t0 = performance.now();
+  console.log(performance.now() - t0, 'ms');
+
+  import { PerformanceObserver } from 'perf_hooks';
+  const obs = new PerformanceObserver(list => console.log(list.getEntries()));
+  obs.observe({ entryTypes: ['measure'] });
+
+Debugging:
+  node --inspect index.js          // Chrome DevTools
+  node --inspect-brk index.js      // pause at start
+  NODE_OPTIONS='--max-old-space-size=4096' node app.js
+
+Runtimes comparison:
+  Node.js:  npm ecosystem, stable, V8, libuv
+  Deno:     TypeScript native, secure by default, Web APIs
+  Bun:      fast startup, JavaScriptCore, built-in bundler/test runner"
+}
+
+type NodeRefSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+const NODE_REF_SECTIONS: &[NodeRefSection] = &[
+    (
+        "core",
+        &[
+            "node-core",
+            "node-fs",
+            "node-path",
+            "node-os",
+            "node-crypto",
+            "nodejs-modules",
+            "node-filesystem",
+            "node-built-ins",
+            "node-buffer",
+            "nodejs-fs",
+            "nodejs-path",
+        ],
+        s_nr_core,
+    ),
+    (
+        "streams",
+        &[
+            "node-streams",
+            "node-events",
+            "eventemitter",
+            "node-readable",
+            "node-writable",
+            "node-transform",
+            "node-pipeline",
+            "node-buffer-api",
+            "web-streams-node",
+            "node-zlib",
+            "nodejs-pipe",
+        ],
+        s_nr_streams,
+    ),
+    (
+        "http",
+        &[
+            "node-http",
+            "node-fetch",
+            "nodejs-server",
+            "node-url",
+            "node-net",
+            "node-dns",
+            "http-server-node",
+            "nodejs-fetch",
+            "nodejs-http",
+            "node-networking",
+            "nodejs-url",
+        ],
+        s_nr_http,
+    ),
+    (
+        "workers",
+        &[
+            "node-workers",
+            "worker-threads",
+            "node-cluster",
+            "child-process",
+            "node-spawn",
+            "nodejs-concurrency",
+            "sharedarraybuffer",
+            "atomics-node",
+            "node-ipc",
+            "async-local-storage",
+            "node-signals",
+        ],
+        s_nr_workers,
+    ),
+    (
+        "runtime",
+        &[
+            "node-runtime",
+            "node-esm",
+            "node-cjs",
+            "node-env",
+            "node-debugging",
+            "node-performance",
+            "nodejs-esm",
+            "nodejs-env",
+            "node-exports",
+            "nodejs-debug",
+            "nodejs-perf",
+        ],
+        s_nr_runtime,
+    ),
+];
+
+pub fn node_ref_calc(query: &str) -> String {
+    let q = query.trim().to_lowercase();
+    if q.is_empty() || q == "list" || q == "help" {
+        let topics: Vec<&str> = NODE_REF_SECTIONS.iter().map(|(n, _, _)| *n).collect();
+        return format!(
+            "node-ref topics: {}\nUse: --node-ref <topic>  or  --node-ref all",
+            topics.join(", ")
+        );
+    }
+    if q == "all" {
+        return NODE_REF_SECTIONS
+            .iter()
+            .map(|(n, _, f)| format!("── {} ──\n{}", n, f()))
+            .collect::<Vec<_>>()
+            .join("\n\n");
+    }
+    for (name, aliases, func) in NODE_REF_SECTIONS {
+        if q == *name || aliases.iter().any(|a| q == *a || q.contains(a)) {
+            return func().to_string();
+        }
+    }
+    format!(
+        "Unknown node-ref topic: '{}'\nAvailable: {}",
+        query.trim(),
+        NODE_REF_SECTIONS
+            .iter()
+            .map(|(n, _, _)| *n)
+            .collect::<Vec<_>>()
+            .join(", ")
+    )
+}
+
+// ── java-ref ──────────────────────────────────────────────────
+
+fn s_jr_collections() -> &'static str {
+    "Java Collections & Generics
+List:
+  List<String> list = new ArrayList<>();
+  list.add(\"a\");  list.remove(0);  list.get(0);  list.size();
+  List.of(\"a\", \"b\")              // immutable
+  Collections.unmodifiableList(list)
+  list.stream().filter(s -> s.startsWith(\"a\")).toList();
+
+Map:
+  Map<String, Integer> map = new HashMap<>();
+  map.put(\"key\", 1);  map.get(\"key\");  map.containsKey(\"k\");
+  map.getOrDefault(\"k\", 0);
+  map.computeIfAbsent(\"k\", k -> new ArrayList<>()).add(val);
+  map.entrySet() / map.keySet() / map.values()
+  Map.of(\"a\", 1, \"b\", 2)         // immutable (up to 10 pairs)
+  Map.copyOf(existingMap)           // immutable copy
+  LinkedHashMap: insertion order  |  TreeMap: sorted
+
+Set:
+  Set<String> set = new HashSet<>();
+  set.add(\"x\"); set.contains(\"x\"); set.remove(\"x\");
+  Set.of(\"a\", \"b\")               // immutable
+  LinkedHashSet: order  |  TreeSet: sorted
+
+Queue / Deque:
+  Deque<Integer> q = new ArrayDeque<>();
+  q.offer(1); q.poll();  q.peek();
+  q.offerFirst(0); q.offerLast(5);  // double-ended
+
+PriorityQueue:
+  PriorityQueue<Integer> pq = new PriorityQueue<>(Comparator.reverseOrder());
+  pq.offer(3); pq.poll();   // O(log n)
+
+Generics:
+  <T>  <T extends Comparable<T>>  <? super T>  <? extends T>
+  static <T> List<T> repeat(T val, int n) { ... }
+  Collections.sort(list, Comparator.comparing(Person::getName)
+      .thenComparingInt(Person::getAge));"
+}
+
+fn s_jr_streams() -> &'static str {
+    "Java Streams API (java.util.stream)
+Creating streams:
+  list.stream()
+  Arrays.stream(arr)
+  Stream.of(1, 2, 3)
+  Stream.iterate(0, n -> n + 1).limit(10)
+  Stream.generate(Math::random).limit(5)
+  IntStream.range(0, 10)  /  LongStream  /  DoubleStream
+  Files.lines(Path.of(\"file.txt\"))
+
+Intermediate (lazy):
+  .filter(x -> x > 0)
+  .map(x -> x * 2)
+  .flatMap(list -> list.stream())
+  .distinct()
+  .sorted()  /  .sorted(Comparator.naturalOrder())
+  .limit(10)  /  .skip(5)
+  .peek(x -> log(x))
+
+Terminal (eager):
+  .collect(Collectors.toList())
+  .collect(Collectors.toUnmodifiableList())
+  .collect(Collectors.groupingBy(Person::getCity))
+  .collect(Collectors.joining(\", \", \"[\", \"]\"))
+  .collect(Collectors.counting())
+  .collect(Collectors.summingInt(Item::getPrice))
+  .toList()                  // Java 16+
+  .findFirst()               // Optional<T>
+  .anyMatch(x -> x > 0)
+  .reduce(0, Integer::sum)
+  .forEach(System.out::println)
+  .toArray()
+
+Optional:
+  Optional<String> opt = Optional.ofNullable(str);
+  opt.isPresent()  opt.get()  opt.orElse(\"default\")
+  opt.orElseThrow(() -> new NoSuchElementException())
+  opt.map(String::toUpperCase).filter(s -> s.length() > 3)
+  opt.ifPresentOrElse(s -> use(s), () -> fallback());"
+}
+
+fn s_jr_concurrency() -> &'static str {
+    "Java Concurrency & Virtual Threads
+Thread basics:
+  Thread t = new Thread(() -> doWork());
+  t.start(); t.join();
+  Thread.sleep(100);
+
+Virtual threads (Java 21):
+  Thread vt = Thread.ofVirtual().start(() -> doWork());
+  try (var exec = Executors.newVirtualThreadPerTaskExecutor()) {
+      exec.submit(() -> doWork());
+  }
+
+ExecutorService:
+  ExecutorService pool = Executors.newFixedThreadPool(4);
+  Future<String> f = pool.submit(() -> compute());
+  String result = f.get(5, TimeUnit.SECONDS);
+  pool.shutdown();  pool.awaitTermination(10, TimeUnit.SECONDS);
+
+CompletableFuture:
+  CompletableFuture.supplyAsync(() -> fetchData())
+      .thenApply(data -> transform(data))
+      .thenAccept(result -> save(result))
+      .exceptionally(ex -> { log(ex); return null; });
+  CompletableFuture.allOf(f1, f2, f3).join();
+
+Synchronization:
+  synchronized (lock) { ... }
+  ReentrantLock lock = new ReentrantLock();
+  lock.lock(); try { ... } finally { lock.unlock(); }
+  AtomicInteger ai = new AtomicInteger(0);
+  ai.incrementAndGet(); ai.compareAndSet(expect, update);
+  ConcurrentHashMap  |  CopyOnWriteArrayList  |  BlockingQueue
+
+Structured concurrency (Java 21 preview):
+  try (var scope = new StructuredTaskScope.ShutdownOnFailure()) {
+      Future<String> a = scope.fork(() -> fetchA());
+      Future<Integer> b = scope.fork(() -> fetchB());
+      scope.join().throwIfFailed();
+      return new Result(a.resultNow(), b.resultNow());
+  }"
+}
+
+fn s_jr_modern() -> &'static str {
+    "Modern Java (14-21) Features
+Records (Java 16):
+  record Point(int x, int y) {}
+  record Person(String name, int age) {
+      Person { if (age < 0) throw new IllegalArgumentException(); }
+  }
+  var p = new Point(1, 2);  p.x()  p.y()  // accessor methods generated
+
+Sealed classes (Java 17):
+  sealed interface Shape permits Circle, Rectangle, Triangle {}
+  record Circle(double radius) implements Shape {}
+  record Rectangle(double w, double h) implements Shape {}
+
+Pattern matching (Java 21):
+  if (obj instanceof String s && s.length() > 5) { use(s); }
+
+  double area = switch (shape) {
+      case Circle c    -> Math.PI * c.radius() * c.radius();
+      case Rectangle r -> r.w() * r.h();
+      case Triangle t  -> t.base() * t.height() / 2;
+  };
+
+Text blocks (Java 15):
+  String json = \"\"\"
+      {
+          \"name\": \"Alice\",
+          \"age\": 30
+      }
+      \"\"\";
+
+var (Java 10):
+  var list = new ArrayList<String>();
+  var map  = Map.of(\"a\", 1);
+
+String methods (modern):
+  str.isBlank()  str.strip()  str.stripLeading()  str.stripTrailing()
+  str.repeat(3)  str.lines()  str.formatted(args)
+  String.format(\"%s has %d items\", name, count)
+
+Switch expressions (Java 14):
+  int result = switch (day) {
+      case MONDAY, FRIDAY -> 6;
+      case TUESDAY        -> 7;
+      default -> throw new IllegalArgumentException();
+  };"
+}
+
+fn s_jr_spring() -> &'static str {
+    "Java Spring Boot Essentials
+REST Controller:
+  @RestController
+  @RequestMapping(\"/api/users\")
+  public class UserController {
+      @Autowired UserService svc;
+      @GetMapping(\"/{id}\")
+      public ResponseEntity<User> get(@PathVariable Long id) {
+          return ResponseEntity.ok(svc.findById(id));
+      }
+      @PostMapping
+      public ResponseEntity<User> create(@Valid @RequestBody CreateUserDto dto) {
+          return ResponseEntity.status(201).body(svc.create(dto));
+      }
+  }
+
+JPA Repository:
+  @Repository
+  public interface UserRepo extends JpaRepository<User, Long> {
+      List<User> findByEmail(String email);
+      @Query(\"SELECT u FROM User u WHERE u.active = true\")
+      List<User> findAllActive();
+  }
+
+JPA Entity:
+  @Entity @Table(name = \"users\")
+  public class User {
+      @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
+      private Long id;
+      @Column(nullable = false)
+      private String name;
+      @OneToMany(mappedBy = \"user\", cascade = CascadeType.ALL)
+      private List<Post> posts;
+  }
+
+application.yml:
+  spring:
+    datasource.url: jdbc:postgresql://localhost/mydb
+    jpa.hibernate.ddl-auto: validate
+    jpa.show-sql: false
+
+Dependency injection:
+  @Component  @Service  @Repository  @Controller
+  Constructor injection preferred over @Autowired on field
+  @Value(\"${my.property}\")  String prop;
+
+Exception handling:
+  @ControllerAdvice
+  public class GlobalHandler {
+      @ExceptionHandler(EntityNotFoundException.class)
+      ResponseEntity<Error> handle(EntityNotFoundException e) {
+          return ResponseEntity.notFound().build();
+      }
+  }
+
+Security (Spring Security 6):
+  @Bean SecurityFilterChain chain(HttpSecurity http) throws Exception {
+      return http
+        .authorizeHttpRequests(a -> a.requestMatchers(\"/api/**\").authenticated())
+        .oauth2ResourceServer(o -> o.jwt(Customizer.withDefaults()))
+        .build();
+  }"
+}
+
+type JavaRefSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+const JAVA_REF_SECTIONS: &[JavaRefSection] = &[
+    (
+        "collections",
+        &[
+            "java-collections",
+            "java-list",
+            "java-map",
+            "java-set",
+            "java-queue",
+            "java-generics",
+            "arraylist",
+            "hashmap",
+            "java-sorting",
+            "java-comparable",
+            "java-iterator",
+        ],
+        s_jr_collections,
+    ),
+    (
+        "streams",
+        &[
+            "java-streams",
+            "java-stream-api",
+            "java-optional",
+            "java-collectors",
+            "java-functional",
+            "stream-filter",
+            "stream-map",
+            "stream-collect",
+            "stream-reduce",
+            "java-lambda",
+            "java-method-ref",
+        ],
+        s_jr_streams,
+    ),
+    (
+        "concurrency",
+        &[
+            "java-concurrency",
+            "java-threads",
+            "virtual-threads",
+            "completablefuture",
+            "java-executor",
+            "java-synchronized",
+            "java-atomic",
+            "java-locks",
+            "concurrent-hashmap",
+            "java21-concurrency",
+            "structured-concurrency",
+        ],
+        s_jr_concurrency,
+    ),
+    (
+        "modern",
+        &[
+            "java-records",
+            "java-sealed",
+            "java-pattern-matching",
+            "java-text-blocks",
+            "java-switch-expr",
+            "java-var",
+            "java14",
+            "java17",
+            "java21",
+            "modern-java",
+            "java-features",
+        ],
+        s_jr_modern,
+    ),
+    (
+        "spring",
+        &[
+            "spring-boot",
+            "spring-rest",
+            "spring-jpa",
+            "spring-mvc",
+            "spring-di",
+            "spring-data",
+            "spring-controller",
+            "spring-repository",
+            "spring-boot-3",
+            "spring-config",
+            "spring-exception",
+        ],
+        s_jr_spring,
+    ),
+];
+
+pub fn java_ref_calc(query: &str) -> String {
+    let q = query.trim().to_lowercase();
+    if q.is_empty() || q == "list" || q == "help" {
+        let topics: Vec<&str> = JAVA_REF_SECTIONS.iter().map(|(n, _, _)| *n).collect();
+        return format!(
+            "java-ref topics: {}\nUse: --java-ref <topic>  or  --java-ref all",
+            topics.join(", ")
+        );
+    }
+    if q == "all" {
+        return JAVA_REF_SECTIONS
+            .iter()
+            .map(|(n, _, f)| format!("── {} ──\n{}", n, f()))
+            .collect::<Vec<_>>()
+            .join("\n\n");
+    }
+    for (name, aliases, func) in JAVA_REF_SECTIONS {
+        if q == *name || aliases.iter().any(|a| q == *a || q.contains(a)) {
+            return func().to_string();
+        }
+    }
+    format!(
+        "Unknown java-ref topic: '{}'\nAvailable: {}",
+        query.trim(),
+        JAVA_REF_SECTIONS
+            .iter()
+            .map(|(n, _, _)| *n)
+            .collect::<Vec<_>>()
+            .join(", ")
+    )
+}

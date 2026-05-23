@@ -1157,6 +1157,10 @@ mod tests {
             rust_macros: None,
             db_internals: None,
             openapi_ref: None,
+            graphql: None,
+            react_ref: None,
+            node_ref: None,
+            java_ref: None,
             pdf_extract_helper: None,
             teleported_from: None,
         };

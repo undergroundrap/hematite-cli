@@ -2418,6 +2418,38 @@ pub struct CliCockpit {
 
     #[arg(
         long,
+        help_heading = "Developer Toolkit",
+        value_name = "QUERY",
+        help = "GraphQL reference — offline replacement for graphql.org/learn. Topics: queries, schema, subscriptions, resolvers, tooling. Aliases: graphql-queries, graphql-schema, graphql-mutations, graphql-fragments, graphql-subscriptions, graphql-resolvers, dataloader, apollo-server, apollo-client. Examples: hematite --graphql queries | hematite --graphql schema | hematite --graphql all"
+    )]
+    pub graphql: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Developer Toolkit",
+        value_name = "QUERY",
+        help = "React reference — offline replacement for react.dev docs. Topics: hooks, patterns, state, rendering, nextjs. Aliases: react-hooks, usestate, useeffect, usememo, react-memo, tanstack-query, zustand, suspense-react, next-js, server-actions. Examples: hematite --react-ref hooks | hematite --react-ref state | hematite --react-ref all"
+    )]
+    pub react_ref: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Developer Toolkit",
+        value_name = "QUERY",
+        help = "Node.js reference — offline replacement for nodejs.org docs. Topics: core, streams, http, workers, runtime. Aliases: node-fs, node-path, node-streams, eventemitter, node-http, node-fetch, worker-threads, node-cluster, node-esm, node-env. Examples: hematite --node-ref core | hematite --node-ref streams | hematite --node-ref all"
+    )]
+    pub node_ref: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Developer Toolkit",
+        value_name = "QUERY",
+        help = "Java reference — offline replacement for docs.oracle.com. Topics: collections, streams, concurrency, modern, spring. Aliases: java-collections, java-streams, java-optional, virtual-threads, completablefuture, java-records, java-sealed, java21, spring-boot, spring-jpa. Examples: hematite --java-ref collections | hematite --java-ref modern | hematite --java-ref all"
+    )]
+    pub java_ref: Option<String>,
+
+    #[arg(
+        long,
         help_heading = "Math & Science",
         value_name = "QUERY",
         help = "Lorem ipsum generator — offline replacement for lipsum.com. Commands: (bare) or <N> = N paragraphs (default 1); words <N> = N words; sentences <N> = N sentences. Examples: hematite --lorem | hematite --lorem 3 | hematite --lorem 'words 50' | hematite --lorem 'sentences 5'"

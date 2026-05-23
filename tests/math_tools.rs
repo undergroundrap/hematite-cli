@@ -14,28 +14,29 @@ use hematite::tools::math_util::{
     db_internals_calc, db_migrations_calc, design_patterns_calc, devops_ref_calc, diff_calc,
     docker_adv_calc, docker_compose_calc, docker_ref_calc, duration_calc, electrical_calc,
     encode_calc, escape_calc, event_driven_calc, find_calc, fraction_calc, geometry_calc,
-    git_adv_calc, git_internals_calc, git_ref_calc, gitignore_calc, go_ref_calc, grep_calc,
-    grpc_ref_calc, hash_calc, headers_calc, health_calc, http2_calc, http_adv_calc, http_calc,
-    http_headers_calc, http_security_calc, http_status_calc, id_gen_calc, ip_calc, jinja_calc,
-    jq_calc, js_ref_calc, json_calc, json_path_calc, jwt_calc, k8s_adv_calc, k8s_ref_calc,
-    k8s_security_calc, kbd_calc, kubectl_calc, license_calc, linux_adv_calc, linux_kernel_calc,
-    linux_net_calc, linux_perf_calc, linux_sys_calc, load_testing_calc, lorem_calc, make_calc,
-    makefile_calc, markdown_calc, matrix_calc, message_queue_calc, mime_calc, ml_ref_calc,
-    monitoring_ref_calc, net_calc, network_ref_calc, networking_adv_calc, nginx_calc, npm_calc,
-    number_format, number_theory_calc, oauth2_flow_calc, oauth_ref_calc, observability_adv_calc,
-    observability_calc, oop_ref_calc, openapi_ref_calc, openssl_calc, percent_calc, perf_ref_calc,
-    physics_calc, port_calc, postgres_calc, prob_calc, prom_ref_calc, protocols_ref_calc,
-    python_data_calc, python_ref_calc, regex_adv_calc, regex_calc, regex_engine_calc,
-    regex_patterns_calc, regex_ref_calc, regex_test_calc, regex_viz_calc, roman_calc,
-    rust_adv_calc, rust_async_calc, rust_macros_calc, rust_patterns_calc, rust_ref_calc,
-    search_ref_calc, security_ref_calc, security_scan_calc, security_tools_calc, sed_calc,
-    semver_calc, service_mesh_calc, set_calc, sort_viz, spark_calc, sql_adv_calc, sql_fmt_calc,
-    sql_ref_calc, sql_tuning_calc, sql_window_calc, ssh_ref_calc, ssl_calc, stats_calc,
-    string_dist, systemd_adv_calc, systemd_calc, table_calc, tar_calc, template_calc,
-    terminal_tools_calc, terraform_adv_calc, terraform_calc, testing_ref_calc, text_stats,
-    timestamp_calc, tmux_calc, toml_calc, trig_calc, ts_ref_calc, typescript_adv_calc, tz_calc,
-    unicode_ref_calc, url_calc, uuid_calc, validate_calc, vim_adv_calc, vim_calc, wasm_ref_calc,
-    wasm_runtime_calc, web_perf_calc, xml_calc, yaml_calc,
+    git_adv_calc, git_internals_calc, git_ref_calc, gitignore_calc, go_ref_calc, graphql_ref_calc,
+    grep_calc, grpc_ref_calc, hash_calc, headers_calc, health_calc, http2_calc, http_adv_calc,
+    http_calc, http_headers_calc, http_security_calc, http_status_calc, id_gen_calc, ip_calc,
+    java_ref_calc, jinja_calc, jq_calc, js_ref_calc, json_calc, json_path_calc, jwt_calc,
+    k8s_adv_calc, k8s_ref_calc, k8s_security_calc, kbd_calc, kubectl_calc, license_calc,
+    linux_adv_calc, linux_kernel_calc, linux_net_calc, linux_perf_calc, linux_sys_calc,
+    load_testing_calc, lorem_calc, make_calc, makefile_calc, markdown_calc, matrix_calc,
+    message_queue_calc, mime_calc, ml_ref_calc, monitoring_ref_calc, net_calc, network_ref_calc,
+    networking_adv_calc, nginx_calc, node_ref_calc, npm_calc, number_format, number_theory_calc,
+    oauth2_flow_calc, oauth_ref_calc, observability_adv_calc, observability_calc, oop_ref_calc,
+    openapi_ref_calc, openssl_calc, percent_calc, perf_ref_calc, physics_calc, port_calc,
+    postgres_calc, prob_calc, prom_ref_calc, protocols_ref_calc, python_data_calc, python_ref_calc,
+    react_ref_calc, regex_adv_calc, regex_calc, regex_engine_calc, regex_patterns_calc,
+    regex_ref_calc, regex_test_calc, regex_viz_calc, roman_calc, rust_adv_calc, rust_async_calc,
+    rust_macros_calc, rust_patterns_calc, rust_ref_calc, search_ref_calc, security_ref_calc,
+    security_scan_calc, security_tools_calc, sed_calc, semver_calc, service_mesh_calc, set_calc,
+    sort_viz, spark_calc, sql_adv_calc, sql_fmt_calc, sql_ref_calc, sql_tuning_calc,
+    sql_window_calc, ssh_ref_calc, ssl_calc, stats_calc, string_dist, systemd_adv_calc,
+    systemd_calc, table_calc, tar_calc, template_calc, terminal_tools_calc, terraform_adv_calc,
+    terraform_calc, testing_ref_calc, text_stats, timestamp_calc, tmux_calc, toml_calc, trig_calc,
+    ts_ref_calc, typescript_adv_calc, tz_calc, unicode_ref_calc, url_calc, uuid_calc,
+    validate_calc, vim_adv_calc, vim_calc, wasm_ref_calc, wasm_runtime_calc, web_perf_calc,
+    xml_calc, yaml_calc,
 };
 
 // ─── Cipher tests ────────────────────────────────────────────────────────────
@@ -31077,4 +31078,767 @@ fn test_openapi_ref_alias_spectral_linter() {
 fn test_openapi_ref_unknown_query() {
     let out = openapi_ref_calc("nonexistent-topic-xyz");
     assert!(out.contains("Unknown openapi-ref topic"));
+}
+
+// ─── graphql_ref_calc ─────────────────────────────────────────────────────────
+
+#[test]
+fn test_graphql_ref_list() {
+    let out = graphql_ref_calc("list");
+    assert!(out.contains("graphql topics"));
+    assert!(out.contains("queries"));
+    assert!(out.contains("schema"));
+}
+
+#[test]
+fn test_graphql_ref_help() {
+    let out = graphql_ref_calc("help");
+    assert!(out.contains("graphql topics"));
+}
+
+#[test]
+fn test_graphql_ref_empty() {
+    let out = graphql_ref_calc("");
+    assert!(out.contains("graphql topics"));
+}
+
+#[test]
+fn test_graphql_ref_all_contains_sections() {
+    let out = graphql_ref_calc("all");
+    assert!(out.contains("── queries ──"));
+    assert!(out.contains("── schema ──"));
+    assert!(out.contains("── subscriptions ──"));
+}
+
+#[test]
+fn test_graphql_ref_topic_queries() {
+    let out = graphql_ref_calc("queries");
+    assert!(out.contains("query") || out.contains("mutation") || out.contains("fragment"));
+}
+
+#[test]
+fn test_graphql_ref_alias_graphql_mutations() {
+    let out = graphql_ref_calc("graphql-mutations");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_graphql_ref_alias_graphql_fragments() {
+    let out = graphql_ref_calc("graphql-fragments");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_graphql_ref_alias_graphql_directives() {
+    let out = graphql_ref_calc("graphql-directives");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_graphql_ref_alias_graphql_pagination() {
+    let out = graphql_ref_calc("graphql-pagination");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_graphql_ref_topic_schema() {
+    let out = graphql_ref_calc("schema");
+    assert!(out.contains("type") || out.contains("scalar") || out.contains("SDL"));
+}
+
+#[test]
+fn test_graphql_ref_alias_sdl_graphql() {
+    let out = graphql_ref_calc("sdl-graphql");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_graphql_ref_alias_graphql_types() {
+    let out = graphql_ref_calc("graphql-types");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_graphql_ref_alias_graphql_interfaces() {
+    let out = graphql_ref_calc("graphql-interfaces");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_graphql_ref_alias_graphql_unions() {
+    let out = graphql_ref_calc("graphql-unions");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_graphql_ref_topic_subscriptions() {
+    let out = graphql_ref_calc("subscriptions");
+    assert!(out.contains("Subscription") || out.contains("WebSocket") || out.contains("real-time"));
+}
+
+#[test]
+fn test_graphql_ref_alias_graphql_ws() {
+    let out = graphql_ref_calc("graphql-ws");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_graphql_ref_alias_graphql_sse() {
+    let out = graphql_ref_calc("graphql-sse");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_graphql_ref_alias_graphql_websocket() {
+    let out = graphql_ref_calc("graphql-websocket");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_graphql_ref_topic_resolvers() {
+    let out = graphql_ref_calc("resolvers");
+    assert!(out.contains("resolver") || out.contains("DataLoader") || out.contains("context"));
+}
+
+#[test]
+fn test_graphql_ref_alias_dataloader() {
+    let out = graphql_ref_calc("dataloader");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_graphql_ref_alias_n_plus_one_graphql() {
+    let out = graphql_ref_calc("n-plus-one-graphql");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_graphql_ref_alias_graphql_context() {
+    let out = graphql_ref_calc("graphql-context");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_graphql_ref_topic_tooling() {
+    let out = graphql_ref_calc("tooling");
+    assert!(out.contains("Apollo") || out.contains("GraphiQL") || out.contains("codegen"));
+}
+
+#[test]
+fn test_graphql_ref_alias_apollo_server() {
+    let out = graphql_ref_calc("apollo-server");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_graphql_ref_alias_apollo_client() {
+    let out = graphql_ref_calc("apollo-client");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_graphql_ref_alias_graphql_codegen() {
+    let out = graphql_ref_calc("graphql-codegen");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_graphql_ref_unknown_query() {
+    let out = graphql_ref_calc("nonexistent-topic-xyz");
+    assert!(out.contains("Unknown graphql topic"));
+}
+
+// ─── react_ref_calc ───────────────────────────────────────────────────────────
+
+#[test]
+fn test_react_ref_list() {
+    let out = react_ref_calc("list");
+    assert!(out.contains("react-ref topics"));
+    assert!(out.contains("hooks"));
+    assert!(out.contains("state"));
+}
+
+#[test]
+fn test_react_ref_help() {
+    let out = react_ref_calc("help");
+    assert!(out.contains("react-ref topics"));
+}
+
+#[test]
+fn test_react_ref_empty() {
+    let out = react_ref_calc("");
+    assert!(out.contains("react-ref topics"));
+}
+
+#[test]
+fn test_react_ref_all_contains_sections() {
+    let out = react_ref_calc("all");
+    assert!(out.contains("── hooks ──"));
+    assert!(out.contains("── patterns ──"));
+    assert!(out.contains("── state ──"));
+}
+
+#[test]
+fn test_react_ref_topic_hooks() {
+    let out = react_ref_calc("hooks");
+    assert!(out.contains("useState") || out.contains("useEffect") || out.contains("useRef"));
+}
+
+#[test]
+fn test_react_ref_alias_react_hooks() {
+    let out = react_ref_calc("react-hooks");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_react_ref_alias_useeffect() {
+    let out = react_ref_calc("useeffect");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_react_ref_alias_usememo() {
+    let out = react_ref_calc("usememo");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_react_ref_alias_custom_hooks() {
+    let out = react_ref_calc("custom-hooks");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_react_ref_topic_patterns() {
+    let out = react_ref_calc("patterns");
+    assert!(
+        out.contains("Component")
+            || out.contains("forwardRef")
+            || out.contains("portal")
+            || out.contains("boundary")
+    );
+}
+
+#[test]
+fn test_react_ref_alias_compound_component() {
+    let out = react_ref_calc("compound-component");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_react_ref_alias_error_boundary() {
+    let out = react_ref_calc("error-boundary");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_react_ref_alias_forward_ref() {
+    let out = react_ref_calc("forward-ref");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_react_ref_alias_lifting_state() {
+    let out = react_ref_calc("lifting-state");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_react_ref_topic_state() {
+    let out = react_ref_calc("state");
+    assert!(
+        out.contains("TanStack")
+            || out.contains("Zustand")
+            || out.contains("Redux")
+            || out.contains("SWR")
+    );
+}
+
+#[test]
+fn test_react_ref_alias_tanstack_query() {
+    let out = react_ref_calc("tanstack-query");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_react_ref_alias_zustand() {
+    let out = react_ref_calc("zustand");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_react_ref_alias_redux_toolkit() {
+    let out = react_ref_calc("redux-toolkit");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_react_ref_alias_react_hook_form() {
+    let out = react_ref_calc("react-hook-form");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_react_ref_topic_rendering() {
+    let out = react_ref_calc("rendering");
+    assert!(
+        out.contains("memo")
+            || out.contains("Suspense")
+            || out.contains("reconcil")
+            || out.contains("virtual")
+    );
+}
+
+#[test]
+fn test_react_ref_alias_suspense_react() {
+    let out = react_ref_calc("suspense-react");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_react_ref_alias_react_virtualization() {
+    let out = react_ref_calc("react-virtualization");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_react_ref_alias_why_did_you_render() {
+    let out = react_ref_calc("why-did-you-render");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_react_ref_topic_nextjs() {
+    let out = react_ref_calc("nextjs");
+    assert!(
+        out.contains("Next")
+            || out.contains("App Router")
+            || out.contains("page.tsx")
+            || out.contains("Server")
+    );
+}
+
+#[test]
+fn test_react_ref_alias_app_router() {
+    let out = react_ref_calc("app-router");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_react_ref_alias_server_actions() {
+    let out = react_ref_calc("server-actions");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_react_ref_alias_next_data_fetching() {
+    let out = react_ref_calc("next-data-fetching");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_react_ref_unknown_query() {
+    let out = react_ref_calc("nonexistent-topic-xyz");
+    assert!(out.contains("Unknown react-ref topic"));
+}
+
+// ─── node_ref_calc ────────────────────────────────────────────────────────────
+
+#[test]
+fn test_node_ref_list() {
+    let out = node_ref_calc("list");
+    assert!(out.contains("node-ref topics"));
+    assert!(out.contains("core"));
+    assert!(out.contains("streams"));
+}
+
+#[test]
+fn test_node_ref_help() {
+    let out = node_ref_calc("help");
+    assert!(out.contains("node-ref topics"));
+}
+
+#[test]
+fn test_node_ref_empty() {
+    let out = node_ref_calc("");
+    assert!(out.contains("node-ref topics"));
+}
+
+#[test]
+fn test_node_ref_all_contains_sections() {
+    let out = node_ref_calc("all");
+    assert!(out.contains("── core ──"));
+    assert!(out.contains("── streams ──"));
+    assert!(out.contains("── http ──"));
+}
+
+#[test]
+fn test_node_ref_topic_core() {
+    let out = node_ref_calc("core");
+    assert!(
+        out.contains("fs") || out.contains("path") || out.contains("crypto") || out.contains("os")
+    );
+}
+
+#[test]
+fn test_node_ref_alias_node_fs() {
+    let out = node_ref_calc("node-fs");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_node_ref_alias_node_path() {
+    let out = node_ref_calc("node-path");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_node_ref_alias_node_crypto() {
+    let out = node_ref_calc("node-crypto");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_node_ref_alias_node_buffer() {
+    let out = node_ref_calc("node-buffer");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_node_ref_topic_streams() {
+    let out = node_ref_calc("streams");
+    assert!(
+        out.contains("EventEmitter")
+            || out.contains("Readable")
+            || out.contains("pipeline")
+            || out.contains("Buffer")
+    );
+}
+
+#[test]
+fn test_node_ref_alias_eventemitter() {
+    let out = node_ref_calc("eventemitter");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_node_ref_alias_node_pipeline() {
+    let out = node_ref_calc("node-pipeline");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_node_ref_alias_web_streams_node() {
+    let out = node_ref_calc("web-streams-node");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_node_ref_topic_http() {
+    let out = node_ref_calc("http");
+    assert!(
+        out.contains("fetch")
+            || out.contains("server")
+            || out.contains("URL")
+            || out.contains("dns")
+    );
+}
+
+#[test]
+fn test_node_ref_alias_node_fetch() {
+    let out = node_ref_calc("node-fetch");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_node_ref_alias_http_server_node() {
+    let out = node_ref_calc("http-server-node");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_node_ref_alias_node_url() {
+    let out = node_ref_calc("node-url");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_node_ref_topic_workers() {
+    let out = node_ref_calc("workers");
+    assert!(
+        out.contains("Worker")
+            || out.contains("cluster")
+            || out.contains("child_process")
+            || out.contains("Atomics")
+    );
+}
+
+#[test]
+fn test_node_ref_alias_worker_threads() {
+    let out = node_ref_calc("worker-threads");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_node_ref_alias_node_cluster() {
+    let out = node_ref_calc("node-cluster");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_node_ref_alias_child_process() {
+    let out = node_ref_calc("child-process");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_node_ref_alias_async_local_storage() {
+    let out = node_ref_calc("async-local-storage");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_node_ref_topic_runtime() {
+    let out = node_ref_calc("runtime");
+    assert!(
+        out.contains("ESM")
+            || out.contains("CommonJS")
+            || out.contains("NODE_ENV")
+            || out.contains("inspect")
+    );
+}
+
+#[test]
+fn test_node_ref_alias_node_esm() {
+    let out = node_ref_calc("node-esm");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_node_ref_alias_node_env() {
+    let out = node_ref_calc("node-env");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_node_ref_alias_node_debugging() {
+    let out = node_ref_calc("node-debugging");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_node_ref_unknown_query() {
+    let out = node_ref_calc("nonexistent-topic-xyz");
+    assert!(out.contains("Unknown node-ref topic"));
+}
+
+// ─── java_ref_calc ────────────────────────────────────────────────────────────
+
+#[test]
+fn test_java_ref_list() {
+    let out = java_ref_calc("list");
+    assert!(out.contains("java-ref topics"));
+    assert!(out.contains("collections"));
+    assert!(out.contains("streams"));
+}
+
+#[test]
+fn test_java_ref_help() {
+    let out = java_ref_calc("help");
+    assert!(out.contains("java-ref topics"));
+}
+
+#[test]
+fn test_java_ref_empty() {
+    let out = java_ref_calc("");
+    assert!(out.contains("java-ref topics"));
+}
+
+#[test]
+fn test_java_ref_all_contains_sections() {
+    let out = java_ref_calc("all");
+    assert!(out.contains("── collections ──"));
+    assert!(out.contains("── streams ──"));
+    assert!(out.contains("── concurrency ──"));
+}
+
+#[test]
+fn test_java_ref_topic_collections() {
+    let out = java_ref_calc("collections");
+    assert!(
+        out.contains("ArrayList")
+            || out.contains("HashMap")
+            || out.contains("List")
+            || out.contains("Map")
+    );
+}
+
+#[test]
+fn test_java_ref_alias_java_list() {
+    let out = java_ref_calc("java-list");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_java_ref_alias_java_map() {
+    let out = java_ref_calc("java-map");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_java_ref_alias_java_generics() {
+    let out = java_ref_calc("java-generics");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_java_ref_alias_java_sorting() {
+    let out = java_ref_calc("java-sorting");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_java_ref_topic_streams() {
+    let out = java_ref_calc("streams");
+    assert!(
+        out.contains("stream")
+            || out.contains("filter")
+            || out.contains("collect")
+            || out.contains("Optional")
+    );
+}
+
+#[test]
+fn test_java_ref_alias_java_stream_api() {
+    let out = java_ref_calc("java-stream-api");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_java_ref_alias_java_optional() {
+    let out = java_ref_calc("java-optional");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_java_ref_alias_java_collectors() {
+    let out = java_ref_calc("java-collectors");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_java_ref_alias_java_lambda() {
+    let out = java_ref_calc("java-lambda");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_java_ref_topic_concurrency() {
+    let out = java_ref_calc("concurrency");
+    assert!(
+        out.contains("Thread")
+            || out.contains("virtual")
+            || out.contains("CompletableFuture")
+            || out.contains("ExecutorService")
+    );
+}
+
+#[test]
+fn test_java_ref_alias_virtual_threads() {
+    let out = java_ref_calc("virtual-threads");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_java_ref_alias_completablefuture() {
+    let out = java_ref_calc("completablefuture");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_java_ref_alias_java_atomic() {
+    let out = java_ref_calc("java-atomic");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_java_ref_alias_structured_concurrency() {
+    let out = java_ref_calc("structured-concurrency");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_java_ref_topic_modern() {
+    let out = java_ref_calc("modern");
+    assert!(
+        out.contains("record")
+            || out.contains("sealed")
+            || out.contains("pattern")
+            || out.contains("switch")
+    );
+}
+
+#[test]
+fn test_java_ref_alias_java_records() {
+    let out = java_ref_calc("java-records");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_java_ref_alias_java_sealed() {
+    let out = java_ref_calc("java-sealed");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_java_ref_alias_java_pattern_matching() {
+    let out = java_ref_calc("java-pattern-matching");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_java_ref_alias_java21() {
+    let out = java_ref_calc("java21");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_java_ref_topic_spring() {
+    let out = java_ref_calc("spring");
+    assert!(
+        out.contains("Spring")
+            || out.contains("@RestController")
+            || out.contains("JPA")
+            || out.contains("@Autowired")
+    );
+}
+
+#[test]
+fn test_java_ref_alias_spring_boot() {
+    let out = java_ref_calc("spring-boot");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_java_ref_alias_spring_jpa() {
+    let out = java_ref_calc("spring-jpa");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_java_ref_alias_spring_rest() {
+    let out = java_ref_calc("spring-rest");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_java_ref_alias_spring_exception() {
+    let out = java_ref_calc("spring-exception");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_java_ref_unknown_query() {
+    let out = java_ref_calc("nonexistent-topic-xyz");
+    assert!(out.contains("Unknown java-ref topic"));
 }
