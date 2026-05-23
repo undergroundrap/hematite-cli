@@ -6,8 +6,8 @@ use hematite::tools::math_util::{
     accessibility_calc, algo_ref_calc, ansible_calc, api_design_calc, api_gateway_calc,
     api_versioning_calc, ascii_calc, ascii_table_calc, auth_ref_calc, awk_calc, aws_ref_calc,
     bash_adv_calc, bash_ref_calc, bitwise_calc, browser_dev_calc, caching_ref_calc, case_calc,
-    chars_calc, checksum_calc, chemistry_calc, chmod_calc, cicd_ref_calc, cipher_calc,
-    cloud_cost_calc, cloud_native_calc, cloud_ref_calc, color_calc, color_names_calc,
+    chars_calc, checksum_calc, chemistry_calc, chmod_calc, ci_cd_adv_calc, cicd_ref_calc,
+    cipher_calc, cloud_cost_calc, cloud_native_calc, cloud_ref_calc, color_calc, color_names_calc,
     combinatorics_calc, compiler_ref_calc, complex_calc, concurrency_ref_calc, container_ref_calc,
     cron_calc, crypto_adv_calc, crypto_ref_calc, css_grid_calc, css_ref_calc, csv_calc, curl_calc,
     data_formats_calc, data_pipeline_calc, database_adv_calc, datetime_calc, db_design_calc,
@@ -22,22 +22,23 @@ use hematite::tools::math_util::{
     kubectl_calc, license_calc, linux_adv_calc, linux_containers_calc, linux_kernel_calc,
     linux_net_calc, linux_perf_calc, linux_sys_calc, load_testing_calc, lorem_calc, make_calc,
     makefile_calc, markdown_calc, matrix_calc, message_queue_calc, mime_calc, ml_ref_calc,
-    monitoring_ref_calc, net_calc, network_ref_calc, networking_adv_calc, nginx_calc,
-    node_ref_calc, npm_calc, number_format, number_theory_calc, oauth2_flow_calc, oauth_ref_calc,
-    observability_adv_calc, observability_calc, oop_ref_calc, openapi_ref_calc, openssl_calc,
-    percent_calc, perf_ref_calc, physics_calc, port_calc, postgres_calc, prob_calc, prom_ref_calc,
-    protocols_ref_calc, python_adv_calc, python_data_calc, python_ref_calc, react_ref_calc,
-    redis_ref_calc, regex_adv_calc, regex_calc, regex_engine_calc, regex_patterns_calc,
-    regex_ref_calc, regex_test_calc, regex_viz_calc, roman_calc, rust_adv_calc, rust_async_calc,
-    rust_macros_calc, rust_patterns_calc, rust_ref_calc, search_ref_calc, security_ref_calc,
-    security_scan_calc, security_tools_calc, sed_calc, semver_calc, service_mesh_calc, set_calc,
-    sort_viz, spark_calc, sql_adv_calc, sql_fmt_calc, sql_ref_calc, sql_tuning_calc,
-    sql_window_calc, ssh_ref_calc, ssl_calc, stats_calc, string_dist, systemd_adv_calc,
-    systemd_calc, table_calc, tar_calc, template_calc, terminal_tools_calc, terraform_adv_calc,
-    terraform_calc, testing_ref_calc, text_stats, timestamp_calc, tmux_calc, toml_calc, trig_calc,
-    ts_ref_calc, typescript_adv_calc, tz_calc, unicode_ref_calc, url_calc, uuid_calc,
-    validate_calc, vim_adv_calc, vim_calc, vue_ref_calc, wasm_ref_calc, wasm_runtime_calc,
-    web_apis_calc, web_perf_calc, xml_calc, yaml_calc,
+    mobile_web_calc, monitoring_ref_calc, net_calc, network_ref_calc, networking_adv_calc,
+    nginx_calc, node_ref_calc, npm_calc, number_format, number_theory_calc, oauth2_flow_calc,
+    oauth_ref_calc, observability_adv_calc, observability_calc, oop_ref_calc, openapi_ref_calc,
+    openssl_calc, percent_calc, perf_ref_calc, physics_calc, port_calc, postgres_calc, prob_calc,
+    prom_ref_calc, protocols_ref_calc, python_adv_calc, python_data_calc, python_ref_calc,
+    react_ref_calc, redis_ref_calc, regex_adv_calc, regex_calc, regex_engine_calc,
+    regex_patterns_calc, regex_ref_calc, regex_test_calc, regex_viz_calc, roman_calc,
+    rust_adv_calc, rust_async_calc, rust_macros_calc, rust_patterns_calc, rust_ref_calc,
+    search_ref_calc, security_ref_calc, security_scan_calc, security_tools_calc, sed_calc,
+    semver_calc, service_mesh_calc, set_calc, sort_viz, spark_calc, sql_adv_calc, sql_fmt_calc,
+    sql_ops_calc, sql_ref_calc, sql_tuning_calc, sql_window_calc, ssh_ref_calc, ssl_calc,
+    stats_calc, string_dist, systemd_adv_calc, systemd_calc, table_calc, tar_calc, template_calc,
+    terminal_tools_calc, terraform_adv_calc, terraform_calc, testing_ref_calc, text_stats,
+    timestamp_calc, tmux_calc, toml_calc, trig_calc, ts_patterns_calc, ts_ref_calc,
+    typescript_adv_calc, tz_calc, unicode_ref_calc, url_calc, uuid_calc, validate_calc,
+    vim_adv_calc, vim_calc, vue_ref_calc, wasm_ref_calc, wasm_runtime_calc, web_apis_calc,
+    web_perf_calc, xml_calc, yaml_calc,
 };
 
 // ─── Cipher tests ────────────────────────────────────────────────────────────
@@ -33460,4 +33461,810 @@ fn test_linux_containers_alias_runc() {
 fn test_linux_containers_unknown_query() {
     let out = linux_containers_calc("nonexistent-topic-xyz");
     assert!(out.contains("Unknown linux-containers topic"));
+}
+
+// ─── ci_cd_adv_calc ───────────────────────────────────────────────────────────
+
+#[test]
+fn test_ci_cd_adv_list() {
+    let out = ci_cd_adv_calc("list");
+    assert!(out.contains("ci-cd-adv topics"));
+    assert!(out.contains("github-actions"));
+}
+
+#[test]
+fn test_ci_cd_adv_help() {
+    let out = ci_cd_adv_calc("help");
+    assert!(out.contains("ci-cd-adv topics"));
+}
+
+#[test]
+fn test_ci_cd_adv_empty() {
+    let out = ci_cd_adv_calc("");
+    assert!(out.contains("ci-cd-adv topics"));
+}
+
+#[test]
+fn test_ci_cd_adv_all_contains_sections() {
+    let out = ci_cd_adv_calc("all");
+    assert!(out.contains("── github-actions ──"));
+    assert!(out.contains("── gitlab-ci ──"));
+    assert!(out.contains("── argocd ──"));
+    assert!(out.contains("── pipeline-patterns ──"));
+    assert!(out.contains("── tekton ──"));
+}
+
+#[test]
+fn test_ci_cd_adv_topic_github_actions() {
+    let out = ci_cd_adv_calc("github-actions");
+    assert!(
+        out.contains("workflow_call") || out.contains("matrix") || out.contains("cache"),
+        "unexpected: {out}"
+    );
+}
+
+#[test]
+fn test_ci_cd_adv_alias_gha_matrix() {
+    let out = ci_cd_adv_calc("gha-matrix");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_ci_cd_adv_alias_gha_cache() {
+    let out = ci_cd_adv_calc("gha-cache");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_ci_cd_adv_alias_gha_concurrency() {
+    let out = ci_cd_adv_calc("gha-concurrency");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_ci_cd_adv_alias_gha_environments() {
+    let out = ci_cd_adv_calc("gha-environments");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_ci_cd_adv_topic_gitlab_ci() {
+    let out = ci_cd_adv_calc("gitlab-ci");
+    assert!(
+        out.contains("stages") || out.contains("artifacts") || out.contains("include"),
+        "unexpected: {out}"
+    );
+}
+
+#[test]
+fn test_ci_cd_adv_alias_gitlab_stages() {
+    let out = ci_cd_adv_calc("gitlab-stages");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_ci_cd_adv_alias_gitlab_include() {
+    let out = ci_cd_adv_calc("gitlab-include");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_ci_cd_adv_alias_gitlab_dag() {
+    let out = ci_cd_adv_calc("gitlab-dag");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_ci_cd_adv_alias_gitlab_rules() {
+    let out = ci_cd_adv_calc("gitlab-rules");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_ci_cd_adv_topic_argocd() {
+    let out = ci_cd_adv_calc("argocd");
+    assert!(
+        out.contains("ArgoCD") || out.contains("GitOps") || out.contains("syncPolicy"),
+        "unexpected: {out}"
+    );
+}
+
+#[test]
+fn test_ci_cd_adv_alias_gitops() {
+    let out = ci_cd_adv_calc("gitops");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_ci_cd_adv_alias_argocd_app() {
+    let out = ci_cd_adv_calc("argocd-app");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_ci_cd_adv_alias_argocd_cli() {
+    let out = ci_cd_adv_calc("argocd-cli");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_ci_cd_adv_alias_argocd_applicationset() {
+    let out = ci_cd_adv_calc("argocd-applicationset");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_ci_cd_adv_topic_pipeline_patterns() {
+    let out = ci_cd_adv_calc("pipeline-patterns");
+    assert!(
+        out.contains("semantic-release") || out.contains("canary") || out.contains("blue"),
+        "unexpected: {out}"
+    );
+}
+
+#[test]
+fn test_ci_cd_adv_alias_cicd_patterns() {
+    let out = ci_cd_adv_calc("cicd-patterns");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_ci_cd_adv_alias_blue_green() {
+    let out = ci_cd_adv_calc("blue-green");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_ci_cd_adv_alias_canary_deploy() {
+    let out = ci_cd_adv_calc("canary-deploy");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_ci_cd_adv_alias_image_scanning() {
+    let out = ci_cd_adv_calc("image-scanning");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_ci_cd_adv_topic_tekton() {
+    let out = ci_cd_adv_calc("tekton");
+    assert!(
+        out.contains("Task") || out.contains("Pipeline") || out.contains("tekton"),
+        "unexpected: {out}"
+    );
+}
+
+#[test]
+fn test_ci_cd_adv_alias_tekton_task() {
+    let out = ci_cd_adv_calc("tekton-task");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_ci_cd_adv_alias_tekton_pipeline() {
+    let out = ci_cd_adv_calc("tekton-pipeline");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_ci_cd_adv_alias_tkn_cli() {
+    let out = ci_cd_adv_calc("tkn-cli");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_ci_cd_adv_unknown_query() {
+    let out = ci_cd_adv_calc("nonexistent-topic-xyz");
+    assert!(out.contains("Unknown ci-cd-adv topic"));
+}
+
+// ─── sql_ops_calc ─────────────────────────────────────────────────────────────
+
+#[test]
+fn test_sql_ops_list() {
+    let out = sql_ops_calc("list");
+    assert!(out.contains("sql-ops topics"));
+    assert!(out.contains("explain"));
+}
+
+#[test]
+fn test_sql_ops_help() {
+    let out = sql_ops_calc("help");
+    assert!(out.contains("sql-ops topics"));
+}
+
+#[test]
+fn test_sql_ops_empty() {
+    let out = sql_ops_calc("");
+    assert!(out.contains("sql-ops topics"));
+}
+
+#[test]
+fn test_sql_ops_all_contains_sections() {
+    let out = sql_ops_calc("all");
+    assert!(out.contains("── explain ──"));
+    assert!(out.contains("── indexes ──"));
+    assert!(out.contains("── connections ──"));
+    assert!(out.contains("── replication ──"));
+    assert!(out.contains("── maintenance ──"));
+}
+
+#[test]
+fn test_sql_ops_topic_explain() {
+    let out = sql_ops_calc("explain");
+    assert!(
+        out.contains("EXPLAIN") || out.contains("Seq Scan") || out.contains("cost="),
+        "unexpected: {out}"
+    );
+}
+
+#[test]
+fn test_sql_ops_alias_pg_explain() {
+    let out = sql_ops_calc("pg-explain");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_sql_ops_alias_explain_analyze() {
+    let out = sql_ops_calc("explain-analyze");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_sql_ops_alias_query_plan() {
+    let out = sql_ops_calc("query-plan");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_sql_ops_alias_hash_join() {
+    let out = sql_ops_calc("hash-join");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_sql_ops_topic_indexes() {
+    let out = sql_ops_calc("indexes");
+    assert!(
+        out.contains("B-Tree") || out.contains("GIN") || out.contains("CONCURRENTLY"),
+        "unexpected: {out}"
+    );
+}
+
+#[test]
+fn test_sql_ops_alias_pg_indexes() {
+    let out = sql_ops_calc("pg-indexes");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_sql_ops_alias_gin_index_pg() {
+    let out = sql_ops_calc("gin-index-pg");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_sql_ops_alias_partial_index() {
+    let out = sql_ops_calc("partial-index");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_sql_ops_alias_covering_index() {
+    let out = sql_ops_calc("covering-index");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_sql_ops_topic_connections() {
+    let out = sql_ops_calc("connections");
+    assert!(
+        out.contains("pgbouncer")
+            || out.contains("max_connections")
+            || out.contains("shared_buffers"),
+        "unexpected: {out}"
+    );
+}
+
+#[test]
+fn test_sql_ops_alias_pg_connections() {
+    let out = sql_ops_calc("pg-connections");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_sql_ops_alias_pgbouncer() {
+    let out = sql_ops_calc("pgbouncer");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_sql_ops_alias_connection_pooling() {
+    let out = sql_ops_calc("connection-pooling");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_sql_ops_alias_pg_cancel() {
+    let out = sql_ops_calc("pg-cancel");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_sql_ops_topic_replication() {
+    let out = sql_ops_calc("replication");
+    assert!(
+        out.contains("replication") || out.contains("pg_basebackup") || out.contains("patroni"),
+        "unexpected: {out}"
+    );
+}
+
+#[test]
+fn test_sql_ops_alias_pg_replication() {
+    let out = sql_ops_calc("pg-replication");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_sql_ops_alias_logical_replication() {
+    let out = sql_ops_calc("logical-replication");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_sql_ops_alias_pg_backup() {
+    let out = sql_ops_calc("pg-backup");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_sql_ops_alias_pg_failover() {
+    let out = sql_ops_calc("pg-failover");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_sql_ops_topic_maintenance() {
+    let out = sql_ops_calc("maintenance");
+    assert!(
+        out.contains("VACUUM") || out.contains("bloat") || out.contains("pg_stat_statements"),
+        "unexpected: {out}"
+    );
+}
+
+#[test]
+fn test_sql_ops_alias_pg_vacuum() {
+    let out = sql_ops_calc("pg-vacuum");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_sql_ops_alias_autovacuum() {
+    let out = sql_ops_calc("autovacuum");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_sql_ops_alias_pg_locks() {
+    let out = sql_ops_calc("pg-locks");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_sql_ops_alias_slow_query_log() {
+    let out = sql_ops_calc("slow-query-log");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_sql_ops_unknown_query() {
+    let out = sql_ops_calc("nonexistent-topic-xyz");
+    assert!(out.contains("Unknown sql-ops topic"));
+}
+
+// ─── ts_patterns_calc ────────────────────────────────────────────────────────
+
+#[test]
+fn test_ts_patterns_list() {
+    let out = ts_patterns_calc("list");
+    assert!(out.contains("ts-patterns topics"));
+    assert!(out.contains("mapped"));
+}
+
+#[test]
+fn test_ts_patterns_help() {
+    let out = ts_patterns_calc("help");
+    assert!(out.contains("ts-patterns topics"));
+}
+
+#[test]
+fn test_ts_patterns_empty() {
+    let out = ts_patterns_calc("");
+    assert!(out.contains("ts-patterns topics"));
+}
+
+#[test]
+fn test_ts_patterns_all_contains_sections() {
+    let out = ts_patterns_calc("all");
+    assert!(out.contains("── mapped ──"));
+    assert!(out.contains("── conditional ──"));
+    assert!(out.contains("── advanced ──"));
+    assert!(out.contains("── decorators ──"));
+    assert!(out.contains("── modules ──"));
+}
+
+#[test]
+fn test_ts_patterns_topic_mapped() {
+    let out = ts_patterns_calc("mapped");
+    assert!(
+        out.contains("keyof") || out.contains("Partial") || out.contains("Readonly"),
+        "unexpected: {out}"
+    );
+}
+
+#[test]
+fn test_ts_patterns_alias_ts_mapped_types() {
+    let out = ts_patterns_calc("ts-mapped-types");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_ts_patterns_alias_ts_utility_types() {
+    let out = ts_patterns_calc("ts-utility-types");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_ts_patterns_alias_ts_pick() {
+    let out = ts_patterns_calc("ts-pick");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_ts_patterns_alias_ts_remap_keys() {
+    let out = ts_patterns_calc("ts-remap-keys");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_ts_patterns_topic_conditional() {
+    let out = ts_patterns_calc("conditional");
+    assert!(
+        out.contains("infer") || out.contains("extends") || out.contains("distributive"),
+        "unexpected: {out}"
+    );
+}
+
+#[test]
+fn test_ts_patterns_alias_ts_conditional_types() {
+    let out = ts_patterns_calc("ts-conditional-types");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_ts_patterns_alias_ts_infer() {
+    let out = ts_patterns_calc("ts-infer");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_ts_patterns_alias_ts_template_literal() {
+    let out = ts_patterns_calc("ts-template-literal");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_ts_patterns_alias_ts_return_type() {
+    let out = ts_patterns_calc("ts-return-type");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_ts_patterns_topic_advanced() {
+    let out = ts_patterns_calc("advanced");
+    assert!(
+        out.contains("discriminated") || out.contains("branded") || out.contains("satisfies"),
+        "unexpected: {out}"
+    );
+}
+
+#[test]
+fn test_ts_patterns_alias_ts_discriminated_union() {
+    let out = ts_patterns_calc("ts-discriminated-union");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_ts_patterns_alias_ts_branded_types() {
+    let out = ts_patterns_calc("ts-branded-types");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_ts_patterns_alias_ts_const_assertion() {
+    let out = ts_patterns_calc("ts-const-assertion");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_ts_patterns_alias_ts_satisfies() {
+    let out = ts_patterns_calc("ts-satisfies");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_ts_patterns_topic_decorators() {
+    let out = ts_patterns_calc("decorators");
+    assert!(
+        out.contains("decorator") || out.contains("Reflect") || out.contains("PropertyDescriptor"),
+        "unexpected: {out}"
+    );
+}
+
+#[test]
+fn test_ts_patterns_alias_ts_decorators() {
+    let out = ts_patterns_calc("ts-decorators");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_ts_patterns_alias_ts_class_decorator() {
+    let out = ts_patterns_calc("ts-class-decorator");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_ts_patterns_alias_reflect_metadata() {
+    let out = ts_patterns_calc("reflect-metadata");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_ts_patterns_alias_experimental_decorators() {
+    let out = ts_patterns_calc("experimental-decorators");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_ts_patterns_topic_modules() {
+    let out = ts_patterns_calc("modules");
+    assert!(
+        out.contains("augmentation") || out.contains("declare") || out.contains("strict"),
+        "unexpected: {out}"
+    );
+}
+
+#[test]
+fn test_ts_patterns_alias_ts_module_augmentation() {
+    let out = ts_patterns_calc("ts-module-augmentation");
+    assert!(!out.is_empty() && !out.contains("Unknown ts-patterns topic"));
+}
+
+#[test]
+fn test_ts_patterns_alias_ts_ambient() {
+    let out = ts_patterns_calc("ts-ambient");
+    assert!(!out.is_empty() && !out.contains("Unknown ts-patterns topic"));
+}
+
+#[test]
+fn test_ts_patterns_alias_ts_strict_mode() {
+    let out = ts_patterns_calc("ts-strict-mode");
+    assert!(!out.is_empty() && !out.contains("Unknown ts-patterns topic"));
+}
+
+#[test]
+fn test_ts_patterns_alias_ts_path_aliases() {
+    let out = ts_patterns_calc("ts-path-aliases");
+    assert!(!out.is_empty() && !out.contains("Unknown ts-patterns topic"));
+}
+
+#[test]
+fn test_ts_patterns_unknown_query() {
+    let out = ts_patterns_calc("nonexistent-topic-xyz");
+    assert!(out.contains("Unknown ts-patterns topic"));
+}
+
+// ─── mobile_web_calc ─────────────────────────────────────────────────────────
+
+#[test]
+fn test_mobile_web_list() {
+    let out = mobile_web_calc("list");
+    assert!(out.contains("mobile-web topics"));
+    assert!(out.contains("pwa"));
+}
+
+#[test]
+fn test_mobile_web_help() {
+    let out = mobile_web_calc("help");
+    assert!(out.contains("mobile-web topics"));
+}
+
+#[test]
+fn test_mobile_web_empty() {
+    let out = mobile_web_calc("");
+    assert!(out.contains("mobile-web topics"));
+}
+
+#[test]
+fn test_mobile_web_all_contains_sections() {
+    let out = mobile_web_calc("all");
+    assert!(out.contains("── pwa ──"));
+    assert!(out.contains("── responsive ──"));
+    assert!(out.contains("── performance ──"));
+    assert!(out.contains("── touch ──"));
+    assert!(out.contains("── device-apis ──"));
+}
+
+#[test]
+fn test_mobile_web_topic_pwa() {
+    let out = mobile_web_calc("pwa");
+    assert!(
+        out.contains("manifest") || out.contains("serviceWorker") || out.contains("VAPID"),
+        "unexpected: {out}"
+    );
+}
+
+#[test]
+fn test_mobile_web_alias_progressive_web_app() {
+    let out = mobile_web_calc("progressive-web-app");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_mobile_web_alias_web_manifest() {
+    let out = mobile_web_calc("web-manifest");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_mobile_web_alias_install_prompt() {
+    let out = mobile_web_calc("install-prompt");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_mobile_web_alias_push_notifications() {
+    let out = mobile_web_calc("push-notifications");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_mobile_web_topic_responsive() {
+    let out = mobile_web_calc("responsive");
+    assert!(
+        out.contains("media query") || out.contains("clamp") || out.contains("container"),
+        "unexpected: {out}"
+    );
+}
+
+#[test]
+fn test_mobile_web_alias_responsive_design() {
+    let out = mobile_web_calc("responsive-design");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_mobile_web_alias_media_queries() {
+    let out = mobile_web_calc("media-queries");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_mobile_web_alias_container_queries() {
+    let out = mobile_web_calc("container-queries");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_mobile_web_alias_safe_area_inset() {
+    let out = mobile_web_calc("safe-area-inset");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_mobile_web_topic_performance() {
+    let out = mobile_web_calc("performance");
+    assert!(
+        out.contains("LCP") || out.contains("CLS") || out.contains("Lighthouse"),
+        "unexpected: {out}"
+    );
+}
+
+#[test]
+fn test_mobile_web_alias_core_web_vitals() {
+    let out = mobile_web_calc("core-web-vitals");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_mobile_web_alias_web_vitals() {
+    let out = mobile_web_calc("web-vitals");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_mobile_web_alias_lazy_loading() {
+    let out = mobile_web_calc("lazy-loading");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_mobile_web_alias_code_splitting() {
+    let out = mobile_web_calc("code-splitting");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_mobile_web_topic_touch() {
+    let out = mobile_web_calc("touch");
+    assert!(
+        out.contains("touchstart") || out.contains("pointer") || out.contains("swipe"),
+        "unexpected: {out}"
+    );
+}
+
+#[test]
+fn test_mobile_web_alias_touch_events() {
+    let out = mobile_web_calc("touch-events");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_mobile_web_alias_pointer_events() {
+    let out = mobile_web_calc("pointer-events");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_mobile_web_alias_swipe_detect() {
+    let out = mobile_web_calc("swipe-detect");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_mobile_web_alias_touch_action() {
+    let out = mobile_web_calc("touch-action");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_mobile_web_topic_device_apis() {
+    let out = mobile_web_calc("device-apis");
+    assert!(
+        out.contains("geolocation")
+            || out.contains("getUserMedia")
+            || out.contains("devicePixelRatio"),
+        "unexpected: {out}"
+    );
+}
+
+#[test]
+fn test_mobile_web_alias_geolocation() {
+    let out = mobile_web_calc("geolocation");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_mobile_web_alias_media_devices() {
+    let out = mobile_web_calc("media-devices");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_mobile_web_alias_vibration_api() {
+    let out = mobile_web_calc("vibration-api");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_mobile_web_alias_network_information() {
+    let out = mobile_web_calc("network-information");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_mobile_web_unknown_query() {
+    let out = mobile_web_calc("nonexistent-topic-xyz");
+    assert!(out.contains("Unknown mobile-web topic"));
 }

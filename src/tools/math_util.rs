@@ -68510,3 +68510,1586 @@ pub fn linux_containers_calc(query: &str) -> String {
             .join(", ")
     )
 }
+
+// ════════════════════════════════════════════════════════════════
+// Wave 46: --ci-cd-adv, --sql-ops, --ts-patterns, --mobile-web
+// ════════════════════════════════════════════════════════════════
+
+fn s_ci_github_actions() -> &'static str {
+    "GitHub Actions Advanced
+Reusable workflows:
+  # .github/workflows/deploy.yml (caller)
+  jobs:
+    deploy:
+      uses: ./.github/workflows/reusable-deploy.yml
+      with:
+        environment: production
+        version: ${{ github.sha }}
+      secrets:
+        DEPLOY_KEY: ${{ secrets.DEPLOY_KEY }}
+
+  # .github/workflows/reusable-deploy.yml
+  on:
+    workflow_call:
+      inputs:
+        environment: { type: string, required: true }
+        version:     { type: string, required: true }
+      secrets:
+        DEPLOY_KEY: { required: true }
+
+Matrix strategy (parallel jobs):
+  strategy:
+    matrix:
+      os:      [ubuntu-latest, windows-latest, macos-latest]
+      node:    [18, 20, 22]
+      exclude: [{os: windows-latest, node: 18}]
+    fail-fast: false
+    max-parallel: 4
+  steps:
+    - uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node }}
+
+Caching:
+  - uses: actions/cache@v4
+    with:
+      path: ~/.npm
+      key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+      restore-keys: ${{ runner.os }}-node-
+
+  # Rust:
+  - uses: actions/cache@v4
+    with:
+      path: |
+        ~/.cargo/bin/
+        ~/.cargo/registry/index/
+        ~/.cargo/registry/cache/
+        ~/.cargo/git/db/
+        target/
+      key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+Concurrency (cancel superseded runs):
+  concurrency:
+    group: ${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: true
+
+Environments + protection rules:
+  environment: production    # requires reviewer approval
+  environment:
+    name: production
+    url: https://example.com
+
+Job outputs / dependencies:
+  jobs:
+    build:
+      outputs:
+        version: ${{ steps.tag.outputs.version }}
+      steps:
+        - id: tag
+          run: echo \"version=$(git describe)\" >> $GITHUB_OUTPUT
+    deploy:
+      needs: build
+      steps:
+        - run: deploy ${{ needs.build.outputs.version }}"
+}
+
+fn s_ci_gitlab_ci() -> &'static str {
+    "GitLab CI/CD
+.gitlab-ci.yml structure:
+  stages: [build, test, deploy]
+
+  variables:
+    DOCKER_IMAGE: $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA
+
+  default:
+    image: node:20
+    cache:
+      key: $CI_COMMIT_REF_SLUG
+      paths: [node_modules/]
+
+  build:
+    stage: build
+    script:
+      - npm ci
+      - npm run build
+    artifacts:
+      paths: [dist/]
+      expire_in: 1 hour
+
+  test:
+    stage: test
+    script: npm test
+    coverage: '/Statements.*?(\\d+(?:\\.\\d+)?)%/'
+
+  deploy:
+    stage: deploy
+    environment:
+      name: production
+      url: https://example.com
+    rules:
+      - if: $CI_COMMIT_BRANCH == \"main\"
+    script: ./deploy.sh
+
+Include (DRY CI):
+  include:
+    - project: group/shared-ci
+      file: /templates/build.yml
+    - local: .gitlab/ci/test.yml
+    - template: Security/SAST.gitlab-ci.yml
+
+Extends (template inheritance):
+  .base-job:
+    image: alpine
+    before_script: [echo base]
+
+  my-job:
+    extends: .base-job
+    script: echo hello
+
+DAG (needs, parallel jobs skip stage ordering):
+  deploy-api:
+    needs: [build-api, test-api]   # skip to next stage immediately
+    stage: deploy
+
+Cache vs artifacts:
+  cache:     persist between pipelines (slow, best for deps)
+  artifacts: pass between jobs in same pipeline (fast)
+
+Environments:
+  environment:
+    name: review/$CI_COMMIT_REF_SLUG
+    url: https://review-$CI_COMMIT_REF_SLUG.example.com
+    on_stop: stop_review    # cleanup job name"
+}
+
+fn s_ci_argocd() -> &'static str {
+    "ArgoCD & GitOps
+Core concepts:
+  Application = source (git repo/path) + destination (cluster/namespace)
+  GitOps: desired state in git; ArgoCD syncs cluster to match
+  Sync status: Synced / OutOfSync
+  Health status: Healthy / Progressing / Degraded / Missing
+
+Application manifest:
+  apiVersion: argoproj.io/v1alpha1
+  kind: Application
+  metadata:
+    name: my-app
+    namespace: argocd
+  spec:
+    project: default
+    source:
+      repoURL: https://github.com/org/gitops-repo
+      targetRevision: HEAD
+      path: manifests/my-app
+    destination:
+      server: https://kubernetes.default.svc
+      namespace: my-app
+    syncPolicy:
+      automated:
+        prune: true          # delete removed resources
+        selfHeal: true       # revert manual changes
+      syncOptions:
+        - CreateNamespace=true
+        - ApplyOutOfSyncOnly=true
+
+ArgoCD CLI:
+  argocd login argocd.example.com
+  argocd app list
+  argocd app get my-app
+  argocd app diff my-app
+  argocd app sync my-app
+  argocd app sync my-app --prune
+  argocd app rollback my-app 3
+  argocd app history my-app
+
+ApplicationSet (multi-cluster/multi-env):
+  kind: ApplicationSet
+  spec:
+    generators:
+      - list:
+          elements:
+            - cluster: production
+              url: https://prod-k8s.example.com
+            - cluster: staging
+              url: https://staging-k8s.example.com
+    template:
+      metadata:
+        name: '{{cluster}}-my-app'
+      spec:
+        destination:
+          server: '{{url}}'
+
+Image updater (auto-update on new image):
+  annotations:
+    argocd-image-updater.argoproj.io/image-list: myapp=myrepo/myapp
+    argocd-image-updater.argoproj.io/myapp.update-strategy: semver"
+}
+
+fn s_ci_pipeline_patterns() -> &'static str {
+    "CI/CD Pipeline Patterns
+Trunk-based development workflow:
+  main -> build -> test -> staging -> canary -> production
+  Feature branches: short-lived, merged daily
+  Feature flags: decouple deploy from release
+
+Semantic Release (automated versioning):
+  # conventionalcommits triggers:
+  fix:  ->  patch  (1.0.X)
+  feat: ->  minor  (1.X.0)
+  feat + BREAKING CHANGE: -> major (X.0.0)
+
+  npm install -D semantic-release
+  # .releaserc.json:
+  {
+    \"branches\": [\"main\"],
+    \"plugins\": [
+      \"@semantic-release/commit-analyzer\",
+      \"@semantic-release/release-notes-generator\",
+      \"@semantic-release/github\"
+    ]
+  }
+
+Docker image build patterns:
+  # Multi-arch with buildx:
+  docker buildx build --platform linux/amd64,linux/arm64 \
+    --tag registry/image:$TAG --push .
+
+  # Build args for cache busting:
+  docker build --build-arg BUILD_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ) \
+    --build-arg VCS_REF=$GIT_SHA -t image:$TAG .
+
+Container image scanning:
+  trivy image myimage:tag         # vulnerability scan
+  grype myimage:tag               # alternative scanner
+  syft myimage:tag -o spdx-json  # SBOM generation
+
+Deployment strategies:
+  Rolling:    replace pods one-by-one; zero downtime; easy rollback
+  Blue/Green: two identical envs; instant switch; 2x resources
+  Canary:     route % traffic to new version; gradual rollout
+  A/B:        route by user attribute (region, cohort)
+
+Health gate pattern:
+  1. Deploy canary (5% traffic)
+  2. Monitor error rate, latency, custom metrics for N minutes
+  3. If metrics OK: promote to 100%; if not: rollback canary
+
+Branch protection rules:
+  require status checks before merge
+  require PR review
+  dismiss stale reviews on push
+  require signed commits (optional)
+  restrict force push to main"
+}
+
+fn s_ci_tekton() -> &'static str {
+    "Tekton Pipelines (Kubernetes-native CI/CD)
+Core resources:
+  Task          single unit of work (steps run in order in one pod)
+  TaskRun       instance of a Task
+  Pipeline      DAG of Tasks
+  PipelineRun   instance of a Pipeline
+  Workspace     shared storage between tasks
+
+Task example:
+  apiVersion: tekton.dev/v1
+  kind: Task
+  metadata:
+    name: build-and-test
+  spec:
+    params:
+      - name: image-name
+        type: string
+    workspaces:
+      - name: source
+    steps:
+      - name: build
+        image: golang:1.22
+        workingDir: /workspace/source
+        script: |
+          go build ./...
+      - name: test
+        image: golang:1.22
+        workingDir: /workspace/source
+        script: |
+          go test ./...
+
+Pipeline example:
+  apiVersion: tekton.dev/v1
+  kind: Pipeline
+  spec:
+    workspaces:
+      - name: shared-data
+    tasks:
+      - name: fetch-source
+        taskRef: { name: git-clone }
+        workspaces:
+          - name: output
+            workspace: shared-data
+      - name: build
+        taskRef: { name: build-and-test }
+        runAfter: [fetch-source]
+        workspaces:
+          - name: source
+            workspace: shared-data
+
+Tekton CLI:
+  tkn pipeline list
+  tkn pipelinerun list
+  tkn pipelinerun logs -f my-pipeline-run
+  tkn task list
+  tkn taskrun describe my-task-run
+  tkn pipelinerun cancel my-pipeline-run"
+}
+
+type CiCdAdvSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+const CICD_ADV_SECTIONS: &[CiCdAdvSection] = &[
+    (
+        "github-actions",
+        &[
+            "gha-reusable",
+            "gha-matrix",
+            "gha-cache",
+            "gha-concurrency",
+            "gha-environments",
+            "gha-outputs",
+            "github-actions-advanced",
+            "gha-artifacts",
+            "gha-secrets",
+            "gha-workflow-call",
+            "gha-needs",
+        ],
+        s_ci_github_actions,
+    ),
+    (
+        "gitlab-ci",
+        &[
+            "gitlab-ci",
+            "gitlab-stages",
+            "gitlab-cache",
+            "gitlab-artifacts",
+            "gitlab-include",
+            "gitlab-extends",
+            "gitlab-dag",
+            "gitlab-environments",
+            "gitlab-rules",
+            "gitlab-template",
+            "gitlab-sast",
+        ],
+        s_ci_gitlab_ci,
+    ),
+    (
+        "argocd",
+        &[
+            "argocd",
+            "gitops",
+            "argocd-app",
+            "argocd-sync",
+            "argocd-cli",
+            "argocd-applicationset",
+            "argocd-image-updater",
+            "argocd-rollback",
+            "gitops-workflow",
+            "argocd-prune",
+            "argocd-selfheal",
+        ],
+        s_ci_argocd,
+    ),
+    (
+        "pipeline-patterns",
+        &[
+            "cicd-patterns",
+            "trunk-based",
+            "semantic-release",
+            "blue-green",
+            "canary-deploy",
+            "rolling-deploy",
+            "ab-testing",
+            "health-gate",
+            "sbom-generation",
+            "image-scanning",
+            "trivy-scan",
+        ],
+        s_ci_pipeline_patterns,
+    ),
+    (
+        "tekton",
+        &[
+            "tekton",
+            "tekton-task",
+            "tekton-pipeline",
+            "tekton-pipelinerun",
+            "tekton-workspace",
+            "tkn-cli",
+            "tekton-steps",
+            "tekton-taskrun",
+            "kubernetes-ci",
+            "tekton-params",
+            "tekton-native",
+        ],
+        s_ci_tekton,
+    ),
+];
+
+pub fn ci_cd_adv_calc(query: &str) -> String {
+    let q = query.trim().to_lowercase();
+    if q.is_empty() || q == "list" || q == "help" {
+        let topics: Vec<&str> = CICD_ADV_SECTIONS.iter().map(|(n, _, _)| *n).collect();
+        return format!(
+            "ci-cd-adv topics: {}\nUse: --ci-cd-adv <topic>  or  --ci-cd-adv all",
+            topics.join(", ")
+        );
+    }
+    if q == "all" {
+        return CICD_ADV_SECTIONS
+            .iter()
+            .map(|(n, _, f)| format!("── {} ──\n{}", n, f()))
+            .collect::<Vec<_>>()
+            .join("\n\n");
+    }
+    for (name, aliases, func) in CICD_ADV_SECTIONS {
+        if q == *name || aliases.iter().any(|a| q == *a || q.contains(a)) {
+            return func().to_string();
+        }
+    }
+    format!(
+        "Unknown ci-cd-adv topic: '{}'\nAvailable: {}",
+        query.trim(),
+        CICD_ADV_SECTIONS
+            .iter()
+            .map(|(n, _, _)| *n)
+            .collect::<Vec<_>>()
+            .join(", ")
+    )
+}
+
+// ── sql-ops ───────────────────────────────────────────────────
+
+fn s_so_explain() -> &'static str {
+    "PostgreSQL EXPLAIN ANALYZE
+Basic usage:
+  EXPLAIN SELECT * FROM users WHERE email = 'a@b.com';
+  EXPLAIN ANALYZE SELECT * FROM users WHERE email = 'a@b.com';
+  EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) SELECT ...;
+
+Reading the output:
+  Seq Scan        full table scan (no index used)
+  Index Scan      uses index to find rows, fetches from heap
+  Index Only Scan uses index alone (all needed cols in index)
+  Bitmap Heap Scan combines bitmap index + heap fetch (good for medium rowcount)
+  Hash Join       best for large unsorted sets
+  Merge Join      best for pre-sorted/indexed sets
+  Nested Loop     best for small outer sets
+
+Key metrics:
+  cost=0.00..123.45   estimated startup..total cost
+  rows=1000           estimated row count
+  width=64            estimated bytes per row
+  actual time=0.1..5.2  real start..end time (ms)
+  actual rows=872     rows actually returned
+  loops=1             times this node executed
+
+  Buffers: shared hit=500 read=100
+    hit = page from shared_buffers (memory)
+    read = page from disk (expensive)
+
+Identifying problems:
+  rows estimate wildly off actual rows -> stale stats; run ANALYZE
+  Seq Scan on large table -> missing index
+  shared read >> shared hit -> needs pg_prewarm or more shared_buffers
+  Filter: (removed rows) -> index not covering enough columns
+  Sort: method=external merge -> insufficient work_mem
+  Hash Batches=N where N>1 -> increase work_mem for hash joins
+
+Fix stale stats:
+  ANALYZE table_name;
+  ANALYZE VERBOSE table_name;
+  ALTER TABLE t ALTER COLUMN c SET STATISTICS 500;  -- high-cardinality col
+
+Visualize:
+  explain.dalibo.com   paste JSON output for interactive tree
+  pev2                 open-source alternative"
+}
+
+fn s_so_indexes() -> &'static str {
+    "PostgreSQL Index Strategies
+Index types:
+  B-Tree  default; equality + range; most use cases
+  Hash    equality only; slightly faster for equality
+  GIN     inverted index; arrays, JSONB, full-text search
+  GiST    generalized; geometric, ranges, full-text
+  BRIN    block range; very large append-only tables (timestamps)
+  SP-GiST space-partitioned; IPs, ranges, text prefix
+
+Create indexes:
+  CREATE INDEX idx_users_email ON users(email);
+  CREATE UNIQUE INDEX idx_orders_ref ON orders(reference);
+  CREATE INDEX idx_json_name ON docs USING gin(data);    -- JSONB key
+  CREATE INDEX idx_lower_email ON users(lower(email));   -- functional
+  CREATE INDEX CONCURRENTLY idx_big ON big_table(col);   -- no lock
+  DROP INDEX CONCURRENTLY idx_big;
+
+Partial index (subset of rows):
+  CREATE INDEX idx_active_users ON users(last_seen)
+    WHERE status = 'active';
+  -- Much smaller; only helps queries with same WHERE clause
+
+Covering index (include non-key columns):
+  CREATE INDEX idx_cover ON orders(customer_id)
+    INCLUDE (total, created_at);
+  -- Enables Index Only Scan for: SELECT total, created_at FROM orders WHERE customer_id = 1
+
+Multi-column index:
+  CREATE INDEX idx_multi ON events(user_id, created_at DESC);
+  -- Helps: WHERE user_id=1 ORDER BY created_at DESC
+  -- Does NOT help: WHERE created_at > X (no leading col)
+  -- Column order matters: put equality filters first, range last
+
+JSONB indexes:
+  CREATE INDEX idx_jsonb ON docs USING gin(payload);
+  -- Supports: payload ? 'key'   payload @> '{\"status\":\"active\"}'
+  CREATE INDEX idx_jsonb_path ON docs USING gin(payload jsonb_path_ops);
+  -- Smaller; only supports @>
+
+Index bloat / maintenance:
+  SELECT schemaname, tablename, indexname,
+         pg_size_pretty(pg_relation_size(indexrelid)) AS size
+  FROM pg_stat_user_indexes ORDER BY pg_relation_size(indexrelid) DESC;
+  REINDEX INDEX CONCURRENTLY idx_name;"
+}
+
+fn s_so_connections() -> &'static str {
+    "PostgreSQL Connection Pooling & Performance
+Connection overhead:
+  Each Postgres connection = ~5-10 MB RAM + OS process
+  max_connections default = 100 (limit)
+  Rule of thumb: set max_connections = 4 * CPU cores for OLTP
+
+PgBouncer (connection pooler):
+  # pgbouncer.ini
+  [databases]
+  mydb = host=127.0.0.1 port=5432 dbname=mydb
+
+  [pgbouncer]
+  pool_mode = transaction        # transaction / session / statement
+  max_client_conn = 1000         # total client connections
+  default_pool_size = 20         # server connections per db/user pair
+  reserve_pool_size = 5
+  reserve_pool_timeout = 3
+  listen_port = 6432
+
+  # Connection modes:
+  transaction  best for stateless apps (default); no SET, advisory locks
+  session      one server connection per client session; safe but less efficient
+  statement    each statement; no multi-statement transactions
+
+  # Connect via pgbouncer:
+  psql -h 127.0.0.1 -p 6432 -d mydb -U myuser
+
+Tuning parameters (postgresql.conf):
+  shared_buffers = 25% RAM         # main Postgres cache
+  effective_cache_size = 75% RAM   # hint to planner (not actual alloc)
+  work_mem = 64MB                  # per-sort/hash operation (careful with many connections)
+  maintenance_work_mem = 512MB     # VACUUM, CREATE INDEX
+  wal_buffers = 64MB               # WAL write buffer
+  checkpoint_completion_target = 0.9
+  random_page_cost = 1.1           # for SSDs (default 4.0 for HDD)
+  effective_io_concurrency = 200   # for SSDs
+  max_worker_processes = 8
+  max_parallel_workers_per_gather = 4
+
+pg_stat_activity (monitor connections):
+  SELECT pid, usename, state, wait_event_type, wait_event,
+         query_start, left(query, 100) AS query
+  FROM pg_stat_activity
+  WHERE state != 'idle'
+  ORDER BY query_start;
+
+  -- Kill long-running query:
+  SELECT pg_cancel_backend(pid);   -- graceful
+  SELECT pg_terminate_backend(pid); -- force kill"
+}
+
+fn s_so_replication() -> &'static str {
+    "PostgreSQL Replication & High Availability
+Streaming replication setup:
+  # Primary (postgresql.conf):
+  wal_level = replica
+  max_wal_senders = 10
+  wal_keep_size = 1GB
+
+  # Primary (pg_hba.conf):
+  host replication replicator 192.168.1.2/32 scram-sha-256
+
+  # Replica:
+  pg_basebackup -h primary-host -U replicator -D /var/lib/postgresql/data --wal-method=stream
+  # recovery.conf / postgresql.conf (Postgres 12+):
+  primary_conninfo = 'host=primary-host user=replicator password=...'
+  hot_standby = on
+
+Monitor replication lag:
+  -- On primary:
+  SELECT client_addr, state, sent_lsn, write_lsn, flush_lsn,
+         replay_lsn,
+         (sent_lsn - replay_lsn) AS lag_bytes
+  FROM pg_stat_replication;
+
+  -- On replica:
+  SELECT now() - pg_last_xact_replay_timestamp() AS lag;
+
+Logical replication (selective table sync):
+  -- Publisher:
+  CREATE PUBLICATION my_pub FOR TABLE users, orders;
+  -- Subscriber:
+  CREATE SUBSCRIPTION my_sub
+    CONNECTION 'host=primary dbname=mydb user=repl password=...'
+    PUBLICATION my_pub;
+
+Patroni (automatic failover):
+  etcd/Consul/ZooKeeper -> leader election
+  patronictl -c /etc/patroni.yml list
+  patronictl -c /etc/patroni.yml switchover myapp
+
+pg_auto_failover:
+  pg_autoctl create monitor
+  pg_autoctl create postgres
+  pg_autoctl show state
+
+Backup strategies:
+  pg_dump -Fc mydb > mydb.dump           # custom format, parallel restore
+  pg_restore -j 4 -d mydb mydb.dump     # parallel restore
+  pg_basebackup -Ft -z -D /backup/      # physical backup
+  PITR: archive_command + restore_command for point-in-time recovery"
+}
+
+fn s_so_maintenance() -> &'static str {
+    "PostgreSQL Maintenance & VACUUM
+VACUUM:
+  VACUUM table_name;              # reclaim dead tuples, not lock
+  VACUUM FULL table_name;         # rewrite table, reclaim disk, LOCK
+  VACUUM ANALYZE table_name;      # reclaim + update stats
+  VACUUM VERBOSE table_name;      # show what it's doing
+
+  # Autovacuum tuning (postgresql.conf):
+  autovacuum_vacuum_scale_factor = 0.05   # trigger at 5% dead rows (default 0.2)
+  autovacuum_analyze_scale_factor = 0.02
+  autovacuum_vacuum_cost_delay = 2ms      # slow down for busy tables (default 2ms)
+
+Table bloat check:
+  SELECT relname, n_dead_tup, n_live_tup,
+         round(n_dead_tup::numeric / NULLIF(n_live_tup + n_dead_tup, 0) * 100, 1) AS dead_pct,
+         pg_size_pretty(pg_total_relation_size(oid)) AS total_size
+  FROM pg_stat_user_tables
+  ORDER BY n_dead_tup DESC LIMIT 20;
+
+Lock monitoring:
+  SELECT locktype, relation::regclass, mode, granted, pid,
+         left(query, 80) AS query
+  FROM pg_locks l JOIN pg_stat_activity a USING (pid)
+  WHERE relation IS NOT NULL
+  ORDER BY relation;
+
+  -- Find blocking chain:
+  SELECT blocked.pid, blocking.pid AS blocking_pid,
+         left(blocked.query, 80) AS blocked_query,
+         left(blocking.query, 80) AS blocking_query
+  FROM pg_stat_activity blocked
+  JOIN pg_stat_activity blocking ON blocking.pid = ANY(pg_blocking_pids(blocked.pid))
+  WHERE cardinality(pg_blocking_pids(blocked.pid)) > 0;
+
+Slow query log:
+  log_min_duration_statement = 1000    # log queries > 1s
+  log_line_prefix = '%t [%p]: [%l-1] '
+  log_checkpoints = on
+  log_lock_waits = on
+  log_temp_files = 0                   # log all temp file creation
+
+pg_stat_statements:
+  CREATE EXTENSION pg_stat_statements;
+  SELECT query, calls, total_exec_time/calls AS avg_ms,
+         rows/calls AS avg_rows, 100*shared_blks_hit /
+         NULLIF(shared_blks_hit + shared_blks_read, 0) AS hit_pct
+  FROM pg_stat_statements
+  ORDER BY total_exec_time DESC LIMIT 10;"
+}
+
+type SqlOpsSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+const SQL_OPS_SECTIONS: &[SqlOpsSection] = &[
+    (
+        "explain",
+        &[
+            "pg-explain",
+            "explain-analyze",
+            "query-plan",
+            "seq-scan",
+            "index-scan",
+            "bitmap-scan",
+            "hash-join",
+            "nested-loop",
+            "merge-join",
+            "explain-buffers",
+            "pg-explain-json",
+        ],
+        s_so_explain,
+    ),
+    (
+        "indexes",
+        &[
+            "pg-indexes",
+            "btree-index",
+            "gin-index-pg",
+            "brin-index",
+            "partial-index",
+            "covering-index",
+            "functional-index",
+            "concurrent-index",
+            "jsonb-index",
+            "index-bloat",
+            "multi-column-index",
+        ],
+        s_so_indexes,
+    ),
+    (
+        "connections",
+        &[
+            "pg-connections",
+            "pgbouncer",
+            "connection-pooling",
+            "pg-tuning",
+            "pg-shared-buffers",
+            "work-mem",
+            "pg-stat-activity",
+            "max-connections",
+            "pg-cancel",
+            "pg-terminate",
+            "pgbouncer-config",
+        ],
+        s_so_connections,
+    ),
+    (
+        "replication",
+        &[
+            "pg-replication",
+            "streaming-replication",
+            "logical-replication",
+            "pg-publication",
+            "pg-subscription",
+            "pg-basebackup",
+            "patroni",
+            "replication-lag",
+            "pg-backup",
+            "pg-pitr",
+            "pg-failover",
+        ],
+        s_so_replication,
+    ),
+    (
+        "maintenance",
+        &[
+            "pg-vacuum",
+            "autovacuum",
+            "table-bloat",
+            "pg-locks",
+            "slow-query-log",
+            "pg-stat-statements",
+            "vacuum-full",
+            "lock-monitoring",
+            "pg-maintenance",
+            "blocking-queries",
+            "pg-extension",
+        ],
+        s_so_maintenance,
+    ),
+];
+
+pub fn sql_ops_calc(query: &str) -> String {
+    let q = query.trim().to_lowercase();
+    if q.is_empty() || q == "list" || q == "help" {
+        let topics: Vec<&str> = SQL_OPS_SECTIONS.iter().map(|(n, _, _)| *n).collect();
+        return format!(
+            "sql-ops topics: {}\nUse: --sql-ops <topic>  or  --sql-ops all",
+            topics.join(", ")
+        );
+    }
+    if q == "all" {
+        return SQL_OPS_SECTIONS
+            .iter()
+            .map(|(n, _, f)| format!("── {} ──\n{}", n, f()))
+            .collect::<Vec<_>>()
+            .join("\n\n");
+    }
+    for (name, aliases, func) in SQL_OPS_SECTIONS {
+        if q == *name || aliases.iter().any(|a| q == *a || q.contains(a)) {
+            return func().to_string();
+        }
+    }
+    format!(
+        "Unknown sql-ops topic: '{}'\nAvailable: {}",
+        query.trim(),
+        SQL_OPS_SECTIONS
+            .iter()
+            .map(|(n, _, _)| *n)
+            .collect::<Vec<_>>()
+            .join(", ")
+    )
+}
+
+// ── ts-patterns ───────────────────────────────────────────────
+
+fn s_tp_mapped() -> &'static str {
+    "TypeScript Mapped Types
+Basic mapped type:
+  type Readonly<T>   = { readonly [K in keyof T]: T[K] }
+  type Optional<T>   = { [K in keyof T]?: T[K] }
+  type Nullable<T>   = { [K in keyof T]: T[K] | null }
+  type Stringify<T>  = { [K in keyof T]: string }
+
+Remapping keys (as clause):
+  type Getters<T> = {
+    [K in keyof T as `get${Capitalize<string & K>}`]: () => T[K]
+  }
+  // { name: string } -> { getName: () => string }
+
+  type EventMap<T> = {
+    [K in keyof T as `on${Capitalize<string & K>}`]: (val: T[K]) => void
+  }
+
+Filter mapped types (never removes key):
+  type NonNullable<T> = {
+    [K in keyof T as T[K] extends null | undefined ? never : K]: T[K]
+  }
+
+  type FunctionProps<T> = {
+    [K in keyof T as T[K] extends Function ? K : never]: T[K]
+  }
+
+Built-in utility types (all use mapped types):
+  Partial<T>          all props optional
+  Required<T>         all props required
+  Readonly<T>         all props readonly
+  Record<K, V>        { [key in K]: V }
+  Pick<T, K>          subset of keys
+  Omit<T, K>          exclude keys
+  Exclude<T, U>       T minus types in U (union)
+  Extract<T, U>       intersection of T and U
+  NonNullable<T>      remove null/undefined
+  ReturnType<F>       return type of function
+  Parameters<F>       param types as tuple
+  ConstructorParameters<C>
+  InstanceType<C>
+  Awaited<T>          unwrap Promise type"
+}
+
+fn s_tp_conditional() -> &'static str {
+    "TypeScript Conditional Types
+Basics:
+  type IsString<T> = T extends string ? 'yes' : 'no'
+  type IsString<string>  // 'yes'
+  type IsString<number>  // 'no'
+
+Distributive conditional types (over unions):
+  type ToArray<T> = T extends any ? T[] : never
+  type ToArray<string | number>  // string[] | number[]
+
+  // Prevent distribution with tuple:
+  type ToArrayND<T> = [T] extends [any] ? T[] : never
+  type ToArrayND<string | number>  // (string | number)[]
+
+Infer (extract type from shape):
+  type ReturnType<T> = T extends (...args: any) => infer R ? R : never
+  type FirstArg<T>   = T extends (first: infer A, ...rest: any) => any ? A : never
+  type Awaited<T>    = T extends Promise<infer R> ? Awaited<R> : T
+
+  type UnpackArray<T> = T extends Array<infer Item> ? Item : T
+  type UnpackArray<string[]>  // string
+
+Deep unwrap:
+  type DeepReadonly<T> = T extends object
+    ? { readonly [K in keyof T]: DeepReadonly<T[K]> }
+    : T
+
+  type DeepPartial<T> = T extends object
+    ? { [K in keyof T]?: DeepPartial<T[K]> }
+    : T
+
+Template literal types:
+  type EventName = 'click' | 'focus' | 'blur'
+  type Handler = `on${Capitalize<EventName>}`
+  // 'onClick' | 'onFocus' | 'onBlur'
+
+  type PropEventSource<T> = {
+    on<K extends string & keyof T>(
+      event: `${K}Changed`,
+      callback: (newValue: T[K]) => void
+    ): void
+  }
+
+Recursive types:
+  type JSONValue =
+    | string | number | boolean | null
+    | JSONValue[]
+    | { [key: string]: JSONValue }"
+}
+
+fn s_tp_advanced() -> &'static str {
+    "TypeScript Advanced Patterns
+Discriminated unions:
+  type Shape =
+    | { kind: 'circle';    radius: number }
+    | { kind: 'square';    side: number   }
+    | { kind: 'rectangle'; w: number; h: number }
+
+  function area(s: Shape): number {
+    switch (s.kind) {
+      case 'circle':    return Math.PI * s.radius ** 2
+      case 'square':    return s.side ** 2
+      case 'rectangle': return s.w * s.h
+    }
+  }
+
+Branded types (nominal typing):
+  type UserId   = string & { readonly __brand: 'UserId' }
+  type OrderId  = string & { readonly __brand: 'OrderId' }
+  const asUserId  = (id: string) => id as UserId
+  const asOrderId = (id: string) => id as OrderId
+  // UserId and OrderId are structurally identical but type-incompatible
+
+Const assertions:
+  const config = { host: 'localhost', port: 3000 } as const
+  // type: { readonly host: 'localhost'; readonly port: 3000 }
+
+  const routes = ['/', '/about', '/contact'] as const
+  type Route = typeof routes[number]  // '/' | '/about' | '/contact'
+
+satisfies operator (TS 4.9+):
+  const palette = {
+    red:   [255, 0, 0],
+    green: '#00ff00',
+    blue:  [0, 0, 255],
+  } satisfies Record<string, string | number[]>
+  // palette.red is inferred as number[], not string | number[]
+  // satisfies validates shape WITHOUT widening the type
+
+keyof / typeof patterns:
+  const ROLES = { admin: 'admin', user: 'user', guest: 'guest' } as const
+  type Role = typeof ROLES[keyof typeof ROLES]  // 'admin' | 'user' | 'guest'
+
+  type Keys<T>   = keyof T
+  type Values<T> = T[keyof T]
+
+Variadic tuple types:
+  type Concat<T extends unknown[], U extends unknown[]> = [...T, ...U]
+  type Head<T extends unknown[]>  = T extends [infer H, ...any] ? H : never
+  type Tail<T extends unknown[]>  = T extends [any, ...infer T] ? T : never"
+}
+
+fn s_tp_decorators() -> &'static str {
+    "TypeScript Decorators (Stage 3 / experimentalDecorators)
+Class decorator:
+  // tsconfig: { \"experimentalDecorators\": true }
+  function sealed(ctor: Function) {
+    Object.seal(ctor)
+    Object.seal(ctor.prototype)
+  }
+
+  @sealed
+  class BugReport { ... }
+
+Method decorator:
+  function log(target: any, key: string, desc: PropertyDescriptor) {
+    const orig = desc.value
+    desc.value = function(...args: any[]) {
+      console.log(`${key}(${args})`)
+      return orig.apply(this, args)
+    }
+    return desc
+  }
+
+  class Service {
+    @log
+    process(data: string) { return data.toUpperCase() }
+  }
+
+Property decorator:
+  function required(target: any, key: string) {
+    let val: any
+    Object.defineProperty(target, key, {
+      get: () => val,
+      set: (v) => {
+        if (v == null) throw new Error(`${key} is required`)
+        val = v
+      },
+    })
+  }
+
+Parameter decorator:
+  function validate(target: any, method: string, paramIdx: number) {
+    console.log(`Param ${paramIdx} of ${method} decorated`)
+  }
+
+  class API {
+    greet(@validate name: string) { return `Hello ${name}` }
+  }
+
+Reflect Metadata (dependency injection):
+  import 'reflect-metadata'
+  @Injectable()
+  class Service {
+    constructor(private readonly repo: Repository) {}
+  }
+  const paramTypes = Reflect.getMetadata('design:paramtypes', Service)
+  // [Repository]"
+}
+
+fn s_tp_modules() -> &'static str {
+    "TypeScript Module Augmentation & Declaration Merging
+Module augmentation:
+  // Extend Express Request type
+  declare global {
+    namespace Express {
+      interface Request {
+        user?: User
+        requestId: string
+      }
+    }
+  }
+
+  // Extend existing module:
+  import 'vue'
+  declare module 'vue' {
+    interface ComponentCustomProperties {
+      $filters: { currency(v: number): string }
+    }
+  }
+
+Declaration merging (interfaces):
+  interface Window {
+    analytics: Analytics
+    __DEV__: boolean
+  }
+  // Merged into existing Window interface
+
+Ambient declarations (.d.ts files):
+  // global.d.ts
+  declare const __VERSION__: string
+  declare function require(module: string): any
+  declare module '*.svg' { const content: string; export default content }
+  declare module '*.png' { const src: string; export default src }
+
+  // Type a CommonJS module:
+  declare module 'some-old-package' {
+    export function doThing(x: string): number
+    export default function(config: Config): void
+  }
+
+Path aliases (tsconfig.json):
+  {
+    \"compilerOptions\": {
+      \"baseUrl\": \".\",
+      \"paths\": {
+        \"@/*\": [\"src/*\"],
+        \"@components/*\": [\"src/components/*\"]
+      }
+    }
+  }
+
+Strict mode flags:
+  strict: true enables:
+    strictNullChecks      null/undefined not assignable to other types
+    noImplicitAny         error on implicit any
+    strictFunctionTypes   stricter fn type compatibility
+    strictBindCallApply   stricter bind/call/apply
+    strictPropertyInitialization  properties must be init in constructor
+    noImplicitThis        error on implicit 'this: any'
+    useUnknownInCatchVariables  catch variable typed as unknown"
+}
+
+type TsPatternsSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+const TS_PATTERNS_SECTIONS: &[TsPatternsSection] = &[
+    (
+        "mapped",
+        &[
+            "ts-mapped-types",
+            "ts-readonly",
+            "ts-optional",
+            "ts-utility-types",
+            "ts-pick",
+            "ts-omit",
+            "ts-record",
+            "ts-partial",
+            "ts-required",
+            "ts-remap-keys",
+            "ts-as-clause",
+        ],
+        s_tp_mapped,
+    ),
+    (
+        "conditional",
+        &[
+            "ts-conditional-types",
+            "ts-infer",
+            "ts-distributive",
+            "ts-awaited",
+            "ts-template-literal",
+            "ts-return-type",
+            "ts-parameters",
+            "ts-unwrap",
+            "ts-deep-readonly",
+            "ts-prop-event-source",
+            "ts-recursive",
+        ],
+        s_tp_conditional,
+    ),
+    (
+        "advanced",
+        &[
+            "ts-discriminated-union",
+            "ts-branded-types",
+            "ts-const-assertion",
+            "ts-satisfies",
+            "ts-keyof-typeof",
+            "ts-variadic-tuple",
+            "ts-nominal",
+            "ts-const-enum",
+            "ts-pattern-matching",
+            "ts-as-const",
+            "ts-values",
+        ],
+        s_tp_advanced,
+    ),
+    (
+        "decorators",
+        &[
+            "ts-decorators",
+            "ts-class-decorator",
+            "ts-method-decorator",
+            "ts-property-decorator",
+            "ts-parameter-decorator",
+            "reflect-metadata",
+            "ts-di-pattern",
+            "ts-injectable",
+            "experimental-decorators",
+            "ts-reflect",
+            "ts-metadata",
+        ],
+        s_tp_decorators,
+    ),
+    (
+        "modules",
+        &[
+            "ts-module-augmentation",
+            "ts-declaration-merging",
+            "ts-ambient",
+            "ts-path-aliases",
+            "ts-strict-mode",
+            "ts-global-augment",
+            "ts-dts-files",
+            "ts-declare-module",
+            "ts-declare-global",
+            "ts-tsconfig-paths",
+            "ts-strict-flags",
+        ],
+        s_tp_modules,
+    ),
+];
+
+pub fn ts_patterns_calc(query: &str) -> String {
+    let q = query.trim().to_lowercase();
+    if q.is_empty() || q == "list" || q == "help" {
+        let topics: Vec<&str> = TS_PATTERNS_SECTIONS.iter().map(|(n, _, _)| *n).collect();
+        return format!(
+            "ts-patterns topics: {}\nUse: --ts-patterns <topic>  or  --ts-patterns all",
+            topics.join(", ")
+        );
+    }
+    if q == "all" {
+        return TS_PATTERNS_SECTIONS
+            .iter()
+            .map(|(n, _, f)| format!("── {} ──\n{}", n, f()))
+            .collect::<Vec<_>>()
+            .join("\n\n");
+    }
+    for (name, aliases, func) in TS_PATTERNS_SECTIONS {
+        if q == *name || aliases.iter().any(|a| q == *a || q.contains(a)) {
+            return func().to_string();
+        }
+    }
+    format!(
+        "Unknown ts-patterns topic: '{}'\nAvailable: {}",
+        query.trim(),
+        TS_PATTERNS_SECTIONS
+            .iter()
+            .map(|(n, _, _)| *n)
+            .collect::<Vec<_>>()
+            .join(", ")
+    )
+}
+
+// ── mobile-web ────────────────────────────────────────────────
+
+fn s_mw_pwa() -> &'static str {
+    "Progressive Web Apps (PWA)
+Manifest (manifest.json / manifest.webmanifest):
+  {
+    \"name\": \"My App\",
+    \"short_name\": \"App\",
+    \"description\": \"My PWA\",
+    \"start_url\": \"/\",
+    \"display\": \"standalone\",
+    \"theme_color\": \"#007bff\",
+    \"background_color\": \"#ffffff\",
+    \"icons\": [
+      { \"src\": \"/icons/192.png\", \"sizes\": \"192x192\", \"type\": \"image/png\" },
+      { \"src\": \"/icons/512.png\", \"sizes\": \"512x512\", \"type\": \"image/png\",
+        \"purpose\": \"any maskable\" }
+    ]
+  }
+
+Link in HTML:
+  <link rel=\"manifest\" href=\"/manifest.webmanifest\">
+  <meta name=\"theme-color\" content=\"#007bff\">
+  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">
+
+Install prompt:
+  let deferredPrompt
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault()
+    deferredPrompt = e
+    showInstallButton()
+  })
+  installBtn.addEventListener('click', async () => {
+    deferredPrompt.prompt()
+    const { outcome } = await deferredPrompt.userChoice
+    deferredPrompt = null
+  })
+
+Push notifications:
+  const reg = await navigator.serviceWorker.ready
+  const sub = await reg.pushManager.subscribe({
+    userVisibleOnly: true,
+    applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+  })
+  // Send sub to server; server uses web-push library to send:
+  webpush.sendNotification(sub, JSON.stringify({ title: 'Hi', body: 'Hello' }))
+
+  // In sw.js:
+  self.addEventListener('push', (e) => {
+    const data = e.data.json()
+    e.waitUntil(self.registration.showNotification(data.title, { body: data.body }))
+  })
+
+Offline detection:
+  navigator.onLine    // boolean (unreliable for quality)
+  window.addEventListener('online',  updateUI)
+  window.addEventListener('offline', updateUI)"
+}
+
+fn s_mw_responsive() -> &'static str {
+    "Responsive Design & Mobile CSS
+Viewport meta:
+  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1, viewport-fit=cover\">
+
+Media queries:
+  @media (max-width: 768px)   { /* mobile */ }
+  @media (min-width: 769px)   { /* tablet+ */ }
+  @media (min-width: 1024px)  { /* desktop */ }
+  @media (prefers-color-scheme: dark)  { }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important } }
+  @media (hover: none) { }       /* touch devices */
+  @media (pointer: coarse) { }  /* touch input */
+
+Container queries (modern, no JS):
+  .card-container { container-type: inline-size; }
+  @container (min-width: 400px) {
+    .card { display: flex; gap: 1rem; }
+  }
+
+Fluid typography:
+  font-size: clamp(1rem, 2.5vw, 1.5rem)
+  font-size: clamp(16px, 1rem + 1vw, 24px)
+
+Fluid spacing:
+  padding: clamp(1rem, 5%, 3rem);
+  gap: clamp(0.5rem, 2vw, 2rem);
+
+Touch-friendly sizes:
+  min-height: 44px; min-width: 44px   /* iOS HIG minimum touch target */
+  min-height: 48px; min-width: 48px   /* Material Design minimum */
+
+Safe area insets (notch / home indicator):
+  padding: env(safe-area-inset-top) env(safe-area-inset-right)
+           env(safe-area-inset-bottom) env(safe-area-inset-left);
+
+Scroll snap:
+  .slider { scroll-snap-type: x mandatory; overflow-x: auto; }
+  .slide  { scroll-snap-align: start; flex: 0 0 100%; }
+
+Overscroll behavior:
+  overscroll-behavior: contain;   /* prevent scroll chaining */
+  overscroll-behavior-y: none;    /* disable pull-to-refresh */"
+}
+
+fn s_mw_performance() -> &'static str {
+    "Mobile Web Performance
+Core Web Vitals:
+  LCP (Largest Contentful Paint)  < 2.5s    largest visible element load time
+  FID (First Input Delay)         < 100ms   → INP (Interaction to Next Paint) < 200ms
+  CLS (Cumulative Layout Shift)   < 0.1     visual stability score
+  FCP (First Contentful Paint)    < 1.8s
+  TTFB (Time to First Byte)       < 800ms
+
+Measure:
+  Lighthouse CLI: npx lighthouse https://example.com --output json
+  web-vitals JS: import { onLCP, onINP, onCLS } from 'web-vitals'
+  PageSpeed Insights API
+  Chrome DevTools: Performance panel, Lighthouse tab
+
+Image optimization:
+  <picture>
+    <source srcset=\"img.avif\" type=\"image/avif\">
+    <source srcset=\"img.webp\" type=\"image/webp\">
+    <img src=\"img.jpg\" alt=\"\" loading=\"lazy\" decoding=\"async\"
+         width=\"800\" height=\"600\">
+  </picture>
+
+  width/height attributes: prevent CLS by reserving space
+  loading=\"lazy\": defer offscreen images
+  fetchpriority=\"high\": boost LCP image priority
+
+Resource hints:
+  <link rel=\"preload\"    href=\"critical.css\" as=\"style\">
+  <link rel=\"preload\"    href=\"hero.jpg\"     as=\"image\" fetchpriority=\"high\">
+  <link rel=\"preconnect\" href=\"https://fonts.googleapis.com\" crossorigin>
+  <link rel=\"prefetch\"   href=\"/next-page\">
+  <link rel=\"dns-prefetch\" href=\"https://cdn.example.com\">
+
+Code splitting:
+  import('./heavy-module').then(m => m.init())  // dynamic import
+  React.lazy(() => import('./HeavyPage'))
+
+Font loading:
+  font-display: swap;    /* show fallback immediately, swap when loaded */
+  font-display: optional; /* don't swap if > 100ms */
+  Variable fonts: woff2 with axis ranges (wght 100..900)"
+}
+
+fn s_mw_touch() -> &'static str {
+    "Touch Events & Mobile Interaction
+Touch events:
+  el.addEventListener('touchstart',  handleStart,  { passive: true })
+  el.addEventListener('touchmove',   handleMove,   { passive: false }) // can preventDefault
+  el.addEventListener('touchend',    handleEnd)
+  el.addEventListener('touchcancel', handleCancel)
+
+  // Touch object properties:
+  e.touches          // all current touches on screen
+  e.targetTouches    // touches on this element
+  e.changedTouches   // touches that changed in this event
+  touch.clientX / clientY
+  touch.pageX / pageY
+  touch.identifier   // unique ID per touch (multi-touch)
+
+Pointer Events (unified mouse/touch/pen):
+  el.addEventListener('pointerdown',  start, { passive: true })
+  el.addEventListener('pointermove',  move)
+  el.addEventListener('pointerup',    end)
+  el.addEventListener('pointercancel', cancel)
+  el.setPointerCapture(e.pointerId)    // keep events on this element during drag
+
+  e.pointerType   'mouse' | 'touch' | 'pen'
+  e.pressure      0..1
+  e.width / e.height  contact area
+
+Gesture library (HammerJS alternative — native):
+  // Swipe detect:
+  let startX, startY
+  el.addEventListener('pointerdown', e => { startX = e.clientX; startY = e.clientY })
+  el.addEventListener('pointerup',   e => {
+    const dx = e.clientX - startX
+    const dy = e.clientY - startY
+    if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy))
+      onSwipe(dx > 0 ? 'right' : 'left')
+  })
+
+Preventing ghost clicks:
+  // touch -> mousedown/mouseup/click fired with 300ms delay on iOS
+  // Fix: FastClick or touch-action: manipulation
+  button { touch-action: manipulation }  /* removes 300ms delay */
+
+CSS interaction:
+  cursor: pointer                    /* hand cursor on desktop */
+  user-select: none                  /* prevent text selection on tap */
+  -webkit-tap-highlight-color: transparent   /* remove iOS tap flash */
+  touch-action: pan-x                /* allow horizontal scroll only */
+  touch-action: none                 /* disable all browser touch handling */"
+}
+
+fn s_mw_device_apis() -> &'static str {
+    "Browser Device APIs
+Geolocation:
+  navigator.geolocation.getCurrentPosition(
+    (pos) => { console.log(pos.coords.latitude, pos.coords.longitude) },
+    (err) => { console.error(err.code, err.message) },
+    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+  )
+  const watcher = navigator.geolocation.watchPosition(callback)
+  navigator.geolocation.clearWatch(watcher)
+
+Camera / MediaDevices:
+  const stream = await navigator.mediaDevices.getUserMedia({
+    video: { facingMode: 'environment', width: 1280, height: 720 },
+    audio: false
+  })
+  videoEl.srcObject = stream
+  stream.getTracks().forEach(t => t.stop())  // release camera
+
+  const devices = await navigator.mediaDevices.enumerateDevices()
+  // types: audioinput, audiooutput, videoinput
+
+Screen / Display:
+  screen.width  screen.height       // physical pixels
+  window.innerWidth  window.innerHeight  // viewport
+  window.devicePixelRatio            // e.g. 3.0 on Retina
+  screen.orientation.type            // portrait-primary / landscape-primary
+  await screen.orientation.lock('landscape')  // (fullscreen required)
+
+Vibration:
+  navigator.vibrate(200)             // 200ms
+  navigator.vibrate([100, 50, 100])  // on, off, on
+
+Battery Status:
+  const battery = await navigator.getBattery()
+  battery.level          // 0.0..1.0
+  battery.charging
+  battery.chargingTime
+  battery.dischargingTime
+
+Network Information:
+  const conn = navigator.connection
+  conn.effectiveType     // 'slow-2g' | '2g' | '3g' | '4g'
+  conn.downlink          // Mbps estimate
+  conn.rtt               // round trip time ms
+  conn.saveData          // user's data-saver mode"
+}
+
+type MobileWebSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+const MOBILE_WEB_SECTIONS: &[MobileWebSection] = &[
+    (
+        "pwa",
+        &[
+            "progressive-web-app",
+            "web-manifest",
+            "install-prompt",
+            "push-notifications",
+            "web-push",
+            "pwa-install",
+            "offline-detection",
+            "vapid",
+            "manifest-json",
+            "pwa-icons",
+            "beforeinstallprompt",
+        ],
+        s_mw_pwa,
+    ),
+    (
+        "responsive",
+        &[
+            "responsive-design",
+            "media-queries",
+            "container-queries",
+            "fluid-typography",
+            "clamp-css",
+            "safe-area-inset",
+            "scroll-snap",
+            "touch-targets",
+            "mobile-css",
+            "viewport-meta",
+            "overscroll-behavior",
+        ],
+        s_mw_responsive,
+    ),
+    (
+        "performance",
+        &[
+            "core-web-vitals",
+            "lcp-fid-cls",
+            "web-vitals",
+            "lighthouse",
+            "image-optimization",
+            "resource-hints",
+            "preload-prefetch",
+            "code-splitting",
+            "font-loading",
+            "mobile-perf",
+            "lazy-loading",
+        ],
+        s_mw_performance,
+    ),
+    (
+        "touch",
+        &[
+            "touch-events",
+            "pointer-events",
+            "gesture-detection",
+            "swipe-detect",
+            "touch-action",
+            "ghost-clicks",
+            "mobile-interaction",
+            "pointer-capture",
+            "hammerjs-native",
+            "tap-highlight",
+            "touch-passive",
+        ],
+        s_mw_touch,
+    ),
+    (
+        "device-apis",
+        &[
+            "geolocation",
+            "media-devices",
+            "camera-api",
+            "getUserMedia",
+            "screen-orientation",
+            "vibration-api",
+            "battery-api",
+            "network-information",
+            "device-pixel-ratio",
+            "media-stream",
+            "navigator-connection",
+        ],
+        s_mw_device_apis,
+    ),
+];
+
+pub fn mobile_web_calc(query: &str) -> String {
+    let q = query.trim().to_lowercase();
+    if q.is_empty() || q == "list" || q == "help" {
+        let topics: Vec<&str> = MOBILE_WEB_SECTIONS.iter().map(|(n, _, _)| *n).collect();
+        return format!(
+            "mobile-web topics: {}\nUse: --mobile-web <topic>  or  --mobile-web all",
+            topics.join(", ")
+        );
+    }
+    if q == "all" {
+        return MOBILE_WEB_SECTIONS
+            .iter()
+            .map(|(n, _, f)| format!("── {} ──\n{}", n, f()))
+            .collect::<Vec<_>>()
+            .join("\n\n");
+    }
+    for (name, aliases, func) in MOBILE_WEB_SECTIONS {
+        if q == *name || aliases.iter().any(|a| q == *a || q.contains(a)) {
+            return func().to_string();
+        }
+    }
+    format!(
+        "Unknown mobile-web topic: '{}'\nAvailable: {}",
+        query.trim(),
+        MOBILE_WEB_SECTIONS
+            .iter()
+            .map(|(n, _, _)| *n)
+            .collect::<Vec<_>>()
+            .join(", ")
+    )
+}

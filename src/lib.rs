@@ -2506,6 +2506,34 @@ pub struct CliCockpit {
 
     #[arg(
         long,
+        value_name = "QUERY",
+        help = "CI/CD advanced patterns — offline replacement for docs.github.com and docs.gitlab.com. Topics: github-actions, gitlab-ci, argocd, pipeline-patterns, tekton. Aliases: gha-matrix, gitlab-ci, argocd, cicd-patterns, tekton. Examples: hematite --ci-cd-adv github-actions | hematite --ci-cd-adv argocd | hematite --ci-cd-adv all"
+    )]
+    pub ci_cd_adv: Option<String>,
+
+    #[arg(
+        long,
+        value_name = "QUERY",
+        help = "PostgreSQL operations reference — offline replacement for postgresql.org/docs. Topics: explain, indexes, connections, replication, maintenance. Aliases: pg-explain, pg-indexes, pgbouncer, pg-replication, pg-vacuum. Examples: hematite --sql-ops explain | hematite --sql-ops indexes | hematite --sql-ops all"
+    )]
+    pub sql_ops: Option<String>,
+
+    #[arg(
+        long,
+        value_name = "QUERY",
+        help = "TypeScript advanced type patterns — offline replacement for typescriptlang.org/docs. Topics: mapped, conditional, advanced, decorators, modules. Aliases: ts-mapped-types, ts-conditional-types, ts-branded-types, ts-decorators, ts-module-augmentation. Examples: hematite --ts-patterns mapped | hematite --ts-patterns conditional | hematite --ts-patterns all"
+    )]
+    pub ts_patterns: Option<String>,
+
+    #[arg(
+        long,
+        value_name = "QUERY",
+        help = "Mobile web & PWA reference — offline replacement for MDN mobile docs. Topics: pwa, responsive, performance, touch, device-apis. Aliases: progressive-web-app, responsive-design, core-web-vitals, touch-events, geolocation. Examples: hematite --mobile-web pwa | hematite --mobile-web performance | hematite --mobile-web all"
+    )]
+    pub mobile_web: Option<String>,
+
+    #[arg(
+        long,
         help_heading = "Math & Science",
         value_name = "QUERY",
         help = "Lorem ipsum generator — offline replacement for lipsum.com. Commands: (bare) or <N> = N paragraphs (default 1); words <N> = N words; sentences <N> = N sentences. Examples: hematite --lorem | hematite --lorem 3 | hematite --lorem 'words 50' | hematite --lorem 'sentences 5'"

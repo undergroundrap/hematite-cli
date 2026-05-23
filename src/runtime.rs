@@ -1169,6 +1169,10 @@ mod tests {
             redis_ref: None,
             web_apis: None,
             linux_containers: None,
+            ci_cd_adv: None,
+            sql_ops: None,
+            ts_patterns: None,
+            mobile_web: None,
             pdf_extract_helper: None,
             teleported_from: None,
         };
