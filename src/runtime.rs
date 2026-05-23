@@ -1161,6 +1161,10 @@ mod tests {
             react_ref: None,
             node_ref: None,
             java_ref: None,
+            python_adv: None,
+            go_adv: None,
+            vue_ref: None,
+            aws_ref: None,
             pdf_extract_helper: None,
             teleported_from: None,
         };

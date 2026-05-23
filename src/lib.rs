@@ -2450,6 +2450,34 @@ pub struct CliCockpit {
 
     #[arg(
         long,
+        value_name = "QUERY",
+        help = "Python advanced patterns — offline replacement for docs.python.org advanced topics. Topics: decorators, typing, async, dataclasses, patterns. Aliases: python-decorators, python-typing, python-async, python-dataclasses, python-patterns. Examples: hematite --python-adv decorators | hematite --python-adv async | hematite --python-adv all"
+    )]
+    pub python_adv: Option<String>,
+
+    #[arg(
+        long,
+        value_name = "QUERY",
+        help = "Go advanced patterns — offline replacement for go.dev docs. Topics: concurrency, generics, errors, modules, interfaces. Aliases: go-concurrency, go-generics, go-errors, go-modules, go-interfaces. Examples: hematite --go-adv concurrency | hematite --go-adv generics | hematite --go-adv all"
+    )]
+    pub go_adv: Option<String>,
+
+    #[arg(
+        long,
+        value_name = "QUERY",
+        help = "Vue 3 reference — offline replacement for vuejs.org docs. Topics: composition, reactivity, components, pinia, router. Aliases: vue-composition-api, vue-reactivity, pinia, vue-router. Examples: hematite --vue-ref composition | hematite --vue-ref pinia | hematite --vue-ref all"
+    )]
+    pub vue_ref: Option<String>,
+
+    #[arg(
+        long,
+        value_name = "QUERY",
+        help = "AWS reference — offline replacement for docs.aws.amazon.com. Topics: s3, ec2-iam, lambda, networking, rds-dynamo. Aliases: aws-s3, aws-ec2, aws-lambda, aws-vpc, aws-dynamodb. Examples: hematite --aws-ref s3 | hematite --aws-ref lambda | hematite --aws-ref all"
+    )]
+    pub aws_ref: Option<String>,
+
+    #[arg(
+        long,
         help_heading = "Math & Science",
         value_name = "QUERY",
         help = "Lorem ipsum generator — offline replacement for lipsum.com. Commands: (bare) or <N> = N paragraphs (default 1); words <N> = N words; sentences <N> = N sentences. Examples: hematite --lorem | hematite --lorem 3 | hematite --lorem 'words 50' | hematite --lorem 'sentences 5'"

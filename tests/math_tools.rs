@@ -4,20 +4,20 @@
 /// matrix decomposition modes (QR, SVD, Cholesky).
 use hematite::tools::math_util::{
     accessibility_calc, algo_ref_calc, ansible_calc, api_design_calc, api_gateway_calc,
-    api_versioning_calc, ascii_calc, ascii_table_calc, auth_ref_calc, awk_calc, bash_adv_calc,
-    bash_ref_calc, bitwise_calc, browser_dev_calc, caching_ref_calc, case_calc, chars_calc,
-    checksum_calc, chemistry_calc, chmod_calc, cicd_ref_calc, cipher_calc, cloud_cost_calc,
-    cloud_native_calc, cloud_ref_calc, color_calc, color_names_calc, combinatorics_calc,
-    compiler_ref_calc, complex_calc, concurrency_ref_calc, container_ref_calc, cron_calc,
-    crypto_adv_calc, crypto_ref_calc, css_grid_calc, css_ref_calc, csv_calc, curl_calc,
+    api_versioning_calc, ascii_calc, ascii_table_calc, auth_ref_calc, awk_calc, aws_ref_calc,
+    bash_adv_calc, bash_ref_calc, bitwise_calc, browser_dev_calc, caching_ref_calc, case_calc,
+    chars_calc, checksum_calc, chemistry_calc, chmod_calc, cicd_ref_calc, cipher_calc,
+    cloud_cost_calc, cloud_native_calc, cloud_ref_calc, color_calc, color_names_calc,
+    combinatorics_calc, compiler_ref_calc, complex_calc, concurrency_ref_calc, container_ref_calc,
+    cron_calc, crypto_adv_calc, crypto_ref_calc, css_grid_calc, css_ref_calc, csv_calc, curl_calc,
     data_formats_calc, data_pipeline_calc, database_adv_calc, datetime_calc, db_design_calc,
     db_internals_calc, db_migrations_calc, design_patterns_calc, devops_ref_calc, diff_calc,
     docker_adv_calc, docker_compose_calc, docker_ref_calc, duration_calc, electrical_calc,
     encode_calc, escape_calc, event_driven_calc, find_calc, fraction_calc, geometry_calc,
-    git_adv_calc, git_internals_calc, git_ref_calc, gitignore_calc, go_ref_calc, graphql_ref_calc,
-    grep_calc, grpc_ref_calc, hash_calc, headers_calc, health_calc, http2_calc, http_adv_calc,
-    http_calc, http_headers_calc, http_security_calc, http_status_calc, id_gen_calc, ip_calc,
-    java_ref_calc, jinja_calc, jq_calc, js_ref_calc, json_calc, json_path_calc, jwt_calc,
+    git_adv_calc, git_internals_calc, git_ref_calc, gitignore_calc, go_adv_calc, go_ref_calc,
+    graphql_ref_calc, grep_calc, grpc_ref_calc, hash_calc, headers_calc, health_calc, http2_calc,
+    http_adv_calc, http_calc, http_headers_calc, http_security_calc, http_status_calc, id_gen_calc,
+    ip_calc, java_ref_calc, jinja_calc, jq_calc, js_ref_calc, json_calc, json_path_calc, jwt_calc,
     k8s_adv_calc, k8s_ref_calc, k8s_security_calc, kbd_calc, kubectl_calc, license_calc,
     linux_adv_calc, linux_kernel_calc, linux_net_calc, linux_perf_calc, linux_sys_calc,
     load_testing_calc, lorem_calc, make_calc, makefile_calc, markdown_calc, matrix_calc,
@@ -25,18 +25,18 @@ use hematite::tools::math_util::{
     networking_adv_calc, nginx_calc, node_ref_calc, npm_calc, number_format, number_theory_calc,
     oauth2_flow_calc, oauth_ref_calc, observability_adv_calc, observability_calc, oop_ref_calc,
     openapi_ref_calc, openssl_calc, percent_calc, perf_ref_calc, physics_calc, port_calc,
-    postgres_calc, prob_calc, prom_ref_calc, protocols_ref_calc, python_data_calc, python_ref_calc,
-    react_ref_calc, regex_adv_calc, regex_calc, regex_engine_calc, regex_patterns_calc,
-    regex_ref_calc, regex_test_calc, regex_viz_calc, roman_calc, rust_adv_calc, rust_async_calc,
-    rust_macros_calc, rust_patterns_calc, rust_ref_calc, search_ref_calc, security_ref_calc,
-    security_scan_calc, security_tools_calc, sed_calc, semver_calc, service_mesh_calc, set_calc,
-    sort_viz, spark_calc, sql_adv_calc, sql_fmt_calc, sql_ref_calc, sql_tuning_calc,
-    sql_window_calc, ssh_ref_calc, ssl_calc, stats_calc, string_dist, systemd_adv_calc,
-    systemd_calc, table_calc, tar_calc, template_calc, terminal_tools_calc, terraform_adv_calc,
-    terraform_calc, testing_ref_calc, text_stats, timestamp_calc, tmux_calc, toml_calc, trig_calc,
-    ts_ref_calc, typescript_adv_calc, tz_calc, unicode_ref_calc, url_calc, uuid_calc,
-    validate_calc, vim_adv_calc, vim_calc, wasm_ref_calc, wasm_runtime_calc, web_perf_calc,
-    xml_calc, yaml_calc,
+    postgres_calc, prob_calc, prom_ref_calc, protocols_ref_calc, python_adv_calc, python_data_calc,
+    python_ref_calc, react_ref_calc, regex_adv_calc, regex_calc, regex_engine_calc,
+    regex_patterns_calc, regex_ref_calc, regex_test_calc, regex_viz_calc, roman_calc,
+    rust_adv_calc, rust_async_calc, rust_macros_calc, rust_patterns_calc, rust_ref_calc,
+    search_ref_calc, security_ref_calc, security_scan_calc, security_tools_calc, sed_calc,
+    semver_calc, service_mesh_calc, set_calc, sort_viz, spark_calc, sql_adv_calc, sql_fmt_calc,
+    sql_ref_calc, sql_tuning_calc, sql_window_calc, ssh_ref_calc, ssl_calc, stats_calc,
+    string_dist, systemd_adv_calc, systemd_calc, table_calc, tar_calc, template_calc,
+    terminal_tools_calc, terraform_adv_calc, terraform_calc, testing_ref_calc, text_stats,
+    timestamp_calc, tmux_calc, toml_calc, trig_calc, ts_ref_calc, typescript_adv_calc, tz_calc,
+    unicode_ref_calc, url_calc, uuid_calc, validate_calc, vim_adv_calc, vim_calc, vue_ref_calc,
+    wasm_ref_calc, wasm_runtime_calc, web_perf_calc, xml_calc, yaml_calc,
 };
 
 // ─── Cipher tests ────────────────────────────────────────────────────────────
@@ -31841,4 +31841,814 @@ fn test_java_ref_alias_spring_exception() {
 fn test_java_ref_unknown_query() {
     let out = java_ref_calc("nonexistent-topic-xyz");
     assert!(out.contains("Unknown java-ref topic"));
+}
+
+// ─── python_adv_calc ─────────────────────────────────────────────────────────
+
+#[test]
+fn test_python_adv_list() {
+    let out = python_adv_calc("list");
+    assert!(out.contains("python-adv topics"));
+    assert!(out.contains("decorators"));
+}
+
+#[test]
+fn test_python_adv_help() {
+    let out = python_adv_calc("help");
+    assert!(out.contains("python-adv topics"));
+}
+
+#[test]
+fn test_python_adv_empty() {
+    let out = python_adv_calc("");
+    assert!(out.contains("python-adv topics"));
+}
+
+#[test]
+fn test_python_adv_all_contains_sections() {
+    let out = python_adv_calc("all");
+    assert!(out.contains("── decorators ──"));
+    assert!(out.contains("── typing ──"));
+    assert!(out.contains("── async ──"));
+    assert!(out.contains("── dataclasses ──"));
+    assert!(out.contains("── patterns ──"));
+}
+
+#[test]
+fn test_python_adv_topic_decorators() {
+    let out = python_adv_calc("decorators");
+    assert!(
+        out.contains("decorator") || out.contains("functools"),
+        "unexpected: {out}"
+    );
+}
+
+#[test]
+fn test_python_adv_alias_python_decorators() {
+    let out = python_adv_calc("python-decorators");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_python_adv_alias_python_metaclass() {
+    let out = python_adv_calc("python-metaclass");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_python_adv_alias_python_singleton() {
+    let out = python_adv_calc("python-singleton");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_python_adv_alias_property_decorator() {
+    let out = python_adv_calc("property-decorator");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_python_adv_topic_typing() {
+    let out = python_adv_calc("typing");
+    assert!(
+        out.contains("TypeVar") || out.contains("Protocol"),
+        "unexpected: {out}"
+    );
+}
+
+#[test]
+fn test_python_adv_alias_python_typing() {
+    let out = python_adv_calc("python-typing");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_python_adv_alias_python_generics() {
+    let out = python_adv_calc("python-generics");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_python_adv_alias_typeddict() {
+    let out = python_adv_calc("typeddict");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_python_adv_alias_paramspec() {
+    let out = python_adv_calc("paramspec");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_python_adv_topic_async() {
+    let out = python_adv_calc("async");
+    assert!(
+        out.contains("asyncio") || out.contains("await"),
+        "unexpected: {out}"
+    );
+}
+
+#[test]
+fn test_python_adv_alias_python_async() {
+    let out = python_adv_calc("python-async");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_python_adv_alias_asyncio_tasks() {
+    let out = python_adv_calc("asyncio-tasks");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_python_adv_alias_async_generator() {
+    let out = python_adv_calc("async-generator");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_python_adv_alias_python_semaphore() {
+    let out = python_adv_calc("python-semaphore");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_python_adv_topic_dataclasses() {
+    let out = python_adv_calc("dataclasses");
+    assert!(
+        out.contains("dataclass") || out.contains("@dataclass"),
+        "unexpected: {out}"
+    );
+}
+
+#[test]
+fn test_python_adv_alias_python_dataclasses() {
+    let out = python_adv_calc("python-dataclasses");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_python_adv_alias_python_slots() {
+    let out = python_adv_calc("python-slots");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_python_adv_alias_itertools_ref() {
+    let out = python_adv_calc("itertools-ref");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_python_adv_alias_python_yield() {
+    let out = python_adv_calc("python-yield");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_python_adv_topic_patterns() {
+    let out = python_adv_calc("patterns");
+    assert!(
+        out.contains("lru_cache") || out.contains("contextmanager") || out.contains("pathlib"),
+        "unexpected: {out}"
+    );
+}
+
+#[test]
+fn test_python_adv_alias_python_contextmanager() {
+    let out = python_adv_calc("python-contextmanager");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_python_adv_alias_python_lru_cache() {
+    let out = python_adv_calc("python-lru-cache");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_python_adv_alias_python_match() {
+    let out = python_adv_calc("python-match");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_python_adv_alias_python_pathlib() {
+    let out = python_adv_calc("python-pathlib");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_python_adv_unknown_query() {
+    let out = python_adv_calc("nonexistent-topic-xyz");
+    assert!(out.contains("Unknown python-adv topic"));
+}
+
+// ─── go_adv_calc ──────────────────────────────────────────────────────────────
+
+#[test]
+fn test_go_adv_list() {
+    let out = go_adv_calc("list");
+    assert!(out.contains("go-adv topics"));
+    assert!(out.contains("concurrency"));
+}
+
+#[test]
+fn test_go_adv_help() {
+    let out = go_adv_calc("help");
+    assert!(out.contains("go-adv topics"));
+}
+
+#[test]
+fn test_go_adv_empty() {
+    let out = go_adv_calc("");
+    assert!(out.contains("go-adv topics"));
+}
+
+#[test]
+fn test_go_adv_all_contains_sections() {
+    let out = go_adv_calc("all");
+    assert!(out.contains("── concurrency ──"));
+    assert!(out.contains("── generics ──"));
+    assert!(out.contains("── errors ──"));
+    assert!(out.contains("── modules ──"));
+    assert!(out.contains("── interfaces ──"));
+}
+
+#[test]
+fn test_go_adv_topic_concurrency() {
+    let out = go_adv_calc("concurrency");
+    assert!(
+        out.contains("goroutine") || out.contains("channel") || out.contains("WaitGroup"),
+        "unexpected: {out}"
+    );
+}
+
+#[test]
+fn test_go_adv_alias_go_concurrency() {
+    let out = go_adv_calc("go-concurrency");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_go_adv_alias_go_goroutines() {
+    let out = go_adv_calc("go-goroutines");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_go_adv_alias_go_channels() {
+    let out = go_adv_calc("go-channels");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_go_adv_alias_go_errgroup() {
+    let out = go_adv_calc("go-errgroup");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_go_adv_topic_generics() {
+    let out = go_adv_calc("generics");
+    assert!(
+        out.contains("TypeVar") || out.contains("comparable") || out.contains("generic"),
+        "unexpected: {out}"
+    );
+}
+
+#[test]
+fn test_go_adv_alias_go_generics() {
+    let out = go_adv_calc("go-generics");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_go_adv_alias_go_type_params() {
+    let out = go_adv_calc("go-type-params");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_go_adv_alias_go_slices_pkg() {
+    let out = go_adv_calc("go-slices-pkg");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_go_adv_alias_go_maps_pkg() {
+    let out = go_adv_calc("go-maps-pkg");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_go_adv_topic_errors() {
+    let out = go_adv_calc("errors");
+    assert!(
+        out.contains("errors.Is") || out.contains("errors.As") || out.contains("fmt.Errorf"),
+        "unexpected: {out}"
+    );
+}
+
+#[test]
+fn test_go_adv_alias_go_errors() {
+    let out = go_adv_calc("go-errors");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_go_adv_alias_go_error_wrapping() {
+    let out = go_adv_calc("go-error-wrapping");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_go_adv_alias_go_panic_recover() {
+    let out = go_adv_calc("go-panic-recover");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_go_adv_alias_go_slog() {
+    let out = go_adv_calc("go-slog");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_go_adv_topic_modules() {
+    let out = go_adv_calc("modules");
+    assert!(
+        out.contains("go.mod") || out.contains("go mod"),
+        "unexpected: {out}"
+    );
+}
+
+#[test]
+fn test_go_adv_alias_go_modules() {
+    let out = go_adv_calc("go-modules");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_go_adv_alias_go_build() {
+    let out = go_adv_calc("go-build");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_go_adv_alias_go_testing() {
+    let out = go_adv_calc("go-testing");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_go_adv_alias_go_race_detector() {
+    let out = go_adv_calc("go-race-detector");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_go_adv_topic_interfaces() {
+    let out = go_adv_calc("interfaces");
+    assert!(
+        out.contains("interface") || out.contains("io.Reader") || out.contains("ServeHTTP"),
+        "unexpected: {out}"
+    );
+}
+
+#[test]
+fn test_go_adv_alias_go_interfaces() {
+    let out = go_adv_calc("go-interfaces");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_go_adv_alias_go_functional_options() {
+    let out = go_adv_calc("go-functional-options");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_go_adv_alias_go_http_handler() {
+    let out = go_adv_calc("go-http-handler");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_go_adv_alias_go_type_switch() {
+    let out = go_adv_calc("go-type-switch");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_go_adv_unknown_query() {
+    let out = go_adv_calc("nonexistent-topic-xyz");
+    assert!(out.contains("Unknown go-adv topic"));
+}
+
+// ─── vue_ref_calc ─────────────────────────────────────────────────────────────
+
+#[test]
+fn test_vue_ref_list() {
+    let out = vue_ref_calc("list");
+    assert!(out.contains("vue-ref topics"));
+    assert!(out.contains("composition"));
+}
+
+#[test]
+fn test_vue_ref_help() {
+    let out = vue_ref_calc("help");
+    assert!(out.contains("vue-ref topics"));
+}
+
+#[test]
+fn test_vue_ref_empty() {
+    let out = vue_ref_calc("");
+    assert!(out.contains("vue-ref topics"));
+}
+
+#[test]
+fn test_vue_ref_all_contains_sections() {
+    let out = vue_ref_calc("all");
+    assert!(out.contains("── composition ──"));
+    assert!(out.contains("── reactivity ──"));
+    assert!(out.contains("── components ──"));
+    assert!(out.contains("── pinia ──"));
+    assert!(out.contains("── router ──"));
+}
+
+#[test]
+fn test_vue_ref_topic_composition() {
+    let out = vue_ref_calc("composition");
+    assert!(
+        out.contains("ref") || out.contains("reactive") || out.contains("setup"),
+        "unexpected: {out}"
+    );
+}
+
+#[test]
+fn test_vue_ref_alias_vue_composition_api() {
+    let out = vue_ref_calc("vue-composition-api");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_vue_ref_alias_script_setup() {
+    let out = vue_ref_calc("script-setup");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_vue_ref_alias_vue_computed() {
+    let out = vue_ref_calc("vue-computed");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_vue_ref_alias_vue_provide_inject() {
+    let out = vue_ref_calc("vue-provide-inject");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_vue_ref_topic_reactivity() {
+    let out = vue_ref_calc("reactivity");
+    assert!(
+        out.contains("computed") || out.contains("watch") || out.contains("nextTick"),
+        "unexpected: {out}"
+    );
+}
+
+#[test]
+fn test_vue_ref_alias_vue_reactivity() {
+    let out = vue_ref_calc("vue-reactivity");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_vue_ref_alias_vue_watcheffect() {
+    let out = vue_ref_calc("vue-watcheffect");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_vue_ref_alias_shallow_ref() {
+    let out = vue_ref_calc("shallow-ref");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_vue_ref_alias_vue_composables() {
+    let out = vue_ref_calc("vue-composables");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_vue_ref_topic_components() {
+    let out = vue_ref_calc("components");
+    assert!(
+        out.contains("defineAsyncComponent")
+            || out.contains("Teleport")
+            || out.contains("Suspense"),
+        "unexpected: {out}"
+    );
+}
+
+#[test]
+fn test_vue_ref_alias_vue_components() {
+    let out = vue_ref_calc("vue-components");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_vue_ref_alias_vue_async_component() {
+    let out = vue_ref_calc("vue-async-component");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_vue_ref_alias_vue_teleport() {
+    let out = vue_ref_calc("vue-teleport");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_vue_ref_alias_vue_directives() {
+    let out = vue_ref_calc("vue-directives");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_vue_ref_topic_pinia() {
+    let out = vue_ref_calc("pinia");
+    assert!(
+        out.contains("defineStore") || out.contains("Pinia"),
+        "unexpected: {out}"
+    );
+}
+
+#[test]
+fn test_vue_ref_alias_pinia_store() {
+    let out = vue_ref_calc("pinia-store");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_vue_ref_alias_storetorefs() {
+    let out = vue_ref_calc("storetorefs");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_vue_ref_alias_pinia_actions() {
+    let out = vue_ref_calc("pinia-actions");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_vue_ref_alias_pinia_getters() {
+    let out = vue_ref_calc("pinia-getters");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_vue_ref_topic_router() {
+    let out = vue_ref_calc("router");
+    assert!(
+        out.contains("createRouter") || out.contains("useRoute") || out.contains("beforeEach"),
+        "unexpected: {out}"
+    );
+}
+
+#[test]
+fn test_vue_ref_alias_vue_router() {
+    let out = vue_ref_calc("vue-router");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_vue_ref_alias_nuxt_3() {
+    let out = vue_ref_calc("nuxt-3");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_vue_ref_alias_vue_navigation_guard() {
+    let out = vue_ref_calc("vue-navigation-guard");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_vue_ref_alias_vue_lazy_routes() {
+    let out = vue_ref_calc("vue-lazy-routes");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_vue_ref_unknown_query() {
+    let out = vue_ref_calc("nonexistent-topic-xyz");
+    assert!(out.contains("Unknown vue-ref topic"));
+}
+
+// ─── aws_ref_calc ─────────────────────────────────────────────────────────────
+
+#[test]
+fn test_aws_ref_list() {
+    let out = aws_ref_calc("list");
+    assert!(out.contains("aws-ref topics"));
+    assert!(out.contains("s3"));
+}
+
+#[test]
+fn test_aws_ref_help() {
+    let out = aws_ref_calc("help");
+    assert!(out.contains("aws-ref topics"));
+}
+
+#[test]
+fn test_aws_ref_empty() {
+    let out = aws_ref_calc("");
+    assert!(out.contains("aws-ref topics"));
+}
+
+#[test]
+fn test_aws_ref_all_contains_sections() {
+    let out = aws_ref_calc("all");
+    assert!(out.contains("── s3 ──"));
+    assert!(out.contains("── ec2-iam ──"));
+    assert!(out.contains("── lambda ──"));
+    assert!(out.contains("── networking ──"));
+    assert!(out.contains("── rds-dynamo ──"));
+}
+
+#[test]
+fn test_aws_ref_topic_s3() {
+    let out = aws_ref_calc("s3");
+    assert!(
+        out.contains("s3://") || out.contains("S3") || out.contains("boto3"),
+        "unexpected: {out}"
+    );
+}
+
+#[test]
+fn test_aws_ref_alias_aws_s3() {
+    let out = aws_ref_calc("aws-s3");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_aws_ref_alias_s3_bucket() {
+    let out = aws_ref_calc("s3-bucket");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_aws_ref_alias_s3_presigned() {
+    let out = aws_ref_calc("s3-presigned");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_aws_ref_alias_boto3_s3() {
+    let out = aws_ref_calc("boto3-s3");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_aws_ref_topic_ec2_iam() {
+    let out = aws_ref_calc("ec2-iam");
+    assert!(
+        out.contains("EC2") || out.contains("IAM") || out.contains("aws ec2"),
+        "unexpected: {out}"
+    );
+}
+
+#[test]
+fn test_aws_ref_alias_aws_ec2() {
+    let out = aws_ref_calc("aws-ec2");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_aws_ref_alias_aws_iam() {
+    let out = aws_ref_calc("aws-iam");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_aws_ref_alias_iam_policy() {
+    let out = aws_ref_calc("iam-policy");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_aws_ref_alias_iam_role() {
+    let out = aws_ref_calc("iam-role");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_aws_ref_topic_lambda() {
+    let out = aws_ref_calc("lambda");
+    assert!(
+        out.contains("Lambda") || out.contains("handler") || out.contains("serverless"),
+        "unexpected: {out}"
+    );
+}
+
+#[test]
+fn test_aws_ref_alias_aws_lambda() {
+    let out = aws_ref_calc("aws-lambda");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_aws_ref_alias_lambda_event_sources() {
+    let out = aws_ref_calc("lambda-event-sources");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_aws_ref_alias_aws_sam() {
+    let out = aws_ref_calc("aws-sam");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_aws_ref_alias_lambda_cold_start() {
+    let out = aws_ref_calc("lambda-cold-start");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_aws_ref_topic_networking() {
+    let out = aws_ref_calc("networking");
+    assert!(
+        out.contains("VPC") || out.contains("subnet") || out.contains("CloudFront"),
+        "unexpected: {out}"
+    );
+}
+
+#[test]
+fn test_aws_ref_alias_aws_vpc() {
+    let out = aws_ref_calc("aws-vpc");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_aws_ref_alias_aws_cloudfront() {
+    let out = aws_ref_calc("aws-cloudfront");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_aws_ref_alias_aws_route53() {
+    let out = aws_ref_calc("aws-route53");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_aws_ref_alias_security_group() {
+    let out = aws_ref_calc("security-group");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_aws_ref_topic_rds_dynamo() {
+    let out = aws_ref_calc("rds-dynamo");
+    assert!(
+        out.contains("RDS") || out.contains("DynamoDB") || out.contains("dynamo"),
+        "unexpected: {out}"
+    );
+}
+
+#[test]
+fn test_aws_ref_alias_aws_rds() {
+    let out = aws_ref_calc("aws-rds");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_aws_ref_alias_aws_dynamodb() {
+    let out = aws_ref_calc("aws-dynamodb");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_aws_ref_alias_dynamo_gsi() {
+    let out = aws_ref_calc("dynamo-gsi");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_aws_ref_alias_boto3_dynamodb() {
+    let out = aws_ref_calc("boto3-dynamodb");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_aws_ref_unknown_query() {
+    let out = aws_ref_calc("nonexistent-topic-xyz");
+    assert!(out.contains("Unknown aws-ref topic"));
 }

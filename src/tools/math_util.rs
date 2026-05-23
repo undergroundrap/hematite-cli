@@ -65393,3 +65393,1585 @@ pub fn java_ref_calc(query: &str) -> String {
             .join(", ")
     )
 }
+
+// ════════════════════════════════════════════════════════════════
+// Wave 44: --python-adv, --go-adv, --vue-ref, --aws-ref
+// ════════════════════════════════════════════════════════════════
+
+fn s_pa_decorators() -> &'static str {
+    "Python Decorators & Metaprogramming
+Function decorators:
+  def timer(func):
+      import time
+      def wrapper(*args, **kwargs):
+          t0 = time.perf_counter()
+          result = func(*args, **kwargs)
+          print(f'{func.__name__}: {time.perf_counter()-t0:.4f}s')
+          return result
+      return wrapper
+
+  @timer
+  def slow_fn(): time.sleep(0.1)
+
+Decorators with arguments:
+  def retry(times=3, exceptions=(Exception,)):
+      def decorator(func):
+          def wrapper(*args, **kwargs):
+              for i in range(times):
+                  try: return func(*args, **kwargs)
+                  except exceptions as e:
+                      if i == times - 1: raise
+          return wrapper
+      return decorator
+
+  @retry(times=5, exceptions=(IOError,))
+  def fetch_data(): ...
+
+functools.wraps (preserve metadata):
+  from functools import wraps
+  def my_decorator(func):
+      @wraps(func)  # preserves __name__, __doc__
+      def wrapper(*args, **kwargs):
+          return func(*args, **kwargs)
+      return wrapper
+
+Class decorators:
+  def singleton(cls):
+      instances = {}
+      def get_instance(*args, **kwargs):
+          if cls not in instances:
+              instances[cls] = cls(*args, **kwargs)
+          return instances[cls]
+      return get_instance
+
+  @singleton
+  class Config: pass
+
+Built-in decorators:
+  @staticmethod    no self/cls; plain function in class
+  @classmethod     receives cls; alternative constructors
+  @property        getter/setter/deleter on attribute access
+  @abstractmethod  (abc.ABCMeta) must be overridden
+
+Metaclasses:
+  class SingletonMeta(type):
+      _instances = {}
+      def __call__(cls, *args, **kwargs):
+          if cls not in cls._instances:
+              cls._instances[cls] = super().__call__(*args, **kwargs)
+          return cls._instances[cls]
+
+  class MyClass(metaclass=SingletonMeta): pass"
+}
+
+fn s_pa_typing() -> &'static str {
+    "Python Type Hints & Typing
+Basic annotations:
+  x: int = 5
+  name: str = 'Alice'
+  items: list[int] = []
+  mapping: dict[str, int] = {}
+  point: tuple[int, int] = (1, 2)
+
+Union / Optional:
+  from typing import Optional, Union
+  def greet(name: str | None) -> str: ...   # Python 3.10+
+  def greet(name: Optional[str]) -> str: ... # older style
+
+Generics:
+  from typing import TypeVar, Generic
+  T = TypeVar('T')
+  def first(lst: list[T]) -> T: return lst[0]
+
+  class Stack(Generic[T]):
+      def __init__(self) -> None: self._items: list[T] = []
+      def push(self, item: T) -> None: self._items.append(item)
+      def pop(self) -> T: return self._items.pop()
+
+Protocol (structural subtyping):
+  from typing import Protocol
+  class Drawable(Protocol):
+      def draw(self) -> None: ...
+
+  def render(obj: Drawable) -> None: obj.draw()
+
+TypedDict:
+  from typing import TypedDict
+  class User(TypedDict):
+      name: str
+      age: int
+      email: str | None
+
+  user: User = {'name': 'Alice', 'age': 30, 'email': None}
+
+Callable / ParamSpec:
+  from typing import Callable, ParamSpec
+  P = ParamSpec('P')
+  def decorator(func: Callable[P, T]) -> Callable[P, T]: ...
+
+Literal / Final:
+  from typing import Literal, Final
+  Mode = Literal['r', 'w', 'a']
+  MAX: Final = 100
+
+Pydantic (runtime validation):
+  from pydantic import BaseModel, Field, validator
+  class User(BaseModel):
+      name: str
+      age: int = Field(gt=0, lt=150)
+      email: str
+  user = User(name='Alice', age=30, email='a@b.com')
+  user.model_dump()  # dict"
+}
+
+fn s_pa_async() -> &'static str {
+    "Python asyncio & Async Patterns
+Async basics:
+  import asyncio
+
+  async def fetch(url: str) -> str:
+      async with aiohttp.ClientSession() as session:
+          async with session.get(url) as resp:
+              return await resp.text()
+
+  async def main():
+      result = await fetch('https://example.com')
+      print(result)
+
+  asyncio.run(main())
+
+Concurrent tasks:
+  async def main():
+      tasks = [asyncio.create_task(fetch(url)) for url in urls]
+      results = await asyncio.gather(*tasks)
+
+      # With error handling:
+      results = await asyncio.gather(*tasks, return_exceptions=True)
+      for r in results:
+          if isinstance(r, Exception): handle_error(r)
+
+  # Timeout:
+  try:
+      result = await asyncio.wait_for(fetch(url), timeout=5.0)
+  except asyncio.TimeoutError:
+      print('timed out')
+
+Async generators:
+  async def paginate(client, url):
+      page = 1
+      while True:
+          data = await client.get(f'{url}?page={page}')
+          if not data: break
+          yield data
+          page += 1
+
+  async for page in paginate(client, '/api/items'):
+      process(page)
+
+Async context managers:
+  class AsyncDB:
+      async def __aenter__(self): await self.connect(); return self
+      async def __aexit__(self, *args): await self.close()
+
+  async with AsyncDB() as db:
+      await db.query('SELECT 1')
+
+Semaphore (concurrency limit):
+  sem = asyncio.Semaphore(10)
+  async def limited_fetch(url):
+      async with sem:
+          return await fetch(url)
+
+Event loop:
+  loop = asyncio.get_event_loop()
+  loop.run_until_complete(main())
+  # Prefer asyncio.run() in Python 3.7+"
+}
+
+fn s_pa_dataclasses() -> &'static str {
+    "Python Dataclasses & Descriptors
+Dataclasses:
+  from dataclasses import dataclass, field, KW_ONLY
+  @dataclass
+  class Point:
+      x: float
+      y: float
+      label: str = 'point'
+      tags: list[str] = field(default_factory=list)
+
+  @dataclass(frozen=True)   # immutable, hashable
+  class Color:
+      r: int; g: int; b: int
+
+  @dataclass(order=True)    # enables comparison (<, >, <=, >=)
+  class Version:
+      major: int; minor: int; patch: int
+
+  @dataclass(slots=True)    # Python 3.10+, uses __slots__
+  class Efficient:
+      x: int; y: int
+
+Post-init:
+  @dataclass
+  class Circle:
+      radius: float
+      area: float = field(init=False)
+      def __post_init__(self):
+          self.area = 3.14159 * self.radius ** 2
+
+Descriptors:
+  class Validated:
+      def __set_name__(self, owner, name):
+          self.name = name
+      def __get__(self, obj, objtype=None):
+          if obj is None: return self
+          return obj.__dict__.get(self.name)
+      def __set__(self, obj, value):
+          if not isinstance(value, (int, float)):
+              raise TypeError(f'{self.name} must be numeric')
+          obj.__dict__[self.name] = value
+
+  class Circle:
+      radius = Validated()
+
+__slots__:
+  class Point:
+      __slots__ = ('x', 'y')  # ~40% less memory, faster attr access
+      def __init__(self, x, y): self.x = x; self.y = y
+
+Generators / itertools:
+  def fibonacci():
+      a, b = 0, 1
+      while True:
+          yield a
+          a, b = b, a + b
+
+  import itertools
+  list(itertools.islice(fibonacci(), 10))  # [0,1,1,2,3,5,8,13,21,34]
+  itertools.chain(range(3), range(3))      # 0,1,2,0,1,2
+  itertools.product('AB', repeat=2)        # AA,AB,BA,BB
+  itertools.groupby(data, key=lambda x: x['dept'])"
+}
+
+fn s_pa_patterns() -> &'static str {
+    "Python Advanced Patterns
+Context managers:
+  from contextlib import contextmanager, asynccontextmanager
+  @contextmanager
+  def timer(label):
+      t = time.perf_counter()
+      try: yield
+      finally: print(f'{label}: {time.perf_counter()-t:.3f}s')
+
+  with timer('sort'):
+      data.sort()
+
+  @contextmanager
+  def temp_dir():
+      path = Path(tempfile.mkdtemp())
+      try: yield path
+      finally: shutil.rmtree(path)
+
+functools:
+  from functools import lru_cache, cache, partial, reduce, cached_property
+  @lru_cache(maxsize=128)
+  def fib(n): return n if n < 2 else fib(n-1) + fib(n-2)
+  @cache   # unbounded, Python 3.9+
+  def fib(n): return n if n < 2 else fib(n-1) + fib(n-2)
+
+  add5 = partial(add, 5)
+  total = reduce(lambda a, b: a + b, items, 0)
+
+  class Circle:
+      @cached_property
+      def area(self): return math.pi * self.radius ** 2
+
+Structural pattern matching (Python 3.10):
+  match command:
+      case {'action': 'quit'}:          sys.exit()
+      case {'action': 'move', 'x': x, 'y': y}: move(x, y)
+      case {'action': str(a)}:           handle(a)
+      case _:                            raise ValueError
+
+  match point:
+      case Point(x=0, y=0): print('origin')
+      case Point(x=0, y=y): print(f'Y={y}')
+      case Point(x=x, y=0): print(f'X={x}')
+      case Point(x=x, y=y): print(f'X={x}, Y={y}')
+
+Pathlib:
+  from pathlib import Path
+  p = Path('/home/user/data')
+  p.exists()  p.is_file()  p.is_dir()
+  p / 'subdir' / 'file.txt'   # path joining
+  list(p.glob('**/*.py'))
+  p.read_text(encoding='utf-8')
+  p.write_text(content, encoding='utf-8')
+  p.stat().st_size  p.stat().st_mtime"
+}
+
+type PythonAdvSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+const PYTHON_ADV_SECTIONS: &[PythonAdvSection] = &[
+    (
+        "decorators",
+        &[
+            "python-decorators",
+            "python-metaclass",
+            "python-singleton",
+            "functools-wraps",
+            "class-decorator",
+            "property-decorator",
+            "staticmethod",
+            "classmethod",
+            "abstractmethod",
+            "python-descriptor-intro",
+            "decorator-factory",
+        ],
+        s_pa_decorators,
+    ),
+    (
+        "typing",
+        &[
+            "python-typing",
+            "python-type-hints",
+            "python-generics",
+            "python-protocol",
+            "typeddict",
+            "python-pydantic",
+            "python-literal",
+            "python-final",
+            "paramspec",
+            "python-callable",
+            "python-optional",
+        ],
+        s_pa_typing,
+    ),
+    (
+        "async",
+        &[
+            "python-async",
+            "python-asyncio",
+            "async-await-python",
+            "python-gather",
+            "asyncio-tasks",
+            "async-generator",
+            "async-context-manager",
+            "python-semaphore",
+            "aiohttp-ref",
+            "python-timeout",
+            "asyncio-run",
+        ],
+        s_pa_async,
+    ),
+    (
+        "dataclasses",
+        &[
+            "python-dataclasses",
+            "python-slots",
+            "python-descriptor",
+            "python-generators",
+            "itertools-ref",
+            "python-frozen",
+            "python-post-init",
+            "python-dataclass-field",
+            "python-itertools",
+            "python-yield",
+            "python-generator-expr",
+        ],
+        s_pa_dataclasses,
+    ),
+    (
+        "patterns",
+        &[
+            "python-patterns",
+            "python-contextmanager",
+            "python-functools",
+            "python-lru-cache",
+            "python-partial",
+            "python-match",
+            "python-pathlib",
+            "cached-property",
+            "python-structural-match",
+            "python-reduce",
+            "python-path",
+        ],
+        s_pa_patterns,
+    ),
+];
+
+pub fn python_adv_calc(query: &str) -> String {
+    let q = query.trim().to_lowercase();
+    if q.is_empty() || q == "list" || q == "help" {
+        let topics: Vec<&str> = PYTHON_ADV_SECTIONS.iter().map(|(n, _, _)| *n).collect();
+        return format!(
+            "python-adv topics: {}\nUse: --python-adv <topic>  or  --python-adv all",
+            topics.join(", ")
+        );
+    }
+    if q == "all" {
+        return PYTHON_ADV_SECTIONS
+            .iter()
+            .map(|(n, _, f)| format!("── {} ──\n{}", n, f()))
+            .collect::<Vec<_>>()
+            .join("\n\n");
+    }
+    for (name, aliases, func) in PYTHON_ADV_SECTIONS {
+        if q == *name || aliases.iter().any(|a| q == *a || q.contains(a)) {
+            return func().to_string();
+        }
+    }
+    format!(
+        "Unknown python-adv topic: '{}'\nAvailable: {}",
+        query.trim(),
+        PYTHON_ADV_SECTIONS
+            .iter()
+            .map(|(n, _, _)| *n)
+            .collect::<Vec<_>>()
+            .join(", ")
+    )
+}
+
+// ── go-adv ────────────────────────────────────────────────────
+
+fn s_ga_concurrency() -> &'static str {
+    "Go Concurrency Patterns
+Goroutines:
+  go func() { doWork() }()
+  go processItem(item)
+
+Channels:
+  ch := make(chan int)          // unbuffered
+  ch := make(chan int, 100)     // buffered (non-blocking until full)
+  ch <- value                  // send
+  value := <-ch                // receive
+  value, ok := <-ch            // ok=false when closed
+  close(ch)                    // signal no more sends
+  for v := range ch { use(v) } // receive until closed
+
+Select:
+  select {
+  case msg := <-ch1:    handle(msg)
+  case ch2 <- value:    fmt.Println('sent')
+  case <-time.After(1 * time.Second): fmt.Println('timeout')
+  case <-ctx.Done():    return ctx.Err()
+  default:              fmt.Println('no activity')
+  }
+
+sync.WaitGroup:
+  var wg sync.WaitGroup
+  for _, item := range items {
+      wg.Add(1)
+      go func(item Item) {
+          defer wg.Done()
+          process(item)
+      }(item)
+  }
+  wg.Wait()
+
+sync.Mutex / RWMutex:
+  var mu sync.Mutex
+  mu.Lock(); defer mu.Unlock()
+  // Use sync.RWMutex for read-heavy: mu.RLock() / mu.RUnlock()
+
+sync.Once (singleton):
+  var once sync.Once
+  var instance *DB
+  func GetDB() *DB {
+      once.Do(func() { instance = newDB() })
+      return instance
+  }
+
+errgroup (concurrent with error propagation):
+  import 'golang.org/x/sync/errgroup'
+  g, ctx := errgroup.WithContext(context.Background())
+  g.Go(func() error { return fetchA(ctx) })
+  g.Go(func() error { return fetchB(ctx) })
+  if err := g.Wait(); err != nil { log.Fatal(err) }
+
+Worker pool:
+  jobs := make(chan Job, 100)
+  for w := 0; w < numWorkers; w++ {
+      go func() {
+          for job := range jobs { process(job) }
+      }()
+  }
+  for _, job := range allJobs { jobs <- job }
+  close(jobs)"
+}
+
+fn s_ga_generics() -> &'static str {
+    "Go Generics (1.18+)
+Basic generic function:
+  func Map[T, U any](s []T, f func(T) U) []U {
+      result := make([]U, len(s))
+      for i, v := range s { result[i] = f(v) }
+      return result
+  }
+  doubled := Map([]int{1,2,3}, func(n int) int { return n * 2 })
+
+Type constraints:
+  type Number interface { int | float64 | int64 }
+  func Sum[T Number](s []T) T {
+      var total T
+      for _, v := range s { total += v }
+      return total
+  }
+
+  // comparable constraint (supports == !=)
+  func Contains[T comparable](s []T, v T) bool {
+      for _, item := range s {
+          if item == v { return true }
+      }
+      return false
+  }
+
+Generic struct:
+  type Stack[T any] struct { items []T }
+  func (s *Stack[T]) Push(v T)  { s.items = append(s.items, v) }
+  func (s *Stack[T]) Pop() (T, bool) {
+      if len(s.items) == 0 { var zero T; return zero, false }
+      v := s.items[len(s.items)-1]
+      s.items = s.items[:len(s.items)-1]
+      return v, true
+  }
+
+slices / maps packages (1.21+):
+  import 'slices'
+  slices.Sort(s)
+  slices.Contains(s, val)
+  slices.Index(s, val)
+  slices.Compact(s)          // remove adjacent duplicates
+
+  import 'maps'
+  maps.Keys(m)
+  maps.Values(m)
+  maps.Clone(m)
+
+cmp package (1.21+):
+  import 'cmp'
+  cmp.Compare(a, b)          // -1, 0, 1
+  cmp.Or(a, b, c)            // first non-zero value
+
+min/max built-ins (1.21+):
+  min(a, b)  max(a, b)  min(a, b, c)"
+}
+
+fn s_ga_errors() -> &'static str {
+    "Go Error Handling Patterns
+Sentinel errors:
+  var ErrNotFound = errors.New('not found')
+  var ErrUnauthorized = errors.New('unauthorized')
+
+  if errors.Is(err, ErrNotFound) { handle404() }
+
+Custom error types:
+  type ValidationError struct {
+      Field   string
+      Message string
+  }
+  func (e *ValidationError) Error() string {
+      return fmt.Sprintf('%s: %s', e.Field, e.Message)
+  }
+
+  var ve *ValidationError
+  if errors.As(err, &ve) { handleValidation(ve) }
+
+Error wrapping:
+  return fmt.Errorf('fetching user %d: %w', id, err)
+  // %w enables errors.Is() / errors.As() to unwrap
+
+Multi-error (Go 1.20):
+  err1 := doA()
+  err2 := doB()
+  return errors.Join(err1, err2)
+
+Panic / recover:
+  func safeDiv(a, b int) (result int, err error) {
+      defer func() {
+          if r := recover(); r != nil {
+              err = fmt.Errorf('panic: %v', r)
+          }
+      }()
+      return a / b, nil
+  }
+
+Context cancellation:
+  ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+  defer cancel()
+  if err := doWork(ctx); err != nil {
+      if errors.Is(err, context.DeadlineExceeded) {
+          log.Println('operation timed out')
+      }
+  }
+
+log/slog (Go 1.21 structured logging):
+  slog.Info('user created', 'id', user.ID, 'email', user.Email)
+  slog.Error('db error', 'err', err, 'query', q)
+  logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))"
+}
+
+fn s_ga_modules() -> &'static str {
+    "Go Modules & Tooling
+go.mod:
+  module github.com/user/project
+  go 1.22
+  require (
+      github.com/some/dep v1.2.3
+      golang.org/x/sync v0.7.0
+  )
+
+Module commands:
+  go mod init github.com/user/project
+  go mod tidy         // add missing, remove unused
+  go mod download     // cache all deps
+  go mod vendor       // copy deps to vendor/
+  go get github.com/pkg@v1.2.3
+  go get github.com/pkg@latest
+  go list -m all      // list all module deps
+
+Build / run:
+  go run .
+  go run cmd/server/main.go
+  go build -o bin/app ./cmd/app
+  go build ./...        // build all packages
+  CGO_ENABLED=0 GOOS=linux go build -o app-linux
+
+Testing:
+  go test ./...
+  go test -v -run TestName ./pkg/...
+  go test -bench=. -benchmem ./...
+  go test -race ./...           // data race detector
+  go test -cover -coverprofile=c.out ./...
+  go tool cover -html=c.out
+
+Table-driven tests:
+  func TestAdd(t *testing.T) {
+      cases := []struct{ a, b, want int }{
+          {1, 2, 3}, {0, 0, 0}, {-1, 1, 0},
+      }
+      for _, tc := range cases {
+          got := Add(tc.a, tc.b)
+          if got != tc.want {
+              t.Errorf('Add(%d,%d)=%d; want %d', tc.a, tc.b, got, tc.want)
+          }
+      }
+  }
+
+Linting / formatting:
+  gofmt -l -w .          // format all files
+  go vet ./...           // static analysis
+  golangci-lint run      // comprehensive linter (install separately)
+  staticcheck ./...
+
+Cross-compilation:
+  GOOS=windows GOARCH=amd64 go build -o app.exe
+  GOOS=darwin  GOARCH=arm64 go build -o app-mac"
+}
+
+fn s_ga_interfaces() -> &'static str {
+    "Go Interfaces & Patterns
+Interface basics:
+  type Writer interface { Write(p []byte) (n int, err error) }
+  type Stringer interface { String() string }
+  type io.ReadWriter interface { io.Reader; io.Writer }  // embedding
+
+Implicit satisfaction (no 'implements' keyword):
+  type MyWriter struct{}
+  func (w MyWriter) Write(p []byte) (int, error) { ... }
+  // MyWriter satisfies io.Writer automatically
+
+Empty interface / any:
+  func Print(v any) { fmt.Printf('%v\n', v) }
+  // Use type assertions:
+  if s, ok := v.(string); ok { ... }
+  switch x := v.(type) {
+  case int:    fmt.Println('int', x)
+  case string: fmt.Println('string', x)
+  default:     fmt.Println('unknown', x)
+  }
+
+Common stdlib interfaces:
+  io.Reader     Read(p []byte) (n int, err error)
+  io.Writer     Write(p []byte) (n int, err error)
+  io.Closer     Close() error
+  fmt.Stringer  String() string
+  error         Error() string
+  sort.Interface Len() int; Less(i,j int) bool; Swap(i,j int)
+  http.Handler  ServeHTTP(ResponseWriter, *Request)
+
+Functional options pattern:
+  type Server struct { port int; timeout time.Duration }
+  type Option func(*Server)
+  func WithPort(p int) Option       { return func(s *Server) { s.port = p } }
+  func WithTimeout(d time.Duration) Option { return func(s *Server) { s.timeout = d } }
+  func New(opts ...Option) *Server {
+      s := &Server{port: 8080, timeout: 30 * time.Second}
+      for _, opt := range opts { opt(s) }
+      return s
+  }
+  srv := New(WithPort(9090), WithTimeout(time.Minute))
+
+HTTP handler:
+  http.HandleFunc('/health', func(w http.ResponseWriter, r *http.Request) {
+      w.Header().Set('Content-Type', 'application/json')
+      json.NewEncoder(w).Encode(map[string]string{'status': 'ok'})
+  })
+  log.Fatal(http.ListenAndServe(':8080', nil))"
+}
+
+type GoAdvSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+const GO_ADV_SECTIONS: &[GoAdvSection] = &[
+    (
+        "concurrency",
+        &[
+            "go-concurrency",
+            "go-goroutines",
+            "go-channels",
+            "go-select",
+            "go-waitgroup",
+            "go-mutex",
+            "go-once",
+            "go-errgroup",
+            "go-worker-pool",
+            "go-sync",
+            "go-context-cancel",
+        ],
+        s_ga_concurrency,
+    ),
+    (
+        "generics",
+        &[
+            "go-generics",
+            "go-type-params",
+            "go-constraints",
+            "go-slices-pkg",
+            "go-maps-pkg",
+            "go-cmp",
+            "go-generics-struct",
+            "go-min-max",
+            "go-contains",
+            "go-type-constraint",
+            "go-generic-fn",
+        ],
+        s_ga_generics,
+    ),
+    (
+        "errors",
+        &[
+            "go-errors",
+            "go-error-wrapping",
+            "go-sentinel-error",
+            "go-custom-error",
+            "go-errors-is",
+            "go-errors-as",
+            "go-panic-recover",
+            "go-context-timeout",
+            "go-slog",
+            "go-multi-error",
+            "go-error-handling",
+        ],
+        s_ga_errors,
+    ),
+    (
+        "modules",
+        &[
+            "go-modules",
+            "go-mod",
+            "go-build",
+            "go-testing",
+            "go-benchmark",
+            "go-race-detector",
+            "go-vet",
+            "go-linting",
+            "go-cross-compile",
+            "go-table-tests",
+            "go-cover",
+        ],
+        s_ga_modules,
+    ),
+    (
+        "interfaces",
+        &[
+            "go-interfaces",
+            "go-empty-interface",
+            "go-type-assertion",
+            "go-type-switch",
+            "go-functional-options",
+            "go-http-handler",
+            "go-stringer",
+            "go-io-reader",
+            "go-io-writer",
+            "go-implicit-impl",
+            "go-interface-embed",
+        ],
+        s_ga_interfaces,
+    ),
+];
+
+pub fn go_adv_calc(query: &str) -> String {
+    let q = query.trim().to_lowercase();
+    if q.is_empty() || q == "list" || q == "help" {
+        let topics: Vec<&str> = GO_ADV_SECTIONS.iter().map(|(n, _, _)| *n).collect();
+        return format!(
+            "go-adv topics: {}\nUse: --go-adv <topic>  or  --go-adv all",
+            topics.join(", ")
+        );
+    }
+    if q == "all" {
+        return GO_ADV_SECTIONS
+            .iter()
+            .map(|(n, _, f)| format!("── {} ──\n{}", n, f()))
+            .collect::<Vec<_>>()
+            .join("\n\n");
+    }
+    for (name, aliases, func) in GO_ADV_SECTIONS {
+        if q == *name || aliases.iter().any(|a| q == *a || q.contains(a)) {
+            return func().to_string();
+        }
+    }
+    format!(
+        "Unknown go-adv topic: '{}'\nAvailable: {}",
+        query.trim(),
+        GO_ADV_SECTIONS
+            .iter()
+            .map(|(n, _, _)| *n)
+            .collect::<Vec<_>>()
+            .join(", ")
+    )
+}
+
+// ── vue-ref ───────────────────────────────────────────────────
+
+fn s_vr_composition() -> &'static str {
+    "Vue 3 Composition API
+setup() / script setup:
+  <script setup lang='ts'>
+  import { ref, reactive, computed, watch, onMounted } from 'vue'
+
+  const count = ref(0)           // .value to access
+  const state = reactive({ name: '', age: 0 })
+
+  const double = computed(() => count.value * 2)
+
+  watch(count, (newVal, oldVal) => {
+    console.log(newVal, oldVal)
+  })
+
+  watchEffect(() => {
+    console.log('count is', count.value)
+  })
+
+  onMounted(() => fetchData())
+  </script>
+
+ref vs reactive:
+  ref:      primitives + objects; access via .value; unwrapped in template
+  reactive: objects/arrays only; no .value; loses reactivity on destructure
+
+  const { x, y } = toRefs(state)   // preserve reactivity on destructure
+  const s = toRef(state, 'name')    // single reactive ref from reactive obj
+
+Props / emits:
+  const props = defineProps<{ msg: string; count?: number }>()
+  const emit  = defineEmits<{ (e: 'update', val: number): void }>()
+  emit('update', 42)
+
+Slots:
+  // Parent: <MyComp><template #header>Title</template></MyComp>
+  // Child:  <slot name='header' />
+  const slots = useSlots()
+  if (slots.header) { ... }
+
+Provide / Inject:
+  // Ancestor:
+  provide('theme', readonly(theme))
+  // Descendant:
+  const theme = inject<Ref<string>>('theme', ref('light'))
+
+Template refs:
+  const inputEl = ref<HTMLInputElement | null>(null)
+  // <input ref='inputEl' />
+  onMounted(() => inputEl.value?.focus())"
+}
+
+fn s_vr_reactivity() -> &'static str {
+    "Vue 3 Reactivity Deep Dive
+Computed (cached):
+  const fullName = computed(() => `${first.value} ${last.value}`)
+  const writable = computed({
+    get: () => count.value * 2,
+    set: (val) => { count.value = val / 2 }
+  })
+
+Watch variants:
+  // watch: explicit source, lazy by default
+  watch(source, callback, { immediate: true, deep: true })
+  watch([a, b], ([newA, newB]) => { ... })
+
+  // watchEffect: auto-tracks deps, runs immediately
+  const stop = watchEffect(() => { console.log(count.value) })
+  stop()  // manual cleanup
+
+  // watchPostEffect: after DOM updates
+  watchPostEffect(() => { /* DOM updated */ })
+
+shallowRef / shallowReactive (performance):
+  const bigList = shallowRef([])   // only .value change triggers update
+  bigList.value = [...newItems]    // triggers
+  bigList.value.push(item)         // does NOT trigger
+
+markRaw (opt out of reactivity):
+  const map = markRaw(new Map())   // never tracked
+
+nextTick:
+  await nextTick()                 // wait for DOM update
+  nextTick(() => { el.focus() })
+
+Reactive transform (experimental):
+  let count = $ref(0)        // no .value needed (compile-time transform)
+  $computed(() => count * 2)
+
+Custom composables:
+  // composables/useCounter.ts
+  export function useCounter(initial = 0) {
+    const count = ref(initial)
+    const inc   = () => count.value++
+    const reset = () => { count.value = initial }
+    return { count: readonly(count), inc, reset }
+  }
+
+  // in component:
+  const { count, inc } = useCounter(10)"
+}
+
+fn s_vr_components() -> &'static str {
+    "Vue 3 Components & Directives
+Async components:
+  import { defineAsyncComponent } from 'vue'
+  const HeavyComp = defineAsyncComponent({
+    loader: () => import('./HeavyComp.vue'),
+    loadingComponent: LoadingSpinner,
+    errorComponent: ErrorDisplay,
+    delay: 200,
+    timeout: 3000,
+  })
+
+Teleport:
+  <Teleport to='body'>
+    <Modal v-if='showModal' @close='showModal = false' />
+  </Teleport>
+
+Suspense:
+  <Suspense>
+    <template #default><AsyncView /></template>
+    <template #fallback><Spinner /></template>
+  </Suspense>
+
+v-model (custom):
+  // Child: defineProps(['modelValue']); defineEmits(['update:modelValue'])
+  // <input :value='modelValue' @input=\"$emit('update:modelValue', $event.target.value)\" />
+  // Parent: <MyInput v-model='name' />
+
+  // Multiple v-model:
+  // <MyForm v-model:first='first' v-model:last='last' />
+
+Custom directives:
+  const vFocus = {
+    mounted: (el: HTMLElement) => el.focus()
+  }
+  // <input v-focus />
+
+  app.directive('click-outside', {
+    mounted(el, binding) {
+      el._handler = (e: Event) => {
+        if (!el.contains(e.target as Node)) binding.value(e)
+      }
+      document.addEventListener('click', el._handler)
+    },
+    unmounted(el) { document.removeEventListener('click', el._handler) },
+  })
+
+Expose:
+  // Control what parent can access via template ref
+  defineExpose({ focus: () => inputEl.value?.focus() })
+
+Component lifecycle:
+  onBeforeMount  onMounted  onBeforeUpdate  onUpdated
+  onBeforeUnmount  onUnmounted  onErrorCaptured
+  onActivated  onDeactivated  (KeepAlive)"
+}
+
+fn s_vr_pinia() -> &'static str {
+    "Pinia State Management
+Setup store (recommended):
+  import { defineStore } from 'pinia'
+  export const useCounterStore = defineStore('counter', () => {
+    const count = ref(0)
+    const double = computed(() => count.value * 2)
+    function increment() { count.value++ }
+    return { count, double, increment }
+  })
+
+  // In component:
+  const store = useCounterStore()
+  store.increment()
+  console.log(store.double)
+
+Options store:
+  export const useUserStore = defineStore('user', {
+    state:   () => ({ name: '', isLoggedIn: false }),
+    getters: { displayName: (s) => s.name.toUpperCase() },
+    actions: {
+      async login(email: string, pw: string) {
+        const user = await api.login(email, pw)
+        this.name = user.name
+        this.isLoggedIn = true
+      }
+    }
+  })
+
+storeToRefs (reactive destructure):
+  const { name, isLoggedIn } = storeToRefs(useUserStore())
+  const { login } = useUserStore()  // actions don't need storeToRefs
+
+Plugins:
+  pinia.use(({ store }) => {
+    store.$subscribe((mutation, state) => {
+      localStorage.setItem(store.$id, JSON.stringify(state))
+    })
+  })
+
+$patch:
+  store.$patch({ count: 5, name: 'Alice' })
+  store.$patch((state) => { state.count++; state.items.push(item) })
+
+$reset (options stores only):
+  store.$reset()  // revert to initial state"
+}
+
+fn s_vr_router() -> &'static str {
+    "Vue Router 4 & Nuxt 3
+Vue Router setup:
+  import { createRouter, createWebHistory } from 'vue-router'
+  const router = createRouter({
+    history: createWebHistory(),
+    routes: [
+      { path: '/', component: Home },
+      { path: '/user/:id', component: User, props: true },
+      { path: '/admin', component: Admin, meta: { requiresAuth: true },
+        children: [
+          { path: 'users', component: AdminUsers },
+          { path: '', redirect: 'users' },
+        ]
+      },
+      { path: '/:catchAll(.*)', component: NotFound },
+    ]
+  })
+
+Navigation guard:
+  router.beforeEach((to, from, next) => {
+    if (to.meta.requiresAuth && !isLoggedIn()) next('/login')
+    else next()
+  })
+
+Composables:
+  const route  = useRoute()   // route.params.id  route.query.q
+  const router = useRouter()
+  router.push('/users/1')
+  router.push({ name: 'user', params: { id: 1 } })
+  router.replace('/home')
+  router.go(-1)
+
+Lazy loading routes:
+  { path: '/settings', component: () => import('./Settings.vue') }
+
+Nuxt 3 routing (file-based):
+  pages/index.vue          -> /
+  pages/users/[id].vue     -> /users/:id
+  pages/[...slug].vue      -> catch-all
+  layouts/default.vue      -> wraps all pages
+  middleware/auth.ts       -> navigation guard
+
+Nuxt 3 composables:
+  const { data } = await useFetch('/api/users')
+  const config   = useRuntimeConfig()
+  const route    = useRoute()
+  navigateTo('/login')"
+}
+
+type VueRefSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+const VUE_REF_SECTIONS: &[VueRefSection] = &[
+    (
+        "composition",
+        &[
+            "vue-composition-api",
+            "script-setup",
+            "vue-ref",
+            "vue-reactive",
+            "vue-computed",
+            "vue-watch",
+            "vue-lifecycle",
+            "vue-props",
+            "vue-emits",
+            "vue-slots",
+            "vue-provide-inject",
+        ],
+        s_vr_composition,
+    ),
+    (
+        "reactivity",
+        &[
+            "vue-reactivity",
+            "vue-watcheffect",
+            "shallow-ref",
+            "vue-nexttick",
+            "vue-composables",
+            "vue-marktraw",
+            "vue-toref",
+            "vue-torefs",
+            "vue-computed-writable",
+            "watchposteffect",
+            "vue-custom-composable",
+        ],
+        s_vr_reactivity,
+    ),
+    (
+        "components",
+        &[
+            "vue-components",
+            "vue-async-component",
+            "vue-teleport",
+            "vue-suspense",
+            "vue-v-model-custom",
+            "vue-directives",
+            "vue-expose",
+            "vue-keepalive",
+            "vue-defineexpose",
+            "vue-custom-directive",
+            "vue-slots-advanced",
+        ],
+        s_vr_components,
+    ),
+    (
+        "pinia",
+        &[
+            "pinia",
+            "vue-state",
+            "pinia-store",
+            "pinia-setup-store",
+            "pinia-actions",
+            "storetorefs",
+            "pinia-getters",
+            "pinia-plugin",
+            "pinia-patch",
+            "pinia-reset",
+            "vue-store",
+        ],
+        s_vr_pinia,
+    ),
+    (
+        "router",
+        &[
+            "vue-router",
+            "vue-router-4",
+            "nuxt-3",
+            "nuxt-routing",
+            "vue-navigation-guard",
+            "vue-lazy-routes",
+            "vue-route-params",
+            "vue-router-composables",
+            "vue-router-children",
+            "nuxt-composables",
+            "vue-router-meta",
+        ],
+        s_vr_router,
+    ),
+];
+
+pub fn vue_ref_calc(query: &str) -> String {
+    let q = query.trim().to_lowercase();
+    if q.is_empty() || q == "list" || q == "help" {
+        let topics: Vec<&str> = VUE_REF_SECTIONS.iter().map(|(n, _, _)| *n).collect();
+        return format!(
+            "vue-ref topics: {}\nUse: --vue-ref <topic>  or  --vue-ref all",
+            topics.join(", ")
+        );
+    }
+    if q == "all" {
+        return VUE_REF_SECTIONS
+            .iter()
+            .map(|(n, _, f)| format!("── {} ──\n{}", n, f()))
+            .collect::<Vec<_>>()
+            .join("\n\n");
+    }
+    for (name, aliases, func) in VUE_REF_SECTIONS {
+        if q == *name || aliases.iter().any(|a| q == *a || q.contains(a)) {
+            return func().to_string();
+        }
+    }
+    format!(
+        "Unknown vue-ref topic: '{}'\nAvailable: {}",
+        query.trim(),
+        VUE_REF_SECTIONS
+            .iter()
+            .map(|(n, _, _)| *n)
+            .collect::<Vec<_>>()
+            .join(", ")
+    )
+}
+
+// ── aws-ref ───────────────────────────────────────────────────
+
+fn s_ar_s3() -> &'static str {
+    "AWS S3 Reference
+CLI basics:
+  aws s3 ls                                    # list buckets
+  aws s3 ls s3://my-bucket/                    # list objects
+  aws s3 cp file.txt s3://my-bucket/           # upload
+  aws s3 cp s3://my-bucket/file.txt .          # download
+  aws s3 sync ./local/ s3://my-bucket/prefix/  # sync directory
+  aws s3 rb s3://my-bucket --force             # delete bucket
+
+S3 SDK (Python boto3):
+  import boto3
+  s3 = boto3.client('s3')
+  s3.upload_file('file.txt', 'bucket', 'key')
+  s3.download_file('bucket', 'key', 'dest.txt')
+  obj = s3.get_object(Bucket='bucket', Key='key')
+  body = obj['Body'].read().decode('utf-8')
+  s3.put_object(Bucket='bucket', Key='key', Body=b'data',
+                ContentType='application/json')
+
+Presigned URLs:
+  url = s3.generate_presigned_url('get_object',
+      Params={'Bucket': 'bucket', 'Key': 'key'},
+      ExpiresIn=3600)
+
+Bucket policy (public read):
+  {
+    'Version': '2012-10-17',
+    'Statement': [{
+      'Effect': 'Allow',
+      'Principal': '*',
+      'Action': 's3:GetObject',
+      'Resource': 'arn:aws:s3:::my-bucket/*'
+    }]
+  }
+
+S3 features:
+  Versioning: enable per bucket; GET ?versionId=ID
+  Lifecycle: transition to IA/Glacier, expire objects
+  Replication: CRR (cross-region) / SRR (same-region)
+  Event notifications: S3 -> Lambda / SQS / SNS
+  Transfer Acceleration: CloudFront edge for uploads
+  Multipart upload: required >5GB; recommended >100MB
+  Intelligent-Tiering: auto move between tiers based on access"
+}
+
+fn s_ar_ec2_iam() -> &'static str {
+    "AWS EC2 & IAM
+EC2 CLI:
+  aws ec2 describe-instances --filters 'Name=instance-state-name,Values=running'
+  aws ec2 start-instances  --instance-ids i-1234567890abcdef0
+  aws ec2 stop-instances   --instance-ids i-1234567890abcdef0
+  aws ec2 terminate-instances --instance-ids i-1234567890abcdef0
+  aws ec2 describe-images --owners amazon --filters 'Name=name,Values=amzn2-ami-hvm-*'
+  aws ec2 create-key-pair --key-name MyKey --query 'KeyMaterial' --output text > key.pem
+
+User data (bootstrap script):
+  #!/bin/bash
+  yum update -y
+  yum install -y httpd
+  systemctl start httpd
+  systemctl enable httpd
+
+IAM policy (least privilege):
+  {
+    'Version': '2012-10-17',
+    'Statement': [{
+      'Effect': 'Allow',
+      'Action': ['s3:GetObject', 's3:PutObject'],
+      'Resource': 'arn:aws:s3:::my-bucket/*'
+    }]
+  }
+
+IAM CLI:
+  aws iam create-user --user-name alice
+  aws iam attach-user-policy --user-name alice --policy-arn arn:aws:iam::aws:policy/ReadOnlyAccess
+  aws iam create-access-key --user-name alice
+  aws iam list-attached-user-policies --user-name alice
+
+IAM roles (EC2/Lambda):
+  1. Create role with trust policy: { Principal: { Service: 'ec2.amazonaws.com' } }
+  2. Attach permissions policy
+  3. Assign role to instance/function -- no access keys needed
+
+STS assume role:
+  aws sts assume-role --role-arn arn:aws:iam::123:role/MyRole --role-session-name sess
+  # Returns temp credentials: AccessKeyId, SecretAccessKey, SessionToken
+
+Security best practices:
+  Enable MFA on root account
+  Never use root access keys
+  Use IAM roles for EC2/Lambda (not long-lived keys)
+  Use aws-vault or environment variables for local dev
+  Rotate access keys every 90 days"
+}
+
+fn s_ar_lambda() -> &'static str {
+    "AWS Lambda & Serverless
+Lambda function (Python):
+  def handler(event, context):
+      print(event)
+      return {
+          'statusCode': 200,
+          'headers': {'Content-Type': 'application/json'},
+          'body': json.dumps({'message': 'ok'})
+      }
+
+Lambda CLI:
+  aws lambda create-function --function-name MyFn \
+      --runtime python3.12 --role arn:aws:iam::123:role/lambda-role \
+      --handler index.handler --zip-file fileb://function.zip
+  aws lambda invoke --function-name MyFn --payload '{}' out.json
+  aws lambda update-function-code --function-name MyFn --zip-file fileb://function.zip
+  aws lambda update-function-configuration --function-name MyFn --timeout 30 --memory-size 512
+
+Event sources:
+  API Gateway: HTTP -> Lambda (REST or HTTP API)
+  S3:          on object create/delete
+  SQS:         batch of messages
+  EventBridge: scheduled (cron) or rule-based
+  DynamoDB:    streams (on table changes)
+  SNS:         fan-out publish
+
+Environment variables:
+  aws lambda update-function-configuration --function-name MyFn \
+      --environment 'Variables={DB_URL=...,SECRET=...}'
+  # Access in code: os.environ['DB_URL']
+
+Lambda layers (shared code):
+  aws lambda publish-layer-version --layer-name my-deps \
+      --zip-file fileb://layer.zip --compatible-runtimes python3.12
+  # Attach to function; available at /opt/
+
+Cold start mitigation:
+  Provisioned concurrency: pre-warm N instances (costs more)
+  Keep package small; minimize imports at top level
+  Use SnapStart (Java) or Lambda Web Adapter (containers)
+
+SAM (Serverless Application Model):
+  template.yaml -> sam build -> sam deploy
+  sam local invoke MyFunction -e event.json
+  sam local start-api  # local API Gateway"
+}
+
+fn s_ar_networking() -> &'static str {
+    "AWS Networking (VPC, CloudFront, Route53)
+VPC structure:
+  VPC CIDR: 10.0.0.0/16
+    Public subnet:   10.0.1.0/24  (has Internet Gateway route)
+    Private subnet:  10.0.2.0/24  (NAT Gateway for outbound)
+    DB subnet:       10.0.3.0/24  (isolated, no internet)
+
+  Internet Gateway: 1 per VPC; allows public subnets internet access
+  NAT Gateway:      in public subnet; lets private subnets reach internet
+  Security Groups:  stateful firewall at instance level
+  NACLs:            stateless firewall at subnet level
+
+VPC CLI:
+  aws ec2 create-vpc --cidr-block 10.0.0.0/16
+  aws ec2 create-subnet --vpc-id vpc-xxx --cidr-block 10.0.1.0/24 --availability-zone us-east-1a
+  aws ec2 create-internet-gateway
+  aws ec2 attach-internet-gateway --vpc-id vpc-xxx --internet-gateway-id igw-xxx
+
+Security Group rules:
+  aws ec2 authorize-security-group-ingress --group-id sg-xxx \
+      --protocol tcp --port 443 --cidr 0.0.0.0/0
+  aws ec2 authorize-security-group-ingress --group-id sg-xxx \
+      --protocol tcp --port 5432 --source-group sg-app
+
+CloudFront:
+  Distribution -> Origins (S3, ALB, EC2, custom)
+  Behaviors: path patterns, cache policies, TTL
+  OAC (Origin Access Control): S3 private + CloudFront only
+  Invalidation: aws cloudfront create-invalidation --distribution-id EXXX --paths '/*'
+  Functions / Lambda@Edge: code at edge (viewer/origin request/response)
+
+Route53:
+  Hosted zone -> DNS records (A, AAAA, CNAME, MX, TXT, SRV)
+  Routing policies: Simple, Weighted, Latency, Failover, Geolocation
+  Health checks: HTTP/HTTPS endpoint monitoring
+  Alias records: point to CloudFront, S3, ELB (no charge, no TTL)
+  aws route53 change-resource-record-sets --hosted-zone-id Z123 --change-batch file://records.json"
+}
+
+fn s_ar_rds_dynamo() -> &'static str {
+    "AWS RDS & DynamoDB
+RDS CLI:
+  aws rds describe-db-instances
+  aws rds create-db-instance --db-instance-identifier mydb \
+      --db-instance-class db.t3.micro --engine postgres \
+      --master-username admin --master-user-password secret \
+      --allocated-storage 20 --vpc-security-group-ids sg-xxx
+  aws rds create-db-snapshot --db-instance-identifier mydb --db-snapshot-identifier snap1
+  aws rds describe-db-snapshots --db-instance-identifier mydb
+
+RDS features:
+  Multi-AZ:     automatic failover; synchronous standby replica
+  Read Replica: async replica for read scaling; cross-region supported
+  Aurora:       MySQL/Postgres compatible; 5x MySQL perf; auto-scaling storage
+  Parameter Groups: tune DB engine settings (max_connections, shared_buffers)
+  Secrets Manager: auto-rotate RDS credentials
+
+DynamoDB basics:
+  Table: partition key (+ optional sort key)
+  Items: schemaless rows; up to 400 KB
+  Throughput: on-demand (pay-per-request) or provisioned (RCU/WCU)
+
+DynamoDB CLI:
+  aws dynamodb put-item --table-name Users \
+      --item '{'id':{'S':'1'},'name':{'S':'Alice'}}'
+  aws dynamodb get-item --table-name Users --key '{'id':{'S':'1'}}'
+  aws dynamodb query --table-name Orders \
+      --key-condition-expression 'userId = :uid' \
+      --expression-attribute-values '{':uid':{'S':'1'}}'
+  aws dynamodb scan --table-name Users --filter-expression 'age > :a' \
+      --expression-attribute-values '{':a':{'N':'18'}}'
+
+DynamoDB SDK (Python):
+  dynamodb = boto3.resource('dynamodb')
+  table = dynamodb.Table('Users')
+  table.put_item(Item={'id': '1', 'name': 'Alice', 'age': 30})
+  resp = table.get_item(Key={'id': '1'})
+  item = resp.get('Item')
+  table.update_item(Key={'id':'1'},
+      UpdateExpression='SET age = :a',
+      ExpressionAttributeValues={':a': 31})
+
+GSI / LSI:
+  GSI: secondary partition key; allows different access patterns
+  LSI: alternate sort key; same partition key as table
+  Use GSI for queries that don't match primary key pattern"
+}
+
+type AwsRefSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+const AWS_REF_SECTIONS: &[AwsRefSection] = &[
+    (
+        "s3",
+        &[
+            "aws-s3",
+            "s3-cli",
+            "s3-bucket",
+            "s3-upload",
+            "s3-presigned",
+            "s3-policy",
+            "s3-lifecycle",
+            "s3-replication",
+            "s3-versioning",
+            "s3-events",
+            "boto3-s3",
+        ],
+        s_ar_s3,
+    ),
+    (
+        "ec2-iam",
+        &[
+            "aws-ec2",
+            "aws-iam",
+            "ec2-cli",
+            "iam-policy",
+            "iam-role",
+            "iam-user",
+            "ec2-userdata",
+            "aws-sts",
+            "iam-least-privilege",
+            "aws-mfa",
+            "ec2-instances",
+        ],
+        s_ar_ec2_iam,
+    ),
+    (
+        "lambda",
+        &[
+            "aws-lambda",
+            "lambda-cli",
+            "lambda-python",
+            "lambda-event-sources",
+            "lambda-env",
+            "lambda-layers",
+            "lambda-cold-start",
+            "aws-sam",
+            "serverless-aws",
+            "api-gateway-lambda",
+            "lambda-provisioned",
+        ],
+        s_ar_lambda,
+    ),
+    (
+        "networking",
+        &[
+            "aws-vpc",
+            "aws-cloudfront",
+            "aws-route53",
+            "vpc-subnet",
+            "security-group",
+            "nacl-aws",
+            "nat-gateway",
+            "internet-gateway",
+            "cloudfront-distribution",
+            "route53-records",
+            "aws-networking",
+        ],
+        s_ar_networking,
+    ),
+    (
+        "rds-dynamo",
+        &[
+            "aws-rds",
+            "aws-dynamodb",
+            "rds-cli",
+            "dynamodb-cli",
+            "dynamo-query",
+            "dynamo-gsi",
+            "rds-aurora",
+            "rds-replica",
+            "rds-multi-az",
+            "boto3-dynamodb",
+            "dynamodb-sdk",
+        ],
+        s_ar_rds_dynamo,
+    ),
+];
+
+pub fn aws_ref_calc(query: &str) -> String {
+    let q = query.trim().to_lowercase();
+    if q.is_empty() || q == "list" || q == "help" {
+        let topics: Vec<&str> = AWS_REF_SECTIONS.iter().map(|(n, _, _)| *n).collect();
+        return format!(
+            "aws-ref topics: {}\nUse: --aws-ref <topic>  or  --aws-ref all",
+            topics.join(", ")
+        );
+    }
+    if q == "all" {
+        return AWS_REF_SECTIONS
+            .iter()
+            .map(|(n, _, f)| format!("── {} ──\n{}", n, f()))
+            .collect::<Vec<_>>()
+            .join("\n\n");
+    }
+    for (name, aliases, func) in AWS_REF_SECTIONS {
+        if q == *name || aliases.iter().any(|a| q == *a || q.contains(a)) {
+            return func().to_string();
+        }
+    }
+    format!(
+        "Unknown aws-ref topic: '{}'\nAvailable: {}",
+        query.trim(),
+        AWS_REF_SECTIONS
+            .iter()
+            .map(|(n, _, _)| *n)
+            .collect::<Vec<_>>()
+            .join(", ")
+    )
+}
