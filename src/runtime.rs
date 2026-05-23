@@ -1177,6 +1177,10 @@ mod tests {
             nginx_ref: None,
             protobuf_ref: None,
             rust_embedded: None,
+            svelte_ref: None,
+            kafka_adv: None,
+            deno_ref: None,
+            otel_ref: None,
             pdf_extract_helper: None,
             teleported_from: None,
         };

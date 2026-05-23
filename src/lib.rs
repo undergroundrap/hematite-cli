@@ -2566,6 +2566,38 @@ pub struct CliCockpit {
 
     #[arg(
         long,
+        help_heading = "Developer Toolkit",
+        value_name = "QUERY",
+        help = "Svelte & SvelteKit reference — offline replacement for svelte.dev. Topics: components, stores, sveltekit, ssr, advanced. Aliases: svelte-component, svelte-store, sveltekit-routing, sveltekit-ssr, svelte-transition. Examples: hematite --svelte-ref components | hematite --svelte-ref sveltekit | hematite --svelte-ref all"
+    )]
+    pub svelte_ref: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Developer Toolkit",
+        value_name = "QUERY",
+        help = "Kafka advanced reference — offline replacement for Kafka docs. Topics: consumer-groups, compaction, streams, schema, operations. Aliases: kafka-consumer-group, log-compaction, kafka-streams, schema-registry, kafka-ops. Examples: hematite --kafka-adv consumer-groups | hematite --kafka-adv streams | hematite --kafka-adv all"
+    )]
+    pub kafka_adv: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Developer Toolkit",
+        value_name = "QUERY",
+        help = "Deno runtime reference — offline replacement for deno.land docs. Topics: runtime, apis, fresh, kv, testing. Aliases: deno-run, deno-permissions, fresh-framework, deno-kv, deno-test. Examples: hematite --deno-ref runtime | hematite --deno-ref kv | hematite --deno-ref all"
+    )]
+    pub deno_ref: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Developer Toolkit",
+        value_name = "QUERY",
+        help = "OpenTelemetry reference — offline replacement for opentelemetry.io docs. Topics: sdk, traces, metrics, logs, collector. Aliases: otel-sdk, otel-span, otel-counter, otel-logging, otel-collector. Examples: hematite --otel-ref traces | hematite --otel-ref collector | hematite --otel-ref all"
+    )]
+    pub otel_ref: Option<String>,
+
+    #[arg(
+        long,
         help_heading = "Math & Science",
         value_name = "QUERY",
         help = "Lorem ipsum generator — offline replacement for lipsum.com. Commands: (bare) or <N> = N paragraphs (default 1); words <N> = N words; sentences <N> = N sentences. Examples: hematite --lorem | hematite --lorem 3 | hematite --lorem 'words 50' | hematite --lorem 'sentences 5'"

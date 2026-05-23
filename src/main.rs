@@ -5087,6 +5087,42 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         return Ok(());
     }
+    if let Some(ref query) = cockpit.svelte_ref {
+        let result = hematite::tools::math_util::svelte_ref_calc(query.trim());
+        println!("{}", result.trim());
+        if cockpit.clipboard {
+            copy_to_clipboard(&result);
+            println!("Copied to clipboard.");
+        }
+        return Ok(());
+    }
+    if let Some(ref query) = cockpit.kafka_adv {
+        let result = hematite::tools::math_util::kafka_adv_calc(query.trim());
+        println!("{}", result.trim());
+        if cockpit.clipboard {
+            copy_to_clipboard(&result);
+            println!("Copied to clipboard.");
+        }
+        return Ok(());
+    }
+    if let Some(ref query) = cockpit.deno_ref {
+        let result = hematite::tools::math_util::deno_ref_calc(query.trim());
+        println!("{}", result.trim());
+        if cockpit.clipboard {
+            copy_to_clipboard(&result);
+            println!("Copied to clipboard.");
+        }
+        return Ok(());
+    }
+    if let Some(ref query) = cockpit.otel_ref {
+        let result = hematite::tools::math_util::otel_ref_calc(query.trim());
+        println!("{}", result.trim());
+        if cockpit.clipboard {
+            copy_to_clipboard(&result);
+            println!("Copied to clipboard.");
+        }
+        return Ok(());
+    }
 
     if let Some(ref query) = cockpit.lorem {
         let result = hematite::tools::math_util::lorem_calc(query.trim());

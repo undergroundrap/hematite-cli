@@ -71422,3 +71422,1433 @@ pub fn rust_embedded_calc(query: &str) -> String {
             .join(", ")
     )
 }
+
+// ─── wave 48: svelte_ref_calc ────────────────────────────────────────────────
+
+fn s_sv_components() -> &'static str {
+    "Svelte Components
+---
+<!-- MyComponent.svelte -->
+<script lang=\"ts\">
+  import { onMount, onDestroy, beforeUpdate, afterUpdate } from 'svelte';
+  import ChildComp from './Child.svelte';
+
+  // Props (exported = public)
+  export let name: string = 'World';
+  export let count: number;
+
+  // Reactive declarations
+  $: doubled = count * 2;
+  $: if (count > 10) { console.log('high'); }
+
+  // Lifecycle
+  onMount(() => { /* runs after mount */ return () => { /* cleanup */ }; });
+
+  // Local state
+  let items: string[] = [];
+
+  function addItem(item: string) {
+    items = [...items, item];   // reassignment triggers reactivity
+  }
+</script>
+
+<main>
+  <h1>Hello {name}!</h1>
+  <p>Count: {count}, doubled: {doubled}</p>
+
+  {#if count > 0}
+    <p>Positive</p>
+  {:else if count < 0}
+    <p>Negative</p>
+  {:else}
+    <p>Zero</p>
+  {/if}
+
+  {#each items as item, i (item)}
+    <p>{i}: {item}</p>
+  {:else}
+    <p>No items</p>
+  {/each}
+
+  {#await fetchData()}
+    <p>Loading...</p>
+  {:then data}
+    <p>{data}</p>
+  {:catch error}
+    <p>Error: {error.message}</p>
+  {/await}
+
+  <ChildComp {name} on:click={() => count++} />
+</main>
+
+<style>
+  /* scoped by default — won't leak */
+  h1 { color: navy; }
+  :global(body) { margin: 0; }
+</style>"
+}
+
+fn s_sv_stores() -> &'static str {
+    "Svelte Stores
+---
+// stores.ts
+import { writable, readable, derived, get } from 'svelte/store';
+
+// Writable store
+export const count = writable(0);
+count.set(5);
+count.update(n => n + 1);
+const current = get(count);    // read without subscribing
+
+// Readable (external source)
+export const time = readable(new Date(), function start(set) {
+    const interval = setInterval(() => set(new Date()), 1000);
+    return function stop() { clearInterval(interval); };
+});
+
+// Derived from one or more stores
+export const elapsed = derived(
+    time,
+    ($time, set) => {
+        set(Math.round(($time - new Date()) / 1000));
+    },
+    0
+);
+
+export const doubled = derived(count, $count => $count * 2);
+
+// Custom store with methods
+function createCart() {
+    const { subscribe, set, update } = writable([]);
+    return {
+        subscribe,
+        add: (item) => update(items => [...items, item]),
+        remove: (id) => update(items => items.filter(i => i.id !== id)),
+        clear: () => set([]),
+    };
+}
+export const cart = createCart();
+
+// In component:
+import { count, cart } from './stores';
+// Auto-subscribe with $: prefix (auto-unsubscribes on destroy)
+// <p>Count is {$count}</p>
+// <button on:click={() => $count++}>+</button>"
+}
+
+fn s_sv_sveltekit() -> &'static str {
+    "SvelteKit Routing & Data Loading
+---
+# File-based routing: src/routes/
+  +page.svelte          # page component
+  +page.ts              # load function (runs on server+client)
+  +page.server.ts       # server-only load + form actions
+  +layout.svelte        # shared layout (wraps child pages)
+  +layout.ts            # layout load function
+  +error.svelte         # error page
+  +server.ts            # API route (GET/POST/PUT/DELETE handlers)
+
+# +page.ts (universal load — runs both sides)
+import type { PageLoad } from './$types';
+export const load: PageLoad = async ({ fetch, params, url }) => {
+    const res = await fetch(`/api/posts/${params.id}`);
+    if (!res.ok) throw error(404, 'Not found');
+    return { post: await res.json() };
+};
+
+# +page.server.ts (server load + form actions)
+import type { PageServerLoad, Actions } from './$types';
+export const load: PageServerLoad = async ({ locals, cookies }) => {
+    return { user: locals.user };
+};
+export const actions: Actions = {
+    create: async ({ request }) => {
+        const data = await request.formData();
+        // persist...
+        return { success: true };
+    }
+};
+
+# In +page.svelte:
+<script lang=\"ts\">
+  import type { PageData } from './$types';
+  export let data: PageData;         // from load()
+</script>
+
+# Routing:
+  /src/routes/blog/[slug]/+page.svelte  -> /blog/my-post
+  /src/routes/blog/[...rest]/           -> catch-all
+  /src/routes/(group)/about/            -> grouped, no URL effect
+  /src/routes/[[optional]]/             -> optional segment"
+}
+
+fn s_sv_ssr() -> &'static str {
+    "SvelteKit SSR, SSG & Adapters
+---
+# Rendering modes (per-page or global):
+// +page.ts or +layout.ts
+export const ssr = true;      // server-side rendering (default)
+export const csr = true;      // client-side rendering (default)
+export const prerender = true; // static pre-render at build time
+
+// Disable SSR for a page (SPA mode):
+export const ssr = false;
+export const csr = true;
+
+// +layout.ts for full static site:
+export const prerender = true;
+export const ssr = true;
+
+# svelte.config.js:
+import adapter from '@sveltejs/adapter-auto';
+// adapter-auto   — Vercel/Netlify/Cloudflare auto-detect
+// adapter-node   — Node.js server
+// adapter-static — static files (SSG only)
+// adapter-cloudflare — CF Workers
+// adapter-vercel  — Vercel with edge/serverless options
+
+export default {
+    kit: {
+        adapter: adapter(),
+        alias: { '$lib': 'src/lib' },
+    }
+};
+
+# Environment variables:
+import { PUBLIC_API_URL } from '$env/static/public';  // client-safe
+import { DATABASE_URL } from '$env/static/private';    // server-only
+import { env } from '$env/dynamic/private';             // runtime
+
+# Hooks (src/hooks.server.ts):
+import type { Handle } from '@sveltejs/kit';
+export const handle: Handle = async ({ event, resolve }) => {
+    event.locals.user = await getUser(event.cookies.get('session'));
+    return resolve(event);
+};"
+}
+
+fn s_sv_advanced() -> &'static str {
+    "Svelte Advanced Patterns
+---
+# Two-way binding:
+<input bind:value={name} />
+<input bind:checked={agreed} type=\"checkbox\" />
+<select bind:value={selected}>
+<MyComp bind:value={val} />   # bind to child exported prop
+
+# Component events (createEventDispatcher):
+<script>
+  import { createEventDispatcher } from 'svelte';
+  const dispatch = createEventDispatcher<{ submit: { value: string } }>();
+  function submit() { dispatch('submit', { value }); }
+</script>
+# Parent: <Child on:submit={e => console.log(e.detail.value)} />
+
+# Slots:
+<slot />                        # default slot
+<slot name=\"header\" />          # named slot
+<slot {item}>fallback</slot>    # scoped slot
+
+# Transitions & animations:
+import { fade, fly, slide, scale } from 'svelte/transition';
+import { flip } from 'svelte/animate';
+<div transition:fade={{ duration: 300 }}>...</div>
+<div in:fly={{ y: 20 }} out:fade>...</div>
+{#each items as item (item.id)}
+  <div animate:flip={{ duration: 200 }}>{item.name}</div>
+{/each}
+
+# Context API (parent to deep descendants):
+import { setContext, getContext } from 'svelte';
+setContext('theme', { primary: 'blue' });
+const theme = getContext('theme');
+
+# Actions (reusable DOM behavior):
+function tooltip(node: HTMLElement, text: string) {
+    // setup
+    return {
+        update(newText) { /* text changed */ },
+        destroy() { /* cleanup */ },
+    };
+}
+<button use:tooltip=\"Click me\">Hover</button>"
+}
+
+type SvelteRefSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+const SVELTE_REF_SECTIONS: &[SvelteRefSection] = &[
+    (
+        "components",
+        &[
+            "svelte-component",
+            "svelte-reactive",
+            "svelte-lifecycle",
+            "svelte-template",
+            "svelte-each",
+            "svelte-if",
+            "svelte-await",
+            "svelte-events",
+            "svelte-style",
+            "svelte-onmount",
+            "svelte-ondestroy",
+        ],
+        s_sv_components,
+    ),
+    (
+        "stores",
+        &[
+            "svelte-store",
+            "svelte-writable",
+            "svelte-readable",
+            "svelte-derived",
+            "svelte-get",
+            "svelte-custom-store",
+            "svelte-subscribe",
+            "svelte-store-dollar",
+            "svelte-auto-subscribe",
+            "svelte-store-update",
+            "svelte-reactive-store",
+        ],
+        s_sv_stores,
+    ),
+    (
+        "sveltekit",
+        &[
+            "sveltekit-routing",
+            "sveltekit-load",
+            "sveltekit-page",
+            "sveltekit-layout",
+            "sveltekit-form-actions",
+            "sveltekit-api-route",
+            "sveltekit-server",
+            "sveltekit-params",
+            "sveltekit-types",
+            "sveltekit-error",
+            "sveltekit-data",
+        ],
+        s_sv_sveltekit,
+    ),
+    (
+        "ssr",
+        &[
+            "sveltekit-ssr",
+            "sveltekit-ssg",
+            "sveltekit-prerender",
+            "sveltekit-adapter",
+            "sveltekit-env",
+            "sveltekit-hooks",
+            "svelte-adapter-node",
+            "svelte-adapter-static",
+            "svelte-adapter-vercel",
+            "sveltekit-rendering",
+            "sveltekit-csr",
+        ],
+        s_sv_ssr,
+    ),
+    (
+        "advanced",
+        &[
+            "svelte-bind",
+            "svelte-slot",
+            "svelte-transition",
+            "svelte-animate",
+            "svelte-action",
+            "svelte-context",
+            "svelte-dispatch",
+            "svelte-flip",
+            "svelte-fade",
+            "svelte-fly",
+            "svelte-use",
+        ],
+        s_sv_advanced,
+    ),
+];
+
+pub fn svelte_ref_calc(query: &str) -> String {
+    let q = query.trim().to_lowercase();
+    if q.is_empty() || q == "list" || q == "help" {
+        let topics: Vec<&str> = SVELTE_REF_SECTIONS.iter().map(|(n, _, _)| *n).collect();
+        return format!(
+            "svelte-ref topics: {}\nUse: --svelte-ref <topic>  or  --svelte-ref all",
+            topics.join(", ")
+        );
+    }
+    if q == "all" {
+        return SVELTE_REF_SECTIONS
+            .iter()
+            .map(|(n, _, f)| format!("── {} ──\n{}", n, f()))
+            .collect::<Vec<_>>()
+            .join("\n\n");
+    }
+    for (name, aliases, func) in SVELTE_REF_SECTIONS {
+        if q == *name || aliases.iter().any(|a| q == *a || q.contains(a)) {
+            return func().to_string();
+        }
+    }
+    format!(
+        "Unknown svelte-ref topic: '{}'\nAvailable: {}",
+        query.trim(),
+        SVELTE_REF_SECTIONS
+            .iter()
+            .map(|(n, _, _)| *n)
+            .collect::<Vec<_>>()
+            .join(", ")
+    )
+}
+
+// ─── wave 48: kafka_adv_calc ─────────────────────────────────────────────────
+
+fn s_kv_consumer_groups() -> &'static str {
+    "Kafka Consumer Groups
+---
+Consumer group: multiple consumers sharing partitions of a topic.
+Each partition is assigned to exactly one consumer in the group.
+
+# Create consumer with group:
+consumer = KafkaConsumer(
+    'my-topic',
+    bootstrap_servers=['localhost:9092'],
+    group_id='my-group',
+    auto_offset_reset='earliest',    # or 'latest'
+    enable_auto_commit=True,
+    auto_commit_interval_ms=5000,
+)
+
+# Manual commit (recommended for at-least-once):
+consumer = KafkaConsumer(..., enable_auto_commit=False)
+for msg in consumer:
+    process(msg)
+    consumer.commit()              # commit after processing
+
+# Seek to specific offset:
+tp = TopicPartition('topic', 0)
+consumer.assign([tp])
+consumer.seek(tp, 1000)           # seek to offset 1000
+
+Rebalancing:
+  class RebalanceListener(ConsumerRebalanceListener):
+      def on_partitions_revoked(self, partitions):  commit offsets
+      def on_partitions_assigned(self, partitions): seek to checkpoints
+
+Key settings:
+  session.timeout.ms    10000   # max silence before rebalance
+  heartbeat.interval.ms  3000   # how often consumer sends heartbeat
+  max.poll.interval.ms  300000  # max time between polls before kicked
+  max.poll.records       500    # batch size per poll
+
+kafka-consumer-groups CLI:
+  kafka-consumer-groups --bootstrap-server :9092 --list
+  kafka-consumer-groups --bootstrap-server :9092 --describe --group my-group
+  kafka-consumer-groups --bootstrap-server :9092 --reset-offsets --to-earliest --group my-group --topic my-topic --execute"
+}
+
+fn s_kv_compaction() -> &'static str {
+    "Kafka Log Compaction & Retention
+---
+# Retention (time-based):
+  log.retention.hours = 168      # 7 days default
+  log.retention.bytes = -1       # unlimited by default
+  log.segment.bytes = 1073741824 # 1GB segment size
+
+# Per-topic override (kafka-topics --alter):
+  retention.ms = 86400000        # 1 day in ms
+  retention.bytes = 5368709120   # 5GB
+
+# Log compaction (keep last value per key):
+  cleanup.policy = compact       # or 'delete' (default) or 'compact,delete'
+  min.compaction.lag.ms = 0      # messages younger than this never compacted
+  max.compaction.lag.ms = Long.MAX_VALUE  # messages older than this must be compacted
+  min.cleanable.dirty.ratio = 0.5  # trigger compaction at 50% dirty
+
+# Tombstone (delete a key from compacted topic):
+  # Produce a message with the same key and value = null
+  producer.send(ProducerRecord('topic', 'key', null))
+
+# When to use compaction:
+  - Change data capture (CDC): maintain latest state per entity
+  - Event sourcing: replay current state from compacted topic
+  - Config/setting stores: one record per config key
+
+# Compaction limits:
+  - Keys MUST be non-null (null keys are never compacted)
+  - Order of messages with same key not guaranteed across segments
+  - Compaction runs in background; not instantaneous"
+}
+
+fn s_kv_streams() -> &'static str {
+    "Kafka Streams
+---
+// Kafka Streams (Java/Scala DSL):
+StreamsBuilder builder = new StreamsBuilder();
+KStream<String, String> source = builder.stream(\"input-topic\");
+
+// Stateless:
+source
+    .filter((key, value) -> value.contains(\"error\"))
+    .mapValues(value -> value.toUpperCase())
+    .to(\"output-topic\");
+
+// Grouping and aggregation:
+KTable<String, Long> wordCounts = source
+    .flatMapValues(v -> Arrays.asList(v.toLowerCase().split(\"\\\\s+\")))
+    .groupBy((key, word) -> word)
+    .count(Materialized.as(\"word-count-store\"));
+
+// Joining streams:
+KStream<String, Order> orders = builder.stream(\"orders\");
+KTable<String, Customer> customers = builder.table(\"customers\");
+orders.join(customers,
+    (order, customer) -> order.withCustomer(customer),
+    Joined.with(Serdes.String(), orderSerde, customerSerde))
+    .to(\"enriched-orders\");
+
+// Windowing:
+source.groupByKey()
+    .windowedBy(TimeWindows.ofSizeWithNoGrace(Duration.ofMinutes(5)))
+    .count()
+    .toStream()
+    .to(\"windowed-counts\");
+
+// State stores:
+ReadOnlyKeyValueStore<String, Long> store = streams
+    .store(StoreQueryParameters.fromNameAndType(
+        \"word-count-store\", QueryableStoreTypes.keyValueStore()));
+
+// ksqlDB (SQL on Kafka streams):
+CREATE STREAM pageviews (url VARCHAR, user_id VARCHAR)
+    WITH (KAFKA_TOPIC='pageviews', VALUE_FORMAT='JSON');
+CREATE TABLE user_counts AS
+    SELECT user_id, COUNT(*) FROM pageviews GROUP BY user_id EMIT CHANGES;"
+}
+
+fn s_kv_schema() -> &'static str {
+    "Kafka Schema Registry & Avro
+---
+# Schema Registry (Confluent):
+# API: http://localhost:8081
+
+# Register a schema:
+curl -X POST http://localhost:8081/subjects/orders-value/versions \\
+  -H 'Content-Type: application/vnd.schemaregistry.v1+json' \\
+  -d '{\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"Order\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"string\\\"}]}\"}'
+
+# List subjects: GET /subjects
+# Get schema: GET /subjects/{subject}/versions/latest
+# Check compatibility: PUT /config/{subject}
+
+# Python with Avro + Schema Registry:
+from confluent_kafka import Producer
+from confluent_kafka.schema_registry import SchemaRegistryClient
+from confluent_kafka.schema_registry.avro import AvroSerializer
+
+schema_registry_client = SchemaRegistryClient({'url': 'http://localhost:8081'})
+avro_serializer = AvroSerializer(schema_registry_client, schema_str)
+
+producer = Producer({'bootstrap.servers': 'localhost:9092'})
+producer.produce('orders',
+    key='key',
+    value=avro_serializer(order_obj, SerializationContext('orders', MessageField.VALUE)))
+
+# Compatibility modes (set per-subject or globally):
+  NONE         no compatibility checks
+  BACKWARD     new schema can read old data (consumers upgrade first)
+  FORWARD      old schema can read new data (producers upgrade first)
+  FULL         both backward and forward compatible
+  BACKWARD_TRANSITIVE  compatible with all previous versions
+
+# Safe schema evolution:
+  Add optional field with default value   (BACKWARD compatible)
+  Remove field with default value         (FORWARD compatible)
+  Never: rename field, change type, remove required field"
+}
+
+fn s_kv_operations() -> &'static str {
+    "Kafka Operations & Tuning
+---
+# Producer settings (throughput vs durability):
+  acks = all           # wait for all ISR acknowledgment (safest)
+  acks = 1             # leader only (default, fast)
+  acks = 0             # fire and forget
+  retries = 2147483647 # retry indefinitely (idempotent producer)
+  enable.idempotence = true  # exactly-once delivery
+  batch.size = 16384   # bytes per batch (increase for throughput)
+  linger.ms = 5        # wait up to Nms before sending batch
+  compression.type = lz4   # snappy/lz4/zstd/gzip
+
+# Partition sizing:
+  # Rule of thumb: partitions = max(target_throughput_MB/s / 10, retention_GB / 1)
+  # More partitions = more parallelism but more overhead
+  kafka-topics --create --topic my-topic --partitions 12 --replication-factor 3 \\
+    --bootstrap-server localhost:9092
+
+# Replication factor:
+  RF=1  no fault tolerance
+  RF=3  standard production (survive 1 broker failure)
+  min.insync.replicas=2  with acks=all — requires 2 replicas acked
+
+# Monitoring key metrics:
+  UnderReplicatedPartitions  > 0 = broker issue
+  OfflinePartitionsCount     > 0 = critical
+  ActiveControllerCount      != 1 = split brain
+  ConsumerLag                consumer is behind — watch per-partition
+  NetworkProcessorAvgIdlePercent  < 30% = network bottleneck
+  RequestHandlerAvgIdlePercent    < 30% = CPU bottleneck
+
+# Useful CLI commands:
+  kafka-topics --list --bootstrap-server :9092
+  kafka-topics --describe --topic my-topic --bootstrap-server :9092
+  kafka-console-producer --topic my-topic --bootstrap-server :9092
+  kafka-console-consumer --topic my-topic --from-beginning --bootstrap-server :9092
+  kafka-configs --alter --entity-type topics --entity-name my-topic \\
+    --add-config retention.ms=3600000 --bootstrap-server :9092"
+}
+
+type KafkaAdvSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+const KAFKA_ADV_SECTIONS: &[KafkaAdvSection] = &[
+    (
+        "consumer-groups",
+        &[
+            "kafka-consumer-group",
+            "kafka-offset",
+            "kafka-rebalance",
+            "kafka-commit",
+            "consumer-lag",
+            "kafka-seek",
+            "kafka-assign",
+            "kafka-group-id",
+            "kafka-auto-commit",
+            "kafka-consumer-settings",
+            "kafka-partition-assign",
+        ],
+        s_kv_consumer_groups,
+    ),
+    (
+        "compaction",
+        &[
+            "kafka-compaction",
+            "log-compaction",
+            "kafka-retention",
+            "kafka-tombstone",
+            "cleanup-policy",
+            "kafka-log-cleanup",
+            "kafka-compact",
+            "kafka-delete-key",
+            "kafka-segment",
+            "kafka-retention-ms",
+            "kafka-dirty-ratio",
+        ],
+        s_kv_compaction,
+    ),
+    (
+        "streams",
+        &[
+            "kafka-streams",
+            "kstream",
+            "ktable",
+            "kafka-dsl",
+            "ksqldb",
+            "kafka-window",
+            "kafka-join",
+            "kafka-aggregate",
+            "kafka-state-store",
+            "kafka-topology",
+            "kafka-processor",
+        ],
+        s_kv_streams,
+    ),
+    (
+        "schema",
+        &[
+            "schema-registry",
+            "kafka-avro",
+            "kafka-schema",
+            "avro-serializer",
+            "schema-compatibility",
+            "kafka-protobuf",
+            "schema-evolution",
+            "confluent-schema",
+            "avro-record",
+            "schema-backward",
+            "schema-forward",
+        ],
+        s_kv_schema,
+    ),
+    (
+        "operations",
+        &[
+            "kafka-ops",
+            "kafka-tuning",
+            "kafka-producer-settings",
+            "kafka-acks",
+            "kafka-replication",
+            "kafka-partitions",
+            "kafka-monitoring",
+            "kafka-metrics",
+            "kafka-idempotent",
+            "kafka-throughput",
+            "kafka-cli",
+        ],
+        s_kv_operations,
+    ),
+];
+
+pub fn kafka_adv_calc(query: &str) -> String {
+    let q = query.trim().to_lowercase();
+    if q.is_empty() || q == "list" || q == "help" {
+        let topics: Vec<&str> = KAFKA_ADV_SECTIONS.iter().map(|(n, _, _)| *n).collect();
+        return format!(
+            "kafka-adv topics: {}\nUse: --kafka-adv <topic>  or  --kafka-adv all",
+            topics.join(", ")
+        );
+    }
+    if q == "all" {
+        return KAFKA_ADV_SECTIONS
+            .iter()
+            .map(|(n, _, f)| format!("── {} ──\n{}", n, f()))
+            .collect::<Vec<_>>()
+            .join("\n\n");
+    }
+    for (name, aliases, func) in KAFKA_ADV_SECTIONS {
+        if q == *name || aliases.iter().any(|a| q == *a || q.contains(a)) {
+            return func().to_string();
+        }
+    }
+    format!(
+        "Unknown kafka-adv topic: '{}'\nAvailable: {}",
+        query.trim(),
+        KAFKA_ADV_SECTIONS
+            .iter()
+            .map(|(n, _, _)| *n)
+            .collect::<Vec<_>>()
+            .join(", ")
+    )
+}
+
+// ─── wave 48: deno_ref_calc ──────────────────────────────────────────────────
+
+fn s_dn_runtime() -> &'static str {
+    "Deno Runtime Essentials
+---
+# Deno 2 — secure by default, TypeScript native
+
+# Run with explicit permissions:
+deno run --allow-net --allow-read main.ts
+deno run --allow-all main.ts          # grant all (development only)
+
+# Permission flags:
+  --allow-net[=host:port]   # network access (optional whitelist)
+  --allow-read[=path]       # file read
+  --allow-write[=path]      # file write
+  --allow-env[=VAR]         # environment variables
+  --allow-run[=cmd]         # spawn subprocesses
+  --allow-ffi               # load native plugins
+  --deny-net                # deny network even if granted elsewhere
+  --no-prompt               # never ask for permissions at runtime
+
+# TypeScript out of the box (no tsconfig needed for basics):
+deno run main.ts            # compiles TS automatically
+deno check main.ts          # type-check without running
+deno fmt                    # format (uses Prettier-compatible)
+deno lint                   # lint
+deno test                   # run tests
+
+# Standard library (JSR):
+import { join } from 'jsr:@std/path';
+import { delay } from 'jsr:@std/async';
+import { assertEquals } from 'jsr:@std/assert';
+
+# NPM compatibility:
+import express from 'npm:express';
+import _ from 'npm:lodash';
+
+# deno.json (config):
+{
+  \"tasks\": {
+    \"dev\": \"deno run --watch --allow-net main.ts\",
+    \"test\": \"deno test\"
+  },
+  \"imports\": {
+    \"@/\": \"./src/\"
+  }
+}"
+}
+
+fn s_dn_apis() -> &'static str {
+    "Deno Standard APIs
+---
+# File system:
+const text = await Deno.readTextFile('./data.txt');
+await Deno.writeTextFile('./out.txt', 'hello');
+const data = await Deno.readFile('./image.png');  // Uint8Array
+await Deno.copyFile('./src.txt', './dst.txt');
+await Deno.remove('./tmp', { recursive: true });
+for await (const entry of Deno.readDir('./src')) {
+    console.log(entry.name, entry.isFile);
+}
+
+# Environment:
+const home = Deno.env.get('HOME');
+Deno.env.set('MY_VAR', 'value');
+
+# Network (built-in fetch):
+const res = await fetch('https://api.example.com/data');
+const json = await res.json();
+
+# HTTP server:
+Deno.serve({ port: 8000 }, (req) => {
+    const url = new URL(req.url);
+    if (url.pathname === '/') return new Response('Hello!');
+    return new Response('Not Found', { status: 404 });
+});
+
+# Subprocess:
+const cmd = new Deno.Command('ls', { args: ['-la'], stdout: 'piped' });
+const { stdout } = await cmd.output();
+console.log(new TextDecoder().decode(stdout));
+
+# Streams (Web Streams API):
+const readable = (await Deno.open('./large.txt')).readable;
+const writable = (await Deno.create('./copy.txt')).writable;
+await readable.pipeTo(writable);
+
+# WebSocket server:
+Deno.serve((req) => {
+    if (req.headers.get('upgrade') === 'websocket') {
+        const { socket, response } = Deno.upgradeWebSocket(req);
+        socket.onmessage = (e) => socket.send(e.data);
+        return response;
+    }
+    return new Response('Not a WS request');
+});"
+}
+
+fn s_dn_fresh() -> &'static str {
+    "Fresh Framework (Deno)
+---
+# Fresh 2 — islands architecture, zero JS by default
+
+# Create project:
+deno run -A jsr:@fresh/init my-app
+cd my-app && deno task start
+
+# Directory structure:
+routes/          # file-based routing
+  index.tsx      # /
+  blog/
+    [slug].tsx   # /blog/:slug
+  api/
+    users.ts     # /api/users (REST endpoint)
+islands/         # interactive components (client JS)
+  Counter.tsx
+components/      # server-only components (no JS sent)
+  Header.tsx
+static/          # served at /
+fresh.config.ts
+
+# Route handler (+data loading):
+// routes/blog/[slug].tsx
+import type { PageProps, Handlers } from '$fresh/server.ts';
+export const handler: Handlers<Post> = {
+    async GET(req, ctx) {
+        const post = await fetchPost(ctx.params.slug);
+        if (!post) return ctx.renderNotFound();
+        return ctx.render(post);
+    }
+};
+export default function BlogPage({ data }: PageProps<Post>) {
+    return <article><h1>{data.title}</h1></article>;
+}
+
+# Island (client-side interactive):
+// islands/Counter.tsx
+import { useSignal } from '@preact/signals';
+export default function Counter() {
+    const count = useSignal(0);
+    return (
+        <div>
+            <p>Count: {count}</p>
+            <button onClick={() => count.value++}>+</button>
+        </div>
+    );
+}
+
+# Use island in route (only the island is hydrated):
+import Counter from '../islands/Counter.tsx';
+// <Counter />  — renders on client with JS"
+}
+
+fn s_dn_kv() -> &'static str {
+    "Deno KV — Built-in Key-Value Store
+---
+// Deno KV (built-in persistent store, no setup)
+const kv = await Deno.openKv();         // local SQLite
+const kv = await Deno.openKv(\"./data.db\");  // explicit path
+// Production: Deno Deploy uses Deno KV on FoundationDB
+
+// Basic operations:
+await kv.set([\"users\", 123], { name: \"Alice\", age: 30 });
+const entry = await kv.get<User>([\"users\", 123]);
+console.log(entry.value?.name);  // Alice
+console.log(entry.versionstamp); // for optimistic concurrency
+
+// Delete:
+await kv.delete([\"users\", 123]);
+
+// List (prefix scan):
+const iter = kv.list<User>({ prefix: [\"users\"] });
+for await (const entry of iter) {
+    console.log(entry.key, entry.value);
+}
+
+// Transactions (atomic):
+const res = await kv.atomic()
+    .check({ key: [\"users\", 1], versionstamp: currentVS })
+    .set([\"users\", 1], updatedUser)
+    .set([\"audit\", Date.now()], { action: 'update', userId: 1 })
+    .commit();
+if (!res.ok) throw new Error('Conflict — retry');
+
+// Queues (durable background tasks):
+await kv.enqueue({ type: 'send-email', to: 'user@example.com' });
+kv.listenQueue(async (msg) => {
+    if (msg.type === 'send-email') await sendEmail(msg.to);
+});
+
+// Watch (real-time):
+const stream = kv.watch([[\"counter\"]]);
+for await (const [entry] of stream) {
+    console.log('counter changed:', entry.value);
+}"
+}
+
+fn s_dn_testing() -> &'static str {
+    "Deno Testing
+---
+// deno test — built-in test runner, no framework needed
+
+import { assertEquals, assertThrows, assertRejects } from 'jsr:@std/assert';
+
+// Basic test:
+Deno.test('addition works', () => {
+    assertEquals(1 + 1, 2);
+});
+
+// Async test:
+Deno.test('fetch works', async () => {
+    const res = await fetch('https://example.com');
+    assertEquals(res.status, 200);
+});
+
+// With permissions:
+Deno.test({
+    name: 'reads file',
+    permissions: { read: true },
+    fn: async () => {
+        const text = await Deno.readTextFile('./fixture.txt');
+        assertEquals(text.includes('hello'), true);
+    }
+});
+
+// Sanitizers (default ON — detect leaks):
+Deno.test({
+    name: 'timer test',
+    sanitizeOps: false,     // disable op sanitizer
+    sanitizeResources: false, // disable resource sanitizer
+    fn: () => {
+        setTimeout(() => {}, 1000);  // would fail without sanitizeOps:false
+    }
+});
+
+// Step tests (sub-tests):
+Deno.test('database', async (t) => {
+    await t.step('insert', async () => { /* ... */ });
+    await t.step('select', async () => { /* ... */ });
+    await t.step('delete', async () => { /* ... */ });
+});
+
+// Run:
+deno test                   # all *_test.ts and *_test.js
+deno test --watch           # re-run on change
+deno test --coverage        # collect coverage
+deno coverage ./coverage    # report
+deno test --filter 'addition' # run matching tests only"
+}
+
+type DenoRefSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+const DENO_REF_SECTIONS: &[DenoRefSection] = &[
+    (
+        "runtime",
+        &[
+            "deno-run",
+            "deno-permissions",
+            "deno-allow",
+            "deno-typescript",
+            "deno-fmt",
+            "deno-lint",
+            "deno-json",
+            "deno-tasks",
+            "deno-imports",
+            "deno-jsr",
+            "deno-npm",
+        ],
+        s_dn_runtime,
+    ),
+    (
+        "apis",
+        &[
+            "deno-apis",
+            "deno-readfile",
+            "deno-writefile",
+            "deno-env",
+            "deno-serve",
+            "deno-fetch",
+            "deno-command",
+            "deno-subprocess",
+            "deno-streams",
+            "deno-websocket",
+            "deno-http-server",
+        ],
+        s_dn_apis,
+    ),
+    (
+        "fresh",
+        &[
+            "fresh-framework",
+            "fresh-routing",
+            "fresh-islands",
+            "fresh-handler",
+            "fresh-pageprops",
+            "fresh-signals",
+            "fresh-preact",
+            "fresh-ssr",
+            "fresh-static",
+            "fresh-init",
+            "fresh-components",
+        ],
+        s_dn_fresh,
+    ),
+    (
+        "kv",
+        &[
+            "deno-kv",
+            "deno-key-value",
+            "deno-kvstore",
+            "deno-kv-set",
+            "deno-kv-get",
+            "deno-kv-list",
+            "deno-kv-atomic",
+            "deno-kv-queue",
+            "deno-kv-watch",
+            "deno-openKv",
+            "deno-kv-transaction",
+        ],
+        s_dn_kv,
+    ),
+    (
+        "testing",
+        &[
+            "deno-test",
+            "deno-assert",
+            "deno-coverage",
+            "deno-test-step",
+            "deno-test-watch",
+            "deno-assertEquals",
+            "deno-assertThrows",
+            "deno-sanitize",
+            "deno-test-filter",
+            "deno-test-permissions",
+            "deno-std-assert",
+        ],
+        s_dn_testing,
+    ),
+];
+
+pub fn deno_ref_calc(query: &str) -> String {
+    let q = query.trim().to_lowercase();
+    if q.is_empty() || q == "list" || q == "help" {
+        let topics: Vec<&str> = DENO_REF_SECTIONS.iter().map(|(n, _, _)| *n).collect();
+        return format!(
+            "deno-ref topics: {}\nUse: --deno-ref <topic>  or  --deno-ref all",
+            topics.join(", ")
+        );
+    }
+    if q == "all" {
+        return DENO_REF_SECTIONS
+            .iter()
+            .map(|(n, _, f)| format!("── {} ──\n{}", n, f()))
+            .collect::<Vec<_>>()
+            .join("\n\n");
+    }
+    for (name, aliases, func) in DENO_REF_SECTIONS {
+        if q == *name || aliases.iter().any(|a| q == *a || q.contains(a)) {
+            return func().to_string();
+        }
+    }
+    format!(
+        "Unknown deno-ref topic: '{}'\nAvailable: {}",
+        query.trim(),
+        DENO_REF_SECTIONS
+            .iter()
+            .map(|(n, _, _)| *n)
+            .collect::<Vec<_>>()
+            .join(", ")
+    )
+}
+
+// ─── wave 48: otel_ref_calc ───────────────────────────────────────────────────
+
+fn s_ot_sdk() -> &'static str {
+    "OpenTelemetry SDK Setup
+---
+# Python SDK:
+pip install opentelemetry-sdk opentelemetry-exporter-otlp
+
+from opentelemetry import trace, metrics
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+from opentelemetry.sdk.resources import SERVICE_NAME, Resource
+
+resource = Resource.create({SERVICE_NAME: \"my-service\"})
+provider = TracerProvider(resource=resource)
+provider.add_span_processor(BatchSpanProcessor(OTLPSpanExporter(endpoint=\"localhost:4317\")))
+trace.set_tracer_provider(provider)
+
+tracer = trace.get_tracer(__name__)
+
+# Node.js SDK:
+npm install @opentelemetry/sdk-node @opentelemetry/auto-instrumentations-node
+
+// tracing.js (loaded first via -r)
+const { NodeSDK } = require('@opentelemetry/sdk-node');
+const { OTLPTraceExporter } = require('@opentelemetry/exporter-trace-otlp-proto');
+const { getNodeAutoInstrumentations } = require('@opentelemetry/auto-instrumentations-node');
+const sdk = new NodeSDK({
+    traceExporter: new OTLPTraceExporter({ url: 'http://localhost:4318/v1/traces' }),
+    instrumentations: [getNodeAutoInstrumentations()],
+});
+sdk.start();
+// node -r ./tracing.js app.js
+
+# Rust SDK (opentelemetry crate):
+[dependencies]
+opentelemetry = \"0.26\"
+opentelemetry_sdk = { version = \"0.26\", features = [\"rt-tokio\"] }
+opentelemetry-otlp = { version = \"0.26\", features = [\"tonic\"] }"
+}
+
+fn s_ot_traces() -> &'static str {
+    "OpenTelemetry Traces
+---
+# Python:
+tracer = trace.get_tracer('my-module')
+
+with tracer.start_as_current_span('operation-name') as span:
+    span.set_attribute('http.method', 'GET')
+    span.set_attribute('http.url', '/api/users')
+    span.set_attribute('user.id', 42)
+    span.add_event('cache-miss', {'key': 'users:42'})
+    try:
+        result = do_work()
+        span.set_status(StatusCode.OK)
+    except Exception as e:
+        span.record_exception(e)
+        span.set_status(StatusCode.ERROR, str(e))
+        raise
+
+# Propagation (pass trace context across services):
+from opentelemetry.propagators.b3 import B3Format
+from opentelemetry import propagate
+# Inject into outgoing request headers:
+headers = {}
+propagate.inject(headers)
+requests.get(url, headers=headers)
+# Extract from incoming request:
+context = propagate.extract(request.headers)
+with tracer.start_as_current_span('handler', context=context) as span:
+    ...
+
+# Span attributes (semantic conventions):
+  http.method, http.url, http.status_code
+  db.system, db.name, db.statement
+  messaging.system, messaging.destination
+  rpc.system, rpc.service, rpc.method
+  service.name, service.version, host.name
+
+# Span kinds:
+  SpanKind.SERVER    # incoming RPC/HTTP
+  SpanKind.CLIENT    # outgoing RPC/HTTP
+  SpanKind.PRODUCER  # outgoing message queue
+  SpanKind.CONSUMER  # incoming message queue
+  SpanKind.INTERNAL  # internal operation"
+}
+
+fn s_ot_metrics() -> &'static str {
+    "OpenTelemetry Metrics
+---
+# Python metrics:
+from opentelemetry import metrics
+from opentelemetry.sdk.metrics import MeterProvider
+from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
+from opentelemetry.exporter.otlp.proto.grpc.metric_exporter import OTLPMetricExporter
+
+reader = PeriodicExportingMetricReader(OTLPMetricExporter(), export_interval_millis=5000)
+provider = MeterProvider(metric_readers=[reader])
+metrics.set_meter_provider(provider)
+
+meter = metrics.get_meter('my-service')
+
+# Instrument types:
+# Counter (monotonically increasing):
+req_counter = meter.create_counter('http.server.request_count',
+    unit='1', description='Number of HTTP requests')
+req_counter.add(1, {'http.method': 'GET', 'http.status_code': 200})
+
+# UpDownCounter (can go up or down):
+active = meter.create_up_down_counter('http.server.active_requests')
+active.add(1)  # request start
+active.add(-1) # request end
+
+# Histogram (distribution of values):
+duration = meter.create_histogram('http.server.duration',
+    unit='ms', description='HTTP request duration')
+duration.record(42, {'http.method': 'GET'})
+
+# Gauge (current value via callback):
+def cpu_callback(options):
+    return [metrics.Observation(get_cpu_percent(), {})]
+meter.create_observable_gauge('system.cpu.utilization',
+    callbacks=[cpu_callback], unit='%')
+
+# Exemplars (link metrics to traces):
+  Exemplars attach a trace ID and span ID to a metric measurement
+  Enables drilldown: metric spike -> trace that caused it
+  Configured in SDK; supported by Prometheus, Grafana"
+}
+
+fn s_ot_logs() -> &'static str {
+    "OpenTelemetry Logs
+---
+# Python OTel logging bridge:
+import logging
+from opentelemetry._logs import set_logger_provider
+from opentelemetry.sdk._logs import LoggerProvider
+from opentelemetry.sdk._logs.export import BatchLogRecordProcessor
+from opentelemetry.exporter.otlp.proto.grpc._log_exporter import OTLPLogExporter
+
+logger_provider = LoggerProvider(resource=resource)
+logger_provider.add_log_record_processor(BatchLogRecordProcessor(OTLPLogExporter()))
+set_logger_provider(logger_provider)
+
+# Bridge standard Python logging to OTel:
+from opentelemetry.sdk._logs import LoggingHandler
+handler = LoggingHandler(logger_provider=logger_provider)
+logging.getLogger().addHandler(handler)
+
+# Now standard log calls emit as OTel log records:
+logging.error('Database connection failed', extra={'db.name': 'orders'})
+
+# Log record fields (semantic conventions):
+  severity: TRACE/DEBUG/INFO/WARN/ERROR/FATAL
+  body: message string
+  trace_id, span_id  — auto-populated when inside a span
+  attributes: key-value pairs
+
+# Structured logging correlates with traces:
+  When a log is emitted inside a span, OTel auto-injects
+  trace_id and span_id into the log record — enabling
+  log <-> trace correlation in Grafana, Jaeger, etc.
+
+# Log exporters:
+  OTLP (HTTP/gRPC) → Collector → Loki/Elasticsearch/etc.
+  Console exporter  → stdout (development)
+  File exporter     → local files (no standard OTel exporter)"
+}
+
+fn s_ot_collector() -> &'static str {
+    "OpenTelemetry Collector
+---
+# Collector sits between apps and backends:
+#   App → OTLP → Collector → Prometheus/Jaeger/Loki/etc.
+
+# docker-compose.yml:
+services:
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:latest
+    volumes:
+      - ./otel-config.yaml:/etc/otelcol-contrib/config.yaml
+    ports:
+      - 4317:4317   # OTLP gRPC
+      - 4318:4318   # OTLP HTTP
+      - 8889:8889   # Prometheus metrics scrape endpoint
+
+# otel-config.yaml:
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  batch:
+    timeout: 10s
+    send_batch_size: 1024
+  memory_limiter:
+    limit_mib: 512
+  resource:
+    attributes:
+      - key: environment
+        value: production
+        action: insert
+
+exporters:
+  prometheus:
+    endpoint: 0.0.0.0:8889
+  jaeger:
+    endpoint: jaeger:14250
+    tls:
+      insecure: true
+  loki:
+    endpoint: http://loki:3100/loki/api/v1/push
+  otlp:
+    endpoint: tempo:4317
+    tls:
+      insecure: true
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [jaeger, otlp]
+    metrics:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [prometheus]
+    logs:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [loki]"
+}
+
+type OtelRefSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+const OTEL_REF_SECTIONS: &[OtelRefSection] = &[
+    (
+        "sdk",
+        &[
+            "otel-sdk",
+            "opentelemetry-sdk",
+            "otel-setup",
+            "otel-python",
+            "otel-node",
+            "otel-rust",
+            "otel-provider",
+            "otel-exporter",
+            "otel-resource",
+            "otel-auto-instrumentation",
+            "otlp-setup",
+        ],
+        s_ot_sdk,
+    ),
+    (
+        "traces",
+        &[
+            "otel-traces",
+            "otel-span",
+            "otel-tracer",
+            "otel-propagation",
+            "otel-context",
+            "otel-span-attributes",
+            "otel-span-kind",
+            "otel-b3",
+            "otel-w3c",
+            "otel-sampling",
+            "otel-trace-context",
+        ],
+        s_ot_traces,
+    ),
+    (
+        "metrics",
+        &[
+            "otel-metrics",
+            "otel-counter",
+            "otel-histogram",
+            "otel-gauge",
+            "otel-meter",
+            "otel-updown-counter",
+            "otel-observable",
+            "otel-exemplar",
+            "otel-metric-reader",
+            "otel-periodic-reader",
+            "otel-metric-export",
+        ],
+        s_ot_metrics,
+    ),
+    (
+        "logs",
+        &[
+            "otel-logs",
+            "otel-logging",
+            "otel-log-bridge",
+            "otel-log-provider",
+            "otel-log-record",
+            "otel-log-correlation",
+            "otel-log-exporter",
+            "otel-structured-logs",
+            "otel-log-severity",
+            "otel-log-handler",
+            "otel-log-span",
+        ],
+        s_ot_logs,
+    ),
+    (
+        "collector",
+        &[
+            "otel-collector",
+            "otelcol",
+            "otel-pipeline",
+            "otel-receiver",
+            "otel-processor",
+            "otel-exporter-config",
+            "otel-batch-processor",
+            "otel-memory-limiter",
+            "otel-contrib",
+            "otelcol-config",
+            "otel-docker",
+        ],
+        s_ot_collector,
+    ),
+];
+
+pub fn otel_ref_calc(query: &str) -> String {
+    let q = query.trim().to_lowercase();
+    if q.is_empty() || q == "list" || q == "help" {
+        let topics: Vec<&str> = OTEL_REF_SECTIONS.iter().map(|(n, _, _)| *n).collect();
+        return format!(
+            "otel-ref topics: {}\nUse: --otel-ref <topic>  or  --otel-ref all",
+            topics.join(", ")
+        );
+    }
+    if q == "all" {
+        return OTEL_REF_SECTIONS
+            .iter()
+            .map(|(n, _, f)| format!("── {} ──\n{}", n, f()))
+            .collect::<Vec<_>>()
+            .join("\n\n");
+    }
+    for (name, aliases, func) in OTEL_REF_SECTIONS {
+        if q == *name || aliases.iter().any(|a| q == *a || q.contains(a)) {
+            return func().to_string();
+        }
+    }
+    format!(
+        "Unknown otel-ref topic: '{}'\nAvailable: {}",
+        query.trim(),
+        OTEL_REF_SECTIONS
+            .iter()
+            .map(|(n, _, _)| *n)
+            .collect::<Vec<_>>()
+            .join(", ")
+    )
+}

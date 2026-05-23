@@ -11,35 +11,35 @@ use hematite::tools::math_util::{
     color_names_calc, combinatorics_calc, compiler_ref_calc, complex_calc, concurrency_ref_calc,
     container_ref_calc, cron_calc, crypto_adv_calc, crypto_ref_calc, css_grid_calc, css_ref_calc,
     csv_calc, curl_calc, data_formats_calc, data_pipeline_calc, database_adv_calc, datetime_calc,
-    db_design_calc, db_internals_calc, db_migrations_calc, design_patterns_calc, devops_ref_calc,
-    diff_calc, docker_adv_calc, docker_compose_calc, docker_ref_calc, duration_calc,
-    electrical_calc, encode_calc, escape_calc, event_driven_calc, find_calc, fraction_calc,
-    geometry_calc, git_adv_calc, git_internals_calc, git_ref_calc, gitignore_calc, go_adv_calc,
-    go_ref_calc, graphql_ref_calc, grep_calc, grpc_ref_calc, hash_calc, headers_calc, health_calc,
-    helm_ref_calc, http2_calc, http_adv_calc, http_calc, http_headers_calc, http_security_calc,
-    http_status_calc, id_gen_calc, ip_calc, java_ref_calc, jinja_calc, jq_calc, js_ref_calc,
-    json_calc, json_path_calc, jwt_calc, k8s_adv_calc, k8s_ref_calc, k8s_security_calc, kbd_calc,
-    kubectl_calc, license_calc, linux_adv_calc, linux_containers_calc, linux_kernel_calc,
-    linux_net_calc, linux_perf_calc, linux_sys_calc, load_testing_calc, lorem_calc, make_calc,
-    makefile_calc, markdown_calc, matrix_calc, message_queue_calc, mime_calc, ml_ref_calc,
-    mobile_web_calc, monitoring_ref_calc, net_calc, network_ref_calc, networking_adv_calc,
-    nginx_calc, nginx_ref_calc, node_ref_calc, npm_calc, number_format, number_theory_calc,
-    oauth2_flow_calc, oauth_ref_calc, observability_adv_calc, observability_calc, oop_ref_calc,
-    openapi_ref_calc, openssl_calc, percent_calc, perf_ref_calc, physics_calc, port_calc,
-    postgres_calc, prob_calc, prom_ref_calc, protobuf_ref_calc, protocols_ref_calc,
-    python_adv_calc, python_data_calc, python_ref_calc, react_ref_calc, redis_ref_calc,
-    regex_adv_calc, regex_calc, regex_engine_calc, regex_patterns_calc, regex_ref_calc,
-    regex_test_calc, regex_viz_calc, roman_calc, rust_adv_calc, rust_async_calc,
-    rust_embedded_calc, rust_macros_calc, rust_patterns_calc, rust_ref_calc, search_ref_calc,
-    security_ref_calc, security_scan_calc, security_tools_calc, sed_calc, semver_calc,
-    service_mesh_calc, set_calc, sort_viz, spark_calc, sql_adv_calc, sql_fmt_calc, sql_ops_calc,
-    sql_ref_calc, sql_tuning_calc, sql_window_calc, ssh_ref_calc, ssl_calc, stats_calc,
-    string_dist, systemd_adv_calc, systemd_calc, table_calc, tar_calc, template_calc,
-    terminal_tools_calc, terraform_adv_calc, terraform_calc, testing_ref_calc, text_stats,
-    timestamp_calc, tmux_calc, toml_calc, trig_calc, ts_patterns_calc, ts_ref_calc,
-    typescript_adv_calc, tz_calc, unicode_ref_calc, url_calc, uuid_calc, validate_calc,
-    vim_adv_calc, vim_calc, vue_ref_calc, wasm_ref_calc, wasm_runtime_calc, web_apis_calc,
-    web_perf_calc, xml_calc, yaml_calc,
+    db_design_calc, db_internals_calc, db_migrations_calc, deno_ref_calc, design_patterns_calc,
+    devops_ref_calc, diff_calc, docker_adv_calc, docker_compose_calc, docker_ref_calc,
+    duration_calc, electrical_calc, encode_calc, escape_calc, event_driven_calc, find_calc,
+    fraction_calc, geometry_calc, git_adv_calc, git_internals_calc, git_ref_calc, gitignore_calc,
+    go_adv_calc, go_ref_calc, graphql_ref_calc, grep_calc, grpc_ref_calc, hash_calc, headers_calc,
+    health_calc, helm_ref_calc, http2_calc, http_adv_calc, http_calc, http_headers_calc,
+    http_security_calc, http_status_calc, id_gen_calc, ip_calc, java_ref_calc, jinja_calc, jq_calc,
+    js_ref_calc, json_calc, json_path_calc, jwt_calc, k8s_adv_calc, k8s_ref_calc,
+    k8s_security_calc, kafka_adv_calc, kbd_calc, kubectl_calc, license_calc, linux_adv_calc,
+    linux_containers_calc, linux_kernel_calc, linux_net_calc, linux_perf_calc, linux_sys_calc,
+    load_testing_calc, lorem_calc, make_calc, makefile_calc, markdown_calc, matrix_calc,
+    message_queue_calc, mime_calc, ml_ref_calc, mobile_web_calc, monitoring_ref_calc, net_calc,
+    network_ref_calc, networking_adv_calc, nginx_calc, nginx_ref_calc, node_ref_calc, npm_calc,
+    number_format, number_theory_calc, oauth2_flow_calc, oauth_ref_calc, observability_adv_calc,
+    observability_calc, oop_ref_calc, openapi_ref_calc, openssl_calc, otel_ref_calc, percent_calc,
+    perf_ref_calc, physics_calc, port_calc, postgres_calc, prob_calc, prom_ref_calc,
+    protobuf_ref_calc, protocols_ref_calc, python_adv_calc, python_data_calc, python_ref_calc,
+    react_ref_calc, redis_ref_calc, regex_adv_calc, regex_calc, regex_engine_calc,
+    regex_patterns_calc, regex_ref_calc, regex_test_calc, regex_viz_calc, roman_calc,
+    rust_adv_calc, rust_async_calc, rust_embedded_calc, rust_macros_calc, rust_patterns_calc,
+    rust_ref_calc, search_ref_calc, security_ref_calc, security_scan_calc, security_tools_calc,
+    sed_calc, semver_calc, service_mesh_calc, set_calc, sort_viz, spark_calc, sql_adv_calc,
+    sql_fmt_calc, sql_ops_calc, sql_ref_calc, sql_tuning_calc, sql_window_calc, ssh_ref_calc,
+    ssl_calc, stats_calc, string_dist, svelte_ref_calc, systemd_adv_calc, systemd_calc, table_calc,
+    tar_calc, template_calc, terminal_tools_calc, terraform_adv_calc, terraform_calc,
+    testing_ref_calc, text_stats, timestamp_calc, tmux_calc, toml_calc, trig_calc,
+    ts_patterns_calc, ts_ref_calc, typescript_adv_calc, tz_calc, unicode_ref_calc, url_calc,
+    uuid_calc, validate_calc, vim_adv_calc, vim_calc, vue_ref_calc, wasm_ref_calc,
+    wasm_runtime_calc, web_apis_calc, web_perf_calc, xml_calc, yaml_calc,
 };
 
 // ─── Cipher tests ────────────────────────────────────────────────────────────
@@ -34836,4 +34836,576 @@ fn test_rust_embedded_alias_flip_link() {
 fn test_rust_embedded_unknown_query() {
     let out = rust_embedded_calc("nonexistent-embedded-xyz");
     assert!(out.contains("Unknown rust-embedded topic"));
+}
+
+// ─── svelte_ref_calc ─────────────────────────────────────────────────────────
+
+#[test]
+fn test_svelte_ref_list() {
+    let out = svelte_ref_calc("list");
+    assert!(out.contains("svelte-ref topics"));
+    assert!(out.contains("components"));
+}
+
+#[test]
+fn test_svelte_ref_help() {
+    let out = svelte_ref_calc("help");
+    assert!(out.contains("svelte-ref topics"));
+}
+
+#[test]
+fn test_svelte_ref_empty() {
+    let out = svelte_ref_calc("");
+    assert!(out.contains("svelte-ref topics"));
+}
+
+#[test]
+fn test_svelte_ref_all_contains_sections() {
+    let out = svelte_ref_calc("all");
+    assert!(out.contains("── components ──"));
+    assert!(out.contains("── stores ──"));
+    assert!(out.contains("── sveltekit ──"));
+    assert!(out.contains("── ssr ──"));
+    assert!(out.contains("── advanced ──"));
+}
+
+#[test]
+fn test_svelte_ref_topic_components() {
+    let out = svelte_ref_calc("components");
+    assert!(
+        out.contains("export let") || out.contains("onMount") || out.contains("#each"),
+        "unexpected: {out}"
+    );
+}
+
+#[test]
+fn test_svelte_ref_alias_svelte_component() {
+    let out = svelte_ref_calc("svelte-component");
+    assert!(!out.is_empty() && !out.contains("Unknown svelte-ref"));
+}
+
+#[test]
+fn test_svelte_ref_alias_svelte_lifecycle() {
+    let out = svelte_ref_calc("svelte-lifecycle");
+    assert!(!out.is_empty() && !out.contains("Unknown svelte-ref"));
+}
+
+#[test]
+fn test_svelte_ref_topic_stores() {
+    let out = svelte_ref_calc("stores");
+    assert!(
+        out.contains("writable") || out.contains("derived") || out.contains("subscribe"),
+        "unexpected: {out}"
+    );
+}
+
+#[test]
+fn test_svelte_ref_alias_svelte_writable() {
+    let out = svelte_ref_calc("svelte-writable");
+    assert!(!out.is_empty() && !out.contains("Unknown svelte-ref"));
+}
+
+#[test]
+fn test_svelte_ref_alias_svelte_derived() {
+    let out = svelte_ref_calc("svelte-derived");
+    assert!(!out.is_empty() && !out.contains("Unknown svelte-ref"));
+}
+
+#[test]
+fn test_svelte_ref_topic_sveltekit() {
+    let out = svelte_ref_calc("sveltekit");
+    assert!(
+        out.contains("load") || out.contains("routes") || out.contains("PageLoad"),
+        "unexpected: {out}"
+    );
+}
+
+#[test]
+fn test_svelte_ref_alias_sveltekit_routing() {
+    let out = svelte_ref_calc("sveltekit-routing");
+    assert!(!out.is_empty() && !out.contains("Unknown svelte-ref"));
+}
+
+#[test]
+fn test_svelte_ref_alias_sveltekit_load() {
+    let out = svelte_ref_calc("sveltekit-load");
+    assert!(!out.is_empty() && !out.contains("Unknown svelte-ref"));
+}
+
+#[test]
+fn test_svelte_ref_topic_ssr() {
+    let out = svelte_ref_calc("ssr");
+    assert!(
+        out.contains("adapter") || out.contains("prerender") || out.contains("ssr"),
+        "unexpected: {out}"
+    );
+}
+
+#[test]
+fn test_svelte_ref_alias_sveltekit_ssr() {
+    let out = svelte_ref_calc("sveltekit-ssr");
+    assert!(!out.is_empty() && !out.contains("Unknown svelte-ref"));
+}
+
+#[test]
+fn test_svelte_ref_alias_sveltekit_adapter() {
+    let out = svelte_ref_calc("sveltekit-adapter");
+    assert!(!out.is_empty() && !out.contains("Unknown svelte-ref"));
+}
+
+#[test]
+fn test_svelte_ref_topic_advanced() {
+    let out = svelte_ref_calc("advanced");
+    assert!(
+        out.contains("bind:") || out.contains("transition") || out.contains("dispatch"),
+        "unexpected: {out}"
+    );
+}
+
+#[test]
+fn test_svelte_ref_alias_svelte_transition() {
+    let out = svelte_ref_calc("svelte-transition");
+    assert!(!out.is_empty() && !out.contains("Unknown svelte-ref"));
+}
+
+#[test]
+fn test_svelte_ref_alias_svelte_slot() {
+    let out = svelte_ref_calc("svelte-slot");
+    assert!(!out.is_empty() && !out.contains("Unknown svelte-ref"));
+}
+
+#[test]
+fn test_svelte_ref_unknown_query() {
+    let out = svelte_ref_calc("nonexistent-svelte-xyz");
+    assert!(out.contains("Unknown svelte-ref topic"));
+}
+
+// ─── kafka_adv_calc ──────────────────────────────────────────────────────────
+
+#[test]
+fn test_kafka_adv_list() {
+    let out = kafka_adv_calc("list");
+    assert!(out.contains("kafka-adv topics"));
+    assert!(out.contains("consumer-groups"));
+}
+
+#[test]
+fn test_kafka_adv_help() {
+    let out = kafka_adv_calc("help");
+    assert!(out.contains("kafka-adv topics"));
+}
+
+#[test]
+fn test_kafka_adv_empty() {
+    let out = kafka_adv_calc("");
+    assert!(out.contains("kafka-adv topics"));
+}
+
+#[test]
+fn test_kafka_adv_all_contains_sections() {
+    let out = kafka_adv_calc("all");
+    assert!(out.contains("── consumer-groups ──"));
+    assert!(out.contains("── compaction ──"));
+    assert!(out.contains("── streams ──"));
+    assert!(out.contains("── schema ──"));
+    assert!(out.contains("── operations ──"));
+}
+
+#[test]
+fn test_kafka_adv_topic_consumer_groups() {
+    let out = kafka_adv_calc("consumer-groups");
+    assert!(
+        out.contains("group_id") || out.contains("rebalance") || out.contains("offset"),
+        "unexpected: {out}"
+    );
+}
+
+#[test]
+fn test_kafka_adv_alias_kafka_consumer_group() {
+    let out = kafka_adv_calc("kafka-consumer-group");
+    assert!(!out.is_empty() && !out.contains("Unknown kafka-adv"));
+}
+
+#[test]
+fn test_kafka_adv_alias_kafka_offset() {
+    let out = kafka_adv_calc("kafka-offset");
+    assert!(!out.is_empty() && !out.contains("Unknown kafka-adv"));
+}
+
+#[test]
+fn test_kafka_adv_topic_compaction() {
+    let out = kafka_adv_calc("compaction");
+    assert!(
+        out.contains("cleanup.policy") || out.contains("tombstone") || out.contains("retention"),
+        "unexpected: {out}"
+    );
+}
+
+#[test]
+fn test_kafka_adv_alias_log_compaction() {
+    let out = kafka_adv_calc("log-compaction");
+    assert!(!out.is_empty() && !out.contains("Unknown kafka-adv"));
+}
+
+#[test]
+fn test_kafka_adv_alias_kafka_retention() {
+    let out = kafka_adv_calc("kafka-retention");
+    assert!(!out.is_empty() && !out.contains("Unknown kafka-adv"));
+}
+
+#[test]
+fn test_kafka_adv_topic_streams() {
+    let out = kafka_adv_calc("streams");
+    assert!(
+        out.contains("KStream") || out.contains("KTable") || out.contains("ksqldb"),
+        "unexpected: {out}"
+    );
+}
+
+#[test]
+fn test_kafka_adv_alias_kafka_streams() {
+    let out = kafka_adv_calc("kafka-streams");
+    assert!(!out.is_empty() && !out.contains("Unknown kafka-adv"));
+}
+
+#[test]
+fn test_kafka_adv_alias_ktable() {
+    let out = kafka_adv_calc("ktable");
+    assert!(!out.is_empty() && !out.contains("Unknown kafka-adv"));
+}
+
+#[test]
+fn test_kafka_adv_topic_schema() {
+    let out = kafka_adv_calc("schema");
+    assert!(
+        out.contains("Schema Registry") || out.contains("Avro") || out.contains("compatibility"),
+        "unexpected: {out}"
+    );
+}
+
+#[test]
+fn test_kafka_adv_alias_schema_registry() {
+    let out = kafka_adv_calc("schema-registry");
+    assert!(!out.is_empty() && !out.contains("Unknown kafka-adv"));
+}
+
+#[test]
+fn test_kafka_adv_alias_kafka_avro() {
+    let out = kafka_adv_calc("kafka-avro");
+    assert!(!out.is_empty() && !out.contains("Unknown kafka-adv"));
+}
+
+#[test]
+fn test_kafka_adv_topic_operations() {
+    let out = kafka_adv_calc("operations");
+    assert!(
+        out.contains("acks") || out.contains("partitions") || out.contains("replication"),
+        "unexpected: {out}"
+    );
+}
+
+#[test]
+fn test_kafka_adv_alias_kafka_ops() {
+    let out = kafka_adv_calc("kafka-ops");
+    assert!(!out.is_empty() && !out.contains("Unknown kafka-adv"));
+}
+
+#[test]
+fn test_kafka_adv_alias_kafka_tuning() {
+    let out = kafka_adv_calc("kafka-tuning");
+    assert!(!out.is_empty() && !out.contains("Unknown kafka-adv"));
+}
+
+#[test]
+fn test_kafka_adv_unknown_query() {
+    let out = kafka_adv_calc("nonexistent-kafka-xyz");
+    assert!(out.contains("Unknown kafka-adv topic"));
+}
+
+// ─── deno_ref_calc ───────────────────────────────────────────────────────────
+
+#[test]
+fn test_deno_ref_list() {
+    let out = deno_ref_calc("list");
+    assert!(out.contains("deno-ref topics"));
+    assert!(out.contains("runtime"));
+}
+
+#[test]
+fn test_deno_ref_help() {
+    let out = deno_ref_calc("help");
+    assert!(out.contains("deno-ref topics"));
+}
+
+#[test]
+fn test_deno_ref_empty() {
+    let out = deno_ref_calc("");
+    assert!(out.contains("deno-ref topics"));
+}
+
+#[test]
+fn test_deno_ref_all_contains_sections() {
+    let out = deno_ref_calc("all");
+    assert!(out.contains("── runtime ──"));
+    assert!(out.contains("── apis ──"));
+    assert!(out.contains("── fresh ──"));
+    assert!(out.contains("── kv ──"));
+    assert!(out.contains("── testing ──"));
+}
+
+#[test]
+fn test_deno_ref_topic_runtime() {
+    let out = deno_ref_calc("runtime");
+    assert!(
+        out.contains("--allow-net") || out.contains("permissions") || out.contains("deno.json"),
+        "unexpected: {out}"
+    );
+}
+
+#[test]
+fn test_deno_ref_alias_deno_run() {
+    let out = deno_ref_calc("deno-run");
+    assert!(!out.is_empty() && !out.contains("Unknown deno-ref"));
+}
+
+#[test]
+fn test_deno_ref_alias_deno_permissions() {
+    let out = deno_ref_calc("deno-permissions");
+    assert!(!out.is_empty() && !out.contains("Unknown deno-ref"));
+}
+
+#[test]
+fn test_deno_ref_topic_apis() {
+    let out = deno_ref_calc("apis");
+    assert!(
+        out.contains("readTextFile") || out.contains("Deno.serve") || out.contains("Command"),
+        "unexpected: {out}"
+    );
+}
+
+#[test]
+fn test_deno_ref_alias_deno_serve() {
+    let out = deno_ref_calc("deno-serve");
+    assert!(!out.is_empty() && !out.contains("Unknown deno-ref"));
+}
+
+#[test]
+fn test_deno_ref_alias_deno_fetch() {
+    let out = deno_ref_calc("deno-fetch");
+    assert!(!out.is_empty() && !out.contains("Unknown deno-ref"));
+}
+
+#[test]
+fn test_deno_ref_topic_fresh() {
+    let out = deno_ref_calc("fresh");
+    assert!(
+        out.contains("islands") || out.contains("routes") || out.contains("Handler"),
+        "unexpected: {out}"
+    );
+}
+
+#[test]
+fn test_deno_ref_alias_fresh_framework() {
+    let out = deno_ref_calc("fresh-framework");
+    assert!(!out.is_empty() && !out.contains("Unknown deno-ref"));
+}
+
+#[test]
+fn test_deno_ref_alias_fresh_islands() {
+    let out = deno_ref_calc("fresh-islands");
+    assert!(!out.is_empty() && !out.contains("Unknown deno-ref"));
+}
+
+#[test]
+fn test_deno_ref_topic_kv() {
+    let out = deno_ref_calc("kv");
+    assert!(
+        out.contains("openKv") || out.contains("kv.set") || out.contains("atomic"),
+        "unexpected: {out}"
+    );
+}
+
+#[test]
+fn test_deno_ref_alias_deno_kv() {
+    let out = deno_ref_calc("deno-kv");
+    assert!(!out.is_empty() && !out.contains("Unknown deno-ref"));
+}
+
+#[test]
+fn test_deno_ref_alias_deno_kv_atomic() {
+    let out = deno_ref_calc("deno-kv-atomic");
+    assert!(!out.is_empty() && !out.contains("Unknown deno-ref"));
+}
+
+#[test]
+fn test_deno_ref_topic_testing() {
+    let out = deno_ref_calc("testing");
+    assert!(
+        out.contains("Deno.test") || out.contains("assertEquals") || out.contains("coverage"),
+        "unexpected: {out}"
+    );
+}
+
+#[test]
+fn test_deno_ref_alias_deno_test() {
+    let out = deno_ref_calc("deno-test");
+    assert!(!out.is_empty() && !out.contains("Unknown deno-ref"));
+}
+
+#[test]
+fn test_deno_ref_alias_deno_assert() {
+    let out = deno_ref_calc("deno-assert");
+    assert!(!out.is_empty() && !out.contains("Unknown deno-ref"));
+}
+
+#[test]
+fn test_deno_ref_unknown_query() {
+    let out = deno_ref_calc("nonexistent-deno-xyz");
+    assert!(out.contains("Unknown deno-ref topic"));
+}
+
+// ─── otel_ref_calc ───────────────────────────────────────────────────────────
+
+#[test]
+fn test_otel_ref_list() {
+    let out = otel_ref_calc("list");
+    assert!(out.contains("otel-ref topics"));
+    assert!(out.contains("sdk"));
+}
+
+#[test]
+fn test_otel_ref_help() {
+    let out = otel_ref_calc("help");
+    assert!(out.contains("otel-ref topics"));
+}
+
+#[test]
+fn test_otel_ref_empty() {
+    let out = otel_ref_calc("");
+    assert!(out.contains("otel-ref topics"));
+}
+
+#[test]
+fn test_otel_ref_all_contains_sections() {
+    let out = otel_ref_calc("all");
+    assert!(out.contains("── sdk ──"));
+    assert!(out.contains("── traces ──"));
+    assert!(out.contains("── metrics ──"));
+    assert!(out.contains("── logs ──"));
+    assert!(out.contains("── collector ──"));
+}
+
+#[test]
+fn test_otel_ref_topic_sdk() {
+    let out = otel_ref_calc("sdk");
+    assert!(
+        out.contains("TracerProvider")
+            || out.contains("OTLPSpanExporter")
+            || out.contains("NodeSDK"),
+        "unexpected: {out}"
+    );
+}
+
+#[test]
+fn test_otel_ref_alias_otel_sdk() {
+    let out = otel_ref_calc("otel-sdk");
+    assert!(!out.is_empty() && !out.contains("Unknown otel-ref"));
+}
+
+#[test]
+fn test_otel_ref_alias_otel_setup() {
+    let out = otel_ref_calc("otel-setup");
+    assert!(!out.is_empty() && !out.contains("Unknown otel-ref"));
+}
+
+#[test]
+fn test_otel_ref_topic_traces() {
+    let out = otel_ref_calc("traces");
+    assert!(
+        out.contains("start_as_current_span")
+            || out.contains("SpanKind")
+            || out.contains("propagat"),
+        "unexpected: {out}"
+    );
+}
+
+#[test]
+fn test_otel_ref_alias_otel_span() {
+    let out = otel_ref_calc("otel-span");
+    assert!(!out.is_empty() && !out.contains("Unknown otel-ref"));
+}
+
+#[test]
+fn test_otel_ref_alias_otel_propagation() {
+    let out = otel_ref_calc("otel-propagation");
+    assert!(!out.is_empty() && !out.contains("Unknown otel-ref"));
+}
+
+#[test]
+fn test_otel_ref_topic_metrics() {
+    let out = otel_ref_calc("metrics");
+    assert!(
+        out.contains("Counter") || out.contains("Histogram") || out.contains("Gauge"),
+        "unexpected: {out}"
+    );
+}
+
+#[test]
+fn test_otel_ref_alias_otel_counter() {
+    let out = otel_ref_calc("otel-counter");
+    assert!(!out.is_empty() && !out.contains("Unknown otel-ref"));
+}
+
+#[test]
+fn test_otel_ref_alias_otel_histogram() {
+    let out = otel_ref_calc("otel-histogram");
+    assert!(!out.is_empty() && !out.contains("Unknown otel-ref"));
+}
+
+#[test]
+fn test_otel_ref_topic_logs() {
+    let out = otel_ref_calc("logs");
+    assert!(
+        out.contains("LoggerProvider") || out.contains("log_record") || out.contains("severity"),
+        "unexpected: {out}"
+    );
+}
+
+#[test]
+fn test_otel_ref_alias_otel_logs() {
+    let out = otel_ref_calc("otel-logs");
+    assert!(!out.is_empty() && !out.contains("Unknown otel-ref"));
+}
+
+#[test]
+fn test_otel_ref_alias_otel_log_bridge() {
+    let out = otel_ref_calc("otel-log-bridge");
+    assert!(!out.is_empty() && !out.contains("Unknown otel-ref"));
+}
+
+#[test]
+fn test_otel_ref_topic_collector() {
+    let out = otel_ref_calc("collector");
+    assert!(
+        out.contains("receivers") || out.contains("processors") || out.contains("exporters"),
+        "unexpected: {out}"
+    );
+}
+
+#[test]
+fn test_otel_ref_alias_otel_collector() {
+    let out = otel_ref_calc("otel-collector");
+    assert!(!out.is_empty() && !out.contains("Unknown otel-ref"));
+}
+
+#[test]
+fn test_otel_ref_alias_otel_pipeline() {
+    let out = otel_ref_calc("otel-pipeline");
+    assert!(!out.is_empty() && !out.contains("Unknown otel-ref"));
+}
+
+#[test]
+fn test_otel_ref_unknown_query() {
+    let out = otel_ref_calc("nonexistent-otel-xyz");
+    assert!(out.contains("Unknown otel-ref topic"));
 }
