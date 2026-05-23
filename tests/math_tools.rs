@@ -3,19 +3,19 @@
 /// Covers known-value correctness, edge-case non-panics, and the newer
 /// matrix decomposition modes (QR, SVD, Cholesky).
 use hematite::tools::math_util::{
-    accessibility_calc, algo_ref_calc, ansible_calc, api_design_calc, api_gateway_calc,
-    api_versioning_calc, ascii_calc, ascii_table_calc, auth_ref_calc, awk_calc, aws_ref_calc,
-    bash_adv_calc, bash_ref_calc, bitwise_calc, browser_dev_calc, caching_ref_calc, case_calc,
-    chars_calc, checksum_calc, chemistry_calc, chmod_calc, ci_cd_adv_calc, cicd_ref_calc,
-    cipher_calc, cloud_cost_calc, cloud_native_calc, cloud_ref_calc, color_calc, color_names_calc,
-    combinatorics_calc, compiler_ref_calc, complex_calc, concurrency_ref_calc, container_ref_calc,
-    cron_calc, crypto_adv_calc, crypto_ref_calc, css_grid_calc, css_ref_calc, csv_calc, curl_calc,
-    data_formats_calc, data_pipeline_calc, database_adv_calc, datetime_calc, db_design_calc,
-    db_internals_calc, db_migrations_calc, design_patterns_calc, devops_ref_calc, diff_calc,
-    docker_adv_calc, docker_compose_calc, docker_ref_calc, duration_calc, electrical_calc,
-    encode_calc, escape_calc, event_driven_calc, find_calc, fraction_calc, geometry_calc,
-    git_adv_calc, git_internals_calc, git_ref_calc, gitignore_calc, go_adv_calc, go_ref_calc,
-    graphql_ref_calc, grep_calc, grpc_ref_calc, hash_calc, headers_calc, health_calc,
+    accessibility_calc, algo_ref_calc, ansible_calc, ansible_ref_calc, api_design_calc,
+    api_gateway_calc, api_versioning_calc, ascii_calc, ascii_table_calc, auth_ref_calc, awk_calc,
+    aws_ref_calc, bash_adv_calc, bash_ref_calc, bitwise_calc, browser_dev_calc, caching_ref_calc,
+    case_calc, chars_calc, checksum_calc, chemistry_calc, chmod_calc, ci_cd_adv_calc,
+    cicd_ref_calc, cipher_calc, cloud_cost_calc, cloud_native_calc, cloud_ref_calc, color_calc,
+    color_names_calc, combinatorics_calc, compiler_ref_calc, complex_calc, concurrency_ref_calc,
+    container_ref_calc, cron_calc, crypto_adv_calc, crypto_ref_calc, css_grid_calc, css_ref_calc,
+    csv_calc, curl_calc, data_formats_calc, data_pipeline_calc, database_adv_calc, datetime_calc,
+    db_design_calc, db_internals_calc, db_migrations_calc, design_patterns_calc, devops_ref_calc,
+    diff_calc, docker_adv_calc, docker_compose_calc, docker_ref_calc, duration_calc,
+    electrical_calc, encode_calc, escape_calc, event_driven_calc, find_calc, fraction_calc,
+    geometry_calc, git_adv_calc, git_internals_calc, git_ref_calc, gitignore_calc, go_adv_calc,
+    go_ref_calc, graphql_ref_calc, grep_calc, grpc_ref_calc, hash_calc, headers_calc, health_calc,
     helm_ref_calc, http2_calc, http_adv_calc, http_calc, http_headers_calc, http_security_calc,
     http_status_calc, id_gen_calc, ip_calc, java_ref_calc, jinja_calc, jq_calc, js_ref_calc,
     json_calc, json_path_calc, jwt_calc, k8s_adv_calc, k8s_ref_calc, k8s_security_calc, kbd_calc,
@@ -23,17 +23,18 @@ use hematite::tools::math_util::{
     linux_net_calc, linux_perf_calc, linux_sys_calc, load_testing_calc, lorem_calc, make_calc,
     makefile_calc, markdown_calc, matrix_calc, message_queue_calc, mime_calc, ml_ref_calc,
     mobile_web_calc, monitoring_ref_calc, net_calc, network_ref_calc, networking_adv_calc,
-    nginx_calc, node_ref_calc, npm_calc, number_format, number_theory_calc, oauth2_flow_calc,
-    oauth_ref_calc, observability_adv_calc, observability_calc, oop_ref_calc, openapi_ref_calc,
-    openssl_calc, percent_calc, perf_ref_calc, physics_calc, port_calc, postgres_calc, prob_calc,
-    prom_ref_calc, protocols_ref_calc, python_adv_calc, python_data_calc, python_ref_calc,
-    react_ref_calc, redis_ref_calc, regex_adv_calc, regex_calc, regex_engine_calc,
-    regex_patterns_calc, regex_ref_calc, regex_test_calc, regex_viz_calc, roman_calc,
-    rust_adv_calc, rust_async_calc, rust_macros_calc, rust_patterns_calc, rust_ref_calc,
-    search_ref_calc, security_ref_calc, security_scan_calc, security_tools_calc, sed_calc,
-    semver_calc, service_mesh_calc, set_calc, sort_viz, spark_calc, sql_adv_calc, sql_fmt_calc,
-    sql_ops_calc, sql_ref_calc, sql_tuning_calc, sql_window_calc, ssh_ref_calc, ssl_calc,
-    stats_calc, string_dist, systemd_adv_calc, systemd_calc, table_calc, tar_calc, template_calc,
+    nginx_calc, nginx_ref_calc, node_ref_calc, npm_calc, number_format, number_theory_calc,
+    oauth2_flow_calc, oauth_ref_calc, observability_adv_calc, observability_calc, oop_ref_calc,
+    openapi_ref_calc, openssl_calc, percent_calc, perf_ref_calc, physics_calc, port_calc,
+    postgres_calc, prob_calc, prom_ref_calc, protobuf_ref_calc, protocols_ref_calc,
+    python_adv_calc, python_data_calc, python_ref_calc, react_ref_calc, redis_ref_calc,
+    regex_adv_calc, regex_calc, regex_engine_calc, regex_patterns_calc, regex_ref_calc,
+    regex_test_calc, regex_viz_calc, roman_calc, rust_adv_calc, rust_async_calc,
+    rust_embedded_calc, rust_macros_calc, rust_patterns_calc, rust_ref_calc, search_ref_calc,
+    security_ref_calc, security_scan_calc, security_tools_calc, sed_calc, semver_calc,
+    service_mesh_calc, set_calc, sort_viz, spark_calc, sql_adv_calc, sql_fmt_calc, sql_ops_calc,
+    sql_ref_calc, sql_tuning_calc, sql_window_calc, ssh_ref_calc, ssl_calc, stats_calc,
+    string_dist, systemd_adv_calc, systemd_calc, table_calc, tar_calc, template_calc,
     terminal_tools_calc, terraform_adv_calc, terraform_calc, testing_ref_calc, text_stats,
     timestamp_calc, tmux_calc, toml_calc, trig_calc, ts_patterns_calc, ts_ref_calc,
     typescript_adv_calc, tz_calc, unicode_ref_calc, url_calc, uuid_calc, validate_calc,
@@ -34267,4 +34268,572 @@ fn test_mobile_web_alias_network_information() {
 fn test_mobile_web_unknown_query() {
     let out = mobile_web_calc("nonexistent-topic-xyz");
     assert!(out.contains("Unknown mobile-web topic"));
+}
+
+// ─── ansible_ref_calc ────────────────────────────────────────────────────────
+
+#[test]
+fn test_ansible_ref_list() {
+    let out = ansible_ref_calc("list");
+    assert!(out.contains("ansible-ref topics"));
+    assert!(out.contains("playbooks"));
+}
+
+#[test]
+fn test_ansible_ref_help() {
+    let out = ansible_ref_calc("help");
+    assert!(out.contains("ansible-ref topics"));
+}
+
+#[test]
+fn test_ansible_ref_empty() {
+    let out = ansible_ref_calc("");
+    assert!(out.contains("ansible-ref topics"));
+}
+
+#[test]
+fn test_ansible_ref_all_contains_sections() {
+    let out = ansible_ref_calc("all");
+    assert!(out.contains("── playbooks ──"));
+    assert!(out.contains("── roles ──"));
+    assert!(out.contains("── vault ──"));
+    assert!(out.contains("── modules ──"));
+    assert!(out.contains("── advanced ──"));
+}
+
+#[test]
+fn test_ansible_ref_topic_playbooks() {
+    let out = ansible_ref_calc("playbooks");
+    assert!(
+        out.contains("hosts") || out.contains("tasks") || out.contains("handlers"),
+        "unexpected: {out}"
+    );
+}
+
+#[test]
+fn test_ansible_ref_alias_ansible_playbook() {
+    let out = ansible_ref_calc("ansible-playbook");
+    assert!(!out.is_empty() && !out.contains("Unknown ansible-ref"));
+}
+
+#[test]
+fn test_ansible_ref_alias_ansible_become() {
+    let out = ansible_ref_calc("ansible-become");
+    assert!(!out.is_empty() && !out.contains("Unknown ansible-ref"));
+}
+
+#[test]
+fn test_ansible_ref_topic_roles() {
+    let out = ansible_ref_calc("roles");
+    assert!(
+        out.contains("galaxy") || out.contains("defaults") || out.contains("handlers"),
+        "unexpected: {out}"
+    );
+}
+
+#[test]
+fn test_ansible_ref_alias_ansible_galaxy() {
+    let out = ansible_ref_calc("ansible-galaxy");
+    assert!(!out.is_empty() && !out.contains("Unknown ansible-ref"));
+}
+
+#[test]
+fn test_ansible_ref_alias_role_structure() {
+    let out = ansible_ref_calc("role-structure");
+    assert!(!out.is_empty() && !out.contains("Unknown ansible-ref"));
+}
+
+#[test]
+fn test_ansible_ref_topic_vault() {
+    let out = ansible_ref_calc("vault");
+    assert!(
+        out.contains("encrypt") || out.contains("vault-id") || out.contains("password"),
+        "unexpected: {out}"
+    );
+}
+
+#[test]
+fn test_ansible_ref_alias_ansible_vault() {
+    let out = ansible_ref_calc("ansible-vault");
+    assert!(!out.is_empty() && !out.contains("Unknown ansible-ref"));
+}
+
+#[test]
+fn test_ansible_ref_alias_ansible_secrets() {
+    let out = ansible_ref_calc("ansible-secrets");
+    assert!(!out.is_empty() && !out.contains("Unknown ansible-ref"));
+}
+
+#[test]
+fn test_ansible_ref_topic_modules() {
+    let out = ansible_ref_calc("modules");
+    assert!(
+        out.contains("file") || out.contains("package") || out.contains("service"),
+        "unexpected: {out}"
+    );
+}
+
+#[test]
+fn test_ansible_ref_alias_ansible_modules() {
+    let out = ansible_ref_calc("ansible-modules");
+    assert!(!out.is_empty() && !out.contains("Unknown ansible-ref"));
+}
+
+#[test]
+fn test_ansible_ref_alias_ansible_builtin() {
+    let out = ansible_ref_calc("ansible-builtin");
+    assert!(!out.is_empty() && !out.contains("Unknown ansible-ref"));
+}
+
+#[test]
+fn test_ansible_ref_topic_advanced() {
+    let out = ansible_ref_calc("advanced");
+    assert!(
+        out.contains("loop") || out.contains("when") || out.contains("delegate"),
+        "unexpected: {out}"
+    );
+}
+
+#[test]
+fn test_ansible_ref_alias_ansible_loops() {
+    let out = ansible_ref_calc("ansible-loops");
+    assert!(!out.is_empty() && !out.contains("Unknown ansible-ref"));
+}
+
+#[test]
+fn test_ansible_ref_alias_ansible_delegate() {
+    let out = ansible_ref_calc("ansible-delegate");
+    assert!(!out.is_empty() && !out.contains("Unknown ansible-ref"));
+}
+
+#[test]
+fn test_ansible_ref_unknown_query() {
+    let out = ansible_ref_calc("nonexistent-ansible-xyz");
+    assert!(out.contains("Unknown ansible-ref topic"));
+}
+
+// ─── nginx_ref_calc ──────────────────────────────────────────────────────────
+
+#[test]
+fn test_nginx_ref_list() {
+    let out = nginx_ref_calc("list");
+    assert!(out.contains("nginx-ref topics"));
+    assert!(out.contains("config"));
+}
+
+#[test]
+fn test_nginx_ref_help() {
+    let out = nginx_ref_calc("help");
+    assert!(out.contains("nginx-ref topics"));
+}
+
+#[test]
+fn test_nginx_ref_empty() {
+    let out = nginx_ref_calc("");
+    assert!(out.contains("nginx-ref topics"));
+}
+
+#[test]
+fn test_nginx_ref_all_contains_sections() {
+    let out = nginx_ref_calc("all");
+    assert!(out.contains("── config ──"));
+    assert!(out.contains("── upstream ──"));
+    assert!(out.contains("── rate-limiting ──"));
+    assert!(out.contains("── tls ──"));
+    assert!(out.contains("── performance ──"));
+}
+
+#[test]
+fn test_nginx_ref_topic_config() {
+    let out = nginx_ref_calc("config");
+    assert!(
+        out.contains("worker_processes") || out.contains("server_name") || out.contains("location"),
+        "unexpected: {out}"
+    );
+}
+
+#[test]
+fn test_nginx_ref_alias_nginx_config() {
+    let out = nginx_ref_calc("nginx-config");
+    assert!(!out.is_empty() && !out.contains("Unknown nginx-ref"));
+}
+
+#[test]
+fn test_nginx_ref_alias_nginx_server_block() {
+    let out = nginx_ref_calc("nginx-server-block");
+    assert!(!out.is_empty() && !out.contains("Unknown nginx-ref"));
+}
+
+#[test]
+fn test_nginx_ref_topic_upstream() {
+    let out = nginx_ref_calc("upstream");
+    assert!(
+        out.contains("proxy_pass") || out.contains("least_conn") || out.contains("weight"),
+        "unexpected: {out}"
+    );
+}
+
+#[test]
+fn test_nginx_ref_alias_nginx_upstream() {
+    let out = nginx_ref_calc("nginx-upstream");
+    assert!(!out.is_empty() && !out.contains("Unknown nginx-ref"));
+}
+
+#[test]
+fn test_nginx_ref_alias_nginx_reverse_proxy() {
+    let out = nginx_ref_calc("nginx-reverse-proxy");
+    assert!(!out.is_empty() && !out.contains("Unknown nginx-ref"));
+}
+
+#[test]
+fn test_nginx_ref_topic_rate_limiting() {
+    let out = nginx_ref_calc("rate-limiting");
+    assert!(
+        out.contains("limit_req") || out.contains("burst") || out.contains("zone"),
+        "unexpected: {out}"
+    );
+}
+
+#[test]
+fn test_nginx_ref_alias_nginx_rate_limit() {
+    let out = nginx_ref_calc("nginx-rate-limit");
+    assert!(!out.is_empty() && !out.contains("Unknown nginx-ref"));
+}
+
+#[test]
+fn test_nginx_ref_alias_nginx_burst() {
+    let out = nginx_ref_calc("nginx-burst");
+    assert!(!out.is_empty() && !out.contains("Unknown nginx-ref"));
+}
+
+#[test]
+fn test_nginx_ref_topic_tls() {
+    let out = nginx_ref_calc("tls");
+    assert!(
+        out.contains("ssl_certificate") || out.contains("TLSv1") || out.contains("certbot"),
+        "unexpected: {out}"
+    );
+}
+
+#[test]
+fn test_nginx_ref_alias_nginx_tls() {
+    let out = nginx_ref_calc("nginx-tls");
+    assert!(!out.is_empty() && !out.contains("Unknown nginx-ref"));
+}
+
+#[test]
+fn test_nginx_ref_alias_nginx_https() {
+    let out = nginx_ref_calc("nginx-https");
+    assert!(!out.is_empty() && !out.contains("Unknown nginx-ref"));
+}
+
+#[test]
+fn test_nginx_ref_topic_performance() {
+    let out = nginx_ref_calc("performance");
+    assert!(
+        out.contains("gzip") || out.contains("sendfile") || out.contains("worker_connections"),
+        "unexpected: {out}"
+    );
+}
+
+#[test]
+fn test_nginx_ref_alias_nginx_gzip() {
+    let out = nginx_ref_calc("nginx-gzip");
+    assert!(!out.is_empty() && !out.contains("Unknown nginx-ref"));
+}
+
+#[test]
+fn test_nginx_ref_alias_nginx_tuning() {
+    let out = nginx_ref_calc("nginx-tuning");
+    assert!(!out.is_empty() && !out.contains("Unknown nginx-ref"));
+}
+
+#[test]
+fn test_nginx_ref_unknown_query() {
+    let out = nginx_ref_calc("nonexistent-nginx-xyz");
+    assert!(out.contains("Unknown nginx-ref topic"));
+}
+
+// ─── protobuf_ref_calc ───────────────────────────────────────────────────────
+
+#[test]
+fn test_protobuf_ref_list() {
+    let out = protobuf_ref_calc("list");
+    assert!(out.contains("protobuf-ref topics"));
+    assert!(out.contains("proto3"));
+}
+
+#[test]
+fn test_protobuf_ref_help() {
+    let out = protobuf_ref_calc("help");
+    assert!(out.contains("protobuf-ref topics"));
+}
+
+#[test]
+fn test_protobuf_ref_empty() {
+    let out = protobuf_ref_calc("");
+    assert!(out.contains("protobuf-ref topics"));
+}
+
+#[test]
+fn test_protobuf_ref_all_contains_sections() {
+    let out = protobuf_ref_calc("all");
+    assert!(out.contains("── proto3 ──"));
+    assert!(out.contains("── grpc ──"));
+    assert!(out.contains("── types ──"));
+    assert!(out.contains("── tooling ──"));
+    assert!(out.contains("── patterns ──"));
+}
+
+#[test]
+fn test_protobuf_ref_topic_proto3() {
+    let out = protobuf_ref_calc("proto3");
+    assert!(
+        out.contains("message") || out.contains("enum") || out.contains("syntax"),
+        "unexpected: {out}"
+    );
+}
+
+#[test]
+fn test_protobuf_ref_alias_proto3_syntax() {
+    let out = protobuf_ref_calc("proto3-syntax");
+    assert!(!out.is_empty() && !out.contains("Unknown protobuf-ref"));
+}
+
+#[test]
+fn test_protobuf_ref_alias_proto_message() {
+    let out = protobuf_ref_calc("proto-message");
+    assert!(!out.is_empty() && !out.contains("Unknown protobuf-ref"));
+}
+
+#[test]
+fn test_protobuf_ref_topic_grpc() {
+    let out = protobuf_ref_calc("grpc");
+    assert!(
+        out.contains("service") || out.contains("rpc") || out.contains("streaming"),
+        "unexpected: {out}"
+    );
+}
+
+#[test]
+fn test_protobuf_ref_alias_grpc_service() {
+    let out = protobuf_ref_calc("grpc-service");
+    assert!(!out.is_empty() && !out.contains("Unknown protobuf-ref"));
+}
+
+#[test]
+fn test_protobuf_ref_alias_grpc_streaming() {
+    let out = protobuf_ref_calc("grpc-streaming");
+    assert!(!out.is_empty() && !out.contains("Unknown protobuf-ref"));
+}
+
+#[test]
+fn test_protobuf_ref_topic_types() {
+    let out = protobuf_ref_calc("types");
+    assert!(
+        out.contains("sint") || out.contains("fixed") || out.contains("field number"),
+        "unexpected: {out}"
+    );
+}
+
+#[test]
+fn test_protobuf_ref_alias_proto_types() {
+    let out = protobuf_ref_calc("proto-types");
+    assert!(!out.is_empty() && !out.contains("Unknown protobuf-ref"));
+}
+
+#[test]
+fn test_protobuf_ref_alias_proto_field_numbers() {
+    let out = protobuf_ref_calc("proto-field-numbers");
+    assert!(!out.is_empty() && !out.contains("Unknown protobuf-ref"));
+}
+
+#[test]
+fn test_protobuf_ref_topic_tooling() {
+    let out = protobuf_ref_calc("tooling");
+    assert!(
+        out.contains("buf") || out.contains("protoc") || out.contains("grpcurl"),
+        "unexpected: {out}"
+    );
+}
+
+#[test]
+fn test_protobuf_ref_alias_buf_tool() {
+    let out = protobuf_ref_calc("buf-tool");
+    assert!(!out.is_empty() && !out.contains("Unknown protobuf-ref"));
+}
+
+#[test]
+fn test_protobuf_ref_alias_grpcurl() {
+    let out = protobuf_ref_calc("grpcurl");
+    assert!(!out.is_empty() && !out.contains("Unknown protobuf-ref"));
+}
+
+#[test]
+fn test_protobuf_ref_topic_patterns() {
+    let out = protobuf_ref_calc("patterns");
+    assert!(
+        out.contains("versioning") || out.contains("FieldMask") || out.contains("pagination"),
+        "unexpected: {out}"
+    );
+}
+
+#[test]
+fn test_protobuf_ref_alias_grpc_patterns() {
+    let out = protobuf_ref_calc("grpc-patterns");
+    assert!(!out.is_empty() && !out.contains("Unknown protobuf-ref"));
+}
+
+#[test]
+fn test_protobuf_ref_alias_fieldmask() {
+    let out = protobuf_ref_calc("fieldmask");
+    assert!(!out.is_empty() && !out.contains("Unknown protobuf-ref"));
+}
+
+#[test]
+fn test_protobuf_ref_unknown_query() {
+    let out = protobuf_ref_calc("nonexistent-proto-xyz");
+    assert!(out.contains("Unknown protobuf-ref topic"));
+}
+
+// ─── rust_embedded_calc ──────────────────────────────────────────────────────
+
+#[test]
+fn test_rust_embedded_list() {
+    let out = rust_embedded_calc("list");
+    assert!(out.contains("rust-embedded topics"));
+    assert!(out.contains("no-std"));
+}
+
+#[test]
+fn test_rust_embedded_help() {
+    let out = rust_embedded_calc("help");
+    assert!(out.contains("rust-embedded topics"));
+}
+
+#[test]
+fn test_rust_embedded_empty() {
+    let out = rust_embedded_calc("");
+    assert!(out.contains("rust-embedded topics"));
+}
+
+#[test]
+fn test_rust_embedded_all_contains_sections() {
+    let out = rust_embedded_calc("all");
+    assert!(out.contains("── no-std ──"));
+    assert!(out.contains("── embedded-hal ──"));
+    assert!(out.contains("── rtic ──"));
+    assert!(out.contains("── defmt ──"));
+    assert!(out.contains("── debugging ──"));
+}
+
+#[test]
+fn test_rust_embedded_topic_no_std() {
+    let out = rust_embedded_calc("no-std");
+    assert!(
+        out.contains("no_std") || out.contains("panic_handler") || out.contains("heapless"),
+        "unexpected: {out}"
+    );
+}
+
+#[test]
+fn test_rust_embedded_alias_no_std_underscore() {
+    let out = rust_embedded_calc("no_std");
+    assert!(!out.is_empty() && !out.contains("Unknown rust-embedded"));
+}
+
+#[test]
+fn test_rust_embedded_alias_heapless() {
+    let out = rust_embedded_calc("heapless");
+    assert!(!out.is_empty() && !out.contains("Unknown rust-embedded"));
+}
+
+#[test]
+fn test_rust_embedded_topic_embedded_hal() {
+    let out = rust_embedded_calc("embedded-hal");
+    assert!(
+        out.contains("I2c") || out.contains("SpiDevice") || out.contains("OutputPin"),
+        "unexpected: {out}"
+    );
+}
+
+#[test]
+fn test_rust_embedded_alias_hal_traits() {
+    let out = rust_embedded_calc("hal-traits");
+    assert!(!out.is_empty() && !out.contains("Unknown rust-embedded"));
+}
+
+#[test]
+fn test_rust_embedded_alias_i2c_trait() {
+    let out = rust_embedded_calc("i2c-trait");
+    assert!(!out.is_empty() && !out.contains("Unknown rust-embedded"));
+}
+
+#[test]
+fn test_rust_embedded_topic_rtic() {
+    let out = rust_embedded_calc("rtic");
+    assert!(
+        out.contains("#[shared]") || out.contains("#[task") || out.contains("#[init]"),
+        "unexpected: {out}"
+    );
+}
+
+#[test]
+fn test_rust_embedded_alias_rtic_framework() {
+    let out = rust_embedded_calc("rtic-framework");
+    assert!(!out.is_empty() && !out.contains("Unknown rust-embedded"));
+}
+
+#[test]
+fn test_rust_embedded_alias_rtic_task() {
+    let out = rust_embedded_calc("rtic-task");
+    assert!(!out.is_empty() && !out.contains("Unknown rust-embedded"));
+}
+
+#[test]
+fn test_rust_embedded_topic_defmt() {
+    let out = rust_embedded_calc("defmt");
+    assert!(
+        out.contains("defmt_rtt") || out.contains("probe-rs") || out.contains("DEFMT_LOG"),
+        "unexpected: {out}"
+    );
+}
+
+#[test]
+fn test_rust_embedded_alias_defmt_logging() {
+    let out = rust_embedded_calc("defmt-logging");
+    assert!(!out.is_empty() && !out.contains("Unknown rust-embedded"));
+}
+
+#[test]
+fn test_rust_embedded_alias_probe_rs() {
+    let out = rust_embedded_calc("probe-rs");
+    assert!(!out.is_empty() && !out.contains("Unknown rust-embedded"));
+}
+
+#[test]
+fn test_rust_embedded_topic_debugging() {
+    let out = rust_embedded_calc("debugging");
+    assert!(
+        out.contains("openocd") || out.contains("flip-link") || out.contains("memory.x"),
+        "unexpected: {out}"
+    );
+}
+
+#[test]
+fn test_rust_embedded_alias_openocd() {
+    let out = rust_embedded_calc("openocd");
+    assert!(!out.is_empty() && !out.contains("Unknown rust-embedded"));
+}
+
+#[test]
+fn test_rust_embedded_alias_flip_link() {
+    let out = rust_embedded_calc("flip-link");
+    assert!(!out.is_empty() && !out.contains("Unknown rust-embedded"));
+}
+
+#[test]
+fn test_rust_embedded_unknown_query() {
+    let out = rust_embedded_calc("nonexistent-embedded-xyz");
+    assert!(out.contains("Unknown rust-embedded topic"));
 }

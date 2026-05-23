@@ -70093,3 +70093,1332 @@ pub fn mobile_web_calc(query: &str) -> String {
             .join(", ")
     )
 }
+
+// ─── wave 47: ansible_ref_calc ───────────────────────────────────────────────
+
+fn s_an_playbooks() -> &'static str {
+    "Ansible Playbook Essentials
+---
+# site.yml
+- name: Configure web servers
+  hosts: webservers
+  become: true
+  vars:
+    http_port: 80
+    max_clients: 200
+  vars_files:
+    - vars/main.yml
+  tasks:
+    - name: Ensure nginx is installed
+      ansible.builtin.package:
+        name: nginx
+        state: present
+    - name: Start and enable nginx
+      ansible.builtin.service:
+        name: nginx
+        state: started
+        enabled: true
+    - name: Deploy config from template
+      ansible.builtin.template:
+        src: templates/nginx.conf.j2
+        dest: /etc/nginx/nginx.conf
+        mode: '0644'
+      notify: Reload nginx
+  handlers:
+    - name: Reload nginx
+      ansible.builtin.service:
+        name: nginx
+        state: reloaded
+
+# Run: ansible-playbook -i inventory/hosts site.yml --diff
+# Dry run: ansible-playbook site.yml --check --diff
+# Limit hosts: ansible-playbook site.yml --limit webserver1
+# Extra vars: ansible-playbook site.yml -e 'http_port=8080'
+# Tags: ansible-playbook site.yml --tags deploy
+# Step: ansible-playbook site.yml --step
+
+Privilege escalation:
+  become: true          # sudo
+  become_user: postgres # become specific user
+  become_method: sudo   # sudo/su/pbrun/pfexec/doas/dzdo/ksu/runas/machinectl"
+}
+
+fn s_an_roles() -> &'static str {
+    "Ansible Roles
+---
+# Structure
+roles/
+  webserver/
+    tasks/
+      main.yml          # entry point, include other task files
+    handlers/
+      main.yml          # handlers called by tasks
+    templates/
+      nginx.conf.j2     # Jinja2 templates
+    files/
+      index.html        # static files
+    vars/
+      main.yml          # role variables (high precedence)
+    defaults/
+      main.yml          # default variables (lowest precedence)
+    meta/
+      main.yml          # dependencies, galaxy metadata
+    README.md
+
+# Create skeleton: ansible-galaxy init roles/webserver
+# Use in playbook:
+  roles:
+    - webserver
+    - role: database
+      vars:
+        db_port: 5432
+    - { role: common, tags: [common] }
+
+# meta/main.yml dependencies:
+  dependencies:
+    - role: common
+    - role: firewall
+      vars:
+        firewall_allowed_ports: [80, 443]
+
+# Collections structure (Galaxy v2):
+  namespace/collection/
+    roles/
+    plugins/
+    playbooks/
+    README.md
+    galaxy.yml
+
+# Install: ansible-galaxy role install geerlingguy.nginx
+# Install collection: ansible-galaxy collection install community.general
+# requirements.yml:
+  roles:
+    - name: geerlingguy.nginx
+  collections:
+    - name: community.general
+      version: '>=4.0.0'"
+}
+
+fn s_an_vault() -> &'static str {
+    "Ansible Vault — Secrets Management
+---
+# Encrypt a file
+ansible-vault encrypt secrets.yml
+ansible-vault encrypt_string 'db_password' --name 'db_pass'
+
+# Decrypt / view / edit
+ansible-vault decrypt secrets.yml
+ansible-vault view secrets.yml
+ansible-vault edit secrets.yml
+ansible-vault rekey secrets.yml    # change password
+
+# Create encrypted file directly
+ansible-vault create vars/secrets.yml
+
+# Use in playbook (password prompts at runtime):
+# ansible-playbook site.yml --ask-vault-pass
+# ansible-playbook site.yml --vault-password-file ~/.vault_pass.txt
+# ansible-playbook site.yml --vault-id dev@~/.vault_dev
+
+# Multiple vault IDs (per-environment encryption):
+ansible-vault encrypt --vault-id prod@prompt vars/prod_secrets.yml
+ansible-playbook site.yml --vault-id prod@~/.vault_prod --vault-id dev@~/.vault_dev
+
+# Inline encrypted string in vars file:
+  db_password: !vault |
+    $ANSIBLE_VAULT;1.1;AES256
+    61383834...
+
+# Best practice: never commit unencrypted secrets
+# .gitignore: group_vars/*/vault.yml
+# Separate vault files: group_vars/all/vars.yml (public) + vault.yml (encrypted)"
+}
+
+fn s_an_modules() -> &'static str {
+    "Ansible Essential Modules
+---
+File management:
+  ansible.builtin.file:   state=touch/absent/directory/link
+  ansible.builtin.copy:   src/content + dest + mode
+  ansible.builtin.template: src (Jinja2) + dest
+  ansible.builtin.fetch:  pull file from remote
+  ansible.builtin.lineinfile: ensure line present/absent
+  ansible.builtin.blockinfile: manage text block in file
+  ansible.builtin.find:   find files matching criteria
+
+Package management:
+  ansible.builtin.package:  name + state=present/absent/latest
+  ansible.builtin.apt:      deb-specific (update_cache, autoremove)
+  ansible.builtin.yum/dnf:  rpm-specific
+  ansible.builtin.pip:      Python packages
+
+Services:
+  ansible.builtin.service:  name + state=started/stopped/restarted + enabled
+
+Commands:
+  ansible.builtin.command:  no shell expansion (preferred)
+  ansible.builtin.shell:    full shell, pipes/redirects
+  ansible.builtin.raw:      no Python needed (bootstrap)
+  ansible.builtin.script:   run local script on remote
+
+Users/groups:
+  ansible.builtin.user:   name + state + groups + shell
+  ansible.builtin.group:  name + state + gid
+
+Networking:
+  ansible.builtin.uri:    HTTP requests (GET/POST/PUT)
+  ansible.builtin.get_url: download files
+  ansible.builtin.wait_for: wait for port/file/condition
+
+Idempotency tip: prefer 'state=' over 'command: touch' — command always 'changed'"
+}
+
+fn s_an_advanced() -> &'static str {
+    "Ansible Advanced Patterns
+---
+Loops:
+  - name: Create users
+    ansible.builtin.user:
+      name: \"{{ item.name }}\"
+      groups: \"{{ item.groups }}\"
+    loop:
+      - { name: alice, groups: sudo }
+      - { name: bob, groups: docker }
+    loop_control:
+      label: \"{{ item.name }}\"
+
+Conditionals:
+  when: ansible_os_family == 'Debian'
+  when: not ansible_check_mode
+  when: result.rc != 0
+  when: \"'error' not in output.stdout\"
+
+Error handling:
+  ignore_errors: true
+  failed_when: result.rc not in [0, 1]
+  block:
+    - task that might fail
+  rescue:
+    - notify on failure
+  always:
+    - cleanup
+
+Delegation:
+  delegate_to: localhost
+  delegate_to: \"{{ groups['monitors'][0] }}\"
+  run_once: true         # run on first matching host only
+
+Dynamic inventory:
+  # plugin: amazon.aws.aws_ec2
+  plugin: community.general.docker_containers
+  # ansible-inventory --list --yaml
+
+Jinja2 filters:
+  {{ list | join(',') }}
+  {{ dict | dict2items }}
+  {{ items | items2dict }}
+  {{ value | default('fallback') }}
+  {{ string | regex_replace('pattern','replace') }}
+  {{ list | selectattr('active','equalto',true) | list }}"
+}
+
+type AnsibleRefSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+const ANSIBLE_REF_SECTIONS: &[AnsibleRefSection] = &[
+    (
+        "playbooks",
+        &[
+            "ansible-playbook",
+            "ansible-tasks",
+            "ansible-handlers",
+            "ansible-vars",
+            "ansible-become",
+            "ansible-inventory",
+            "ansible-tags",
+            "ansible-check",
+            "ansible-diff",
+            "ansible-limit",
+            "ansible-extra-vars",
+        ],
+        s_an_playbooks,
+    ),
+    (
+        "roles",
+        &[
+            "ansible-roles",
+            "ansible-galaxy",
+            "ansible-collections",
+            "role-structure",
+            "ansible-defaults",
+            "ansible-meta",
+            "ansible-dependencies",
+            "galaxy-install",
+            "ansible-role-init",
+            "ansible-namespace",
+            "role-vars",
+        ],
+        s_an_roles,
+    ),
+    (
+        "vault",
+        &[
+            "ansible-vault",
+            "ansible-secrets",
+            "ansible-encrypt",
+            "vault-password",
+            "vault-id",
+            "ansible-vault-edit",
+            "ansible-vault-create",
+            "ansible-vault-rekey",
+            "vault-inline",
+            "ansible-vault-decrypt",
+            "ansible-vault-view",
+        ],
+        s_an_vault,
+    ),
+    (
+        "modules",
+        &[
+            "ansible-modules",
+            "ansible-file",
+            "ansible-copy",
+            "ansible-template",
+            "ansible-service",
+            "ansible-package",
+            "ansible-user",
+            "ansible-uri",
+            "ansible-shell",
+            "ansible-command",
+            "ansible-builtin",
+        ],
+        s_an_modules,
+    ),
+    (
+        "advanced",
+        &[
+            "ansible-loops",
+            "ansible-when",
+            "ansible-block",
+            "ansible-rescue",
+            "ansible-delegate",
+            "ansible-dynamic-inventory",
+            "jinja2-filters",
+            "ansible-run-once",
+            "ansible-ignore-errors",
+            "ansible-failed-when",
+            "ansible-conditional",
+        ],
+        s_an_advanced,
+    ),
+];
+
+pub fn ansible_ref_calc(query: &str) -> String {
+    let q = query.trim().to_lowercase();
+    if q.is_empty() || q == "list" || q == "help" {
+        let topics: Vec<&str> = ANSIBLE_REF_SECTIONS.iter().map(|(n, _, _)| *n).collect();
+        return format!(
+            "ansible-ref topics: {}\nUse: --ansible-ref <topic>  or  --ansible-ref all",
+            topics.join(", ")
+        );
+    }
+    if q == "all" {
+        return ANSIBLE_REF_SECTIONS
+            .iter()
+            .map(|(n, _, f)| format!("── {} ──\n{}", n, f()))
+            .collect::<Vec<_>>()
+            .join("\n\n");
+    }
+    for (name, aliases, func) in ANSIBLE_REF_SECTIONS {
+        if q == *name || aliases.iter().any(|a| q == *a || q.contains(a)) {
+            return func().to_string();
+        }
+    }
+    format!(
+        "Unknown ansible-ref topic: '{}'\nAvailable: {}",
+        query.trim(),
+        ANSIBLE_REF_SECTIONS
+            .iter()
+            .map(|(n, _, _)| *n)
+            .collect::<Vec<_>>()
+            .join(", ")
+    )
+}
+
+// ─── wave 47: nginx_ref_calc ─────────────────────────────────────────────────
+
+fn s_ng_config() -> &'static str {
+    "Nginx Core Configuration
+---
+# /etc/nginx/nginx.conf skeleton
+worker_processes auto;            # match CPU cores
+worker_rlimit_nofile 65535;
+
+events {
+    worker_connections 1024;
+    use epoll;                    # Linux default
+    multi_accept on;
+}
+
+http {
+    include mime.types;
+    default_type application/octet-stream;
+    sendfile on;
+    tcp_nopush on;
+    tcp_nodelay on;
+    keepalive_timeout 65;
+    gzip on;
+
+    # Virtual host
+    server {
+        listen 80;
+        server_name example.com www.example.com;
+        root /var/www/html;
+        index index.html index.php;
+
+        location / {
+            try_files $uri $uri/ /index.html;
+        }
+
+        location ~* \\.(js|css|png|jpg|gif|ico|svg)$ {
+            expires 30d;
+            add_header Cache-Control \"public, immutable\";
+        }
+
+        location /api/ {
+            proxy_pass http://backend;
+        }
+    }
+}
+
+# Test: nginx -t
+# Reload: nginx -s reload
+# Include per-site confs: include /etc/nginx/conf.d/*.conf;"
+}
+
+fn s_ng_upstream() -> &'static str {
+    "Nginx Upstream / Reverse Proxy
+---
+upstream backend {
+    least_conn;                   # load balancing: round_robin (default), least_conn, ip_hash
+    keepalive 32;                 # upstream keepalive connections
+
+    server 10.0.0.1:8080 weight=3;
+    server 10.0.0.2:8080;
+    server 10.0.0.3:8080 backup; # only used when primaries fail
+    server 10.0.0.4:8080 down;   # mark as permanently unavailable
+}
+
+location /api/ {
+    proxy_pass http://backend/;  # trailing slash strips /api prefix
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header Upgrade $http_upgrade;    # WebSocket
+    proxy_set_header Connection \"upgrade\";    # WebSocket
+
+    proxy_connect_timeout 5s;
+    proxy_send_timeout 60s;
+    proxy_read_timeout 60s;
+    proxy_buffering on;
+    proxy_buffer_size 4k;
+    proxy_buffers 8 4k;
+    proxy_busy_buffers_size 8k;
+}
+
+# Pass real IP if behind CDN/LB:
+set_real_ip_from 10.0.0.0/8;
+real_ip_header X-Forwarded-For;"
+}
+
+fn s_ng_rate_limiting() -> &'static str {
+    "Nginx Rate Limiting
+---
+http {
+    # Define zone: 10MB stores ~160k IP states
+    limit_req_zone $binary_remote_addr zone=api:10m rate=10r/s;
+    limit_req_zone $binary_remote_addr zone=login:10m rate=5r/m;
+    limit_conn_zone $binary_remote_addr zone=conn_per_ip:10m;
+
+    server {
+        location /api/ {
+            limit_req zone=api burst=20 nodelay;
+            # burst: queue this many extra requests
+            # nodelay: serve burst immediately, not delayed
+            limit_req_status 429;
+            limit_req_log_level warn;
+        }
+
+        location /auth/login {
+            limit_req zone=login burst=5;
+            limit_conn conn_per_ip 10;
+            limit_conn_status 429;
+        }
+    }
+}
+
+# Returns 503 by default; change with:
+#   limit_req_status 429;
+#   add_header Retry-After 60 always;
+
+Geo-based restrictions:
+  geo $blocked {
+      default 0;
+      192.168.1.0/24 1;
+  }
+  if ($blocked) { return 403; }
+
+Map variable:
+  map $http_user_agent $is_bot {
+      default 0;
+      ~*(bot|crawler|spider) 1;
+  }"
+}
+
+fn s_ng_tls() -> &'static str {
+    "Nginx TLS / HTTPS Configuration
+---
+server {
+    listen 443 ssl http2;
+    server_name example.com;
+
+    ssl_certificate     /etc/ssl/certs/example.com.crt;
+    ssl_certificate_key /etc/ssl/private/example.com.key;
+
+    # Modern TLS (disable old protocols):
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_prefer_server_ciphers off;
+    ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384;
+
+    # Session resumption:
+    ssl_session_cache shared:SSL:10m;
+    ssl_session_timeout 10m;
+    ssl_session_tickets off;
+
+    # OCSP stapling (speed up cert validation):
+    ssl_stapling on;
+    ssl_stapling_verify on;
+    resolver 1.1.1.1 8.8.8.8 valid=300s;
+
+    # HSTS:
+    add_header Strict-Transport-Security \"max-age=63072000; includeSubDomains; preload\" always;
+
+    # Let's Encrypt / Certbot:
+    # certbot --nginx -d example.com --email admin@example.com --agree-tos
+    # Renewal cron: 0 0 * * 1 certbot renew --quiet
+}
+
+# Redirect HTTP to HTTPS:
+server {
+    listen 80;
+    server_name example.com;
+    return 301 https://$host$request_uri;
+}"
+}
+
+fn s_ng_performance() -> &'static str {
+    "Nginx Performance Tuning
+---
+worker_processes auto;
+worker_rlimit_nofile 65535;
+events { worker_connections 4096; multi_accept on; }
+
+http {
+    sendfile on;
+    tcp_nopush on;
+    tcp_nodelay on;
+
+    # Compression:
+    gzip on;
+    gzip_vary on;
+    gzip_comp_level 5;
+    gzip_min_length 256;
+    gzip_proxied any;
+    gzip_types text/plain text/css text/xml text/javascript
+               application/json application/javascript
+               application/xml image/svg+xml;
+
+    # Open file cache:
+    open_file_cache max=10000 inactive=30s;
+    open_file_cache_valid 60s;
+    open_file_cache_min_uses 2;
+    open_file_cache_errors on;
+
+    # Buffer tuning:
+    client_body_buffer_size 128k;
+    client_max_body_size 10m;
+    client_header_buffer_size 1k;
+    large_client_header_buffers 4 4k;
+
+    # Timeouts:
+    client_body_timeout 10;
+    client_header_timeout 10;
+    keepalive_timeout 30;
+    send_timeout 10;
+
+    # Log format with timing:
+    log_format timed '$remote_addr - [$time_local] \"$request\" '
+                     '$status $body_bytes_sent $request_time';
+}"
+}
+
+type NginxRefSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+const NGINX_REF_SECTIONS: &[NginxRefSection] = &[
+    (
+        "config",
+        &[
+            "nginx-config",
+            "nginx-server",
+            "nginx-location",
+            "nginx-server-block",
+            "nginx-virtual-host",
+            "nginx-worker",
+            "nginx-events",
+            "nginx-http",
+            "nginx-directives",
+            "nginx-try-files",
+            "nginx-root",
+        ],
+        s_ng_config,
+    ),
+    (
+        "upstream",
+        &[
+            "nginx-upstream",
+            "nginx-proxy",
+            "nginx-load-balance",
+            "nginx-reverse-proxy",
+            "nginx-keepalive",
+            "nginx-weight",
+            "nginx-backup",
+            "nginx-proxy-pass",
+            "nginx-proxy-headers",
+            "nginx-websocket",
+            "nginx-real-ip",
+        ],
+        s_ng_upstream,
+    ),
+    (
+        "rate-limiting",
+        &[
+            "nginx-rate-limit",
+            "nginx-limit-req",
+            "nginx-limit-conn",
+            "nginx-burst",
+            "nginx-zone",
+            "nginx-nodelay",
+            "nginx-429",
+            "nginx-geo",
+            "nginx-map",
+            "nginx-throttle",
+            "nginx-block-bot",
+        ],
+        s_ng_rate_limiting,
+    ),
+    (
+        "tls",
+        &[
+            "nginx-tls",
+            "nginx-ssl",
+            "nginx-https",
+            "nginx-certbot",
+            "nginx-letsencrypt",
+            "nginx-hsts",
+            "nginx-ocsp",
+            "nginx-cipher",
+            "nginx-redirect-http",
+            "nginx-http2",
+            "nginx-ssl-session",
+        ],
+        s_ng_tls,
+    ),
+    (
+        "performance",
+        &[
+            "nginx-performance",
+            "nginx-gzip",
+            "nginx-cache",
+            "nginx-sendfile",
+            "nginx-open-file-cache",
+            "nginx-buffer",
+            "nginx-timeout",
+            "nginx-compress",
+            "nginx-tuning",
+            "nginx-tcp-nopush",
+            "nginx-log-format",
+        ],
+        s_ng_performance,
+    ),
+];
+
+pub fn nginx_ref_calc(query: &str) -> String {
+    let q = query.trim().to_lowercase();
+    if q.is_empty() || q == "list" || q == "help" {
+        let topics: Vec<&str> = NGINX_REF_SECTIONS.iter().map(|(n, _, _)| *n).collect();
+        return format!(
+            "nginx-ref topics: {}\nUse: --nginx-ref <topic>  or  --nginx-ref all",
+            topics.join(", ")
+        );
+    }
+    if q == "all" {
+        return NGINX_REF_SECTIONS
+            .iter()
+            .map(|(n, _, f)| format!("── {} ──\n{}", n, f()))
+            .collect::<Vec<_>>()
+            .join("\n\n");
+    }
+    for (name, aliases, func) in NGINX_REF_SECTIONS {
+        if q == *name || aliases.iter().any(|a| q == *a || q.contains(a)) {
+            return func().to_string();
+        }
+    }
+    format!(
+        "Unknown nginx-ref topic: '{}'\nAvailable: {}",
+        query.trim(),
+        NGINX_REF_SECTIONS
+            .iter()
+            .map(|(n, _, _)| *n)
+            .collect::<Vec<_>>()
+            .join(", ")
+    )
+}
+
+// ─── wave 47: protobuf_ref_calc ──────────────────────────────────────────────
+
+fn s_pb_proto3() -> &'static str {
+    "Protocol Buffers 3 Syntax
+---
+syntax = \"proto3\";
+
+package myapp.v1;
+
+import \"google/protobuf/timestamp.proto\";
+import \"google/protobuf/empty.proto\";
+
+// Scalar types: bool, int32, int64, uint32, uint64, sint32, sint64,
+//               fixed32, fixed64, sfixed32, sfixed64, float, double,
+//               string, bytes
+
+message User {
+    int64  id         = 1;
+    string name       = 2;
+    string email      = 3;
+    repeated string roles = 4;
+    UserStatus status = 5;
+    google.protobuf.Timestamp created_at = 6;
+    map<string, string> metadata = 7;
+    oneof auth {
+        string password_hash = 8;
+        string oauth_token   = 9;
+    }
+    reserved 10, 11;
+    reserved \"old_field\";
+}
+
+enum UserStatus {
+    USER_STATUS_UNSPECIFIED = 0;
+    USER_STATUS_ACTIVE      = 1;
+    USER_STATUS_SUSPENDED   = 2;
+}
+
+// Well-known types (google/protobuf/):
+//   Timestamp, Duration, Empty, Any, Value, Struct, FieldMask
+//   StringValue, Int64Value, BoolValue"
+}
+
+fn s_pb_grpc() -> &'static str {
+    "gRPC Service Definitions
+---
+syntax = \"proto3\";
+package myapp.v1;
+option go_package = \"github.com/myorg/myapp/gen/go/myapp/v1;myappv1\";
+
+service UserService {
+    rpc GetUser(GetUserRequest) returns (GetUserResponse);
+    rpc ListUsers(ListUsersRequest) returns (stream User);
+    rpc CreateUsers(stream CreateUserRequest) returns (CreateUsersResponse);
+    rpc Chat(stream ChatMessage) returns (stream ChatMessage);
+}
+
+message GetUserRequest  { int64 id = 1; }
+message GetUserResponse { User user = 1; }
+message ListUsersRequest {
+    int32 page_size   = 1;
+    string page_token = 2;
+}
+message CreateUserRequest { User user = 1; }
+message CreateUsersResponse { int32 created_count = 1; }
+
+# Generate code:
+# Go:   protoc --go_out=. --go-grpc_out=. user.proto
+# Rust: build.rs with tonic-build
+# Python: python -m grpc_tools.protoc -I. --python_out=. --grpc_python_out=. user.proto
+# buf:  buf generate   (modern, with buf.yaml)"
+}
+
+fn s_pb_types() -> &'static str {
+    "Protobuf Field Types & Best Practices
+---
+Numeric types:
+  int32/int64       negative ok, inefficient for negative (uses 10 bytes)
+  uint32/uint64     non-negative only
+  sint32/sint64     negative-friendly (zigzag encoding)
+  fixed32/fixed64   always 4/8 bytes — good for values often > 2^28
+  float/double      IEEE 754
+
+String/bytes:
+  string            UTF-8 or 7-bit ASCII
+  bytes             arbitrary byte sequence
+
+Default values (proto3):
+  numeric  = 0      string = \"\"     bytes = []
+  bool     = false  enum   = first value (must be 0)
+  repeated = []     map    = {}
+
+Optional fields (proto3 with explicit optional):
+  optional string name = 1;
+
+Field numbers:
+  1-15:   1-byte tag (use for frequent fields)
+  16-2047: 2-byte tag
+  19000-19999: reserved for protobuf internals
+  Never change field numbers once deployed!
+
+Backward compatibility rules:
+  Safe:   add new fields, add enum values, convert optional->repeated
+  Unsafe: rename fields (name unused at wire level, but breaks JSON)
+  Break:  change field type, remove field number (mark reserved instead)"
+}
+
+fn s_pb_tooling() -> &'static str {
+    "Protobuf / gRPC Tooling
+---
+buf (modern proto management):
+  buf.yaml:
+    version: v1
+    deps:
+      - buf.build/googleapis/googleapis
+    lint:
+      use: [DEFAULT]
+    breaking:
+      use: [FILE]
+
+  buf lint
+  buf breaking --against .git#branch=main
+  buf generate
+  buf dep update
+
+protoc (classic):
+  protoc -I. -I/usr/include
+    --go_out=paths=source_relative:.
+    --go-grpc_out=paths=source_relative:.
+    user.proto
+
+Rust (tonic):
+  # build.rs
+  tonic_build::compile_protos(\"proto/user.proto\")?;
+  # Cargo.toml: tonic, prost, tonic-build (build-dep)
+
+gRPC tooling:
+  grpcurl -plaintext localhost:50051 list
+  grpcurl -plaintext -d '{\"id\":1}' localhost:50051 myapp.v1.UserService/GetUser
+  grpcui --plaintext localhost:50051
+
+Health check proto (standard):
+  import \"grpc/health/v1/health.proto\";"
+}
+
+fn s_pb_patterns() -> &'static str {
+    "Protobuf / gRPC Design Patterns
+---
+API versioning:
+  package myapp.v1;    // package per version, not file per version
+  // v1 + v2 can coexist; clients migrate independently
+
+Resource naming (Google AIP style):
+  // users/123, users/123/orders/456
+  string name   = 1;   // full resource name as identifier
+  string parent = 1;   // for List methods
+
+Standard methods (AIP-131 through 135):
+  GetUser    (GetUserRequest)    returns (User)
+  ListUsers  (ListUsersRequest)  returns (ListUsersResponse)
+  CreateUser (CreateUserRequest) returns (User)
+  UpdateUser (UpdateUserRequest) returns (User)
+  DeleteUser (DeleteUserRequest) returns (Empty)
+
+FieldMask for partial update (PATCH):
+  message UpdateUserRequest {
+    User user = 1;
+    google.protobuf.FieldMask update_mask = 2;
+  }
+  // client sends: update_mask.paths = [\"name\",\"email\"]
+
+Pagination:
+  message ListUsersResponse {
+    repeated User users = 1;
+    string next_page_token = 2;
+    int32 total_size = 3;
+  }
+
+Error handling (google.rpc.Status):
+  import \"google/rpc/status.proto\"
+  codes: NOT_FOUND, INVALID_ARGUMENT, PERMISSION_DENIED,
+         ALREADY_EXISTS, RESOURCE_EXHAUSTED, UNAVAILABLE
+
+Interceptors (middleware):
+  server: logging, auth, metrics, rate limiting
+  client: retry, timeout, deadlines"
+}
+
+type ProtobufRefSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+const PROTOBUF_REF_SECTIONS: &[ProtobufRefSection] = &[
+    (
+        "proto3",
+        &[
+            "proto3-syntax",
+            "protobuf-syntax",
+            "proto-message",
+            "proto-enum",
+            "proto-field",
+            "proto-scalar",
+            "proto-repeated",
+            "proto-map",
+            "proto-oneof",
+            "proto-reserved",
+            "protobuf-types",
+        ],
+        s_pb_proto3,
+    ),
+    (
+        "grpc",
+        &[
+            "grpc-service",
+            "grpc-rpc",
+            "grpc-streaming",
+            "grpc-unary",
+            "grpc-server-streaming",
+            "grpc-client-streaming",
+            "grpc-bidirectional",
+            "protoc-generate",
+            "grpc-codegen",
+            "grpc-service-def",
+            "grpc-buf",
+        ],
+        s_pb_grpc,
+    ),
+    (
+        "types",
+        &[
+            "proto-types",
+            "proto-defaults",
+            "proto-optional",
+            "proto-field-numbers",
+            "proto-compatibility",
+            "proto-sint",
+            "proto-fixed",
+            "proto-bytes",
+            "proto-wellknown",
+            "proto-timestamp",
+            "proto-backward-compat",
+        ],
+        s_pb_types,
+    ),
+    (
+        "tooling",
+        &[
+            "buf-tool",
+            "buf-lint",
+            "buf-generate",
+            "protoc",
+            "grpcurl",
+            "grpcui",
+            "tonic-build",
+            "buf-breaking",
+            "proto-rust",
+            "buf-bsr",
+            "proto-healthcheck",
+        ],
+        s_pb_tooling,
+    ),
+    (
+        "patterns",
+        &[
+            "grpc-patterns",
+            "proto-versioning",
+            "grpc-aip",
+            "fieldmask",
+            "grpc-pagination",
+            "grpc-errors",
+            "grpc-interceptors",
+            "proto-resource-naming",
+            "grpc-standard-methods",
+            "google-rpc-status",
+            "grpc-middleware",
+        ],
+        s_pb_patterns,
+    ),
+];
+
+pub fn protobuf_ref_calc(query: &str) -> String {
+    let q = query.trim().to_lowercase();
+    if q.is_empty() || q == "list" || q == "help" {
+        let topics: Vec<&str> = PROTOBUF_REF_SECTIONS.iter().map(|(n, _, _)| *n).collect();
+        return format!(
+            "protobuf-ref topics: {}\nUse: --protobuf-ref <topic>  or  --protobuf-ref all",
+            topics.join(", ")
+        );
+    }
+    if q == "all" {
+        return PROTOBUF_REF_SECTIONS
+            .iter()
+            .map(|(n, _, f)| format!("── {} ──\n{}", n, f()))
+            .collect::<Vec<_>>()
+            .join("\n\n");
+    }
+    for (name, aliases, func) in PROTOBUF_REF_SECTIONS {
+        if q == *name || aliases.iter().any(|a| q == *a || q.contains(a)) {
+            return func().to_string();
+        }
+    }
+    format!(
+        "Unknown protobuf-ref topic: '{}'\nAvailable: {}",
+        query.trim(),
+        PROTOBUF_REF_SECTIONS
+            .iter()
+            .map(|(n, _, _)| *n)
+            .collect::<Vec<_>>()
+            .join(", ")
+    )
+}
+
+// ─── wave 47: rust_embedded_calc ─────────────────────────────────────────────
+
+fn s_em_no_std() -> &'static str {
+    "Rust no_std Essentials
+---
+// Cargo.toml
+[profile.release]
+opt-level = 'z'       # minimize binary size
+lto = true
+codegen-units = 1
+panic = 'abort'
+
+// src/main.rs
+#![no_std]
+#![no_main]
+
+use core::panic::PanicInfo;
+
+#[panic_handler]
+fn panic(_info: &PanicInfo) -> ! {
+    loop {}
+}
+
+// Allocator (for heap in no_std):
+use embedded_alloc::Heap;
+#[global_allocator]
+static HEAP: Heap = Heap::empty();
+// Initialize: unsafe { HEAP.init(HEAP_START, HEAP_SIZE); }
+
+// Useful no_std crates:
+//   heapless     — fixed-size Vec, String, HashMap on stack
+//   nb           — non-blocking I/O traits
+//   embedded-hal — hardware abstraction layer traits
+//   defmt        — efficient deferred formatting / logging
+//   panic-probe  — defmt panic handler
+
+// Available in core (no_std):
+//   core::fmt, core::mem, core::slice, core::str
+//   core::sync::atomic, core::cell
+//   core::convert, core::ops, core::iter"
+}
+
+fn s_em_hal() -> &'static str {
+    "embedded-hal Traits
+---
+embedded-hal defines hardware-agnostic traits that MCU crates implement.
+Your driver depends on embedded-hal; runs on any compatible MCU.
+
+Key trait families:
+  embedded_hal::digital::OutputPin / InputPin
+  embedded_hal::spi::SpiDevice
+  embedded_hal::i2c::I2c
+  embedded_hal::serial::{Read, Write}
+  embedded_hal::delay::DelayNs
+  embedded_hal::pwm::SetDutyCycle
+  embedded_hal::adc::OneShot
+
+// Generic driver example (works on any MCU):
+use embedded_hal::i2c::I2c;
+
+pub struct Bme280<I2C> {
+    i2c: I2C,
+    addr: u8,
+}
+
+impl<I2C: I2c> Bme280<I2C> {
+    pub fn new(i2c: I2C, addr: u8) -> Self { Self { i2c, addr } }
+    pub fn read_temp(&mut self) -> Result<i16, I2C::Error> {
+        let mut buf = [0u8; 2];
+        self.i2c.write_read(self.addr, &[0xFA], &mut buf)?;
+        Ok(i16::from_be_bytes(buf))
+    }
+}
+
+// HAL implementations (MCU crates):
+//   stm32f4xx-hal  (STM32F4)
+//   nrf-hal        (nRF52)
+//   rp2040-hal     (RP2040 / Raspberry Pi Pico)
+//   esp-hal        (ESP32)
+//   arduino-hal    (AVR Arduino)
+
+// embedded-hal 1.0 is stable; many HALs still on 0.2
+// ehcompat crate provides 0.2 <-> 1.0 bridges"
+}
+
+fn s_em_rtic() -> &'static str {
+    "RTIC — Real-Time Interrupt-driven Concurrency
+---
+// Cargo.toml
+[dependencies]
+rtic = { version = \"2\", features = [\"thumbv7-backend\"] }
+rtic-monotonics = { version = \"2\", features = [\"cortex-m-systick\"] }
+
+#[rtic::app(device = stm32f4xx_hal::pac, peripherals = true)]
+mod app {
+    #[shared]
+    struct Shared { led: Led }
+
+    #[local]
+    struct Local { timer: CounterMs<TIM2> }
+
+    #[init]
+    fn init(cx: init::Context) -> (Shared, Local) {
+        let led = Led::new(cx.device.GPIOA.pa5);
+        let timer = cx.device.TIM2.counter_ms(&clocks);
+        blink::spawn().ok();
+        (Shared { led }, Local { timer })
+    }
+
+    #[idle]
+    fn idle(_cx: idle::Context) -> ! {
+        loop { cortex_m::asm::wfe(); }
+    }
+
+    // Software task:
+    #[task(shared = [led])]
+    async fn blink(cx: blink::Context) {
+        loop {
+            cx.shared.led.lock(|led| led.toggle());
+            Mono::delay(500.millis()).await;
+        }
+    }
+
+    // Hardware interrupt task:
+    #[task(binds = TIM2, local = [timer])]
+    fn on_timer(cx: on_timer::Context) {
+        cx.local.timer.clear_interrupt(Event::Update);
+    }
+}
+// Priority: software tasks >= 1; idle = 0; hardware = set priority"
+}
+
+fn s_em_defmt() -> &'static str {
+    "defmt — Deferred Logging for Embedded
+---
+// Cargo.toml
+defmt = \"0.3\"
+defmt-rtt = \"0.4\"
+panic-probe = { version = \"0.3\", features = [\"print-defmt\"] }
+
+// in code:
+use defmt::*;
+use defmt_rtt as _;
+use panic_probe as _;
+
+#[entry]
+fn main() -> ! {
+    info!(\"Boot\");
+    let val: u32 = 42;
+    debug!(\"sensor = {}\", val);
+    warn!(\"low battery: {}%\", 15);
+    error!(\"I2C timeout on address {:#x}\", 0x48u8);
+
+    defmt::assert_eq!(1 + 1, 2);
+    defmt::unwrap!(some_result);
+    defmt::panic!(\"unrecoverable\");
+    loop {}
+}
+
+// Why defmt is tiny:
+//   Format strings stay on host, not in flash
+//   Binary log frames transmitted to host, decoded there
+//   10-100x less flash than core::fmt
+
+// Probe setup:
+probe-rs run --chip STM32F411RETx target/thumbv7em-none-eabihf/release/app
+# or: cargo embed --chip STM32F411RETx
+
+// Filtering:
+DEFMT_LOG=info cargo embed
+DEFMT_LOG=off"
+}
+
+fn s_em_debugging() -> &'static str {
+    "Embedded Rust Debugging & Toolchain
+---
+Toolchain setup:
+  rustup target add thumbv7em-none-eabihf    # Cortex-M4/M7 with FPU
+  rustup target add thumbv6m-none-eabi       # Cortex-M0/M0+
+  rustup target add riscv32i-unknown-none-elf
+  cargo install cargo-embed probe-rs-cli flip-link
+
+.cargo/config.toml:
+  [build]
+  target = \"thumbv7em-none-eabihf\"
+  [target.thumbv7em-none-eabihf]
+  runner = \"probe-rs run --chip STM32F411RETx\"
+  rustflags = [\"-C\", \"link-arg=-Tlink.x\"]
+
+memory.x (linker script):
+  MEMORY {
+    FLASH : ORIGIN = 0x08000000, LENGTH = 512K
+    RAM   : ORIGIN = 0x20000000, LENGTH = 128K
+  }
+
+GDB debugging:
+  # Terminal 1: OpenOCD
+  openocd -f interface/stlink.cfg -f target/stm32f4x.cfg
+  # Terminal 2:
+  arm-none-eabi-gdb -x openocd.gdb target/thumbv7em-none-eabihf/debug/app
+
+flip-link (stack overflow protection):
+  rustflags = [\"-C\", \"linker=flip-link\"]
+
+Size analysis:
+  cargo size --release -- -A
+  cargo bloat --release
+  cargo nm -- target/.../release/app | sort -k1 -h"
+}
+
+type RustEmbeddedSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+const RUST_EMBEDDED_SECTIONS: &[RustEmbeddedSection] = &[
+    (
+        "no-std",
+        &[
+            "no_std",
+            "nostd",
+            "embedded-no-std",
+            "rust-embedded",
+            "panic-handler",
+            "heapless",
+            "embedded-alloc",
+            "rust-bare-metal",
+            "no-main",
+            "embedded-core",
+            "rust-mcu",
+        ],
+        s_em_no_std,
+    ),
+    (
+        "embedded-hal",
+        &[
+            "hal-traits",
+            "embedded-hal-traits",
+            "i2c-trait",
+            "spi-trait",
+            "gpio-trait",
+            "uart-trait",
+            "hal-driver",
+            "hal-generic",
+            "rp2040-hal",
+            "stm32-hal",
+            "nrf-hal",
+        ],
+        s_em_hal,
+    ),
+    (
+        "rtic",
+        &[
+            "rtic-framework",
+            "rtic-app",
+            "rtic-shared",
+            "rtic-task",
+            "rtic-idle",
+            "rtic-init",
+            "rtic-interrupt",
+            "rtic-priority",
+            "rtic-mutex",
+            "rtic-monotonic",
+            "real-time-rust",
+        ],
+        s_em_rtic,
+    ),
+    (
+        "defmt",
+        &[
+            "defmt-logging",
+            "defmt-rtt",
+            "defmt-log",
+            "probe-rs",
+            "cargo-embed",
+            "embedded-logging",
+            "rtt-logging",
+            "defmt-assert",
+            "defmt-panic",
+            "defmt-format",
+            "defmt-filter",
+        ],
+        s_em_defmt,
+    ),
+    (
+        "debugging",
+        &[
+            "embedded-debug",
+            "openocd",
+            "embedded-gdb",
+            "flip-link",
+            "memory-x",
+            "linker-script",
+            "embedded-toolchain",
+            "cargo-bloat",
+            "embedded-target",
+            "arm-gdb",
+            "embedded-size",
+        ],
+        s_em_debugging,
+    ),
+];
+
+pub fn rust_embedded_calc(query: &str) -> String {
+    let q = query.trim().to_lowercase();
+    if q.is_empty() || q == "list" || q == "help" {
+        let topics: Vec<&str> = RUST_EMBEDDED_SECTIONS.iter().map(|(n, _, _)| *n).collect();
+        return format!(
+            "rust-embedded topics: {}\nUse: --rust-embedded <topic>  or  --rust-embedded all",
+            topics.join(", ")
+        );
+    }
+    if q == "all" {
+        return RUST_EMBEDDED_SECTIONS
+            .iter()
+            .map(|(n, _, f)| format!("── {} ──\n{}", n, f()))
+            .collect::<Vec<_>>()
+            .join("\n\n");
+    }
+    for (name, aliases, func) in RUST_EMBEDDED_SECTIONS {
+        if q == *name || aliases.iter().any(|a| q == *a || q.contains(a)) {
+            return func().to_string();
+        }
+    }
+    format!(
+        "Unknown rust-embedded topic: '{}'\nAvailable: {}",
+        query.trim(),
+        RUST_EMBEDDED_SECTIONS
+            .iter()
+            .map(|(n, _, _)| *n)
+            .collect::<Vec<_>>()
+            .join(", ")
+    )
+}

@@ -2534,6 +2534,38 @@ pub struct CliCockpit {
 
     #[arg(
         long,
+        help_heading = "Developer Toolkit",
+        value_name = "QUERY",
+        help = "Ansible reference — offline replacement for Ansible docs. Topics: playbooks, roles, vault, modules, advanced. Aliases: ansible-playbook, ansible-roles, ansible-vault, ansible-modules, ansible-loops. Examples: hematite --ansible-ref playbooks | hematite --ansible-ref vault | hematite --ansible-ref all"
+    )]
+    pub ansible_ref: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Developer Toolkit",
+        value_name = "QUERY",
+        help = "Nginx reference — offline replacement for nginx.org docs. Topics: config, upstream, rate-limiting, tls, performance. Aliases: nginx-config, nginx-upstream, nginx-rate-limit, nginx-tls, nginx-performance. Examples: hematite --nginx-ref config | hematite --nginx-ref tls | hematite --nginx-ref all"
+    )]
+    pub nginx_ref: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Developer Toolkit",
+        value_name = "QUERY",
+        help = "Protocol Buffers & gRPC reference — offline replacement for protobuf.dev. Topics: proto3, grpc, types, tooling, patterns. Aliases: proto3-syntax, grpc-service, proto-types, buf-tool, grpc-patterns. Examples: hematite --protobuf-ref proto3 | hematite --protobuf-ref grpc | hematite --protobuf-ref all"
+    )]
+    pub protobuf_ref: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Developer Toolkit",
+        value_name = "QUERY",
+        help = "Rust embedded reference — offline replacement for embedded Rust docs. Topics: no-std, embedded-hal, rtic, defmt, debugging. Aliases: no_std, hal-traits, rtic-framework, defmt-logging, embedded-debug. Examples: hematite --rust-embedded no-std | hematite --rust-embedded rtic | hematite --rust-embedded all"
+    )]
+    pub rust_embedded: Option<String>,
+
+    #[arg(
+        long,
         help_heading = "Math & Science",
         value_name = "QUERY",
         help = "Lorem ipsum generator — offline replacement for lipsum.com. Commands: (bare) or <N> = N paragraphs (default 1); words <N> = N words; sentences <N> = N sentences. Examples: hematite --lorem | hematite --lorem 3 | hematite --lorem 'words 50' | hematite --lorem 'sentences 5'"

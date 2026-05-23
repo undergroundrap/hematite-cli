@@ -1173,6 +1173,10 @@ mod tests {
             sql_ops: None,
             ts_patterns: None,
             mobile_web: None,
+            ansible_ref: None,
+            nginx_ref: None,
+            protobuf_ref: None,
+            rust_embedded: None,
             pdf_extract_helper: None,
             teleported_from: None,
         };
