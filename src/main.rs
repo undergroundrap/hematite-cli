@@ -5224,6 +5224,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
 
+    if cockpit.toolkit {
+        let out = hematite::tools::math_util::toolkit_catalog();
+        println!("{}", out);
+        if cockpit.clipboard {
+            copy_to_clipboard(&out);
+            println!("Copied to clipboard.");
+        }
+        return Ok(());
+    }
+
     if let Some(ref query) = cockpit.lorem {
         let result = hematite::tools::math_util::lorem_calc(query.trim());
         println!("{}", result.trim());

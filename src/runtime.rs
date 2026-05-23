@@ -1191,6 +1191,7 @@ mod tests {
             scrum_ref: None,
             powershell_adv: None,
             jvm_ref: None,
+            toolkit: false,
             pdf_extract_helper: None,
             teleported_from: None,
         };

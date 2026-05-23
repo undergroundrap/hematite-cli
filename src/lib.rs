@@ -2678,6 +2678,13 @@ pub struct CliCockpit {
 
     #[arg(
         long,
+        help_heading = "Developer Toolkit",
+        help = "Print all developer toolkit flags grouped by category — the discovery page for 150+ offline reference tools"
+    )]
+    pub toolkit: bool,
+
+    #[arg(
+        long,
         help_heading = "Math & Science",
         value_name = "QUERY",
         help = "Lorem ipsum generator — offline replacement for lipsum.com. Commands: (bare) or <N> = N paragraphs (default 1); words <N> = N words; sentences <N> = N sentences. Examples: hematite --lorem | hematite --lorem 3 | hematite --lorem 'words 50' | hematite --lorem 'sentences 5'"
