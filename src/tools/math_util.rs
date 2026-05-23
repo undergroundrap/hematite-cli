@@ -75786,168 +75786,382 @@ pub fn toolkit_catalog() -> String {
     out.push_str("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
     out.push_str("  HEMATITE DEVELOPER TOOLKIT  —  150+ offline reference tools, zero internet\n");
     out.push_str("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
-    out.push_str("  Usage: hematite --<flag> <topic>   |  hematite --<flag> help  for subtopics\n\n");
+    out.push_str(
+        "  Usage: hematite --<flag> <topic>   |  hematite --<flag> help  for subtopics\n\n",
+    );
 
     out.push_str("  SHELL & UNIX\n");
     out.push_str("    --vim          Vim motions & commands       --curl         cURL examples\n");
     out.push_str("    --jq           jq filter reference          --grep         grep patterns\n");
-    out.push_str("    --sed          sed one-liners                --awk          awk one-liners\n");
+    out.push_str(
+        "    --sed          sed one-liners                --awk          awk one-liners\n",
+    );
     out.push_str("    --tar          tar cheatsheet               --find         find examples\n");
-    out.push_str("    --chmod        chmod & permissions           --bash-ref     Bash scripting\n");
-    out.push_str("    --bash-adv     Advanced Bash                 --openssl      OpenSSL commands\n");
+    out.push_str(
+        "    --chmod        chmod & permissions           --bash-ref     Bash scripting\n",
+    );
+    out.push_str(
+        "    --bash-adv     Advanced Bash                 --openssl      OpenSSL commands\n",
+    );
     out.push_str("    --ssh-ref      SSH config & keys             --systemd      systemd units\n");
-    out.push_str("    --systemd-adv  systemd advanced              --tmux         tmux cheatsheet\n");
-    out.push_str("    --linux-adv    Linux admin patterns          --linux-sys    Linux sysadmin\n");
-    out.push_str("    --linux-net    Linux networking              --linux-perf   Linux perf tools\n");
-    out.push_str("    --linux-kernel Linux kernel internals        --terminal-tools Terminal utils\n");
+    out.push_str(
+        "    --systemd-adv  systemd advanced              --tmux         tmux cheatsheet\n",
+    );
+    out.push_str(
+        "    --linux-adv    Linux admin patterns          --linux-sys    Linux sysadmin\n",
+    );
+    out.push_str(
+        "    --linux-net    Linux networking              --linux-perf   Linux perf tools\n",
+    );
+    out.push_str(
+        "    --linux-kernel Linux kernel internals        --terminal-tools Terminal utils\n",
+    );
     out.push_str("    --nix-ref      Nix/NixOS reference          --gdb-ref      GDB debugger\n");
-    out.push_str("    --valgrind-ref Valgrind memory debug         --make         Makefile patterns\n");
-    out.push_str("    --makefile     Makefile advanced             --vim-adv      Advanced Vim\n\n");
+    out.push_str(
+        "    --valgrind-ref Valgrind memory debug         --make         Makefile patterns\n",
+    );
+    out.push_str(
+        "    --makefile     Makefile advanced             --vim-adv      Advanced Vim\n\n",
+    );
 
     out.push_str("  WEB & HTTP\n");
     out.push_str("    --http         HTTP method reference         --http-adv     HTTP advanced\n");
-    out.push_str("    --http-status  Status code lookup            --http-headers Header reference\n");
+    out.push_str(
+        "    --http-status  Status code lookup            --http-headers Header reference\n",
+    );
     out.push_str("    --http-security HTTP security headers        --mime         MIME types\n");
-    out.push_str("    --headers      Common HTTP headers           --net          Networking tools\n");
-    out.push_str("    --port         Well-known port numbers       --ip           IP address tools\n");
+    out.push_str(
+        "    --headers      Common HTTP headers           --net          Networking tools\n",
+    );
+    out.push_str(
+        "    --port         Well-known port numbers       --ip           IP address tools\n",
+    );
     out.push_str("    --ssl          TLS/SSL reference             --nginx        NGINX config\n");
-    out.push_str("    --nginx-ref    NGINX advanced                --network-ref  Networking ref\n");
-    out.push_str("    --networking-adv Network internals           --subnet       Subnet calculator\n\n");
+    out.push_str(
+        "    --nginx-ref    NGINX advanced                --network-ref  Networking ref\n",
+    );
+    out.push_str(
+        "    --networking-adv Network internals           --subnet       Subnet calculator\n\n",
+    );
 
     out.push_str("  DATA FORMATS & TEXT\n");
-    out.push_str("    --json         JSON format & query           --yaml         YAML reference\n");
+    out.push_str(
+        "    --json         JSON format & query           --yaml         YAML reference\n",
+    );
     out.push_str("    --toml         TOML format                   --xml          XML reference\n");
-    out.push_str("    --csv          CSV operations                --table        ASCII table gen\n");
-    out.push_str("    --sql-fmt      SQL formatter                 --json-path    JSONPath queries\n");
-    out.push_str("    --markdown     Markdown cheatsheet           --text-diff    Text diff tool\n");
-    out.push_str("    --text-stats   Readability metrics           --levenshtein  String distance\n");
+    out.push_str(
+        "    --csv          CSV operations                --table        ASCII table gen\n",
+    );
+    out.push_str(
+        "    --sql-fmt      SQL formatter                 --json-path    JSONPath queries\n",
+    );
+    out.push_str(
+        "    --markdown     Markdown cheatsheet           --text-diff    Text diff tool\n",
+    );
+    out.push_str(
+        "    --text-stats   Readability metrics           --levenshtein  String distance\n",
+    );
     out.push_str("    --number-format Number representations       --checksum     CRC/Adler/FNV\n");
-    out.push_str("    --validate     Luhn/ISBN/UUID/IBAN           --encode       Base64/URL encode\n");
-    out.push_str("    --decode       Base64/URL decode             --codec        Encoding tools\n");
-    out.push_str("    --hash         Hash functions                --data-formats Data format ref\n\n");
+    out.push_str(
+        "    --validate     Luhn/ISBN/UUID/IBAN           --encode       Base64/URL encode\n",
+    );
+    out.push_str(
+        "    --decode       Base64/URL decode             --codec        Encoding tools\n",
+    );
+    out.push_str(
+        "    --hash         Hash functions                --data-formats Data format ref\n\n",
+    );
 
     out.push_str("  AUTH & SECURITY\n");
-    out.push_str("    --auth-ref     Auth patterns                 --jwt          JWT decode/inspect\n");
-    out.push_str("    --oauth-ref    OAuth2/OIDC flows             --security-ref Security reference\n");
-    out.push_str("    --security-scan Vulnerability scanning       --security-tools Security tools\n");
-    out.push_str("    --crypto-ref   Cryptography concepts         --crypto-adv   Crypto advanced\n");
-    out.push_str("    --id           ID format reference           --uuid         UUID generator\n\n");
+    out.push_str(
+        "    --auth-ref     Auth patterns                 --jwt          JWT decode/inspect\n",
+    );
+    out.push_str(
+        "    --oauth-ref    OAuth2/OIDC flows             --security-ref Security reference\n",
+    );
+    out.push_str(
+        "    --security-scan Vulnerability scanning       --security-tools Security tools\n",
+    );
+    out.push_str(
+        "    --crypto-ref   Cryptography concepts         --crypto-adv   Crypto advanced\n",
+    );
+    out.push_str(
+        "    --id           ID format reference           --uuid         UUID generator\n\n",
+    );
 
     out.push_str("  CONTAINERS & CLOUD\n");
-    out.push_str("    --docker-ref   Docker commands               --docker-adv   Docker advanced\n");
-    out.push_str("    --docker-compose Compose reference           --kubectl      Kubernetes CLI\n");
-    out.push_str("    --terraform    Terraform basics              --terraform-adv Terraform advanced\n");
-    out.push_str("    --ansible      Ansible playbooks             --ansible-ref  Ansible reference\n");
-    out.push_str("    --cloud-ref    Cloud concepts                --cloud-native Cloud-native patterns\n");
+    out.push_str(
+        "    --docker-ref   Docker commands               --docker-adv   Docker advanced\n",
+    );
+    out.push_str(
+        "    --docker-compose Compose reference           --kubectl      Kubernetes CLI\n",
+    );
+    out.push_str(
+        "    --terraform    Terraform basics              --terraform-adv Terraform advanced\n",
+    );
+    out.push_str(
+        "    --ansible      Ansible playbooks             --ansible-ref  Ansible reference\n",
+    );
+    out.push_str(
+        "    --cloud-ref    Cloud concepts                --cloud-native Cloud-native patterns\n",
+    );
     out.push_str("    --cloud-cost   Cloud cost patterns           --aws-ref      AWS services\n");
-    out.push_str("    --helm-ref     Helm charts                   --service-mesh Service mesh ref\n");
-    out.push_str("    --kafka-adv    Kafka advanced                --container-ref Container patterns\n");
-    out.push_str("    --linux-containers Linux containers          --ci-cd-adv    CI/CD advanced\n\n");
+    out.push_str(
+        "    --helm-ref     Helm charts                   --service-mesh Service mesh ref\n",
+    );
+    out.push_str(
+        "    --kafka-adv    Kafka advanced                --container-ref Container patterns\n",
+    );
+    out.push_str(
+        "    --linux-containers Linux containers          --ci-cd-adv    CI/CD advanced\n\n",
+    );
 
     out.push_str("  DATABASES\n");
     out.push_str("    --sql-ref      SQL reference                 --sql-adv      SQL advanced\n");
-    out.push_str("    --sql-tuning   Query tuning                  --sql-window   Window functions\n");
-    out.push_str("    --sql-ops      SQL operations                --postgres     PostgreSQL ref\n");
-    out.push_str("    --redis-ref    Redis commands                --redis-adv    Redis advanced\n");
-    out.push_str("    --db-design    Schema design                 --db-migrations Migration patterns\n");
-    out.push_str("    --db-internals DB internals                  --database-adv Database advanced\n");
-    out.push_str("    --caching-ref  Caching patterns              --search-ref   Search & indexing\n\n");
+    out.push_str(
+        "    --sql-tuning   Query tuning                  --sql-window   Window functions\n",
+    );
+    out.push_str(
+        "    --sql-ops      SQL operations                --postgres     PostgreSQL ref\n",
+    );
+    out.push_str(
+        "    --redis-ref    Redis commands                --redis-adv    Redis advanced\n",
+    );
+    out.push_str(
+        "    --db-design    Schema design                 --db-migrations Migration patterns\n",
+    );
+    out.push_str(
+        "    --db-internals DB internals                  --database-adv Database advanced\n",
+    );
+    out.push_str(
+        "    --caching-ref  Caching patterns              --search-ref   Search & indexing\n\n",
+    );
 
     out.push_str("  LANGUAGES\n");
-    out.push_str("    --python-ref   Python reference              --python-data  Python data libs\n");
-    out.push_str("    --python-adv   Python advanced               --rust-ref     Rust reference\n");
-    out.push_str("    --rust-adv     Rust advanced                 --rust-patterns Rust patterns\n");
+    out.push_str(
+        "    --python-ref   Python reference              --python-data  Python data libs\n",
+    );
+    out.push_str(
+        "    --python-adv   Python advanced               --rust-ref     Rust reference\n",
+    );
+    out.push_str(
+        "    --rust-adv     Rust advanced                 --rust-patterns Rust patterns\n",
+    );
     out.push_str("    --rust-async   Async/await Rust              --rust-macros  Rust macros\n");
     out.push_str("    --rust-embedded Embedded Rust                --go-ref       Go reference\n");
-    out.push_str("    --go-adv       Go advanced                   --js-ref       JavaScript ref\n");
+    out.push_str(
+        "    --go-adv       Go advanced                   --js-ref       JavaScript ref\n",
+    );
     out.push_str("    --ts-ref       TypeScript reference          --typescript-adv TS advanced\n");
-    out.push_str("    --ts-patterns  TypeScript patterns           --java-ref     Java reference\n");
+    out.push_str(
+        "    --ts-patterns  TypeScript patterns           --java-ref     Java reference\n",
+    );
     out.push_str("    --jvm-ref      JVM internals                 --zig-ref      Zig reference\n");
-    out.push_str("    --cmake-ref    CMake reference               --bazel-ref    Bazel reference\n");
-    out.push_str("    --npm          npm commands                  --makefile     Makefile patterns\n");
-    out.push_str("    --jinja        Jinja2 templates              --powershell-adv PowerShell adv\n");
-    out.push_str("    --deno-ref     Deno runtime                  --scrum-ref    Scrum reference\n\n");
+    out.push_str(
+        "    --cmake-ref    CMake reference               --bazel-ref    Bazel reference\n",
+    );
+    out.push_str(
+        "    --npm          npm commands                  --makefile     Makefile patterns\n",
+    );
+    out.push_str(
+        "    --jinja        Jinja2 templates              --powershell-adv PowerShell adv\n",
+    );
+    out.push_str(
+        "    --deno-ref     Deno runtime                  --scrum-ref    Scrum reference\n\n",
+    );
 
     out.push_str("  FRONTEND & WEB DEV\n");
-    out.push_str("    --css-ref      CSS reference                 --css-grid     Grid & Flexbox\n");
-    out.push_str("    --react-ref    React patterns                --vue-ref      Vue.js reference\n");
-    out.push_str("    --svelte-ref   Svelte reference              --node-ref     Node.js reference\n");
-    out.push_str("    --mobile-web   Mobile web patterns           --browser-dev  Browser DevTools\n");
-    out.push_str("    --web-apis     Web API reference             --web-perf     Web performance\n");
-    out.push_str("    --accessibility WCAG accessibility           --wasm-ref     WebAssembly ref\n");
-    out.push_str("    --wasm-runtime Wasm runtimes                 --ts-patterns  TypeScript patterns\n\n");
+    out.push_str(
+        "    --css-ref      CSS reference                 --css-grid     Grid & Flexbox\n",
+    );
+    out.push_str(
+        "    --react-ref    React patterns                --vue-ref      Vue.js reference\n",
+    );
+    out.push_str(
+        "    --svelte-ref   Svelte reference              --node-ref     Node.js reference\n",
+    );
+    out.push_str(
+        "    --mobile-web   Mobile web patterns           --browser-dev  Browser DevTools\n",
+    );
+    out.push_str(
+        "    --web-apis     Web API reference             --web-perf     Web performance\n",
+    );
+    out.push_str(
+        "    --accessibility WCAG accessibility           --wasm-ref     WebAssembly ref\n",
+    );
+    out.push_str(
+        "    --wasm-runtime Wasm runtimes                 --ts-patterns  TypeScript patterns\n\n",
+    );
 
     out.push_str("  APIs & ARCHITECTURE\n");
     out.push_str("    --api-design   REST API design               --api-gateway  API gateway\n");
-    out.push_str("    --api-versioning API versioning              --openapi-ref  OpenAPI/Swagger\n");
-    out.push_str("    --graphql      GraphQL reference             --grpc-ref     gRPC reference\n");
+    out.push_str(
+        "    --api-versioning API versioning              --openapi-ref  OpenAPI/Swagger\n",
+    );
+    out.push_str(
+        "    --graphql      GraphQL reference             --grpc-ref     gRPC reference\n",
+    );
     out.push_str("    --protobuf-ref Protocol Buffers              --oop-ref      OOP patterns\n");
-    out.push_str("    --design-patterns GoF design patterns        --concurrency  Concurrency patterns\n");
-    out.push_str("    --event-driven Event-driven arch             --algo-ref     Algorithm reference\n");
-    out.push_str("    --testing-ref  Testing patterns              --compiler-ref Compiler concepts\n");
-    out.push_str("    --ml-ref       Machine learning ref          --message-queue MQ patterns\n\n");
+    out.push_str(
+        "    --design-patterns GoF design patterns        --concurrency  Concurrency patterns\n",
+    );
+    out.push_str(
+        "    --event-driven Event-driven arch             --algo-ref     Algorithm reference\n",
+    );
+    out.push_str(
+        "    --testing-ref  Testing patterns              --compiler-ref Compiler concepts\n",
+    );
+    out.push_str(
+        "    --ml-ref       Machine learning ref          --message-queue MQ patterns\n\n",
+    );
 
     out.push_str("  DEVOPS & OBSERVABILITY\n");
     out.push_str("    --git-ref      Git reference                 --git-adv      Git advanced\n");
-    out.push_str("    --git-internals Git internals                --cicd-ref     CI/CD reference\n");
-    out.push_str("    --devops-ref   DevOps patterns               --observability Observability\n");
-    out.push_str("    --observability-adv OTel advanced            --monitoring-ref Monitoring ref\n");
+    out.push_str(
+        "    --git-internals Git internals                --cicd-ref     CI/CD reference\n",
+    );
+    out.push_str(
+        "    --devops-ref   DevOps patterns               --observability Observability\n",
+    );
+    out.push_str(
+        "    --observability-adv OTel advanced            --monitoring-ref Monitoring ref\n",
+    );
     out.push_str("    --prom-ref     Prometheus/PromQL             --otel-ref     OpenTelemetry\n");
-    out.push_str("    --load-testing Load testing tools            --perf-ref     Performance ref\n");
-    out.push_str("    --gitignore    .gitignore templates          --license      OSS license text\n\n");
+    out.push_str(
+        "    --load-testing Load testing tools            --perf-ref     Performance ref\n",
+    );
+    out.push_str(
+        "    --gitignore    .gitignore templates          --license      OSS license text\n\n",
+    );
 
     out.push_str("  MATH & SCIENCE\n");
-    out.push_str("    --matrix       Linear algebra ops            --compute      Arbitrary precision\n");
-    out.push_str("    --symbolic     Symbolic calculus             --finance      Financial math\n");
+    out.push_str(
+        "    --matrix       Linear algebra ops            --compute      Arbitrary precision\n",
+    );
+    out.push_str(
+        "    --symbolic     Symbolic calculus             --finance      Financial math\n",
+    );
     out.push_str("    --logic        Truth tables & SAT            --signal       DSP & FFT\n");
-    out.push_str("    --interpolate  Curve interpolation           --units        Unit conversion\n");
+    out.push_str(
+        "    --interpolate  Curve interpolation           --units        Unit conversion\n",
+    );
     out.push_str("    --ode          ODE solver (RK4/RK45)         --optimize     Optimization\n");
-    out.push_str("    --probability  Distributions & CDF           --bitwise      Bitwise calculator\n");
-    out.push_str("    --set          Set theory ops                --cipher       Classical ciphers\n");
+    out.push_str(
+        "    --probability  Distributions & CDF           --bitwise      Bitwise calculator\n",
+    );
+    out.push_str(
+        "    --set          Set theory ops                --cipher       Classical ciphers\n",
+    );
     out.push_str("    --physics      Physics formulas              --chemistry    Chemistry ref\n");
-    out.push_str("    --combinatorics Combinatorics                --geometry     Geometry tools\n");
-    out.push_str("    --electrical   Electrical engineering        --percent      Percentage math\n");
+    out.push_str(
+        "    --combinatorics Combinatorics                --geometry     Geometry tools\n",
+    );
+    out.push_str(
+        "    --electrical   Electrical engineering        --percent      Percentage math\n",
+    );
     out.push_str("    --complex      Complex numbers               --trig         Trigonometry\n");
     out.push_str("    --vector       Vector operations             --fraction     Fraction math\n");
-    out.push_str("    --nt           Number theory                 --formula      Physics formulas\n");
-    out.push_str("    --random       Cryptographic random          --sequence     Integer sequences\n");
-    out.push_str("    --choose       Combinations/permutations     --truth-table  Logic truth tables\n");
-    out.push_str("    --gcd          GCD/LCM calculator            --roman        Roman numerals\n");
-    out.push_str("    --base-convert Base conversion               --periodic     Periodic table\n");
-    out.push_str("    --curve-fit    Curve fitting                 --integrate    Numerical integral\n");
-    out.push_str("    --differentiate Numerical derivative         --solve        Equation solver\n");
-    out.push_str("    --mw           Molecular weight              --normal       Normal distribution\n");
-    out.push_str("    --number-theory Number theory                --sort-viz     Sorting visualizer\n\n");
+    out.push_str(
+        "    --nt           Number theory                 --formula      Physics formulas\n",
+    );
+    out.push_str(
+        "    --random       Cryptographic random          --sequence     Integer sequences\n",
+    );
+    out.push_str(
+        "    --choose       Combinations/permutations     --truth-table  Logic truth tables\n",
+    );
+    out.push_str(
+        "    --gcd          GCD/LCM calculator            --roman        Roman numerals\n",
+    );
+    out.push_str(
+        "    --base-convert Base conversion               --periodic     Periodic table\n",
+    );
+    out.push_str(
+        "    --curve-fit    Curve fitting                 --integrate    Numerical integral\n",
+    );
+    out.push_str(
+        "    --differentiate Numerical derivative         --solve        Equation solver\n",
+    );
+    out.push_str(
+        "    --mw           Molecular weight              --normal       Normal distribution\n",
+    );
+    out.push_str(
+        "    --number-theory Number theory                --sort-viz     Sorting visualizer\n\n",
+    );
 
     out.push_str("  DATA ANALYSIS\n");
-    out.push_str("    --analyze      Descriptive statistics        --correlation  Correlation matrix\n");
+    out.push_str(
+        "    --analyze      Descriptive statistics        --correlation  Correlation matrix\n",
+    );
     out.push_str("    --timeseries   Time-series analysis          --fourier      FFT frequency\n");
-    out.push_str("    --cluster      k-means clustering            --normalize    Feature scaling\n");
-    out.push_str("    --pca          PCA decomposition             --regression   Regression analysis\n");
-    out.push_str("    --outliers     Outlier detection             --percentile   Percentile stats\n");
-    out.push_str("    --pivot        Pivot tables                  --polyfit      Polynomial fitting\n");
-    out.push_str("    --sample       Random sampling               --describe     Column summary\n");
-    out.push_str("    --diff-data    Dataset diffing               --dstats       Distribution stats\n");
-    out.push_str("    --plot         ASCII chart plotting          --hypothesis   Hypothesis tests\n\n");
+    out.push_str(
+        "    --cluster      k-means clustering            --normalize    Feature scaling\n",
+    );
+    out.push_str(
+        "    --pca          PCA decomposition             --regression   Regression analysis\n",
+    );
+    out.push_str(
+        "    --outliers     Outlier detection             --percentile   Percentile stats\n",
+    );
+    out.push_str(
+        "    --pivot        Pivot tables                  --polyfit      Polynomial fitting\n",
+    );
+    out.push_str(
+        "    --sample       Random sampling               --describe     Column summary\n",
+    );
+    out.push_str(
+        "    --diff-data    Dataset diffing               --dstats       Distribution stats\n",
+    );
+    out.push_str(
+        "    --plot         ASCII chart plotting          --hypothesis   Hypothesis tests\n\n",
+    );
 
     out.push_str("  QUICK REF & UTILS\n");
-    out.push_str("    --regex        Regex builder/test            --regex-ref    Regex reference\n");
-    out.push_str("    --regex-adv    Regex advanced                --regex-tester Regex live test\n");
-    out.push_str("    --regex-engine Regex engine internals        --regex-patterns Common patterns\n");
-    out.push_str("    --regex-viz    Regex visualizer              --cron         Cron expression\n");
-    out.push_str("    --timestamp    Unix timestamp tools          --datetime     Date/time calc\n");
-    out.push_str("    --tz           Timezone reference            --duration     Duration parser\n");
-    out.push_str("    --date         Calendar & date math          --semver       Semver reference\n");
-    out.push_str("    --ascii-table  ASCII code table              --unicode-ref  Unicode reference\n");
-    out.push_str("    --kbd          Keyboard shortcut ref         --chars        Special characters\n");
-    out.push_str("    --color-names  CSS/HTML color names          --color        Color conversions\n");
+    out.push_str(
+        "    --regex        Regex builder/test            --regex-ref    Regex reference\n",
+    );
+    out.push_str(
+        "    --regex-adv    Regex advanced                --regex-tester Regex live test\n",
+    );
+    out.push_str(
+        "    --regex-engine Regex engine internals        --regex-patterns Common patterns\n",
+    );
+    out.push_str(
+        "    --regex-viz    Regex visualizer              --cron         Cron expression\n",
+    );
+    out.push_str(
+        "    --timestamp    Unix timestamp tools          --datetime     Date/time calc\n",
+    );
+    out.push_str(
+        "    --tz           Timezone reference            --duration     Duration parser\n",
+    );
+    out.push_str(
+        "    --date         Calendar & date math          --semver       Semver reference\n",
+    );
+    out.push_str(
+        "    --ascii-table  ASCII code table              --unicode-ref  Unicode reference\n",
+    );
+    out.push_str(
+        "    --kbd          Keyboard shortcut ref         --chars        Special characters\n",
+    );
+    out.push_str(
+        "    --color-names  CSS/HTML color names          --color        Color conversions\n",
+    );
     out.push_str("    --escape       Escape sequence ref           --spark        Sparkline gen\n");
-    out.push_str("    --template     Text template engine          --ascii        ASCII art text\n");
-    out.push_str("    --lorem        Lorem ipsum gen               --case         Case converter\n");
-    out.push_str("    --text-stats   Readability scores            --sort-viz     Sort visualizer\n\n");
+    out.push_str(
+        "    --template     Text template engine          --ascii        ASCII art text\n",
+    );
+    out.push_str(
+        "    --lorem        Lorem ipsum gen               --case         Case converter\n",
+    );
+    out.push_str(
+        "    --text-stats   Readability scores            --sort-viz     Sort visualizer\n\n",
+    );
 
     out.push_str("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
-    out.push_str("  Run any flag with 'help' to see subtopics.  Example: hematite --git-ref help\n");
+    out.push_str(
+        "  Run any flag with 'help' to see subtopics.  Example: hematite --git-ref help\n",
+    );
     out.push_str("  All tools work offline. No model, no internet, no API key required.\n");
     out.push_str("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
     out
