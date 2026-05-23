@@ -73419,3 +73419,1186 @@ pub fn redis_adv_calc(query: &str) -> String {
         topics.join(", ")
     )
 }
+
+// ── Wave 50: --nix-ref, --gdb-ref, --cmake-ref, --bazel-ref ──────────────────
+
+fn s_nx_basics() -> &'static str {
+    "Nix Package Manager Basics\n\
+     ==========================\n\
+     // Install Nix (multi-user recommended)\n\
+     sh <(curl -L https://nixos.org/nix/install) --daemon\n\
+     // Package management (imperative)\n\
+     nix-env -iA nixpkgs.ripgrep          # install\n\
+     nix-env -e ripgrep                    # uninstall\n\
+     nix-env -u                            # upgrade all\n\
+     nix-env -q                            # list installed\n\
+     nix-env --rollback                    # undo last change\n\
+     // Nix flakes (modern, recommended)\n\
+     nix profile install nixpkgs#ripgrep   # install from flake\n\
+     nix profile remove ripgrep\n\
+     nix profile list\n\
+     nix profile upgrade '.*'\n\
+     // Search packages\n\
+     nix search nixpkgs ripgrep\n\
+     nix-env -qaP | grep ripgrep\n\
+     // Run without installing\n\
+     nix run nixpkgs#cowsay -- hello\n\
+     nix shell nixpkgs#nodejs nixpkgs#yarn  # temp shell with packages\n\
+     // Garbage collection\n\
+     nix-collect-garbage -d               # remove all old generations\n\
+     nix-collect-garbage --delete-older-than 30d\n\
+     nix store gc                          # flakes GC\n\
+     nix-store --optimize                  # deduplicate store\n\
+     Ref: https://nixos.org/manual/nix/stable/"
+}
+
+fn s_nx_shell() -> &'static str {
+    "Nix Shells & Dev Environments\n\
+     ==============================\n\
+     // nix-shell (legacy)\n\
+     nix-shell -p nodejs python3 rustc     # ad-hoc shell\n\
+     nix-shell '<nixpkgs>' -A git          # from attribute\n\
+     nix-shell --pure -p curl              # no host env\n\
+     // shell.nix (project file)\n\
+     { pkgs ? import <nixpkgs> {} }:\n\
+     pkgs.mkShell {\n\
+         buildInputs = with pkgs; [ nodejs python3 rustup ];\n\
+         shellHook = ''\n\
+             export DATABASE_URL=postgres://localhost/dev\n\
+         '';\n\
+     }\n\
+     // nix develop (flakes)\n\
+     nix develop                            # use flake.nix devShell\n\
+     nix develop .#devShell                 # named shell\n\
+     nix develop --command cargo build      # run command in shell\n\
+     // devenv (modern dev shells)\n\
+     # devenv.nix\n\
+     { pkgs, ... }: {\n\
+         packages = [ pkgs.git pkgs.nodejs ];\n\
+         languages.rust.enable = true;\n\
+         services.postgres.enable = true;\n\
+     }\n\
+     devenv shell\n\
+     devenv up                              # start services\n\
+     // direnv integration\n\
+     echo 'use nix' > .envrc               # auto-load shell.nix\n\
+     echo 'use flake' > .envrc             # auto-load flake devShell\n\
+     direnv allow\n\
+     Ref: https://nix.dev/tutorials/dev-environment"
+}
+
+fn s_nx_flakes() -> &'static str {
+    "Nix Flakes\n\
+     ==========\n\
+     // Enable flakes (NixOS or nix.conf)\n\
+     experimental-features = nix-command flakes\n\
+     // flake.nix skeleton\n\
+     {\n\
+       description = \"My project\";\n\
+       inputs = {\n\
+         nixpkgs.url = \"github:NixOS/nixpkgs/nixos-unstable\";\n\
+         flake-utils.url = \"github:numtide/flake-utils\";\n\
+       };\n\
+       outputs = { self, nixpkgs, flake-utils }:\n\
+         flake-utils.lib.eachDefaultSystem (system:\n\
+           let pkgs = nixpkgs.legacyPackages.${system}; in {\n\
+             packages.default = pkgs.hello;\n\
+             devShells.default = pkgs.mkShell {\n\
+               buildInputs = [ pkgs.nodejs pkgs.rustup ];\n\
+             };\n\
+             apps.default = { type = \"app\"; program = \"${pkgs.hello}/bin/hello\"; };\n\
+           });\n\
+     }\n\
+     // Flake commands\n\
+     nix flake init                         # create skeleton\n\
+     nix flake update                       # update inputs\n\
+     nix flake update nixpkgs               # update one input\n\
+     nix flake show                         # show outputs\n\
+     nix flake check                        # run checks\n\
+     nix flake metadata                     # show metadata\n\
+     nix build .#packages.x86_64-linux.default\n\
+     nix build github:user/repo             # build remote flake\n\
+     // Lock file\n\
+     flake.lock                             # pinned input hashes (commit this)\n\
+     Ref: https://nixos.wiki/wiki/Flakes"
+}
+
+fn s_nx_nixos() -> &'static str {
+    "NixOS Configuration\n\
+     ====================\n\
+     // /etc/nixos/configuration.nix\n\
+     { config, pkgs, ... }:\n\
+     {\n\
+       boot.loader.systemd-boot.enable = true;\n\
+       networking.hostName = \"mymachine\";\n\
+       networking.networkmanager.enable = true;\n\
+       time.timeZone = \"America/New_York\";\n\
+       i18n.defaultLocale = \"en_US.UTF-8\";\n\
+       users.users.alice = {\n\
+         isNormalUser = true;\n\
+         extraGroups = [ \"wheel\" \"networkmanager\" \"docker\" ];\n\
+         packages = with pkgs; [ firefox git vscode ];\n\
+       };\n\
+       environment.systemPackages = with pkgs; [ vim git curl wget ];\n\
+       services.openssh.enable = true;\n\
+       services.postgresql.enable = true;\n\
+       virtualisation.docker.enable = true;\n\
+       programs.zsh.enable = true;\n\
+       system.stateVersion = \"24.05\";\n\
+     }\n\
+     // Apply configuration\n\
+     sudo nixos-rebuild switch             # apply + set as boot default\n\
+     sudo nixos-rebuild boot               # apply on next boot only\n\
+     sudo nixos-rebuild test               # apply without boot entry\n\
+     sudo nixos-rebuild switch --upgrade   # upgrade + apply\n\
+     // Generations / rollback\n\
+     nixos-rebuild list-generations\n\
+     sudo nixos-rebuild switch --rollback  # boot previous generation\n\
+     Ref: https://nixos.org/manual/nixos/stable/"
+}
+
+fn s_nx_derivations() -> &'static str {
+    "Nix Derivations & Language\n\
+     ==========================\n\
+     // Nix language basics\n\
+     let x = 42; in x + 1                  # let binding\n\
+     { a = 1; b = 2; }                     # attribute set\n\
+     rec { a = 1; b = a + 1; }             # recursive set\n\
+     [ 1 2 3 ]                             # list\n\
+     builtins.map (x: x * 2) [ 1 2 3 ]    # lambda + map\n\
+     with pkgs; [ git curl wget ]          # bring attrs into scope\n\
+     import ./other.nix                    # import file\n\
+     // mkDerivation\n\
+     pkgs.stdenv.mkDerivation {\n\
+         name = \"my-program-1.0\";\n\
+         src = ./src;\n\
+         buildInputs = [ pkgs.gcc pkgs.make ];\n\
+         buildPhase = ''make''\n\
+         installPhase = ''make install PREFIX=$out''\n\
+     }\n\
+     // Useful functions\n\
+     builtins.toString x\n\
+     builtins.toJSON { a = 1; }\n\
+     builtins.readFile ./file.txt\n\
+     builtins.fetchTarball { url = \"...\"; sha256 = \"...\"; }\n\
+     pkgs.writeText \"hello.txt\" \"Hello, world!\"  # file in store\n\
+     pkgs.writeShellScript \"run.sh\" ''echo hi''\n\
+     // Override\n\
+     pkgs.ripgrep.override { withPCRE2 = true; }\n\
+     pkgs.ripgrep.overrideAttrs (old: { doCheck = false; })\n\
+     Ref: https://nixos.org/manual/nix/stable/language/index.html"
+}
+
+fn s_nx_home_manager() -> &'static str {
+    "Home Manager (Nix dotfiles)\n\
+     ============================\n\
+     // Install Home Manager\n\
+     nix-channel --add https://github.com/nix-community/home-manager/archive/master.tar.gz home-manager\n\
+     nix-channel --update\n\
+     nix-shell '<home-manager>' -A install\n\
+     // ~/.config/home-manager/home.nix\n\
+     { config, pkgs, ... }:\n\
+     {\n\
+       home.username = \"alice\";\n\
+       home.homeDirectory = \"/home/alice\";\n\
+       home.stateVersion = \"24.05\";\n\
+       home.packages = with pkgs; [ ripgrep fd bat eza ];\n\
+       programs.git = {\n\
+         enable = true;\n\
+         userName = \"Alice\";\n\
+         userEmail = \"alice@example.com\";\n\
+         extraConfig.pull.rebase = true;\n\
+       };\n\
+       programs.zsh = {\n\
+         enable = true;\n\
+         enableAutosuggestions = true;\n\
+         shellAliases = { ll = \"ls -la\"; gs = \"git status\"; };\n\
+       };\n\
+       programs.neovim.enable = true;\n\
+       home.file.\".tmux.conf\".source = ./tmux.conf;\n\
+     }\n\
+     // Apply\n\
+     home-manager switch\n\
+     home-manager switch --flake .#alice   # flake-based\n\
+     home-manager generations\n\
+     home-manager rollback\n\
+     Ref: https://nix-community.github.io/home-manager/"
+}
+
+type NixRefSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+const NIX_REF_SECTIONS: &[NixRefSection] = &[
+    (
+        "basics",
+        &[
+            "nix-basics",
+            "install",
+            "nix-env",
+            "nix-profile",
+            "packages",
+        ],
+        s_nx_basics,
+    ),
+    (
+        "shells",
+        &[
+            "nix-shell",
+            "devenv",
+            "direnv",
+            "dev-environment",
+            "mkshell",
+        ],
+        s_nx_shell,
+    ),
+    (
+        "flakes",
+        &[
+            "nix-flakes",
+            "flake-nix",
+            "flake-lock",
+            "flake-outputs",
+            "nix-develop",
+        ],
+        s_nx_flakes,
+    ),
+    (
+        "nixos",
+        &[
+            "nixos-config",
+            "configuration-nix",
+            "nixos-rebuild",
+            "system-config",
+        ],
+        s_nx_nixos,
+    ),
+    (
+        "derivations",
+        &[
+            "nix-language",
+            "mkderivation",
+            "nix-expr",
+            "nix-lang",
+            "override",
+        ],
+        s_nx_derivations,
+    ),
+    (
+        "home-manager",
+        &["home-nix", "dotfiles", "hm", "user-config", "home-manager"],
+        s_nx_home_manager,
+    ),
+];
+
+pub fn nix_ref_calc(query: &str) -> String {
+    let q = query.trim().to_lowercase();
+    if q.is_empty() || q == "list" || q == "help" {
+        let topics: Vec<&str> = NIX_REF_SECTIONS.iter().map(|(n, _, _)| *n).collect();
+        return format!(
+            "nix-ref topics: {}\nUsage: hematite --nix-ref <topic>  (e.g. --nix-ref flakes)",
+            topics.join(", ")
+        );
+    }
+    if q == "all" {
+        return NIX_REF_SECTIONS
+            .iter()
+            .map(|(_, _, f)| f())
+            .collect::<Vec<_>>()
+            .join("\n\n");
+    }
+    for (name, aliases, func) in NIX_REF_SECTIONS {
+        if q == *name || aliases.iter().any(|a| q == *a || q.contains(a)) {
+            return func().to_string();
+        }
+    }
+    let topics: Vec<&str> = NIX_REF_SECTIONS.iter().map(|(n, _, _)| *n).collect();
+    format!(
+        "Unknown nix-ref topic: '{}'\nAvailable: {}",
+        query.trim(),
+        topics.join(", ")
+    )
+}
+
+// ── --gdb-ref ─────────────────────────────────────────────────────────────────
+
+fn s_gd_basics() -> &'static str {
+    "GDB Basics\n\
+     ==========\n\
+     // Start GDB\n\
+     gdb ./program                         # debug a binary\n\
+     gdb ./program core                    # debug with core dump\n\
+     gdb -p <pid>                          # attach to running process\n\
+     gdb --args ./program arg1 arg2        # with arguments\n\
+     // Compile for debugging\n\
+     gcc -g -O0 -o prog prog.c             # -g = debug info, -O0 = no optimization\n\
+     rustc -g prog.rs\n\
+     cargo build  # debug build has -g by default\n\
+     // Running\n\
+     (gdb) run                             # start program\n\
+     (gdb) run arg1 arg2                   # run with args\n\
+     (gdb) start                           # run and stop at main\n\
+     (gdb) continue / c                    # resume execution\n\
+     (gdb) quit / q                        # exit GDB\n\
+     // Information\n\
+     (gdb) info inferiors                  # list debug sessions\n\
+     (gdb) info threads                    # list all threads\n\
+     (gdb) info registers                  # CPU registers\n\
+     (gdb) info locals                     # local variables\n\
+     (gdb) info args                       # function arguments\n\
+     (gdb) info frame                      # current stack frame\n\
+     Ref: https://sourceware.org/gdb/documentation/"
+}
+
+fn s_gd_breakpoints() -> &'static str {
+    "GDB Breakpoints & Watchpoints\n\
+     ==============================\n\
+     // Breakpoints\n\
+     (gdb) break main                      # break at function\n\
+     (gdb) break file.c:42                 # break at line\n\
+     (gdb) break *0x4005a0                 # break at address\n\
+     (gdb) break +5                        # break 5 lines ahead\n\
+     (gdb) tbreak main                     # temporary breakpoint (once)\n\
+     (gdb) rbreak regexp                   # regex breakpoint (all matches)\n\
+     // Conditional breakpoints\n\
+     (gdb) break main if argc > 2\n\
+     (gdb) condition 1 x == 42            # add condition to BP 1\n\
+     (gdb) ignore 1 5                      # ignore BP 1 next 5 times\n\
+     // Manage breakpoints\n\
+     (gdb) info breakpoints               # list all\n\
+     (gdb) delete 1                        # delete BP 1\n\
+     (gdb) disable 1                       # disable BP 1\n\
+     (gdb) enable 1                        # re-enable\n\
+     (gdb) clear main                      # clear all at location\n\
+     // Watchpoints (data breakpoints)\n\
+     (gdb) watch x                         # break when x changes\n\
+     (gdb) rwatch x                        # break when x is read\n\
+     (gdb) awatch x                        # break on read or write\n\
+     (gdb) watch *(int*)0x601050           # watch memory address\n\
+     // Catchpoints\n\
+     (gdb) catch throw                     # catch C++ exceptions\n\
+     (gdb) catch syscall open             # catch system call\n\
+     Ref: https://sourceware.org/gdb/current/onlinedocs/gdb/Breakpoints.html"
+}
+
+fn s_gd_stepping() -> &'static str {
+    "GDB Stepping & Navigation\n\
+     =========================\n\
+     // Step execution\n\
+     (gdb) next / n                        # step over (source line)\n\
+     (gdb) step / s                        # step into function\n\
+     (gdb) nexti / ni                      # step over (machine instruction)\n\
+     (gdb) stepi / si                      # step into (machine instruction)\n\
+     (gdb) finish                          # run until function returns\n\
+     (gdb) until 42                        # run until line 42\n\
+     (gdb) advance func                    # run until function is called\n\
+     // Stack navigation\n\
+     (gdb) backtrace / bt                  # print call stack\n\
+     (gdb) bt full                         # stack + local variables\n\
+     (gdb) bt 5                            # top 5 frames\n\
+     (gdb) frame 2                         # switch to frame 2\n\
+     (gdb) up / down                       # move frame up/down\n\
+     // Signals\n\
+     (gdb) signal SIGINT                   # send signal to program\n\
+     (gdb) handle SIGSEGV stop             # stop on SIGSEGV\n\
+     (gdb) handle SIGUSR1 nostop noprint   # ignore SIGUSR1\n\
+     // Reverse debugging\n\
+     (gdb) record                          # start recording execution\n\
+     (gdb) reverse-continue               # go backward\n\
+     (gdb) reverse-next                   # step back over\n\
+     (gdb) reverse-step                   # step back into\n\
+     Ref: https://sourceware.org/gdb/current/onlinedocs/gdb/Continuing-and-Stepping.html"
+}
+
+fn s_gd_inspect() -> &'static str {
+    "GDB Inspecting Data\n\
+     ====================\n\
+     // Print variables\n\
+     (gdb) print x                         # print variable\n\
+     (gdb) print/x x                       # print as hex\n\
+     (gdb) print/d x                       # print as decimal\n\
+     (gdb) print/b x                       # print as binary\n\
+     (gdb) print/c x                       # print as char\n\
+     (gdb) print/f x                       # print as float\n\
+     (gdb) print *ptr                      # dereference pointer\n\
+     (gdb) print arr[0]@10                 # print 10 array elements\n\
+     (gdb) print (int*)0x601050            # cast and print address\n\
+     // Display (auto-print on each stop)\n\
+     (gdb) display x                       # auto-show x\n\
+     (gdb) undisplay 1                     # remove display 1\n\
+     (gdb) info display                    # list auto-displays\n\
+     // Examine memory\n\
+     (gdb) x/10xb 0x601050                 # 10 bytes in hex\n\
+     (gdb) x/5gx $rsp                      # 5 giant words at stack pointer\n\
+     (gdb) x/20i $pc                       # 20 instructions at PC\n\
+     (gdb) x/s 0x400600                    # null-terminated string\n\
+     // Pretty-print STL containers (requires python gdb extension)\n\
+     (gdb) print vec                       # std::vector pretty-printed\n\
+     (gdb) print map                       # std::map pretty-printed\n\
+     // Convenience variables\n\
+     (gdb) set $i = 0\n\
+     (gdb) print arr[$i++]\n\
+     Ref: https://sourceware.org/gdb/current/onlinedocs/gdb/Data.html"
+}
+
+fn s_gd_advanced() -> &'static str {
+    "GDB Advanced Features\n\
+     =====================\n\
+     // Multi-thread debugging\n\
+     (gdb) info threads                    # list threads\n\
+     (gdb) thread 2                        # switch to thread 2\n\
+     (gdb) thread apply all bt             # backtrace all threads\n\
+     (gdb) set scheduler-locking on        # only current thread runs\n\
+     // GDB scripting\n\
+     (gdb) define mycommand\n\
+         print x\n\
+         info locals\n\
+     end\n\
+     // .gdbinit file (auto-loaded)\n\
+     set print pretty on\n\
+     set print array on\n\
+     set pagination off\n\
+     break main\n\
+     // Python scripting\n\
+     (gdb) python print(gdb.parse_and_eval('x'))\n\
+     (gdb) python gdb.execute('bt')\n\
+     // Remote debugging\n\
+     # on target:\n\
+     gdbserver :1234 ./program\n\
+     # on host:\n\
+     (gdb) target remote 192.168.1.100:1234\n\
+     (gdb) file ./program                  # load symbols\n\
+     // Core dumps\n\
+     ulimit -c unlimited                   # enable core dumps\n\
+     gdb ./program core.12345\n\
+     // LLDB equivalents\n\
+     lldb ./program\n\
+     (lldb) breakpoint set -n main\n\
+     (lldb) run\n\
+     (lldb) thread backtrace\n\
+     Ref: https://sourceware.org/gdb/current/onlinedocs/gdb/"
+}
+
+fn s_gd_tui() -> &'static str {
+    "GDB TUI Mode & Tips\n\
+     ====================\n\
+     // TUI (Text User Interface)\n\
+     gdb -tui ./program                    # start in TUI mode\n\
+     Ctrl+X A                              # toggle TUI mode\n\
+     Ctrl+X 1                              # one window (source)\n\
+     Ctrl+X 2                              # two windows (source+asm or source+regs)\n\
+     Ctrl+L                                # refresh screen\n\
+     // TUI window commands\n\
+     (gdb) layout src                      # show source\n\
+     (gdb) layout asm                      # show assembly\n\
+     (gdb) layout regs                     # show registers\n\
+     (gdb) layout split                    # source + assembly\n\
+     (gdb) focus next                      # switch active window\n\
+     // Useful GDB settings\n\
+     set print pretty on                   # readable structs\n\
+     set print array on                    # readable arrays\n\
+     set print array-indexes on            # show array indices\n\
+     set pagination off                    # no --More-- prompt\n\
+     set confirm off                       # no confirmation prompts\n\
+     set history save on                   # save command history\n\
+     set history size 10000\n\
+     // Frontend tools\n\
+     gdbgui --port 5000 ./program          # browser-based (pip install gdbgui)\n\
+     cgdb ./program                        # curses frontend (apt install cgdb)\n\
+     # VS Code: CodeLLDB or cpptools extension\n\
+     # CLion: built-in GDB/LLDB integration\n\
+     Ref: https://sourceware.org/gdb/current/onlinedocs/gdb/TUI.html"
+}
+
+type GdbRefSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+const GDB_REF_SECTIONS: &[GdbRefSection] = &[
+    (
+        "basics",
+        &["gdb-basics", "start", "run", "attach", "compile"],
+        s_gd_basics,
+    ),
+    (
+        "breakpoints",
+        &[
+            "gdb-break",
+            "break",
+            "watchpoints",
+            "watch",
+            "catchpoints",
+            "conditional",
+        ],
+        s_gd_breakpoints,
+    ),
+    (
+        "stepping",
+        &[
+            "gdb-step",
+            "step",
+            "next",
+            "continue",
+            "backtrace",
+            "stack",
+            "finish",
+        ],
+        s_gd_stepping,
+    ),
+    (
+        "inspect",
+        &[
+            "gdb-print",
+            "print",
+            "examine",
+            "memory",
+            "display",
+            "variables",
+        ],
+        s_gd_inspect,
+    ),
+    (
+        "advanced",
+        &[
+            "gdb-advanced",
+            "threads",
+            "scripting",
+            "remote",
+            "core-dump",
+            "python",
+        ],
+        s_gd_advanced,
+    ),
+    (
+        "tui",
+        &[
+            "gdb-tui",
+            "layout",
+            "interface",
+            "settings",
+            "gdbinit",
+            "cgdb",
+            "gdbgui",
+        ],
+        s_gd_tui,
+    ),
+];
+
+pub fn gdb_ref_calc(query: &str) -> String {
+    let q = query.trim().to_lowercase();
+    if q.is_empty() || q == "list" || q == "help" {
+        let topics: Vec<&str> = GDB_REF_SECTIONS.iter().map(|(n, _, _)| *n).collect();
+        return format!(
+            "gdb-ref topics: {}\nUsage: hematite --gdb-ref <topic>  (e.g. --gdb-ref breakpoints)",
+            topics.join(", ")
+        );
+    }
+    if q == "all" {
+        return GDB_REF_SECTIONS
+            .iter()
+            .map(|(_, _, f)| f())
+            .collect::<Vec<_>>()
+            .join("\n\n");
+    }
+    for (name, aliases, func) in GDB_REF_SECTIONS {
+        if q == *name || aliases.iter().any(|a| q == *a || q.contains(a)) {
+            return func().to_string();
+        }
+    }
+    let topics: Vec<&str> = GDB_REF_SECTIONS.iter().map(|(n, _, _)| *n).collect();
+    format!(
+        "Unknown gdb-ref topic: '{}'\nAvailable: {}",
+        query.trim(),
+        topics.join(", ")
+    )
+}
+
+// ── --cmake-ref ───────────────────────────────────────────────────────────────
+
+fn s_cm_basics() -> &'static str {
+    "CMake Basics\n\
+     ============\n\
+     // CMakeLists.txt minimum\n\
+     cmake_minimum_required(VERSION 3.20)\n\
+     project(MyApp VERSION 1.0 LANGUAGES CXX)\n\
+     set(CMAKE_CXX_STANDARD 17)\n\
+     set(CMAKE_CXX_STANDARD_REQUIRED ON)\n\
+     add_executable(myapp src/main.cpp src/util.cpp)\n\
+     // Build steps\n\
+     cmake -B build                        # configure (out-of-source)\n\
+     cmake -B build -DCMAKE_BUILD_TYPE=Release\n\
+     cmake --build build                   # compile\n\
+     cmake --build build --target myapp    # specific target\n\
+     cmake --build build -j 8             # parallel jobs\n\
+     cmake --install build --prefix /usr/local\n\
+     // Build types\n\
+     -DCMAKE_BUILD_TYPE=Debug              # -g, no optimization\n\
+     -DCMAKE_BUILD_TYPE=Release            # -O3, no debug info\n\
+     -DCMAKE_BUILD_TYPE=RelWithDebInfo     # -O2 + -g\n\
+     -DCMAKE_BUILD_TYPE=MinSizeRel         # -Os\n\
+     // Generator selection\n\
+     cmake -G Ninja -B build               # Ninja (fastest)\n\
+     cmake -G \"Unix Makefiles\" -B build\n\
+     cmake -G \"Visual Studio 17 2022\" -B build\n\
+     cmake -G Xcode -B build\n\
+     Ref: https://cmake.org/cmake/help/latest/guide/tutorial/"
+}
+
+fn s_cm_targets() -> &'static str {
+    "CMake Targets & Libraries\n\
+     =========================\n\
+     // Library types\n\
+     add_library(mylib STATIC src/lib.cpp)   # .a / .lib\n\
+     add_library(mylib SHARED src/lib.cpp)   # .so / .dll\n\
+     add_library(mylib OBJECT src/lib.cpp)   # object files only\n\
+     add_library(mylib INTERFACE)            # header-only\n\
+     // Linking\n\
+     target_link_libraries(myapp PRIVATE mylib)\n\
+     target_link_libraries(myapp PUBLIC mylib)    # propagate to dependents\n\
+     target_link_libraries(myapp INTERFACE mylib) # only for consumers\n\
+     // Include directories\n\
+     target_include_directories(myapp PRIVATE include/)\n\
+     target_include_directories(mylib PUBLIC include/)  # exported to consumers\n\
+     // Compile options\n\
+     target_compile_options(myapp PRIVATE -Wall -Wextra -Werror)\n\
+     target_compile_definitions(myapp PRIVATE DEBUG=1 VERSION=\"1.0\")\n\
+     // Alias targets\n\
+     add_library(MyProject::mylib ALIAS mylib)\n\
+     // Properties\n\
+     set_target_properties(myapp PROPERTIES\n\
+         OUTPUT_NAME my_application\n\
+         RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)\n\
+     get_target_property(inc mylib INTERFACE_INCLUDE_DIRECTORIES)\n\
+     Ref: https://cmake.org/cmake/help/latest/manual/cmake-buildsystem.7.html"
+}
+
+fn s_cm_find() -> &'static str {
+    "CMake Finding Packages\n\
+     =======================\n\
+     // find_package — modern (config mode)\n\
+     find_package(OpenSSL REQUIRED)\n\
+     target_link_libraries(myapp PRIVATE OpenSSL::SSL OpenSSL::Crypto)\n\
+     find_package(Boost 1.70 REQUIRED COMPONENTS filesystem program_options)\n\
+     target_link_libraries(myapp PRIVATE Boost::filesystem Boost::program_options)\n\
+     // find_package — legacy (module mode, FindXXX.cmake)\n\
+     find_package(ZLIB REQUIRED)\n\
+     target_link_libraries(myapp PRIVATE ${ZLIB_LIBRARIES})\n\
+     target_include_directories(myapp PRIVATE ${ZLIB_INCLUDE_DIRS})\n\
+     // Optional packages\n\
+     find_package(OpenMP)\n\
+     if(OpenMP_CXX_FOUND)\n\
+         target_link_libraries(myapp PUBLIC OpenMP::OpenMP_CXX)\n\
+     endif()\n\
+     // FetchContent (download at configure time)\n\
+     include(FetchContent)\n\
+     FetchContent_Declare(\n\
+         googletest\n\
+         GIT_REPOSITORY https://github.com/google/googletest.git\n\
+         GIT_TAG v1.14.0)\n\
+     FetchContent_MakeAvailable(googletest)\n\
+     target_link_libraries(mytest PRIVATE GTest::gtest_main)\n\
+     // pkg-config\n\
+     find_package(PkgConfig REQUIRED)\n\
+     pkg_check_modules(GTK3 REQUIRED gtk+-3.0)\n\
+     target_link_libraries(myapp ${GTK3_LIBRARIES})\n\
+     Ref: https://cmake.org/cmake/help/latest/command/find_package.html"
+}
+
+fn s_cm_variables() -> &'static str {
+    "CMake Variables & Flow\n\
+     =======================\n\
+     // Variables\n\
+     set(MY_VAR \"hello\")                   # local variable\n\
+     set(MY_VAR \"hello\" CACHE STRING \"Description\")\n\
+     set(MY_VAR \"hello\" CACHE BOOL \"Enable X\" FORCE)\n\
+     option(ENABLE_TESTS \"Build tests\" ON)   # boolean cache var\n\
+     message(STATUS \"MY_VAR = ${MY_VAR}\")\n\
+     message(WARNING \"Something wrong\")\n\
+     message(FATAL_ERROR \"Stop here\")\n\
+     // Lists\n\
+     set(SOURCES a.cpp b.cpp c.cpp)\n\
+     list(APPEND SOURCES d.cpp)\n\
+     list(LENGTH SOURCES len)\n\
+     list(FILTER SOURCES INCLUDE REGEX \".*main.*\")\n\
+     // Conditionals\n\
+     if(UNIX AND NOT APPLE)\n\
+         target_link_libraries(myapp pthread dl)\n\
+     elseif(WIN32)\n\
+         target_link_libraries(myapp ws2_32)\n\
+     endif()\n\
+     if(CMAKE_BUILD_TYPE STREQUAL \"Debug\")\n\
+         add_definitions(-DDEBUG)\n\
+     endif()\n\
+     // Loops\n\
+     foreach(src ${SOURCES})\n\
+         message(STATUS \"  ${src}\")\n\
+     endforeach()\n\
+     // Important built-in variables\n\
+     CMAKE_SOURCE_DIR     # top-level CMakeLists.txt dir\n\
+     CMAKE_BINARY_DIR     # build directory\n\
+     CMAKE_CURRENT_SOURCE_DIR  # current CMakeLists.txt dir\n\
+     PROJECT_SOURCE_DIR   # project() call dir\n\
+     CMAKE_INSTALL_PREFIX # install destination\n\
+     Ref: https://cmake.org/cmake/help/latest/manual/cmake-variables.7.html"
+}
+
+fn s_cm_testing() -> &'static str {
+    "CMake Testing & CTest\n\
+     =====================\n\
+     // Enable testing\n\
+     enable_testing()\n\
+     // Add test executable\n\
+     add_executable(mytest test/test_main.cpp)\n\
+     target_link_libraries(mytest PRIVATE mylib GTest::gtest_main)\n\
+     // Register tests\n\
+     add_test(NAME MyTest COMMAND mytest)\n\
+     add_test(NAME MyTest2 COMMAND mytest --gtest_filter=\"Suite.*\")\n\
+     // GoogleTest integration\n\
+     include(GoogleTest)\n\
+     gtest_discover_tests(mytest)\n\
+     // CTest commands\n\
+     ctest --test-dir build                # run all tests\n\
+     ctest --test-dir build -V             # verbose\n\
+     ctest --test-dir build -R \"MyTest\"    # filter by regex\n\
+     ctest --test-dir build -j 4           # parallel\n\
+     ctest --test-dir build --rerun-failed\n\
+     // Test properties\n\
+     set_tests_properties(MyTest PROPERTIES\n\
+         TIMEOUT 30\n\
+         ENVIRONMENT \"MY_VAR=42\"\n\
+         WILL_FAIL TRUE)                    # expect failure\n\
+     // CPack (packaging)\n\
+     include(CPack)\n\
+     set(CPACK_PACKAGE_NAME \"MyApp\")\n\
+     set(CPACK_GENERATOR \"TGZ;DEB\")\n\
+     cpack --config build/CPackConfig.cmake\n\
+     Ref: https://cmake.org/cmake/help/latest/manual/ctest.1.html"
+}
+
+fn s_cm_modern() -> &'static str {
+    "Modern CMake Patterns\n\
+     =====================\n\
+     // Presets (CMakePresets.json)\n\
+     {\n\
+       \"version\": 6,\n\
+       \"configurePresets\": [{\n\
+         \"name\": \"release\",\n\
+         \"binaryDir\": \"build/release\",\n\
+         \"cacheVariables\": { \"CMAKE_BUILD_TYPE\": \"Release\" }\n\
+       }],\n\
+       \"buildPresets\": [{\n\
+         \"name\": \"release\",\n\
+         \"configurePreset\": \"release\"\n\
+       }]\n\
+     }\n\
+     cmake --preset release\n\
+     cmake --build --preset release\n\
+     // Compile commands (for clangd/LSP)\n\
+     cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -B build\n\
+     ln -s build/compile_commands.json .   # symlink for clangd\n\
+     // Cross compilation\n\
+     cmake -B build -DCMAKE_TOOLCHAIN_FILE=toolchain-arm.cmake\n\
+     # toolchain-arm.cmake:\n\
+     set(CMAKE_SYSTEM_NAME Linux)\n\
+     set(CMAKE_SYSTEM_PROCESSOR arm)\n\
+     set(CMAKE_C_COMPILER arm-linux-gnueabihf-gcc)\n\
+     set(CMAKE_CXX_COMPILER arm-linux-gnueabihf-g++)\n\
+     // vcpkg integration\n\
+     cmake -B build -DCMAKE_TOOLCHAIN_FILE=/vcpkg/scripts/buildsystems/vcpkg.cmake\n\
+     // Conan integration\n\
+     conan install . --output-folder=build --build=missing\n\
+     cmake -B build -DCMAKE_TOOLCHAIN_FILE=build/conan_toolchain.cmake\n\
+     Ref: https://cmake.org/cmake/help/latest/manual/cmake-presets.7.html"
+}
+
+type CMakeRefSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+const CMAKE_REF_SECTIONS: &[CMakeRefSection] = &[
+    (
+        "basics",
+        &[
+            "cmake-basics",
+            "cmakelists",
+            "configure",
+            "build",
+            "install",
+        ],
+        s_cm_basics,
+    ),
+    (
+        "targets",
+        &[
+            "cmake-targets",
+            "libraries",
+            "link",
+            "include",
+            "add-library",
+        ],
+        s_cm_targets,
+    ),
+    (
+        "find",
+        &[
+            "cmake-find",
+            "find-package",
+            "fetchcontent",
+            "pkg-config",
+            "boost",
+        ],
+        s_cm_find,
+    ),
+    (
+        "variables",
+        &[
+            "cmake-variables",
+            "set",
+            "option",
+            "foreach",
+            "conditionals",
+            "if",
+        ],
+        s_cm_variables,
+    ),
+    (
+        "testing",
+        &[
+            "cmake-testing",
+            "ctest",
+            "gtest",
+            "googletest",
+            "add-test",
+            "cpack",
+        ],
+        s_cm_testing,
+    ),
+    (
+        "modern",
+        &[
+            "cmake-modern",
+            "presets",
+            "toolchain",
+            "cross-compile",
+            "vcpkg",
+            "conan",
+        ],
+        s_cm_modern,
+    ),
+];
+
+pub fn cmake_ref_calc(query: &str) -> String {
+    let q = query.trim().to_lowercase();
+    if q.is_empty() || q == "list" || q == "help" {
+        let topics: Vec<&str> = CMAKE_REF_SECTIONS.iter().map(|(n, _, _)| *n).collect();
+        return format!(
+            "cmake-ref topics: {}\nUsage: hematite --cmake-ref <topic>  (e.g. --cmake-ref targets)",
+            topics.join(", ")
+        );
+    }
+    if q == "all" {
+        return CMAKE_REF_SECTIONS
+            .iter()
+            .map(|(_, _, f)| f())
+            .collect::<Vec<_>>()
+            .join("\n\n");
+    }
+    for (name, aliases, func) in CMAKE_REF_SECTIONS {
+        if q == *name || aliases.iter().any(|a| q == *a || q.contains(a)) {
+            return func().to_string();
+        }
+    }
+    let topics: Vec<&str> = CMAKE_REF_SECTIONS.iter().map(|(n, _, _)| *n).collect();
+    format!(
+        "Unknown cmake-ref topic: '{}'\nAvailable: {}",
+        query.trim(),
+        topics.join(", ")
+    )
+}
+
+// ── --bazel-ref ───────────────────────────────────────────────────────────────
+
+fn s_bz_basics() -> &'static str {
+    "Bazel Basics\n\
+     ============\n\
+     // Install\n\
+     # Via Bazelisk (recommended — auto-manages versions)\n\
+     npm install -g @bazel/bazelisk\n\
+     # Or: brew install bazelisk\n\
+     # .bazelversion file pins the version:\n\
+     echo '7.0.0' > .bazelversion\n\
+     // Workspace structure\n\
+     WORKSPACE.bazel (or MODULE.bazel)     # root: declares deps, name\n\
+     BUILD.bazel                           # per-directory build rules\n\
+     .bazelrc                              # persistent flags\n\
+     // Core commands\n\
+     bazel build //path/to:target         # build target\n\
+     bazel build //...                    # build everything\n\
+     bazel test //path/to:test_target     # run tests\n\
+     bazel test //... --test_output=all   # run all tests\n\
+     bazel run //path/to:binary           # build + run\n\
+     bazel clean                          # remove outputs\n\
+     bazel clean --expunge               # remove cache too\n\
+     bazel query //...                    # list all targets\n\
+     // Target labels\n\
+     //path/to/dir:target                 # full label\n\
+     //path/to/dir                        # shorthand (uses dir name)\n\
+     :target                              # relative to current pkg\n\
+     @repo//path:target                   # external repo\n\
+     Ref: https://bazel.build/docs"
+}
+
+fn s_bz_rules() -> &'static str {
+    "Bazel Build Rules\n\
+     ==================\n\
+     // C++ rules\n\
+     cc_binary(\n\
+         name = \"myapp\",\n\
+         srcs = [\"main.cc\"],\n\
+         deps = [\"//lib:mylib\"],\n\
+     )\n\
+     cc_library(\n\
+         name = \"mylib\",\n\
+         srcs = [\"lib.cc\"],\n\
+         hdrs = [\"lib.h\"],\n\
+         visibility = [\"//visibility:public\"],\n\
+     )\n\
+     cc_test(\n\
+         name = \"mytest\",\n\
+         srcs = [\"test.cc\"],\n\
+         deps = [\":mylib\", \"@com_google_googletest//:gtest_main\"],\n\
+     )\n\
+     // Java rules\n\
+     java_binary(name = \"App\", srcs = [\"App.java\"], main_class = \"App\")\n\
+     java_library(name = \"lib\", srcs = glob([\"*.java\"]), deps = [])\n\
+     // Python rules\n\
+     py_binary(name = \"script\", srcs = [\"script.py\"], deps = [\"//lib:pylib\"])\n\
+     py_library(name = \"pylib\", srcs = [\"lib.py\"])\n\
+     py_test(name = \"test\", srcs = [\"test.py\"], deps = [\":pylib\"])\n\
+     // Shell rules\n\
+     sh_binary(name = \"deploy\", srcs = [\"deploy.sh\"])\n\
+     // Glob\n\
+     srcs = glob([\"*.cc\"], exclude = [\"*_test.cc\"])\n\
+     Ref: https://bazel.build/reference/be/overview"
+}
+
+fn s_bz_deps() -> &'static str {
+    "Bazel External Dependencies\n\
+     ============================\n\
+     // MODULE.bazel (Bzlmod — modern, Bazel 7+)\n\
+     module(name = \"myproject\", version = \"1.0\")\n\
+     bazel_dep(name = \"googletest\", version = \"1.14.0\")\n\
+     bazel_dep(name = \"rules_python\", version = \"0.31.0\")\n\
+     bazel_dep(name = \"gazelle\", version = \"0.35.0\")\n\
+     // WORKSPACE.bazel (legacy)\n\
+     load(\"@bazel_tools//tools/build_defs/repo:http.bzl\", \"http_archive\")\n\
+     http_archive(\n\
+         name = \"com_google_googletest\",\n\
+         urls = [\"https://github.com/google/googletest/archive/v1.14.0.tar.gz\"],\n\
+         sha256 = \"...\",\n\
+         strip_prefix = \"googletest-1.14.0\",\n\
+     )\n\
+     // Maven (rules_jvm_external)\n\
+     maven_install(\n\
+         artifacts = [\n\
+             \"com.google.guava:guava:31.1-jre\",\n\
+             \"junit:junit:4.13\",\n\
+         ],\n\
+         repositories = [\"https://repo1.maven.org/maven2\"],\n\
+     )\n\
+     // PyPI (rules_python)\n\
+     pip_parse(\n\
+         name = \"pip\",\n\
+         requirements_lock = \"//:requirements.lock.txt\",\n\
+     )\n\
+     // npm (rules_nodejs)\n\
+     npm_install(name = \"npm\", package_json = \"//:package.json\",\n\
+         package_lock_json = \"//:package-lock.json\")\n\
+     Ref: https://bazel.build/external/overview"
+}
+
+fn s_bz_query() -> &'static str {
+    "Bazel Query & Analysis\n\
+     =======================\n\
+     // bazel query — static dependency graph\n\
+     bazel query //...                     # all targets in workspace\n\
+     bazel query 'deps(//myapp)'           # all deps of myapp\n\
+     bazel query 'rdeps(//..., //mylib)'   # reverse deps of mylib\n\
+     bazel query 'deps(//myapp) intersect //lib/...'\n\
+     bazel query 'allpaths(//myapp, //util)' # all paths between targets\n\
+     bazel query 'kind(cc_binary, //...)' # all C++ binaries\n\
+     bazel query 'attr(name, test.*, //...)' # targets matching name pattern\n\
+     // Output formats\n\
+     bazel query //... --output=label      # target labels\n\
+     bazel query //... --output=graph      # graphviz dot format\n\
+     bazel query //... --output=xml\n\
+     bazel query //... --output=json\n\
+     // bazel aquery — action graph\n\
+     bazel aquery //myapp                  # all build actions\n\
+     bazel aquery 'outputs(\".*\\\\.o\", //myapp)'  # actions producing .o files\n\
+     // bazel cquery — configured query\n\
+     bazel cquery 'deps(//myapp)' --output=files  # output files\n\
+     // Analysis\n\
+     bazel analyze-profile profile.json   # CPU/memory profile\n\
+     bazel info output_base               # where outputs live\n\
+     bazel info workspace\n\
+     Ref: https://bazel.build/query/guide"
+}
+
+fn s_bz_remote() -> &'static str {
+    "Bazel Remote Caching & Execution\n\
+     ==================================\n\
+     // Remote cache (.bazelrc)\n\
+     build --remote_cache=grpc://cache.example.com:9092\n\
+     build --remote_cache=https://storage.googleapis.com/my-bucket\n\
+     build --google_default_credentials\n\
+     build --remote_upload_local_results=true\n\
+     // Local disk cache\n\
+     build --disk_cache=~/.cache/bazel/disk-cache\n\
+     // Remote execution\n\
+     build --remote_executor=grpc://exec.example.com:9092\n\
+     build --remote_cache=grpc://exec.example.com:9092\n\
+     // BuildBuddy (managed remote cache)\n\
+     build --bes_backend=grpcs://cloud.buildbuddy.io\n\
+     build --bes_results_url=https://app.buildbuddy.io/invocation/\n\
+     build --remote_cache=grpcs://cloud.buildbuddy.io\n\
+     build --remote_header=x-buildbuddy-api-key=<KEY>\n\
+     // Useful .bazelrc flags\n\
+     common --enable_bzlmod                # use MODULE.bazel\n\
+     build --incompatible_strict_action_env  # hermetic builds\n\
+     build --sandbox_debug               # debug sandboxing\n\
+     test --test_output=streamed         # stream test output\n\
+     test --test_timeout=300             # 5 min test timeout\n\
+     // Profiling\n\
+     bazel build //... --profile=/tmp/profile.json\n\
+     bazel analyze-profile /tmp/profile.json\n\
+     Ref: https://bazel.build/remote/caching"
+}
+
+fn s_bz_starlark() -> &'static str {
+    "Bazel Starlark & Custom Rules\n\
+     ==============================\n\
+     // Starlark = Python-like language for Bazel rules\n\
+     // my_rules.bzl\n\
+     def my_binary(name, srcs, **kwargs):\n\
+         \"\"\"Macro wrapping cc_binary with defaults.\"\"\"\n\
+         cc_binary(\n\
+             name = name,\n\
+             srcs = srcs,\n\
+             copts = [\"-Wall\"],\n\
+             **kwargs\n\
+         )\n\
+     // Custom rule\n\
+     def _my_rule_impl(ctx):\n\
+         output = ctx.actions.declare_file(ctx.label.name + \".out\")\n\
+         ctx.actions.run_shell(\n\
+             outputs = [output],\n\
+             inputs = ctx.files.srcs,\n\
+             command = \"cat %s > %s\" % (\n\
+                 \" \".join([f.path for f in ctx.files.srcs]),\n\
+                 output.path),\n\
+         )\n\
+         return [DefaultInfo(files = depset([output]))]\n\
+     my_rule = rule(\n\
+         implementation = _my_rule_impl,\n\
+         attrs = {\n\
+             \"srcs\": attr.label_list(allow_files = True),\n\
+             \"out\": attr.output(),\n\
+         },\n\
+     )\n\
+     // Load macros/rules in BUILD\n\
+     load(\"//tools:my_rules.bzl\", \"my_binary\", \"my_rule\")\n\
+     // Gazelle (auto-generate BUILD files)\n\
+     bazel run //:gazelle                 # generate BUILD files\n\
+     bazel run //:gazelle -- update-repos # update WORKSPACE repos\n\
+     Ref: https://bazel.build/rules/language"
+}
+
+type BazelRefSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+const BAZEL_REF_SECTIONS: &[BazelRefSection] = &[
+    (
+        "basics",
+        &["bazel-basics", "workspace", "build", "run", "bazelisk"],
+        s_bz_basics,
+    ),
+    (
+        "rules",
+        &[
+            "bazel-rules",
+            "cc-binary",
+            "cc-library",
+            "java-binary",
+            "py-binary",
+            "glob",
+        ],
+        s_bz_rules,
+    ),
+    (
+        "deps",
+        &[
+            "bazel-deps",
+            "bzlmod",
+            "module",
+            "http-archive",
+            "maven",
+            "pip",
+            "npm",
+        ],
+        s_bz_deps,
+    ),
+    (
+        "query",
+        &[
+            "bazel-query",
+            "aquery",
+            "cquery",
+            "deps",
+            "rdeps",
+            "analysis",
+        ],
+        s_bz_query,
+    ),
+    (
+        "remote",
+        &[
+            "bazel-remote",
+            "remote-cache",
+            "remote-execution",
+            "buildbuddy",
+            "disk-cache",
+        ],
+        s_bz_remote,
+    ),
+    (
+        "starlark",
+        &[
+            "bazel-starlark",
+            "macros",
+            "custom-rules",
+            "bzl",
+            "gazelle",
+            "rule-impl",
+        ],
+        s_bz_starlark,
+    ),
+];
+
+pub fn bazel_ref_calc(query: &str) -> String {
+    let q = query.trim().to_lowercase();
+    if q.is_empty() || q == "list" || q == "help" {
+        let topics: Vec<&str> = BAZEL_REF_SECTIONS.iter().map(|(n, _, _)| *n).collect();
+        return format!(
+            "bazel-ref topics: {}\nUsage: hematite --bazel-ref <topic>  (e.g. --bazel-ref rules)",
+            topics.join(", ")
+        );
+    }
+    if q == "all" {
+        return BAZEL_REF_SECTIONS
+            .iter()
+            .map(|(_, _, f)| f())
+            .collect::<Vec<_>>()
+            .join("\n\n");
+    }
+    for (name, aliases, func) in BAZEL_REF_SECTIONS {
+        if q == *name || aliases.iter().any(|a| q == *a || q.contains(a)) {
+            return func().to_string();
+        }
+    }
+    let topics: Vec<&str> = BAZEL_REF_SECTIONS.iter().map(|(n, _, _)| *n).collect();
+    format!(
+        "Unknown bazel-ref topic: '{}'\nAvailable: {}",
+        query.trim(),
+        topics.join(", ")
+    )
+}

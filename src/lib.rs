@@ -2614,6 +2614,38 @@ pub struct CliCockpit {
 
     #[arg(
         long,
+        help_heading = "Developer Toolkit",
+        value_name = "QUERY",
+        help = "Nix package manager reference — offline replacement for nixos.org docs. Topics: basics, shells, flakes, nixos, derivations, home-manager. Aliases: nix-env, nix-shell, nix-flakes, nixos-config, mkderivation, home-nix. Examples: hematite --nix-ref flakes | hematite --nix-ref shells | hematite --nix-ref all"
+    )]
+    pub nix_ref: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Developer Toolkit",
+        value_name = "QUERY",
+        help = "GDB debugger reference — offline replacement for sourceware.org/gdb docs. Topics: basics, breakpoints, stepping, inspect, advanced, tui. Aliases: gdb-break, watch, backtrace, print, examine, remote, core-dump. Examples: hematite --gdb-ref breakpoints | hematite --gdb-ref inspect | hematite --gdb-ref all"
+    )]
+    pub gdb_ref: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Developer Toolkit",
+        value_name = "QUERY",
+        help = "CMake build system reference — offline replacement for cmake.org docs. Topics: basics, targets, find, variables, testing, modern. Aliases: cmakelists, cc-binary, find-package, fetchcontent, ctest, presets, toolchain. Examples: hematite --cmake-ref targets | hematite --cmake-ref find | hematite --cmake-ref all"
+    )]
+    pub cmake_ref: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Developer Toolkit",
+        value_name = "QUERY",
+        help = "Bazel build system reference — offline replacement for bazel.build docs. Topics: basics, rules, deps, query, remote, starlark. Aliases: workspace, cc-library, bzlmod, bazel-query, remote-cache, macros, gazelle. Examples: hematite --bazel-ref rules | hematite --bazel-ref starlark | hematite --bazel-ref all"
+    )]
+    pub bazel_ref: Option<String>,
+
+    #[arg(
+        long,
         help_heading = "Math & Science",
         value_name = "QUERY",
         help = "Lorem ipsum generator — offline replacement for lipsum.com. Commands: (bare) or <N> = N paragraphs (default 1); words <N> = N words; sentences <N> = N sentences. Examples: hematite --lorem | hematite --lorem 3 | hematite --lorem 'words 50' | hematite --lorem 'sentences 5'"

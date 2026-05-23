@@ -5,25 +5,26 @@
 use hematite::tools::math_util::{
     accessibility_calc, algo_ref_calc, ansible_calc, ansible_ref_calc, api_design_calc,
     api_gateway_calc, api_versioning_calc, ascii_calc, ascii_table_calc, auth_ref_calc, awk_calc,
-    aws_ref_calc, bash_adv_calc, bash_ref_calc, bitwise_calc, browser_dev_calc, caching_ref_calc,
-    case_calc, chars_calc, checksum_calc, chemistry_calc, chmod_calc, ci_cd_adv_calc,
-    cicd_ref_calc, cipher_calc, cloud_cost_calc, cloud_native_calc, cloud_ref_calc, color_calc,
-    color_names_calc, combinatorics_calc, compiler_ref_calc, complex_calc, concurrency_ref_calc,
-    container_ref_calc, cron_calc, crypto_adv_calc, crypto_ref_calc, css_grid_calc, css_ref_calc,
-    csv_calc, curl_calc, data_formats_calc, data_pipeline_calc, database_adv_calc, datetime_calc,
-    db_design_calc, db_internals_calc, db_migrations_calc, deno_ref_calc, design_patterns_calc,
-    devops_ref_calc, diff_calc, docker_adv_calc, docker_compose_calc, docker_ref_calc,
-    duration_calc, electrical_calc, encode_calc, escape_calc, event_driven_calc, find_calc,
-    fraction_calc, geometry_calc, git_adv_calc, git_internals_calc, git_ref_calc, gitignore_calc,
-    go_adv_calc, go_ref_calc, graphql_ref_calc, grep_calc, grpc_ref_calc, hash_calc, headers_calc,
-    health_calc, helm_ref_calc, http2_calc, http_adv_calc, http_calc, http_headers_calc,
-    http_security_calc, http_status_calc, id_gen_calc, ip_calc, java_ref_calc, jinja_calc, jq_calc,
-    js_ref_calc, json_calc, json_path_calc, jwt_calc, k8s_adv_calc, k8s_ref_calc,
-    k8s_security_calc, kafka_adv_calc, kbd_calc, kubectl_calc, license_calc, linux_adv_calc,
-    linux_containers_calc, linux_kernel_calc, linux_net_calc, linux_perf_calc, linux_sys_calc,
-    load_testing_calc, lorem_calc, make_calc, makefile_calc, markdown_calc, matrix_calc,
-    message_queue_calc, mime_calc, ml_ref_calc, mobile_web_calc, monitoring_ref_calc, net_calc,
-    network_ref_calc, networking_adv_calc, nginx_calc, nginx_ref_calc, node_ref_calc, npm_calc,
+    aws_ref_calc, bash_adv_calc, bash_ref_calc, bazel_ref_calc, bitwise_calc, browser_dev_calc,
+    caching_ref_calc, case_calc, chars_calc, checksum_calc, chemistry_calc, chmod_calc,
+    ci_cd_adv_calc, cicd_ref_calc, cipher_calc, cloud_cost_calc, cloud_native_calc, cloud_ref_calc,
+    cmake_ref_calc, color_calc, color_names_calc, combinatorics_calc, compiler_ref_calc,
+    complex_calc, concurrency_ref_calc, container_ref_calc, cron_calc, crypto_adv_calc,
+    crypto_ref_calc, css_grid_calc, css_ref_calc, csv_calc, curl_calc, data_formats_calc,
+    data_pipeline_calc, database_adv_calc, datetime_calc, db_design_calc, db_internals_calc,
+    db_migrations_calc, deno_ref_calc, design_patterns_calc, devops_ref_calc, diff_calc,
+    docker_adv_calc, docker_compose_calc, docker_ref_calc, duration_calc, electrical_calc,
+    encode_calc, escape_calc, event_driven_calc, find_calc, fraction_calc, gdb_ref_calc,
+    geometry_calc, git_adv_calc, git_internals_calc, git_ref_calc, gitignore_calc, go_adv_calc,
+    go_ref_calc, graphql_ref_calc, grep_calc, grpc_ref_calc, hash_calc, headers_calc, health_calc,
+    helm_ref_calc, http2_calc, http_adv_calc, http_calc, http_headers_calc, http_security_calc,
+    http_status_calc, id_gen_calc, ip_calc, java_ref_calc, jinja_calc, jq_calc, js_ref_calc,
+    json_calc, json_path_calc, jwt_calc, k8s_adv_calc, k8s_ref_calc, k8s_security_calc,
+    kafka_adv_calc, kbd_calc, kubectl_calc, license_calc, linux_adv_calc, linux_containers_calc,
+    linux_kernel_calc, linux_net_calc, linux_perf_calc, linux_sys_calc, load_testing_calc,
+    lorem_calc, make_calc, makefile_calc, markdown_calc, matrix_calc, message_queue_calc,
+    mime_calc, ml_ref_calc, mobile_web_calc, monitoring_ref_calc, net_calc, network_ref_calc,
+    networking_adv_calc, nginx_calc, nginx_ref_calc, nix_ref_calc, node_ref_calc, npm_calc,
     number_format, number_theory_calc, oauth2_flow_calc, oauth_ref_calc, observability_adv_calc,
     observability_calc, oop_ref_calc, openapi_ref_calc, openssl_calc, otel_ref_calc, percent_calc,
     perf_ref_calc, physics_calc, port_calc, postgres_calc, prob_calc, prom_ref_calc,
@@ -35760,6 +35761,613 @@ mod redis_adv_tests {
     #[test]
     fn redis_adv_unknown_does_not_panic() {
         let out = redis_adv_calc("!@#$");
+        assert!(!out.is_empty());
+    }
+}
+
+// ── Wave 50 tests: nix_ref_calc, gdb_ref_calc, cmake_ref_calc, bazel_ref_calc ─
+
+#[cfg(test)]
+mod nix_ref_tests {
+    use super::*;
+
+    #[test]
+    fn nix_ref_list_shows_topics() {
+        let out = nix_ref_calc("list");
+        assert!(out.contains("basics"), "expected 'basics' in: {out}");
+        assert!(out.contains("flakes"), "expected 'flakes' in: {out}");
+        assert!(out.contains("nixos"), "expected 'nixos' in: {out}");
+    }
+
+    #[test]
+    fn nix_ref_help_shows_usage() {
+        let out = nix_ref_calc("help");
+        assert!(out.contains("Usage"), "expected 'Usage' in: {out}");
+    }
+
+    #[test]
+    fn nix_ref_empty_shows_topics() {
+        let out = nix_ref_calc("");
+        assert!(out.contains("basics"), "expected 'basics' in: {out}");
+    }
+
+    #[test]
+    fn nix_ref_all_contains_all_sections() {
+        let out = nix_ref_calc("all");
+        assert!(
+            out.contains("Nix Package Manager Basics"),
+            "expected basics section in: {out}"
+        );
+        assert!(
+            out.contains("Nix Shells"),
+            "expected shells section in: {out}"
+        );
+        assert!(
+            out.contains("Nix Flakes"),
+            "expected flakes section in: {out}"
+        );
+        assert!(
+            out.contains("NixOS Configuration"),
+            "expected nixos section in: {out}"
+        );
+        assert!(
+            out.contains("Home Manager"),
+            "expected home-manager section in: {out}"
+        );
+    }
+
+    #[test]
+    fn nix_ref_basics_topic() {
+        let out = nix_ref_calc("basics");
+        assert!(
+            out.contains("Nix Package Manager Basics"),
+            "expected basics in: {out}"
+        );
+        assert!(out.contains("nix-env"), "expected 'nix-env' in: {out}");
+    }
+
+    #[test]
+    fn nix_ref_basics_alias_install() {
+        let out = nix_ref_calc("install");
+        assert!(
+            out.contains("Nix Package Manager Basics"),
+            "expected basics in: {out}"
+        );
+    }
+
+    #[test]
+    fn nix_ref_shells_topic() {
+        let out = nix_ref_calc("shells");
+        assert!(
+            out.contains("Nix Shells"),
+            "expected shells section in: {out}"
+        );
+        assert!(out.contains("mkShell"), "expected 'mkShell' in: {out}");
+    }
+
+    #[test]
+    fn nix_ref_shells_alias_devenv() {
+        let out = nix_ref_calc("devenv");
+        assert!(
+            out.contains("Nix Shells"),
+            "expected shells section in: {out}"
+        );
+    }
+
+    #[test]
+    fn nix_ref_flakes_topic() {
+        let out = nix_ref_calc("flakes");
+        assert!(out.contains("Nix Flakes"), "expected flakes in: {out}");
+        assert!(out.contains("flake.nix"), "expected 'flake.nix' in: {out}");
+    }
+
+    #[test]
+    fn nix_ref_flakes_alias_nix_develop() {
+        let out = nix_ref_calc("nix-develop");
+        assert!(out.contains("Nix Flakes"), "expected flakes in: {out}");
+    }
+
+    #[test]
+    fn nix_ref_nixos_topic() {
+        let out = nix_ref_calc("nixos");
+        assert!(
+            out.contains("NixOS Configuration"),
+            "expected nixos in: {out}"
+        );
+        assert!(
+            out.contains("nixos-rebuild"),
+            "expected 'nixos-rebuild' in: {out}"
+        );
+    }
+
+    #[test]
+    fn nix_ref_derivations_topic() {
+        let out = nix_ref_calc("derivations");
+        assert!(
+            out.contains("Nix Derivations"),
+            "expected derivations in: {out}"
+        );
+        assert!(
+            out.contains("mkDerivation"),
+            "expected 'mkDerivation' in: {out}"
+        );
+    }
+
+    #[test]
+    fn nix_ref_home_manager_topic() {
+        let out = nix_ref_calc("home-manager");
+        assert!(
+            out.contains("Home Manager"),
+            "expected home-manager in: {out}"
+        );
+    }
+
+    #[test]
+    fn nix_ref_home_manager_alias_dotfiles() {
+        let out = nix_ref_calc("dotfiles");
+        assert!(
+            out.contains("Home Manager"),
+            "expected home-manager in: {out}"
+        );
+    }
+
+    #[test]
+    fn nix_ref_unknown_returns_error() {
+        let out = nix_ref_calc("nonexistent-nix-topic-xyz");
+        assert!(
+            out.contains("Unknown nix-ref topic"),
+            "expected error in: {out}"
+        );
+    }
+
+    #[test]
+    fn nix_ref_unknown_does_not_panic() {
+        let out = nix_ref_calc("!@#$");
+        assert!(!out.is_empty());
+    }
+}
+
+#[cfg(test)]
+mod gdb_ref_tests {
+    use super::*;
+
+    #[test]
+    fn gdb_ref_list_shows_topics() {
+        let out = gdb_ref_calc("list");
+        assert!(out.contains("basics"), "expected 'basics' in: {out}");
+        assert!(
+            out.contains("breakpoints"),
+            "expected 'breakpoints' in: {out}"
+        );
+        assert!(out.contains("inspect"), "expected 'inspect' in: {out}");
+    }
+
+    #[test]
+    fn gdb_ref_help_shows_usage() {
+        let out = gdb_ref_calc("help");
+        assert!(out.contains("Usage"), "expected 'Usage' in: {out}");
+    }
+
+    #[test]
+    fn gdb_ref_empty_shows_topics() {
+        let out = gdb_ref_calc("");
+        assert!(out.contains("basics"), "expected 'basics' in: {out}");
+    }
+
+    #[test]
+    fn gdb_ref_all_contains_all_sections() {
+        let out = gdb_ref_calc("all");
+        assert!(
+            out.contains("GDB Basics"),
+            "expected 'GDB Basics' in: {out}"
+        );
+        assert!(
+            out.contains("Breakpoints"),
+            "expected 'Breakpoints' in: {out}"
+        );
+        assert!(out.contains("Stepping"), "expected 'Stepping' in: {out}");
+        assert!(
+            out.contains("Inspecting Data"),
+            "expected 'Inspecting Data' in: {out}"
+        );
+        assert!(out.contains("Advanced"), "expected 'Advanced' in: {out}");
+    }
+
+    #[test]
+    fn gdb_ref_basics_topic() {
+        let out = gdb_ref_calc("basics");
+        assert!(
+            out.contains("GDB Basics"),
+            "expected 'GDB Basics' in: {out}"
+        );
+        assert!(
+            out.contains("gdb ./program"),
+            "expected 'gdb ./program' in: {out}"
+        );
+    }
+
+    #[test]
+    fn gdb_ref_basics_alias_attach() {
+        let out = gdb_ref_calc("attach");
+        assert!(
+            out.contains("GDB Basics"),
+            "expected 'GDB Basics' in: {out}"
+        );
+    }
+
+    #[test]
+    fn gdb_ref_breakpoints_topic() {
+        let out = gdb_ref_calc("breakpoints");
+        assert!(
+            out.contains("Breakpoints"),
+            "expected 'Breakpoints' in: {out}"
+        );
+        assert!(
+            out.contains("break main"),
+            "expected 'break main' in: {out}"
+        );
+    }
+
+    #[test]
+    fn gdb_ref_breakpoints_alias_watch() {
+        let out = gdb_ref_calc("watch");
+        assert!(
+            out.contains("Breakpoints"),
+            "expected 'Breakpoints' in: {out}"
+        );
+    }
+
+    #[test]
+    fn gdb_ref_stepping_topic() {
+        let out = gdb_ref_calc("stepping");
+        assert!(out.contains("Stepping"), "expected 'Stepping' in: {out}");
+        assert!(out.contains("backtrace"), "expected 'backtrace' in: {out}");
+    }
+
+    #[test]
+    fn gdb_ref_stepping_alias_backtrace() {
+        let out = gdb_ref_calc("backtrace");
+        assert!(out.contains("Stepping"), "expected 'Stepping' in: {out}");
+    }
+
+    #[test]
+    fn gdb_ref_inspect_topic() {
+        let out = gdb_ref_calc("inspect");
+        assert!(
+            out.contains("Inspecting Data"),
+            "expected 'Inspecting Data' in: {out}"
+        );
+        assert!(out.contains("print x"), "expected 'print x' in: {out}");
+    }
+
+    #[test]
+    fn gdb_ref_inspect_alias_print() {
+        let out = gdb_ref_calc("print");
+        assert!(
+            out.contains("Inspecting Data"),
+            "expected 'Inspecting Data' in: {out}"
+        );
+    }
+
+    #[test]
+    fn gdb_ref_advanced_topic() {
+        let out = gdb_ref_calc("advanced");
+        assert!(out.contains("Advanced"), "expected 'Advanced' in: {out}");
+        assert!(out.contains("threads"), "expected 'threads' in: {out}");
+    }
+
+    #[test]
+    fn gdb_ref_tui_topic() {
+        let out = gdb_ref_calc("tui");
+        assert!(out.contains("TUI"), "expected 'TUI' in: {out}");
+    }
+
+    #[test]
+    fn gdb_ref_unknown_returns_error() {
+        let out = gdb_ref_calc("nonexistent-gdb-topic-xyz");
+        assert!(
+            out.contains("Unknown gdb-ref topic"),
+            "expected error in: {out}"
+        );
+    }
+
+    #[test]
+    fn gdb_ref_unknown_does_not_panic() {
+        let out = gdb_ref_calc("!@#$");
+        assert!(!out.is_empty());
+    }
+}
+
+#[cfg(test)]
+mod cmake_ref_tests {
+    use super::*;
+
+    #[test]
+    fn cmake_ref_list_shows_topics() {
+        let out = cmake_ref_calc("list");
+        assert!(out.contains("basics"), "expected 'basics' in: {out}");
+        assert!(out.contains("targets"), "expected 'targets' in: {out}");
+        assert!(out.contains("testing"), "expected 'testing' in: {out}");
+    }
+
+    #[test]
+    fn cmake_ref_help_shows_usage() {
+        let out = cmake_ref_calc("help");
+        assert!(out.contains("Usage"), "expected 'Usage' in: {out}");
+    }
+
+    #[test]
+    fn cmake_ref_empty_shows_topics() {
+        let out = cmake_ref_calc("");
+        assert!(out.contains("basics"), "expected 'basics' in: {out}");
+    }
+
+    #[test]
+    fn cmake_ref_all_contains_all_sections() {
+        let out = cmake_ref_calc("all");
+        assert!(
+            out.contains("CMake Basics"),
+            "expected 'CMake Basics' in: {out}"
+        );
+        assert!(out.contains("Targets"), "expected 'Targets' in: {out}");
+        assert!(
+            out.contains("Finding Packages"),
+            "expected 'Finding Packages' in: {out}"
+        );
+        assert!(out.contains("Variables"), "expected 'Variables' in: {out}");
+        assert!(out.contains("Testing"), "expected 'Testing' in: {out}");
+    }
+
+    #[test]
+    fn cmake_ref_basics_topic() {
+        let out = cmake_ref_calc("basics");
+        assert!(
+            out.contains("CMake Basics"),
+            "expected 'CMake Basics' in: {out}"
+        );
+        assert!(
+            out.contains("cmake_minimum_required"),
+            "expected 'cmake_minimum_required' in: {out}"
+        );
+    }
+
+    #[test]
+    fn cmake_ref_basics_alias_configure() {
+        let out = cmake_ref_calc("configure");
+        assert!(
+            out.contains("CMake Basics"),
+            "expected 'CMake Basics' in: {out}"
+        );
+    }
+
+    #[test]
+    fn cmake_ref_targets_topic() {
+        let out = cmake_ref_calc("targets");
+        assert!(out.contains("Targets"), "expected 'Targets' in: {out}");
+        assert!(
+            out.contains("target_link_libraries"),
+            "expected 'target_link_libraries' in: {out}"
+        );
+    }
+
+    #[test]
+    fn cmake_ref_targets_alias_libraries() {
+        let out = cmake_ref_calc("libraries");
+        assert!(out.contains("Targets"), "expected 'Targets' in: {out}");
+    }
+
+    #[test]
+    fn cmake_ref_find_topic() {
+        let out = cmake_ref_calc("find");
+        assert!(
+            out.contains("Finding Packages"),
+            "expected 'Finding Packages' in: {out}"
+        );
+        assert!(
+            out.contains("find_package"),
+            "expected 'find_package' in: {out}"
+        );
+    }
+
+    #[test]
+    fn cmake_ref_find_alias_fetchcontent() {
+        let out = cmake_ref_calc("fetchcontent");
+        assert!(
+            out.contains("Finding Packages"),
+            "expected 'Finding Packages' in: {out}"
+        );
+    }
+
+    #[test]
+    fn cmake_ref_variables_topic() {
+        let out = cmake_ref_calc("variables");
+        assert!(out.contains("Variables"), "expected 'Variables' in: {out}");
+        assert!(
+            out.contains("CMAKE_SOURCE_DIR"),
+            "expected 'CMAKE_SOURCE_DIR' in: {out}"
+        );
+    }
+
+    #[test]
+    fn cmake_ref_testing_topic() {
+        let out = cmake_ref_calc("testing");
+        assert!(out.contains("Testing"), "expected 'Testing' in: {out}");
+        assert!(out.contains("ctest"), "expected 'ctest' in: {out}");
+    }
+
+    #[test]
+    fn cmake_ref_modern_topic() {
+        let out = cmake_ref_calc("modern");
+        assert!(
+            out.contains("Modern CMake"),
+            "expected 'Modern CMake' in: {out}"
+        );
+    }
+
+    #[test]
+    fn cmake_ref_unknown_returns_error() {
+        let out = cmake_ref_calc("nonexistent-cmake-topic-xyz");
+        assert!(
+            out.contains("Unknown cmake-ref topic"),
+            "expected error in: {out}"
+        );
+    }
+
+    #[test]
+    fn cmake_ref_unknown_does_not_panic() {
+        let out = cmake_ref_calc("!@#$");
+        assert!(!out.is_empty());
+    }
+}
+
+#[cfg(test)]
+mod bazel_ref_tests {
+    use super::*;
+
+    #[test]
+    fn bazel_ref_list_shows_topics() {
+        let out = bazel_ref_calc("list");
+        assert!(out.contains("basics"), "expected 'basics' in: {out}");
+        assert!(out.contains("rules"), "expected 'rules' in: {out}");
+        assert!(out.contains("starlark"), "expected 'starlark' in: {out}");
+    }
+
+    #[test]
+    fn bazel_ref_help_shows_usage() {
+        let out = bazel_ref_calc("help");
+        assert!(out.contains("Usage"), "expected 'Usage' in: {out}");
+    }
+
+    #[test]
+    fn bazel_ref_empty_shows_topics() {
+        let out = bazel_ref_calc("");
+        assert!(out.contains("basics"), "expected 'basics' in: {out}");
+    }
+
+    #[test]
+    fn bazel_ref_all_contains_all_sections() {
+        let out = bazel_ref_calc("all");
+        assert!(
+            out.contains("Bazel Basics"),
+            "expected 'Bazel Basics' in: {out}"
+        );
+        assert!(
+            out.contains("Build Rules"),
+            "expected 'Build Rules' in: {out}"
+        );
+        assert!(
+            out.contains("External Dependencies"),
+            "expected 'External Dependencies' in: {out}"
+        );
+        assert!(out.contains("Query"), "expected 'Query' in: {out}");
+        assert!(out.contains("Starlark"), "expected 'Starlark' in: {out}");
+    }
+
+    #[test]
+    fn bazel_ref_basics_topic() {
+        let out = bazel_ref_calc("basics");
+        assert!(
+            out.contains("Bazel Basics"),
+            "expected 'Bazel Basics' in: {out}"
+        );
+        assert!(
+            out.contains("bazel build"),
+            "expected 'bazel build' in: {out}"
+        );
+    }
+
+    #[test]
+    fn bazel_ref_basics_alias_bazelisk() {
+        let out = bazel_ref_calc("bazelisk");
+        assert!(
+            out.contains("Bazel Basics"),
+            "expected 'Bazel Basics' in: {out}"
+        );
+    }
+
+    #[test]
+    fn bazel_ref_rules_topic() {
+        let out = bazel_ref_calc("rules");
+        assert!(
+            out.contains("Build Rules"),
+            "expected 'Build Rules' in: {out}"
+        );
+        assert!(out.contains("cc_binary"), "expected 'cc_binary' in: {out}");
+    }
+
+    #[test]
+    fn bazel_ref_rules_alias_cc_library() {
+        let out = bazel_ref_calc("cc-library");
+        assert!(
+            out.contains("Build Rules"),
+            "expected 'Build Rules' in: {out}"
+        );
+    }
+
+    #[test]
+    fn bazel_ref_deps_topic() {
+        let out = bazel_ref_calc("deps");
+        assert!(
+            out.contains("External Dependencies"),
+            "expected 'External Dependencies' in: {out}"
+        );
+        assert!(out.contains("bazel_dep"), "expected 'bazel_dep' in: {out}");
+    }
+
+    #[test]
+    fn bazel_ref_deps_alias_bzlmod() {
+        let out = bazel_ref_calc("bzlmod");
+        assert!(
+            out.contains("External Dependencies"),
+            "expected 'External Dependencies' in: {out}"
+        );
+    }
+
+    #[test]
+    fn bazel_ref_query_topic() {
+        let out = bazel_ref_calc("bazel-query");
+        assert!(out.contains("Query"), "expected 'Query' in: {out}");
+        assert!(
+            out.contains("bazel query"),
+            "expected 'bazel query' in: {out}"
+        );
+    }
+
+    #[test]
+    fn bazel_ref_remote_topic() {
+        let out = bazel_ref_calc("remote");
+        assert!(out.contains("Remote"), "expected 'Remote' in: {out}");
+        assert!(
+            out.contains("remote_cache"),
+            "expected 'remote_cache' in: {out}"
+        );
+    }
+
+    #[test]
+    fn bazel_ref_starlark_topic() {
+        let out = bazel_ref_calc("starlark");
+        assert!(out.contains("Starlark"), "expected 'Starlark' in: {out}");
+        assert!(out.contains("gazelle"), "expected 'gazelle' in: {out}");
+    }
+
+    #[test]
+    fn bazel_ref_starlark_alias_macros() {
+        let out = bazel_ref_calc("macros");
+        assert!(out.contains("Starlark"), "expected 'Starlark' in: {out}");
+    }
+
+    #[test]
+    fn bazel_ref_unknown_returns_error() {
+        let out = bazel_ref_calc("nonexistent-bazel-topic-xyz");
+        assert!(
+            out.contains("Unknown bazel-ref topic"),
+            "expected error in: {out}"
+        );
+    }
+
+    #[test]
+    fn bazel_ref_unknown_does_not_panic() {
+        let out = bazel_ref_calc("!@#$");
         assert!(!out.is_empty());
     }
 }

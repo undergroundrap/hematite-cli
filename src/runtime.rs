@@ -1183,6 +1183,10 @@ mod tests {
             otel_ref: None,
             zig_ref: None,
             redis_adv: None,
+            nix_ref: None,
+            gdb_ref: None,
+            cmake_ref: None,
+            bazel_ref: None,
             pdf_extract_helper: None,
             teleported_from: None,
         };
