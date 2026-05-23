@@ -66975,3 +66975,1538 @@ pub fn aws_ref_calc(query: &str) -> String {
             .join(", ")
     )
 }
+
+// ════════════════════════════════════════════════════════════════
+// Wave 45: --helm-ref, --redis-ref, --web-apis, --linux-containers
+// ════════════════════════════════════════════════════════════════
+
+fn s_hr_chart_structure() -> &'static str {
+    "Helm Chart Structure
+Directory layout:
+  mychart/
+    Chart.yaml          # metadata (name, version, appVersion, type)
+    values.yaml         # default config values
+    values.schema.json  # optional JSON schema for values validation
+    templates/          # Go-template manifests
+      deployment.yaml
+      service.yaml
+      ingress.yaml
+      _helpers.tpl      # reusable template partials (no manifest output)
+      NOTES.txt         # post-install instructions
+    charts/             # chart dependencies (subcharts)
+    .helmignore
+
+Chart.yaml:
+  apiVersion: v2        # Helm 3
+  name: mychart
+  description: A Helm chart for my app
+  type: application     # or 'library' (no manifest rendering)
+  version: 0.1.0        # chart version (semver)
+  appVersion: '1.23.0'  # app version (informational)
+  dependencies:
+    - name: postgresql
+      version: '12.x.x'
+      repository: 'https://charts.bitnami.com/bitnami'
+      condition: postgresql.enabled
+
+Basic commands:
+  helm create mychart           # scaffold a new chart
+  helm lint mychart/            # validate chart
+  helm template mychart/        # render templates locally (no install)
+  helm template -f custom.yaml mychart/
+  helm package mychart/         # create .tgz archive
+  helm show values bitnami/postgresql
+
+Install / upgrade:
+  helm install myrelease ./mychart
+  helm install myrelease ./mychart --values custom.yaml --set image.tag=v2
+  helm upgrade myrelease ./mychart --install --atomic --timeout 5m
+  helm upgrade myrelease ./mychart --reuse-values --set image.tag=v3
+
+Inspect releases:
+  helm list -A                  # all namespaces
+  helm status myrelease
+  helm history myrelease
+  helm get values myrelease
+  helm get manifest myrelease"
+}
+
+fn s_hr_templating() -> &'static str {
+    "Helm Go Templating
+Basic syntax:
+  {{ .Values.image.tag }}           # access value
+  {{ .Release.Name }}               # built-in: release name
+  {{ .Release.Namespace }}          # namespace
+  {{ .Chart.Name }}                 # chart name
+  {{ .Chart.Version }}
+
+Control flow:
+  {{- if .Values.ingress.enabled }}
+  # ingress manifest
+  {{- end }}
+
+  {{- if eq .Values.service.type \"LoadBalancer\" }}
+  ...
+  {{- else if eq .Values.service.type \"NodePort\" }}
+  ...
+  {{- else }}
+  ...
+  {{- end }}
+
+  {{- range .Values.env }}
+  - name: {{ .name }}
+    value: {{ .value | quote }}
+  {{- end }}
+
+  {{- range $key, $val := .Values.labels }}
+  {{ $key }}: {{ $val }}
+  {{- end }}
+
+  {{- with .Values.resources }}
+  resources:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+
+Template functions:
+  {{ .Values.name | quote }}         # add quotes
+  {{ .Values.name | upper }}         # uppercase
+  {{ .Values.name | trunc 63 }}      # truncate
+  {{ .Values.name | trimSuffix \"-\" }}
+  {{ .Values.replicas | default 1 }} # default value
+  {{ include \"mychart.fullname\" . }} # call named template
+  {{ toYaml .Values.resources | nindent 8 }}  # indent YAML block
+
+_helpers.tpl patterns:
+  {{- define \"mychart.fullname\" -}}
+  {{- printf \"%s-%s\" .Release.Name .Chart.Name | trunc 63 | trimSuffix \"-\" }}
+  {{- end }}
+
+  {{- define \"mychart.labels\" -}}
+  helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version }}
+  app.kubernetes.io/name: {{ .Chart.Name }}
+  app.kubernetes.io/instance: {{ .Release.Name }}
+  {{- end }}
+
+Whitespace control:
+  {{-  trims preceding whitespace/newlines
+  -}}  trims trailing whitespace/newlines"
+}
+
+fn s_hr_values() -> &'static str {
+    "Helm Values & Configuration
+values.yaml structure:
+  replicaCount: 1
+  image:
+    repository: nginx
+    tag: \"1.25.0\"
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 80
+  ingress:
+    enabled: false
+    className: nginx
+    hosts:
+      - host: chart-example.local
+        paths:
+          - path: /
+            pathType: Prefix
+  resources:
+    limits:
+      cpu: 100m
+      memory: 128Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+  autoscaling:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 100
+    targetCPUUtilizationPercentage: 80
+  env: []
+  # - name: MY_VAR
+  #   value: \"my-value\"
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+Overriding values:
+  --set key=value              # CLI override
+  --set-string key=value       # force string type
+  --set-json key='{\"a\":1}'     # JSON value
+  --values custom.yaml         # file override (merged, last wins)
+  --values prod.yaml --values secrets.yaml
+
+Values schema (values.schema.json):
+  {
+    \"$schema\": \"https://json-schema.org/draft/2020-12/schema\",
+    \"properties\": {
+      \"replicaCount\": {\"type\": \"integer\", \"minimum\": 1},
+      \"image\": {
+        \"properties\": {
+          \"repository\": {\"type\": \"string\"},
+          \"tag\": {\"type\": \"string\"}
+        },
+        \"required\": [\"repository\"]
+      }
+    }
+  }
+
+Global values (subcharts):
+  global:
+    storageClass: standard
+    imagePullSecrets: []
+  # Subcharts access: .Values.global.storageClass"
+}
+
+fn s_hr_hooks() -> &'static str {
+    "Helm Hooks & Tests
+Hook annotations:
+  annotations:
+    \"helm.sh/hook\": pre-install         # runs before first install
+    \"helm.sh/hook\": post-install        # runs after install
+    \"helm.sh/hook\": pre-upgrade         # before upgrade
+    \"helm.sh/hook\": post-upgrade        # after upgrade
+    \"helm.sh/hook\": pre-delete
+    \"helm.sh/hook\": post-delete
+    \"helm.sh/hook\": pre-rollback
+    \"helm.sh/hook\": post-rollback
+    \"helm.sh/hook\": test                # helm test
+
+  \"helm.sh/hook-weight\": \"5\"           # order (lower = earlier)
+  \"helm.sh/hook-delete-policy\": \"hook-succeeded\"  # cleanup
+
+Migration Job example:
+  apiVersion: batch/v1
+  kind: Job
+  metadata:
+    name: {{ .Release.Name }}-migration
+    annotations:
+      \"helm.sh/hook\": pre-upgrade
+      \"helm.sh/hook-weight\": \"-5\"
+      \"helm.sh/hook-delete-policy\": hook-succeeded
+  spec:
+    template:
+      spec:
+        restartPolicy: Never
+        containers:
+          - name: migration
+            image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+            command: [\"./migrate\", \"up\"]
+
+Test pod:
+  apiVersion: v1
+  kind: Pod
+  metadata:
+    name: {{ .Release.Name }}-test
+    annotations:
+      \"helm.sh/hook\": test
+  spec:
+    restartPolicy: Never
+    containers:
+      - name: test
+        image: curlimages/curl
+        command: [\"curl\", \"http://{{ .Release.Name }}-svc\"]
+
+  helm test myrelease     # run test pods"
+}
+
+fn s_hr_releases() -> &'static str {
+    "Helm Repository & Release Management
+Repository management:
+  helm repo add stable  https://charts.helm.sh/stable
+  helm repo add bitnami https://charts.bitnami.com/bitnami
+  helm repo update
+  helm repo list
+  helm repo remove bitnami
+  helm search repo postgresql --versions
+  helm search hub postgresql             # search Artifact Hub
+
+OCI registries (Helm 3.8+):
+  helm push mychart-0.1.0.tgz oci://registry.example.com/charts
+  helm pull oci://registry.example.com/charts/mychart --version 0.1.0
+  helm install myrelease oci://registry.example.com/charts/mychart
+
+Rollback:
+  helm rollback myrelease 1             # rollback to revision 1
+  helm rollback myrelease               # rollback to previous
+  helm history myrelease                # see revision history
+
+Uninstall:
+  helm uninstall myrelease
+  helm uninstall myrelease --keep-history  # preserve history
+
+Diff plugin (helm-diff):
+  helm diff upgrade myrelease ./mychart --values custom.yaml
+
+Namespace management:
+  helm install myrelease ./mychart -n mynamespace --create-namespace
+  helm list -n mynamespace
+
+Secrets management:
+  helm secrets install myrelease ./mychart -f secrets.yaml.enc
+  helm plugin install https://github.com/jkroepke/helm-secrets
+
+Debug:
+  helm install myrelease ./mychart --dry-run --debug
+  helm template myrelease ./mychart --debug
+  helm get all myrelease"
+}
+
+type HelmRefSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+const HELM_REF_SECTIONS: &[HelmRefSection] = &[
+    (
+        "chart-structure",
+        &[
+            "helm-chart",
+            "helm-directory",
+            "chart-yaml",
+            "helm-create",
+            "helm-lint",
+            "helm-template",
+            "helm-install",
+            "helm-upgrade",
+            "helm-list",
+            "helm-status",
+            "helm-history",
+        ],
+        s_hr_chart_structure,
+    ),
+    (
+        "templating",
+        &[
+            "helm-templating",
+            "helm-go-template",
+            "helm-helpers",
+            "helm-range",
+            "helm-if",
+            "helm-with",
+            "helm-functions",
+            "helm-tpl",
+            "helm-define",
+            "helm-nindent",
+            "helm-whitespace",
+        ],
+        s_hr_templating,
+    ),
+    (
+        "values",
+        &[
+            "helm-values",
+            "helm-set",
+            "helm-override",
+            "helm-schema",
+            "helm-global-values",
+            "helm-values-file",
+            "helm-set-string",
+            "helm-set-json",
+            "helm-env",
+            "helm-config",
+            "helm-defaults",
+        ],
+        s_hr_values,
+    ),
+    (
+        "hooks",
+        &[
+            "helm-hooks",
+            "helm-pre-install",
+            "helm-post-install",
+            "helm-pre-upgrade",
+            "helm-test",
+            "helm-job-hook",
+            "helm-hook-weight",
+            "helm-delete-policy",
+            "helm-migration-hook",
+            "helm-hook-delete",
+            "helm-test-pod",
+        ],
+        s_hr_hooks,
+    ),
+    (
+        "releases",
+        &[
+            "helm-repo",
+            "helm-oci",
+            "helm-rollback",
+            "helm-uninstall",
+            "helm-diff",
+            "helm-secrets",
+            "helm-debug",
+            "helm-search",
+            "helm-registry",
+            "helm-artifact-hub",
+            "helm-namespace",
+        ],
+        s_hr_releases,
+    ),
+];
+
+pub fn helm_ref_calc(query: &str) -> String {
+    let q = query.trim().to_lowercase();
+    if q.is_empty() || q == "list" || q == "help" {
+        let topics: Vec<&str> = HELM_REF_SECTIONS.iter().map(|(n, _, _)| *n).collect();
+        return format!(
+            "helm-ref topics: {}\nUse: --helm-ref <topic>  or  --helm-ref all",
+            topics.join(", ")
+        );
+    }
+    if q == "all" {
+        return HELM_REF_SECTIONS
+            .iter()
+            .map(|(n, _, f)| format!("── {} ──\n{}", n, f()))
+            .collect::<Vec<_>>()
+            .join("\n\n");
+    }
+    for (name, aliases, func) in HELM_REF_SECTIONS {
+        if q == *name || aliases.iter().any(|a| q == *a || q.contains(a)) {
+            return func().to_string();
+        }
+    }
+    format!(
+        "Unknown helm-ref topic: '{}'\nAvailable: {}",
+        query.trim(),
+        HELM_REF_SECTIONS
+            .iter()
+            .map(|(n, _, _)| *n)
+            .collect::<Vec<_>>()
+            .join(", ")
+    )
+}
+
+// ── redis-ref ─────────────────────────────────────────────────
+
+fn s_rd_data_types() -> &'static str {
+    "Redis Data Types
+String:
+  SET key value
+  SET key value EX 60          # expire in 60s
+  SET key value NX             # only if not exists
+  GET key
+  GETSET key newvalue          # returns old value
+  INCR counter                 # atomic increment
+  INCRBY counter 10
+  MSET k1 v1 k2 v2
+  MGET k1 k2
+  APPEND key suffix
+  STRLEN key
+
+List (linked list, head/tail O(1)):
+  LPUSH mylist a b c           # prepend (left)
+  RPUSH mylist x y z           # append (right)
+  LPOP mylist                  # remove from left
+  RPOP mylist                  # remove from right
+  LRANGE mylist 0 -1           # all elements
+  LLEN mylist
+  LINDEX mylist 0
+  LINSERT mylist BEFORE pivot value
+  BLPOP mylist 0               # blocking pop (0=wait forever)
+
+Hash (field-value pairs):
+  HSET user:1 name Alice age 30 email a@b.com
+  HGET user:1 name
+  HMGET user:1 name age
+  HGETALL user:1
+  HKEYS user:1
+  HVALS user:1
+  HINCRBY user:1 age 1
+  HDEL user:1 email
+  HEXISTS user:1 name
+
+Set (unique unordered):
+  SADD myset a b c
+  SMEMBERS myset
+  SCARD myset                  # count
+  SISMEMBER myset a
+  SRANDMEMBER myset 3
+  SINTERSTORE dest set1 set2   # intersection -> dest
+  SUNIONSTORE dest set1 set2
+  SDIFFSTORE dest set1 set2
+
+Sorted Set (score-ordered unique):
+  ZADD leaderboard 100 alice 200 bob
+  ZSCORE leaderboard alice
+  ZRANK leaderboard alice      # 0-based rank (low to high)
+  ZREVRANK leaderboard alice   # rank (high to low)
+  ZRANGE leaderboard 0 -1 WITHSCORES
+  ZRANGEBYSCORE leaderboard 100 200
+  ZINCRBY leaderboard 50 alice
+  ZCARD leaderboard"
+}
+
+fn s_rd_commands() -> &'static str {
+    "Redis Key Commands & Expiry
+Key management:
+  DEL key [key ...]
+  UNLINK key [key ...]         # async delete (non-blocking)
+  EXISTS key                   # 1 if exists
+  RENAME key newkey
+  TYPE key                     # string/list/hash/set/zset/stream
+  OBJECT ENCODING key          # listpack/ziplist/quicklist/etc.
+
+Expiry:
+  EXPIRE key 60                # seconds from now
+  PEXPIRE key 60000            # milliseconds from now
+  EXPIREAT key 1700000000      # unix timestamp
+  TTL key                      # seconds remaining (-1=no expiry, -2=gone)
+  PTTL key                     # milliseconds remaining
+  PERSIST key                  # remove expiry
+
+Scan (cursor-based, non-blocking):
+  SCAN 0 MATCH user:* COUNT 100
+  HSCAN myhash 0 MATCH field* COUNT 100
+  SSCAN myset 0
+  ZSCAN myzset 0
+
+Transactions:
+  MULTI
+  SET k1 v1
+  INCR counter
+  EXEC             # atomic execute
+  DISCARD          # cancel transaction
+  WATCH key        # optimistic lock; EXEC fails if key changed
+
+Pipeline (batch commands, reduce RTT):
+  redis-cli --pipe < commands.txt
+
+Scripting (Lua):
+  EVAL \"return redis.call('GET', KEYS[1])\" 1 mykey
+  EVALSHA sha 1 mykey
+
+Server commands:
+  INFO server
+  INFO memory
+  INFO stats
+  DBSIZE                       # key count
+  FLUSHDB                      # clear current DB (dangerous)
+  FLUSHALL                     # clear all DBs (dangerous)
+  SAVE / BGSAVE                # manual snapshot
+  BGREWRITEAOF                 # rewrite AOF in background
+  DEBUG SLEEP 5                # test timeout behaviour
+  CLIENT LIST"
+}
+
+fn s_rd_pub_sub() -> &'static str {
+    "Redis Pub/Sub & Keyspace Notifications
+Pub/Sub:
+  SUBSCRIBE channel1 channel2
+  PSUBSCRIBE news.*            # pattern subscribe
+  PUBLISH channel message
+  UNSUBSCRIBE channel
+  PUBSUBSCRIBE                 # list active subscriptions
+
+  # Python example:
+  import redis
+  r = redis.Redis()
+  p = r.pubsub()
+  p.subscribe('notifications')
+  for msg in p.listen():
+      if msg['type'] == 'message':
+          print(msg['data'])
+
+  # Publish:
+  r.publish('notifications', 'hello')
+
+Keyspace notifications (redis.conf):
+  notify-keyspace-events KEA    # all events
+  notify-keyspace-events KEx    # expired key events
+  notify-keyspace-events Kg     # generic commands (DEL, EXPIRE, etc.)
+  notify-keyspace-events Kls    # list + set commands
+
+  # Subscribe to expired keys:
+  SUBSCRIBE __keyevent@0__:expired
+
+  # Subscribe to all commands on 'mykey':
+  SUBSCRIBE __keyspace@0__:mykey
+
+Streams (Redis 5+):
+  XADD mystream '*' field1 val1 field2 val2
+  XADD mystream '*' temperature 23 humidity 60
+  XLEN mystream
+  XRANGE mystream - +           # all entries
+  XRANGE mystream - + COUNT 10
+  XREVRANGE mystream + - COUNT 5
+  XREAD COUNT 10 STREAMS mystream 0
+  XREAD BLOCK 0 STREAMS mystream $  # block wait for new entries
+
+  # Consumer groups:
+  XGROUP CREATE mystream mygroup $ MKSTREAM
+  XREADGROUP GROUP mygroup consumer1 COUNT 10 STREAMS mystream >
+  XACK mystream mygroup messageID
+  XPENDING mystream mygroup - + 10"
+}
+
+fn s_rd_patterns() -> &'static str {
+    "Redis Patterns & Use Cases
+Cache-aside pattern:
+  def get_user(user_id):
+      key = f'user:{user_id}'
+      cached = r.get(key)
+      if cached:
+          return json.loads(cached)
+      user = db.query(user_id)
+      r.setex(key, 300, json.dumps(user))  # cache 5 min
+      return user
+
+Rate limiting (sliding window):
+  def is_rate_limited(user_id, limit=100, window=60):
+      key = f'rate:{user_id}'
+      now = time.time()
+      pipe = r.pipeline()
+      pipe.zremrangebyscore(key, 0, now - window)
+      pipe.zadd(key, {str(now): now})
+      pipe.zcard(key)
+      pipe.expire(key, window)
+      _, _, count, _ = pipe.execute()
+      return count > limit
+
+Distributed lock:
+  SET lock:resource uniqueID NX EX 10
+  # Release only if owner:
+  EVAL \"if redis.call('GET',KEYS[1])==ARGV[1] then return redis.call('DEL',KEYS[1]) else return 0 end\" 1 lock:resource uniqueID
+
+Session storage:
+  HSET session:abc userId 1 email a@b.com
+  EXPIRE session:abc 3600
+  HGETALL session:abc
+
+Leaderboard:
+  ZADD scores 1500 player1
+  ZINCRBY scores 100 player1
+  ZREVRANGE scores 0 9 WITHSCORES  # top 10
+  ZREVRANK scores player1           # player rank
+
+Queue (reliable):
+  # Producer:
+  LPUSH queue:jobs job_payload
+  # Consumer:
+  BRPOPLPUSH queue:jobs processing:jobs 0  # atomic move
+  # After processing:
+  LREM processing:jobs 1 job_payload
+
+Bloom filter (RedisBloom):
+  BF.ADD myfilter item
+  BF.EXISTS myfilter item
+
+HyperLogLog (cardinality estimation):
+  PFADD visitors user1 user2 user3
+  PFCOUNT visitors         # approximate unique count
+  PFMERGE total site1 site2"
+}
+
+fn s_rd_config() -> &'static str {
+    "Redis Configuration & Operations
+redis.conf key settings:
+  bind 127.0.0.1              # listen address
+  port 6379
+  requirepass yourpassword    # AUTH password
+  maxmemory 2gb               # max memory limit
+  maxmemory-policy allkeys-lru  # eviction policy
+  # Policies: noeviction, allkeys-lru, volatile-lru,
+  #            allkeys-lfu, volatile-lfu, allkeys-random,
+  #            volatile-random, volatile-ttl
+
+  # Persistence:
+  save 900 1                  # RDB: save after 900s if 1 key changed
+  save 300 10
+  save 60 10000
+  dbfilename dump.rdb
+  dir /var/lib/redis
+
+  appendonly yes              # AOF persistence
+  appendfsync everysec        # fsync policy (always/everysec/no)
+  aof-rewrite-incremental-fsync yes
+
+  # Replication:
+  replicaof master-host 6379
+  masterauth masterpassword
+
+  # Cluster:
+  cluster-enabled yes
+  cluster-config-file nodes.conf
+  cluster-node-timeout 5000
+
+CLI operations:
+  redis-cli -h host -p 6379 -a password
+  redis-cli --scan --pattern 'user:*'
+  redis-cli --bigkeys              # find large keys
+  redis-cli --hotkeys              # find frequent keys
+  redis-cli --latency
+  redis-cli --latency-history
+  redis-cli --stat                 # live stats
+  redis-cli DEBUG OBJECT key       # encoding + serialized-length
+
+Memory optimization:
+  Use hashes for small objects (ziplist encoding <128 fields <64 bytes each)
+  OBJECT ENCODING key              # check current encoding
+  OBJECT IDLETIME key              # seconds since last access
+  MEMORY USAGE key                 # bytes consumed
+  MEMORY DOCTOR                    # memory analysis hints"
+}
+
+type RedisRefSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+const REDIS_REF_SECTIONS: &[RedisRefSection] = &[
+    (
+        "data-types",
+        &[
+            "redis-types",
+            "redis-string",
+            "redis-list",
+            "redis-hash",
+            "redis-set",
+            "redis-zset",
+            "redis-sorted-set",
+            "redis-commands-basic",
+            "redis-incr",
+            "redis-mset",
+            "redis-lpush",
+        ],
+        s_rd_data_types,
+    ),
+    (
+        "commands",
+        &[
+            "redis-commands",
+            "redis-expire",
+            "redis-ttl",
+            "redis-scan",
+            "redis-transactions",
+            "redis-pipeline",
+            "redis-multi",
+            "redis-eval",
+            "redis-lua",
+            "redis-del",
+            "redis-exists",
+        ],
+        s_rd_commands,
+    ),
+    (
+        "pub-sub",
+        &[
+            "redis-pubsub",
+            "redis-subscribe",
+            "redis-publish",
+            "redis-keyspace",
+            "redis-streams",
+            "redis-xadd",
+            "redis-xread",
+            "redis-consumer-groups",
+            "redis-xack",
+            "redis-xpending",
+            "redis-stream-groups",
+        ],
+        s_rd_pub_sub,
+    ),
+    (
+        "patterns",
+        &[
+            "redis-patterns",
+            "redis-cache-aside",
+            "redis-rate-limit",
+            "redis-lock",
+            "redis-session",
+            "redis-leaderboard",
+            "redis-queue",
+            "redis-bloom",
+            "redis-hyperloglog",
+            "redis-distributed-lock",
+            "redis-reliable-queue",
+        ],
+        s_rd_patterns,
+    ),
+    (
+        "config",
+        &[
+            "redis-config",
+            "redis-maxmemory",
+            "redis-eviction",
+            "redis-rdb",
+            "redis-aof",
+            "redis-replication",
+            "redis-cluster",
+            "redis-cli",
+            "redis-bigkeys",
+            "redis-memory",
+            "redis-persistence",
+        ],
+        s_rd_config,
+    ),
+];
+
+pub fn redis_ref_calc(query: &str) -> String {
+    let q = query.trim().to_lowercase();
+    if q.is_empty() || q == "list" || q == "help" {
+        let topics: Vec<&str> = REDIS_REF_SECTIONS.iter().map(|(n, _, _)| *n).collect();
+        return format!(
+            "redis-ref topics: {}\nUse: --redis-ref <topic>  or  --redis-ref all",
+            topics.join(", ")
+        );
+    }
+    if q == "all" {
+        return REDIS_REF_SECTIONS
+            .iter()
+            .map(|(n, _, f)| format!("── {} ──\n{}", n, f()))
+            .collect::<Vec<_>>()
+            .join("\n\n");
+    }
+    for (name, aliases, func) in REDIS_REF_SECTIONS {
+        if q == *name || aliases.iter().any(|a| q == *a || q.contains(a)) {
+            return func().to_string();
+        }
+    }
+    format!(
+        "Unknown redis-ref topic: '{}'\nAvailable: {}",
+        query.trim(),
+        REDIS_REF_SECTIONS
+            .iter()
+            .map(|(n, _, _)| *n)
+            .collect::<Vec<_>>()
+            .join(", ")
+    )
+}
+
+// ── web-apis ──────────────────────────────────────────────────
+
+fn s_wa_fetch() -> &'static str {
+    "Fetch API & HTTP
+Basic fetch:
+  const res = await fetch('/api/users')
+  const data = await res.json()
+
+  // POST with JSON:
+  const res = await fetch('/api/users', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: 'Alice' }),
+  })
+
+  // Error handling (fetch doesn't reject on 4xx/5xx):
+  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+  const user = await res.json()
+
+  // Other body methods:
+  res.text()          // string
+  res.blob()          // Blob
+  res.arrayBuffer()   // ArrayBuffer
+  res.formData()      // FormData
+
+AbortController (cancellation):
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), 5000)
+
+  try {
+    const res = await fetch(url, { signal: controller.signal })
+    clearTimeout(timer)
+    return await res.json()
+  } catch (e) {
+    if (e.name === 'AbortError') console.log('Request cancelled')
+    throw e
+  }
+
+Request / Response objects:
+  const req = new Request('/api', {
+    method: 'POST',
+    headers: new Headers({ Authorization: 'Bearer token' }),
+    body: JSON.stringify(data),
+  })
+  const res = await fetch(req)
+  res.headers.get('Content-Type')
+  res.status   res.statusText   res.url   res.redirected
+
+FormData:
+  const fd = new FormData()
+  fd.append('name', 'Alice')
+  fd.append('avatar', fileInput.files[0])
+  await fetch('/upload', { method: 'POST', body: fd })
+
+Streaming responses:
+  const res = await fetch('/stream')
+  const reader = res.body.getReader()
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+    console.log(new TextDecoder().decode(value))
+  }"
+}
+
+fn s_wa_websockets() -> &'static str {
+    "WebSockets & Server-Sent Events
+WebSocket:
+  const ws = new WebSocket('wss://example.com/ws')
+
+  ws.addEventListener('open',    () => ws.send('hello'))
+  ws.addEventListener('message', (e) => console.log(e.data))
+  ws.addEventListener('error',   (e) => console.error(e))
+  ws.addEventListener('close',   (e) => console.log('closed', e.code))
+
+  ws.send('text message')
+  ws.send(new Blob([data]))          // binary
+  ws.send(new ArrayBuffer(32))
+  ws.close(1000, 'done')
+
+  ws.readyState: CONNECTING=0, OPEN=1, CLOSING=2, CLOSED=3
+
+Reconnection pattern:
+  function connect() {
+    const ws = new WebSocket(url)
+    ws.onclose = () => setTimeout(connect, 1000)
+    ws.onmessage = (e) => handle(JSON.parse(e.data))
+    return ws
+  }
+
+Server-Sent Events (one-way server push):
+  const es = new EventSource('/api/events')
+  es.onmessage = (e) => console.log(e.data)
+  es.addEventListener('update', (e) => handle(JSON.parse(e.data)))
+  es.onerror = () => { if (es.readyState === 2) reconnect() }
+  es.close()
+
+  // Server sends:
+  // data: {\"type\":\"update\",\"value\":42}\n\n
+  // event: update\ndata: payload\n\n
+  // id: 123\ndata: ...\n\n  (allows Last-Event-ID reconnect)
+  // retry: 3000\n\n         (reconnect delay ms)
+
+WebSocket vs SSE vs Polling:
+  WebSocket: full-duplex, low-latency, binary support
+  SSE:       server push only, auto-reconnect, EventSource API, HTTP/1.1 compatible
+  Polling:   simple, works everywhere, high latency, server load"
+}
+
+fn s_wa_service_workers() -> &'static str {
+    "Service Workers & Cache API
+Registration:
+  if ('serviceWorker' in navigator) {
+    const reg = await navigator.serviceWorker.register('/sw.js', {
+      scope: '/'
+    })
+    reg.update()
+  }
+
+  // sw.js lifecycle:
+  self.addEventListener('install',  (e) => e.waitUntil(cacheAssets()))
+  self.addEventListener('activate', (e) => e.waitUntil(cleanOldCaches()))
+  self.addEventListener('fetch',    (e) => e.respondWith(cacheFirst(e.request)))
+
+Cache API:
+  // Open / create cache:
+  const cache = await caches.open('v1')
+  await cache.add('/index.html')
+  await cache.addAll(['/app.js', '/app.css', '/icon.png'])
+  await cache.put(request, response)
+  const res = await cache.match(request)
+  await cache.delete('/old-file.js')
+  await caches.delete('v1')
+
+Fetch strategies:
+  // Cache-first (offline-first):
+  async function cacheFirst(req) {
+    const cached = await caches.match(req)
+    return cached ?? fetch(req)
+  }
+
+  // Network-first (freshness):
+  async function networkFirst(req) {
+    try {
+      const res = await fetch(req)
+      const cache = await caches.open('v1')
+      cache.put(req, res.clone())
+      return res
+    } catch {
+      return caches.match(req)
+    }
+  }
+
+  // Stale-while-revalidate:
+  async function swr(req) {
+    const cached = await caches.match(req)
+    const fresh = fetch(req).then(res => {
+      caches.open('v1').then(c => c.put(req, res.clone()))
+      return res
+    })
+    return cached ?? fresh
+  }
+
+Background sync:
+  // Register sync:
+  const reg = await navigator.serviceWorker.ready
+  await reg.sync.register('send-message')
+
+  // In sw.js:
+  self.addEventListener('sync', (e) => {
+    if (e.tag === 'send-message') e.waitUntil(sendMessages())
+  })"
+}
+
+fn s_wa_workers() -> &'static str {
+    "Web Workers & Shared Workers
+Web Worker:
+  // Main thread:
+  const worker = new Worker('/worker.js', { type: 'module' })
+  worker.postMessage({ type: 'compute', data: [1,2,3] })
+  worker.onmessage = (e) => console.log(e.data)
+  worker.onerror   = (e) => console.error(e.message)
+  worker.terminate()
+
+  // worker.js:
+  self.onmessage = (e) => {
+    const result = heavyComputation(e.data)
+    self.postMessage(result)
+  }
+
+Transferable objects (zero-copy):
+  const buffer = new ArrayBuffer(1024 * 1024)
+  worker.postMessage(buffer, [buffer])     // transfer ownership
+  // buffer is now neutered in main thread
+
+Module workers (Chrome 80+):
+  const worker = new Worker('/worker.js', { type: 'module' })
+  // worker.js can use: import { fn } from './utils.js'
+
+SharedArrayBuffer + Atomics:
+  // Create shared memory:
+  const sab = new SharedArrayBuffer(1024)
+  const arr = new Int32Array(sab)
+  worker.postMessage({ sab })
+
+  // Worker reads/writes atomically:
+  Atomics.add(arr, 0, 1)
+  Atomics.load(arr, 0)
+  Atomics.wait(arr, 0, 0, 1000)   // wait until arr[0] != 0 (or timeout)
+  Atomics.notify(arr, 0, 1)        // wake 1 waiting worker
+
+  // Requires COOP + COEP headers:
+  Cross-Origin-Opener-Policy: same-origin
+  Cross-Origin-Embedder-Policy: require-corp
+
+Inline worker:
+  const code = `self.onmessage = (e) => self.postMessage(e.data * 2)`
+  const blob = new Blob([code], { type: 'application/javascript' })
+  const worker = new Worker(URL.createObjectURL(blob))"
+}
+
+fn s_wa_storage() -> &'static str {
+    "Browser Storage & IndexedDB
+localStorage / sessionStorage:
+  localStorage.setItem('key', JSON.stringify(obj))
+  const obj = JSON.parse(localStorage.getItem('key') ?? 'null')
+  localStorage.removeItem('key')
+  localStorage.clear()
+  Object.keys(localStorage).length     // item count
+
+  // sessionStorage: same API, cleared on tab close
+
+IndexedDB (async, large data, structured):
+  const db = await new Promise((resolve, reject) => {
+    const req = indexedDB.open('mydb', 1)
+    req.onupgradeneeded = (e) => {
+      const db = e.target.result
+      const store = db.createObjectStore('users', { keyPath: 'id', autoIncrement: true })
+      store.createIndex('email', 'email', { unique: true })
+    }
+    req.onsuccess = (e) => resolve(e.target.result)
+    req.onerror   = (e) => reject(e.target.error)
+  })
+
+  // Add:
+  const tx = db.transaction('users', 'readwrite')
+  await tx.objectStore('users').add({ name: 'Alice', email: 'a@b.com' })
+
+  // Get by key:
+  const user = await tx.objectStore('users').get(1)
+
+  // Index query:
+  const user = await tx.objectStore('users').index('email').get('a@b.com')
+
+Cookie API:
+  document.cookie = 'name=value; Max-Age=3600; Secure; SameSite=Strict'
+  // Read: document.cookie (all as string)
+  // Cookie Store API (async, Chrome):
+  await cookieStore.set('name', 'value')
+  const c = await cookieStore.get('name')
+  await cookieStore.delete('name')
+
+Storage quotas:
+  const estimate = await navigator.storage.estimate()
+  estimate.quota   // total available bytes
+  estimate.usage   // bytes used
+  await navigator.storage.persist()   // request persistent storage"
+}
+
+type WebApisSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+const WEB_APIS_SECTIONS: &[WebApisSection] = &[
+    (
+        "fetch",
+        &[
+            "fetch-api",
+            "fetch-post",
+            "fetch-abort",
+            "abort-controller",
+            "fetch-stream",
+            "formdata-api",
+            "request-headers",
+            "response-body",
+            "fetch-error",
+            "http-client-browser",
+            "fetch-options",
+        ],
+        s_wa_fetch,
+    ),
+    (
+        "websockets",
+        &[
+            "websocket",
+            "ws-api",
+            "server-sent-events",
+            "sse",
+            "eventsource",
+            "ws-reconnect",
+            "ws-binary",
+            "ws-close",
+            "ws-readystate",
+            "sse-events",
+            "ws-vs-sse",
+        ],
+        s_wa_websockets,
+    ),
+    (
+        "service-workers",
+        &[
+            "service-worker",
+            "sw-register",
+            "cache-api",
+            "cache-first",
+            "network-first",
+            "stale-while-revalidate",
+            "background-sync",
+            "sw-install",
+            "sw-activate",
+            "sw-fetch",
+            "pwa-cache",
+        ],
+        s_wa_service_workers,
+    ),
+    (
+        "workers",
+        &[
+            "web-worker",
+            "worker-postmessage",
+            "transferable",
+            "shared-array-buffer",
+            "atomics",
+            "module-worker",
+            "inline-worker",
+            "worker-thread",
+            "sharedarraybuffer",
+            "atomics-wait",
+            "coop-coep",
+        ],
+        s_wa_workers,
+    ),
+    (
+        "storage",
+        &[
+            "local-storage",
+            "session-storage",
+            "indexeddb",
+            "idb",
+            "cookie-api",
+            "cookie-store",
+            "storage-quota",
+            "storage-persist",
+            "indexeddb-transaction",
+            "indexeddb-index",
+            "web-storage",
+        ],
+        s_wa_storage,
+    ),
+];
+
+pub fn web_apis_calc(query: &str) -> String {
+    let q = query.trim().to_lowercase();
+    if q.is_empty() || q == "list" || q == "help" {
+        let topics: Vec<&str> = WEB_APIS_SECTIONS.iter().map(|(n, _, _)| *n).collect();
+        return format!(
+            "web-apis topics: {}\nUse: --web-apis <topic>  or  --web-apis all",
+            topics.join(", ")
+        );
+    }
+    if q == "all" {
+        return WEB_APIS_SECTIONS
+            .iter()
+            .map(|(n, _, f)| format!("── {} ──\n{}", n, f()))
+            .collect::<Vec<_>>()
+            .join("\n\n");
+    }
+    for (name, aliases, func) in WEB_APIS_SECTIONS {
+        if q == *name || aliases.iter().any(|a| q == *a || q.contains(a)) {
+            return func().to_string();
+        }
+    }
+    format!(
+        "Unknown web-apis topic: '{}'\nAvailable: {}",
+        query.trim(),
+        WEB_APIS_SECTIONS
+            .iter()
+            .map(|(n, _, _)| *n)
+            .collect::<Vec<_>>()
+            .join(", ")
+    )
+}
+
+// ── linux-containers ─────────────────────────────────────────
+
+fn s_lc_namespaces() -> &'static str {
+    "Linux Namespaces
+Overview (isolate system resources per process group):
+  Mount (mnt)    filesystem tree
+  PID            process IDs (container PID 1)
+  Network (net)  network stack, interfaces, routing
+  IPC            shared memory, semaphores, message queues
+  UTS            hostname, domainname
+  User           UID/GID mapping (rootless containers)
+  Time           clock offsets (kernel 5.6+)
+  Cgroup         cgroup root view
+
+Inspect:
+  ls -la /proc/$$/ns/          # namespaces of current shell
+  lsns                         # list all namespaces
+  lsns -t net                  # filter by type
+  nsenter -t PID -n ip addr    # enter net namespace of PID
+  nsenter -t PID --all         # enter all namespaces of PID
+
+Create / enter:
+  unshare --mount --pid --fork bash   # new mount+pid ns
+  unshare --user --map-root-user bash # new user ns as fake root
+  unshare --net ip link               # new network ns
+  ip netns add mynamespace
+  ip netns exec mynamespace ip addr
+  ip netns del mynamespace
+
+Network namespace wiring (veth pair):
+  ip netns add ns1
+  ip link add veth0 type veth peer name veth1
+  ip link set veth1 netns ns1
+  ip addr add 10.1.0.1/24 dev veth0 && ip link set veth0 up
+  ip netns exec ns1 ip addr add 10.1.0.2/24 dev veth1
+  ip netns exec ns1 ip link set veth1 up
+
+User namespace UID mapping:
+  /proc/PID/uid_map: inside-uid outside-uid count
+  newuidmap PID 0 1000 1         # map uid 0 in ns -> 1000 outside
+  # Allows rootless containers to appear as root inside ns"
+}
+
+fn s_lc_cgroups() -> &'static str {
+    "Linux cgroups (Control Groups)
+cgroups v2 (unified hierarchy, kernel 4.5+, default on modern systems):
+  /sys/fs/cgroup/                     # root cgroup
+  cat /sys/fs/cgroup/memory.max       # root memory limit
+  ls /sys/fs/cgroup/system.slice/
+
+Create and configure:
+  mkdir /sys/fs/cgroup/myapp
+  echo 512M > /sys/fs/cgroup/myapp/memory.max
+  echo 50000 100000 > /sys/fs/cgroup/myapp/cpu.max  # 50% of 1 CPU
+  echo $$ > /sys/fs/cgroup/myapp/cgroup.procs        # add current shell
+
+Key controllers:
+  memory.max          hard memory limit (OOM kill above)
+  memory.high         soft limit (throttle, reclaim before OOM)
+  memory.current      current usage
+  cpu.max             quota period (e.g. 50000 100000 = 50% CPU)
+  cpu.weight          relative CPU share (default 100)
+  io.max              I/O rate limit: MAJOR:MINOR rbps=N wbps=N
+  pids.max            max number of PIDs in cgroup
+
+cgroupsv1 (legacy, per-controller hierarchy):
+  /sys/fs/cgroup/memory/myapp/memory.limit_in_bytes
+  /sys/fs/cgroup/cpu/myapp/cpu.cfs_quota_us
+
+systemd-run (easiest cgroup management):
+  systemd-run --scope -p MemoryMax=512M -p CPUQuota=50% mycommand
+  systemd-run --user --scope -p MemoryMax=256M python train.py
+
+Inspect:
+  systemctl status myapp.service      # see cgroup of a service
+  cat /proc/PID/cgroup                # cgroup path for a process
+  systemd-cgls                        # cgroup tree
+  systemd-cgtop                       # live cgroup resource usage
+  cgget -g memory:/myapp              # read cgroup values"
+}
+
+fn s_lc_seccomp() -> &'static str {
+    "seccomp & Linux Capabilities
+seccomp (syscall filtering):
+  # BPF-based syscall filter; restricts what syscalls a process can make
+  # Mode 1 (strict): only read, write, exit, sigreturn allowed
+  # Mode 2 (filter): custom BPF filter program
+
+  # Check if process has seccomp:
+  cat /proc/PID/status | grep Seccomp
+  # 0=disabled, 1=strict, 2=filter
+
+  # Docker default seccomp profile:
+  # Blocks ~44 dangerous syscalls (mount, reboot, kexec_load, etc.)
+  docker run --security-opt seccomp=unconfined ubuntu  # disable
+  docker run --security-opt seccomp=/path/to/profile.json ubuntu
+
+  # seccomp profile format (JSON):
+  {
+    \"defaultAction\": \"SCMP_ACT_ERRNO\",
+    \"syscalls\": [{
+      \"names\": [\"read\",\"write\",\"exit\",\"exit_group\"],
+      \"action\": \"SCMP_ACT_ALLOW\"
+    }]
+  }
+
+Linux Capabilities:
+  # Root is split into ~40 discrete capabilities
+  CAP_NET_BIND_SERVICE  bind ports < 1024
+  CAP_NET_ADMIN         configure network interfaces
+  CAP_SYS_ADMIN         broad (avoid if possible)
+  CAP_CHOWN             change file ownership
+  CAP_KILL              send signals to other UIDs
+  CAP_SETUID/SETGID     change UID/GID
+  CAP_DAC_OVERRIDE      bypass file permission checks
+  CAP_AUDIT_WRITE       write to audit log
+  CAP_SYS_PTRACE        ptrace processes
+
+  # Inspect:
+  capsh --print
+  getpcaps PID
+  cat /proc/PID/status | grep Cap
+
+  # Docker capability management:
+  docker run --cap-drop ALL --cap-add NET_BIND_SERVICE nginx
+  docker run --privileged ubuntu   # all capabilities + devices (avoid!)
+
+  # Container best practice:
+  # Drop ALL capabilities, add only what's needed
+  # Never run --privileged in production"
+}
+
+fn s_lc_podman() -> &'static str {
+    "Podman & Rootless Containers
+Podman vs Docker:
+  Rootless by default      no daemon running as root
+  Daemonless               no long-lived background process
+  Docker-compatible CLI    most docker commands work as-is
+  Pod support              native Kubernetes pod semantics
+  OCI compliant            same image format as Docker
+
+  alias docker=podman      # usually sufficient for scripts
+
+Basic commands (same as Docker):
+  podman pull nginx
+  podman run -d -p 8080:80 --name web nginx
+  podman ps -a
+  podman exec -it web bash
+  podman stop web && podman rm web
+  podman logs -f web
+  podman images
+  podman rmi nginx
+
+Rootless specifics:
+  podman run --user 1000 nginx      # run as uid 1000 inside
+  podman unshare                    # enter user namespace
+  podman unshare cat /proc/self/uid_map
+  podman info | grep -i rootless
+
+Pods (group of containers sharing net/ipc ns):
+  podman pod create --name mypod -p 8080:80
+  podman run -d --pod mypod nginx
+  podman run -d --pod mypod postgres
+  podman pod ps
+  podman pod stop mypod
+
+Generate Kubernetes YAML:
+  podman generate kube mypod > pod.yaml
+  podman play kube pod.yaml    # run k8s YAML with podman
+
+Systemd integration:
+  podman generate systemd --name web > ~/.config/systemd/user/web.service
+  systemctl --user enable --now web.service
+
+Volumes / bind mounts:
+  podman run -v /host/path:/container/path nginx
+  podman volume create mydata
+  podman run -v mydata:/data nginx"
+}
+
+fn s_lc_container_build() -> &'static str {
+    "Container Internals & Build Optimization
+Image layers (Union filesystem):
+  Each RUN/COPY/ADD instruction creates a new layer
+  Layers are cached by instruction hash
+  Lower layers = base; upper layers = changes
+  overlay2 driver: lowerdir + upperdir + workdir -> merged view
+
+  docker history image:tag      # inspect layers
+  docker inspect --format='{{json .RootFS.Layers}}' image | jq
+  dive image                    # interactive layer explorer
+
+Multi-stage build (reduce final image size):
+  FROM golang:1.22 AS builder
+  WORKDIR /app
+  COPY . .
+  RUN CGO_ENABLED=0 go build -o /bin/app
+
+  FROM scratch                  # empty base
+  COPY --from=builder /bin/app /app
+  ENTRYPOINT [\"/app\"]
+  # Result: 5MB instead of 800MB
+
+BuildKit cache mounts (faster CI):
+  # syntax=docker/dockerfile:1
+  FROM golang:1.22
+  RUN --mount=type=cache,target=/root/.cache/go-build \
+      go build ./...
+
+  # npm example:
+  RUN --mount=type=cache,target=/root/.npm \
+      npm ci --prefer-offline
+
+Layer caching best practices:
+  COPY go.mod go.sum ./         # copy deps manifest first
+  RUN go mod download           # cache layer: only invalidated when deps change
+  COPY . .                      # then copy source
+  RUN go build                  # only re-runs when source changes
+
+OCI image spec:
+  Image = config JSON + ordered list of layer tarballs
+  Manifest = references to config + layers
+  Index = multi-platform manifest list
+  Distribution spec = push/pull API (registry)
+
+Container runtime stack:
+  containerd (high-level)
+    -> runc (OCI runtime, uses namespaces + cgroups)
+    -> crun (fast C implementation of OCI runtime)
+  CRI-O (Kubernetes CRI implementation, uses runc)
+  Kata Containers (VM-based isolation, hardware boundary)"
+}
+
+type LinuxContainersSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+const LINUX_CONTAINERS_SECTIONS: &[LinuxContainersSection] = &[
+    (
+        "namespaces",
+        &[
+            "linux-namespaces",
+            "pid-namespace",
+            "net-namespace",
+            "user-namespace",
+            "mount-namespace",
+            "uts-namespace",
+            "ipc-namespace",
+            "nsenter",
+            "unshare",
+            "ip-netns",
+            "veth-pair",
+        ],
+        s_lc_namespaces,
+    ),
+    (
+        "cgroups",
+        &[
+            "linux-cgroups",
+            "cgroups-v2",
+            "cgroupv2",
+            "memory-cgroup",
+            "cpu-cgroup",
+            "io-cgroup",
+            "pids-cgroup",
+            "systemd-run",
+            "cgroup-limit",
+            "cgroup-inspect",
+            "cgroup-procs",
+        ],
+        s_lc_cgroups,
+    ),
+    (
+        "seccomp",
+        &[
+            "seccomp",
+            "linux-capabilities",
+            "cap-drop",
+            "cap-add",
+            "container-security",
+            "docker-seccomp",
+            "cap-net-bind",
+            "cap-sys-admin",
+            "seccomp-filter",
+            "privileged-container",
+            "capabilities-list",
+        ],
+        s_lc_seccomp,
+    ),
+    (
+        "podman",
+        &[
+            "podman",
+            "rootless-containers",
+            "podman-pod",
+            "podman-systemd",
+            "podman-kube",
+            "podman-vs-docker",
+            "podman-rootless",
+            "podman-unshare",
+            "podman-generate",
+            "podman-play",
+            "podman-volume",
+        ],
+        s_lc_podman,
+    ),
+    (
+        "container-build",
+        &[
+            "image-layers",
+            "multi-stage-build",
+            "buildkit-cache",
+            "dockerfile-cache",
+            "docker-history",
+            "container-runtime",
+            "oci-spec",
+            "runc",
+            "crun",
+            "dive-tool",
+            "layer-optimization",
+        ],
+        s_lc_container_build,
+    ),
+];
+
+pub fn linux_containers_calc(query: &str) -> String {
+    let q = query.trim().to_lowercase();
+    if q.is_empty() || q == "list" || q == "help" {
+        let topics: Vec<&str> = LINUX_CONTAINERS_SECTIONS
+            .iter()
+            .map(|(n, _, _)| *n)
+            .collect();
+        return format!(
+            "linux-containers topics: {}\nUse: --linux-containers <topic>  or  --linux-containers all",
+            topics.join(", ")
+        );
+    }
+    if q == "all" {
+        return LINUX_CONTAINERS_SECTIONS
+            .iter()
+            .map(|(n, _, f)| format!("── {} ──\n{}", n, f()))
+            .collect::<Vec<_>>()
+            .join("\n\n");
+    }
+    for (name, aliases, func) in LINUX_CONTAINERS_SECTIONS {
+        if q == *name || aliases.iter().any(|a| q == *a || q.contains(a)) {
+            return func().to_string();
+        }
+    }
+    format!(
+        "Unknown linux-containers topic: '{}'\nAvailable: {}",
+        query.trim(),
+        LINUX_CONTAINERS_SECTIONS
+            .iter()
+            .map(|(n, _, _)| *n)
+            .collect::<Vec<_>>()
+            .join(", ")
+    )
+}

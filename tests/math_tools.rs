@@ -15,28 +15,29 @@ use hematite::tools::math_util::{
     docker_adv_calc, docker_compose_calc, docker_ref_calc, duration_calc, electrical_calc,
     encode_calc, escape_calc, event_driven_calc, find_calc, fraction_calc, geometry_calc,
     git_adv_calc, git_internals_calc, git_ref_calc, gitignore_calc, go_adv_calc, go_ref_calc,
-    graphql_ref_calc, grep_calc, grpc_ref_calc, hash_calc, headers_calc, health_calc, http2_calc,
-    http_adv_calc, http_calc, http_headers_calc, http_security_calc, http_status_calc, id_gen_calc,
-    ip_calc, java_ref_calc, jinja_calc, jq_calc, js_ref_calc, json_calc, json_path_calc, jwt_calc,
-    k8s_adv_calc, k8s_ref_calc, k8s_security_calc, kbd_calc, kubectl_calc, license_calc,
-    linux_adv_calc, linux_kernel_calc, linux_net_calc, linux_perf_calc, linux_sys_calc,
-    load_testing_calc, lorem_calc, make_calc, makefile_calc, markdown_calc, matrix_calc,
-    message_queue_calc, mime_calc, ml_ref_calc, monitoring_ref_calc, net_calc, network_ref_calc,
-    networking_adv_calc, nginx_calc, node_ref_calc, npm_calc, number_format, number_theory_calc,
-    oauth2_flow_calc, oauth_ref_calc, observability_adv_calc, observability_calc, oop_ref_calc,
-    openapi_ref_calc, openssl_calc, percent_calc, perf_ref_calc, physics_calc, port_calc,
-    postgres_calc, prob_calc, prom_ref_calc, protocols_ref_calc, python_adv_calc, python_data_calc,
-    python_ref_calc, react_ref_calc, regex_adv_calc, regex_calc, regex_engine_calc,
-    regex_patterns_calc, regex_ref_calc, regex_test_calc, regex_viz_calc, roman_calc,
-    rust_adv_calc, rust_async_calc, rust_macros_calc, rust_patterns_calc, rust_ref_calc,
-    search_ref_calc, security_ref_calc, security_scan_calc, security_tools_calc, sed_calc,
-    semver_calc, service_mesh_calc, set_calc, sort_viz, spark_calc, sql_adv_calc, sql_fmt_calc,
-    sql_ref_calc, sql_tuning_calc, sql_window_calc, ssh_ref_calc, ssl_calc, stats_calc,
-    string_dist, systemd_adv_calc, systemd_calc, table_calc, tar_calc, template_calc,
-    terminal_tools_calc, terraform_adv_calc, terraform_calc, testing_ref_calc, text_stats,
-    timestamp_calc, tmux_calc, toml_calc, trig_calc, ts_ref_calc, typescript_adv_calc, tz_calc,
-    unicode_ref_calc, url_calc, uuid_calc, validate_calc, vim_adv_calc, vim_calc, vue_ref_calc,
-    wasm_ref_calc, wasm_runtime_calc, web_perf_calc, xml_calc, yaml_calc,
+    graphql_ref_calc, grep_calc, grpc_ref_calc, hash_calc, headers_calc, health_calc,
+    helm_ref_calc, http2_calc, http_adv_calc, http_calc, http_headers_calc, http_security_calc,
+    http_status_calc, id_gen_calc, ip_calc, java_ref_calc, jinja_calc, jq_calc, js_ref_calc,
+    json_calc, json_path_calc, jwt_calc, k8s_adv_calc, k8s_ref_calc, k8s_security_calc, kbd_calc,
+    kubectl_calc, license_calc, linux_adv_calc, linux_containers_calc, linux_kernel_calc,
+    linux_net_calc, linux_perf_calc, linux_sys_calc, load_testing_calc, lorem_calc, make_calc,
+    makefile_calc, markdown_calc, matrix_calc, message_queue_calc, mime_calc, ml_ref_calc,
+    monitoring_ref_calc, net_calc, network_ref_calc, networking_adv_calc, nginx_calc,
+    node_ref_calc, npm_calc, number_format, number_theory_calc, oauth2_flow_calc, oauth_ref_calc,
+    observability_adv_calc, observability_calc, oop_ref_calc, openapi_ref_calc, openssl_calc,
+    percent_calc, perf_ref_calc, physics_calc, port_calc, postgres_calc, prob_calc, prom_ref_calc,
+    protocols_ref_calc, python_adv_calc, python_data_calc, python_ref_calc, react_ref_calc,
+    redis_ref_calc, regex_adv_calc, regex_calc, regex_engine_calc, regex_patterns_calc,
+    regex_ref_calc, regex_test_calc, regex_viz_calc, roman_calc, rust_adv_calc, rust_async_calc,
+    rust_macros_calc, rust_patterns_calc, rust_ref_calc, search_ref_calc, security_ref_calc,
+    security_scan_calc, security_tools_calc, sed_calc, semver_calc, service_mesh_calc, set_calc,
+    sort_viz, spark_calc, sql_adv_calc, sql_fmt_calc, sql_ref_calc, sql_tuning_calc,
+    sql_window_calc, ssh_ref_calc, ssl_calc, stats_calc, string_dist, systemd_adv_calc,
+    systemd_calc, table_calc, tar_calc, template_calc, terminal_tools_calc, terraform_adv_calc,
+    terraform_calc, testing_ref_calc, text_stats, timestamp_calc, tmux_calc, toml_calc, trig_calc,
+    ts_ref_calc, typescript_adv_calc, tz_calc, unicode_ref_calc, url_calc, uuid_calc,
+    validate_calc, vim_adv_calc, vim_calc, vue_ref_calc, wasm_ref_calc, wasm_runtime_calc,
+    web_apis_calc, web_perf_calc, xml_calc, yaml_calc,
 };
 
 // ─── Cipher tests ────────────────────────────────────────────────────────────
@@ -32651,4 +32652,812 @@ fn test_aws_ref_alias_boto3_dynamodb() {
 fn test_aws_ref_unknown_query() {
     let out = aws_ref_calc("nonexistent-topic-xyz");
     assert!(out.contains("Unknown aws-ref topic"));
+}
+
+// ─── helm_ref_calc ───────────────────────────────────────────────────────────
+
+#[test]
+fn test_helm_ref_list() {
+    let out = helm_ref_calc("list");
+    assert!(out.contains("helm-ref topics"));
+    assert!(out.contains("chart-structure"));
+}
+
+#[test]
+fn test_helm_ref_help() {
+    let out = helm_ref_calc("help");
+    assert!(out.contains("helm-ref topics"));
+}
+
+#[test]
+fn test_helm_ref_empty() {
+    let out = helm_ref_calc("");
+    assert!(out.contains("helm-ref topics"));
+}
+
+#[test]
+fn test_helm_ref_all_contains_sections() {
+    let out = helm_ref_calc("all");
+    assert!(out.contains("── chart-structure ──"));
+    assert!(out.contains("── templating ──"));
+    assert!(out.contains("── values ──"));
+    assert!(out.contains("── hooks ──"));
+    assert!(out.contains("── releases ──"));
+}
+
+#[test]
+fn test_helm_ref_topic_chart_structure() {
+    let out = helm_ref_calc("chart-structure");
+    assert!(
+        out.contains("Chart.yaml") || out.contains("values.yaml") || out.contains("templates/"),
+        "unexpected: {out}"
+    );
+}
+
+#[test]
+fn test_helm_ref_alias_helm_chart() {
+    let out = helm_ref_calc("helm-chart");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_helm_ref_alias_helm_create() {
+    let out = helm_ref_calc("helm-create");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_helm_ref_alias_helm_install() {
+    let out = helm_ref_calc("helm-install");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_helm_ref_alias_helm_lint() {
+    let out = helm_ref_calc("helm-lint");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_helm_ref_topic_templating() {
+    let out = helm_ref_calc("templating");
+    assert!(
+        out.contains("Values") || out.contains("Release") || out.contains("define"),
+        "unexpected: {out}"
+    );
+}
+
+#[test]
+fn test_helm_ref_alias_helm_templating() {
+    let out = helm_ref_calc("helm-templating");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_helm_ref_alias_helm_range() {
+    let out = helm_ref_calc("helm-range");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_helm_ref_alias_helm_helpers() {
+    let out = helm_ref_calc("helm-helpers");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_helm_ref_alias_helm_nindent() {
+    let out = helm_ref_calc("helm-nindent");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_helm_ref_topic_values() {
+    let out = helm_ref_calc("values");
+    assert!(
+        out.contains("replicaCount") || out.contains("values.yaml") || out.contains("--set"),
+        "unexpected: {out}"
+    );
+}
+
+#[test]
+fn test_helm_ref_alias_helm_values() {
+    let out = helm_ref_calc("helm-values");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_helm_ref_alias_helm_set() {
+    let out = helm_ref_calc("helm-set");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_helm_ref_alias_helm_schema() {
+    let out = helm_ref_calc("helm-schema");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_helm_ref_alias_helm_global_values() {
+    let out = helm_ref_calc("helm-global-values");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_helm_ref_topic_hooks() {
+    let out = helm_ref_calc("hooks");
+    assert!(
+        out.contains("pre-install") || out.contains("hook") || out.contains("Job"),
+        "unexpected: {out}"
+    );
+}
+
+#[test]
+fn test_helm_ref_alias_helm_hooks() {
+    let out = helm_ref_calc("helm-hooks");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_helm_ref_alias_helm_pre_install() {
+    let out = helm_ref_calc("helm-pre-install");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_helm_ref_alias_helm_test() {
+    let out = helm_ref_calc("helm-test");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_helm_ref_alias_helm_hook_weight() {
+    let out = helm_ref_calc("helm-hook-weight");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_helm_ref_topic_releases() {
+    let out = helm_ref_calc("releases");
+    assert!(
+        out.contains("helm repo") || out.contains("rollback") || out.contains("OCI"),
+        "unexpected: {out}"
+    );
+}
+
+#[test]
+fn test_helm_ref_alias_helm_repo() {
+    let out = helm_ref_calc("helm-repo");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_helm_ref_alias_helm_rollback() {
+    let out = helm_ref_calc("helm-rollback");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_helm_ref_alias_helm_diff() {
+    let out = helm_ref_calc("helm-diff");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_helm_ref_alias_helm_oci() {
+    let out = helm_ref_calc("helm-oci");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_helm_ref_unknown_query() {
+    let out = helm_ref_calc("nonexistent-topic-xyz");
+    assert!(out.contains("Unknown helm-ref topic"));
+}
+
+// ─── redis_ref_calc ───────────────────────────────────────────────────────────
+
+#[test]
+fn test_redis_ref_list() {
+    let out = redis_ref_calc("list");
+    assert!(out.contains("redis-ref topics"));
+    assert!(out.contains("data-types"));
+}
+
+#[test]
+fn test_redis_ref_help() {
+    let out = redis_ref_calc("help");
+    assert!(out.contains("redis-ref topics"));
+}
+
+#[test]
+fn test_redis_ref_empty() {
+    let out = redis_ref_calc("");
+    assert!(out.contains("redis-ref topics"));
+}
+
+#[test]
+fn test_redis_ref_all_contains_sections() {
+    let out = redis_ref_calc("all");
+    assert!(out.contains("── data-types ──"));
+    assert!(out.contains("── commands ──"));
+    assert!(out.contains("── pub-sub ──"));
+    assert!(out.contains("── patterns ──"));
+    assert!(out.contains("── config ──"));
+}
+
+#[test]
+fn test_redis_ref_topic_data_types() {
+    let out = redis_ref_calc("data-types");
+    assert!(
+        out.contains("SET") || out.contains("LPUSH") || out.contains("HSET"),
+        "unexpected: {out}"
+    );
+}
+
+#[test]
+fn test_redis_ref_alias_redis_types() {
+    let out = redis_ref_calc("redis-types");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_redis_ref_alias_redis_string() {
+    let out = redis_ref_calc("redis-string");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_redis_ref_alias_redis_hash() {
+    let out = redis_ref_calc("redis-hash");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_redis_ref_alias_redis_sorted_set() {
+    let out = redis_ref_calc("redis-sorted-set");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_redis_ref_topic_commands() {
+    let out = redis_ref_calc("commands");
+    assert!(
+        out.contains("EXPIRE") || out.contains("SCAN") || out.contains("MULTI"),
+        "unexpected: {out}"
+    );
+}
+
+#[test]
+fn test_redis_ref_alias_redis_commands() {
+    let out = redis_ref_calc("redis-commands");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_redis_ref_alias_redis_expire() {
+    let out = redis_ref_calc("redis-expire");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_redis_ref_alias_redis_scan() {
+    let out = redis_ref_calc("redis-scan");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_redis_ref_alias_redis_transactions() {
+    let out = redis_ref_calc("redis-transactions");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_redis_ref_topic_pub_sub() {
+    let out = redis_ref_calc("pub-sub");
+    assert!(
+        out.contains("SUBSCRIBE") || out.contains("PUBLISH") || out.contains("XADD"),
+        "unexpected: {out}"
+    );
+}
+
+#[test]
+fn test_redis_ref_alias_redis_pubsub() {
+    let out = redis_ref_calc("redis-pubsub");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_redis_ref_alias_redis_streams() {
+    let out = redis_ref_calc("redis-streams");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_redis_ref_alias_redis_xadd() {
+    let out = redis_ref_calc("redis-xadd");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_redis_ref_alias_redis_consumer_groups() {
+    let out = redis_ref_calc("redis-consumer-groups");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_redis_ref_topic_patterns() {
+    let out = redis_ref_calc("patterns");
+    assert!(
+        out.contains("cache") || out.contains("rate") || out.contains("lock"),
+        "unexpected: {out}"
+    );
+}
+
+#[test]
+fn test_redis_ref_alias_redis_patterns() {
+    let out = redis_ref_calc("redis-patterns");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_redis_ref_alias_redis_cache_aside() {
+    let out = redis_ref_calc("redis-cache-aside");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_redis_ref_alias_redis_rate_limit() {
+    let out = redis_ref_calc("redis-rate-limit");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_redis_ref_alias_redis_leaderboard() {
+    let out = redis_ref_calc("redis-leaderboard");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_redis_ref_topic_config() {
+    let out = redis_ref_calc("config");
+    assert!(
+        out.contains("maxmemory") || out.contains("appendonly") || out.contains("redis.conf"),
+        "unexpected: {out}"
+    );
+}
+
+#[test]
+fn test_redis_ref_alias_redis_config() {
+    let out = redis_ref_calc("redis-config");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_redis_ref_alias_redis_eviction() {
+    let out = redis_ref_calc("redis-eviction");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_redis_ref_alias_redis_persistence() {
+    let out = redis_ref_calc("redis-persistence");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_redis_ref_alias_redis_cluster() {
+    let out = redis_ref_calc("redis-cluster");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_redis_ref_unknown_query() {
+    let out = redis_ref_calc("nonexistent-topic-xyz");
+    assert!(out.contains("Unknown redis-ref topic"));
+}
+
+// ─── web_apis_calc ────────────────────────────────────────────────────────────
+
+#[test]
+fn test_web_apis_list() {
+    let out = web_apis_calc("list");
+    assert!(out.contains("web-apis topics"));
+    assert!(out.contains("fetch"));
+}
+
+#[test]
+fn test_web_apis_help() {
+    let out = web_apis_calc("help");
+    assert!(out.contains("web-apis topics"));
+}
+
+#[test]
+fn test_web_apis_empty() {
+    let out = web_apis_calc("");
+    assert!(out.contains("web-apis topics"));
+}
+
+#[test]
+fn test_web_apis_all_contains_sections() {
+    let out = web_apis_calc("all");
+    assert!(out.contains("── fetch ──"));
+    assert!(out.contains("── websockets ──"));
+    assert!(out.contains("── service-workers ──"));
+    assert!(out.contains("── workers ──"));
+    assert!(out.contains("── storage ──"));
+}
+
+#[test]
+fn test_web_apis_topic_fetch() {
+    let out = web_apis_calc("fetch");
+    assert!(
+        out.contains("fetch(") || out.contains("AbortController") || out.contains("FormData"),
+        "unexpected: {out}"
+    );
+}
+
+#[test]
+fn test_web_apis_alias_fetch_api() {
+    let out = web_apis_calc("fetch-api");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_web_apis_alias_abort_controller() {
+    let out = web_apis_calc("abort-controller");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_web_apis_alias_fetch_stream() {
+    let out = web_apis_calc("fetch-stream");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_web_apis_alias_formdata_api() {
+    let out = web_apis_calc("formdata-api");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_web_apis_topic_websockets() {
+    let out = web_apis_calc("websockets");
+    assert!(
+        out.contains("WebSocket") || out.contains("EventSource") || out.contains("readyState"),
+        "unexpected: {out}"
+    );
+}
+
+#[test]
+fn test_web_apis_alias_websocket() {
+    let out = web_apis_calc("websocket");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_web_apis_alias_sse() {
+    let out = web_apis_calc("sse");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_web_apis_alias_eventsource() {
+    let out = web_apis_calc("eventsource");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_web_apis_alias_ws_reconnect() {
+    let out = web_apis_calc("ws-reconnect");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_web_apis_topic_service_workers() {
+    let out = web_apis_calc("service-workers");
+    assert!(
+        out.contains("serviceWorker") || out.contains("cache") || out.contains("caches.open"),
+        "unexpected: {out}"
+    );
+}
+
+#[test]
+fn test_web_apis_alias_service_worker() {
+    let out = web_apis_calc("service-worker");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_web_apis_alias_cache_first() {
+    let out = web_apis_calc("cache-first");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_web_apis_alias_background_sync() {
+    let out = web_apis_calc("background-sync");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_web_apis_alias_pwa_cache() {
+    let out = web_apis_calc("pwa-cache");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_web_apis_topic_workers() {
+    let out = web_apis_calc("workers");
+    assert!(
+        out.contains("Worker") || out.contains("postMessage") || out.contains("Atomics"),
+        "unexpected: {out}"
+    );
+}
+
+#[test]
+fn test_web_apis_alias_web_worker() {
+    let out = web_apis_calc("web-worker");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_web_apis_alias_transferable() {
+    let out = web_apis_calc("transferable");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_web_apis_alias_shared_array_buffer() {
+    let out = web_apis_calc("shared-array-buffer");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_web_apis_alias_module_worker() {
+    let out = web_apis_calc("module-worker");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_web_apis_topic_storage() {
+    let out = web_apis_calc("storage");
+    assert!(
+        out.contains("localStorage") || out.contains("indexedDB") || out.contains("cookie"),
+        "unexpected: {out}"
+    );
+}
+
+#[test]
+fn test_web_apis_alias_local_storage() {
+    let out = web_apis_calc("local-storage");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_web_apis_alias_indexeddb() {
+    let out = web_apis_calc("indexeddb");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_web_apis_alias_cookie_api() {
+    let out = web_apis_calc("cookie-api");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_web_apis_alias_storage_quota() {
+    let out = web_apis_calc("storage-quota");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_web_apis_unknown_query() {
+    let out = web_apis_calc("nonexistent-topic-xyz");
+    assert!(out.contains("Unknown web-apis topic"));
+}
+
+// ─── linux_containers_calc ────────────────────────────────────────────────────
+
+#[test]
+fn test_linux_containers_list() {
+    let out = linux_containers_calc("list");
+    assert!(out.contains("linux-containers topics"));
+    assert!(out.contains("namespaces"));
+}
+
+#[test]
+fn test_linux_containers_help() {
+    let out = linux_containers_calc("help");
+    assert!(out.contains("linux-containers topics"));
+}
+
+#[test]
+fn test_linux_containers_empty() {
+    let out = linux_containers_calc("");
+    assert!(out.contains("linux-containers topics"));
+}
+
+#[test]
+fn test_linux_containers_all_contains_sections() {
+    let out = linux_containers_calc("all");
+    assert!(out.contains("── namespaces ──"));
+    assert!(out.contains("── cgroups ──"));
+    assert!(out.contains("── seccomp ──"));
+    assert!(out.contains("── podman ──"));
+    assert!(out.contains("── container-build ──"));
+}
+
+#[test]
+fn test_linux_containers_topic_namespaces() {
+    let out = linux_containers_calc("namespaces");
+    assert!(
+        out.contains("namespace") || out.contains("nsenter") || out.contains("unshare"),
+        "unexpected: {out}"
+    );
+}
+
+#[test]
+fn test_linux_containers_alias_linux_namespaces() {
+    let out = linux_containers_calc("linux-namespaces");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_linux_containers_alias_pid_namespace() {
+    let out = linux_containers_calc("pid-namespace");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_linux_containers_alias_net_namespace() {
+    let out = linux_containers_calc("net-namespace");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_linux_containers_alias_veth_pair() {
+    let out = linux_containers_calc("veth-pair");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_linux_containers_topic_cgroups() {
+    let out = linux_containers_calc("cgroups");
+    assert!(
+        out.contains("cgroup") || out.contains("memory.max") || out.contains("cpu.max"),
+        "unexpected: {out}"
+    );
+}
+
+#[test]
+fn test_linux_containers_alias_linux_cgroups() {
+    let out = linux_containers_calc("linux-cgroups");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_linux_containers_alias_cgroups_v2() {
+    let out = linux_containers_calc("cgroups-v2");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_linux_containers_alias_systemd_run() {
+    let out = linux_containers_calc("systemd-run");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_linux_containers_alias_cgroup_limit() {
+    let out = linux_containers_calc("cgroup-limit");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_linux_containers_topic_seccomp() {
+    let out = linux_containers_calc("seccomp");
+    assert!(
+        out.contains("seccomp") || out.contains("capability") || out.contains("CAP_"),
+        "unexpected: {out}"
+    );
+}
+
+#[test]
+fn test_linux_containers_alias_seccomp_topic() {
+    let out = linux_containers_calc("seccomp");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_linux_containers_alias_linux_capabilities() {
+    let out = linux_containers_calc("linux-capabilities");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_linux_containers_alias_cap_drop() {
+    let out = linux_containers_calc("cap-drop");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_linux_containers_alias_container_security() {
+    let out = linux_containers_calc("container-security");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_linux_containers_topic_podman() {
+    let out = linux_containers_calc("podman");
+    assert!(
+        out.contains("podman") || out.contains("rootless") || out.contains("Podman"),
+        "unexpected: {out}"
+    );
+}
+
+#[test]
+fn test_linux_containers_alias_podman_topic() {
+    let out = linux_containers_calc("podman");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_linux_containers_alias_rootless_containers() {
+    let out = linux_containers_calc("rootless-containers");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_linux_containers_alias_podman_pod() {
+    let out = linux_containers_calc("podman-pod");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_linux_containers_alias_podman_kube() {
+    let out = linux_containers_calc("podman-kube");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_linux_containers_topic_container_build() {
+    let out = linux_containers_calc("container-build");
+    assert!(
+        out.contains("layer") || out.contains("multi-stage") || out.contains("BuildKit"),
+        "unexpected: {out}"
+    );
+}
+
+#[test]
+fn test_linux_containers_alias_image_layers() {
+    let out = linux_containers_calc("image-layers");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_linux_containers_alias_multi_stage_build() {
+    let out = linux_containers_calc("multi-stage-build");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_linux_containers_alias_buildkit_cache() {
+    let out = linux_containers_calc("buildkit-cache");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_linux_containers_alias_runc() {
+    let out = linux_containers_calc("runc");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_linux_containers_unknown_query() {
+    let out = linux_containers_calc("nonexistent-topic-xyz");
+    assert!(out.contains("Unknown linux-containers topic"));
 }

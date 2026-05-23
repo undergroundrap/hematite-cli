@@ -1165,6 +1165,10 @@ mod tests {
             go_adv: None,
             vue_ref: None,
             aws_ref: None,
+            helm_ref: None,
+            redis_ref: None,
+            web_apis: None,
+            linux_containers: None,
             pdf_extract_helper: None,
             teleported_from: None,
         };

@@ -2478,6 +2478,34 @@ pub struct CliCockpit {
 
     #[arg(
         long,
+        value_name = "QUERY",
+        help = "Helm chart reference — offline replacement for helm.sh/docs. Topics: chart-structure, templating, values, hooks, releases. Aliases: helm-chart, helm-templating, helm-values, helm-hooks, helm-repo. Examples: hematite --helm-ref chart-structure | hematite --helm-ref templating | hematite --helm-ref all"
+    )]
+    pub helm_ref: Option<String>,
+
+    #[arg(
+        long,
+        value_name = "QUERY",
+        help = "Redis reference — offline replacement for redis.io/docs. Topics: data-types, commands, pub-sub, patterns, config. Aliases: redis-types, redis-commands, redis-pubsub, redis-streams, redis-patterns. Examples: hematite --redis-ref data-types | hematite --redis-ref patterns | hematite --redis-ref all"
+    )]
+    pub redis_ref: Option<String>,
+
+    #[arg(
+        long,
+        value_name = "QUERY",
+        help = "Browser Web APIs reference — offline replacement for MDN. Topics: fetch, websockets, service-workers, workers, storage. Aliases: fetch-api, websocket, service-worker, web-worker, indexeddb. Examples: hematite --web-apis fetch | hematite --web-apis websockets | hematite --web-apis all"
+    )]
+    pub web_apis: Option<String>,
+
+    #[arg(
+        long,
+        value_name = "QUERY",
+        help = "Linux container internals — offline reference for namespaces, cgroups, seccomp, podman, and image builds. Topics: namespaces, cgroups, seccomp, podman, container-build. Aliases: linux-namespaces, cgroups-v2, seccomp, podman, image-layers. Examples: hematite --linux-containers namespaces | hematite --linux-containers cgroups | hematite --linux-containers all"
+    )]
+    pub linux_containers: Option<String>,
+
+    #[arg(
+        long,
         help_heading = "Math & Science",
         value_name = "QUERY",
         help = "Lorem ipsum generator — offline replacement for lipsum.com. Commands: (bare) or <N> = N paragraphs (default 1); words <N> = N words; sentences <N> = N sentences. Examples: hematite --lorem | hematite --lorem 3 | hematite --lorem 'words 50' | hematite --lorem 'sentences 5'"
