@@ -1181,6 +1181,8 @@ mod tests {
             kafka_adv: None,
             deno_ref: None,
             otel_ref: None,
+            zig_ref: None,
+            redis_adv: None,
             pdf_extract_helper: None,
             teleported_from: None,
         };

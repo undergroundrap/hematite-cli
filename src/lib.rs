@@ -2598,6 +2598,22 @@ pub struct CliCockpit {
 
     #[arg(
         long,
+        help_heading = "Developer Toolkit",
+        value_name = "QUERY",
+        help = "Zig language reference — offline replacement for ziglang.org docs. Topics: basics, memory, structs, errors, comptime, build. Aliases: zig-basics, allocators, zig-structs, zig-errors, zig-comptime, zig-build. Examples: hematite --zig-ref basics | hematite --zig-ref comptime | hematite --zig-ref all"
+    )]
+    pub zig_ref: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Developer Toolkit",
+        value_name = "QUERY",
+        help = "Redis advanced patterns — offline replacement for redis.io advanced docs. Topics: data-structures, lua, pubsub, cluster, patterns, persistence. Aliases: zset, scripting, pub-sub, redis-cluster, distributed-lock, rdb. Examples: hematite --redis-adv patterns | hematite --redis-adv lua | hematite --redis-adv all"
+    )]
+    pub redis_adv: Option<String>,
+
+    #[arg(
+        long,
         help_heading = "Math & Science",
         value_name = "QUERY",
         help = "Lorem ipsum generator — offline replacement for lipsum.com. Commands: (bare) or <N> = N paragraphs (default 1); words <N> = N words; sentences <N> = N sentences. Examples: hematite --lorem | hematite --lorem 3 | hematite --lorem 'words 50' | hematite --lorem 'sentences 5'"

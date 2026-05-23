@@ -28,7 +28,7 @@ use hematite::tools::math_util::{
     observability_calc, oop_ref_calc, openapi_ref_calc, openssl_calc, otel_ref_calc, percent_calc,
     perf_ref_calc, physics_calc, port_calc, postgres_calc, prob_calc, prom_ref_calc,
     protobuf_ref_calc, protocols_ref_calc, python_adv_calc, python_data_calc, python_ref_calc,
-    react_ref_calc, redis_ref_calc, regex_adv_calc, regex_calc, regex_engine_calc,
+    react_ref_calc, redis_adv_calc, redis_ref_calc, regex_adv_calc, regex_calc, regex_engine_calc,
     regex_patterns_calc, regex_ref_calc, regex_test_calc, regex_viz_calc, roman_calc,
     rust_adv_calc, rust_async_calc, rust_embedded_calc, rust_macros_calc, rust_patterns_calc,
     rust_ref_calc, search_ref_calc, security_ref_calc, security_scan_calc, security_tools_calc,
@@ -39,7 +39,7 @@ use hematite::tools::math_util::{
     testing_ref_calc, text_stats, timestamp_calc, tmux_calc, toml_calc, trig_calc,
     ts_patterns_calc, ts_ref_calc, typescript_adv_calc, tz_calc, unicode_ref_calc, url_calc,
     uuid_calc, validate_calc, vim_adv_calc, vim_calc, vue_ref_calc, wasm_ref_calc,
-    wasm_runtime_calc, web_apis_calc, web_perf_calc, xml_calc, yaml_calc,
+    wasm_runtime_calc, web_apis_calc, web_perf_calc, xml_calc, yaml_calc, zig_ref_calc,
 };
 
 // ─── Cipher tests ────────────────────────────────────────────────────────────
@@ -35408,4 +35408,358 @@ fn test_otel_ref_alias_otel_pipeline() {
 fn test_otel_ref_unknown_query() {
     let out = otel_ref_calc("nonexistent-otel-xyz");
     assert!(out.contains("Unknown otel-ref topic"));
+}
+
+// ── Wave 49 tests: zig_ref_calc, redis_adv_calc ───────────────────────────────
+
+#[cfg(test)]
+mod zig_ref_tests {
+    use super::*;
+
+    #[test]
+    fn zig_ref_list_shows_topics() {
+        let out = zig_ref_calc("list");
+        assert!(out.contains("basics"), "expected 'basics' in: {out}");
+        assert!(out.contains("memory"), "expected 'memory' in: {out}");
+        assert!(out.contains("comptime"), "expected 'comptime' in: {out}");
+    }
+
+    #[test]
+    fn zig_ref_help_shows_topics() {
+        let out = zig_ref_calc("help");
+        assert!(out.contains("Usage"), "expected 'Usage' in: {out}");
+    }
+
+    #[test]
+    fn zig_ref_empty_shows_topics() {
+        let out = zig_ref_calc("");
+        assert!(out.contains("basics"), "expected 'basics' in: {out}");
+    }
+
+    #[test]
+    fn zig_ref_all_contains_all_sections() {
+        let out = zig_ref_calc("all");
+        assert!(
+            out.contains("Zig Basics"),
+            "expected 'Zig Basics' in: {out}"
+        );
+        assert!(
+            out.contains("Zig Memory"),
+            "expected 'Zig Memory' in: {out}"
+        );
+        assert!(
+            out.contains("Zig Structs"),
+            "expected 'Zig Structs' in: {out}"
+        );
+        assert!(out.contains("Zig Error"), "expected 'Zig Error' in: {out}");
+        assert!(out.contains("Zig Async"), "expected section in: {out}");
+    }
+
+    #[test]
+    fn zig_ref_basics_topic() {
+        let out = zig_ref_calc("basics");
+        assert!(
+            out.contains("Zig Basics"),
+            "expected 'Zig Basics' in: {out}"
+        );
+        assert!(
+            out.contains("pub fn main"),
+            "expected 'pub fn main' in: {out}"
+        );
+    }
+
+    #[test]
+    fn zig_ref_basics_alias_variables() {
+        let out = zig_ref_calc("variables");
+        assert!(
+            out.contains("Zig Basics"),
+            "expected 'Zig Basics' in: {out}"
+        );
+    }
+
+    #[test]
+    fn zig_ref_basics_alias_syntax() {
+        let out = zig_ref_calc("syntax");
+        assert!(
+            out.contains("Zig Basics"),
+            "expected 'Zig Basics' in: {out}"
+        );
+    }
+
+    #[test]
+    fn zig_ref_memory_topic() {
+        let out = zig_ref_calc("memory");
+        assert!(
+            out.contains("Zig Memory"),
+            "expected 'Zig Memory' in: {out}"
+        );
+        assert!(out.contains("allocator"), "expected 'allocator' in: {out}");
+    }
+
+    #[test]
+    fn zig_ref_memory_alias_allocators() {
+        let out = zig_ref_calc("allocators");
+        assert!(
+            out.contains("Zig Memory"),
+            "expected 'Zig Memory' in: {out}"
+        );
+    }
+
+    #[test]
+    fn zig_ref_memory_alias_arraylist() {
+        let out = zig_ref_calc("arraylist");
+        assert!(
+            out.contains("Zig Memory"),
+            "expected 'Zig Memory' in: {out}"
+        );
+    }
+
+    #[test]
+    fn zig_ref_structs_topic() {
+        let out = zig_ref_calc("structs");
+        assert!(out.contains("Structs"), "expected 'Structs' in: {out}");
+        assert!(out.contains("union"), "expected 'union' in: {out}");
+    }
+
+    #[test]
+    fn zig_ref_structs_alias_enum() {
+        let out = zig_ref_calc("enums");
+        assert!(out.contains("Structs"), "expected 'Structs' in: {out}");
+    }
+
+    #[test]
+    fn zig_ref_errors_topic() {
+        let out = zig_ref_calc("errors");
+        assert!(
+            out.contains("Error Handling"),
+            "expected 'Error Handling' in: {out}"
+        );
+        assert!(out.contains("try"), "expected 'try' in: {out}");
+    }
+
+    #[test]
+    fn zig_ref_errors_alias_try() {
+        let out = zig_ref_calc("try");
+        assert!(
+            out.contains("Error Handling"),
+            "expected 'Error Handling' in: {out}"
+        );
+    }
+
+    #[test]
+    fn zig_ref_comptime_topic() {
+        let out = zig_ref_calc("comptime");
+        assert!(out.contains("Comptime"), "expected 'Comptime' in: {out}");
+        assert!(out.contains("@TypeOf"), "expected '@TypeOf' in: {out}");
+    }
+
+    #[test]
+    fn zig_ref_comptime_alias_generics() {
+        let out = zig_ref_calc("generics");
+        assert!(out.contains("Comptime"), "expected 'Comptime' in: {out}");
+    }
+
+    #[test]
+    fn zig_ref_build_topic() {
+        let out = zig_ref_calc("build");
+        assert!(out.contains("Build"), "expected 'Build' in: {out}");
+    }
+
+    #[test]
+    fn zig_ref_build_alias_cross_compile() {
+        let out = zig_ref_calc("cross-compile");
+        assert!(out.contains("Build"), "expected 'Build' in: {out}");
+    }
+
+    #[test]
+    fn zig_ref_unknown_returns_error() {
+        let out = zig_ref_calc("nonexistent-zig-topic-xyz");
+        assert!(
+            out.contains("Unknown zig-ref topic"),
+            "expected error in: {out}"
+        );
+    }
+
+    #[test]
+    fn zig_ref_unknown_does_not_panic() {
+        let out = zig_ref_calc("!@#$");
+        assert!(!out.is_empty());
+    }
+}
+
+#[cfg(test)]
+mod redis_adv_tests {
+    use super::*;
+
+    #[test]
+    fn redis_adv_list_shows_topics() {
+        let out = redis_adv_calc("list");
+        assert!(
+            out.contains("data-structures"),
+            "expected 'data-structures' in: {out}"
+        );
+        assert!(out.contains("patterns"), "expected 'patterns' in: {out}");
+        assert!(
+            out.contains("persistence"),
+            "expected 'persistence' in: {out}"
+        );
+    }
+
+    #[test]
+    fn redis_adv_help_shows_usage() {
+        let out = redis_adv_calc("help");
+        assert!(out.contains("Usage"), "expected 'Usage' in: {out}");
+    }
+
+    #[test]
+    fn redis_adv_empty_shows_topics() {
+        let out = redis_adv_calc("");
+        assert!(
+            out.contains("data-structures"),
+            "expected 'data-structures' in: {out}"
+        );
+    }
+
+    #[test]
+    fn redis_adv_all_contains_all_sections() {
+        let out = redis_adv_calc("all");
+        assert!(
+            out.contains("Data Structures"),
+            "expected 'Data Structures' in: {out}"
+        );
+        assert!(out.contains("Lua"), "expected 'Lua' in: {out}");
+        assert!(out.contains("Pub/Sub"), "expected 'Pub/Sub' in: {out}");
+        assert!(out.contains("Cluster"), "expected 'Cluster' in: {out}");
+        assert!(out.contains("Patterns"), "expected 'Patterns' in: {out}");
+        assert!(
+            out.contains("Persistence"),
+            "expected 'Persistence' in: {out}"
+        );
+    }
+
+    #[test]
+    fn redis_adv_data_structures_topic() {
+        let out = redis_adv_calc("data-structures");
+        assert!(
+            out.contains("Data Structures"),
+            "expected 'Data Structures' in: {out}"
+        );
+        assert!(out.contains("ZADD"), "expected 'ZADD' in: {out}");
+    }
+
+    #[test]
+    fn redis_adv_data_structures_alias_zset() {
+        let out = redis_adv_calc("zset");
+        assert!(
+            out.contains("Data Structures"),
+            "expected 'Data Structures' in: {out}"
+        );
+    }
+
+    #[test]
+    fn redis_adv_data_structures_alias_hyperloglog() {
+        let out = redis_adv_calc("hyperloglog");
+        assert!(
+            out.contains("Data Structures"),
+            "expected 'Data Structures' in: {out}"
+        );
+    }
+
+    #[test]
+    fn redis_adv_lua_topic() {
+        let out = redis_adv_calc("lua");
+        assert!(out.contains("Lua"), "expected 'Lua' in: {out}");
+        assert!(out.contains("EVAL"), "expected 'EVAL' in: {out}");
+    }
+
+    #[test]
+    fn redis_adv_lua_alias_scripting() {
+        let out = redis_adv_calc("scripting");
+        assert!(out.contains("Lua"), "expected 'Lua' in: {out}");
+    }
+
+    #[test]
+    fn redis_adv_lua_alias_transactions() {
+        let out = redis_adv_calc("transactions");
+        assert!(out.contains("Lua"), "expected 'Lua' in: {out}");
+    }
+
+    #[test]
+    fn redis_adv_pubsub_topic() {
+        let out = redis_adv_calc("pubsub");
+        assert!(out.contains("Pub/Sub"), "expected 'Pub/Sub' in: {out}");
+        assert!(out.contains("SUBSCRIBE"), "expected 'SUBSCRIBE' in: {out}");
+    }
+
+    #[test]
+    fn redis_adv_pubsub_alias_subscribe() {
+        let out = redis_adv_calc("subscribe");
+        assert!(out.contains("Pub/Sub"), "expected 'Pub/Sub' in: {out}");
+    }
+
+    #[test]
+    fn redis_adv_cluster_topic() {
+        let out = redis_adv_calc("cluster");
+        assert!(out.contains("Cluster"), "expected 'Cluster' in: {out}");
+        assert!(out.contains("hash slot"), "expected 'hash slot' in: {out}");
+    }
+
+    #[test]
+    fn redis_adv_cluster_alias_replication() {
+        let out = redis_adv_calc("replication");
+        assert!(out.contains("Cluster"), "expected 'Cluster' in: {out}");
+    }
+
+    #[test]
+    fn redis_adv_patterns_topic() {
+        let out = redis_adv_calc("patterns");
+        assert!(out.contains("Patterns"), "expected 'Patterns' in: {out}");
+        assert!(out.contains("Redlock"), "expected 'Redlock' in: {out}");
+    }
+
+    #[test]
+    fn redis_adv_patterns_alias_distributed_lock() {
+        let out = redis_adv_calc("distributed-lock");
+        assert!(out.contains("Patterns"), "expected 'Patterns' in: {out}");
+    }
+
+    #[test]
+    fn redis_adv_patterns_alias_cache() {
+        let out = redis_adv_calc("cache");
+        assert!(out.contains("Patterns"), "expected 'Patterns' in: {out}");
+    }
+
+    #[test]
+    fn redis_adv_persistence_topic() {
+        let out = redis_adv_calc("persistence");
+        assert!(
+            out.contains("Persistence"),
+            "expected 'Persistence' in: {out}"
+        );
+        assert!(out.contains("BGSAVE"), "expected 'BGSAVE' in: {out}");
+    }
+
+    #[test]
+    fn redis_adv_persistence_alias_rdb() {
+        let out = redis_adv_calc("rdb");
+        assert!(
+            out.contains("Persistence"),
+            "expected 'Persistence' in: {out}"
+        );
+    }
+
+    #[test]
+    fn redis_adv_unknown_returns_error() {
+        let out = redis_adv_calc("nonexistent-redis-topic-xyz");
+        assert!(
+            out.contains("Unknown redis-adv topic"),
+            "expected error in: {out}"
+        );
+    }
+
+    #[test]
+    fn redis_adv_unknown_does_not_panic() {
+        let out = redis_adv_calc("!@#$");
+        assert!(!out.is_empty());
+    }
 }

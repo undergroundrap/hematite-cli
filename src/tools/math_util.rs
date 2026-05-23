@@ -72852,3 +72852,570 @@ pub fn otel_ref_calc(query: &str) -> String {
             .join(", ")
     )
 }
+
+// ── Wave 49: --zig-ref, --wasm-ref, --redis-adv, --linux-perf ─────────────────
+
+fn s_zg_basics() -> &'static str {
+    "Zig Basics\n\
+     ==========\n\
+     const std = @import(\"std\");         // import stdlib\n\
+     pub fn main() !void { ... }          // entry point, error union return\n\
+     var x: i32 = 42;                     // mutable variable\n\
+     const y: f64 = 3.14;                 // immutable constant\n\
+     // Types: i8/i16/i32/i64/i128/isize, u8/u16/u32/u64/u128/usize\n\
+     //        f16/f32/f64/f128, bool, void, noreturn, type, anytype\n\
+     // Optional: ?T     — null or value (no null pointer dereference)\n\
+     // Error union: !T  — error or value\n\
+     var opt: ?i32 = null;\n\
+     if (opt) |v| { /* v is i32 */ }\n\
+     // Comptime: evaluated at compile time\n\
+     comptime var size: usize = 64;\n\
+     // Defer: runs on scope exit\n\
+     defer allocator.free(memory);\n\
+     errdefer allocator.free(memory);     // runs only on error\n\
+     // Blocks as expressions\n\
+     const z = blk: { break :blk 42; };\n\
+     Ref: https://ziglang.org/documentation/master/"
+}
+
+fn s_zg_memory() -> &'static str {
+    "Zig Memory Management\n\
+     =====================\n\
+     // Allocators — passed explicitly, no hidden allocation\n\
+     const allocator = std.heap.page_allocator;\n\
+     const gpa = std.heap.GeneralPurposeAllocator(.{}){};\n\
+     const arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);\n\
+     defer arena.deinit();\n\
+     // Allocate / free\n\
+     const buf = try allocator.alloc(u8, 100);\n\
+     defer allocator.free(buf);\n\
+     const obj = try allocator.create(MyStruct);\n\
+     defer allocator.destroy(obj);\n\
+     // ArrayList (dynamic array)\n\
+     var list = std.ArrayList(i32).init(allocator);\n\
+     defer list.deinit();\n\
+     try list.append(42);\n\
+     try list.appendSlice(&[_]i32{1, 2, 3});\n\
+     // HashMap\n\
+     var map = std.StringHashMap(i32).init(allocator);\n\
+     defer map.deinit();\n\
+     try map.put(\"key\", 99);\n\
+     const val = map.get(\"key\");          // ?i32\n\
+     // Slices (pointer + length)\n\
+     const slice: []u8 = buf[0..10];\n\
+     // Sentinel-terminated: [*:0]u8 (C string)\n\
+     Ref: https://zig.guide/standard-library/allocators"
+}
+
+fn s_zg_structs() -> &'static str {
+    "Zig Structs, Enums, Unions\n\
+     ==========================\n\
+     // Struct\n\
+     const Point = struct {\n\
+         x: f32,\n\
+         y: f32,\n\
+         pub fn distance(self: Point) f32 {\n\
+             return @sqrt(self.x * self.x + self.y * self.y);\n\
+         }\n\
+     };\n\
+     const p = Point{ .x = 1.0, .y = 2.0 };\n\
+     // Enum\n\
+     const Color = enum { red, green, blue };\n\
+     const c = Color.red;\n\
+     switch (c) {\n\
+         .red => {},\n\
+         .green => {},\n\
+         .blue => {},\n\
+     }\n\
+     // Tagged union\n\
+     const Value = union(enum) {\n\
+         int: i64,\n\
+         float: f64,\n\
+         str: []const u8,\n\
+     };\n\
+     const v = Value{ .int = 42 };\n\
+     // Packed struct (bit layout control)\n\
+     const Flags = packed struct {\n\
+         read: bool,\n\
+         write: bool,\n\
+         exec: bool,\n\
+         _padding: u5 = 0,\n\
+     };\n\
+     Ref: https://zig.guide/language-basics/structs"
+}
+
+fn s_zg_errors() -> &'static str {
+    "Zig Error Handling\n\
+     ==================\n\
+     // Error sets\n\
+     const FileError = error{ NotFound, PermissionDenied, IoError };\n\
+     // Error union return type: !T or FileError!T\n\
+     fn readFile(path: []const u8) ![]u8 { ... }\n\
+     // try — propagates error up\n\
+     const data = try readFile(\"config.txt\");\n\
+     // catch — handle error inline\n\
+     const data = readFile(\"f\") catch |err| switch (err) {\n\
+         error.NotFound => return null,\n\
+         else => return err,\n\
+     };\n\
+     // catch with default\n\
+     const data = readFile(\"f\") catch &[_]u8{};\n\
+     // if with error\n\
+     if (readFile(\"f\")) |data| {\n\
+         // success\n\
+     } else |err| {\n\
+         // handle err\n\
+     }\n\
+     // anyerror — any error set\n\
+     fn doThings() anyerror!void { ... }\n\
+     // Merge error sets\n\
+     const AllErrors = FileError || NetworkError;\n\
+     // @errorName — get error name as string\n\
+     const name = @errorName(err);\n\
+     Ref: https://ziglang.org/documentation/master/#Errors"
+}
+
+fn s_zg_comptime() -> &'static str {
+    "Zig Comptime\n\
+     ============\n\
+     // comptime parameter — generic functions\n\
+     fn max(comptime T: type, a: T, b: T) T {\n\
+         return if (a > b) a else b;\n\
+     }\n\
+     const m = max(i32, 3, 7);            // 7\n\
+     // Comptime-known values\n\
+     comptime {\n\
+         const x = 1 + 1;                 // evaluated at compile time\n\
+         std.debug.assert(x == 2);\n\
+     }\n\
+     // @TypeOf — get type of expression\n\
+     const T = @TypeOf(42);               // comptime_int\n\
+     // @typeInfo — reflect on type\n\
+     const info = @typeInfo(MyStruct);    // std.builtin.TypeInfo\n\
+     // Inline for — comptime loop\n\
+     inline for (fields) |field| { ... }\n\
+     // Comptime string switch\n\
+     const route = comptime switch (path) { ... };\n\
+     // @import at comptime\n\
+     const builtin = @import(\"builtin\");\n\
+     const target = builtin.target;       // OS, arch, ABI\n\
+     // Metaprogramming pattern\n\
+     fn makeAdder(comptime N: i32) fn (i32) i32 {\n\
+         return struct {\n\
+             fn add(x: i32) i32 { return x + N; }\n\
+         }.add;\n\
+     }\n\
+     Ref: https://zig.guide/language-basics/comptime"
+}
+
+fn s_zg_async() -> &'static str {
+    "Zig Async / Build System\n\
+     ========================\n\
+     // Build system (build.zig)\n\
+     pub fn build(b: *std.Build) void {\n\
+         const exe = b.addExecutable(.{\n\
+             .name = \"myapp\",\n\
+             .root_source_file = .{ .path = \"src/main.zig\" },\n\
+             .target = b.standardTargetOptions(.{}),\n\
+             .optimize = b.standardOptimizeOption(.{}),\n\
+         });\n\
+         b.installArtifact(exe);\n\
+         // Run step\n\
+         const run = b.addRunArtifact(exe);\n\
+         const run_step = b.step(\"run\", \"Run the app\");\n\
+         run_step.dependOn(&run.step);\n\
+         // Test step\n\
+         const tests = b.addTest(.{ .root_source_file = .{ .path = \"src/main.zig\" } });\n\
+         const test_step = b.step(\"test\", \"Run tests\");\n\
+         test_step.dependOn(&b.addRunArtifact(tests).step);\n\
+     }\n\
+     // Cross compile\n\
+     zig build-exe main.zig -target x86_64-linux-musl\n\
+     zig build-exe main.zig -target aarch64-macos\n\
+     zig build-exe main.zig -target x86_64-windows-gnu\n\
+     // C interop\n\
+     const c = @cImport({ @cInclude(\"stdio.h\"); });\n\
+     c.printf(\"hello\\n\");\n\
+     zig build-exe main.zig -lc\n\
+     Ref: https://ziglang.org/learn/build-system/"
+}
+
+type ZigRefSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+const ZIG_REF_SECTIONS: &[ZigRefSection] = &[
+    (
+        "basics",
+        &[
+            "zig-basics",
+            "variables",
+            "types",
+            "syntax",
+            "optional",
+            "defer",
+        ],
+        s_zg_basics,
+    ),
+    (
+        "memory",
+        &[
+            "zig-memory",
+            "allocators",
+            "alloc",
+            "arraylist",
+            "hashmap",
+            "slices",
+        ],
+        s_zg_memory,
+    ),
+    (
+        "structs",
+        &[
+            "zig-structs",
+            "enums",
+            "unions",
+            "struct",
+            "enum",
+            "union",
+            "packed",
+        ],
+        s_zg_structs,
+    ),
+    (
+        "errors",
+        &["zig-errors", "error-handling", "try", "catch", "errorset"],
+        s_zg_errors,
+    ),
+    (
+        "comptime",
+        &[
+            "zig-comptime",
+            "generics",
+            "metaprogramming",
+            "typeinfo",
+            "typeof",
+        ],
+        s_zg_comptime,
+    ),
+    (
+        "build",
+        &[
+            "zig-build",
+            "async",
+            "buildsystem",
+            "cross-compile",
+            "c-interop",
+            "cimport",
+        ],
+        s_zg_async,
+    ),
+];
+
+pub fn zig_ref_calc(query: &str) -> String {
+    let q = query.trim().to_lowercase();
+    if q.is_empty() || q == "list" || q == "help" {
+        let topics: Vec<&str> = ZIG_REF_SECTIONS.iter().map(|(n, _, _)| *n).collect();
+        return format!(
+            "zig-ref topics: {}\nUsage: hematite --zig-ref <topic>  (e.g. --zig-ref basics)",
+            topics.join(", ")
+        );
+    }
+    if q == "all" {
+        return ZIG_REF_SECTIONS
+            .iter()
+            .map(|(_, _, f)| f())
+            .collect::<Vec<_>>()
+            .join("\n\n");
+    }
+    for (name, aliases, func) in ZIG_REF_SECTIONS {
+        if q == *name || aliases.iter().any(|a| q == *a || q.contains(a)) {
+            return func().to_string();
+        }
+    }
+    let topics: Vec<&str> = ZIG_REF_SECTIONS.iter().map(|(n, _, _)| *n).collect();
+    format!(
+        "Unknown zig-ref topic: '{}'\nAvailable: {}",
+        query.trim(),
+        topics.join(", ")
+    )
+}
+
+// ── --redis-adv ───────────────────────────────────────────────────────────────
+
+fn s_rs_data_structures() -> &'static str {
+    "Redis Advanced Data Structures\n\
+     ================================\n\
+     // Sorted Sets (ZSET) — leaderboards, rate limiting\n\
+     ZADD leaderboard 1500 \"alice\"         # add with score\n\
+     ZADD leaderboard NX 1200 \"bob\"        # only if not exists\n\
+     ZADD leaderboard GT 1600 \"alice\"      # update only if greater\n\
+     ZRANGE leaderboard 0 -1 WITHSCORES    # all members with scores\n\
+     ZREVRANGE leaderboard 0 9 WITHSCORES  # top 10 descending\n\
+     ZRANGEBYSCORE leaderboard 1000 2000   # by score range\n\
+     ZRANK leaderboard \"alice\"             # 0-based rank\n\
+     ZREVRANK leaderboard \"alice\"          # reverse rank\n\
+     ZINCRBY leaderboard 100 \"alice\"       # atomic score increment\n\
+     // HyperLogLog — approximate cardinality, 12 KB per key\n\
+     PFADD visitors \"user1\" \"user2\"        # add elements\n\
+     PFCOUNT visitors                       # approx unique count\n\
+     PFMERGE merged visitors_day1 visitors_day2\n\
+     // Geo — location queries\n\
+     GEOADD places 13.361389 38.115556 \"Palermo\"\n\
+     GEODIST places \"Palermo\" \"Catania\" km  # distance\n\
+     GEOSEARCH places FROMMEMBER \"Palermo\" BYRADIUS 200 km ASC\n\
+     // Streams — append-only log\n\
+     XADD events * temp 98.5 unit F\n\
+     XRANGE events - +                      # read all\n\
+     XREAD COUNT 10 STREAMS events 0        # read from start\n\
+     Ref: https://redis.io/docs/data-types/"
+}
+
+fn s_rs_lua_scripts() -> &'static str {
+    "Redis Lua Scripting & Transactions\n\
+     ====================================\n\
+     // EVAL — run Lua script atomically\n\
+     EVAL \"return redis.call('SET', KEYS[1], ARGV[1])\" 1 mykey myval\n\
+     // Lua redis.call vs redis.pcall\n\
+     redis.call('SET', 'k', 'v')     -- raises error on failure\n\
+     redis.pcall('SET', 'k', 'v')    -- returns error table on failure\n\
+     // Script caching (EVALSHA)\n\
+     SCRIPT LOAD \"return redis.call('GET', KEYS[1])\"\n\
+     -- returns SHA1: e0e1f9fabfa9d353e078....\n\
+     EVALSHA e0e1f9... 1 mykey\n\
+     SCRIPT EXISTS e0e1f9...\n\
+     SCRIPT FLUSH\n\
+     // CAS (check-and-set) pattern in Lua\n\
+     local val = redis.call('GET', KEYS[1])\n\
+     if val == ARGV[1] then\n\
+         redis.call('SET', KEYS[1], ARGV[2])\n\
+         return 1\n\
+     end\n\
+     return 0\n\
+     // Transactions (MULTI/EXEC)\n\
+     MULTI\n\
+     SET balance 100\n\
+     DECRBY balance 20\n\
+     EXEC                               -- atomic execution\n\
+     DISCARD                            -- cancel transaction\n\
+     // Optimistic locking with WATCH\n\
+     WATCH balance\n\
+     MULTI\n\
+     DECRBY balance 20\n\
+     EXEC                               -- nil if balance changed since WATCH\n\
+     Ref: https://redis.io/docs/interact/programmability/"
+}
+
+fn s_rs_pubsub() -> &'static str {
+    "Redis Pub/Sub & Keyspace Notifications\n\
+     =======================================\n\
+     // Pub/Sub\n\
+     SUBSCRIBE channel1 channel2           # subscribe to channels\n\
+     PSUBSCRIBE news.*                     # pattern subscribe\n\
+     PUBLISH channel1 \"message payload\"    # publish (returns subscriber count)\n\
+     UNSUBSCRIBE channel1\n\
+     PUNSUBSCRIBE news.*\n\
+     // Keyspace notifications (redis.conf)\n\
+     notify-keyspace-events KEA            # all events\n\
+     notify-keyspace-events Kx             # expired events\n\
+     notify-keyspace-events Kg             # generic commands\n\
+     // K = keyspace, E = keyevent\n\
+     // g = generic, $ = string, l = list, s = set, z = sorted set\n\
+     // x = expired, e = evicted, d = module, A = alias for g$lszxe\n\
+     // Subscribe to expiry events\n\
+     SUBSCRIBE __keyevent@0__:expired      # when key expires in db 0\n\
+     SUBSCRIBE __keyspace@0__:mykey        # events on specific key\n\
+     // Pattern example: re-queue expired jobs\n\
+     SET job:123 \"payload\" EX 30           # set with 30s TTL\n\
+     -- subscriber fires when job:123 expires → re-queue\n\
+     // Limitations: fire-and-forget, no persistence, no ack\n\
+     // For reliable messaging use Streams (XADD/XREAD/XACK)\n\
+     Ref: https://redis.io/docs/manual/pubsub/"
+}
+
+fn s_rs_cluster() -> &'static str {
+    "Redis Cluster & Replication\n\
+     ============================\n\
+     // Replication\n\
+     REPLICAOF 192.168.1.1 6379           # make this node a replica\n\
+     REPLICAOF NO ONE                      # promote to primary\n\
+     INFO replication                      # replication state\n\
+     // Redis Cluster — 16384 hash slots distributed across nodes\n\
+     // Minimum: 3 primary + 3 replica nodes\n\
+     // Create cluster\n\
+     redis-cli --cluster create \\\n\
+         node1:6379 node2:6379 node3:6379 \\\n\
+         node4:6380 node5:6380 node6:6380 \\\n\
+         --cluster-replicas 1\n\
+     // Cluster commands\n\
+     CLUSTER INFO                          # cluster state\n\
+     CLUSTER NODES                         # node list and slots\n\
+     CLUSTER SLOTS                         # slot-to-node mapping\n\
+     CLUSTER KEYSLOT mykey                 # hash slot for key\n\
+     CLUSTER GETKEYSINSLOT 1234 10         # keys in slot\n\
+     // Hash tags — force keys to same slot\n\
+     {user:42}:session  {user:42}:profile  # both go to slot of \"user:42\"\n\
+     // Client cluster mode\n\
+     redis-cli -c -h node1 -p 6379         # cluster-aware client\n\
+     // Resharding\n\
+     redis-cli --cluster reshard node1:6379\n\
+     redis-cli --cluster rebalance node1:6379\n\
+     Ref: https://redis.io/docs/management/scaling/"
+}
+
+fn s_rs_patterns() -> &'static str {
+    "Redis Design Patterns\n\
+     =====================\n\
+     // Distributed lock (Redlock algorithm)\n\
+     SET lock:resource token NX PX 30000   # acquire: NX=only if absent, PX=TTL ms\n\
+     -- release only if token matches (Lua for atomicity):\n\
+     EVAL \"if redis.call('get',KEYS[1])==ARGV[1] then return redis.call('del',KEYS[1]) else return 0 end\" 1 lock:resource token\n\
+     // Rate limiting (sliding window)\n\
+     MULTI\n\
+     ZADD ratelimit:user:42 <now_ms> <now_ms>\n\
+     ZREMRANGEBYSCORE ratelimit:user:42 0 <now_ms - window_ms>\n\
+     ZCARD ratelimit:user:42\n\
+     EXPIRE ratelimit:user:42 <window_secs>\n\
+     EXEC\n\
+     // Cache-aside pattern\n\
+     GET cache:key  →  miss → fetch from DB → SET cache:key value EX 3600\n\
+     // Write-through\n\
+     SET cache:key value  →  write to DB\n\
+     // Session storage\n\
+     HSET session:sid user_id 42 role admin\n\
+     EXPIRE session:sid 3600\n\
+     HGETALL session:sid\n\
+     // Bloom filter (RedisBloom module)\n\
+     BF.ADD emails \"user@example.com\"\n\
+     BF.EXISTS emails \"user@example.com\"   # probabilistic membership\n\
+     // Queue (reliable with BRPOPLPUSH)\n\
+     LPUSH queue:jobs \"job1\"\n\
+     BRPOPLPUSH queue:jobs queue:processing 0   # blocking pop + push (atomic)\n\
+     Ref: https://redis.io/docs/manual/patterns/"
+}
+
+fn s_rs_persistence() -> &'static str {
+    "Redis Persistence & Configuration\n\
+     ===================================\n\
+     // RDB (snapshot)\n\
+     SAVE                                  # synchronous snapshot (blocks)\n\
+     BGSAVE                                # async snapshot (fork)\n\
+     CONFIG SET save \"3600 1 300 100 60 10000\"  # auto-save schedule\n\
+     // AOF (append-only file)\n\
+     CONFIG SET appendonly yes\n\
+     CONFIG SET appendfsync everysec       # fsync options: always, everysec, no\n\
+     BGREWRITEAOF                          # compact AOF file\n\
+     // Hybrid (RDB + AOF)\n\
+     CONFIG SET aof-use-rdb-preamble yes\n\
+     // Memory policies (when maxmemory is hit)\n\
+     CONFIG SET maxmemory 2gb\n\
+     CONFIG SET maxmemory-policy allkeys-lru    # evict any key LRU\n\
+     //  volatile-lru     evict expiring keys LRU\n\
+     //  allkeys-lru      evict any key LRU\n\
+     //  allkeys-lfu      evict any key LFU\n\
+     //  volatile-ttl     evict soonest-expiring\n\
+     //  noeviction       return error when full\n\
+     // Diagnostics\n\
+     INFO memory                           # memory usage stats\n\
+     INFO stats                            # ops/sec, keyspace hits\n\
+     MONITOR                               # real-time command stream\n\
+     SLOWLOG GET 10                        # 10 slowest commands\n\
+     LATENCY HISTORY event                 # latency timeline\n\
+     DEBUG SLEEP 0                         # test latency\n\
+     Ref: https://redis.io/docs/management/persistence/"
+}
+
+type RedisAdvSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+const REDIS_ADV_SECTIONS: &[RedisAdvSection] = &[
+    (
+        "data-structures",
+        &[
+            "zset",
+            "hyperloglog",
+            "geo",
+            "streams",
+            "sorted-set",
+            "pfadd",
+            "xadd",
+        ],
+        s_rs_data_structures,
+    ),
+    (
+        "lua",
+        &[
+            "scripting",
+            "eval",
+            "evalsha",
+            "multi",
+            "exec",
+            "watch",
+            "transactions",
+        ],
+        s_rs_lua_scripts,
+    ),
+    (
+        "pubsub",
+        &[
+            "pub-sub",
+            "subscribe",
+            "publish",
+            "keyspace",
+            "notifications",
+        ],
+        s_rs_pubsub,
+    ),
+    (
+        "cluster",
+        &[
+            "replication",
+            "redis-cluster",
+            "sharding",
+            "hash-slots",
+            "resharding",
+        ],
+        s_rs_cluster,
+    ),
+    (
+        "patterns",
+        &[
+            "design-patterns",
+            "distributed-lock",
+            "redlock",
+            "rate-limit",
+            "cache",
+            "bloom",
+        ],
+        s_rs_patterns,
+    ),
+    (
+        "persistence",
+        &["rdb", "aof", "maxmemory", "eviction", "config", "bgsave"],
+        s_rs_persistence,
+    ),
+];
+
+pub fn redis_adv_calc(query: &str) -> String {
+    let q = query.trim().to_lowercase();
+    if q.is_empty() || q == "list" || q == "help" {
+        let topics: Vec<&str> = REDIS_ADV_SECTIONS.iter().map(|(n, _, _)| *n).collect();
+        return format!(
+            "redis-adv topics: {}\nUsage: hematite --redis-adv <topic>  (e.g. --redis-adv patterns)",
+            topics.join(", ")
+        );
+    }
+    if q == "all" {
+        return REDIS_ADV_SECTIONS
+            .iter()
+            .map(|(_, _, f)| f())
+            .collect::<Vec<_>>()
+            .join("\n\n");
+    }
+    for (name, aliases, func) in REDIS_ADV_SECTIONS {
+        if q == *name || aliases.iter().any(|a| q == *a || q.contains(a)) {
+            return func().to_string();
+        }
+    }
+    let topics: Vec<&str> = REDIS_ADV_SECTIONS.iter().map(|(n, _, _)| *n).collect();
+    format!(
+        "Unknown redis-adv topic: '{}'\nAvailable: {}",
+        query.trim(),
+        topics.join(", ")
+    )
+}
