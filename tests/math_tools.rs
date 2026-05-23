@@ -19,28 +19,29 @@ use hematite::tools::math_util::{
     go_ref_calc, graphql_ref_calc, grep_calc, grpc_ref_calc, hash_calc, headers_calc, health_calc,
     helm_ref_calc, http2_calc, http_adv_calc, http_calc, http_headers_calc, http_security_calc,
     http_status_calc, id_gen_calc, ip_calc, java_ref_calc, jinja_calc, jq_calc, js_ref_calc,
-    json_calc, json_path_calc, jwt_calc, k8s_adv_calc, k8s_ref_calc, k8s_security_calc,
-    kafka_adv_calc, kbd_calc, kubectl_calc, license_calc, linux_adv_calc, linux_containers_calc,
-    linux_kernel_calc, linux_net_calc, linux_perf_calc, linux_sys_calc, load_testing_calc,
-    lorem_calc, make_calc, makefile_calc, markdown_calc, matrix_calc, message_queue_calc,
-    mime_calc, ml_ref_calc, mobile_web_calc, monitoring_ref_calc, net_calc, network_ref_calc,
-    networking_adv_calc, nginx_calc, nginx_ref_calc, nix_ref_calc, node_ref_calc, npm_calc,
-    number_format, number_theory_calc, oauth2_flow_calc, oauth_ref_calc, observability_adv_calc,
-    observability_calc, oop_ref_calc, openapi_ref_calc, openssl_calc, otel_ref_calc, percent_calc,
-    perf_ref_calc, physics_calc, port_calc, postgres_calc, prob_calc, prom_ref_calc,
-    protobuf_ref_calc, protocols_ref_calc, python_adv_calc, python_data_calc, python_ref_calc,
-    react_ref_calc, redis_adv_calc, redis_ref_calc, regex_adv_calc, regex_calc, regex_engine_calc,
-    regex_patterns_calc, regex_ref_calc, regex_test_calc, regex_viz_calc, roman_calc,
-    rust_adv_calc, rust_async_calc, rust_embedded_calc, rust_macros_calc, rust_patterns_calc,
-    rust_ref_calc, search_ref_calc, security_ref_calc, security_scan_calc, security_tools_calc,
-    sed_calc, semver_calc, service_mesh_calc, set_calc, sort_viz, spark_calc, sql_adv_calc,
-    sql_fmt_calc, sql_ops_calc, sql_ref_calc, sql_tuning_calc, sql_window_calc, ssh_ref_calc,
-    ssl_calc, stats_calc, string_dist, svelte_ref_calc, systemd_adv_calc, systemd_calc, table_calc,
-    tar_calc, template_calc, terminal_tools_calc, terraform_adv_calc, terraform_calc,
-    testing_ref_calc, text_stats, timestamp_calc, tmux_calc, toml_calc, trig_calc,
-    ts_patterns_calc, ts_ref_calc, typescript_adv_calc, tz_calc, unicode_ref_calc, url_calc,
-    uuid_calc, validate_calc, vim_adv_calc, vim_calc, vue_ref_calc, wasm_ref_calc,
-    wasm_runtime_calc, web_apis_calc, web_perf_calc, xml_calc, yaml_calc, zig_ref_calc,
+    json_calc, json_path_calc, jvm_ref_calc, jwt_calc, k8s_adv_calc, k8s_ref_calc,
+    k8s_security_calc, kafka_adv_calc, kbd_calc, kubectl_calc, license_calc, linux_adv_calc,
+    linux_containers_calc, linux_kernel_calc, linux_net_calc, linux_perf_calc, linux_sys_calc,
+    load_testing_calc, lorem_calc, make_calc, makefile_calc, markdown_calc, matrix_calc,
+    message_queue_calc, mime_calc, ml_ref_calc, mobile_web_calc, monitoring_ref_calc, net_calc,
+    network_ref_calc, networking_adv_calc, nginx_calc, nginx_ref_calc, nix_ref_calc, node_ref_calc,
+    npm_calc, number_format, number_theory_calc, oauth2_flow_calc, oauth_ref_calc,
+    observability_adv_calc, observability_calc, oop_ref_calc, openapi_ref_calc, openssl_calc,
+    otel_ref_calc, percent_calc, perf_ref_calc, physics_calc, port_calc, postgres_calc,
+    powershell_adv_calc, prob_calc, prom_ref_calc, protobuf_ref_calc, protocols_ref_calc,
+    python_adv_calc, python_data_calc, python_ref_calc, react_ref_calc, redis_adv_calc,
+    redis_ref_calc, regex_adv_calc, regex_calc, regex_engine_calc, regex_patterns_calc,
+    regex_ref_calc, regex_test_calc, regex_viz_calc, roman_calc, rust_adv_calc, rust_async_calc,
+    rust_embedded_calc, rust_macros_calc, rust_patterns_calc, rust_ref_calc, scrum_ref_calc,
+    search_ref_calc, security_ref_calc, security_scan_calc, security_tools_calc, sed_calc,
+    semver_calc, service_mesh_calc, set_calc, sort_viz, spark_calc, sql_adv_calc, sql_fmt_calc,
+    sql_ops_calc, sql_ref_calc, sql_tuning_calc, sql_window_calc, ssh_ref_calc, ssl_calc,
+    stats_calc, string_dist, svelte_ref_calc, systemd_adv_calc, systemd_calc, table_calc, tar_calc,
+    template_calc, terminal_tools_calc, terraform_adv_calc, terraform_calc, testing_ref_calc,
+    text_stats, timestamp_calc, tmux_calc, toml_calc, trig_calc, ts_patterns_calc, ts_ref_calc,
+    typescript_adv_calc, tz_calc, unicode_ref_calc, url_calc, uuid_calc, valgrind_ref_calc,
+    validate_calc, vim_adv_calc, vim_calc, vue_ref_calc, wasm_ref_calc, wasm_runtime_calc,
+    web_apis_calc, web_perf_calc, xml_calc, yaml_calc, zig_ref_calc,
 };
 
 // ─── Cipher tests ────────────────────────────────────────────────────────────
@@ -36368,6 +36369,557 @@ mod bazel_ref_tests {
     #[test]
     fn bazel_ref_unknown_does_not_panic() {
         let out = bazel_ref_calc("!@#$");
+        assert!(!out.is_empty());
+    }
+}
+
+// ── Wave 51 tests: valgrind_ref, scrum_ref, powershell_adv, jvm_ref ──────────
+
+#[cfg(test)]
+mod valgrind_ref_tests {
+    use super::*;
+
+    #[test]
+    fn valgrind_ref_list_shows_topics() {
+        let out = valgrind_ref_calc("list");
+        assert!(out.contains("memcheck"), "expected 'memcheck' in: {out}");
+        assert!(out.contains("callgrind"), "expected 'callgrind' in: {out}");
+        assert!(out.contains("helgrind"), "expected 'helgrind' in: {out}");
+    }
+
+    #[test]
+    fn valgrind_ref_help_shows_usage() {
+        let out = valgrind_ref_calc("help");
+        assert!(out.contains("Usage"), "expected 'Usage' in: {out}");
+    }
+
+    #[test]
+    fn valgrind_ref_empty_shows_topics() {
+        let out = valgrind_ref_calc("");
+        assert!(out.contains("memcheck"), "expected 'memcheck' in: {out}");
+    }
+
+    #[test]
+    fn valgrind_ref_all_contains_all_sections() {
+        let out = valgrind_ref_calc("all");
+        assert!(out.contains("Memcheck"), "expected 'Memcheck' in: {out}");
+        assert!(out.contains("Callgrind"), "expected 'Callgrind' in: {out}");
+        assert!(out.contains("Massif"), "expected 'Massif' in: {out}");
+        assert!(out.contains("Helgrind"), "expected 'Helgrind' in: {out}");
+        assert!(
+            out.contains("AddressSanitizer"),
+            "expected 'AddressSanitizer' in: {out}"
+        );
+    }
+
+    #[test]
+    fn valgrind_ref_memcheck_topic() {
+        let out = valgrind_ref_calc("memcheck");
+        assert!(out.contains("Memcheck"), "expected 'Memcheck' in: {out}");
+        assert!(
+            out.contains("leak-check"),
+            "expected 'leak-check' in: {out}"
+        );
+    }
+
+    #[test]
+    fn valgrind_ref_memcheck_alias_leaks() {
+        let out = valgrind_ref_calc("leaks");
+        assert!(out.contains("Memcheck"), "expected 'Memcheck' in: {out}");
+    }
+
+    #[test]
+    fn valgrind_ref_callgrind_topic() {
+        let out = valgrind_ref_calc("callgrind");
+        assert!(out.contains("Callgrind"), "expected 'Callgrind' in: {out}");
+        assert!(
+            out.contains("kcachegrind"),
+            "expected 'kcachegrind' in: {out}"
+        );
+    }
+
+    #[test]
+    fn valgrind_ref_massif_topic() {
+        let out = valgrind_ref_calc("massif");
+        assert!(out.contains("Massif"), "expected 'Massif' in: {out}");
+        assert!(out.contains("ms_print"), "expected 'ms_print' in: {out}");
+    }
+
+    #[test]
+    fn valgrind_ref_helgrind_topic() {
+        let out = valgrind_ref_calc("helgrind");
+        assert!(out.contains("Helgrind"), "expected 'Helgrind' in: {out}");
+        assert!(out.contains("race"), "expected 'race' in: {out}");
+    }
+
+    #[test]
+    fn valgrind_ref_helgrind_alias_drd() {
+        let out = valgrind_ref_calc("drd");
+        assert!(out.contains("Helgrind"), "expected 'Helgrind' in: {out}");
+    }
+
+    #[test]
+    fn valgrind_ref_sgcheck_topic() {
+        let out = valgrind_ref_calc("sgcheck");
+        assert!(out.contains("SGCheck"), "expected 'SGCheck' in: {out}");
+    }
+
+    #[test]
+    fn valgrind_ref_asan_topic() {
+        let out = valgrind_ref_calc("asan");
+        assert!(
+            out.contains("AddressSanitizer"),
+            "expected 'AddressSanitizer' in: {out}"
+        );
+    }
+
+    #[test]
+    fn valgrind_ref_asan_alias_sanitizers() {
+        let out = valgrind_ref_calc("sanitizers");
+        assert!(
+            out.contains("AddressSanitizer"),
+            "expected 'AddressSanitizer' in: {out}"
+        );
+    }
+
+    #[test]
+    fn valgrind_ref_unknown_returns_error() {
+        let out = valgrind_ref_calc("nonexistent-valgrind-topic-xyz");
+        assert!(
+            out.contains("Unknown valgrind-ref topic"),
+            "expected error in: {out}"
+        );
+    }
+
+    #[test]
+    fn valgrind_ref_unknown_does_not_panic() {
+        let out = valgrind_ref_calc("!@#$");
+        assert!(!out.is_empty());
+    }
+}
+
+#[cfg(test)]
+mod scrum_ref_tests {
+    use super::*;
+
+    #[test]
+    fn scrum_ref_list_shows_topics() {
+        let out = scrum_ref_calc("list");
+        assert!(out.contains("roles"), "expected 'roles' in: {out}");
+        assert!(out.contains("events"), "expected 'events' in: {out}");
+        assert!(out.contains("artifacts"), "expected 'artifacts' in: {out}");
+    }
+
+    #[test]
+    fn scrum_ref_help_shows_usage() {
+        let out = scrum_ref_calc("help");
+        assert!(out.contains("Usage"), "expected 'Usage' in: {out}");
+    }
+
+    #[test]
+    fn scrum_ref_empty_shows_topics() {
+        let out = scrum_ref_calc("");
+        assert!(out.contains("roles"), "expected 'roles' in: {out}");
+    }
+
+    #[test]
+    fn scrum_ref_all_contains_all_sections() {
+        let out = scrum_ref_calc("all");
+        assert!(
+            out.contains("Scrum Roles"),
+            "expected 'Scrum Roles' in: {out}"
+        );
+        assert!(
+            out.contains("Scrum Events"),
+            "expected 'Scrum Events' in: {out}"
+        );
+        assert!(
+            out.contains("Scrum Artifacts"),
+            "expected 'Scrum Artifacts' in: {out}"
+        );
+        assert!(
+            out.contains("User Stories"),
+            "expected 'User Stories' in: {out}"
+        );
+        assert!(out.contains("Metrics"), "expected 'Metrics' in: {out}");
+    }
+
+    #[test]
+    fn scrum_ref_roles_topic() {
+        let out = scrum_ref_calc("roles");
+        assert!(
+            out.contains("Scrum Roles"),
+            "expected 'Scrum Roles' in: {out}"
+        );
+        assert!(
+            out.contains("Product Owner"),
+            "expected 'Product Owner' in: {out}"
+        );
+    }
+
+    #[test]
+    fn scrum_ref_roles_alias_po() {
+        let out = scrum_ref_calc("po");
+        assert!(
+            out.contains("Scrum Roles"),
+            "expected 'Scrum Roles' in: {out}"
+        );
+    }
+
+    #[test]
+    fn scrum_ref_events_topic() {
+        let out = scrum_ref_calc("events");
+        assert!(
+            out.contains("Scrum Events"),
+            "expected 'Scrum Events' in: {out}"
+        );
+        assert!(
+            out.contains("Sprint Planning"),
+            "expected 'Sprint Planning' in: {out}"
+        );
+    }
+
+    #[test]
+    fn scrum_ref_events_alias_sprint() {
+        let out = scrum_ref_calc("sprint");
+        assert!(
+            out.contains("Scrum Events"),
+            "expected 'Scrum Events' in: {out}"
+        );
+    }
+
+    #[test]
+    fn scrum_ref_events_alias_retrospective() {
+        let out = scrum_ref_calc("retrospective");
+        assert!(
+            out.contains("Scrum Events"),
+            "expected 'Scrum Events' in: {out}"
+        );
+    }
+
+    #[test]
+    fn scrum_ref_artifacts_topic() {
+        let out = scrum_ref_calc("artifacts");
+        assert!(
+            out.contains("Scrum Artifacts"),
+            "expected 'Scrum Artifacts' in: {out}"
+        );
+        assert!(
+            out.contains("Definition of Done"),
+            "expected 'Definition of Done' in: {out}"
+        );
+    }
+
+    #[test]
+    fn scrum_ref_backlog_topic() {
+        let out = scrum_ref_calc("backlog");
+        assert!(
+            out.contains("User Stories"),
+            "expected 'User Stories' in: {out}"
+        );
+    }
+
+    #[test]
+    fn scrum_ref_backlog_alias_user_stories() {
+        let out = scrum_ref_calc("user-stories");
+        assert!(
+            out.contains("User Stories"),
+            "expected 'User Stories' in: {out}"
+        );
+    }
+
+    #[test]
+    fn scrum_ref_metrics_topic() {
+        let out = scrum_ref_calc("metrics");
+        assert!(out.contains("Metrics"), "expected 'Metrics' in: {out}");
+        assert!(out.contains("Velocity"), "expected 'Velocity' in: {out}");
+    }
+
+    #[test]
+    fn scrum_ref_scaling_topic() {
+        let out = scrum_ref_calc("scaling");
+        assert!(out.contains("Nexus"), "expected 'Nexus' in: {out}");
+    }
+
+    #[test]
+    fn scrum_ref_scaling_alias_kanban() {
+        let out = scrum_ref_calc("kanban");
+        assert!(out.contains("Nexus"), "expected 'Nexus' in: {out}");
+    }
+
+    #[test]
+    fn scrum_ref_unknown_returns_error() {
+        let out = scrum_ref_calc("nonexistent-scrum-topic-xyz");
+        assert!(
+            out.contains("Unknown scrum-ref topic"),
+            "expected error in: {out}"
+        );
+    }
+
+    #[test]
+    fn scrum_ref_unknown_does_not_panic() {
+        let out = scrum_ref_calc("!@#$");
+        assert!(!out.is_empty());
+    }
+}
+
+#[cfg(test)]
+mod powershell_adv_tests {
+    use super::*;
+
+    #[test]
+    fn powershell_adv_list_shows_topics() {
+        let out = powershell_adv_calc("list");
+        assert!(out.contains("objects"), "expected 'objects' in: {out}");
+        assert!(out.contains("remoting"), "expected 'remoting' in: {out}");
+        assert!(out.contains("modules"), "expected 'modules' in: {out}");
+    }
+
+    #[test]
+    fn powershell_adv_help_shows_usage() {
+        let out = powershell_adv_calc("help");
+        assert!(out.contains("Usage"), "expected 'Usage' in: {out}");
+    }
+
+    #[test]
+    fn powershell_adv_empty_shows_topics() {
+        let out = powershell_adv_calc("");
+        assert!(out.contains("objects"), "expected 'objects' in: {out}");
+    }
+
+    #[test]
+    fn powershell_adv_all_contains_all_sections() {
+        let out = powershell_adv_calc("all");
+        assert!(out.contains("Pipeline"), "expected 'Pipeline' in: {out}");
+        assert!(out.contains("Scripting"), "expected 'Scripting' in: {out}");
+        assert!(out.contains("Remoting"), "expected 'Remoting' in: {out}");
+        assert!(out.contains("Modules"), "expected 'Modules' in: {out}");
+        assert!(out.contains("WinAPI"), "expected 'WinAPI' in: {out}");
+    }
+
+    #[test]
+    fn powershell_adv_objects_topic() {
+        let out = powershell_adv_calc("objects");
+        assert!(out.contains("Pipeline"), "expected 'Pipeline' in: {out}");
+        assert!(
+            out.contains("Select-Object"),
+            "expected 'Select-Object' in: {out}"
+        );
+    }
+
+    #[test]
+    fn powershell_adv_objects_alias_pipeline() {
+        let out = powershell_adv_calc("pipeline");
+        assert!(out.contains("Pipeline"), "expected 'Pipeline' in: {out}");
+    }
+
+    #[test]
+    fn powershell_adv_scripting_topic() {
+        let out = powershell_adv_calc("scripting");
+        assert!(out.contains("Scripting"), "expected 'Scripting' in: {out}");
+        assert!(
+            out.contains("CmdletBinding"),
+            "expected 'CmdletBinding' in: {out}"
+        );
+    }
+
+    #[test]
+    fn powershell_adv_scripting_alias_functions() {
+        let out = powershell_adv_calc("functions");
+        assert!(out.contains("Scripting"), "expected 'Scripting' in: {out}");
+    }
+
+    #[test]
+    fn powershell_adv_remoting_topic() {
+        let out = powershell_adv_calc("remoting");
+        assert!(out.contains("Remoting"), "expected 'Remoting' in: {out}");
+        assert!(
+            out.contains("Invoke-Command"),
+            "expected 'Invoke-Command' in: {out}"
+        );
+    }
+
+    #[test]
+    fn powershell_adv_remoting_alias_jobs() {
+        let out = powershell_adv_calc("jobs");
+        assert!(out.contains("Remoting"), "expected 'Remoting' in: {out}");
+    }
+
+    #[test]
+    fn powershell_adv_modules_topic() {
+        let out = powershell_adv_calc("modules");
+        assert!(out.contains("Modules"), "expected 'Modules' in: {out}");
+        assert!(out.contains("psm1"), "expected 'psm1' in: {out}");
+    }
+
+    #[test]
+    fn powershell_adv_regex_topic() {
+        let out = powershell_adv_calc("regex");
+        assert!(out.contains("Regex"), "expected 'Regex' in: {out}");
+    }
+
+    #[test]
+    fn powershell_adv_winapi_topic() {
+        let out = powershell_adv_calc("winapi");
+        assert!(out.contains("WinAPI"), "expected 'WinAPI' in: {out}");
+        assert!(out.contains("Add-Type"), "expected 'Add-Type' in: {out}");
+    }
+
+    #[test]
+    fn powershell_adv_winapi_alias_com() {
+        let out = powershell_adv_calc("com");
+        assert!(out.contains("WinAPI"), "expected 'WinAPI' in: {out}");
+    }
+
+    #[test]
+    fn powershell_adv_unknown_returns_error() {
+        let out = powershell_adv_calc("nonexistent-ps-topic-xyz");
+        assert!(
+            out.contains("Unknown powershell-adv topic"),
+            "expected error in: {out}"
+        );
+    }
+
+    #[test]
+    fn powershell_adv_unknown_does_not_panic() {
+        let out = powershell_adv_calc("!@#$");
+        assert!(!out.is_empty());
+    }
+}
+
+#[cfg(test)]
+mod jvm_ref_tests {
+    use super::*;
+
+    #[test]
+    fn jvm_ref_list_shows_topics() {
+        let out = jvm_ref_calc("list");
+        assert!(out.contains("memory"), "expected 'memory' in: {out}");
+        assert!(out.contains("gc"), "expected 'gc' in: {out}");
+        assert!(out.contains("profiling"), "expected 'profiling' in: {out}");
+    }
+
+    #[test]
+    fn jvm_ref_help_shows_usage() {
+        let out = jvm_ref_calc("help");
+        assert!(out.contains("Usage"), "expected 'Usage' in: {out}");
+    }
+
+    #[test]
+    fn jvm_ref_empty_shows_topics() {
+        let out = jvm_ref_calc("");
+        assert!(out.contains("memory"), "expected 'memory' in: {out}");
+    }
+
+    #[test]
+    fn jvm_ref_all_contains_all_sections() {
+        let out = jvm_ref_calc("all");
+        assert!(
+            out.contains("JVM Memory Model"),
+            "expected 'JVM Memory Model' in: {out}"
+        );
+        assert!(
+            out.contains("Garbage Collection"),
+            "expected 'Garbage Collection' in: {out}"
+        );
+        assert!(out.contains("JIT"), "expected 'JIT' in: {out}");
+        assert!(out.contains("Threading"), "expected 'Threading' in: {out}");
+        assert!(out.contains("Profiling"), "expected 'Profiling' in: {out}");
+    }
+
+    #[test]
+    fn jvm_ref_memory_topic() {
+        let out = jvm_ref_calc("memory");
+        assert!(
+            out.contains("JVM Memory Model"),
+            "expected 'JVM Memory Model' in: {out}"
+        );
+        assert!(out.contains("Metaspace"), "expected 'Metaspace' in: {out}");
+    }
+
+    #[test]
+    fn jvm_ref_memory_alias_heap() {
+        let out = jvm_ref_calc("heap");
+        assert!(
+            out.contains("JVM Memory Model"),
+            "expected 'JVM Memory Model' in: {out}"
+        );
+    }
+
+    #[test]
+    fn jvm_ref_gc_topic() {
+        let out = jvm_ref_calc("gc");
+        assert!(
+            out.contains("Garbage Collection"),
+            "expected 'Garbage Collection' in: {out}"
+        );
+        assert!(out.contains("G1GC"), "expected 'G1GC' in: {out}");
+    }
+
+    #[test]
+    fn jvm_ref_gc_alias_zgc() {
+        let out = jvm_ref_calc("zgc");
+        assert!(
+            out.contains("Garbage Collection"),
+            "expected 'Garbage Collection' in: {out}"
+        );
+    }
+
+    #[test]
+    fn jvm_ref_jit_topic() {
+        let out = jvm_ref_calc("jit");
+        assert!(out.contains("JIT"), "expected 'JIT' in: {out}");
+        assert!(out.contains("tiered"), "expected 'tiered' in: {out}");
+    }
+
+    #[test]
+    fn jvm_ref_threads_topic() {
+        let out = jvm_ref_calc("threads");
+        assert!(out.contains("Threading"), "expected 'Threading' in: {out}");
+        assert!(out.contains("jstack"), "expected 'jstack' in: {out}");
+    }
+
+    #[test]
+    fn jvm_ref_threads_alias_virtual_threads() {
+        let out = jvm_ref_calc("virtual-threads");
+        assert!(out.contains("Threading"), "expected 'Threading' in: {out}");
+    }
+
+    #[test]
+    fn jvm_ref_profiling_topic() {
+        let out = jvm_ref_calc("profiling");
+        assert!(out.contains("Profiling"), "expected 'Profiling' in: {out}");
+        assert!(out.contains("JFR"), "expected 'JFR' in: {out}");
+    }
+
+    #[test]
+    fn jvm_ref_profiling_alias_jfr() {
+        let out = jvm_ref_calc("jfr");
+        assert!(out.contains("Profiling"), "expected 'Profiling' in: {out}");
+    }
+
+    #[test]
+    fn jvm_ref_flags_topic() {
+        let out = jvm_ref_calc("flags");
+        assert!(out.contains("Flags"), "expected 'Flags' in: {out}");
+        assert!(
+            out.contains("PrintFlagsFinal"),
+            "expected 'PrintFlagsFinal' in: {out}"
+        );
+    }
+
+    #[test]
+    fn jvm_ref_unknown_returns_error() {
+        let out = jvm_ref_calc("nonexistent-jvm-topic-xyz");
+        assert!(
+            out.contains("Unknown jvm-ref topic"),
+            "expected error in: {out}"
+        );
+    }
+
+    #[test]
+    fn jvm_ref_unknown_does_not_panic() {
+        let out = jvm_ref_calc("!@#$");
         assert!(!out.is_empty());
     }
 }

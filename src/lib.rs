@@ -2646,6 +2646,38 @@ pub struct CliCockpit {
 
     #[arg(
         long,
+        help_heading = "Developer Toolkit",
+        value_name = "QUERY",
+        help = "Valgrind memory analysis reference — offline replacement for valgrind.org docs. Topics: memcheck, callgrind, massif, helgrind, sgcheck, asan. Aliases: leak-check, call-graph, heap-profiler, race-detection, sanitizers. Examples: hematite --valgrind-ref memcheck | hematite --valgrind-ref asan | hematite --valgrind-ref all"
+    )]
+    pub valgrind_ref: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Developer Toolkit",
+        value_name = "QUERY",
+        help = "Scrum/Agile reference card — offline replacement for scrumguides.org. Topics: roles, events, artifacts, backlog, metrics, scaling. Aliases: product-owner, sprint, sprint-planning, user-stories, velocity, nexus. Examples: hematite --scrum-ref events | hematite --scrum-ref backlog | hematite --scrum-ref all"
+    )]
+    pub scrum_ref: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Developer Toolkit",
+        value_name = "QUERY",
+        help = "PowerShell advanced scripting reference. Topics: objects, scripting, remoting, modules, regex, winapi. Aliases: ps-objects, pipeline, advanced-functions, ps-modules, ps-regex, com, cim. Examples: hematite --powershell-adv objects | hematite --powershell-adv remoting | hematite --powershell-adv all"
+    )]
+    pub powershell_adv: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Developer Toolkit",
+        value_name = "QUERY",
+        help = "JVM internals and tuning reference — offline replacement for oracle.com/jvm docs. Topics: memory, gc, jit, threads, profiling, flags. Aliases: jvm-memory, heap, g1gc, zgc, jfr, async-profiler, virtual-threads. Examples: hematite --jvm-ref gc | hematite --jvm-ref profiling | hematite --jvm-ref all"
+    )]
+    pub jvm_ref: Option<String>,
+
+    #[arg(
+        long,
         help_heading = "Math & Science",
         value_name = "QUERY",
         help = "Lorem ipsum generator — offline replacement for lipsum.com. Commands: (bare) or <N> = N paragraphs (default 1); words <N> = N words; sentences <N> = N sentences. Examples: hematite --lorem | hematite --lorem 3 | hematite --lorem 'words 50' | hematite --lorem 'sentences 5'"

@@ -1187,6 +1187,10 @@ mod tests {
             gdb_ref: None,
             cmake_ref: None,
             bazel_ref: None,
+            valgrind_ref: None,
+            scrum_ref: None,
+            powershell_adv: None,
+            jvm_ref: None,
             pdf_extract_helper: None,
             teleported_from: None,
         };

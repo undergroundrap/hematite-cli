@@ -74602,3 +74602,1181 @@ pub fn bazel_ref_calc(query: &str) -> String {
         topics.join(", ")
     )
 }
+
+// ── Wave 51: --valgrind-ref, --scrum-ref, --powershell-adv, --jvm-ref ─────────
+
+fn s_vg_memcheck() -> &'static str {
+    "Valgrind Memcheck (Memory Errors)\n\
+     ===================================\n\
+     // Run Memcheck (default tool)\n\
+     valgrind ./program\n\
+     valgrind --leak-check=full ./program\n\
+     valgrind --leak-check=full --show-leak-kinds=all ./program\n\
+     valgrind --leak-check=full --track-origins=yes ./program\n\
+     valgrind --error-exitcode=1 ./program   # non-zero exit on errors\n\
+     // Compile for best results\n\
+     gcc -g -O0 -o prog prog.c              # debug info, no optimization\n\
+     // Error types detected\n\
+     // Use of uninitialised memory: 'Conditional jump depends on uninitialised value'\n\
+     // Use after free: 'Invalid read/write of size N'\n\
+     // Heap buffer overrun: 'Invalid write of size N'\n\
+     // Double free: 'Invalid free() / delete / delete[] / realloc()'\n\
+     // Memory leak: 'N bytes in M blocks are definitely lost'\n\
+     // Leak kinds:\n\
+     //   definitely lost — pointer to heap block lost entirely\n\
+     //   indirectly lost — lost via lost pointer\n\
+     //   possibly lost  — pointer to interior of block\n\
+     //   still reachable — pointer exists at exit (not always a bug)\n\
+     // Suppression files\n\
+     valgrind --gen-suppressions=all ./program 2> suppressions.txt\n\
+     valgrind --suppressions=my.supp ./program\n\
+     // Output to file\n\
+     valgrind --log-file=valgrind.log ./program\n\
+     valgrind --xml=yes --xml-file=valgrind.xml ./program\n\
+     Ref: https://valgrind.org/docs/manual/mc-manual.html"
+}
+
+fn s_vg_callgrind() -> &'static str {
+    "Valgrind Callgrind (Call Graph Profiler)\n\
+     ==========================================\n\
+     // Run Callgrind\n\
+     valgrind --tool=callgrind ./program\n\
+     valgrind --tool=callgrind --callgrind-out-file=cg.out ./program\n\
+     // Control during run\n\
+     callgrind_control -i on              # enable instrumentation\n\
+     callgrind_control -i off             # disable (collect only hot path)\n\
+     callgrind_control -d                 # dump current profile\n\
+     callgrind_control -s                 # status\n\
+     // Annotate results\n\
+     callgrind_annotate callgrind.out.<pid>                # text report\n\
+     callgrind_annotate --auto=yes callgrind.out.<pid>     # with source\n\
+     // Visualize with KCachegrind\n\
+     kcachegrind callgrind.out.<pid>      # GUI (apt install kcachegrind)\n\
+     qcachegrind callgrind.out.<pid>      # Qt version (macOS/Windows)\n\
+     // Callgrind options\n\
+     --instr-atstart=no                   # start with instrumentation off\n\
+     --collect-jumps=yes                  # collect branch data\n\
+     --simulate-cache=yes                 # cache simulation\n\
+     --simulate-wb=yes                    # write-back simulation\n\
+     --cache-sim=yes                      # shorthand for cache simulation\n\
+     // Key metrics\n\
+     Ir  = instructions executed\n\
+     Dr  = data reads\n\
+     Dw  = data writes\n\
+     I1mr / D1mr / D1mw = L1 cache misses\n\
+     Ref: https://valgrind.org/docs/manual/cl-manual.html"
+}
+
+fn s_vg_massif() -> &'static str {
+    "Valgrind Massif (Heap Profiler)\n\
+     =================================\n\
+     // Run Massif\n\
+     valgrind --tool=massif ./program\n\
+     valgrind --tool=massif --pages-as-heap=yes ./program  # include mmap\n\
+     valgrind --tool=massif --heap=yes --stacks=yes ./program\n\
+     // Options\n\
+     --massif-out-file=massif.out.%p      # output file (%p = PID)\n\
+     --time-unit=ms                       # time in milliseconds\n\
+     --time-unit=B                        # time in bytes allocated\n\
+     --time-unit=i                        # time in instructions (default)\n\
+     --detailed-freq=10                   # detailed snapshot every 10 snapshots\n\
+     --max-snapshots=100                  # max number of snapshots\n\
+     --threshold=0.1                      # min % of total to show in tree\n\
+     // Visualize\n\
+     ms_print massif.out.<pid>            # text report\n\
+     ms_print massif.out.<pid> | head -50 # top of report\n\
+     massif-visualizer massif.out.<pid>   # GUI (apt install massif-visualizer)\n\
+     // Reading output\n\
+     // Peak snapshot = maximum heap usage\n\
+     // Snapshots show call tree → allocation source\n\
+     // 'total heap usage' at bottom = allocations + frees\n\
+     // DHAT (Dynamic Heap Analysis Tool — more detailed)\n\
+     valgrind --tool=dhat ./program\n\
+     # Open dhat-viewer (Rust tool or browser-based)\n\
+     Ref: https://valgrind.org/docs/manual/ms-manual.html"
+}
+
+fn s_vg_helgrind() -> &'static str {
+    "Valgrind Helgrind & DRD (Thread Analysis)\n\
+     ==========================================\n\
+     // Helgrind — detect race conditions and lock ordering\n\
+     valgrind --tool=helgrind ./program\n\
+     valgrind --tool=helgrind --history-level=full ./program\n\
+     // Helgrind detects:\n\
+     // - Data races: two threads access same memory without lock\n\
+     // - Mutex: lock ordering violations (potential deadlock)\n\
+     // - POSIX API misuse: unlocking unheld mutex, etc.\n\
+     // DRD — alternative race detector (lower memory usage)\n\
+     valgrind --tool=drd ./program\n\
+     valgrind --tool=drd --check-stack-var=yes ./program\n\
+     // DRD vs Helgrind\n\
+     // DRD: lower memory overhead, good for lock-free algorithms\n\
+     // Helgrind: better error messages, lock order detection\n\
+     // Suppress false positives\n\
+     valgrind --tool=helgrind --suppressions=pthread.supp ./program\n\
+     // Annotate code (Helgrind macros)\n\
+     #include <valgrind/helgrind.h>\n\
+     ANNOTATE_HAPPENS_BEFORE(addr);\n\
+     ANNOTATE_HAPPENS_AFTER(addr);\n\
+     ANNOTATE_BENIGN_RACE(addr, desc);\n\
+     // AddressSanitizer (faster alternative for races + memory)\n\
+     gcc -fsanitize=address -fsanitize=thread -g ./prog.c -o prog\n\
+     Ref: https://valgrind.org/docs/manual/hg-manual.html"
+}
+
+fn s_vg_sgcheck() -> &'static str {
+    "Valgrind SGCheck & Other Tools\n\
+     =================================\n\
+     // SGCheck — stack and global array overrun detector\n\
+     valgrind --tool=exp-sgcheck ./program\n\
+     // Detects: overrun of stack arrays and global arrays\n\
+     // Experimental — not in all Valgrind versions\n\
+     // BBV — Basic Block Vector (SimPoint profiling)\n\
+     valgrind --tool=exp-bbv ./program\n\
+     // Lackey — simple example tool\n\
+     valgrind --tool=lackey --trace-mem=yes ./program 2>&1 | head -100\n\
+     // None — fastest, runs program under Valgrind with no analysis\n\
+     valgrind --tool=none ./program       # baseline overhead measurement\n\
+     // Common flags for all tools\n\
+     --num-callers=20                     # stack depth in error reports\n\
+     --verbose                            # verbose output\n\
+     --quiet                              # suppress non-error messages\n\
+     --time-stamp=yes                     # timestamps in output\n\
+     --trace-children=yes                 # follow fork/exec\n\
+     --child-silent-after-fork=yes        # suppress child output\n\
+     --vgdb=yes                           # enable GDB integration\n\
+     --vgdb-stop-at=startup               # stop at startup for GDB\n\
+     # Attach GDB:\n\
+     # (gdb) target remote | vgdb\n\
+     // Performance impact\n\
+     memcheck:   10-50x slowdown\n\
+     callgrind:  10-50x slowdown\n\
+     massif:      5-10x slowdown\n\
+     helgrind:   10-100x slowdown\n\
+     drd:         5-40x slowdown\n\
+     Ref: https://valgrind.org/docs/manual/manual.html"
+}
+
+fn s_vg_asan() -> &'static str {
+    "AddressSanitizer / Sanitizers (Valgrind Alternatives)\n\
+     =======================================================\n\
+     // AddressSanitizer (ASan) — faster than Valgrind\n\
+     gcc -fsanitize=address -g -O1 -fno-omit-frame-pointer -o prog prog.c\n\
+     clang -fsanitize=address -g -o prog prog.c\n\
+     ./prog                              # reports errors to stderr\n\
+     // ASan detects: heap/stack/global buffer overflows, use-after-free,\n\
+     //   use-after-return, use-after-scope, double-free, memory leaks\n\
+     ASAN_OPTIONS=detect_leaks=1 ./prog  # enable leak detection\n\
+     ASAN_OPTIONS=abort_on_error=1 ./prog\n\
+     // UndefinedBehaviorSanitizer (UBSan)\n\
+     gcc -fsanitize=undefined -g -o prog prog.c\n\
+     gcc -fsanitize=undefined,address -g -o prog prog.c  # combine\n\
+     // ThreadSanitizer (TSan) — race detection (no pthread needed)\n\
+     gcc -fsanitize=thread -g -o prog prog.c\n\
+     ./prog\n\
+     // MemorySanitizer (MSan) — uninitialized memory (Clang only)\n\
+     clang -fsanitize=memory -fno-omit-frame-pointer -g -o prog prog.c\n\
+     // Rust sanitizers\n\
+     RUSTFLAGS=-Zsanitizer=address cargo +nightly test\n\
+     RUSTFLAGS=-Zsanitizer=thread  cargo +nightly test\n\
+     RUSTFLAGS=-Zsanitizer=leak    cargo +nightly test\n\
+     // Comparison\n\
+     ASan:       2x slowdown (vs 50x Valgrind)\n\
+     TSan:       5-15x slowdown\n\
+     Valgrind:  exact simulation, no recompile needed\n\
+     Ref: https://clang.llvm.org/docs/AddressSanitizer.html"
+}
+
+type ValgrindRefSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+const VALGRIND_REF_SECTIONS: &[ValgrindRefSection] = &[
+    (
+        "memcheck",
+        &[
+            "valgrind-memcheck",
+            "memory-errors",
+            "leak-check",
+            "use-after-free",
+            "leaks",
+        ],
+        s_vg_memcheck,
+    ),
+    (
+        "callgrind",
+        &[
+            "valgrind-callgrind",
+            "call-graph",
+            "profiler",
+            "kcachegrind",
+            "ir-count",
+        ],
+        s_vg_callgrind,
+    ),
+    (
+        "massif",
+        &[
+            "valgrind-massif",
+            "heap-profiler",
+            "ms-print",
+            "dhat",
+            "heap-profile",
+        ],
+        s_vg_massif,
+    ),
+    (
+        "helgrind",
+        &[
+            "valgrind-helgrind",
+            "drd",
+            "race-detection",
+            "data-race",
+            "thread-analysis",
+        ],
+        s_vg_helgrind,
+    ),
+    (
+        "sgcheck",
+        &[
+            "valgrind-sgcheck",
+            "stack-overrun",
+            "vgdb",
+            "bbv",
+            "tools-overview",
+        ],
+        s_vg_sgcheck,
+    ),
+    (
+        "asan",
+        &[
+            "addresssanitizer",
+            "sanitizers",
+            "ubsan",
+            "tsan",
+            "msan",
+            "rust-sanitizer",
+        ],
+        s_vg_asan,
+    ),
+];
+
+pub fn valgrind_ref_calc(query: &str) -> String {
+    let q = query.trim().to_lowercase();
+    if q.is_empty() || q == "list" || q == "help" {
+        let topics: Vec<&str> = VALGRIND_REF_SECTIONS.iter().map(|(n, _, _)| *n).collect();
+        return format!(
+            "valgrind-ref topics: {}\nUsage: hematite --valgrind-ref <topic>  (e.g. --valgrind-ref memcheck)",
+            topics.join(", ")
+        );
+    }
+    if q == "all" {
+        return VALGRIND_REF_SECTIONS
+            .iter()
+            .map(|(_, _, f)| f())
+            .collect::<Vec<_>>()
+            .join("\n\n");
+    }
+    for (name, aliases, func) in VALGRIND_REF_SECTIONS {
+        if q == *name || aliases.iter().any(|a| q == *a || q.contains(a)) {
+            return func().to_string();
+        }
+    }
+    let topics: Vec<&str> = VALGRIND_REF_SECTIONS.iter().map(|(n, _, _)| *n).collect();
+    format!(
+        "Unknown valgrind-ref topic: '{}'\nAvailable: {}",
+        query.trim(),
+        topics.join(", ")
+    )
+}
+
+// ── --scrum-ref ───────────────────────────────────────────────────────────────
+
+fn s_sc_roles() -> &'static str {
+    "Scrum Roles\n\
+     ===========\n\
+     // Product Owner (PO)\n\
+     - Owns the Product Backlog — single accountable person\n\
+     - Maximizes product value; prioritizes backlog items\n\
+     - Represents stakeholders and customers\n\
+     - The only person who can order the backlog\n\
+     - Decisions are respected by the whole organization\n\
+     // Scrum Master (SM)\n\
+     - Accountable for Scrum effectiveness\n\
+     - Coaches team on Scrum theory and practices\n\
+     - Helps remove impediments\n\
+     - Facilitates Scrum events as needed\n\
+     - Serves the organization, PO, and Developers\n\
+     // Developers (The Dev Team)\n\
+     - Cross-functional, self-managing\n\
+     - Typically 3-9 people (no sub-teams)\n\
+     - Collectively responsible for creating the Increment\n\
+     - Creates and owns the Sprint Backlog\n\
+     - Ensures quality via Definition of Done\n\
+     // Key principle: No hierarchy within the Scrum Team\n\
+     // Scrum Team is small (10 or fewer people)\n\
+     // Scrum Guide 2020: 'Developers' replaces 'Development Team'\n\
+     Ref: https://scrumguides.org/scrum-guide.html"
+}
+
+fn s_sc_events() -> &'static str {
+    "Scrum Events\n\
+     ============\n\
+     // Sprint — the heartbeat (1-4 weeks, fixed length)\n\
+     - No changes that endanger Sprint Goal\n\
+     - Quality does not decrease\n\
+     - Product Backlog refined as needed\n\
+     - Scope may be clarified with PO\n\
+     // Sprint Planning (max 8h for 1-month Sprint)\n\
+     Topic 1: Why is this Sprint valuable? → Sprint Goal\n\
+     Topic 2: What can be Done this Sprint? → select backlog items\n\
+     Topic 3: How will chosen work get done? → plan the work\n\
+     // Daily Scrum (15 min, same time, same place)\n\
+     - Developers only (SM/PO may attend as observers)\n\
+     - Inspect progress toward Sprint Goal\n\
+     - Adapt Sprint Backlog as necessary\n\
+     - Not a status meeting — an inspect-and-adapt event\n\
+     // Sprint Review (max 4h for 1-month Sprint)\n\
+     - Inspect the Increment and adapt Product Backlog\n\
+     - Stakeholders attend; collaborative working session\n\
+     - Review what was done and what changed\n\
+     // Sprint Retrospective (max 3h for 1-month Sprint)\n\
+     - How did it go with people, process, tools?\n\
+     - What went well? What needs improvement?\n\
+     - At least one high-priority improvement in next Sprint\n\
+     Ref: https://scrumguides.org/scrum-guide.html#events"
+}
+
+fn s_sc_artifacts() -> &'static str {
+    "Scrum Artifacts\n\
+     ================\n\
+     // Product Backlog\n\
+     - Single source of work for the Scrum Team\n\
+     - Ordered list of what is needed to improve the product\n\
+     - Commitment: Product Goal (long-term objective)\n\
+     - Refined continuously: add detail, estimates, order\n\
+     - Items at top are more detailed ('ready')\n\
+     // Sprint Backlog\n\
+     - Sprint Goal + selected Product Backlog items + plan to deliver\n\
+     - Owned and updated by Developers throughout Sprint\n\
+     - Commitment: Sprint Goal (single objective for the Sprint)\n\
+     - Made visible — sprint board or burndown chart\n\
+     // Increment\n\
+     - Concrete stepping stone toward the Product Goal\n\
+     - Each Increment is additive to all prior Increments\n\
+     - Must be usable (meet Definition of Done) at Sprint end\n\
+     - Multiple Increments may be created in a Sprint\n\
+     - Commitment: Definition of Done (DoD)\n\
+     // Definition of Done (DoD)\n\
+     - Formal description of the state of a 'done' Increment\n\
+     - Creates transparency; everyone knows what done means\n\
+     - If not meeting DoD → not released, not in Sprint Review\n\
+     - Example DoD items: code reviewed, tests pass,\n\
+       documentation updated, security scanned, deployed to staging\n\
+     Ref: https://scrumguides.org/scrum-guide.html#artifacts"
+}
+
+fn s_sc_backlog() -> &'static str {
+    "Backlog & User Stories\n\
+     =======================\n\
+     // User Story format\n\
+     As a <type of user>,\n\
+     I want <some goal>\n\
+     so that <some reason>.\n\
+     // Acceptance Criteria (Given/When/Then)\n\
+     Given <context>\n\
+     When <action>\n\
+     Then <expected outcome>\n\
+     // Story Point Estimation\n\
+     - Fibonacci scale: 1, 2, 3, 5, 8, 13, 21 (or T-shirt: XS-XL)\n\
+     - Points = relative effort, not hours\n\
+     - Planning Poker: each dev reveals card simultaneously\n\
+     - Discuss outliers; re-vote if needed\n\
+     // INVEST criteria for good stories\n\
+     I  — Independent (can be delivered alone)\n\
+     N  — Negotiable (details can change)\n\
+     V  — Valuable (delivers value to user)\n\
+     E  — Estimable (team can size it)\n\
+     S  — Small (fits in a sprint)\n\
+     T  — Testable (has clear acceptance criteria)\n\
+     // Backlog Refinement (not an official Scrum event)\n\
+     - Ongoing activity, ~10% of sprint capacity\n\
+     - Break down large items (epics → stories)\n\
+     - Add acceptance criteria\n\
+     - Estimate / re-estimate\n\
+     // Epic → Feature → Story → Task → Subtask hierarchy\n\
+     Ref: https://www.mountaingoatsoftware.com/agile/user-stories"
+}
+
+fn s_sc_metrics() -> &'static str {
+    "Scrum Metrics & Reporting\n\
+     ==========================\n\
+     // Velocity\n\
+     - Story points completed per sprint (team-specific metric)\n\
+     - Average last 3-5 sprints for capacity planning\n\
+     - Use for forecasting, not performance evaluation\n\
+     - Velocity drops after team changes, tech debt, illness\n\
+     // Burndown Chart (Sprint)\n\
+     - X-axis: sprint days; Y-axis: remaining story points\n\
+     - Ideal line: straight diagonal from total to zero\n\
+     - Actual line below ideal = ahead of plan\n\
+     - Actual line above ideal = behind plan\n\
+     // Burnup Chart (Release)\n\
+     - Shows work done vs total scope over time\n\
+     - Better than burndown for scope changes\n\
+     // Cumulative Flow Diagram (CFD)\n\
+     - Bands: Backlog / In Progress / Review / Done\n\
+     - Width of 'In Progress' band = WIP (want it narrow)\n\
+     - Cycle time = horizontal distance in Done band\n\
+     // Lead Time vs Cycle Time\n\
+     Lead time:  customer request → delivery\n\
+     Cycle time: work started → delivery\n\
+     // DORA Metrics (DevOps Research)\n\
+     Deployment frequency:    how often to prod\n\
+     Lead time for changes:   commit → prod\n\
+     Change failure rate:     % deployments causing incidents\n\
+     Time to restore service: mean time to recovery (MTTR)\n\
+     Ref: https://www.atlassian.com/agile/scrum/metrics"
+}
+
+fn s_sc_scaling() -> &'static str {
+    "Scrum Scaling: SAFe, LeSS, Nexus\n\
+     ==================================\n\
+     // Nexus (from Scrum.org — for 3-9 Scrum Teams)\n\
+     - Nexus Integration Team (NIT): subset of team members\n\
+     - Nexus Sprint: all teams, one Sprint Goal, one Increment\n\
+     - Nexus events: Nexus Sprint Planning, Nexus Daily Scrum,\n\
+       Nexus Sprint Review, Nexus Sprint Retrospective\n\
+     - Key focus: resolving cross-team dependencies\n\
+     // LeSS (Large-Scale Scrum)\n\
+     - LeSS: 2-8 teams, one Product Owner, one Product Backlog\n\
+     - LeSS Huge: 8+ teams, Area Product Owners\n\
+     - One Sprint Review for all teams\n\
+     - Feature teams (not component teams)\n\
+     // SAFe (Scaled Agile Framework)\n\
+     - PI Planning: 8-12 week Program Increment, 2-day event\n\
+     - ART (Agile Release Train): 50-125 people\n\
+     - Hierarchy: Portfolio → Large Solution → Program → Team\n\
+     - More prescriptive, enterprise-focused\n\
+     // Kanban (compare/complement to Scrum)\n\
+     - No sprints — continuous flow\n\
+     - WIP limits on each column\n\
+     - Pull-based: pull new work when capacity exists\n\
+     - Key metrics: throughput, cycle time, WIP\n\
+     - Scrumban: hybrid (sprints + WIP limits)\n\
+     Ref: https://www.scrum.org/resources/scaling-scrum"
+}
+
+type ScrumRefSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+const SCRUM_REF_SECTIONS: &[ScrumRefSection] = &[
+    (
+        "roles",
+        &[
+            "scrum-roles",
+            "product-owner",
+            "scrum-master",
+            "developers",
+            "po",
+            "sm",
+        ],
+        s_sc_roles,
+    ),
+    (
+        "events",
+        &[
+            "scrum-events",
+            "sprint",
+            "sprint-planning",
+            "daily-scrum",
+            "retrospective",
+            "review",
+        ],
+        s_sc_events,
+    ),
+    (
+        "artifacts",
+        &[
+            "scrum-artifacts",
+            "product-backlog",
+            "sprint-backlog",
+            "increment",
+            "dod",
+        ],
+        s_sc_artifacts,
+    ),
+    (
+        "backlog",
+        &[
+            "user-stories",
+            "story-points",
+            "planning-poker",
+            "invest",
+            "acceptance-criteria",
+            "refinement",
+        ],
+        s_sc_backlog,
+    ),
+    (
+        "metrics",
+        &[
+            "scrum-metrics",
+            "velocity",
+            "burndown",
+            "burnup",
+            "dora",
+            "cycle-time",
+            "lead-time",
+        ],
+        s_sc_metrics,
+    ),
+    (
+        "scaling",
+        &[
+            "scaled-scrum",
+            "nexus",
+            "less",
+            "safe",
+            "kanban",
+            "scrumban",
+            "pi-planning",
+        ],
+        s_sc_scaling,
+    ),
+];
+
+pub fn scrum_ref_calc(query: &str) -> String {
+    let q = query.trim().to_lowercase();
+    if q.is_empty() || q == "list" || q == "help" {
+        let topics: Vec<&str> = SCRUM_REF_SECTIONS.iter().map(|(n, _, _)| *n).collect();
+        return format!(
+            "scrum-ref topics: {}\nUsage: hematite --scrum-ref <topic>  (e.g. --scrum-ref events)",
+            topics.join(", ")
+        );
+    }
+    if q == "all" {
+        return SCRUM_REF_SECTIONS
+            .iter()
+            .map(|(_, _, f)| f())
+            .collect::<Vec<_>>()
+            .join("\n\n");
+    }
+    for (name, aliases, func) in SCRUM_REF_SECTIONS {
+        if q == *name || aliases.iter().any(|a| q == *a || q.contains(a)) {
+            return func().to_string();
+        }
+    }
+    let topics: Vec<&str> = SCRUM_REF_SECTIONS.iter().map(|(n, _, _)| *n).collect();
+    format!(
+        "Unknown scrum-ref topic: '{}'\nAvailable: {}",
+        query.trim(),
+        topics.join(", ")
+    )
+}
+
+// ── --powershell-adv ──────────────────────────────────────────────────────────
+
+fn s_pw_objects() -> &'static str {
+    "PowerShell Objects & Pipeline\n\
+     ==============================\n\
+     // Everything is an object\n\
+     Get-Process | Get-Member               # show all properties/methods\n\
+     Get-Process | Select-Object Name, CPU, WorkingSet\n\
+     Get-Process | Where-Object { $_.CPU -gt 10 }\n\
+     Get-Process | Sort-Object CPU -Descending | Select-Object -First 10\n\
+     Get-Process | ForEach-Object { $_.Kill() }  # call method on each\n\
+     // Property access\n\
+     $proc = Get-Process -Name chrome\n\
+     $proc.Id; $proc.Name; $proc.WorkingSet64\n\
+     // Measure\n\
+     Get-ChildItem | Measure-Object Length -Sum -Average -Maximum\n\
+     1..100 | Measure-Object -Sum             # sum 1 to 100\n\
+     // Group\n\
+     Get-Process | Group-Object Company | Sort-Object Count -Descending\n\
+     // Calculated properties\n\
+     Get-Process | Select-Object Name, @{N='MB';E={[math]::Round($_.WS/1MB,1)}}\n\
+     // Format-List / Format-Table / Format-Wide\n\
+     Get-Process | Format-List *              # all properties, list view\n\
+     Get-Process | Format-Table -AutoSize     # table, auto column width\n\
+     Get-Process | Out-GridView               # GUI grid (Windows)\n\
+     // Export\n\
+     Get-Process | Export-Csv procs.csv -NoTypeInformation\n\
+     Get-Process | ConvertTo-Json | Out-File procs.json\n\
+     Ref: https://learn.microsoft.com/en-us/powershell/scripting/learn/ps101/04-pipelines"
+}
+
+fn s_pw_scripting() -> &'static str {
+    "PowerShell Scripting Patterns\n\
+     ==============================\n\
+     // Functions\n\
+     function Get-Greeting {\n\
+         param(\n\
+             [Parameter(Mandatory)][string]$Name,\n\
+             [string]$Greeting = 'Hello'\n\
+         )\n\
+         \"$Greeting, $Name!\"\n\
+     }\n\
+     Get-Greeting -Name 'World'\n\
+     Get-Greeting 'World' 'Hi'             # positional\n\
+     // Advanced functions (CmdletBinding)\n\
+     function Invoke-MyCmd {\n\
+         [CmdletBinding(SupportsShouldProcess)]\n\
+         param([string]$Path)\n\
+         if ($PSCmdlet.ShouldProcess($Path, 'Delete')) {\n\
+             Remove-Item $Path\n\
+         }\n\
+     }\n\
+     Invoke-MyCmd -Path file.txt -WhatIf  # dry-run\n\
+     // Error handling\n\
+     try {\n\
+         Get-Item nonexistent -ErrorAction Stop\n\
+     } catch [System.IO.FileNotFoundException] {\n\
+         Write-Error \"File not found: $_\"\n\
+     } catch {\n\
+         Write-Error \"Unexpected error: $_\"\n\
+     } finally {\n\
+         Write-Host 'Cleanup'\n\
+     }\n\
+     $ErrorActionPreference = 'Stop'      # make all errors terminating\n\
+     // Common parameters: -Verbose, -Debug, -WhatIf, -Confirm\n\
+     Write-Verbose 'Detailed info'        # shown with -Verbose\n\
+     Write-Debug 'Debug info'             # shown with -Debug\n\
+     Ref: https://learn.microsoft.com/en-us/powershell/scripting/developer/cmdlet/cmdlet-overview"
+}
+
+fn s_pw_remoting() -> &'static str {
+    "PowerShell Remoting & Jobs\n\
+     ===========================\n\
+     // PS Remoting (WinRM)\n\
+     Enable-PSRemoting -Force             # enable on target\n\
+     Enter-PSSession -ComputerName server1         # interactive\n\
+     Invoke-Command -ComputerName server1 -ScriptBlock { Get-Process }\n\
+     Invoke-Command -ComputerName s1,s2,s3 -ScriptBlock { hostname }\n\
+     // Sessions (reuse connection)\n\
+     $s = New-PSSession -ComputerName server1\n\
+     Invoke-Command -Session $s -ScriptBlock { ... }\n\
+     Copy-Item -Path ./file.ps1 -Destination C:\\ -ToSession $s\n\
+     Remove-PSSession $s\n\
+     // SSH remoting (cross-platform)\n\
+     Enter-PSSession -HostName ubuntu01 -UserName admin\n\
+     Invoke-Command -HostName ubuntu01 -UserName admin -ScriptBlock { uname -a }\n\
+     // Background jobs\n\
+     $job = Start-Job -ScriptBlock { Start-Sleep 5; Get-Process }\n\
+     Get-Job\n\
+     Wait-Job $job\n\
+     Receive-Job $job                      # get results\n\
+     Remove-Job $job\n\
+     // Parallel execution (PS 7+)\n\
+     1..10 | ForEach-Object -Parallel { Write-Host \"$_\"; Start-Sleep 1 } -ThrottleLimit 5\n\
+     // Workflow (deprecated, use jobs or parallel)\n\
+     // Scheduled jobs\n\
+     $trigger = New-JobTrigger -Daily -At '3am'\n\
+     Register-ScheduledJob -Name 'DailyClean' -ScriptBlock { ... } -Trigger $trigger\n\
+     Ref: https://learn.microsoft.com/en-us/powershell/scripting/learn/remoting/running-remote-commands"
+}
+
+fn s_pw_modules() -> &'static str {
+    "PowerShell Modules & Classes\n\
+     =============================\n\
+     // Module structure\n\
+     MyModule/\n\
+       MyModule.psm1      # module script\n\
+       MyModule.psd1      # module manifest\n\
+       Public/            # exported functions\n\
+       Private/           # internal functions\n\
+     // MyModule.psm1\n\
+     Get-ChildItem $PSScriptRoot/Public/*.ps1 | ForEach-Object { . $_ }\n\
+     Export-ModuleMember -Function * -Alias *\n\
+     // MyModule.psd1 (manifest)\n\
+     @{\n\
+         ModuleVersion = '1.0.0'\n\
+         RootModule = 'MyModule.psm1'\n\
+         FunctionsToExport = @('Get-Thing', 'Set-Thing')\n\
+         RequiredModules = @('Az.Accounts')\n\
+     }\n\
+     // Module commands\n\
+     Import-Module MyModule\n\
+     Get-Module MyModule\n\
+     Get-Command -Module MyModule\n\
+     Update-Module MyModule\n\
+     Install-Module MyModule -Scope CurrentUser\n\
+     Publish-Module -Name MyModule -NuGetApiKey $key\n\
+     // PS Classes (PS 5+)\n\
+     class Animal {\n\
+         [string]$Name\n\
+         Animal([string]$n) { $this.Name = $n }\n\
+         [string] Speak() { return \"...\" }\n\
+     }\n\
+     class Dog : Animal {\n\
+         [string] Speak() { return \"Woof!\" }\n\
+     }\n\
+     $d = [Dog]::new('Rex'); $d.Speak()\n\
+     Ref: https://learn.microsoft.com/en-us/powershell/scripting/developer/module/writing-a-windows-powershell-module"
+}
+
+fn s_pw_regex() -> &'static str {
+    "PowerShell Regex & String Processing\n\
+     ======================================\n\
+     // Regex matching\n\
+     'hello world' -match 'w(or)ld'       # true; $Matches[1] = 'or'\n\
+     'hello' -notmatch '^\\d'             # true\n\
+     'abc123' -replace '\\d+', 'NUM'      # 'abcNUM'\n\
+     [regex]::Matches('a1b2c3', '\\d') | ForEach-Object { $_.Value }\n\
+     // String operators\n\
+     'abc' -like 'a*'                     # wildcard match (true)\n\
+     'abc' -eq 'ABC'                      # case-insensitive by default (true)\n\
+     'abc' -ceq 'ABC'                     # case-sensitive (false)\n\
+     'abc' -in @('abc', 'def')            # membership\n\
+     // String methods\n\
+     'Hello World'.ToUpper()\n\
+     'Hello World'.Split(' ')\n\
+     'Hello World'.Replace('World', 'PS')\n\
+     'Hello World'.StartsWith('Hello')\n\
+     '  trim me  '.Trim()\n\
+     // Here-strings\n\
+     $text = @\"\n\
+     Line 1\n\
+     Line 2 with $var interpolation\n\
+     \"@\n\
+     $literal = @'\n\
+     No $interpolation here\n\
+     '@\n\
+     // String formatting\n\
+     'Name: {0}, Age: {1}' -f 'Alice', 30  # -f operator\n\
+     [string]::Format('Pi = {0:F4}', [Math]::PI)  # 3.1416\n\
+     '{0:N0}' -f 1234567                  # '1,234,567'\n\
+     Ref: https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_regular_expressions"
+}
+
+fn s_pw_winapi() -> &'static str {
+    "PowerShell WinAPI & COM\n\
+     ========================\n\
+     // .NET interop\n\
+     [System.Net.Dns]::GetHostEntry('google.com')\n\
+     [System.IO.Path]::Combine('C:\\', 'Users', 'file.txt')\n\
+     [System.Math]::Round(3.14159, 2)\n\
+     Add-Type -AssemblyName System.Windows.Forms\n\
+     [System.Windows.Forms.MessageBox]::Show('Hello')\n\
+     // P/Invoke (call Win32 API)\n\
+     Add-Type @\"\n\
+     using System;\n\
+     using System.Runtime.InteropServices;\n\
+     public class WinAPI {\n\
+         [DllImport(\"user32.dll\")]\n\
+         public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);\n\
+     }\n\
+     \"@\n\
+     $hwnd = (Get-Process notepad).MainWindowHandle\n\
+     [WinAPI]::ShowWindow($hwnd, 6)       # 6 = minimize\n\
+     // COM objects\n\
+     $excel = New-Object -ComObject Excel.Application\n\
+     $excel.Visible = $true\n\
+     $wb = $excel.Workbooks.Add()\n\
+     $ws = $wb.Worksheets.Item(1)\n\
+     $ws.Cells.Item(1,1) = 'Hello'\n\
+     $wb.SaveAs('C:\\test.xlsx')\n\
+     $excel.Quit()\n\
+     [System.Runtime.InteropServices.Marshal]::ReleaseComObject($excel)\n\
+     // WMI / CIM\n\
+     Get-CimInstance -ClassName Win32_OperatingSystem\n\
+     Get-CimInstance -ClassName Win32_Process | Where-Object Name -eq 'chrome.exe'\n\
+     Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{CommandLine='notepad.exe'}\n\
+     Ref: https://learn.microsoft.com/en-us/powershell/scripting/learn/deep-dives/add-credentials-to-functions"
+}
+
+type PowerShellAdvSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+const POWERSHELL_ADV_SECTIONS: &[PowerShellAdvSection] = &[
+    (
+        "objects",
+        &[
+            "ps-objects",
+            "pipeline",
+            "select-object",
+            "where-object",
+            "foreach-object",
+            "measure",
+        ],
+        s_pw_objects,
+    ),
+    (
+        "scripting",
+        &[
+            "ps-scripting",
+            "functions",
+            "advanced-functions",
+            "error-handling",
+            "try-catch",
+        ],
+        s_pw_scripting,
+    ),
+    (
+        "remoting",
+        &[
+            "ps-remoting",
+            "winrm",
+            "invoke-command",
+            "pssession",
+            "jobs",
+            "parallel",
+        ],
+        s_pw_remoting,
+    ),
+    (
+        "modules",
+        &[
+            "ps-modules",
+            "psm1",
+            "psd1",
+            "classes",
+            "export-module",
+            "install-module",
+        ],
+        s_pw_modules,
+    ),
+    (
+        "regex",
+        &[
+            "ps-regex",
+            "string",
+            "-match",
+            "-replace",
+            "-like",
+            "here-string",
+            "format",
+        ],
+        s_pw_regex,
+    ),
+    (
+        "winapi",
+        &[
+            "ps-winapi",
+            "com",
+            "pinvoke",
+            "add-type",
+            "wmi",
+            "cim",
+            "dotnet",
+        ],
+        s_pw_winapi,
+    ),
+];
+
+pub fn powershell_adv_calc(query: &str) -> String {
+    let q = query.trim().to_lowercase();
+    if q.is_empty() || q == "list" || q == "help" {
+        let topics: Vec<&str> = POWERSHELL_ADV_SECTIONS.iter().map(|(n, _, _)| *n).collect();
+        return format!(
+            "powershell-adv topics: {}\nUsage: hematite --powershell-adv <topic>  (e.g. --powershell-adv objects)",
+            topics.join(", ")
+        );
+    }
+    if q == "all" {
+        return POWERSHELL_ADV_SECTIONS
+            .iter()
+            .map(|(_, _, f)| f())
+            .collect::<Vec<_>>()
+            .join("\n\n");
+    }
+    for (name, aliases, func) in POWERSHELL_ADV_SECTIONS {
+        if q == *name || aliases.iter().any(|a| q == *a || q.contains(a)) {
+            return func().to_string();
+        }
+    }
+    let topics: Vec<&str> = POWERSHELL_ADV_SECTIONS.iter().map(|(n, _, _)| *n).collect();
+    format!(
+        "Unknown powershell-adv topic: '{}'\nAvailable: {}",
+        query.trim(),
+        topics.join(", ")
+    )
+}
+
+// ── --jvm-ref ─────────────────────────────────────────────────────────────────
+
+fn s_jv_memory() -> &'static str {
+    "JVM Memory Model\n\
+     ================\n\
+     // Heap regions (G1GC default in Java 9+)\n\
+     Young Generation (Eden + Survivor S0/S1):\n\
+       Eden:       new objects allocated here\n\
+       Survivor:   objects that survive minor GC\n\
+       Minor GC:   fast; stops all threads (stop-the-world)\n\
+     Old Generation (Tenured):\n\
+       Objects that survived enough minor GCs (threshold)\n\
+       Major/Full GC: slower; may cause long pauses\n\
+     // Non-heap\n\
+     Metaspace:    class metadata (replaces PermGen in Java 8+)\n\
+     Code Cache:   JIT-compiled native code\n\
+     Thread Stacks: each thread gets its own stack (-Xss)\n\
+     // Key JVM flags\n\
+     -Xms512m            # initial heap size\n\
+     -Xmx4g              # max heap size\n\
+     -Xss512k            # thread stack size\n\
+     -XX:MetaspaceSize=128m\n\
+     -XX:MaxMetaspaceSize=512m\n\
+     -XX:NewRatio=3       # old:young ratio (3:1)\n\
+     -XX:SurvivorRatio=8  # eden:survivor ratio (8:1)\n\
+     // Monitor heap\n\
+     jmap -heap <pid>               # heap summary\n\
+     jstat -gc <pid> 1000           # GC stats every 1s\n\
+     jconsole / jvisualvm           # GUI monitoring\n\
+     Ref: https://docs.oracle.com/javase/specs/jvms/se21/html/jvms-2.html"
+}
+
+fn s_jv_gc() -> &'static str {
+    "JVM Garbage Collection\n\
+     =======================\n\
+     // GC algorithms\n\
+     // G1GC (default Java 9+) — low-pause, large heaps\n\
+     -XX:+UseG1GC\n\
+     -XX:MaxGCPauseMillis=200        # target max pause\n\
+     -XX:G1HeapRegionSize=16m        # region size (1-32m)\n\
+     // ZGC (Java 15+ production) — sub-millisecond pauses\n\
+     -XX:+UseZGC\n\
+     -XX:SoftMaxHeapSize=3g          # target heap usage\n\
+     // Shenandoah (OpenJDK) — concurrent, low-pause\n\
+     -XX:+UseShenandoahGC\n\
+     // ParallelGC — throughput-optimized\n\
+     -XX:+UseParallelGC\n\
+     -XX:ParallelGCThreads=8\n\
+     // CMS (deprecated, removed Java 14)\n\
+     // Serial GC — single-threaded, for small heaps\n\
+     -XX:+UseSerialGC\n\
+     // GC logging (Java 9+)\n\
+     -Xlog:gc*:file=gc.log:time,uptime,level,tags\n\
+     -Xlog:gc:stdout                 # to stdout\n\
+     // GC tuning\n\
+     -XX:+PrintGCDetails             # verbose GC output (Java 8)\n\
+     -verbose:gc                     # basic GC log\n\
+     // Analyze GC logs\n\
+     # GCViewer: https://github.com/chewiebug/GCViewer\n\
+     # GCEasy: https://gceasy.io\n\
+     Ref: https://docs.oracle.com/en/java/javase/21/gctuning/"
+}
+
+fn s_jv_jit() -> &'static str {
+    "JVM JIT Compilation\n\
+     ====================\n\
+     // JIT tiers (C1 + C2 = tiered compilation)\n\
+     Level 0: Interpreter\n\
+     Level 1: C1 compiled (no profiling)\n\
+     Level 2: C1 compiled (limited profiling)\n\
+     Level 3: C1 compiled (full profiling)\n\
+     Level 4: C2 compiled (optimized)\n\
+     // Flags\n\
+     -XX:+TieredCompilation          # enabled by default Java 8+\n\
+     -XX:CompileThreshold=10000      # invocations before JIT (old model)\n\
+     -XX:-TieredCompilation          # disable tiered (C2 only)\n\
+     -Xint                           # interpreter only (no JIT)\n\
+     -XX:+PrintCompilation           # log JIT compilations\n\
+     // Deoptimization\n\
+     // JIT makes optimistic assumptions; if wrong → deoptimize\n\
+     // Common causes: class loading, polymorphism, uncommon traps\n\
+     -XX:+PrintDeoptimization        # log deoptimizations\n\
+     // Code cache\n\
+     -XX:InitialCodeCacheSize=32m\n\
+     -XX:ReservedCodeCacheSize=256m  # max code cache\n\
+     -XX:+UseCodeCacheFlushing       # enable flush when full\n\
+     // JIT inspection tools\n\
+     jitwatch                        # GUI JIT log analyzer\n\
+     -XX:+PrintInlining              # show inlining decisions\n\
+     -XX:MaxInlineSize=35            # max bytecodes to inline\n\
+     -XX:FreqInlineSize=325          # always-inline threshold\n\
+     Ref: https://wiki.openjdk.org/display/HotSpot/PerformanceTechniques"
+}
+
+fn s_jv_threads() -> &'static str {
+    "JVM Threading & Concurrency\n\
+     ============================\n\
+     // Thread dumps\n\
+     jstack <pid>                     # dump all thread stacks\n\
+     kill -3 <pid>                    # SIGQUIT (Unix) — same effect\n\
+     jcmd <pid> Thread.print         # modern way\n\
+     // Analyze thread dumps\n\
+     # fastthread.io — browser-based analyzer\n\
+     # Thread states: RUNNABLE, BLOCKED, WAITING, TIMED_WAITING\n\
+     # Look for: deadlock markers, many BLOCKED threads, lock contention\n\
+     // Virtual threads (Project Loom, Java 21+)\n\
+     Thread.ofVirtual().start(() -> System.out.println(\"VT\"));\n\
+     try (var exec = Executors.newVirtualThreadPerTaskExecutor()) {\n\
+         exec.submit(() -> doWork());\n\
+     }\n\
+     // JVM concurrency primitives\n\
+     volatile: visibility guarantee (no caching in registers)\n\
+     synchronized: mutual exclusion + visibility\n\
+     java.util.concurrent.locks: ReentrantLock, ReadWriteLock\n\
+     AtomicInteger/Long/Reference: lock-free CAS operations\n\
+     // Thread pool tuning\n\
+     // CPU-bound: #threads = #CPUs\n\
+     // IO-bound: #threads = #CPUs * (1 + wait_time/service_time)\n\
+     // Structured concurrency (Java 21)\n\
+     try (var scope = new StructuredTaskScope.ShutdownOnFailure()) {\n\
+         var f1 = scope.fork(() -> fetchA());\n\
+         var f2 = scope.fork(() -> fetchB());\n\
+         scope.join().throwIfFailed();\n\
+     }\n\
+     Ref: https://docs.oracle.com/en/java/javase/21/core/virtual-threads.html"
+}
+
+fn s_jv_profiling() -> &'static str {
+    "JVM Profiling & Diagnostics\n\
+     ============================\n\
+     // JFR (Java Flight Recorder — built-in, low overhead)\n\
+     jcmd <pid> JFR.start name=myRec duration=60s filename=rec.jfr\n\
+     jcmd <pid> JFR.dump name=myRec filename=rec.jfr\n\
+     jcmd <pid> JFR.stop name=myRec\n\
+     # CLI start:\n\
+     java -XX:StartFlightRecording=duration=60s,filename=rec.jfr MyApp\n\
+     # View in JDK Mission Control (jmc)\n\
+     // Async-Profiler (best open-source profiler)\n\
+     ./profiler.sh -d 30 -o flamegraph -f profile.html <pid>\n\
+     ./profiler.sh -d 30 -e alloc -o flamegraph -f alloc.html <pid>\n\
+     java -agentpath:./libasyncProfiler.so=start,duration=30,file=p.jfr MyApp\n\
+     // jcmd (Swiss Army knife)\n\
+     jcmd <pid> help                  # list all commands\n\
+     jcmd <pid> VM.flags              # JVM flags in effect\n\
+     jcmd <pid> VM.system_properties\n\
+     jcmd <pid> GC.heap_info\n\
+     jcmd <pid> GC.run               # force GC\n\
+     jcmd <pid> VM.native_memory     # native memory tracking\n\
+     // Native memory tracking\n\
+     java -XX:NativeMemoryTracking=summary MyApp\n\
+     jcmd <pid> VM.native_memory summary\n\
+     // Heap dump\n\
+     jmap -dump:live,format=b,file=heap.hprof <pid>\n\
+     jcmd <pid> GC.heap_dump heap.hprof\n\
+     # Analyze: Eclipse Memory Analyzer (MAT), VisualVM\n\
+     Ref: https://docs.oracle.com/en/java/javase/21/troubleshoot/"
+}
+
+fn s_jv_flags() -> &'static str {
+    "JVM Flags & Startup Options\n\
+     ============================\n\
+     // Diagnostic flags\n\
+     -XX:+PrintFlagsFinal             # print all JVM flags and values\n\
+     java -XX:+PrintFlagsFinal -version | grep MaxHeapSize\n\
+     -XX:+PrintVMOptions              # print flags set by user\n\
+     // Container-aware settings (Java 10+)\n\
+     -XX:+UseContainerSupport         # respect cgroup limits (on by default)\n\
+     -XX:MaxRAMPercentage=75.0        # heap = 75% of container RAM\n\
+     -XX:InitialRAMPercentage=50.0\n\
+     // GraalVM Native Image\n\
+     native-image -jar myapp.jar      # ahead-of-time compilation\n\
+     native-image --no-fallback -jar myapp.jar\n\
+     // Module system (JPMS, Java 9+)\n\
+     --module-path mods/ --module com.example.app/com.example.Main\n\
+     --add-opens java.base/java.lang=ALL-UNNAMED   # open for reflection\n\
+     --add-exports java.base/sun.nio.ch=ALL-UNNAMED\n\
+     // Useful startup combos\n\
+     # Production server:\n\
+     java -Xms2g -Xmx4g -XX:+UseG1GC -XX:MaxGCPauseMillis=100 \\\n\
+          -Xlog:gc*:file=gc.log:time,uptime -XX:+HeapDumpOnOutOfMemoryError \\\n\
+          -XX:HeapDumpPath=heap.hprof -jar myapp.jar\n\
+     # Container:\n\
+     java -XX:+UseContainerSupport -XX:MaxRAMPercentage=75 \\\n\
+          -XX:+UseZGC -jar myapp.jar\n\
+     // Check effective settings\n\
+     jcmd <pid> VM.flags -all\n\
+     Ref: https://chriswhocodes.com/hotspot_option_differences.html"
+}
+
+type JvmRefSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+const JVM_REF_SECTIONS: &[JvmRefSection] = &[
+    (
+        "memory",
+        &[
+            "jvm-memory",
+            "heap",
+            "young-gen",
+            "old-gen",
+            "metaspace",
+            "xmx",
+            "xms",
+        ],
+        s_jv_memory,
+    ),
+    (
+        "gc",
+        &[
+            "jvm-gc",
+            "garbage-collection",
+            "g1gc",
+            "zgc",
+            "shenandoah",
+            "gc-tuning",
+        ],
+        s_jv_gc,
+    ),
+    (
+        "jit",
+        &[
+            "jvm-jit",
+            "jit-compilation",
+            "tiered-compilation",
+            "code-cache",
+            "inlining",
+        ],
+        s_jv_jit,
+    ),
+    (
+        "threads",
+        &[
+            "jvm-threads",
+            "thread-dump",
+            "jstack",
+            "virtual-threads",
+            "loom",
+            "concurrency",
+        ],
+        s_jv_threads,
+    ),
+    (
+        "profiling",
+        &[
+            "jvm-profiling",
+            "jfr",
+            "async-profiler",
+            "jcmd",
+            "heap-dump",
+            "flight-recorder",
+        ],
+        s_jv_profiling,
+    ),
+    (
+        "flags",
+        &[
+            "jvm-flags",
+            "jvm-options",
+            "startup",
+            "container",
+            "native-image",
+            "graalvm",
+            "jpms",
+        ],
+        s_jv_flags,
+    ),
+];
+
+pub fn jvm_ref_calc(query: &str) -> String {
+    let q = query.trim().to_lowercase();
+    if q.is_empty() || q == "list" || q == "help" {
+        let topics: Vec<&str> = JVM_REF_SECTIONS.iter().map(|(n, _, _)| *n).collect();
+        return format!(
+            "jvm-ref topics: {}\nUsage: hematite --jvm-ref <topic>  (e.g. --jvm-ref gc)",
+            topics.join(", ")
+        );
+    }
+    if q == "all" {
+        return JVM_REF_SECTIONS
+            .iter()
+            .map(|(_, _, f)| f())
+            .collect::<Vec<_>>()
+            .join("\n\n");
+    }
+    for (name, aliases, func) in JVM_REF_SECTIONS {
+        if q == *name || aliases.iter().any(|a| q == *a || q.contains(a)) {
+            return func().to_string();
+        }
+    }
+    let topics: Vec<&str> = JVM_REF_SECTIONS.iter().map(|(n, _, _)| *n).collect();
+    format!(
+        "Unknown jvm-ref topic: '{}'\nAvailable: {}",
+        query.trim(),
+        topics.join(", ")
+    )
+}
