@@ -11,22 +11,23 @@ use hematite::tools::math_util::{
     compiler_ref_calc, complex_calc, concurrency_ref_calc, container_ref_calc, cron_calc,
     crypto_adv_calc, crypto_ref_calc, css_grid_calc, css_ref_calc, csv_calc, curl_calc,
     data_formats_calc, data_pipeline_calc, database_adv_calc, datetime_calc, db_design_calc,
-    db_migrations_calc, design_patterns_calc, devops_ref_calc, diff_calc, docker_adv_calc,
-    docker_compose_calc, docker_ref_calc, duration_calc, electrical_calc, encode_calc, escape_calc,
-    event_driven_calc, find_calc, fraction_calc, geometry_calc, git_adv_calc, git_internals_calc,
-    git_ref_calc, gitignore_calc, go_ref_calc, grep_calc, grpc_ref_calc, hash_calc, headers_calc,
-    health_calc, http2_calc, http_adv_calc, http_calc, http_headers_calc, http_security_calc,
-    http_status_calc, id_gen_calc, ip_calc, jinja_calc, jq_calc, js_ref_calc, json_calc,
-    json_path_calc, jwt_calc, k8s_ref_calc, k8s_security_calc, kbd_calc, kubectl_calc,
-    license_calc, linux_adv_calc, linux_kernel_calc, linux_net_calc, linux_perf_calc,
-    linux_sys_calc, load_testing_calc, lorem_calc, make_calc, makefile_calc, markdown_calc,
-    matrix_calc, message_queue_calc, mime_calc, ml_ref_calc, monitoring_ref_calc, net_calc,
-    network_ref_calc, networking_adv_calc, nginx_calc, npm_calc, number_format, number_theory_calc,
-    oauth2_flow_calc, oauth_ref_calc, observability_adv_calc, observability_calc, oop_ref_calc,
-    openssl_calc, percent_calc, perf_ref_calc, physics_calc, port_calc, postgres_calc, prob_calc,
-    prom_ref_calc, protocols_ref_calc, python_data_calc, python_ref_calc, regex_adv_calc,
-    regex_calc, regex_engine_calc, regex_patterns_calc, regex_ref_calc, regex_test_calc,
-    regex_viz_calc, roman_calc, rust_adv_calc, rust_async_calc, rust_patterns_calc, rust_ref_calc,
+    db_internals_calc, db_migrations_calc, design_patterns_calc, devops_ref_calc, diff_calc,
+    docker_adv_calc, docker_compose_calc, docker_ref_calc, duration_calc, electrical_calc,
+    encode_calc, escape_calc, event_driven_calc, find_calc, fraction_calc, geometry_calc,
+    git_adv_calc, git_internals_calc, git_ref_calc, gitignore_calc, go_ref_calc, grep_calc,
+    grpc_ref_calc, hash_calc, headers_calc, health_calc, http2_calc, http_adv_calc, http_calc,
+    http_headers_calc, http_security_calc, http_status_calc, id_gen_calc, ip_calc, jinja_calc,
+    jq_calc, js_ref_calc, json_calc, json_path_calc, jwt_calc, k8s_adv_calc, k8s_ref_calc,
+    k8s_security_calc, kbd_calc, kubectl_calc, license_calc, linux_adv_calc, linux_kernel_calc,
+    linux_net_calc, linux_perf_calc, linux_sys_calc, load_testing_calc, lorem_calc, make_calc,
+    makefile_calc, markdown_calc, matrix_calc, message_queue_calc, mime_calc, ml_ref_calc,
+    monitoring_ref_calc, net_calc, network_ref_calc, networking_adv_calc, nginx_calc, npm_calc,
+    number_format, number_theory_calc, oauth2_flow_calc, oauth_ref_calc, observability_adv_calc,
+    observability_calc, oop_ref_calc, openapi_ref_calc, openssl_calc, percent_calc, perf_ref_calc,
+    physics_calc, port_calc, postgres_calc, prob_calc, prom_ref_calc, protocols_ref_calc,
+    python_data_calc, python_ref_calc, regex_adv_calc, regex_calc, regex_engine_calc,
+    regex_patterns_calc, regex_ref_calc, regex_test_calc, regex_viz_calc, roman_calc,
+    rust_adv_calc, rust_async_calc, rust_macros_calc, rust_patterns_calc, rust_ref_calc,
     search_ref_calc, security_ref_calc, security_scan_calc, security_tools_calc, sed_calc,
     semver_calc, service_mesh_calc, set_calc, sort_viz, spark_calc, sql_adv_calc, sql_fmt_calc,
     sql_ref_calc, sql_tuning_calc, sql_window_calc, ssh_ref_calc, ssl_calc, stats_calc,
@@ -30398,4 +30399,682 @@ fn test_prom_ref_alias_sre_alerting() {
 fn test_prom_ref_unknown_query() {
     let out = prom_ref_calc("nonexistent-topic-xyz");
     assert!(out.contains("Unknown prom-ref topic"));
+}
+
+// ─── k8s_adv_calc ─────────────────────────────────────────────────────────────
+
+#[test]
+fn test_k8s_adv_list() {
+    let out = k8s_adv_calc("list");
+    assert!(out.contains("k8s-adv topics"));
+    assert!(out.contains("scheduling"));
+    assert!(out.contains("networking"));
+}
+
+#[test]
+fn test_k8s_adv_help() {
+    let out = k8s_adv_calc("help");
+    assert!(out.contains("k8s-adv topics"));
+}
+
+#[test]
+fn test_k8s_adv_empty() {
+    let out = k8s_adv_calc("");
+    assert!(out.contains("k8s-adv topics"));
+}
+
+#[test]
+fn test_k8s_adv_all_contains_sections() {
+    let out = k8s_adv_calc("all");
+    assert!(out.contains("── scheduling ──"));
+    assert!(out.contains("── networking ──"));
+    assert!(out.contains("── storage ──"));
+}
+
+#[test]
+fn test_k8s_adv_topic_scheduling() {
+    let out = k8s_adv_calc("scheduling");
+    assert!(out.contains("taint") || out.contains("affinity") || out.contains("PriorityClass"));
+}
+
+#[test]
+fn test_k8s_adv_alias_taints_tolerations() {
+    let out = k8s_adv_calc("taints-tolerations");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_k8s_adv_alias_node_affinity() {
+    let out = k8s_adv_calc("node-affinity");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_k8s_adv_alias_pod_disruption_budget() {
+    let out = k8s_adv_calc("topology-spread");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_k8s_adv_alias_resource_quota() {
+    let out = k8s_adv_calc("priority-class");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_k8s_adv_topic_networking() {
+    let out = k8s_adv_calc("networking");
+    assert!(out.contains("CNI") || out.contains("NetworkPolicy") || out.contains("Ingress"));
+}
+
+#[test]
+fn test_k8s_adv_alias_network_policy() {
+    let out = k8s_adv_calc("network-policy");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_k8s_adv_alias_ingress_controller() {
+    let out = k8s_adv_calc("ingress-k8s");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_k8s_adv_alias_service_mesh() {
+    let out = k8s_adv_calc("cilium-k8s");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_k8s_adv_topic_storage() {
+    let out = k8s_adv_calc("storage");
+    assert!(out.contains("PV") || out.contains("PersistentVolume") || out.contains("StorageClass"));
+}
+
+#[test]
+fn test_k8s_adv_alias_persistent_volumes() {
+    let out = k8s_adv_calc("persistent-volumes");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_k8s_adv_alias_storage_class() {
+    let out = k8s_adv_calc("storageclass");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_k8s_adv_alias_statefulset_storage() {
+    let out = k8s_adv_calc("statefulset-storage");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_k8s_adv_topic_security() {
+    let out = k8s_adv_calc("security");
+    assert!(out.contains("RBAC") || out.contains("ServiceAccount") || out.contains("Pod Security"));
+}
+
+#[test]
+fn test_k8s_adv_alias_rbac() {
+    let out = k8s_adv_calc("rbac-k8s");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_k8s_adv_alias_pod_security() {
+    let out = k8s_adv_calc("pod-security-admission");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_k8s_adv_alias_secrets_management() {
+    let out = k8s_adv_calc("k8s-secrets-mgmt");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_k8s_adv_topic_operators() {
+    let out = k8s_adv_calc("operators");
+    assert!(out.contains("CRD") || out.contains("controller") || out.contains("Operator"));
+}
+
+#[test]
+fn test_k8s_adv_alias_crd() {
+    let out = k8s_adv_calc("crd-k8s");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_k8s_adv_alias_custom_controllers() {
+    let out = k8s_adv_calc("controller-runtime");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_k8s_adv_alias_helm_operators() {
+    let out = k8s_adv_calc("operator-sdk");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_k8s_adv_unknown_query() {
+    let out = k8s_adv_calc("nonexistent-topic-xyz");
+    assert!(out.contains("Unknown k8s-adv topic"));
+}
+
+// ─── rust_macros_calc ─────────────────────────────────────────────────────────
+
+#[test]
+fn test_rust_macros_list() {
+    let out = rust_macros_calc("list");
+    assert!(out.contains("rust-macros topics"));
+    assert!(out.contains("declarative"));
+    assert!(out.contains("procedural"));
+}
+
+#[test]
+fn test_rust_macros_help() {
+    let out = rust_macros_calc("help");
+    assert!(out.contains("rust-macros topics"));
+}
+
+#[test]
+fn test_rust_macros_empty() {
+    let out = rust_macros_calc("");
+    assert!(out.contains("rust-macros topics"));
+}
+
+#[test]
+fn test_rust_macros_all_contains_sections() {
+    let out = rust_macros_calc("all");
+    assert!(out.contains("── declarative ──"));
+    assert!(out.contains("── procedural ──"));
+    assert!(out.contains("── attribute ──"));
+}
+
+#[test]
+fn test_rust_macros_topic_declarative() {
+    let out = rust_macros_calc("declarative");
+    assert!(out.contains("macro_rules") || out.contains("macro") || out.contains("pattern"));
+}
+
+#[test]
+fn test_rust_macros_alias_macro_rules() {
+    let out = rust_macros_calc("macro-rules");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_rust_macros_alias_tt_muncher() {
+    let out = rust_macros_calc("tt-muncher");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_rust_macros_alias_repetition_patterns() {
+    let out = rust_macros_calc("macro-repetition");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_rust_macros_topic_procedural() {
+    let out = rust_macros_calc("procedural");
+    assert!(out.contains("proc_macro") || out.contains("TokenStream") || out.contains("derive"));
+}
+
+#[test]
+fn test_rust_macros_alias_proc_macro() {
+    let out = rust_macros_calc("proc-macro");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_rust_macros_alias_derive_macro() {
+    let out = rust_macros_calc("derive-macro");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_rust_macros_alias_function_like_macro() {
+    let out = rust_macros_calc("function-like-macro");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_rust_macros_topic_attribute() {
+    let out = rust_macros_calc("attribute");
+    assert!(
+        out.contains("attribute") || out.contains("#[") || out.contains("proc_macro_attribute")
+    );
+}
+
+#[test]
+fn test_rust_macros_alias_attribute_macro() {
+    let out = rust_macros_calc("attribute-macro");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_rust_macros_alias_custom_attributes() {
+    let out = rust_macros_calc("attribute-macro");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_rust_macros_alias_syn_quote() {
+    let out = rust_macros_calc("syn-crate");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_rust_macros_topic_patterns() {
+    let out = rust_macros_calc("patterns");
+    assert!(out.contains("trybuild") || out.contains("proc_macro2") || out.contains("Display"));
+}
+
+#[test]
+fn test_rust_macros_alias_builder_pattern() {
+    let out = rust_macros_calc("proc-macro-patterns");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_rust_macros_alias_newtype_macro() {
+    let out = rust_macros_calc("trybuild");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_rust_macros_alias_dsl_macros() {
+    let out = rust_macros_calc("rust-dsl-macro");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_rust_macros_topic_advanced() {
+    let out = rust_macros_calc("advanced");
+    assert!(
+        out.contains("TokenStream") || out.contains("tt muncher") || out.contains("trace_macros")
+    );
+}
+
+#[test]
+fn test_rust_macros_alias_macro_hygiene() {
+    let out = rust_macros_calc("macro-hygiene-advanced");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_rust_macros_alias_span_manipulation() {
+    let out = rust_macros_calc("token-manipulation");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_rust_macros_alias_macro_debugging() {
+    let out = rust_macros_calc("macro-debugging");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_rust_macros_unknown_query() {
+    let out = rust_macros_calc("nonexistent-topic-xyz");
+    assert!(out.contains("Unknown rust-macros topic"));
+}
+
+// ─── db_internals_calc ────────────────────────────────────────────────────────
+
+#[test]
+fn test_db_internals_list() {
+    let out = db_internals_calc("list");
+    assert!(out.contains("db-internals topics"));
+    assert!(out.contains("storage"));
+    assert!(out.contains("indexes"));
+}
+
+#[test]
+fn test_db_internals_help() {
+    let out = db_internals_calc("help");
+    assert!(out.contains("db-internals topics"));
+}
+
+#[test]
+fn test_db_internals_empty() {
+    let out = db_internals_calc("");
+    assert!(out.contains("db-internals topics"));
+}
+
+#[test]
+fn test_db_internals_all_contains_sections() {
+    let out = db_internals_calc("all");
+    assert!(out.contains("── storage ──"));
+    assert!(out.contains("── indexes ──"));
+    assert!(out.contains("── transactions ──"));
+}
+
+#[test]
+fn test_db_internals_topic_storage() {
+    let out = db_internals_calc("storage");
+    assert!(out.contains("B-tree") || out.contains("page") || out.contains("heap"));
+}
+
+#[test]
+fn test_db_internals_alias_btree_storage() {
+    let out = db_internals_calc("b-tree-internals");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_db_internals_alias_lsm_tree() {
+    let out = db_internals_calc("lsm-tree");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_db_internals_alias_wal() {
+    let out = db_internals_calc("wal-internals");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_db_internals_alias_buffer_pool() {
+    let out = db_internals_calc("heap-files");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_db_internals_topic_indexes() {
+    let out = db_internals_calc("indexes");
+    assert!(out.contains("B-tree") || out.contains("index") || out.contains("covering"));
+}
+
+#[test]
+fn test_db_internals_alias_btree_index() {
+    let out = db_internals_calc("index-internals");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_db_internals_alias_hash_index() {
+    let out = db_internals_calc("gin-index");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_db_internals_alias_covering_index() {
+    let out = db_internals_calc("covering-index");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_db_internals_alias_index_selectivity() {
+    let out = db_internals_calc("index-selectivity");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_db_internals_topic_transactions() {
+    let out = db_internals_calc("transactions");
+    assert!(out.contains("ACID") || out.contains("isolation") || out.contains("MVCC"));
+}
+
+#[test]
+fn test_db_internals_alias_mvcc() {
+    let out = db_internals_calc("mvcc-tx");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_db_internals_alias_isolation_levels() {
+    let out = db_internals_calc("isolation-levels");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_db_internals_alias_deadlock_detection() {
+    let out = db_internals_calc("deadlock-postgres");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_db_internals_topic_replication() {
+    let out = db_internals_calc("replication");
+    assert!(out.contains("replica") || out.contains("leader") || out.contains("WAL"));
+}
+
+#[test]
+fn test_db_internals_alias_streaming_replication() {
+    let out = db_internals_calc("postgres-replication");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_db_internals_alias_logical_replication() {
+    let out = db_internals_calc("mysql-replication");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_db_internals_alias_raft_consensus() {
+    let out = db_internals_calc("cap-theorem");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_db_internals_topic_performance() {
+    let out = db_internals_calc("performance");
+    assert!(out.contains("EXPLAIN") || out.contains("query plan") || out.contains("vacuum"));
+}
+
+#[test]
+fn test_db_internals_alias_query_planning() {
+    let out = db_internals_calc("query-planning");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_db_internals_alias_autovacuum() {
+    let out = db_internals_calc("autovacuum-tuning");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_db_internals_alias_connection_pooling() {
+    let out = db_internals_calc("connection-pooling");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_db_internals_unknown_query() {
+    let out = db_internals_calc("nonexistent-topic-xyz");
+    assert!(out.contains("Unknown db-internals topic"));
+}
+
+// ─── openapi_ref_calc ─────────────────────────────────────────────────────────
+
+#[test]
+fn test_openapi_ref_list() {
+    let out = openapi_ref_calc("list");
+    assert!(out.contains("openapi-ref topics"));
+    assert!(out.contains("spec"));
+    assert!(out.contains("paths"));
+}
+
+#[test]
+fn test_openapi_ref_help() {
+    let out = openapi_ref_calc("help");
+    assert!(out.contains("openapi-ref topics"));
+}
+
+#[test]
+fn test_openapi_ref_empty() {
+    let out = openapi_ref_calc("");
+    assert!(out.contains("openapi-ref topics"));
+}
+
+#[test]
+fn test_openapi_ref_all_contains_sections() {
+    let out = openapi_ref_calc("all");
+    assert!(out.contains("── spec ──"));
+    assert!(out.contains("── paths ──"));
+    assert!(out.contains("── schemas ──"));
+}
+
+#[test]
+fn test_openapi_ref_topic_spec() {
+    let out = openapi_ref_calc("spec");
+    assert!(out.contains("openapi") || out.contains("OAS") || out.contains("info"));
+}
+
+#[test]
+fn test_openapi_ref_alias_openapi_structure() {
+    let out = openapi_ref_calc("openapi-structure");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_openapi_ref_alias_openapi_3_1() {
+    let out = openapi_ref_calc("openapi-3-1");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_openapi_ref_alias_openapi_info() {
+    let out = openapi_ref_calc("openapi-info");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_openapi_ref_topic_paths() {
+    let out = openapi_ref_calc("paths");
+    assert!(
+        out.contains("GET")
+            || out.contains("POST")
+            || out.contains("operation")
+            || out.contains("parameter")
+    );
+}
+
+#[test]
+fn test_openapi_ref_alias_openapi_paths() {
+    let out = openapi_ref_calc("openapi-paths");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_openapi_ref_alias_openapi_parameters() {
+    let out = openapi_ref_calc("openapi-parameters");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_openapi_ref_alias_request_body() {
+    let out = openapi_ref_calc("request-body");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_openapi_ref_alias_openapi_responses() {
+    let out = openapi_ref_calc("openapi-responses");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_openapi_ref_topic_schemas() {
+    let out = openapi_ref_calc("schemas");
+    assert!(
+        out.contains("schema")
+            || out.contains("JSON")
+            || out.contains("type")
+            || out.contains("$ref")
+    );
+}
+
+#[test]
+fn test_openapi_ref_alias_openapi_schemas() {
+    let out = openapi_ref_calc("openapi-schemas");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_openapi_ref_alias_openapi_components() {
+    let out = openapi_ref_calc("openapi-components");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_openapi_ref_alias_allof_openapi() {
+    let out = openapi_ref_calc("allof-openapi");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_openapi_ref_alias_oneof_openapi() {
+    let out = openapi_ref_calc("oneof-openapi");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_openapi_ref_topic_security() {
+    let out = openapi_ref_calc("security");
+    assert!(
+        out.contains("OAuth")
+            || out.contains("API key")
+            || out.contains("bearer")
+            || out.contains("security")
+    );
+}
+
+#[test]
+fn test_openapi_ref_alias_api_key_scheme() {
+    let out = openapi_ref_calc("api-key-scheme");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_openapi_ref_alias_bearer_auth_openapi() {
+    let out = openapi_ref_calc("bearer-auth-openapi");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_openapi_ref_alias_oauth2_openapi() {
+    let out = openapi_ref_calc("oauth2-openapi");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_openapi_ref_topic_tooling() {
+    let out = openapi_ref_calc("tooling");
+    assert!(
+        out.contains("Swagger")
+            || out.contains("Redoc")
+            || out.contains("generator")
+            || out.contains("linter")
+    );
+}
+
+#[test]
+fn test_openapi_ref_alias_swagger_ui() {
+    let out = openapi_ref_calc("swagger-ui");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_openapi_ref_alias_openapi_generator() {
+    let out = openapi_ref_calc("openapi-generator");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_openapi_ref_alias_spectral_linter() {
+    let out = openapi_ref_calc("spectral-linter");
+    assert!(!out.is_empty() && !out.contains("Unknown"));
+}
+
+#[test]
+fn test_openapi_ref_unknown_query() {
+    let out = openapi_ref_calc("nonexistent-topic-xyz");
+    assert!(out.contains("Unknown openapi-ref topic"));
 }

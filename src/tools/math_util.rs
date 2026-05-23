@@ -62542,3 +62542,1415 @@ pub fn prom_ref_calc(query: &str) -> String {
             .join(", ")
     )
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Wave 42: --k8s-adv, --rust-macros, --db-internals, --openapi-ref
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ── k8s-adv ───────────────────────────────────────────────────────────────────
+
+fn s_ka_scheduling() -> &'static str {
+    "Kubernetes Advanced Scheduling
+Node affinity (hard and soft rules):
+  spec:
+    affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:  # hard
+          nodeSelectorTerms:
+          - matchExpressions:
+            - key: topology.kubernetes.io/zone
+              operator: In
+              values: [us-east-1a, us-east-1b]
+        preferredDuringSchedulingIgnoredDuringExecution: # soft
+        - weight: 100
+          preference:
+            matchExpressions:
+            - key: node-type
+              operator: In
+              values: [high-mem]
+
+Pod affinity / anti-affinity:
+  spec:
+    affinity:
+      podAntiAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+        - labelSelector:
+            matchLabels: {app: my-app}
+          topologyKey: kubernetes.io/hostname  # spread across nodes
+      podAffinity:
+        preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 1
+          podAffinityTerm:
+            labelSelector:
+              matchLabels: {app: cache}
+            topologyKey: kubernetes.io/hostname  # co-locate with cache
+
+Taints and tolerations:
+  kubectl taint nodes node1 key=value:NoSchedule
+  kubectl taint nodes node1 key=value:NoExecute  # evicts running pods too
+  kubectl taint nodes node1 key=value:PreferNoSchedule
+  spec:
+    tolerations:
+    - key: key
+      operator: Equal
+      value: value
+      effect: NoSchedule
+
+Topology spread constraints:
+  spec:
+    topologySpreadConstraints:
+    - maxSkew: 1
+      topologyKey: kubernetes.io/hostname
+      whenUnsatisfiable: DoNotSchedule  # or ScheduleAnyway
+      labelSelector:
+        matchLabels: {app: my-app}
+
+Priority and preemption:
+  apiVersion: scheduling.k8s.io/v1
+  kind: PriorityClass
+  value: 1000000
+  globalDefault: false
+  ---
+  spec:
+    priorityClassName: high-priority
+  # High-priority pods preempt lower-priority pods when resources tight"
+}
+
+fn s_ka_networking() -> &'static str {
+    "Kubernetes Networking Deep Dive
+Service types:
+  ClusterIP:    virtual IP inside cluster; DNS: <svc>.<ns>.svc.cluster.local
+  NodePort:     ClusterIP + static port 30000-32767 on every node
+  LoadBalancer: NodePort + cloud LB provisioned (ELB, GCP LB)
+  ExternalName: DNS CNAME alias; no proxying
+  Headless (clusterIP: None): returns pod IPs directly; used for StatefulSets
+
+kube-proxy modes:
+  iptables (default): iptables DNAT rules; O(n) rule count; random pod selection
+  ipvs:              kernel LVS; O(1) lookup; consistent hashing; better at scale
+  eBPF (Cilium):     bypass iptables entirely; higher throughput; native L3/L4 policies
+
+Network policies:
+  apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  spec:
+    podSelector:
+      matchLabels: {app: backend}
+    policyTypes: [Ingress, Egress]
+    ingress:
+    - from:
+      - podSelector: {matchLabels: {app: frontend}}
+      - namespaceSelector: {matchLabels: {env: prod}}
+      ports:
+      - protocol: TCP
+        port: 8080
+    egress:
+    - to:
+      - ipBlock:
+          cidr: 10.0.0.0/8
+          except: [10.0.0.1/32]
+
+DNS resolution:
+  <pod-ip>.<namespace>.pod.cluster.local
+  <service>.<namespace>.svc.cluster.local
+  ndots:5 in resolv.conf: relative names tried with search domains first
+
+Ingress:
+  Class: nginx, traefik, aws-alb, gce; set via ingressClassName
+  nginx.ingress.kubernetes.io/rewrite-target: /
+  nginx.ingress.kubernetes.io/ssl-redirect: \"true\"
+  cert-manager + Let's Encrypt: automated TLS with CertificateRequest CRDs"
+}
+
+fn s_ka_storage() -> &'static str {
+    "Kubernetes Storage: PV, PVC & CSI
+Storage classes:
+  kubectl get storageclass
+  reclaimPolicy: Retain | Delete | Recycle
+  volumeBindingMode: Immediate | WaitForFirstConsumer
+  allowVolumeExpansion: true
+  provisioner: ebs.csi.aws.com | disk.csi.azure.com | pd.csi.storage.gke.io
+
+PersistentVolume:
+  spec:
+    capacity: {storage: 10Gi}
+    accessModes: [ReadWriteOnce]  # RWO | ROX | RWX | RWOP
+    persistentVolumeReclaimPolicy: Retain
+    storageClassName: gp3
+    csi:
+      driver: ebs.csi.aws.com
+      volumeHandle: vol-12345678
+
+PersistentVolumeClaim:
+  spec:
+    accessModes: [ReadWriteOnce]
+    storageClassName: gp3
+    resources:
+      requests: {storage: 5Gi}
+
+StatefulSet storage:
+  volumeClaimTemplates:
+  - metadata: {name: data}
+    spec:
+      accessModes: [ReadWriteOnce]
+      storageClassName: gp3
+      resources:
+        requests: {storage: 10Gi}
+  # Each pod gets own PVC: data-<statefulset>-0, data-<statefulset>-1
+
+Ephemeral storage:
+  emptyDir: {}                       # node-local; cleared on pod delete
+  emptyDir: {medium: Memory}         # tmpfs; counts against memory limit
+
+Volume snapshots (CSI):
+  kind: VolumeSnapshot → triggers CSI driver CreateSnapshot
+  kind: VolumeSnapshotContent → the actual snapshot object
+  Restore: create PVC with dataSource pointing to snapshot"
+}
+
+fn s_ka_security() -> &'static str {
+    "Kubernetes Security Hardening
+Pod Security Admission (replaces PSP in 1.25+):
+  Labels on namespace:
+    pod-security.kubernetes.io/enforce: restricted  # privileged|baseline|restricted
+    pod-security.kubernetes.io/warn: restricted
+    pod-security.kubernetes.io/audit: restricted
+  restricted profile requires:
+    runAsNonRoot: true; seccompProfile: RuntimeDefault; drop ALL capabilities
+    readOnlyRootFilesystem: true; allowPrivilegeEscalation: false
+
+RBAC best practices:
+  Least privilege: bind to ServiceAccount, not to groups
+  Avoid cluster-admin except for operators
+  Use RoleBinding (namespace-scoped) over ClusterRoleBinding when possible
+  Audit: kubectl auth can-i --list --namespace=prod --as=system:serviceaccount:prod:my-sa
+
+Security context (per-container):
+  securityContext:
+    runAsUser: 1000
+    runAsGroup: 3000
+    fsGroup: 2000
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop: [ALL]
+      add: [NET_BIND_SERVICE]
+    seccompProfile:
+      type: RuntimeDefault
+
+Secrets management:
+  Never store secrets in YAML in Git
+  External Secrets Operator: sync from AWS SM / GCP SM / Vault → K8s Secret
+  Sealed Secrets (Bitnami): encrypt Secret for Git; controller decrypts in-cluster
+  IRSA (AWS) / Workload Identity (GCP): Pod assumes cloud IAM role via projected token
+
+Image security:
+  Cosign + Sigstore: sign images; verify at admission with Kyverno
+  Trivy / Grype: scan images in CI; block critical CVEs
+  OPA/Gatekeeper / Kyverno: enforce image registries, tag policies"
+}
+
+fn s_ka_operators() -> &'static str {
+    "Kubernetes Operators & Custom Resources
+Custom Resource Definition (CRD):
+  apiVersion: apiextensions.k8s.io/v1
+  kind: CustomResourceDefinition
+  spec:
+    group: mycompany.io
+    names: {kind: MyApp, plural: myapps, singular: myapp}
+    scope: Namespaced
+    versions:
+    - name: v1
+      served: true
+      storage: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              properties:
+                replicas: {type: integer}
+
+Operator pattern (controller-runtime, Go):
+  1. Watch CRD events (Reconciler interface)
+  2. Read desired state from CR spec
+  3. Read actual state (kubectl gets)
+  4. Reconcile: create/update/delete child resources to match desired
+  5. Update CR status with current state
+  func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error)
+
+Controller-runtime tips:
+  ctrl.Result{RequeueAfter: 30*time.Second}  // poll interval
+  Return error only for transient errors (causes exponential backoff)
+  Use finalizers to handle deletion cleanup (remove finalizer after cleanup)
+
+Operator SDK / Kubebuilder:
+  kubebuilder init --domain example.com --repo github.com/me/my-operator
+  kubebuilder create api --group apps --version v1 --kind MyApp
+  make generate && make manifests && make install && make run
+
+Popular operators:
+  Database: CloudNativePG (Postgres), MongoDB, Elasticsearch
+  GitOps: ArgoCD, Flux
+  Cert management: cert-manager
+  Secrets: External Secrets, Sealed Secrets
+  Service mesh: Istio, Linkerd (control plane as operators)
+
+Operator Lifecycle Manager (OLM):
+  Manages operator installation, upgrades, and dependency resolution
+  OperatorHub.io: catalog of community + certified operators
+  CSV (ClusterServiceVersion): packaging format for operators"
+}
+
+type K8sAdvSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+const K8S_ADV_SECTIONS: &[K8sAdvSection] = &[
+    (
+        "scheduling",
+        &[
+            "node-affinity",
+            "pod-affinity",
+            "pod-anti-affinity",
+            "taints-tolerations",
+            "topology-spread",
+            "priority-class",
+            "k8s-scheduling",
+            "preemption-k8s",
+            "taint-nodes",
+            "spread-constraints",
+            "node-selector-adv",
+        ],
+        s_ka_scheduling,
+    ),
+    (
+        "networking",
+        &[
+            "k8s-networking",
+            "network-policy",
+            "k8s-dns",
+            "kube-proxy",
+            "ingress-k8s",
+            "cilium-k8s",
+            "service-types-k8s",
+            "clusterip",
+            "loadbalancer-k8s",
+            "headless-service",
+            "network-policy-k8s",
+        ],
+        s_ka_networking,
+    ),
+    (
+        "storage",
+        &[
+            "k8s-storage",
+            "pv-pvc",
+            "storageclass",
+            "csi-k8s",
+            "statefulset-storage",
+            "persistent-volume",
+            "volume-snapshots",
+            "k8s-volumes",
+            "emptydir",
+            "dynamic-provisioning",
+            "rwx-storage",
+        ],
+        s_ka_storage,
+    ),
+    (
+        "security",
+        &[
+            "k8s-security-adv",
+            "pod-security-admission",
+            "psa-k8s",
+            "rbac-k8s",
+            "security-context",
+            "k8s-secrets-mgmt",
+            "sealed-secrets",
+            "external-secrets",
+            "irsa",
+            "workload-identity",
+            "k8s-hardening",
+        ],
+        s_ka_security,
+    ),
+    (
+        "operators",
+        &[
+            "k8s-operators",
+            "crd-k8s",
+            "custom-resource",
+            "controller-runtime",
+            "kubebuilder",
+            "operator-sdk",
+            "olm-k8s",
+            "operator-lifecycle",
+            "reconcile-loop",
+            "k8s-controller",
+            "finalizers-k8s",
+        ],
+        s_ka_operators,
+    ),
+];
+
+pub fn k8s_adv_calc(query: &str) -> String {
+    let q = query.trim().to_lowercase();
+    if q.is_empty() || q == "list" || q == "help" {
+        let topics: Vec<&str> = K8S_ADV_SECTIONS.iter().map(|(n, _, _)| *n).collect();
+        return format!(
+            "k8s-adv topics: {}\nUse: --k8s-adv <topic>  or  --k8s-adv all",
+            topics.join(", ")
+        );
+    }
+    if q == "all" {
+        return K8S_ADV_SECTIONS
+            .iter()
+            .map(|(n, _, f)| format!("── {} ──\n{}", n, f()))
+            .collect::<Vec<_>>()
+            .join("\n\n");
+    }
+    for (name, aliases, func) in K8S_ADV_SECTIONS {
+        if q == *name || aliases.iter().any(|a| q == *a || q.contains(a)) {
+            return func().to_string();
+        }
+    }
+    format!(
+        "Unknown k8s-adv topic: '{}'\nAvailable: {}",
+        query.trim(),
+        K8S_ADV_SECTIONS
+            .iter()
+            .map(|(n, _, _)| *n)
+            .collect::<Vec<_>>()
+            .join(", ")
+    )
+}
+
+// ── rust-macros ───────────────────────────────────────────────────────────────
+
+fn s_rm_declarative() -> &'static str {
+    "Declarative Macros (macro_rules!)
+Basic syntax:
+  macro_rules! my_macro {
+      ($x:expr) => { println!(\"{}\", $x); };
+      ($x:expr, $y:expr) => { println!(\"{} {}\", $x, $y); };
+      () => { println!(\"no args\"); };
+  }
+
+Fragment specifiers:
+  $name:expr    any expression
+  $name:ident   identifier (variable name, function name)
+  $name:ty      type (u32, Vec<String>, impl Trait)
+  $name:pat     pattern (used in match arms)
+  $name:stmt    statement
+  $name:block   block { ... }
+  $name:item    item (fn, struct, impl, use, ...)
+  $name:meta    meta attribute (#[derive(Debug)] content)
+  $name:tt      single token tree (catch-all)
+  $name:literal literal value (42, \"hello\", 3.14)
+  $name:lifetime lifetime ('a, 'static)
+  $name:vis     visibility (pub, pub(crate), empty)
+
+Repetitions:
+  $($x:expr),*   zero or more, comma-separated
+  $($x:expr),+   one or more
+  $($x:expr)?    zero or one (optional)
+  macro_rules! vec_of {
+      ($($x:expr),*) => {
+          { let mut v = Vec::new(); $(v.push($x);)* v }
+      };
+  }
+
+Common patterns:
+  macro_rules! map {
+      ($($k:expr => $v:expr),*) => {{
+          let mut m = std::collections::HashMap::new();
+          $(m.insert($k, $v);)*
+          m
+      }};
+  }
+  macro_rules! impl_display {
+      ($($t:ty),*) => {
+          $(impl std::fmt::Display for $t {
+              fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+                  write!(f, \"{:?}\", self)
+              }
+          })*
+      };
+  }
+
+Scoping and export:
+  #[macro_export]  // makes macro available at crate root
+  Macros defined before use site; use #[macro_use] for crate imports (legacy)"
+}
+
+fn s_rm_procedural() -> &'static str {
+    "Procedural Macros — Overview & Derive
+Three kinds:
+  #[derive(MyMacro)]        — derive macro; adds trait impl to struct/enum
+  #[my_attribute]           — attribute macro; transforms annotated item
+  my_macro!(...)            — function-like macro; full AST access
+
+Proc macro crate setup:
+  [lib]
+  proc-macro = true
+  [dependencies]
+  syn = { version = \"2\", features = [\"full\"] }
+  quote = \"1\"
+  proc-macro2 = \"1\"
+
+Derive macro skeleton:
+  use proc_macro::TokenStream;
+  use quote::quote;
+  use syn::{parse_macro_input, DeriveInput};
+
+  #[proc_macro_derive(MyTrait, attributes(my_attr))]
+  pub fn my_trait_derive(input: TokenStream) -> TokenStream {
+      let ast = parse_macro_input!(input as DeriveInput);
+      let name = &ast.ident;
+      let expanded = quote! {
+          impl MyTrait for #name {
+              fn my_method(&self) -> String {
+                  stringify!(#name).to_string()
+              }
+          }
+      };
+      TokenStream::from(expanded)
+  }
+
+syn — parsing Rust AST:
+  ast.ident: Ident (struct/enum name)
+  ast.data: syn::Data::Struct(DataStruct) | Data::Enum(DataEnum)
+  ast.attrs: Vec<Attribute> (#[...] annotations)
+  ast.generics: Generics (lifetime and type params)
+
+quote — generating Rust code:
+  quote! { ... } produces proc_macro2::TokenStream
+  #name, #ty, #(#fields),*  (interpolation and repetition)
+  quote_spanned! { span => ... }  (preserve error location)"
+}
+
+fn s_rm_attribute() -> &'static str {
+    "Attribute & Function-Like Proc Macros
+Attribute macro:
+  #[proc_macro_attribute]
+  pub fn route(attr: TokenStream, item: TokenStream) -> TokenStream {
+      // attr: content of #[route(GET, \"/path\")]
+      // item: the annotated function
+      let input = parse_macro_input!(item as syn::ItemFn);
+      let fn_name = &input.sig.ident;
+      let expanded = quote! {
+          #input  // keep original function
+          fn register_route() { register(#fn_name); }
+      };
+      TokenStream::from(expanded)
+  }
+
+Function-like macro:
+  #[proc_macro]
+  pub fn sql(input: TokenStream) -> TokenStream {
+      let query = parse_macro_input!(input as syn::LitStr).value();
+      let validated = validate_sql(&query);
+      quote! { SqlQuery::new(#validated) }.into()
+  }
+
+syn::ItemFn fields:
+  sig.ident: function name
+  sig.inputs: arguments (FnArg::Typed with PatType)
+  sig.output: return type (ReturnType)
+  sig.asyncness: Option<Token![async]>
+  block: function body as Block
+
+Iterating struct fields:
+  if let syn::Data::Struct(syn::DataStruct { fields: syn::Fields::Named(fields), .. }) = &ast.data {
+      for field in &fields.named {
+          let field_name = field.ident.as_ref().unwrap();
+          let field_ty = &field.ty;
+      }
+  }
+
+Error handling in proc macros:
+  syn::Error::new(span, \"message\").to_compile_error().into()
+  use darling::FromDeriveInput;  // structured attribute parsing
+  #[derive(FromDeriveInput)] struct MyOpts { #[darling(default)] debug: bool }"
+}
+
+fn s_rm_patterns() -> &'static str {
+    "Proc Macro Design Patterns & Testing
+Helper function generation pattern:
+  fn gen_display(ast: &DeriveInput) -> proc_macro2::TokenStream {
+      let name = &ast.ident;
+      match &ast.data {
+          syn::Data::Enum(e) => {
+              let arms = e.variants.iter().map(|v| {
+                  let variant = &v.ident;
+                  let s = variant.to_string();
+                  quote! { #name::#variant => write!(f, #s), }
+              });
+              quote! {
+                  impl std::fmt::Display for #name {
+                      fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+                          match self { #(#arms)* }
+                      }
+                  }
+              }
+          },
+          _ => syn::Error::new_spanned(ast, \"Only enums supported\").to_compile_error(),
+      }
+  }
+
+Generic bounds in proc macros:
+  let mut generics = ast.generics.clone();
+  let trait_bound: syn::WherePredicate = syn::parse_quote!(T: MyTrait);
+  generics.make_where_clause().predicates.push(trait_bound);
+  let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
+  quote! { impl #impl_generics MyTrait for #name #ty_generics #where_clause { ... } }
+
+Testing proc macros:
+  #[test]
+  fn test_ui() {
+      let t = trybuild::TestCases::new();
+      t.pass(\"tests/ui/pass_derive.rs\");
+      t.compile_fail(\"tests/ui/fail_missing_field.rs\");
+  }
+  // cargo-expand: cargo expand --bin myapp  (shows fully expanded macros)
+
+Span hygiene:
+  Def-site hygiene: macro variables invisible outside macro (macro_rules!)
+  Proc macros: span determines where errors point
+  proc_macro2::Span::call_site(): where macro is invoked
+  proc_macro2::Span::def_site(): where macro is defined
+
+Popular proc macro crates:
+  serde: derive Serialize/Deserialize
+  thiserror: derive Error with #[error(\"message {field}\")]
+  clap: derive Args, Parser for CLI argument parsing
+  tokio::main: async main function transformation
+  strum: derive enum iteration, string conversion"
+}
+
+fn s_rm_advanced() -> &'static str {
+    "Advanced Macro Techniques
+Token manipulation with proc_macro2:
+  use proc_macro2::{TokenStream, TokenTree, Literal};
+  let mut ts = TokenStream::new();
+  ts.extend(quote! { let x = });
+  ts.extend(std::iter::once(TokenTree::Literal(Literal::i32_unsuffixed(42))));
+  ts.extend(quote! { ; });
+
+Build scripts vs proc macros:
+  build.rs: better for code generation from external sources (proto, SQL, JSON schema)
+  proc macro: better for deriving behavior from Rust types at compile time
+  build.rs runs on host; proc macro runs as host binary during compilation
+
+Recursive macros (macro_rules!):
+  macro_rules! count {
+      () => (0);
+      ($x:tt $($rest:tt)*) => (1 + count!($($rest)*));
+  }
+  // Recursion depth limit ~128 in Rust; use tt muncher carefully
+
+The tt muncher pattern:
+  macro_rules! my_dsl {
+      (@parse ) => {};
+      (@parse key $name:ident ; $($rest:tt)*) => {
+          register_key(stringify!($name));
+          my_dsl!(@parse $($rest)*);
+      };
+      ($($tt:tt)*) => { my_dsl!(@parse $($tt)*); };
+  }
+
+Macro debugging tools:
+  cargo expand                     # see full expansion
+  cargo expand --lib               # expand library crate
+  cargo expand SomeStruct          # expand specific item
+  eprintln!(\"{}\", input)            # in proc macro: print TokenStream to stderr
+  RUSTFLAGS=\"-Z macro-backtrace\"   # nightly: show macro expansion trace
+  trace_macros!(true);             # nightly: trace macro_rules! expansions"
+}
+
+type RustMacrosSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+const RUST_MACROS_SECTIONS: &[RustMacrosSection] = &[
+    (
+        "declarative",
+        &[
+            "macro-rules",
+            "macro_rules",
+            "rust-macros-intro",
+            "fragment-specifiers",
+            "macro-repetition",
+            "macro-export",
+            "macro-scoping",
+            "declarative-macro",
+            "rust-dsl-macro",
+            "builder-macro",
+        ],
+        s_rm_declarative,
+    ),
+    (
+        "procedural",
+        &[
+            "proc-macro",
+            "derive-macro",
+            "proc-macro-derive",
+            "syn-crate",
+            "quote-crate",
+            "proc-macro2",
+            "derive-input",
+            "rust-ast",
+            "token-stream",
+            "proc-macro-setup",
+            "custom-derive",
+        ],
+        s_rm_procedural,
+    ),
+    (
+        "attribute",
+        &[
+            "attribute-macro",
+            "proc-macro-attribute",
+            "function-like-macro",
+            "itemfn-syn",
+            "route-macro",
+            "sql-macro",
+            "compile-time-check",
+            "darling-crate",
+            "syn-itemfn",
+        ],
+        s_rm_attribute,
+    ),
+    (
+        "patterns",
+        &[
+            "proc-macro-patterns",
+            "proc-macro-testing",
+            "trybuild",
+            "cargo-expand",
+            "span-hygiene",
+            "generic-bounds-macro",
+            "proc-macro-design",
+            "enum-display-macro",
+            "thiserror-macro",
+        ],
+        s_rm_patterns,
+    ),
+    (
+        "advanced",
+        &[
+            "advanced-macros",
+            "tt-muncher",
+            "recursive-macro",
+            "build-rs-vs-macro",
+            "proc-macro2-tokens",
+            "macro-debugging",
+            "token-manipulation",
+            "trace-macros",
+            "macro-hygiene-advanced",
+        ],
+        s_rm_advanced,
+    ),
+];
+
+pub fn rust_macros_calc(query: &str) -> String {
+    let q = query.trim().to_lowercase();
+    if q.is_empty() || q == "list" || q == "help" {
+        let topics: Vec<&str> = RUST_MACROS_SECTIONS.iter().map(|(n, _, _)| *n).collect();
+        return format!(
+            "rust-macros topics: {}\nUse: --rust-macros <topic>  or  --rust-macros all",
+            topics.join(", ")
+        );
+    }
+    if q == "all" {
+        return RUST_MACROS_SECTIONS
+            .iter()
+            .map(|(n, _, f)| format!("── {} ──\n{}", n, f()))
+            .collect::<Vec<_>>()
+            .join("\n\n");
+    }
+    for (name, aliases, func) in RUST_MACROS_SECTIONS {
+        if q == *name || aliases.iter().any(|a| q == *a || q.contains(a)) {
+            return func().to_string();
+        }
+    }
+    format!(
+        "Unknown rust-macros topic: '{}'\nAvailable: {}",
+        query.trim(),
+        RUST_MACROS_SECTIONS
+            .iter()
+            .map(|(n, _, _)| *n)
+            .collect::<Vec<_>>()
+            .join(", ")
+    )
+}
+
+// ── db-internals ──────────────────────────────────────────────────────────────
+
+fn s_di_storage() -> &'static str {
+    "Database Storage Internals
+B-Tree (PostgreSQL, MySQL InnoDB, SQLite):
+  Balanced tree; all values in leaf pages; O(log n) reads/writes
+  Page size: 8KB (Postgres), 16KB (MySQL); leaves doubly-linked for range scans
+  Fill factor: leave space for in-page updates (Postgres default 90%)
+  TOAST: Postgres overflow storage for values >2KB (out-of-line in separate table)
+  HOT update: Heap-Only Tuple — same page updates skip index update (Postgres)
+
+B+Tree vs LSM comparison:
+  B+Tree: good for read-heavy workloads; write amplification ~log N
+  LSM (Log-Structured Merge): good for write-heavy; read amplification (multiple levels)
+  LSM used in: RocksDB, Cassandra, LevelDB, CockroachDB, TiKV
+  LSM components: MemTable (in-memory) → Level-0 SSTables → compaction to L1-N
+  Bloom filter: per-SSTable; answers 'key not present' in O(1) to avoid disk reads
+  LSM compaction: tiered (fast writes) vs leveled (better reads, less space amplification)
+
+Heap files vs clustered index:
+  Heap: rows in insertion order; PK lookup requires heap fetch after index scan
+  Clustered index (InnoDB PK): rows stored IN the index leaf page
+    → PK lookups = single I/O; secondary indexes include PK value
+  Postgres: CLUSTER command (one-time reorder; not maintained automatically)
+  Index-only scan: all needed columns in index; zero heap I/Os
+
+MVCC (Multi-Version Concurrency Control):
+  Each write creates new version; old versions kept for active transactions
+  Postgres: xmin/xmax on each tuple; vacuum removes dead tuples
+  MySQL InnoDB: undo log for old versions; purge thread cleans expired
+  Long-running transactions: prevent vacuum/purge → table bloat risk
+
+Write-Ahead Log (WAL):
+  All changes written to WAL before data pages modified
+  Recovery: replay WAL from last checkpoint after crash
+  Postgres: WAL segments in pg_wal/; WAL archiving for PITR
+  Replication: streaming WAL to standbys; logical WAL for cross-version targets"
+}
+
+fn s_di_indexes() -> &'static str {
+    "Index Internals & Query Optimization
+Index types:
+  B-Tree:   default; equality + range; ORDER BY pushdown; null-inclusive
+  Hash:     equality only; O(1) lookup; not WAL-safe in old PG (safe 10+)
+  GIN:      Generalized Inverted Index; full-text search; jsonb; array containment
+  GiST:     Generalized Search Tree; geometric types; range types; full-text
+  BRIN:     Block Range Index; huge tables with correlated physical order (time-series)
+            Very small; ~64 bytes per range of 128 pages; great for immutable append data
+  Partial:  CREATE INDEX idx ON t(col) WHERE condition; smaller; faster for subset queries
+  Covering: INCLUDE clause (Postgres 11+): CREATE INDEX ON t(a) INCLUDE (b, c)
+  Expression: CREATE INDEX ON t(lower(email)); query must use same expression
+
+Index selectivity and cost:
+  High selectivity (few rows returned): index scan wins
+  Low selectivity (>5-10% of table): sequential scan wins
+  EXPLAIN (ANALYZE, BUFFERS): check actual rows, loops, shared_hit/read
+  pg_stats: n_distinct, correlation (physical ordering), most_common_vals
+
+Query plan operators:
+  Seq Scan:        read entire table; good for low selectivity
+  Index Scan:      index + heap fetch per row; good for high selectivity
+  Index Only Scan: all needed data in index; zero heap I/Os
+  Bitmap Index Scan + Bitmap Heap Scan: collect row locations, sort, fetch in order
+  Nested Loop:     good for small outer + indexed inner
+  Hash Join:       good for large tables with no useful index on join key
+  Merge Join:      both sides sorted; efficient for large sorted datasets
+
+Tuning queries:
+  Missing index: EXPLAIN shows Seq Scan on large table with low rows estimate
+  Index unused: check selectivity, expression mismatch, cast issues
+  Statistics stale: ANALYZE table; increase default_statistics_target for skewed data"
+}
+
+fn s_di_transactions() -> &'static str {
+    "Transaction Isolation & Concurrency
+Isolation levels (ANSI SQL):
+  READ UNCOMMITTED: dirty reads allowed; not useful
+  READ COMMITTED:   default in Postgres/MySQL; no dirty reads; non-repeatable reads ok
+  REPEATABLE READ:  same reads within transaction; Postgres RR: snapshot isolation
+  SERIALIZABLE:     full isolation; Postgres: SSI (Serializable Snapshot Isolation)
+
+Anomalies:
+  Dirty read:       read uncommitted data from other transaction (RC prevents)
+  Non-repeatable:   re-read same row gets different value (RR prevents)
+  Phantom:          re-run range query gets different rows (Serializable prevents)
+  Lost update:      two transactions read-modify-write same row; one overwrites other
+  Write skew:       both transactions check condition, both update; constraint violated
+
+Locking in Postgres:
+  Row-level: SELECT ... FOR UPDATE (exclusive); FOR SHARE (shared)
+  Table-level: LOCK TABLE ... IN EXCLUSIVE MODE
+  Advisory locks: pg_advisory_lock(key) — application-managed; no DDL needed
+  Deadlock detection: automatic; one transaction rolled back with error 40P01
+  Lock monitoring: SELECT * FROM pg_locks l JOIN pg_stat_activity a ON l.pid=a.pid
+
+MVCC read vs lock:
+  Plain SELECT: reads snapshot (no lock); never blocks on writers
+  SELECT FOR UPDATE: acquires row lock; blocks concurrent FOR UPDATE on same rows
+
+Optimistic vs pessimistic concurrency:
+  Pessimistic: SELECT FOR UPDATE; lock early; safe but can cause contention
+  Optimistic: read without lock; check version/timestamp on write; retry on conflict
+    UPDATE t SET v=new WHERE id=1 AND version=old_version;
+    Check rows_affected == 1; if 0, retry (concurrent update detected)"
+}
+
+fn s_di_replication() -> &'static str {
+    "Replication, Sharding & Distributed Databases
+Postgres replication:
+  Physical streaming: binary WAL stream; byte-for-byte copy; same major version
+    primary_conninfo in postgresql.conf (standby)
+    synchronous_commit: on|remote_apply|remote_write|local|off
+  Logical replication: SQL-level; supports cross-version; partial table subset
+    CREATE PUBLICATION pub FOR TABLE orders;
+    CREATE SUBSCRIPTION sub CONNECTION '...' PUBLICATION pub;
+  Patroni: HA manager; automatic failover; etcd/consul/ZooKeeper for DCS
+  pgBouncer: connection pooler; transaction-mode (most efficient)
+
+MySQL replication:
+  Binary log (binlog): statement|row|mixed format
+  GTID (Global Transaction ID): position-independent replication; auto-reconnect
+  Group Replication: multi-primary; conflict detection; used by InnoDB Cluster
+
+Sharding strategies:
+  Range sharding: split by key range (time, ID); hotspot risk on sequential inserts
+  Hash sharding: consistent hash; even distribution; harder to rebalance
+  Directory sharding: lookup table maps key → shard; flexible; lookup overhead
+  Vitess: MySQL sharding layer; transparent app sharding
+  Citus: Postgres sharding extension; distributed joins
+
+Distributed consistency:
+  CAP theorem: Consistency + Availability + Partition tolerance (pick 2 under partition)
+  Eventual consistency: last-write-wins or CRDT merge
+  Strong consistency: linearizable reads; leader-only reads; 2-phase commit
+  Two-phase commit (2PC): coordinator + participants; blocks on coordinator failure
+  Saga pattern: sequence of local transactions + compensating transactions on failure
+
+NewSQL distributed databases:
+  CockroachDB: distributed Postgres-compatible; serializable; geo-distribution
+  TiDB: MySQL-compatible; TiKV (RocksDB) + TiFlash (columnar); HTAP
+  Spanner (Google): TrueTime; external consistency; global scale"
+}
+
+fn s_di_performance() -> &'static str {
+    "Database Performance Tuning
+Memory configuration (PostgreSQL):
+  shared_buffers: 25% of RAM (read cache; shared across all connections)
+  effective_cache_size: 75% of RAM (planner hint; not allocated)
+  work_mem: 4-64MB (per sort/hash operation; can multiply by connections!)
+  maintenance_work_mem: 256MB-1GB (for VACUUM, CREATE INDEX, ALTER TABLE)
+  wal_buffers: 16-64MB (WAL write buffer)
+  max_connections: 100-200; use PgBouncer for high connection counts
+
+Autovacuum tuning:
+  autovacuum_vacuum_scale_factor: 0.05 → 0.01 for large tables
+  autovacuum_analyze_scale_factor: 0.1 → 0.05
+  autovacuum_vacuum_cost_delay: 2ms (default; lower = faster vacuum)
+  Table-level override: ALTER TABLE t SET (autovacuum_vacuum_scale_factor=0.01)
+  Monitor: SELECT n_dead_tup, n_live_tup, last_autovacuum FROM pg_stat_user_tables
+
+Query tuning workflow:
+  1. pg_stat_statements: top queries by total_time; identify slow patterns
+  2. EXPLAIN (ANALYZE, BUFFERS): actual vs estimated rows; I/O stats
+  3. Fix bad estimates: ANALYZE; increase statistics_target for skewed columns
+  4. Add missing indexes for high-selectivity predicates
+  5. Rewrite N+1 queries as JOINs or CTEs
+
+Table partitioning (Postgres 10+ declarative):
+  CREATE TABLE orders (id bigint, created_at timestamptz)
+  PARTITION BY RANGE (created_at);
+  CREATE TABLE orders_2024 PARTITION OF orders
+    FOR VALUES FROM ('2024-01-01') TO ('2025-01-01');
+  Benefits: partition pruning; faster vacuum per partition
+
+Connection pooling tiers:
+  PgBouncer transaction mode: 1 server conn per active query; ~100× scaling
+  Odyssey (Yandex): multi-threaded PgBouncer alternative
+
+Monitoring key metrics:
+  Postgres: pg_stat_statements, pg_stat_bgwriter, pg_stat_replication
+  Query latency P50/P99: application-level tracing (OpenTelemetry)
+  Lock waits: pg_locks; information_schema.innodb_trx (MySQL)"
+}
+
+type DbInternalsSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+const DB_INTERNALS_SECTIONS: &[DbInternalsSection] = &[
+    (
+        "storage",
+        &[
+            "db-storage",
+            "b-tree-internals",
+            "lsm-tree",
+            "mvcc-internals",
+            "wal-internals",
+            "heap-files",
+            "clustered-index",
+            "toast-postgres",
+            "rocksdb-internals",
+            "sstable",
+            "compaction-lsm",
+        ],
+        s_di_storage,
+    ),
+    (
+        "indexes",
+        &[
+            "index-internals",
+            "query-optimizer",
+            "explain-analyze",
+            "index-types",
+            "gin-index",
+            "gist-index",
+            "brin-index",
+            "partial-index",
+            "covering-index",
+            "index-selectivity",
+            "query-plan",
+        ],
+        s_di_indexes,
+    ),
+    (
+        "transactions",
+        &[
+            "isolation-levels",
+            "mvcc-tx",
+            "db-locking",
+            "deadlock-postgres",
+            "read-committed",
+            "serializable-tx",
+            "optimistic-concurrency",
+            "pessimistic-lock",
+            "write-skew",
+            "phantom-reads",
+            "advisory-locks",
+        ],
+        s_di_transactions,
+    ),
+    (
+        "replication",
+        &[
+            "db-replication",
+            "postgres-replication",
+            "mysql-replication",
+            "sharding-strategy",
+            "patroni",
+            "pgbouncer",
+            "distributed-db",
+            "cap-theorem",
+            "two-phase-commit",
+            "saga-pattern",
+            "newsql",
+        ],
+        s_di_replication,
+    ),
+    (
+        "performance",
+        &[
+            "db-performance",
+            "postgres-tuning",
+            "autovacuum-tuning",
+            "connection-pooling",
+            "table-partitioning",
+            "pg-stat-statements",
+            "work-mem",
+            "shared-buffers",
+            "query-tuning",
+            "db-monitoring",
+            "n-plus-one-query",
+        ],
+        s_di_performance,
+    ),
+];
+
+pub fn db_internals_calc(query: &str) -> String {
+    let q = query.trim().to_lowercase();
+    if q.is_empty() || q == "list" || q == "help" {
+        let topics: Vec<&str> = DB_INTERNALS_SECTIONS.iter().map(|(n, _, _)| *n).collect();
+        return format!(
+            "db-internals topics: {}\nUse: --db-internals <topic>  or  --db-internals all",
+            topics.join(", ")
+        );
+    }
+    if q == "all" {
+        return DB_INTERNALS_SECTIONS
+            .iter()
+            .map(|(n, _, f)| format!("── {} ──\n{}", n, f()))
+            .collect::<Vec<_>>()
+            .join("\n\n");
+    }
+    for (name, aliases, func) in DB_INTERNALS_SECTIONS {
+        if q == *name || aliases.iter().any(|a| q == *a || q.contains(a)) {
+            return func().to_string();
+        }
+    }
+    format!(
+        "Unknown db-internals topic: '{}'\nAvailable: {}",
+        query.trim(),
+        DB_INTERNALS_SECTIONS
+            .iter()
+            .map(|(n, _, _)| *n)
+            .collect::<Vec<_>>()
+            .join(", ")
+    )
+}
+
+// ── openapi-ref ───────────────────────────────────────────────────────────────
+
+fn s_or_spec() -> &'static str {
+    "OpenAPI 3.1 Specification Structure
+Document structure:
+  openapi: \"3.1.0\"
+  info:
+    title: My API
+    version: \"1.0.0\"
+    description: API description (markdown supported)
+    contact: {name: Team, email: api@example.com, url: https://example.com}
+    license: {name: MIT, url: https://opensource.org/licenses/MIT}
+    termsOfService: https://example.com/tos
+  servers:
+    - url: https://api.example.com/v1
+      description: Production
+    - url: https://staging.example.com/v1
+      description: Staging
+    - url: http://localhost:{port}/v1
+      description: Local
+      variables:
+        port:
+          default: \"8080\"
+          enum: [\"8080\", \"3000\"]
+  tags:
+    - name: users
+      description: User management operations
+  externalDocs:
+    description: API Guide
+    url: https://docs.example.com
+
+Info object version string:
+  Follow semver: MAJOR.MINOR.PATCH
+  Not the OpenAPI spec version (openapi field); your API version
+
+OpenAPI 3.0 vs 3.1 differences:
+  3.1: full JSON Schema 2020-12 alignment (not draft-07 subset)
+  3.1: type can be array: [\"string\", \"null\"] (replaces nullable: true)
+  3.1: webhooks top-level object (not just callbacks)
+  3.1: $schema keyword allowed in schemas
+  3.0: nullable: true; 3.1: type: [\"string\", \"null\"]
+  3.0: exclusiveMinimum is boolean; 3.1: exclusiveMinimum is number"
+}
+
+fn s_or_paths() -> &'static str {
+    "OpenAPI Paths, Operations & Parameters
+Paths:
+  /users:
+    get:
+      summary: List users
+      operationId: listUsers          # unique; used by codegen
+      tags: [users]
+      description: Returns paginated list (markdown)
+      parameters:
+        - name: limit
+          in: query                   # query | path | header | cookie
+          required: false
+          schema: {type: integer, minimum: 1, maximum: 100, default: 20}
+          description: Max results per page
+        - name: userId
+          in: path
+          required: true              # path params always required
+          schema: {type: string, format: uuid}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUser'
+            example:
+              name: Alice
+              email: alice@example.com
+      responses:
+        '200':
+          description: Success
+          headers:
+            X-Total-Count:
+              schema: {type: integer}
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+      security:
+        - BearerAuth: []
+
+HTTP methods:
+  get, post, put, patch, delete, head, options, trace
+  PATCH: partial update; PUT: full replacement
+  DELETE with request body: allowed by spec; may be rejected by some proxies
+
+Callbacks (webhooks in 3.0):
+  webhooks (3.1) or callbacks (3.0): specify async callbacks
+  callbacks:
+    onEvent:
+      '{$request.body#/callbackUrl}':
+        post:
+          requestBody: ..."
+}
+
+fn s_or_schemas() -> &'static str {
+    "OpenAPI Schemas & Components
+JSON Schema in OpenAPI 3.1 (full JSON Schema 2020-12):
+  type: string | number | integer | boolean | array | object | null
+  format: date-time | date | time | duration | email | uri | uuid | byte | binary | int32 | int64 | float | double | password
+  enum: [\"active\", \"inactive\", \"pending\"]
+  const: \"fixed-value\"
+
+String constraints:
+  minLength, maxLength, pattern (regex)
+  format: date (YYYY-MM-DD), date-time (RFC 3339), email, uri, uuid
+
+Number constraints:
+  minimum, maximum, exclusiveMinimum, exclusiveMaximum
+  multipleOf: 0.01  # e.g. for monetary amounts
+
+Object schema:
+  type: object
+  properties:
+    id: {type: string, format: uuid, readOnly: true}
+    name: {type: string, minLength: 1, maxLength: 100}
+    email: {type: string, format: email}
+    role: {type: string, enum: [admin, user, guest], default: user}
+    tags: {type: array, items: {type: string}, uniqueItems: true}
+    metadata: {type: object, additionalProperties: {type: string}}
+  required: [name, email]
+  additionalProperties: false  # strict mode: no extra fields
+
+Composition keywords:
+  allOf: [{$ref: '#/components/schemas/Base'}, {properties: {...}}]  # merge/extend
+  oneOf: [{$ref: Cat}, {$ref: Dog}]    # exactly one valid
+  anyOf: [{$ref: A}, {$ref: B}]        # at least one valid
+  not: {$ref: '#/components/schemas/Banned'}
+  discriminator:                        # used with oneOf/anyOf for polymorphism
+    propertyName: type
+    mapping: {cat: '#/components/schemas/Cat', dog: '#/components/schemas/Dog'}
+
+Components (reusable):
+  components:
+    schemas:     reusable data models
+    responses:   reusable response definitions
+    parameters:  reusable parameter definitions
+    requestBodies: reusable request body definitions
+    headers:     reusable header definitions
+    securitySchemes: authentication definitions
+    examples:    reusable examples
+    links:       hypermedia links
+    callbacks:   reusable callbacks"
+}
+
+fn s_or_security() -> &'static str {
+    "OpenAPI Security Schemes
+Security scheme types:
+  apiKey:
+    type: apiKey
+    in: header | query | cookie
+    name: X-API-Key
+
+  http (JWT / Basic):
+    type: http
+    scheme: bearer       # RFC 6750 bearer tokens
+    bearerFormat: JWT    # informational
+    # Or:
+    scheme: basic        # HTTP Basic Auth
+
+  oauth2:
+    type: oauth2
+    flows:
+      authorizationCode:
+        authorizationUrl: https://auth.example.com/oauth/authorize
+        tokenUrl: https://auth.example.com/oauth/token
+        refreshUrl: https://auth.example.com/oauth/refresh
+        scopes:
+          read:users: Read user data
+          write:users: Create and update users
+      clientCredentials:
+        tokenUrl: https://auth.example.com/oauth/token
+        scopes:
+          api: Full API access
+      implicit:           # deprecated; prefer authorizationCode + PKCE
+        authorizationUrl: ...
+        scopes: ...
+      password:           # deprecated
+        tokenUrl: ...
+
+  openIdConnect:
+    type: openIdConnect
+    openIdConnectUrl: https://auth.example.com/.well-known/openid-configuration
+
+Applying security globally:
+  security:
+    - BearerAuth: []     # applies to ALL operations by default
+
+Applying security per operation:
+  paths:
+    /public:
+      get:
+        security: []     # override: no auth required
+    /protected:
+      get:
+        security:
+          - BearerAuth: []
+          - ApiKeyAuth: []  # alternatives (logical OR)
+
+Security scheme requirement:
+  - BearerAuth: [scope1, scope2]  # scopes required (oauth2/oidc only)
+  - ApiKey: []                    # empty array = no scopes needed"
+}
+
+fn s_or_tooling() -> &'static str {
+    "OpenAPI Tooling & Code Generation
+Documentation renderers:
+  Swagger UI:  popular; interactive try-it-out; docker: swaggerapi/swagger-ui
+              serves at index.html from a YAML/JSON file or URL
+  Redoc:       clean; three-panel layout; better for public docs
+              npx @redocly/redoc-cli build openapi.yaml --output docs/index.html
+  Stoplight Elements: component-based; embeddable in any HTML
+  Scalar:      modern UI; fast; open-source; swagger-ui replacement
+
+Validation and linting:
+  spectral: opinionated linter; built-in OpenAPI ruleset; custom rules
+    npx @stoplight/spectral-cli lint openapi.yaml
+    npx @stoplight/spectral-cli lint openapi.yaml --ruleset .spectral.yaml
+  vacuum: fast Rust-based linter (drop-in spectral replacement)
+    vacuum lint openapi.yaml
+  openapi-generator validate: bundled validation
+  Redocly CLI: redocly lint openapi.yaml; redocly bundle openapi.yaml
+
+Code generation (openapi-generator):
+  openapi-generator-cli generate -i openapi.yaml -g typescript-axios -o ./client
+  openapi-generator-cli generate -i openapi.yaml -g python -o ./python-client
+  Generators: typescript-fetch, typescript-axios, go, java, python, rust, csharp
+  Custom templates: --template-dir ./templates
+
+Other tools:
+  swagger-editor:   online YAML/JSON editor + preview at editor.swagger.io
+  orval:            TypeScript + React Query client generation from OpenAPI
+  zod-to-openapi:   generate OpenAPI schemas from Zod validators (TypeScript)
+  tapir (Scala):    type-safe HTTP API + auto-generate OpenAPI
+  huma:             Go framework; auto-generate OpenAPI from Go types
+  FastAPI (Python): auto-generates /docs (Swagger) and /redoc from type hints
+  prism:            mock server from OpenAPI spec; npx @stoplight/prism-cli mock openapi.yaml
+  schemathesis:     property-based testing from OpenAPI; finds edge cases automatically"
+}
+
+type OpenApiRefSection = (&'static str, &'static [&'static str], fn() -> &'static str);
+const OPENAPI_REF_SECTIONS: &[OpenApiRefSection] = &[
+    (
+        "spec",
+        &[
+            "openapi-structure",
+            "openapi-3-1",
+            "openapi-3-0",
+            "openapi-info",
+            "openapi-servers",
+            "openapi-tags",
+            "openapi-doc",
+            "oas3",
+            "swagger-spec",
+            "api-spec-structure",
+            "openapi-version",
+        ],
+        s_or_spec,
+    ),
+    (
+        "paths",
+        &[
+            "openapi-paths",
+            "openapi-operations",
+            "openapi-parameters",
+            "request-body",
+            "openapi-responses",
+            "operationid",
+            "openapi-callbacks",
+            "path-params",
+            "query-params",
+            "openapi-headers",
+            "openapi-security-req",
+        ],
+        s_or_paths,
+    ),
+    (
+        "schemas",
+        &[
+            "openapi-schemas",
+            "json-schema-openapi",
+            "openapi-components",
+            "allof-openapi",
+            "oneof-openapi",
+            "anyof-openapi",
+            "discriminator-openapi",
+            "openapi-types",
+            "openapi-formats",
+            "readonly-openapi",
+            "openapi-enum",
+        ],
+        s_or_schemas,
+    ),
+    (
+        "security",
+        &[
+            "openapi-security",
+            "api-key-scheme",
+            "bearer-auth-openapi",
+            "oauth2-openapi",
+            "oidc-openapi",
+            "security-schemes",
+            "openapi-auth",
+            "jwt-openapi",
+            "basic-auth-openapi",
+            "security-flows",
+            "openapi-scopes",
+        ],
+        s_or_security,
+    ),
+    (
+        "tooling",
+        &[
+            "swagger-ui",
+            "redoc",
+            "openapi-generator",
+            "spectral-linter",
+            "openapi-tools",
+            "openapi-codegen",
+            "prism-mock",
+            "schemathesis",
+            "swagger-editor",
+            "openapi-validation",
+            "orval-tool",
+        ],
+        s_or_tooling,
+    ),
+];
+
+pub fn openapi_ref_calc(query: &str) -> String {
+    let q = query.trim().to_lowercase();
+    if q.is_empty() || q == "list" || q == "help" {
+        let topics: Vec<&str> = OPENAPI_REF_SECTIONS.iter().map(|(n, _, _)| *n).collect();
+        return format!(
+            "openapi-ref topics: {}\nUse: --openapi-ref <topic>  or  --openapi-ref all",
+            topics.join(", ")
+        );
+    }
+    if q == "all" {
+        return OPENAPI_REF_SECTIONS
+            .iter()
+            .map(|(n, _, f)| format!("── {} ──\n{}", n, f()))
+            .collect::<Vec<_>>()
+            .join("\n\n");
+    }
+    for (name, aliases, func) in OPENAPI_REF_SECTIONS {
+        if q == *name || aliases.iter().any(|a| q == *a || q.contains(a)) {
+            return func().to_string();
+        }
+    }
+    format!(
+        "Unknown openapi-ref topic: '{}'\nAvailable: {}",
+        query.trim(),
+        OPENAPI_REF_SECTIONS
+            .iter()
+            .map(|(n, _, _)| *n)
+            .collect::<Vec<_>>()
+            .join(", ")
+    )
+}

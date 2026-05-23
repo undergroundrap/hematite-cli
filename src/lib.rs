@@ -2386,6 +2386,38 @@ pub struct CliCockpit {
 
     #[arg(
         long,
+        help_heading = "Developer Toolkit",
+        value_name = "QUERY",
+        help = "Kubernetes advanced patterns — offline replacement for kubernetes.io advanced docs. Topics: scheduling, networking, storage, security, operators. Aliases: node-affinity, pod-affinity, taints-tolerations, k8s-networking, network-policy, pv-pvc, storageclass, pod-security-admission, rbac-k8s, crd-k8s, kubebuilder. Examples: hematite --k8s-adv scheduling | hematite --k8s-adv operators | hematite --k8s-adv all"
+    )]
+    pub k8s_adv: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Developer Toolkit",
+        value_name = "QUERY",
+        help = "Rust macros reference — offline replacement for Rust Reference macro chapters and proc-macro book. Topics: declarative, procedural, attribute, patterns, advanced. Aliases: macro-rules, proc-macro, derive-macro, syn-crate, quote-crate, attribute-macro, tt-muncher, cargo-expand, trybuild. Examples: hematite --rust-macros declarative | hematite --rust-macros procedural | hematite --rust-macros all"
+    )]
+    pub rust_macros: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Developer Toolkit",
+        value_name = "QUERY",
+        help = "Database internals reference — offline replacement for CMU lecture notes and use-the-index-luke.com. Topics: storage, indexes, transactions, replication, performance. Aliases: b-tree-internals, lsm-tree, mvcc-internals, index-types, isolation-levels, db-locking, postgres-replication, sharding-strategy, autovacuum-tuning, pg-stat-statements. Examples: hematite --db-internals storage | hematite --db-internals indexes | hematite --db-internals all"
+    )]
+    pub db_internals: Option<String>,
+
+    #[arg(
+        long,
+        help_heading = "Developer Toolkit",
+        value_name = "QUERY",
+        help = "OpenAPI / Swagger reference — offline replacement for spec.openapis.org and swagger.io docs. Topics: spec, paths, schemas, security, tooling. Aliases: openapi-structure, openapi-paths, openapi-schemas, openapi-security, swagger-ui, redoc, openapi-generator, spectral-linter, prism-mock, schemathesis. Examples: hematite --openapi-ref schemas | hematite --openapi-ref security | hematite --openapi-ref all"
+    )]
+    pub openapi_ref: Option<String>,
+
+    #[arg(
+        long,
         help_heading = "Math & Science",
         value_name = "QUERY",
         help = "Lorem ipsum generator — offline replacement for lipsum.com. Commands: (bare) or <N> = N paragraphs (default 1); words <N> = N words; sentences <N> = N sentences. Examples: hematite --lorem | hematite --lorem 3 | hematite --lorem 'words 50' | hematite --lorem 'sentences 5'"

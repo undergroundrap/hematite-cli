@@ -1153,6 +1153,10 @@ mod tests {
             oauth2_flow: None,
             linux_net: None,
             prom_ref: None,
+            k8s_adv: None,
+            rust_macros: None,
+            db_internals: None,
+            openapi_ref: None,
             pdf_extract_helper: None,
             teleported_from: None,
         };
