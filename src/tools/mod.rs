@@ -31,6 +31,7 @@ pub mod search;
 pub mod shell;
 pub mod symbol_search;
 pub mod tasks;
+pub mod test_runner;
 pub mod tool_schema_cache;
 pub mod toolchain;
 pub mod verify_build;

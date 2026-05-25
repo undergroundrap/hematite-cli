@@ -5572,6 +5572,38 @@ pub fn needs_crash_debug(user_input: &str) -> bool {
         || lower.contains("sigabrt")
 }
 
+/// Returns true when the user's query is asking to run tests — steer toward `run_tests`
+/// instead of raw `shell cargo test` or `shell pytest`.
+pub fn needs_test_run(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    let test_noun = lower.contains("test") || lower.contains("spec") || lower.contains("suite");
+    let run_verb = lower.contains("run")
+        || lower.contains("execute")
+        || lower.contains("check failing")
+        || lower.contains("failing test")
+        || lower.contains("flaky test")
+        || lower.contains("re-run")
+        || lower.contains("rerun");
+    let explicit = lower.contains("cargo test")
+        || lower.contains("pytest")
+        || lower.contains("npm test")
+        || lower.contains("run the tests")
+        || lower.contains("run all tests")
+        || lower.contains("run tests")
+        || lower.contains("run failing tests")
+        || lower.contains("run this test")
+        || lower.contains("run the test suite")
+        || lower.contains("test suite")
+        || lower.contains("test results")
+        || lower.contains("which tests fail")
+        || lower.contains("what tests fail")
+        || lower.contains("tests pass")
+        || lower.contains("tests fail")
+        || lower.contains("test is failing")
+        || lower.contains("test failed");
+    explicit || (run_verb && test_noun)
+}
+
 /// Returns true when the user's query involves computation that must be exact —
 /// checksums, financial math, statistics, date arithmetic, algorithmic verification, etc.
 /// Used by the harness to inject a pre-turn nudge toward run_code instead of model memory.

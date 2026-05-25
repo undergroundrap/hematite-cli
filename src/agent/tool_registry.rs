@@ -1213,6 +1213,34 @@ pub fn get_tools() -> Vec<ToolDefinition> {
             "required": ["symbol"]
         }),
     ));
+    tools.push(make_tool(
+        "run_tests",
+        "Run the project test suite and return a structured summary: pass/fail counts, \
+         elapsed time, and — on failure — the exact failure blocks extracted from output. \
+         Works with Rust/Cargo (cargo test), Node/npm (npm test), and Python/pytest. \
+         Use the `filter` arg to run a subset of tests by name (Cargo substring match, \
+         pytest -k expression). Defaults to a 120-second timeout. \
+         Set dry_run=true to preview the command that would run without executing it. \
+         Prefer this over raw `shell cargo test` so failures are surfaced cleanly.",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "filter": {
+                    "type": "string",
+                    "description": "Optional test name filter. For Cargo: substring match. For pytest: -k expression."
+                },
+                "timeout_seconds": {
+                    "type": "integer",
+                    "description": "Max seconds to wait for the suite (default 120)."
+                },
+                "dry_run": {
+                    "type": "boolean",
+                    "description": "If true, report the command that would run without executing (default false)."
+                }
+            },
+            "required": []
+        }),
+    ));
     let lsp_defs = crate::tools::lsp_tools::get_lsp_definitions();
     tools.push(make_tool(
         "lsp_search_symbol",
@@ -1280,6 +1308,7 @@ pub async fn dispatch_builtin_tool(
         "cargo_errors" => crate::tools::build_errors::execute(args).await,
         "find_symbol" => crate::tools::symbol_search::execute(args).await,
         "refactor_rename" => crate::tools::refactor::execute_rename(args).await,
+        "run_tests" => crate::tools::test_runner::execute_run_tests(args).await,
         "git_status" => crate::tools::git::execute_status(args).await,
         "git_diff" => crate::tools::git::execute_diff(args).await,
         "git_log" => crate::tools::git::execute_log(args).await,

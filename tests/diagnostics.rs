@@ -14585,3 +14585,65 @@ fn test_refactor_rename_dry_run_finds_and_previews() {
         "identical names should short-circuit: {identity}"
     );
 }
+
+#[test]
+fn test_run_tests_routing_detects_test_queries() {
+    use hematite::agent::routing::needs_test_run;
+    assert!(needs_test_run("run the tests"));
+    assert!(needs_test_run("run all tests"));
+    assert!(needs_test_run("cargo test"));
+    assert!(needs_test_run("run failing tests"));
+    assert!(needs_test_run("which tests fail?"));
+    assert!(needs_test_run("test is failing"));
+    assert!(needs_test_run("test suite"));
+    assert!(needs_test_run("run the test suite"));
+    assert!(needs_test_run("pytest"));
+    assert!(needs_test_run("npm test"));
+    assert!(!needs_test_run("what is the latest stable Rust?"));
+    assert!(!needs_test_run("edit the main function"));
+}
+
+#[test]
+fn test_run_tests_dry_run_detects_rust_workspace() {
+    use hematite::tools::test_runner;
+    use serde_json::json;
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt
+        .block_on(test_runner::execute_run_tests(&json!({
+            "dry_run": true
+        })))
+        .expect("dry_run should succeed without executing");
+
+    assert!(
+        result.contains("DRY RUN"),
+        "dry_run=true should label output DRY RUN: {result}"
+    );
+    assert!(
+        result.contains("cargo test"),
+        "Rust workspace should resolve to cargo test: {result}"
+    );
+}
+
+#[test]
+fn test_run_tests_dry_run_with_filter() {
+    use hematite::tools::test_runner;
+    use serde_json::json;
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt
+        .block_on(test_runner::execute_run_tests(&json!({
+            "filter": "my_specific_test",
+            "dry_run": true
+        })))
+        .expect("dry_run with filter should succeed");
+
+    assert!(
+        result.contains("my_specific_test"),
+        "filter name should appear in dry-run output: {result}"
+    );
+    assert!(
+        result.contains("cargo test"),
+        "should detect Cargo.toml workspace: {result}"
+    );
+}
