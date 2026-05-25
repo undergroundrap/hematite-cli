@@ -252,3 +252,187 @@ pub async fn execute_worktree(args: &Value) -> Result<String, String> {
         )),
     }
 }
+
+/// tool: git_diff
+///
+/// Returns a structured diff of working-tree changes, staged changes, or between two refs.
+/// Supports a compact stat summary (files changed + lines) or full unified diff with size cap.
+pub async fn execute_diff(args: &Value) -> Result<String, String> {
+    let repo_path = Path::new(".");
+    if !is_git_repo(repo_path) {
+        return Err("Current directory is not a Git repository".to_string());
+    }
+
+    let mode = args
+        .get("mode")
+        .and_then(|v| v.as_str())
+        .unwrap_or("diff");
+
+    let from = args.get("from").and_then(|v| v.as_str());
+    let to = args.get("to").and_then(|v| v.as_str());
+    let path_filter = args.get("path").and_then(|v| v.as_str());
+    let staged = args
+        .get("staged")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+
+    // Build the git diff argument list.
+    let mut git_args: Vec<&str> = vec!["diff"];
+
+    if staged {
+        git_args.push("--cached");
+    }
+
+    if mode == "stat" {
+        git_args.push("--stat");
+        git_args.push("--stat-width=100");
+    }
+
+    // Ref range: "from..to", or just "from" (compare from..HEAD), or nothing (working tree).
+    let range_str;
+    match (from, to) {
+        (Some(f), Some(t)) => {
+            range_str = format!("{f}..{t}");
+            git_args.push(&range_str);
+        }
+        (Some(f), None) => {
+            git_args.push(f);
+        }
+        _ => {}
+    }
+
+    if let Some(p) = path_filter {
+        git_args.push("--");
+        git_args.push(p);
+    }
+
+    let output = Command::new("git")
+        .args(&git_args)
+        .output()
+        .map_err(|e| format!("git_diff: failed to run git: {e}"))?;
+
+    let stdout = String::from_utf8_lossy(&output.stdout).into_owned();
+    let stderr = String::from_utf8_lossy(&output.stderr).into_owned();
+
+    if !output.status.success() {
+        return Err(format!("git diff failed: {}", stderr.trim()));
+    }
+
+    if stdout.trim().is_empty() {
+        return Ok("No differences found (working tree is clean or refs are identical).".to_string());
+    }
+
+    // For full diff mode, cap at 12 KB and add a stat header so the model gets
+    // a quick overview before the raw patch.
+    if mode != "stat" {
+        // Always prepend a --stat summary so the model sees the file list cheaply.
+        let stat_range: Option<String> = from.zip(to).map(|(f, t)| format!("{f}..{t}"));
+        let mut stat_args: Vec<&str> = vec!["diff", "--stat", "--stat-width=100"];
+        if staged {
+            stat_args.push("--cached");
+        }
+        if let Some(rs) = &stat_range {
+            stat_args.push(rs.as_str());
+        } else if let Some(f) = from {
+            stat_args.push(f);
+        }
+        if let Some(p) = path_filter {
+            stat_args.push("--");
+            stat_args.push(p);
+        }
+        let stat_out = Command::new("git")
+            .args(&stat_args)
+            .output()
+            .map_err(|e| format!("git_diff: stat pass failed: {e}"))?;
+        let stat_text = String::from_utf8_lossy(&stat_out.stdout).into_owned();
+
+        const CAP: usize = 12_000;
+        let truncated = stdout.len() > CAP;
+        let body = if truncated { &stdout[..CAP] } else { &stdout };
+
+        let mut result = String::new();
+        result.push_str("GIT DIFF STAT:\n");
+        result.push_str(stat_text.trim());
+        result.push_str("\n\nFULL DIFF:\n");
+        result.push_str(body);
+        if truncated {
+            result.push_str(&format!(
+                "\n\n... [{} bytes truncated — use path= to scope to a specific file]",
+                stdout.len() - CAP
+            ));
+        }
+        return Ok(result);
+    }
+
+    Ok(stdout)
+}
+
+/// tool: git_log
+///
+/// Returns structured commit history — hash, author, date, subject — for the current branch
+/// or a specific file. Optionally scoped to a ref range.
+pub async fn execute_log(args: &Value) -> Result<String, String> {
+    let repo_path = Path::new(".");
+    if !is_git_repo(repo_path) {
+        return Err("Current directory is not a Git repository".to_string());
+    }
+
+    let n = args
+        .get("n")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(20)
+        .min(200) as usize;
+
+    let from = args.get("from").and_then(|v| v.as_str());
+    let to = args.get("to").and_then(|v| v.as_str());
+    let path_filter = args.get("path").and_then(|v| v.as_str());
+    let oneline = args
+        .get("oneline")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+
+    let format = if oneline {
+        "%h %s"
+    } else {
+        "commit %H%nauthor  %an <%ae>%ndate    %ai%nsubject %s%n"
+    };
+
+    let n_str = format!("-{n}");
+    let pretty = format!("--pretty=format:{format}");
+    let mut git_args: Vec<&str> = vec!["log", &n_str, &pretty];
+
+    let range_str;
+    match (from, to) {
+        (Some(f), Some(t)) => {
+            range_str = format!("{f}..{t}");
+            git_args.push(&range_str);
+        }
+        (Some(f), None) => {
+            git_args.push(f);
+        }
+        _ => {}
+    }
+
+    if let Some(p) = path_filter {
+        git_args.push("--");
+        git_args.push(p);
+    }
+
+    let output = Command::new("git")
+        .args(&git_args)
+        .output()
+        .map_err(|e| format!("git_log: failed to run git: {e}"))?;
+
+    let stdout = String::from_utf8_lossy(&output.stdout).into_owned();
+    let stderr = String::from_utf8_lossy(&output.stderr).into_owned();
+
+    if !output.status.success() {
+        return Err(format!("git log failed: {}", stderr.trim()));
+    }
+
+    if stdout.trim().is_empty() {
+        return Ok("No commits found.".to_string());
+    }
+
+    Ok(stdout)
+}

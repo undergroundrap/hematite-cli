@@ -979,6 +979,75 @@ pub fn get_tools() -> Vec<ToolDefinition> {
             }),
         ),
         make_tool(
+            "git_diff",
+            "Show differences between the working tree, staged changes, or two git refs. \
+             Always returns a --stat summary header (files changed, insertions, deletions) \
+             followed by the full unified diff capped at 12 KB. \
+             Use mode=stat for a compact file-list-only view. \
+             Use staged=true to diff the index vs HEAD (i.e. what will be committed). \
+             Use from/to for ref comparison (e.g. from='main', to='HEAD'). \
+             Use path to scope to a single file when the full diff is too large.",
+            serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "mode": {
+                        "type": "string",
+                        "enum": ["diff", "stat"],
+                        "description": "diff = full unified diff with stat header (default); stat = compact summary only"
+                    },
+                    "staged": {
+                        "type": "boolean",
+                        "description": "Diff the index (staged changes) against HEAD instead of the working tree (default false)"
+                    },
+                    "from": {
+                        "type": "string",
+                        "description": "Starting ref (commit hash, branch, or tag). Omit to diff working tree vs HEAD."
+                    },
+                    "to": {
+                        "type": "string",
+                        "description": "Ending ref (optional; defaults to HEAD when from is set)"
+                    },
+                    "path": {
+                        "type": "string",
+                        "description": "Scope diff to this file or directory path"
+                    }
+                }
+            }),
+        ),
+        make_tool(
+            "git_log",
+            "Show commit history for the current branch or a specific file. \
+             Returns hash, author, date, and subject for the last N commits. \
+             Use path to see history for a single file. \
+             Use from/to for a ref range (e.g. from='main', to='HEAD'). \
+             Use oneline=true for a compact one-line-per-commit format.",
+            serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "n": {
+                        "type": "integer",
+                        "description": "Number of commits to return (default 20, max 200)"
+                    },
+                    "oneline": {
+                        "type": "boolean",
+                        "description": "Compact format: one line per commit showing hash and subject (default false)"
+                    },
+                    "from": {
+                        "type": "string",
+                        "description": "Starting ref for a range (e.g. 'main')"
+                    },
+                    "to": {
+                        "type": "string",
+                        "description": "Ending ref for a range (default HEAD)"
+                    },
+                    "path": {
+                        "type": "string",
+                        "description": "Scope to commits that touched this file or directory"
+                    }
+                }
+            }),
+        ),
+        make_tool(
             "clarify",
             "Ask the user a clarifying question when you genuinely cannot proceed without \
              more information. Use this ONLY when you are blocked and cannot make a \
@@ -1104,6 +1173,8 @@ pub async fn dispatch_builtin_tool(
         "git_commit" => crate::tools::git::execute(args).await,
         "git_push" => crate::tools::git::execute_push(args).await,
         "git_remote" => crate::tools::git::execute_remote(args).await,
+        "git_diff" => crate::tools::git::execute_diff(args).await,
+        "git_log" => crate::tools::git::execute_log(args).await,
         "git_onboarding" => crate::tools::git_onboarding::execute(args).await,
         "run_with_backtrace" => crate::tools::debugger::execute(args).await,
         "profile_process" => crate::tools::profiler::execute(args).await,
