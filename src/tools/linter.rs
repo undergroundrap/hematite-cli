@@ -21,10 +21,22 @@ pub async fn execute(args: &Value) -> Result<String, String> {
         .get("allow_dirty")
         .and_then(|v| v.as_bool())
         .unwrap_or(false);
-    let filter = args.get("filter").and_then(|v| v.as_str()).unwrap_or("").trim().to_string();
-    let workspace = args.get("workspace").and_then(|v| v.as_bool()).unwrap_or(false);
+    let filter = args
+        .get("filter")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .trim()
+        .to_string();
+    let workspace = args
+        .get("workspace")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
 
-    let root = crate::tools::file_ops::workspace_root();
+    let root = if let Some(r) = args.get("_root").and_then(|v| v.as_str()) {
+        std::path::PathBuf::from(r)
+    } else {
+        crate::tools::file_ops::workspace_root()
+    };
 
     if fix {
         return run_fix(&root, allow_dirty, workspace).await;
@@ -90,7 +102,9 @@ pub async fn execute(args: &Value) -> Result<String, String> {
                 .and_then(|v| v.as_str())
                 .unwrap_or("")
                 .to_string();
-            if message_text.is_empty() || message_text.starts_with("unused import") && level == "warning" {
+            if message_text.is_empty()
+                || message_text.starts_with("unused import") && level == "warning"
+            {
                 // Still show unused imports
             }
 
@@ -112,8 +126,11 @@ pub async fn execute(args: &Value) -> Result<String, String> {
             // Extract primary span
             let spans = inner.get("spans").and_then(|v| v.as_array());
             let primary_span = spans.and_then(|arr| {
-                arr.iter()
-                    .find(|s| s.get("is_primary").and_then(|v| v.as_bool()).unwrap_or(false))
+                arr.iter().find(|s| {
+                    s.get("is_primary")
+                        .and_then(|v| v.as_bool())
+                        .unwrap_or(false)
+                })
             });
 
             let (file, line_num, col_num) = if let Some(span) = primary_span {
@@ -122,10 +139,7 @@ pub async fn execute(args: &Value) -> Result<String, String> {
                     .and_then(|v| v.as_str())
                     .unwrap_or("?")
                     .to_string();
-                let l = span
-                    .get("line_start")
-                    .and_then(|v| v.as_u64())
-                    .unwrap_or(0) as u32;
+                let l = span.get("line_start").and_then(|v| v.as_u64()).unwrap_or(0) as u32;
                 let c = span
                     .get("column_start")
                     .and_then(|v| v.as_u64())
@@ -153,7 +167,11 @@ pub async fn execute(args: &Value) -> Result<String, String> {
     format_result(&lints, fix)
 }
 
-async fn run_fix(root: &std::path::Path, allow_dirty: bool, workspace: bool) -> Result<String, String> {
+async fn run_fix(
+    root: &std::path::Path,
+    allow_dirty: bool,
+    workspace: bool,
+) -> Result<String, String> {
     let mut cmd_args = vec!["clippy".to_string(), "--fix".to_string()];
     if allow_dirty {
         cmd_args.push("--allow-dirty".to_string());
@@ -190,11 +208,9 @@ async fn run_fix(root: &std::path::Path, allow_dirty: bool, workspace: bool) -> 
                 if combined.contains("no changes") || combined.contains("0 warnings") {
                     Ok("lint_code [FIX]: no machine-applicable fixes needed.".to_string())
                 } else if combined.contains("uncommitted") || combined.contains("dirty") {
-                    Err(
-                        "lint_code fix: working tree has uncommitted changes. \
+                    Err("lint_code fix: working tree has uncommitted changes. \
                          Either commit first or pass allow_dirty=true."
-                            .to_string(),
-                    )
+                        .to_string())
                 } else {
                     Err(format!("lint_code fix failed:\n{combined}"))
                 }
@@ -264,8 +280,7 @@ fn format_result(lints: &[Lint], _fix: bool) -> Result<String, String> {
         let level_tag = if lint.level == "error" { "[E]" } else { "[W]" };
         out.push_str(&format!(
             "\n{level_tag} {}:{loc}\n    {}\n",
-            lint.file,
-            lint.message
+            lint.file, lint.message
         ));
         if !lint.code.is_empty() {
             out.push_str(&format!("    code: {}\n", lint.code));

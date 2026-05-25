@@ -7581,8 +7581,7 @@ fn test_output_flag_help_mentions_path() {
             use clap::CommandFactory;
             use hematite::CliCockpit;
             let cmd = CliCockpit::command();
-            let output_arg =
-                cmd.get_arguments().find(|a| a.get_long() == Some("output"));
+            let output_arg = cmd.get_arguments().find(|a| a.get_long() == Some("output"));
             assert!(output_arg.is_some(), "--output flag must exist");
             let help = output_arg
                 .unwrap()
@@ -14494,10 +14493,14 @@ fn test_crash_debug_routing_detects_panic_queries() {
     use hematite::agent::routing::needs_crash_debug;
     assert!(needs_crash_debug("my program panicked, what happened?"));
     assert!(needs_crash_debug("thread panicked at src/main.rs:42"));
-    assert!(needs_crash_debug("why does it crash when I run with large input"));
+    assert!(needs_crash_debug(
+        "why does it crash when I run with large input"
+    ));
     assert!(needs_crash_debug("get me a backtrace for this failure"));
     assert!(needs_crash_debug("segfault when processing the file"));
-    assert!(needs_crash_debug("stack overflow in the recursive function"));
+    assert!(needs_crash_debug(
+        "stack overflow in the recursive function"
+    ));
     assert!(needs_crash_debug("SIGSEGV abort debug this crash"));
     assert!(!needs_crash_debug("how do I add a feature to the parser?"));
     assert!(!needs_crash_debug("run the build and show me errors"));
@@ -14758,9 +14761,10 @@ fn test_lint_code_runs_and_returns_result() {
     use hematite::tools::linter;
     use serde_json::json;
 
+    let root = env!("CARGO_MANIFEST_DIR");
     let rt = tokio::runtime::Runtime::new().unwrap();
     let result = rt
-        .block_on(linter::execute(&json!({})))
+        .block_on(linter::execute(&json!({ "_root": root })))
         .expect("lint_code should not error on valid Cargo workspace");
 
     // Should either report "clean" or list lints — never panic
@@ -14775,16 +14779,69 @@ fn test_lint_code_filter_narrows_results() {
     use hematite::tools::linter;
     use serde_json::json;
 
+    let root = env!("CARGO_MANIFEST_DIR");
     let rt = tokio::runtime::Runtime::new().unwrap();
     // A filter that matches nothing should return clean or zero results
     let result = rt
         .block_on(linter::execute(&json!({
-            "filter": "zzznotareallintzzz"
+            "filter": "zzznotareallintzzz",
+            "_root": root
         })))
         .expect("lint_code with non-matching filter should not error");
 
     assert!(
         result.contains("clean") || result.contains("LINT RESULTS"),
         "filtered result should still return a summary: {result}"
+    );
+}
+
+#[test]
+fn test_format_code_routing_detects_format_queries() {
+    use hematite::agent::routing::needs_format;
+    assert!(needs_format("cargo fmt"));
+    assert!(needs_format("run the formatter"));
+    assert!(needs_format("format the code"));
+    assert!(needs_format("apply formatting"));
+    assert!(needs_format("check formatting"));
+    assert!(needs_format("format this file"));
+    assert!(needs_format("rustfmt the project"));
+    assert!(!needs_format("run the tests"));
+    assert!(!needs_format("check for lints"));
+}
+
+#[test]
+fn test_format_code_check_mode_reports_status() {
+    use hematite::tools::formatter;
+    use serde_json::json;
+
+    let root = env!("CARGO_MANIFEST_DIR");
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt
+        .block_on(formatter::execute(&json!({ "check": true, "_root": root })))
+        .expect("format_code check should not error on valid Cargo workspace");
+
+    assert!(
+        result.contains("CHECK") || result.contains("formatted"),
+        "check mode should report formatting status: {result}"
+    );
+}
+
+#[test]
+fn test_format_code_apply_reports_changes_or_clean() {
+    use hematite::tools::formatter;
+    use serde_json::json;
+
+    let root = env!("CARGO_MANIFEST_DIR");
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    // Running fmt should either report files changed or say already formatted.
+    let result = rt
+        .block_on(formatter::execute(&json!({ "_root": root })))
+        .expect("format_code should not error on valid Cargo workspace");
+
+    assert!(
+        result.contains("no changes")
+            || result.contains("reformatted")
+            || result.contains("APPLIED"),
+        "should report either no changes or reformatted files: {result}"
     );
 }

@@ -5572,6 +5572,30 @@ pub fn needs_crash_debug(user_input: &str) -> bool {
         || lower.contains("sigabrt")
 }
 
+/// Returns true when the user's query is about formatting code — steer toward `format_code`
+/// instead of raw `shell cargo fmt`.
+pub fn needs_format(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    lower.contains("cargo fmt")
+        || lower.contains("rustfmt")
+        || lower.contains("prettier")
+        || lower.contains("black format")
+        || lower.contains("ruff format")
+        || lower.contains("format the code")
+        || lower.contains("format code")
+        || lower.contains("format this file")
+        || lower.contains("format the file")
+        || lower.contains("run fmt")
+        || lower.contains("run the formatter")
+        || lower.contains("apply formatting")
+        || lower.contains("check formatting")
+        || lower.contains("is the code formatted")
+        || lower.contains("needs formatting")
+        || (lower.contains("format") && lower.contains("rust"))
+        || (lower.contains("format") && lower.contains("python"))
+        || (lower.contains("format") && lower.contains("typescript"))
+}
+
 /// Returns true when the user's query is about linting — steer toward `lint_code`
 /// instead of raw `shell cargo clippy`.
 pub fn needs_lint_check(user_input: &str) -> bool {

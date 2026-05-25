@@ -1214,6 +1214,29 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         }),
     ));
     tools.push(make_tool(
+        "format_code",
+        "Run the workspace formatter and return a summary of what changed. \
+         Rust: `cargo fmt` (or `rustfmt` for a single file via the `path` arg). \
+         Node: `prettier --write`. Python: `ruff format` or `black`. \
+         Set check=true to report which files need reformatting without writing any changes. \
+         Always run this before git_commit to ensure the committed code is clean. \
+         Prefer this over `shell cargo fmt` — you get a structured list of reformatted files.",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "check": {
+                    "type": "boolean",
+                    "description": "If true, only report what would change without writing (default false)."
+                },
+                "path": {
+                    "type": "string",
+                    "description": "Optional: relative path to a single file (Rust only). Formats that file instead of the whole workspace."
+                }
+            },
+            "required": []
+        }),
+    ));
+    tools.push(make_tool(
         "lint_code",
         "Run `cargo clippy` and return structured lint results: file path, line, lint code \
          (e.g. clippy::needless_range_loop), message, and machine-applicable fix suggestion. \
@@ -1409,6 +1432,7 @@ pub async fn dispatch_builtin_tool(
         "manage_deps" => crate::tools::deps::execute(args).await,
         "copy_to_clipboard" => crate::tools::clipboard::copy_to_clipboard(args).await,
         "lint_code" => crate::tools::linter::execute(args).await,
+        "format_code" => crate::tools::formatter::execute(args).await,
         "git_status" => crate::tools::git::execute_status(args).await,
         "git_diff" => crate::tools::git::execute_diff(args).await,
         "git_log" => crate::tools::git::execute_log(args).await,

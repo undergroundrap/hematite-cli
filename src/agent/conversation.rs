@@ -28,7 +28,7 @@ use crate::agent::recovery_recipes::{
 use crate::agent::routing::{
     all_host_inspection_topics, classify_query_intent, is_capability_probe_tool,
     is_scaffold_request, looks_like_mutation_request, needs_computation_sandbox, needs_crash_debug,
-    needs_github_ops, needs_lint_check, needs_test_run,
+    needs_format, needs_github_ops, needs_lint_check, needs_test_run,
     preferred_host_inspection_topic, preferred_maintainer_workflow, preferred_workspace_workflow,
     DirectAnswerKind, QueryIntentClass,
 };
@@ -4992,6 +4992,18 @@ impl ConversationManager {
             );
         }
 
+        // ── Format Routing: steer model toward format_code instead of raw shell cargo fmt ──
+        if loop_intervention.is_none() && needs_format(&effective_user_input) {
+            loop_intervention = Some(
+                "FORMAT NOTICE: Use the `format_code` tool — not `shell cargo fmt` / `rustfmt`. \
+                 `format_code` auto-detects the workspace type (Rust/Node/Python), applies the right \
+                 formatter, and returns a list of files that were changed. \
+                 Use check=true to preview what needs reformatting without writing. \
+                 Use path=<file> to format a single Rust file."
+                    .to_string(),
+            );
+        }
+
         // ── Lint Routing: steer model toward lint_code instead of raw shell cargo clippy ──
         if loop_intervention.is_none() && needs_lint_check(&effective_user_input) {
             loop_intervention = Some(
@@ -8751,19 +8763,11 @@ impl ConversationManager {
                     let preview = crate::tools::refactor::execute_rename(&preview_args).await;
                     match preview {
                         Ok(diff_text) => {
-                            let old = args
-                                .get("old_name")
-                                .and_then(|v| v.as_str())
-                                .unwrap_or("?");
-                            let new = args
-                                .get("new_name")
-                                .and_then(|v| v.as_str())
-                                .unwrap_or("?");
+                            let old = args.get("old_name").and_then(|v| v.as_str()).unwrap_or("?");
+                            let new = args.get("new_name").and_then(|v| v.as_str()).unwrap_or("?");
                             let (appr_tx, appr_rx) = tokio::sync::oneshot::channel::<bool>();
-                            let mutation_label = crate::agent::tool_registry::get_mutation_label(
-                                &call.name,
-                                &args,
-                            );
+                            let mutation_label =
+                                crate::agent::tool_registry::get_mutation_label(&call.name, &args);
                             let _ = tx
                                 .send(InferenceEvent::ApprovalRequired {
                                     id: real_id.clone(),
@@ -8775,9 +8779,7 @@ impl ConversationManager {
                                 })
                                 .await;
                             match appr_rx.await {
-                                Ok(true) => {
-                                    crate::tools::refactor::execute_rename(&args).await
-                                }
+                                Ok(true) => crate::tools::refactor::execute_rename(&args).await,
                                 _ => Err("Rename declined by user.".into()),
                             }
                         }
@@ -8846,10 +8848,7 @@ impl ConversationManager {
                         .and_then(|v| v.as_str())
                         .unwrap_or("")
                         .trim();
-                    let limit = args
-                        .get("limit")
-                        .and_then(|v| v.as_u64())
-                        .unwrap_or(8) as usize;
+                    let limit = args.get("limit").and_then(|v| v.as_u64()).unwrap_or(8) as usize;
                     if query.is_empty() {
                         Err("vein_search: missing required 'query'".to_string())
                     } else {
@@ -8891,8 +8890,7 @@ impl ConversationManager {
                         // Auto-enrich verify_build failures with structured error list.
                         // Runs cargo_errors as a quick secondary pass so the model sees
                         // file:line [Exxxx]: message entries without needing an extra turn.
-                        let enriched = if call.name == "verify_build"
-                            && e.contains("BUILD FAILED")
+                        let enriched = if call.name == "verify_build" && e.contains("BUILD FAILED")
                         {
                             let structured = crate::tools::build_errors::execute(
                                 &serde_json::json!({"tests": e.contains(":test")}),
