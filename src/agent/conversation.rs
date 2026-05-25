@@ -5876,6 +5876,8 @@ impl ConversationManager {
                             }
                             // Refresh repo map so PageRank accounts for the new edit.
                             self.refresh_repo_map();
+                            // Source changed — any cached build result is now stale.
+                            crate::tools::verify_build::invalidate_build_cache();
                         }
                     }
 

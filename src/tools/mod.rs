@@ -1,5 +1,6 @@
 pub mod tool;
 pub use tool::RiskLevel;
+pub mod build_cache;
 pub mod code_sandbox;
 pub mod data_query;
 pub mod data_tools;

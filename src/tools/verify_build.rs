@@ -33,8 +33,14 @@ pub async fn execute_streaming(
             let timeout_secs = timeout_override
                 .or(profile.timeout_secs)
                 .unwrap_or(BUILD_TIMEOUT_SECS);
-            return run_profile_command_streaming(profile_name, action, command, timeout_secs, tx)
-                .await;
+            if let Some(cached) = check_cache(action, &cwd, command) {
+                return Ok(cached);
+            }
+            let result =
+                run_profile_command_streaming(profile_name, action, command, timeout_secs, tx)
+                    .await;
+            cache_result(action, &cwd, command, &result);
+            return result;
         }
 
         return Err(format!(
@@ -55,14 +61,14 @@ pub async fn execute_streaming(
             let timeout_secs = timeout_override
                 .or(profile.timeout_secs)
                 .unwrap_or(BUILD_TIMEOUT_SECS);
-            return run_profile_command_streaming(
-                default_profile,
-                action,
-                command,
-                timeout_secs,
-                tx,
-            )
-            .await;
+            if let Some(cached) = check_cache(action, &cwd, command) {
+                return Ok(cached);
+            }
+            let result =
+                run_profile_command_streaming(default_profile, action, command, timeout_secs, tx)
+                    .await;
+            cache_result(action, &cwd, command, &result);
+            return result;
         }
 
         return Err(format!(
@@ -73,7 +79,12 @@ pub async fn execute_streaming(
     }
 
     let (label, command, timeout_secs) = autodetect_command(&cwd, action, timeout_override)?;
-    run_profile_command_streaming(label, action, &command, timeout_secs, tx).await
+    if let Some(cached) = check_cache(action, &cwd, &command) {
+        return Ok(cached);
+    }
+    let result = run_profile_command_streaming(label, action, &command, timeout_secs, tx).await;
+    cache_result(action, &cwd, &command, &result);
+    result
 }
 
 pub async fn execute(args: &Value) -> Result<String, String> {
@@ -98,7 +109,12 @@ pub async fn execute(args: &Value) -> Result<String, String> {
             let timeout_secs = timeout_override
                 .or(profile.timeout_secs)
                 .unwrap_or(BUILD_TIMEOUT_SECS);
-            return run_profile_command(profile_name, action, command, timeout_secs).await;
+            if let Some(cached) = check_cache(action, &cwd, command) {
+                return Ok(cached);
+            }
+            let result = run_profile_command(profile_name, action, command, timeout_secs).await;
+            cache_result(action, &cwd, command, &result);
+            return result;
         }
 
         return Err(format!(
@@ -119,7 +135,12 @@ pub async fn execute(args: &Value) -> Result<String, String> {
             let timeout_secs = timeout_override
                 .or(profile.timeout_secs)
                 .unwrap_or(BUILD_TIMEOUT_SECS);
-            return run_profile_command(default_profile, action, command, timeout_secs).await;
+            if let Some(cached) = check_cache(action, &cwd, command) {
+                return Ok(cached);
+            }
+            let result = run_profile_command(default_profile, action, command, timeout_secs).await;
+            cache_result(action, &cwd, command, &result);
+            return result;
         }
 
         return Err(format!(
@@ -130,7 +151,12 @@ pub async fn execute(args: &Value) -> Result<String, String> {
     }
 
     let (label, command, timeout_secs) = autodetect_command(&cwd, action, timeout_override)?;
-    run_profile_command(label, action, &command, timeout_secs).await
+    if let Some(cached) = check_cache(action, &cwd, &command) {
+        return Ok(cached);
+    }
+    let result = run_profile_command(label, action, &command, timeout_secs).await;
+    cache_result(action, &cwd, &command, &result);
+    result
 }
 
 fn profile_command<'a>(profile: &'a config::VerifyProfile, action: &str) -> Option<&'a str> {
@@ -525,6 +551,50 @@ async fn run_windows_self_hosted_check_fallback(
             fallback_output.trim()
         ))
     }
+}
+
+/// Returns a cached result string if the source tree is unchanged since last successful build.
+/// Only caches `build` and `test` actions — not `lint` or `fix`.
+fn check_cache(action: &str, cwd: &std::path::Path, command: &str) -> Option<String> {
+    if !matches!(action, "build" | "test") {
+        return None;
+    }
+    let key = crate::tools::build_cache::compute_key(cwd, command);
+    let (ok, output, _hits) = crate::tools::build_cache::get(&key)?;
+    let hit_count = crate::tools::build_cache::record_hit(&key);
+    if ok {
+        Some(format!(
+            "{} [cache hit #{}]\n{}",
+            output.lines().next().unwrap_or("BUILD OK"),
+            hit_count,
+            output.lines().skip(1).collect::<Vec<_>>().join("\n")
+        ))
+    } else {
+        None
+    }
+}
+
+/// Stores a successful build result in the session cache.
+fn cache_result(
+    action: &str,
+    cwd: &std::path::Path,
+    command: &str,
+    result: &Result<String, String>,
+) {
+    if !matches!(action, "build" | "test") {
+        return;
+    }
+    if let Ok(output) = result {
+        if output.contains("BUILD OK") {
+            let key = crate::tools::build_cache::compute_key(cwd, command);
+            crate::tools::build_cache::insert(key, true, output.clone());
+        }
+    }
+}
+
+/// Clears the build cache — called by file_edit after any mutation.
+pub fn invalidate_build_cache() {
+    crate::tools::build_cache::invalidate_all();
 }
 
 #[cfg(test)]
