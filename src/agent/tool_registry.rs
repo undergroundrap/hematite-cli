@@ -1214,6 +1214,23 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         }),
     ));
     tools.push(make_tool(
+        "copy_to_clipboard",
+        "Copy any text to the user's system clipboard so they can paste it immediately. \
+         Works on Windows (PowerShell Set-Clipboard), macOS (pbcopy), and Linux (xclip/xsel). \
+         Use this after generating a config snippet, SQL query, command, or any output the user \
+         will want to paste somewhere. Returns confirmation with byte count.",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "text": {
+                    "type": "string",
+                    "description": "The text to copy to the clipboard."
+                }
+            },
+            "required": ["text"]
+        }),
+    ));
+    tools.push(make_tool(
         "run_tests",
         "Run the project test suite and return a structured summary: pass/fail counts, \
          elapsed time, and — on failure — the exact failure blocks extracted from output. \
@@ -1358,6 +1375,7 @@ pub async fn dispatch_builtin_tool(
         "refactor_rename" => crate::tools::refactor::execute_rename(args).await,
         "run_tests" => crate::tools::test_runner::execute_run_tests(args).await,
         "manage_deps" => crate::tools::deps::execute(args).await,
+        "copy_to_clipboard" => crate::tools::clipboard::copy_to_clipboard(args).await,
         "git_status" => crate::tools::git::execute_status(args).await,
         "git_diff" => crate::tools::git::execute_diff(args).await,
         "git_log" => crate::tools::git::execute_log(args).await,

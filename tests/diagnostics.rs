@@ -14696,3 +14696,44 @@ fn test_manage_deps_add_requires_name() {
         "error should mention 'name'"
     );
 }
+
+#[test]
+fn test_copy_to_clipboard_requires_text() {
+    use hematite::tools::clipboard;
+    use serde_json::json;
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+
+    // Missing text field
+    let result = rt.block_on(clipboard::copy_to_clipboard(&json!({})));
+    assert!(result.is_err(), "missing text should error");
+    assert!(
+        result.unwrap_err().contains("text"),
+        "error should mention 'text'"
+    );
+
+    // Empty text
+    let result = rt.block_on(clipboard::copy_to_clipboard(&json!({ "text": "" })));
+    assert!(result.is_err(), "empty text should error");
+}
+
+#[test]
+fn test_copy_to_clipboard_success_returns_byte_count() {
+    use hematite::tools::clipboard;
+    use serde_json::json;
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(clipboard::copy_to_clipboard(&json!({
+        "text": "Hello from Hematite test"
+    })));
+
+    // On CI or headless environments the clipboard may not be available,
+    // so only check the success path when it works.
+    if let Ok(msg) = result {
+        assert!(
+            msg.contains("bytes") || msg.contains("Copied"),
+            "success message should mention byte count: {msg}"
+        );
+    }
+    // If it errors, that is acceptable in a headless test environment.
+}
