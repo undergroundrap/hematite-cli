@@ -8713,6 +8713,57 @@ impl ConversationManager {
                     }
                 } else if call.name == "vision_analyze" {
                     crate::tools::vision::vision_analyze(&self.engine, &args).await
+                } else if call.name == "refactor_rename"
+                    && !args
+                        .get("dry_run")
+                        .and_then(|v| v.as_bool())
+                        .unwrap_or(true)
+                    && !yolo
+                {
+                    // ── Refactor rename live-apply gate ───────────────────────
+                    // Run a dry-run pass to generate the full per-file preview,
+                    // then surface it in the approval modal so the operator sees
+                    // every line that will change before committing.
+                    let mut preview_args = args.clone();
+                    preview_args["dry_run"] = serde_json::json!(true);
+                    let preview = crate::tools::refactor::execute_rename(&preview_args).await;
+                    match preview {
+                        Ok(diff_text) => {
+                            let old = args
+                                .get("old_name")
+                                .and_then(|v| v.as_str())
+                                .unwrap_or("?");
+                            let new = args
+                                .get("new_name")
+                                .and_then(|v| v.as_str())
+                                .unwrap_or("?");
+                            let (appr_tx, appr_rx) = tokio::sync::oneshot::channel::<bool>();
+                            let mutation_label = crate::agent::tool_registry::get_mutation_label(
+                                &call.name,
+                                &args,
+                            );
+                            let _ = tx
+                                .send(InferenceEvent::ApprovalRequired {
+                                    id: real_id.clone(),
+                                    name: call.name.clone(),
+                                    display: format!("Rename: {old} → {new}"),
+                                    diff: Some(diff_text),
+                                    mutation_label,
+                                    responder: appr_tx,
+                                })
+                                .await;
+                            match appr_rx.await {
+                                Ok(true) => {
+                                    crate::tools::refactor::execute_rename(&args).await
+                                }
+                                _ => Err("Rename declined by user.".into()),
+                            }
+                        }
+                        Err(e) => {
+                            // Preview failed — still run with the full apply so the error surfaces.
+                            Err(format!("refactor_rename preview failed: {e}"))
+                        }
+                    }
                 } else if matches!(
                     call.name.as_str(),
                     "edit_file" | "patch_hunk" | "multi_search_replace" | "write_file"
