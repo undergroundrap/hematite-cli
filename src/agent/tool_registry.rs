@@ -1155,6 +1155,34 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         ),
     ];
 
+    tools.push(make_tool(
+        "find_symbol",
+        "Locate where a Rust symbol (function, struct, enum, trait, impl, type, const, macro, mod) \
+         is *defined* anywhere in the workspace — no LSP required. Works immediately even without \
+         rust-analyzer running. Returns file:line, kind label, and the declaration line for each hit. \
+         Use lsp_search_symbol when rust-analyzer is active for richer results; use find_symbol as \
+         the always-available fallback or when you only need the declaration site. \
+         Set definitions_only=false to also include call/usage sites.",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "symbol": {
+                    "type": "string",
+                    "description": "Exact symbol name to search for (e.g. 'execute_streaming', 'ConversationManager')"
+                },
+                "kind": {
+                    "type": "string",
+                    "enum": ["fn", "struct", "enum", "trait", "impl", "type", "const", "static", "mod", "macro"],
+                    "description": "Restrict search to a specific declaration kind (optional)"
+                },
+                "definitions_only": {
+                    "type": "boolean",
+                    "description": "Only return declaration sites, not usage/call sites (default true)"
+                }
+            },
+            "required": ["symbol"]
+        }),
+    ));
     let lsp_defs = crate::tools::lsp_tools::get_lsp_definitions();
     tools.push(make_tool(
         "lsp_search_symbol",
@@ -1220,6 +1248,7 @@ pub async fn dispatch_builtin_tool(
         "git_push" => crate::tools::git::execute_push(args).await,
         "git_remote" => crate::tools::git::execute_remote(args).await,
         "cargo_errors" => crate::tools::build_errors::execute(args).await,
+        "find_symbol" => crate::tools::symbol_search::execute(args).await,
         "git_status" => crate::tools::git::execute_status(args).await,
         "git_diff" => crate::tools::git::execute_diff(args).await,
         "git_log" => crate::tools::git::execute_log(args).await,

@@ -14502,3 +14502,40 @@ fn test_crash_debug_routing_detects_panic_queries() {
     assert!(!needs_crash_debug("how do I add a feature to the parser?"));
     assert!(!needs_crash_debug("run the build and show me errors"));
 }
+
+#[test]
+fn test_find_symbol_locates_definitions_in_workspace() {
+    use hematite::tools::symbol_search;
+    use serde_json::json;
+
+    // Inject workspace root via _root so the test is immune to CWD races from
+    // other tests that call set_current_dir (see CWD_LOCK at top of this file).
+    let root = env!("CARGO_MANIFEST_DIR");
+    let rt = tokio::runtime::Runtime::new().unwrap();
+
+    // "execute" is defined in many tool files — should find at least one fn definition.
+    let result = rt
+        .block_on(symbol_search::execute(
+            &json!({"symbol": "execute", "kind": "fn", "_root": root}),
+        ))
+        .expect("find_symbol should not error");
+    assert!(
+        result.contains("SYMBOL SEARCH"),
+        "should return SYMBOL SEARCH header: {result}"
+    );
+    assert!(
+        result.contains("[fn]"),
+        "should find at least one fn definition: {result}"
+    );
+
+    // Non-existent symbol should report no results, not error.
+    let none = rt
+        .block_on(symbol_search::execute(
+            &json!({"symbol": "zzz_definitely_not_a_real_symbol_xyz", "_root": root}),
+        ))
+        .expect("find_symbol should not error on missing symbol");
+    assert!(
+        none.contains("no definitions found") || none.contains("find_symbol:"),
+        "missing symbol should report no results: {none}"
+    );
+}

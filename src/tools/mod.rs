@@ -28,6 +28,7 @@ pub mod scientific_ext;
 pub mod scoping_tools;
 pub mod search;
 pub mod shell;
+pub mod symbol_search;
 pub mod tasks;
 pub mod tool_schema_cache;
 pub mod toolchain;
