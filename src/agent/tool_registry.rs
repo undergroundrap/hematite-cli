@@ -1002,11 +1002,26 @@ pub fn get_tools() -> Vec<ToolDefinition> {
                         "type": "boolean",
                         "description": "Check test targets as well as the main library/binary (default false)"
                     },
+                    "explain": {
+                        "type": "boolean",
+                        "description": "Append rustc --explain output for each unique error code (default false). Useful when you don't recognise an error code."
+                    },
                     "package": {
                         "type": "string",
                         "description": "Limit to a specific workspace package (optional)"
                     }
                 }
+            }),
+        ),
+        make_tool(
+            "git_status",
+            "Return a structured snapshot of the working tree: current branch, \
+             ahead/behind upstream, staged files (+), modified files (~), and untracked files (?). \
+             Faster and more parseable than shelling out `git status`. \
+             Use this at the start of any commit/PR workflow to understand what's changed.",
+            serde_json::json!({
+                "type": "object",
+                "properties": {}
             }),
         ),
         make_tool(
@@ -1205,6 +1220,7 @@ pub async fn dispatch_builtin_tool(
         "git_push" => crate::tools::git::execute_push(args).await,
         "git_remote" => crate::tools::git::execute_remote(args).await,
         "cargo_errors" => crate::tools::build_errors::execute(args).await,
+        "git_status" => crate::tools::git::execute_status(args).await,
         "git_diff" => crate::tools::git::execute_diff(args).await,
         "git_log" => crate::tools::git::execute_log(args).await,
         "git_onboarding" => crate::tools::git_onboarding::execute(args).await,

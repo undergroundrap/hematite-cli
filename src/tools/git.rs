@@ -253,6 +253,119 @@ pub async fn execute_worktree(args: &Value) -> Result<String, String> {
     }
 }
 
+/// tool: git_status
+///
+/// Returns a structured snapshot of the working tree: branch, ahead/behind remote,
+/// staged files, modified files, and untracked files — all in one call.
+pub async fn execute_status(_args: &Value) -> Result<String, String> {
+    let repo_path = Path::new(".");
+    if !is_git_repo(repo_path) {
+        return Err("Current directory is not a Git repository".to_string());
+    }
+
+    // Branch + ahead/behind via --porcelain=v2 --branch
+    let branch_out = Command::new("git")
+        .args(["status", "--porcelain=v2", "--branch"])
+        .output()
+        .map_err(|e| format!("git_status: failed: {e}"))?;
+
+    let raw = String::from_utf8_lossy(&branch_out.stdout).into_owned();
+
+    // Parse porcelain v2 output.
+    let mut branch = String::from("(unknown)");
+    let mut upstream: Option<String> = None;
+    let mut ahead: u32 = 0;
+    let mut behind: u32 = 0;
+    let mut staged: Vec<String> = Vec::new();
+    let mut modified: Vec<String> = Vec::new();
+    let mut untracked: Vec<String> = Vec::new();
+
+    for line in raw.lines() {
+        if let Some(rest) = line.strip_prefix("# branch.head ") {
+            branch = rest.trim().to_string();
+        } else if let Some(rest) = line.strip_prefix("# branch.upstream ") {
+            upstream = Some(rest.trim().to_string());
+        } else if let Some(rest) = line.strip_prefix("# branch.ab ") {
+            // format: +N -M
+            for part in rest.split_whitespace() {
+                if let Some(n) = part.strip_prefix('+') {
+                    ahead = n.parse().unwrap_or(0);
+                } else if let Some(n) = part.strip_prefix('-') {
+                    behind = n.parse().unwrap_or(0);
+                }
+            }
+        } else if line.starts_with("1 ") || line.starts_with("2 ") {
+            // Tracked changed file: "1 XY N... file" or "2 XY ... file\torigfile"
+            let parts: Vec<&str> = line.splitn(9, ' ').collect();
+            if parts.len() < 9 {
+                continue;
+            }
+            let xy = parts[1];
+            let path = parts[8].split('\t').next().unwrap_or(parts[8]).trim();
+            let x = xy.chars().next().unwrap_or('.');
+            let y = xy.chars().nth(1).unwrap_or('.');
+            if x != '.' && x != '?' {
+                staged.push(path.to_string());
+            }
+            if y != '.' && y != '?' {
+                modified.push(path.to_string());
+            }
+        } else if line.starts_with("? ") {
+            // Untracked: "? path"
+            let path = line[2..].trim();
+            untracked.push(path.to_string());
+        }
+    }
+
+    let mut out = String::new();
+    out.push_str(&format!("branch  : {branch}\n"));
+
+    if let Some(ref up) = upstream {
+        out.push_str(&format!("upstream: {up}"));
+        if ahead > 0 || behind > 0 {
+            out.push_str(&format!(" (+{ahead} ahead, -{behind} behind)"));
+        } else {
+            out.push_str(" (up to date)");
+        }
+        out.push('\n');
+    } else {
+        out.push_str("upstream: (no tracking branch)\n");
+    }
+
+    if staged.is_empty() && modified.is_empty() && untracked.is_empty() {
+        out.push_str("status  : clean\n");
+        return Ok(out);
+    }
+
+    if !staged.is_empty() {
+        out.push_str(&format!("\nstaged ({}):\n", staged.len()));
+        for f in &staged {
+            out.push_str(&format!("  + {f}\n"));
+        }
+    }
+    if !modified.is_empty() {
+        out.push_str(&format!("\nmodified ({}):\n", modified.len()));
+        for f in &modified {
+            out.push_str(&format!("  ~ {f}\n"));
+        }
+    }
+    if !untracked.is_empty() {
+        let shown = untracked.len().min(20);
+        out.push_str(&format!("\nuntracked ({}):\n", untracked.len()));
+        for f in untracked.iter().take(shown) {
+            out.push_str(&format!("  ? {f}\n"));
+        }
+        if untracked.len() > shown {
+            out.push_str(&format!(
+                "  ... {} more untracked files\n",
+                untracked.len() - shown
+            ));
+        }
+    }
+
+    Ok(out.trim_end().to_string())
+}
+
 /// tool: git_diff
 ///
 /// Returns a structured diff of working-tree changes, staged changes, or between two refs.

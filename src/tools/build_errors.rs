@@ -1,4 +1,5 @@
 use serde_json::Value;
+use std::collections::HashSet;
 use std::process::Command;
 
 /// Parse structured compiler errors from `cargo check --message-format=json`.
@@ -14,18 +15,24 @@ pub async fn execute(args: &Value) -> Result<String, String> {
         .and_then(|v| v.as_bool())
         .unwrap_or(false);
 
+    let explain = args
+        .get("explain")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+
     let package = args.get("package").and_then(|v| v.as_str());
     let test_mode = args
         .get("tests")
         .and_then(|v| v.as_bool())
         .unwrap_or(false);
 
-    run_structured(action, include_warnings, package, test_mode).await
+    run_structured(action, include_warnings, explain, package, test_mode).await
 }
 
 async fn run_structured(
     action: &str,
     include_warnings: bool,
+    explain: bool,
     package: Option<&str>,
     test_mode: bool,
 ) -> Result<String, String> {
@@ -192,10 +199,7 @@ async fn run_structured(
     }
 
     if !warnings.is_empty() && include_warnings {
-        out.push_str(&format!(
-            "\nWARNINGS ({}):\n",
-            warnings.len()
-        ));
+        out.push_str(&format!("\nWARNINGS ({}):\n", warnings.len()));
         for (i, w) in warnings.iter().enumerate() {
             let code_str = w
                 .code
@@ -206,6 +210,40 @@ async fn run_structured(
                 "\n  [{i}] {}:{} — {}{}\n",
                 w.file, w.line, code_str, w.message
             ));
+        }
+    }
+
+    // Append `rustc --explain Exxxx` for each unique error code when requested.
+    if explain && !errors.is_empty() {
+        let mut seen: HashSet<String> = HashSet::new();
+        let unique_codes: Vec<String> = errors
+            .iter()
+            .filter_map(|e| e.code.clone())
+            .filter(|c| c.starts_with('E') && seen.insert(c.clone()))
+            .collect();
+
+        if !unique_codes.is_empty() {
+            out.push_str("\nERROR EXPLANATIONS:\n");
+            for code in &unique_codes {
+                let explain_out = Command::new("rustc")
+                    .args(["--explain", code])
+                    .output();
+                match explain_out {
+                    Ok(o) if o.status.success() => {
+                        let text = String::from_utf8_lossy(&o.stdout);
+                        // Cap each explanation at 60 lines to avoid flooding context.
+                        let capped: String = text
+                            .lines()
+                            .take(60)
+                            .collect::<Vec<_>>()
+                            .join("\n");
+                        out.push_str(&format!("\n── {code} ──\n{capped}\n"));
+                    }
+                    _ => {
+                        out.push_str(&format!("\n── {code} ── (explanation unavailable)\n"));
+                    }
+                }
+            }
         }
     }
 

@@ -8814,7 +8814,28 @@ impl ConversationManager {
 
                 match result {
                     Ok(o) => (o, false),
-                    Err(e) => (format!("Error: {}", e), true),
+                    Err(e) => {
+                        // Auto-enrich verify_build failures with structured error list.
+                        // Runs cargo_errors as a quick secondary pass so the model sees
+                        // file:line [Exxxx]: message entries without needing an extra turn.
+                        let enriched = if call.name == "verify_build"
+                            && e.contains("BUILD FAILED")
+                        {
+                            let structured = crate::tools::build_errors::execute(
+                                &serde_json::json!({"tests": e.contains(":test")}),
+                            )
+                            .await;
+                            match structured {
+                                Ok(s) if s.contains("ERRORS") => {
+                                    format!("STRUCTURED ERRORS:\n{s}\n\nFULL OUTPUT:\nError: {e}")
+                                }
+                                _ => format!("Error: {e}"),
+                            }
+                        } else {
+                            format!("Error: {e}")
+                        };
+                        (enriched, true)
+                    }
                 }
             }
         };
