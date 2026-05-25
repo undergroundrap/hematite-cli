@@ -5572,6 +5572,27 @@ pub fn needs_crash_debug(user_input: &str) -> bool {
         || lower.contains("sigabrt")
 }
 
+/// Returns true when the user's query is about linting — steer toward `lint_code`
+/// instead of raw `shell cargo clippy`.
+pub fn needs_lint_check(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    lower.contains("clippy")
+        || lower.contains("lint")
+        || lower.contains("linting")
+        || lower.contains("warnings")
+        || lower.contains("dead code")
+        || lower.contains("unused import")
+        || lower.contains("unused variable")
+        || lower.contains("fix clippy")
+        || lower.contains("fix warnings")
+        || lower.contains("fix lints")
+        || lower.contains("apply clippy")
+        || lower.contains("clippy fix")
+        || lower.contains("cargo clippy")
+        || (lower.contains("check") && lower.contains("lint"))
+        || (lower.contains("run") && lower.contains("clippy"))
+}
+
 /// Returns true when the user's query is asking to run tests — steer toward `run_tests`
 /// instead of raw `shell cargo test` or `shell pytest`.
 pub fn needs_test_run(user_input: &str) -> bool {

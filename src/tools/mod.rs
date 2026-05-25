@@ -17,6 +17,7 @@ pub mod guard;
 pub mod hardening;
 pub mod health;
 pub mod host_inspect;
+pub mod linter;
 pub mod lsp_tools;
 pub mod math_util;
 pub mod plan;

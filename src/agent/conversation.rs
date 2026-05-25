@@ -28,7 +28,7 @@ use crate::agent::recovery_recipes::{
 use crate::agent::routing::{
     all_host_inspection_topics, classify_query_intent, is_capability_probe_tool,
     is_scaffold_request, looks_like_mutation_request, needs_computation_sandbox, needs_crash_debug,
-    needs_github_ops, needs_test_run,
+    needs_github_ops, needs_lint_check, needs_test_run,
     preferred_host_inspection_topic, preferred_maintainer_workflow, preferred_workspace_workflow,
     DirectAnswerKind, QueryIntentClass,
 };
@@ -4988,6 +4988,17 @@ impl ConversationManager {
                  and returns a structured crash report with filtered stack trace. \
                  Example: run_with_backtrace(command: \"./target/debug/myapp [args]\") \
                  Do NOT use `shell` for crash investigation — you will lose the backtrace."
+                    .to_string(),
+            );
+        }
+
+        // ── Lint Routing: steer model toward lint_code instead of raw shell cargo clippy ──
+        if loop_intervention.is_none() && needs_lint_check(&effective_user_input) {
+            loop_intervention = Some(
+                "LINT NOTICE: Use the `lint_code` tool — not `shell cargo clippy`. \
+                 `lint_code` gives structured results: file:line, lint code, message, and fix suggestion. \
+                 To apply all machine-fixable lints automatically, call lint_code(fix=true). \
+                 If the working tree has uncommitted changes, also pass allow_dirty=true."
                     .to_string(),
             );
         }

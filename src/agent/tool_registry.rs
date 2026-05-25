@@ -1214,6 +1214,38 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         }),
     ));
     tools.push(make_tool(
+        "lint_code",
+        "Run `cargo clippy` and return structured lint results: file path, line, lint code \
+         (e.g. clippy::needless_range_loop), message, and machine-applicable fix suggestion. \
+         Set fix=true to apply all machine-fixable lints automatically via `cargo clippy --fix`. \
+         If the working tree is dirty, also pass allow_dirty=true. \
+         Use filter to narrow results to a specific lint name or keyword. \
+         Set workspace=true to lint all crates in a workspace. \
+         Prefer this over `shell cargo clippy` — you get structured, actionable output.",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "fix": {
+                    "type": "boolean",
+                    "description": "Apply machine-fixable lints automatically (default false)."
+                },
+                "allow_dirty": {
+                    "type": "boolean",
+                    "description": "Allow --fix on a dirty working tree (default false)."
+                },
+                "filter": {
+                    "type": "string",
+                    "description": "Optional: show only lints whose code or message contains this string."
+                },
+                "workspace": {
+                    "type": "boolean",
+                    "description": "Lint all workspace crates (default false = current package)."
+                }
+            },
+            "required": []
+        }),
+    ));
+    tools.push(make_tool(
         "copy_to_clipboard",
         "Copy any text to the user's system clipboard so they can paste it immediately. \
          Works on Windows (PowerShell Set-Clipboard), macOS (pbcopy), and Linux (xclip/xsel). \
@@ -1376,6 +1408,7 @@ pub async fn dispatch_builtin_tool(
         "run_tests" => crate::tools::test_runner::execute_run_tests(args).await,
         "manage_deps" => crate::tools::deps::execute(args).await,
         "copy_to_clipboard" => crate::tools::clipboard::copy_to_clipboard(args).await,
+        "lint_code" => crate::tools::linter::execute(args).await,
         "git_status" => crate::tools::git::execute_status(args).await,
         "git_diff" => crate::tools::git::execute_diff(args).await,
         "git_log" => crate::tools::git::execute_log(args).await,

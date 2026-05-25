@@ -14737,3 +14737,54 @@ fn test_copy_to_clipboard_success_returns_byte_count() {
     }
     // If it errors, that is acceptable in a headless test environment.
 }
+
+#[test]
+fn test_lint_code_routing_detects_clippy_queries() {
+    use hematite::agent::routing::needs_lint_check;
+    assert!(needs_lint_check("run clippy on this code"));
+    assert!(needs_lint_check("cargo clippy"));
+    assert!(needs_lint_check("fix clippy warnings"));
+    assert!(needs_lint_check("fix all warnings"));
+    assert!(needs_lint_check("check for lints"));
+    assert!(needs_lint_check("there are unused imports"));
+    assert!(needs_lint_check("fix lints"));
+    assert!(needs_lint_check("apply clippy fixes"));
+    assert!(!needs_lint_check("run the tests"));
+    assert!(!needs_lint_check("edit the readme"));
+}
+
+#[test]
+fn test_lint_code_runs_and_returns_result() {
+    use hematite::tools::linter;
+    use serde_json::json;
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt
+        .block_on(linter::execute(&json!({})))
+        .expect("lint_code should not error on valid Cargo workspace");
+
+    // Should either report "clean" or list lints — never panic
+    assert!(
+        result.contains("LINT RESULTS") || result.contains("clean"),
+        "should return lint results or clean message: {result}"
+    );
+}
+
+#[test]
+fn test_lint_code_filter_narrows_results() {
+    use hematite::tools::linter;
+    use serde_json::json;
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    // A filter that matches nothing should return clean or zero results
+    let result = rt
+        .block_on(linter::execute(&json!({
+            "filter": "zzznotareallintzzz"
+        })))
+        .expect("lint_code with non-matching filter should not error");
+
+    assert!(
+        result.contains("clean") || result.contains("LINT RESULTS"),
+        "filtered result should still return a summary: {result}"
+    );
+}
