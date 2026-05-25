@@ -5649,6 +5649,72 @@ pub fn needs_test_run(user_input: &str) -> bool {
     explicit || (run_verb && test_noun)
 }
 
+/// Returns true when the user's query is about making an HTTP request — steer toward `http_request`.
+pub fn needs_http_request(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    lower.contains("http request")
+        || lower.contains("make a request")
+        || lower.contains("send a request")
+        || lower.contains("send a get")
+        || lower.contains("send a post")
+        || lower.contains("send a put")
+        || lower.contains("send a delete")
+        || lower.contains("send a patch")
+        || lower.contains("curl the")
+        || lower.contains("call the api")
+        || lower.contains("call this api")
+        || lower.contains("call this endpoint")
+        || lower.contains("call the endpoint")
+        || lower.contains("hit the endpoint")
+        || lower.contains("hit the api")
+        || lower.contains("fetch this url")
+        || lower.contains("fetch that url")
+        || lower.contains("fetch the url")
+        || lower.contains("test the api")
+        || lower.contains("test this endpoint")
+        || lower.contains("test the endpoint")
+        || lower.contains("send this payload")
+        || lower.contains("post to")
+        || lower.contains("get request")
+        || lower.contains("post request")
+        || (lower.contains("make")
+            && (lower.contains("get request") || lower.contains("post request")))
+        || (lower.contains("api") && lower.contains("request"))
+}
+
+/// Returns true when the user's query is about Docker — steer toward `docker_ops`.
+pub fn needs_docker_ops(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    let docker_noun = lower.contains("docker")
+        || lower.contains("container")
+        || lower.contains("compose")
+        || lower.contains("dockerfile");
+    let action_verb = lower.contains("list")
+        || lower.contains("show")
+        || lower.contains("start")
+        || lower.contains("stop")
+        || lower.contains("restart")
+        || lower.contains("remove")
+        || lower.contains("pull")
+        || lower.contains("build")
+        || lower.contains("logs")
+        || lower.contains("running")
+        || lower.contains("up")
+        || lower.contains("down")
+        || lower.contains("inspect")
+        || lower.contains("stats");
+    let explicit = lower.contains("docker ps")
+        || lower.contains("docker logs")
+        || lower.contains("docker images")
+        || lower.contains("docker stats")
+        || lower.contains("docker compose")
+        || lower.contains("docker-compose")
+        || lower.contains("running containers")
+        || lower.contains("which containers")
+        || lower.contains("what containers");
+    explicit || (docker_noun && action_verb)
+}
+
 /// Returns true when the user's query involves computation that must be exact —
 /// checksums, financial math, statistics, date arithmetic, algorithmic verification, etc.
 /// Used by the harness to inject a pre-turn nudge toward run_code instead of model memory.

@@ -28,9 +28,9 @@ use crate::agent::recovery_recipes::{
 use crate::agent::routing::{
     all_host_inspection_topics, classify_query_intent, is_capability_probe_tool,
     is_scaffold_request, looks_like_mutation_request, needs_computation_sandbox, needs_crash_debug,
-    needs_format, needs_github_ops, needs_lint_check, needs_test_run,
-    preferred_host_inspection_topic, preferred_maintainer_workflow, preferred_workspace_workflow,
-    DirectAnswerKind, QueryIntentClass,
+    needs_docker_ops, needs_format, needs_github_ops, needs_http_request, needs_lint_check,
+    needs_test_run, preferred_host_inspection_topic, preferred_maintainer_workflow,
+    preferred_workspace_workflow, DirectAnswerKind, QueryIntentClass,
 };
 use crate::agent::tool_registry::dispatch_builtin_tool;
 use crate::agent::truncation::safe_head;
@@ -5022,6 +5022,29 @@ impl ConversationManager {
                  `run_tests` gives you structured pass/fail counts and extracted failure blocks automatically. \
                  Use the `filter` arg to run a specific test by name. \
                  Example: run_tests(filter: \"test_my_function\") or run_tests() for the full suite."
+                    .to_string(),
+            );
+        }
+
+        // ── HTTP Request Routing: steer model toward http_request instead of raw shell curl ──
+        if loop_intervention.is_none() && needs_http_request(&effective_user_input) {
+            loop_intervention = Some(
+                "HTTP REQUEST NOTICE: Use the `http_request` tool — not `shell curl`. \
+                 `http_request` gives you structured output: status code, key headers, and JSON body \
+                 auto-pretty-printed. Supports GET/POST/PUT/DELETE/PATCH, Bearer token, Basic auth, \
+                 and custom headers. Example: http_request(url: \"https://api.example.com/v1/items\", \
+                 method: \"GET\", bearer_token: \"<token>\")."
+                    .to_string(),
+            );
+        }
+
+        // ── Docker Routing: steer model toward docker_ops instead of raw shell docker ──
+        if loop_intervention.is_none() && needs_docker_ops(&effective_user_input) {
+            loop_intervention = Some(
+                "DOCKER NOTICE: Use the `docker_ops` tool — not `shell docker`. \
+                 `docker_ops` covers: ps, ps-all, logs, start, stop, restart, rm, images, pull, \
+                 inspect, build, exec, stats, compose-ps, compose-up, compose-down. \
+                 Example: docker_ops(action: \"ps\") or docker_ops(action: \"logs\", container: \"my-app\", tail: 50)."
                     .to_string(),
             );
         }

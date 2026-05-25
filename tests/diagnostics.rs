@@ -14845,3 +14845,147 @@ fn test_format_code_apply_reports_changes_or_clean() {
         "should report either no changes or reformatted files: {result}"
     );
 }
+
+// ── http_request routing tests ────────────────────────────────────────────────
+
+#[test]
+fn test_http_request_routing_detects_api_queries() {
+    use hematite::agent::routing::needs_http_request;
+    assert!(needs_http_request("make a GET request to the api"));
+    assert!(needs_http_request("send a POST request with this payload"));
+    assert!(needs_http_request("call this api endpoint"));
+    assert!(needs_http_request("curl the url and show me the response"));
+    assert!(needs_http_request("hit the endpoint with a bearer token"));
+    assert!(needs_http_request("test the api and show the status code"));
+    assert!(needs_http_request("fetch this url"));
+    assert!(needs_http_request("make an api request"));
+    assert!(!needs_http_request("run the tests"));
+    assert!(!needs_http_request("check for lints"));
+}
+
+#[test]
+fn test_http_request_requires_url() {
+    use hematite::tools::http_client;
+    use serde_json::json;
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(http_client::execute(&json!({})));
+    assert!(
+        result.is_err(),
+        "http_request without url should return error"
+    );
+    assert!(
+        result.unwrap_err().contains("url"),
+        "error should mention 'url'"
+    );
+}
+
+#[test]
+fn test_http_request_rejects_unknown_method() {
+    use hematite::tools::http_client;
+    use serde_json::json;
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(http_client::execute(&json!({
+        "url": "https://httpbin.org/get",
+        "method": "INVALID"
+    })));
+    assert!(result.is_err());
+    let err = result.unwrap_err();
+    assert!(
+        err.contains("unsupported method"),
+        "should report unsupported method: {err}"
+    );
+}
+
+// ── docker_ops routing tests ──────────────────────────────────────────────────
+
+#[test]
+fn test_docker_ops_routing_detects_docker_queries() {
+    use hematite::agent::routing::needs_docker_ops;
+    assert!(needs_docker_ops("list all running containers"));
+    assert!(needs_docker_ops("show docker containers"));
+    assert!(needs_docker_ops("docker ps"));
+    assert!(needs_docker_ops("docker logs my-container"));
+    assert!(needs_docker_ops("docker compose up"));
+    assert!(needs_docker_ops("docker images"));
+    assert!(needs_docker_ops("stop the container"));
+    assert!(needs_docker_ops("running containers"));
+    assert!(!needs_docker_ops("run the tests"));
+    assert!(!needs_docker_ops("check formatting"));
+}
+
+#[test]
+fn test_docker_ops_requires_action() {
+    use hematite::tools::docker_ops;
+    use serde_json::json;
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(docker_ops::execute(&json!({})));
+    assert!(
+        result.is_err(),
+        "docker_ops without action should return error"
+    );
+    assert!(
+        result.unwrap_err().contains("action"),
+        "error should mention 'action'"
+    );
+}
+
+#[test]
+fn test_docker_ops_rejects_unknown_action() {
+    use hematite::tools::docker_ops;
+    use serde_json::json;
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(docker_ops::execute(&json!({ "action": "doesnotexist" })));
+    assert!(result.is_err());
+    let err = result.unwrap_err();
+    assert!(
+        err.contains("unknown action"),
+        "should report unknown action: {err}"
+    );
+}
+
+#[test]
+fn test_docker_ops_graceful_no_docker() {
+    use hematite::tools::docker_ops;
+    use serde_json::json;
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    // ps either works (Docker installed) or returns a clear error — never panics
+    let result = rt.block_on(docker_ops::execute(&json!({ "action": "ps" })));
+    match &result {
+        Ok(out) => assert!(
+            out.contains("CONTAINER") || out.contains("(no output)"),
+            "ps output should be a table or empty: {out}"
+        ),
+        Err(e) => assert!(
+            e.contains("Docker") || e.contains("docker") || e.contains("failed"),
+            "error should describe the Docker issue: {e}"
+        ),
+    }
+}
+
+// ── shell completion flag tests ───────────────────────────────────────────────
+
+#[test]
+fn test_completion_flag_exists_on_cli() {
+    // CliCockpit::command() inflates the stack in debug builds (150+ flags).
+    // Run on a dedicated thread with an 8 MB stack to avoid STATUS_STACK_OVERFLOW.
+    let result = std::thread::Builder::new()
+        .stack_size(8 * 1024 * 1024)
+        .spawn(|| {
+            use clap::CommandFactory;
+            use hematite::CliCockpit;
+            let cmd = CliCockpit::command();
+            let arg = cmd.get_arguments().find(|a| a.get_id() == "completion");
+            assert!(
+                arg.is_some(),
+                "--completion flag should be defined on CliCockpit"
+            );
+        })
+        .unwrap()
+        .join();
+    assert!(result.is_ok(), "completion flag test panicked");
+}

@@ -1192,6 +1192,7 @@ mod tests {
             powershell_adv: None,
             jvm_ref: None,
             toolkit: false,
+            completion: None,
             pdf_extract_helper: None,
             teleported_from: None,
         };

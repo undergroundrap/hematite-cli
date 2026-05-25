@@ -1,5 +1,7 @@
 // Hematite: Frontier Precision Active.
+use clap::CommandFactory;
 use clap::Parser;
+use clap_complete::Shell;
 use crossterm::{
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
     ExecutableCommand,
@@ -87,6 +89,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let cockpit = CliCockpit::parse();
+
+    if let Some(shell_name) = &cockpit.completion {
+        let shell: Shell = shell_name.parse().map_err(|_| {
+            format!(
+                "unknown shell '{}'. Supported: bash, zsh, fish, powershell, elvish",
+                shell_name
+            )
+        })?;
+        let mut cmd = hematite::CliCockpit::command();
+        clap_complete::generate(shell, &mut cmd, "hematite", &mut std::io::stdout());
+        return Ok(());
+    }
 
     if cockpit.mcp_server {
         let edge = cockpit.edge_redact || cockpit.semantic_redact;

@@ -1361,6 +1361,142 @@ pub fn get_tools() -> Vec<ToolDefinition> {
             "required": ["action"]
         }),
     ));
+    tools.push(make_tool(
+        "http_request",
+        "Make an HTTP request (GET/POST/PUT/DELETE/PATCH/HEAD) and return the status code, \
+         key response headers, and body. Body is auto-pretty-printed when the response is JSON. \
+         Supports Bearer token auth, HTTP Basic auth, custom headers, and arbitrary request body. \
+         Use this to: test REST APIs, call webhooks, fetch a URL, send JSON payloads, \
+         check if an endpoint is reachable, inspect API responses. \
+         Prefer this over `shell curl` — you get structured output with the status code and JSON \
+         automatically pretty-printed.",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "url": {
+                    "type": "string",
+                    "description": "The request URL (required)."
+                },
+                "method": {
+                    "type": "string",
+                    "enum": ["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD"],
+                    "description": "HTTP method (default GET)."
+                },
+                "headers": {
+                    "type": "object",
+                    "description": "Optional map of request headers, e.g. {\"Accept\": \"application/json\"}."
+                },
+                "body": {
+                    "type": "string",
+                    "description": "Optional request body. Detected as JSON if it starts with { or [."
+                },
+                "content_type": {
+                    "type": "string",
+                    "description": "Content-Type override (default: auto-detected from body shape)."
+                },
+                "bearer_token": {
+                    "type": "string",
+                    "description": "Bearer token for Authorization header."
+                },
+                "basic_auth": {
+                    "type": "string",
+                    "description": "Basic auth credentials as 'username:password'."
+                },
+                "timeout_seconds": {
+                    "type": "integer",
+                    "description": "Request timeout in seconds (default 30)."
+                },
+                "follow_redirects": {
+                    "type": "boolean",
+                    "description": "Follow HTTP redirects (default true)."
+                }
+            },
+            "required": ["url"]
+        }),
+    ));
+    tools.push(make_tool(
+        "docker_ops",
+        "Manage Docker containers, images, and Compose stacks. \
+         Actions: \
+         `ps` — list running containers; \
+         `ps-all` — list all containers including stopped; \
+         `images` — list local images; \
+         `stats` — real-time resource usage snapshot (no-stream); \
+         `logs` — fetch container logs (use `tail` to limit lines); \
+         `start` / `stop` / `restart` — lifecycle control; \
+         `rm` — remove a container (pass force=true to remove running containers); \
+         `pull` — pull an image; \
+         `inspect` — detailed JSON info about a container or image; \
+         `build` — build an image from a Dockerfile; \
+         `exec` — run a command inside a running container; \
+         `compose-ps` / `compose-up` / `compose-down` — Compose stack control. \
+         Prefer this over `shell docker` commands — you get structured, readable output.",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["ps", "ps-all", "images", "stats", "logs", "start", "stop", "restart",
+                             "rm", "pull", "inspect", "build", "exec",
+                             "compose-ps", "compose-up", "compose-down"],
+                    "description": "The Docker operation to perform (required)."
+                },
+                "container": {
+                    "type": "string",
+                    "description": "Container name or ID (required for: logs, start, stop, restart, rm, inspect, exec, stats)."
+                },
+                "image": {
+                    "type": "string",
+                    "description": "Image name/tag (required for pull; optional for inspect)."
+                },
+                "tail": {
+                    "type": "integer",
+                    "description": "Number of log lines to return (default 100, for logs action)."
+                },
+                "timestamps": {
+                    "type": "boolean",
+                    "description": "Include timestamps in logs (default false)."
+                },
+                "command": {
+                    "type": "string",
+                    "description": "Command to run inside container (required for exec action)."
+                },
+                "force": {
+                    "type": "boolean",
+                    "description": "Force-remove a running container (for rm action, default false)."
+                },
+                "context": {
+                    "type": "string",
+                    "description": "Build context path (for build action, default '.')."
+                },
+                "tag": {
+                    "type": "string",
+                    "description": "Image tag for build action, e.g. 'myapp:latest'."
+                },
+                "dockerfile": {
+                    "type": "string",
+                    "description": "Path to Dockerfile for build action (default ./Dockerfile)."
+                },
+                "no_cache": {
+                    "type": "boolean",
+                    "description": "Build without cache (default false)."
+                },
+                "file": {
+                    "type": "string",
+                    "description": "Compose file path for compose-* actions (default docker-compose.yml)."
+                },
+                "detach": {
+                    "type": "boolean",
+                    "description": "Run compose-up in detached mode (default true)."
+                },
+                "build": {
+                    "type": "boolean",
+                    "description": "Build images before starting for compose-up (default false)."
+                }
+            },
+            "required": ["action"]
+        }),
+    ));
     let lsp_defs = crate::tools::lsp_tools::get_lsp_definitions();
     tools.push(make_tool(
         "lsp_search_symbol",
@@ -1433,6 +1569,8 @@ pub async fn dispatch_builtin_tool(
         "copy_to_clipboard" => crate::tools::clipboard::copy_to_clipboard(args).await,
         "lint_code" => crate::tools::linter::execute(args).await,
         "format_code" => crate::tools::formatter::execute(args).await,
+        "http_request" => crate::tools::http_client::execute(args).await,
+        "docker_ops" => crate::tools::docker_ops::execute(args).await,
         "git_status" => crate::tools::git::execute_status(args).await,
         "git_diff" => crate::tools::git::execute_diff(args).await,
         "git_log" => crate::tools::git::execute_log(args).await,

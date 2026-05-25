@@ -3306,6 +3306,14 @@ pub struct CliCockpit {
     )]
     pub ts_window: Option<usize>,
 
+    #[arg(
+        long,
+        help_heading = "Headless Reports",
+        value_name = "SHELL",
+        help = "Generate shell completion script for the specified shell and print to stdout. Supported: bash, zsh, fish, powershell, elvish. Example: hematite --completion bash >> ~/.bash_completion, hematite --completion zsh > ~/.zfunc/_hematite"
+    )]
+    pub completion: Option<String>,
+
     #[arg(long, hide = true)]
     pub pdf_extract_helper: Option<String>,
 
