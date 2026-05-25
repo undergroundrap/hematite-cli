@@ -5869,6 +5869,23 @@ impl ConversationManager {
                             let path = res.args.get("path").and_then(|v| v.as_str()).unwrap_or("");
                             if !path.is_empty() {
                                 self.vein.bump_heat(path);
+                                // Re-index the just-edited file immediately so RAG results
+                                // within the same turn reflect the new content, not the
+                                // stale chunks from turn start.
+                                if let Ok(meta) = std::fs::metadata(path) {
+                                    if let Ok(mtime) = meta.modified() {
+                                        let mtime_secs = mtime
+                                            .duration_since(std::time::UNIX_EPOCH)
+                                            .unwrap_or_default()
+                                            .as_secs()
+                                            as i64;
+                                        if let Ok(content) = std::fs::read_to_string(path) {
+                                            let _ = tokio::task::block_in_place(|| {
+                                                self.vein.index_document(path, mtime_secs, &content)
+                                            });
+                                        }
+                                    }
+                                }
                                 self.l1_context = self.vein.l1_context();
                                 // Compact stale read_file results for this path — the file
                                 // just changed so old content is wrong and wastes context.
