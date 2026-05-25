@@ -1497,6 +1497,26 @@ pub fn get_tools() -> Vec<ToolDefinition> {
             "required": ["action"]
         }),
     ));
+    tools.push(make_tool(
+        "secret_scanner",
+        "Scan the workspace (or a given subdirectory) for accidentally committed secrets, \
+         API keys, tokens, passwords, and credentials. \
+         Detects 14 secret patterns: AWS keys, GitHub tokens, Stripe keys, Slack webhooks, \
+         private key blocks, generic API keys, database URLs, bearer tokens, password literals, \
+         Twilio keys, SendGrid keys, Heroku API keys, and more. \
+         Skips binary files, lock files, build artifacts, and obvious placeholder values. \
+         Reports findings grouped by file with line numbers, secret type, and a redacted snippet. \
+         Includes actionable remediation steps (rotate credentials, .gitignore, git filter-repo).",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "path": {
+                    "type": "string",
+                    "description": "Subdirectory to scan relative to workspace root (default '.' for entire workspace)."
+                }
+            }
+        }),
+    ));
     let lsp_defs = crate::tools::lsp_tools::get_lsp_definitions();
     tools.push(make_tool(
         "lsp_search_symbol",
@@ -1571,6 +1591,7 @@ pub async fn dispatch_builtin_tool(
         "format_code" => crate::tools::formatter::execute(args).await,
         "http_request" => crate::tools::http_client::execute(args).await,
         "docker_ops" => crate::tools::docker_ops::execute(args).await,
+        "secret_scanner" => crate::tools::secret_scanner::execute(args).await,
         "git_status" => crate::tools::git::execute_status(args).await,
         "git_diff" => crate::tools::git::execute_diff(args).await,
         "git_log" => crate::tools::git::execute_log(args).await,

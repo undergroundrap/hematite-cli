@@ -34,6 +34,7 @@ pub mod scientific;
 pub mod scientific_ext;
 pub mod scoping_tools;
 pub mod search;
+pub mod secret_scanner;
 pub mod shell;
 pub mod symbol_search;
 pub mod tasks;

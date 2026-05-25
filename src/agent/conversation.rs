@@ -29,7 +29,7 @@ use crate::agent::routing::{
     all_host_inspection_topics, classify_query_intent, is_capability_probe_tool,
     is_scaffold_request, looks_like_mutation_request, needs_computation_sandbox, needs_crash_debug,
     needs_docker_ops, needs_format, needs_github_ops, needs_http_request, needs_lint_check,
-    needs_test_run, preferred_host_inspection_topic, preferred_maintainer_workflow,
+    needs_secret_scan, needs_test_run, preferred_host_inspection_topic, preferred_maintainer_workflow,
     preferred_workspace_workflow, DirectAnswerKind, QueryIntentClass,
 };
 use crate::agent::tool_registry::dispatch_builtin_tool;
@@ -5045,6 +5045,20 @@ impl ConversationManager {
                  `docker_ops` covers: ps, ps-all, logs, start, stop, restart, rm, images, pull, \
                  inspect, build, exec, stats, compose-ps, compose-up, compose-down. \
                  Example: docker_ops(action: \"ps\") or docker_ops(action: \"logs\", container: \"my-app\", tail: 50)."
+                    .to_string(),
+            );
+        }
+
+        // ── Secret Scan Routing: steer model toward secret_scanner ──
+        if loop_intervention.is_none() && needs_secret_scan(&effective_user_input) {
+            loop_intervention = Some(
+                "SECRET SCAN NOTICE: Use the `secret_scanner` tool to search for committed secrets. \
+                 It detects AWS keys, GitHub tokens, Stripe keys, Slack webhooks, private key blocks, \
+                 database URLs, bearer tokens, password literals, and more across all text files. \
+                 Binary files, lock files, and obvious placeholders are automatically skipped. \
+                 Results are grouped by file with line numbers and a redacted snippet. \
+                 Example: secret_scanner() to scan the entire workspace, or \
+                 secret_scanner(path: \"src\") to scan a subdirectory."
                     .to_string(),
             );
         }

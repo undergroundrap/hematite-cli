@@ -5715,6 +5715,49 @@ pub fn needs_docker_ops(user_input: &str) -> bool {
     explicit || (docker_noun && action_verb)
 }
 
+/// Returns true when the user wants to scan for secrets/credentials — steer toward `secret_scanner`.
+pub fn needs_secret_scan(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    lower.contains("secret scan")
+        || lower.contains("scan for secret")
+        || lower.contains("scan for credential")
+        || lower.contains("scan for api key")
+        || lower.contains("scan for token")
+        || lower.contains("leaked secret")
+        || lower.contains("leaked credential")
+        || lower.contains("leaked key")
+        || lower.contains("leaked api key")
+        || lower.contains("leaked token")
+        || lower.contains("committed secret")
+        || lower.contains("committed credential")
+        || lower.contains("check for secret")
+        || lower.contains("check for credential")
+        || lower.contains("find secret")
+        || lower.contains("find credential")
+        || lower.contains("find api key")
+        || lower.contains("detect secret")
+        || lower.contains("detect credential")
+        || lower.contains("hardcoded secret")
+        || lower.contains("hardcoded credential")
+        || lower.contains("hardcoded password")
+        || lower.contains("hardcoded key")
+        || lower.contains("hardcoded token")
+        || lower.contains("exposed secret")
+        || lower.contains("exposed credential")
+        || lower.contains("exposed api key")
+        || lower.contains("any secrets in")
+        || lower.contains("any credentials in")
+        || lower.contains("sensitive data in")
+        || (lower.contains("secret") && lower.contains("repo"))
+        || (lower.contains("secret") && lower.contains("codebase"))
+        || (lower.contains("credential") && lower.contains("repo"))
+        || (lower.contains("credential") && lower.contains("codebase"))
+        || (lower.contains("api key")
+            && (lower.contains("committed") || lower.contains("expose")))
+        || lower.contains("gitleaks")
+        || lower.contains("trufflehog")
+}
+
 /// Returns true when the user's query involves computation that must be exact —
 /// checksums, financial math, statistics, date arithmetic, algorithmic verification, etc.
 /// Used by the harness to inject a pre-turn nudge toward run_code instead of model memory.
