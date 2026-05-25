@@ -863,6 +863,28 @@ pub fn get_tools() -> Vec<ToolDefinition> {
             }),
         ),
         make_tool(
+            "run_with_backtrace",
+            "Run a command with RUST_BACKTRACE=full and return a structured crash report — \
+             panic message, filtered stack trace (stdlib noise removed), and exit code. \
+             Use this when you need to understand WHY a binary panics or crashes at runtime, \
+             not just that it does. Prefer this over shell for any 'why does it crash?' question.",
+            serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "command": {
+                        "type": "string",
+                        "description": "Command to run (e.g. './target/debug/myapp --args'). \
+                                        Executed with RUST_BACKTRACE=full automatically."
+                    },
+                    "timeout_secs": {
+                        "type": "integer",
+                        "description": "Max runtime in seconds before the process is killed (default 30)."
+                    }
+                },
+                "required": ["command"]
+            }),
+        ),
+        make_tool(
             "verify_build",
             "Run project verification for build, test, lint, or fix workflows. \
              Prefer per-project verify profiles from `.hematite/settings.json`, and fall back to \
@@ -1039,6 +1061,7 @@ pub async fn dispatch_builtin_tool(
         "git_push" => crate::tools::git::execute_push(args).await,
         "git_remote" => crate::tools::git::execute_remote(args).await,
         "git_onboarding" => crate::tools::git_onboarding::execute(args).await,
+        "run_with_backtrace" => crate::tools::debugger::execute(args).await,
         "verify_build" => crate::tools::verify_build::execute(args).await,
         "git_worktree" => crate::tools::git::execute_worktree(args).await,
         "health" => crate::tools::health::execute(args).await,
