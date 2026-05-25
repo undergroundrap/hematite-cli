@@ -27,7 +27,8 @@ use crate::agent::recovery_recipes::{
 };
 use crate::agent::routing::{
     all_host_inspection_topics, classify_query_intent, is_capability_probe_tool,
-    is_scaffold_request, looks_like_mutation_request, needs_computation_sandbox, needs_github_ops,
+    is_scaffold_request, looks_like_mutation_request, needs_computation_sandbox, needs_crash_debug,
+    needs_github_ops,
     preferred_host_inspection_topic, preferred_maintainer_workflow, preferred_workspace_workflow,
     DirectAnswerKind, QueryIntentClass,
 };
@@ -4975,6 +4976,18 @@ impl ConversationManager {
                    SQL/Python analysis of a CSV/JSON/SQLite file (mode: \"dataset\"). \
                  RULE: every number in your response must come from tool output, not your weights. \
                  Write the code, run it, show the result."
+                    .to_string(),
+            );
+        }
+
+        // ── Crash Debug Routing: steer model toward run_with_backtrace for panic/crash queries ──
+        if loop_intervention.is_none() && needs_crash_debug(&effective_user_input) {
+            loop_intervention = Some(
+                "CRASH DEBUG NOTICE: This query involves a runtime crash, panic, or segfault. \
+                 Use `run_with_backtrace` instead of `shell` — it sets RUST_BACKTRACE=full automatically \
+                 and returns a structured crash report with filtered stack trace. \
+                 Example: run_with_backtrace(command: \"./target/debug/myapp [args]\") \
+                 Do NOT use `shell` for crash investigation — you will lose the backtrace."
                     .to_string(),
             );
         }

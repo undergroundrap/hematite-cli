@@ -885,6 +885,27 @@ pub fn get_tools() -> Vec<ToolDefinition> {
             }),
         ),
         make_tool(
+            "profile_process",
+            "Run a command and collect a lightweight CPU/RAM profile — wall time, peak memory, \
+             peak CPU, sample count, and trimmed output. Polls the live process every 500 ms. \
+             Use this when you need to measure how long a command takes or how much memory it peaks at, \
+             without installing any extra profiling tools. Works on Windows (Get-Process) and Linux (/proc).",
+            serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "command": {
+                        "type": "string",
+                        "description": "Command to profile (e.g. 'cargo build --release' or './target/release/app')."
+                    },
+                    "timeout_secs": {
+                        "type": "integer",
+                        "description": "Max runtime in seconds before the process is killed (default 60)."
+                    }
+                },
+                "required": ["command"]
+            }),
+        ),
+        make_tool(
             "verify_build",
             "Run project verification for build, test, lint, or fix workflows. \
              Prefer per-project verify profiles from `.hematite/settings.json`, and fall back to \
@@ -1062,6 +1083,7 @@ pub async fn dispatch_builtin_tool(
         "git_remote" => crate::tools::git::execute_remote(args).await,
         "git_onboarding" => crate::tools::git_onboarding::execute(args).await,
         "run_with_backtrace" => crate::tools::debugger::execute(args).await,
+        "profile_process" => crate::tools::profiler::execute(args).await,
         "verify_build" => crate::tools::verify_build::execute(args).await,
         "git_worktree" => crate::tools::git::execute_worktree(args).await,
         "health" => crate::tools::health::execute(args).await,

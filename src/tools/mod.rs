@@ -17,6 +17,7 @@ pub mod host_inspect;
 pub mod lsp_tools;
 pub mod math_util;
 pub mod plan;
+pub mod profiler;
 pub mod repo_script;
 pub mod research;
 pub mod risk_evaluator;

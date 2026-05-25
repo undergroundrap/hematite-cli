@@ -14497,3 +14497,17 @@ fn test_correlate_installer_no_fire_without_both_signals() {
         .any(|r| r.summary.contains("Installer") || r.summary.contains("installer"));
     assert!(!fired, "installer rule must not fire with only one signal");
 }
+
+#[test]
+fn test_crash_debug_routing_detects_panic_queries() {
+    use hematite::agent::routing::needs_crash_debug;
+    assert!(needs_crash_debug("my program panicked, what happened?"));
+    assert!(needs_crash_debug("thread panicked at src/main.rs:42"));
+    assert!(needs_crash_debug("why does it crash when I run with large input"));
+    assert!(needs_crash_debug("get me a backtrace for this failure"));
+    assert!(needs_crash_debug("segfault when processing the file"));
+    assert!(needs_crash_debug("stack overflow in the recursive function"));
+    assert!(needs_crash_debug("SIGSEGV abort debug this crash"));
+    assert!(!needs_crash_debug("how do I add a feature to the parser?"));
+    assert!(!needs_crash_debug("run the build and show me errors"));
+}

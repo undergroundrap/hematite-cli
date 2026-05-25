@@ -5548,6 +5548,30 @@ pub fn needs_github_ops(user_input: &str) -> bool {
         || (lower.contains("status") && lower.contains("ci"))
 }
 
+/// Returns true when the user's query involves crash/panic/segfault debugging that should
+/// use run_with_backtrace instead of shell for structured RUST_BACKTRACE output.
+pub fn needs_crash_debug(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    (lower.contains("crash") || lower.contains("panic") || lower.contains("panicked"))
+        || lower.contains("segfault")
+        || lower.contains("segmentation fault")
+        || lower.contains("access violation")
+        || lower.contains("stack overflow")
+        || lower.contains("backtrace")
+        || lower.contains("stack trace")
+        || lower.contains("why does it crash")
+        || lower.contains("why is it crashing")
+        || lower.contains("debug the crash")
+        || lower.contains("debug crash")
+        || (lower.contains("run") && lower.contains("backtrace"))
+        || (lower.contains("get") && lower.contains("backtrace"))
+        || lower.contains("core dump")
+        || lower.contains("aborted")
+        || lower.contains("fatal runtime")
+        || lower.contains("sigsegv")
+        || lower.contains("sigabrt")
+}
+
 /// Returns true when the user's query involves computation that must be exact —
 /// checksums, financial math, statistics, date arithmetic, algorithmic verification, etc.
 /// Used by the harness to inject a pre-turn nudge toward run_code instead of model memory.
