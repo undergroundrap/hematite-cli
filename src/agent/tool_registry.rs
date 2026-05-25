@@ -979,6 +979,37 @@ pub fn get_tools() -> Vec<ToolDefinition> {
             }),
         ),
         make_tool(
+            "cargo_errors",
+            "Run `cargo check --message-format=json` and return a structured list of compiler \
+             errors with file path, line number, error code (e.g. E0716), message, and hints. \
+             Far easier to act on than raw cargo output — each error is one line with an exact \
+             file:line reference. Use this after a failed verify_build to get a precise action list. \
+             Set warnings=true to include compiler warnings. Set tests=true to check test targets. \
+             Set action=clippy to run Clippy lints instead of check.",
+            serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "action": {
+                        "type": "string",
+                        "enum": ["check", "build", "clippy"],
+                        "description": "Which cargo command to run for diagnostics (default: check)"
+                    },
+                    "warnings": {
+                        "type": "boolean",
+                        "description": "Include compiler warnings in addition to errors (default false)"
+                    },
+                    "tests": {
+                        "type": "boolean",
+                        "description": "Check test targets as well as the main library/binary (default false)"
+                    },
+                    "package": {
+                        "type": "string",
+                        "description": "Limit to a specific workspace package (optional)"
+                    }
+                }
+            }),
+        ),
+        make_tool(
             "git_diff",
             "Show differences between the working tree, staged changes, or two git refs. \
              Always returns a --stat summary header (files changed, insertions, deletions) \
@@ -1173,6 +1204,7 @@ pub async fn dispatch_builtin_tool(
         "git_commit" => crate::tools::git::execute(args).await,
         "git_push" => crate::tools::git::execute_push(args).await,
         "git_remote" => crate::tools::git::execute_remote(args).await,
+        "cargo_errors" => crate::tools::build_errors::execute(args).await,
         "git_diff" => crate::tools::git::execute_diff(args).await,
         "git_log" => crate::tools::git::execute_log(args).await,
         "git_onboarding" => crate::tools::git_onboarding::execute(args).await,
