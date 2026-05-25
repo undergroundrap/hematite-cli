@@ -863,6 +863,29 @@ pub fn get_tools() -> Vec<ToolDefinition> {
             }),
         ),
         make_tool(
+            "vein_search",
+            "Search the local Vein RAG index for code, session memory, or imported chat context \
+             relevant to a query. Returns the top matching chunks with file path, room label, and \
+             relevance score. Uses hybrid BM25+semantic ranking when an embedding model is loaded, \
+             BM25-only otherwise. Use this when you need to recall earlier conversation context, \
+             find related code in the project, or retrieve specific imported session content \
+             without waiting for the next turn's automatic pre-retrieval pass.",
+            serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "Natural-language search query (e.g. 'how does the inference engine handle streaming?')."
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "description": "Maximum number of chunks to return (default 8, max 20)."
+                    }
+                },
+                "required": ["query"]
+            }),
+        ),
+        make_tool(
             "run_with_backtrace",
             "Run a command with RUST_BACKTRACE=full and return a structured crash report — \
              panic message, filtered stack trace (stdlib noise removed), and exit code. \

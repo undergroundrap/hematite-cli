@@ -8765,6 +8765,49 @@ impl ConversationManager {
                     // Stream shell output line-by-line to the SPECULAR panel so
                     // the operator sees live progress during long commands.
                     crate::tools::shell::execute_streaming(&args, tx.clone(), budget_tokens).await
+                } else if call.name == "vein_search" {
+                    // Direct Vein query — returns relevant code/session chunks from the
+                    // local RAG index without waiting for the next turn's pre-retrieval pass.
+                    let query = args
+                        .get("query")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("")
+                        .trim();
+                    let limit = args
+                        .get("limit")
+                        .and_then(|v| v.as_u64())
+                        .unwrap_or(8) as usize;
+                    if query.is_empty() {
+                        Err("vein_search: missing required 'query'".to_string())
+                    } else {
+                        let capped_limit = limit.min(20);
+                        let results = tokio::task::block_in_place(|| {
+                            self.vein.search_context(query, capped_limit)
+                        });
+                        match results {
+                            Ok(hits) if hits.is_empty() => Ok(format!(
+                                "vein_search: no results for \"{query}\" \
+                                 (index may be empty or embedding model not loaded)"
+                            )),
+                            Ok(hits) => {
+                                let mut out = format!(
+                                    "VEIN SEARCH: \"{query}\" — {} result(s)\n\n",
+                                    hits.len()
+                                );
+                                for (i, r) in hits.iter().enumerate() {
+                                    out.push_str(&format!(
+                                        "── [{i}] {} (room: {}, score: {:.2}) ──\n{}\n\n",
+                                        r.path,
+                                        r.room,
+                                        r.score,
+                                        r.content.trim()
+                                    ));
+                                }
+                                Ok(out)
+                            }
+                            Err(e) => Err(format!("vein_search: index error: {e}")),
+                        }
+                    }
                 } else {
                     dispatch_tool(&call.name, &args, &config, budget_tokens).await
                 };

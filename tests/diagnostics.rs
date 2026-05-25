@@ -7410,23 +7410,31 @@ fn test_html_report_escapes_special_chars() {
 
 #[test]
 fn test_html_report_format_flag() {
-    use clap::CommandFactory;
-    use hematite::CliCockpit;
-    let cmd = CliCockpit::command();
-    let format_arg = cmd
-        .get_arguments()
-        .find(|a| a.get_long() == Some("report-format"));
-    assert!(format_arg.is_some(), "--report-format flag must exist");
-    let help = format_arg
-        .unwrap()
-        .get_help()
-        .map(|h| h.to_string())
-        .unwrap_or_default();
-    assert!(
-        help.contains("html") || help.to_ascii_lowercase().contains("html"),
-        "--report-format help text should mention html: {}",
-        help
-    );
+    // CliCockpit::command() inflates the stack in debug builds (150+ flags).
+    // Run on a dedicated thread with an 8 MB stack to avoid STATUS_STACK_OVERFLOW.
+    let result = std::thread::Builder::new()
+        .stack_size(8 * 1024 * 1024)
+        .spawn(|| {
+            use clap::CommandFactory;
+            use hematite::CliCockpit;
+            let cmd = CliCockpit::command();
+            let format_arg = cmd
+                .get_arguments()
+                .find(|a| a.get_long() == Some("report-format"));
+            assert!(format_arg.is_some(), "--report-format flag must exist");
+            let help = format_arg
+                .unwrap()
+                .get_help()
+                .map(|h| h.to_string())
+                .unwrap_or_default();
+            assert!(
+                help.contains("html") || help.to_ascii_lowercase().contains("html"),
+                "--report-format help text should mention html: {help}",
+            );
+        })
+        .expect("failed to spawn thread")
+        .join();
+    result.expect("test_html_report_format_flag panicked");
 }
 
 #[test]
@@ -7447,66 +7455,40 @@ fn test_diagnosis_json_output_wiring() {
 
 #[test]
 fn test_report_cli_flags_exist() {
-    // Smoke-test that --report, --report-format, and --diagnose are valid CliCockpit fields.
-    use clap::CommandFactory;
-    use hematite::CliCockpit;
-    let cmd = CliCockpit::command();
-    let flag_names: Vec<&str> = cmd
-        .get_arguments()
-        .map(|a| a.get_long().unwrap_or(""))
-        .collect();
-    assert!(
-        flag_names.contains(&"report"),
-        "--report flag missing from CliCockpit"
-    );
-    assert!(
-        flag_names.contains(&"report-format"),
-        "--report-format flag missing from CliCockpit"
-    );
-    assert!(
-        flag_names.contains(&"diagnose"),
-        "--diagnose flag missing from CliCockpit"
-    );
-    assert!(
-        flag_names.contains(&"open"),
-        "--open flag missing from CliCockpit"
-    );
-    assert!(
-        flag_names.contains(&"output"),
-        "--output flag missing from CliCockpit"
-    );
-    assert!(
-        flag_names.contains(&"quiet"),
-        "--quiet flag missing from CliCockpit"
-    );
-    assert!(
-        flag_names.contains(&"clipboard"),
-        "--clipboard flag missing from CliCockpit"
-    );
-    assert!(
-        flag_names.contains(&"notify"),
-        "--notify flag missing from CliCockpit"
-    );
-    assert!(
-        flag_names.contains(&"count"),
-        "--count flag missing from CliCockpit"
-    );
-    assert!(
-        flag_names.contains(&"compare"),
-        "--compare flag missing from CliCockpit"
-    );
-    assert!(
-        flag_names.contains(&"yes"),
-        "--yes flag missing from CliCockpit"
-    );
-    assert!(
-        flag_names.contains(&"only"),
-        "--only flag missing from CliCockpit"
-    );
-    assert!(
-        flag_names.contains(&"field"),
-        "--field flag missing from CliCockpit"
-    );
+    // CliCockpit::command() inflates the stack in debug builds (150+ flags).
+    let result = std::thread::Builder::new()
+        .stack_size(8 * 1024 * 1024)
+        .spawn(|| {
+            use clap::CommandFactory;
+            use hematite::CliCockpit;
+            let cmd = CliCockpit::command();
+            let flag_names: Vec<&str> = cmd
+                .get_arguments()
+                .map(|a| a.get_long().unwrap_or(""))
+                .collect();
+            assert!(flag_names.contains(&"report"), "--report flag missing");
+            assert!(
+                flag_names.contains(&"report-format"),
+                "--report-format flag missing"
+            );
+            assert!(flag_names.contains(&"diagnose"), "--diagnose flag missing");
+            assert!(flag_names.contains(&"open"), "--open flag missing");
+            assert!(flag_names.contains(&"output"), "--output flag missing");
+            assert!(flag_names.contains(&"quiet"), "--quiet flag missing");
+            assert!(
+                flag_names.contains(&"clipboard"),
+                "--clipboard flag missing"
+            );
+            assert!(flag_names.contains(&"notify"), "--notify flag missing");
+            assert!(flag_names.contains(&"count"), "--count flag missing");
+            assert!(flag_names.contains(&"compare"), "--compare flag missing");
+            assert!(flag_names.contains(&"yes"), "--yes flag missing");
+            assert!(flag_names.contains(&"only"), "--only flag missing");
+            assert!(flag_names.contains(&"field"), "--field flag missing");
+        })
+        .expect("failed to spawn thread")
+        .join();
+    result.expect("test_report_cli_flags_exist panicked");
 }
 
 #[test]
@@ -7592,21 +7574,30 @@ fn test_fix_all_dry_run_preview_filters_correctly() {
 
 #[test]
 fn test_output_flag_help_mentions_path() {
-    use clap::CommandFactory;
-    use hematite::CliCockpit;
-    let cmd = CliCockpit::command();
-    let output_arg = cmd.get_arguments().find(|a| a.get_long() == Some("output"));
-    assert!(output_arg.is_some(), "--output flag must exist");
-    let help = output_arg
-        .unwrap()
-        .get_help()
-        .map(|h| h.to_string())
-        .unwrap_or_default();
-    assert!(
-        help.to_ascii_lowercase().contains("path") || help.to_ascii_lowercase().contains("file"),
-        "--output help text should mention path or file: {}",
-        help
-    );
+    // CliCockpit::command() inflates the stack in debug builds (150+ flags).
+    let result = std::thread::Builder::new()
+        .stack_size(8 * 1024 * 1024)
+        .spawn(|| {
+            use clap::CommandFactory;
+            use hematite::CliCockpit;
+            let cmd = CliCockpit::command();
+            let output_arg =
+                cmd.get_arguments().find(|a| a.get_long() == Some("output"));
+            assert!(output_arg.is_some(), "--output flag must exist");
+            let help = output_arg
+                .unwrap()
+                .get_help()
+                .map(|h| h.to_string())
+                .unwrap_or_default();
+            assert!(
+                help.to_ascii_lowercase().contains("path")
+                    || help.to_ascii_lowercase().contains("file"),
+                "--output help text should mention path or file: {help}",
+            );
+        })
+        .expect("failed to spawn thread")
+        .join();
+    result.expect("test_output_flag_help_mentions_path panicked");
 }
 
 #[test]
