@@ -1156,6 +1156,36 @@ pub fn get_tools() -> Vec<ToolDefinition> {
     ];
 
     tools.push(make_tool(
+        "refactor_rename",
+        "Rename a symbol (function, type, variable, constant, etc.) across the entire workspace. \
+         Performs whole-word replacement — 'run' will NOT match 'run_turn'. \
+         Defaults to dry_run=true so you always see a per-file preview before any files are written. \
+         Set dry_run=false to apply. Works on .rs files by default; set extensions='rs,toml' for wider scope. \
+         Use find_symbol first to verify all sites, then call this to apply in one shot.",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "old_name": {
+                    "type": "string",
+                    "description": "Current symbol name to rename (exact match, whole-word)"
+                },
+                "new_name": {
+                    "type": "string",
+                    "description": "Replacement name"
+                },
+                "dry_run": {
+                    "type": "boolean",
+                    "description": "Preview changes without writing files (default true). Set false to apply."
+                },
+                "extensions": {
+                    "type": "string",
+                    "description": "Comma-separated file extensions (default 'rs'). E.g. 'rs,toml,md'."
+                }
+            },
+            "required": ["old_name", "new_name"]
+        }),
+    ));
+    tools.push(make_tool(
         "find_symbol",
         "Locate where a Rust symbol (function, struct, enum, trait, impl, type, const, macro, mod) \
          is *defined* anywhere in the workspace — no LSP required. Works immediately even without \
@@ -1249,6 +1279,7 @@ pub async fn dispatch_builtin_tool(
         "git_remote" => crate::tools::git::execute_remote(args).await,
         "cargo_errors" => crate::tools::build_errors::execute(args).await,
         "find_symbol" => crate::tools::symbol_search::execute(args).await,
+        "refactor_rename" => crate::tools::refactor::execute_rename(args).await,
         "git_status" => crate::tools::git::execute_status(args).await,
         "git_diff" => crate::tools::git::execute_diff(args).await,
         "git_log" => crate::tools::git::execute_log(args).await,
@@ -1331,6 +1362,19 @@ pub fn get_mutation_label(name: &str, args: &Value) -> Option<String> {
             match action {
                 "pr_create" | "pr_merge" | "issue_create" => Some(format!("GitHub: {}", action)),
                 _ => None,
+            }
+        }
+        "refactor_rename" => {
+            let old = args.get("old_name").and_then(|v| v.as_str()).unwrap_or("?");
+            let new = args.get("new_name").and_then(|v| v.as_str()).unwrap_or("?");
+            let dry = args
+                .get("dry_run")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(true);
+            if dry {
+                None // dry-run previews don't need approval
+            } else {
+                Some(format!("Workspace-Wide Symbol Rename: {old} → {new}"))
             }
         }
         "git_commit" => Some("Permanent Version History Commit".into()),

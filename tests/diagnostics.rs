@@ -14539,3 +14539,49 @@ fn test_find_symbol_locates_definitions_in_workspace() {
         "missing symbol should report no results: {none}"
     );
 }
+
+#[test]
+fn test_refactor_rename_dry_run_finds_and_previews() {
+    use hematite::tools::refactor;
+    use serde_json::json;
+
+    let root = env!("CARGO_MANIFEST_DIR");
+    let rt = tokio::runtime::Runtime::new().unwrap();
+
+    // Dry-run rename of a symbol that definitely exists — "execute" appears in many tool files.
+    let result = rt
+        .block_on(refactor::execute_rename(&json!({
+            "old_name": "execute",
+            "new_name": "execute_renamed",
+            "dry_run": true,
+            "_root": root
+        })))
+        .expect("refactor_rename should not error");
+
+    assert!(
+        result.contains("DRY RUN"),
+        "dry_run=true should label output DRY RUN: {result}"
+    );
+    assert!(
+        result.contains("replacement"),
+        "should report at least one replacement: {result}"
+    );
+    assert!(
+        result.contains("dry_run=false"),
+        "dry run output should hint how to apply: {result}"
+    );
+
+    // old_name == new_name should short-circuit with a "nothing to do" message.
+    let identity = rt
+        .block_on(refactor::execute_rename(&json!({
+            "old_name": "execute",
+            "new_name": "execute",
+            "dry_run": true,
+            "_root": root
+        })))
+        .expect("identity rename should not error");
+    assert!(
+        identity.contains("identical") || identity.contains("nothing to do"),
+        "identical names should short-circuit: {identity}"
+    );
+}
