@@ -1241,6 +1241,54 @@ pub fn get_tools() -> Vec<ToolDefinition> {
             "required": []
         }),
     ));
+    tools.push(make_tool(
+        "manage_deps",
+        "Manage project dependencies without writing raw shell commands. \
+         Actions: \
+         `list` — parse Cargo.toml and display all dependency sections instantly; \
+         `add` — run `cargo add <name> [@version] [--dev] [--features ...]`; \
+         `remove` — run `cargo remove <name>`; \
+         `tree` — run `cargo tree [--depth N] [-p package]` to visualize the dep graph; \
+         `outdated` — run `cargo outdated` (requires cargo-outdated install); \
+         `audit` — run `cargo audit` for known security advisories (requires cargo-audit install). \
+         Always prefer `manage_deps(action: \"list\")` over reading Cargo.toml raw when you need to \
+         inspect what is currently depended on.",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["add", "remove", "list", "tree", "outdated", "audit"],
+                    "description": "What to do with dependencies."
+                },
+                "name": {
+                    "type": "string",
+                    "description": "Crate name (required for add/remove)."
+                },
+                "version": {
+                    "type": "string",
+                    "description": "Optional version constraint for add, e.g. '1.0', '0.13.1'."
+                },
+                "dev": {
+                    "type": "boolean",
+                    "description": "If true, add as a dev-dependency (default false)."
+                },
+                "features": {
+                    "type": "string",
+                    "description": "Comma-separated feature flags to enable when adding."
+                },
+                "package": {
+                    "type": "string",
+                    "description": "Package filter for `tree` action."
+                },
+                "depth": {
+                    "type": "integer",
+                    "description": "Tree depth for `tree` action (default 3)."
+                }
+            },
+            "required": ["action"]
+        }),
+    ));
     let lsp_defs = crate::tools::lsp_tools::get_lsp_definitions();
     tools.push(make_tool(
         "lsp_search_symbol",
@@ -1309,6 +1357,7 @@ pub async fn dispatch_builtin_tool(
         "find_symbol" => crate::tools::symbol_search::execute(args).await,
         "refactor_rename" => crate::tools::refactor::execute_rename(args).await,
         "run_tests" => crate::tools::test_runner::execute_run_tests(args).await,
+        "manage_deps" => crate::tools::deps::execute(args).await,
         "git_status" => crate::tools::git::execute_status(args).await,
         "git_diff" => crate::tools::git::execute_diff(args).await,
         "git_log" => crate::tools::git::execute_log(args).await,
@@ -1404,6 +1453,20 @@ pub fn get_mutation_label(name: &str, args: &Value) -> Option<String> {
                 None // dry-run previews don't need approval
             } else {
                 Some(format!("Workspace-Wide Symbol Rename: {old} → {new}"))
+            }
+        }
+        "manage_deps" => {
+            let action = args.get("action").and_then(|v| v.as_str()).unwrap_or("");
+            match action {
+                "add" => {
+                    let name = args.get("name").and_then(|v| v.as_str()).unwrap_or("?");
+                    Some(format!("Add Dependency: {name}"))
+                }
+                "remove" => {
+                    let name = args.get("name").and_then(|v| v.as_str()).unwrap_or("?");
+                    Some(format!("Remove Dependency: {name}"))
+                }
+                _ => None, // list/tree/outdated/audit are read-only
             }
         }
         "git_commit" => Some("Permanent Version History Commit".into()),

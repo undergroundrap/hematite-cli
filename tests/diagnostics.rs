@@ -14647,3 +14647,52 @@ fn test_run_tests_dry_run_with_filter() {
         "should detect Cargo.toml workspace: {result}"
     );
 }
+
+#[test]
+fn test_manage_deps_list_parses_cargo_toml() {
+    use hematite::tools::deps;
+    use serde_json::json;
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt
+        .block_on(deps::execute(&json!({ "action": "list" })))
+        .expect("manage_deps list should succeed on Cargo.toml workspace");
+
+    assert!(
+        result.contains("DEPENDENCIES"),
+        "should contain header: {result}"
+    );
+    // Hematite depends on serde and tokio — both should appear
+    assert!(
+        result.contains("serde") || result.contains("tokio") || result.contains("regex"),
+        "should list known dependencies: {result}"
+    );
+}
+
+#[test]
+fn test_manage_deps_missing_action_errors() {
+    use hematite::tools::deps;
+    use serde_json::json;
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(deps::execute(&json!({})));
+    assert!(result.is_err(), "missing action should error");
+    assert!(
+        result.unwrap_err().contains("action"),
+        "error should mention 'action'"
+    );
+}
+
+#[test]
+fn test_manage_deps_add_requires_name() {
+    use hematite::tools::deps;
+    use serde_json::json;
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(deps::execute(&json!({ "action": "add" })));
+    assert!(result.is_err(), "add without name should error");
+    assert!(
+        result.unwrap_err().contains("name"),
+        "error should mention 'name'"
+    );
+}

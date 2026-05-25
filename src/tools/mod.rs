@@ -4,6 +4,7 @@ pub mod build_cache;
 pub mod build_errors;
 pub mod code_sandbox;
 pub mod data_query;
+pub mod deps;
 pub mod data_tools;
 pub mod debugger;
 pub mod file_edit;
