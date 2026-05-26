@@ -21,10 +21,7 @@ pub async fn execute(args: &Value) -> Result<String, String> {
         .unwrap_or(false);
 
     let package = args.get("package").and_then(|v| v.as_str());
-    let test_mode = args
-        .get("tests")
-        .and_then(|v| v.as_bool())
-        .unwrap_or(false);
+    let test_mode = args.get("tests").and_then(|v| v.as_bool()).unwrap_or(false);
 
     run_structured(action, include_warnings, explain, package, test_mode).await
 }
@@ -110,7 +107,11 @@ async fn run_structured(
             .and_then(|spans| {
                 spans
                     .iter()
-                    .find(|s| s.get("is_primary").and_then(|p| p.as_bool()).unwrap_or(false))
+                    .find(|s| {
+                        s.get("is_primary")
+                            .and_then(|p| p.as_bool())
+                            .unwrap_or(false)
+                    })
                     .or_else(|| spans.first())
             });
 
@@ -120,10 +121,7 @@ async fn run_structured(
                 .and_then(|v| v.as_str())
                 .unwrap_or("?")
                 .to_string();
-            let l = span
-                .get("line_start")
-                .and_then(|v| v.as_u64())
-                .unwrap_or(0);
+            let l = span.get("line_start").and_then(|v| v.as_u64()).unwrap_or(0);
             (f, l)
         } else {
             ("?".to_string(), 0)
@@ -178,10 +176,7 @@ async fn run_structured(
     let mut out = String::new();
 
     if !errors.is_empty() {
-        out.push_str(&format!(
-            "ERRORS ({}) [{cargo_cmd}]:\n",
-            errors.len()
-        ));
+        out.push_str(&format!("ERRORS ({}) [{cargo_cmd}]:\n", errors.len()));
         for (i, e) in errors.iter().enumerate() {
             let code_str = e
                 .code
@@ -225,18 +220,12 @@ async fn run_structured(
         if !unique_codes.is_empty() {
             out.push_str("\nERROR EXPLANATIONS:\n");
             for code in &unique_codes {
-                let explain_out = Command::new("rustc")
-                    .args(["--explain", code])
-                    .output();
+                let explain_out = Command::new("rustc").args(["--explain", code]).output();
                 match explain_out {
                     Ok(o) if o.status.success() => {
                         let text = String::from_utf8_lossy(&o.stdout);
                         // Cap each explanation at 60 lines to avoid flooding context.
-                        let capped: String = text
-                            .lines()
-                            .take(60)
-                            .collect::<Vec<_>>()
-                            .join("\n");
+                        let capped: String = text.lines().take(60).collect::<Vec<_>>().join("\n");
                         out.push_str(&format!("\n── {code} ──\n{capped}\n"));
                     }
                     _ => {

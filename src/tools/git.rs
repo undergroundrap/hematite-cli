@@ -565,7 +565,10 @@ pub async fn execute_changelog(args: &Value) -> Result<String, String> {
         .min(500) as usize;
     let from = args.get("from").and_then(|v| v.as_str());
     let to = args.get("to").and_then(|v| v.as_str());
-    let title = args.get("title").and_then(|v| v.as_str()).unwrap_or("Changelog");
+    let title = args
+        .get("title")
+        .and_then(|v| v.as_str())
+        .unwrap_or("Changelog");
 
     // Collect: hash\x1fsub\x1eauthor\x1edate
     let n_str = format!("-{n}");
@@ -603,7 +606,8 @@ pub async fn execute_changelog(args: &Value) -> Result<String, String> {
     }
 
     // Parse commits
-    let mut sections: std::collections::BTreeMap<&str, Vec<String>> = std::collections::BTreeMap::new();
+    let mut sections: std::collections::BTreeMap<&str, Vec<String>> =
+        std::collections::BTreeMap::new();
     let mut uncategorized: Vec<String> = Vec::new();
 
     for entry in raw.split('\x1e').map(str::trim).filter(|s| !s.is_empty()) {
@@ -637,8 +641,16 @@ pub async fn execute_changelog(args: &Value) -> Result<String, String> {
 
     // Render — preferred section order
     let section_order = [
-        "Features", "Bug Fixes", "Performance", "Refactoring",
-        "Documentation", "Tests", "Build", "CI", "Style", "Chores",
+        "Features",
+        "Bug Fixes",
+        "Performance",
+        "Refactoring",
+        "Documentation",
+        "Tests",
+        "Build",
+        "CI",
+        "Style",
+        "Chores",
     ];
 
     let mut out = format!("# {title}\n\n");

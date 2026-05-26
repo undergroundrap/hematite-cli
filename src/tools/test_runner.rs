@@ -55,7 +55,11 @@ pub async fn execute_run_tests(args: &Value) -> Result<String, String> {
             let combined = format!("{stdout}{stderr}");
 
             let (passed, failed, ignored) = parse_counts(&combined);
-            let status = if output.status.success() { "PASSED" } else { "FAILED" };
+            let status = if output.status.success() {
+                "PASSED"
+            } else {
+                "FAILED"
+            };
 
             let mut out = format!(
                 "TEST RUN [{status}] — {label} — {elapsed}s\n\
@@ -127,11 +131,9 @@ fn detect_runner(
         }
         return Ok((py.to_string(), a, "Python/pytest"));
     }
-    Err(
-        "run_tests: no recognized project root found \
+    Err("run_tests: no recognized project root found \
          (Cargo.toml / package.json / pyproject.toml / setup.py / pytest.ini)"
-            .to_string(),
-    )
+        .to_string())
 }
 
 fn parse_counts(output: &str) -> (usize, usize, usize) {
@@ -145,11 +147,14 @@ fn parse_counts(output: &str) -> (usize, usize, usize) {
         }
         // pytest: "3 passed, 2 failed, 1 error" or "5 passed"
         if (line.contains("passed") || line.contains("failed") || line.contains("error"))
-            && line.chars().next().map(|c| c.is_ascii_digit()).unwrap_or(false)
+            && line
+                .chars()
+                .next()
+                .map(|c| c.is_ascii_digit())
+                .unwrap_or(false)
         {
             let passed = extract_num(line, "passed");
-            let failed =
-                extract_num(line, "failed") + extract_num(line, "error");
+            let failed = extract_num(line, "failed") + extract_num(line, "error");
             let ignored = extract_num(line, "skipped") + extract_num(line, "deselected");
             return (passed, failed, ignored);
         }
@@ -197,5 +202,9 @@ fn extract_failures(output: &str) -> Option<String> {
         }
     }
 
-    if found { Some(buf) } else { None }
+    if found {
+        Some(buf)
+    } else {
+        None
+    }
 }

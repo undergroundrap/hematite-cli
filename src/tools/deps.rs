@@ -64,9 +64,12 @@ pub async fn execute(args: &Value) -> Result<String, String> {
             let out = run_cargo(&["outdated".to_string()], &root, TIMEOUT).await;
             match out {
                 Ok(s) => Ok(s),
-                Err(e) if e.contains("no such subcommand") || e.contains("is not a cargo command") => {
+                Err(e)
+                    if e.contains("no such subcommand") || e.contains("is not a cargo command") =>
+                {
                     Err("manage_deps outdated: `cargo-outdated` is not installed. \
-                         Install with: cargo install cargo-outdated".to_string())
+                         Install with: cargo install cargo-outdated"
+                        .to_string())
                 }
                 Err(e) => Err(e),
             }
@@ -76,9 +79,12 @@ pub async fn execute(args: &Value) -> Result<String, String> {
             let out = run_cargo(&["audit".to_string()], &root, TIMEOUT).await;
             match out {
                 Ok(s) => Ok(s),
-                Err(e) if e.contains("no such subcommand") || e.contains("is not a cargo command") => {
+                Err(e)
+                    if e.contains("no such subcommand") || e.contains("is not a cargo command") =>
+                {
                     Err("manage_deps audit: `cargo-audit` is not installed. \
-                         Install with: cargo install cargo-audit".to_string())
+                         Install with: cargo install cargo-audit"
+                        .to_string())
                 }
                 Err(e) => Err(e),
             }
@@ -90,7 +96,11 @@ pub async fn execute(args: &Value) -> Result<String, String> {
     }
 }
 
-async fn run_cargo(args: &[String], root: &std::path::Path, timeout_secs: u64) -> Result<String, String> {
+async fn run_cargo(
+    args: &[String],
+    root: &std::path::Path,
+    timeout_secs: u64,
+) -> Result<String, String> {
     let result = tokio::time::timeout(
         Duration::from_secs(timeout_secs),
         tokio::process::Command::new("cargo")
@@ -109,7 +119,10 @@ async fn run_cargo(args: &[String], root: &std::path::Path, timeout_secs: u64) -
             if output.status.success() {
                 let combined = format!("{stdout}{stderr}").trim().to_string();
                 Ok(if combined.is_empty() {
-                    format!("cargo {} completed successfully.", args.first().map(|s| s.as_str()).unwrap_or("?"))
+                    format!(
+                        "cargo {} completed successfully.",
+                        args.first().map(|s| s.as_str()).unwrap_or("?")
+                    )
                 } else {
                     combined
                 })
@@ -141,7 +154,11 @@ fn format_toml_deps(content: &str) -> String {
         let is_dep_section = section == "[dependencies]"
             || section == "[dev-dependencies]"
             || section == "[build-dependencies]";
-        if is_dep_section && !trimmed.is_empty() && !trimmed.starts_with('[') && !trimmed.starts_with('#') {
+        if is_dep_section
+            && !trimmed.is_empty()
+            && !trimmed.starts_with('[')
+            && !trimmed.starts_with('#')
+        {
             if !found_any {
                 found_any = true;
             }

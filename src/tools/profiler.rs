@@ -84,7 +84,9 @@ async fn profile_command(command: &str, timeout_secs: u64) -> Result<String, Str
             let stdout = String::from_utf8_lossy(&out.stdout).into_owned();
             let stderr = String::from_utf8_lossy(&out.stderr).into_owned();
             let exit_code = out.status.code();
-            format_profile(command, wall_ms, exit_code, false, &samples, &stdout, &stderr)
+            format_profile(
+                command, wall_ms, exit_code, false, &samples, &stdout, &stderr,
+            )
         }
         Ok(Err(e)) => Err(format!("profile_process: process error: {e}")),
         Err(_) => {
@@ -210,14 +212,18 @@ fn format_profile(
 
     if !samples.is_empty() {
         let peak_ram = samples.iter().map(|s| s.ram_mb).fold(0.0_f64, f64::max);
-        let peak_cpu = samples.iter().map(|s| s.cpu_percent).fold(0.0_f64, f64::max);
-        let avg_ram =
-            samples.iter().map(|s| s.ram_mb).sum::<f64>() / samples.len() as f64;
+        let peak_cpu = samples
+            .iter()
+            .map(|s| s.cpu_percent)
+            .fold(0.0_f64, f64::max);
+        let avg_ram = samples.iter().map(|s| s.ram_mb).sum::<f64>() / samples.len() as f64;
 
         out.push_str(&format!("samples : {}\n", samples.len()));
         out.push_str(&format!("peak RAM: {peak_ram:.1} MB\n"));
         out.push_str(&format!("avg RAM : {avg_ram:.1} MB\n"));
-        out.push_str(&format!("peak CPU: {peak_cpu:.1} (cumulative CPU-s on Windows; %ticks on Linux)\n"));
+        out.push_str(&format!(
+            "peak CPU: {peak_cpu:.1} (cumulative CPU-s on Windows; %ticks on Linux)\n"
+        ));
     } else {
         out.push_str("samples : 0 (process exited before first poll or poller unavailable)\n");
     }

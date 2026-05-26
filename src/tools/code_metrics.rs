@@ -4,14 +4,24 @@ use std::path::{Path, PathBuf};
 
 const MAX_FILE_SIZE: u64 = 2 * 1024 * 1024; // 2 MB
 const SKIP_DIRS: &[&str] = &[
-    ".git", "target", "node_modules", "vendor", ".venv", "venv",
-    "__pycache__", "dist", ".next", ".nuxt", "build", "out", ".hematite",
+    ".git",
+    "target",
+    "node_modules",
+    "vendor",
+    ".venv",
+    "venv",
+    "__pycache__",
+    "dist",
+    ".next",
+    ".nuxt",
+    "build",
+    "out",
+    ".hematite",
 ];
 const SKIP_EXTENSIONS: &[&str] = &[
-    "png", "jpg", "jpeg", "gif", "ico", "svg", "woff", "woff2",
-    "ttf", "otf", "eot", "mp3", "mp4", "wav", "ogg", "pdf",
-    "zip", "tar", "gz", "bz2", "xz", "7z", "rar",
-    "exe", "dll", "so", "dylib", "pdb", "lib", "a", "bin", "onnx",
+    "png", "jpg", "jpeg", "gif", "ico", "svg", "woff", "woff2", "ttf", "otf", "eot", "mp3", "mp4",
+    "wav", "ogg", "pdf", "zip", "tar", "gz", "bz2", "xz", "7z", "rar", "exe", "dll", "so", "dylib",
+    "pdb", "lib", "a", "bin", "onnx",
 ];
 
 struct FileStats {
@@ -42,7 +52,10 @@ pub async fn execute(args: &Value) -> Result<String, String> {
     };
 
     if !target.exists() {
-        return Err(format!("code_metrics: path not found: {}", target.display()));
+        return Err(format!(
+            "code_metrics: path not found: {}",
+            target.display()
+        ));
     }
 
     let mut all_files: Vec<FileStats> = Vec::new();
@@ -124,7 +137,11 @@ fn analyze_file(path: &Path, ext: &str) -> Option<FileStats> {
         if lower.contains("todo") || lower.contains("to-do") {
             todos += 1;
         }
-        if lower.contains("fixme") || lower.contains("fix me") || lower.contains("hack") || lower.contains("xxx") {
+        if lower.contains("fixme")
+            || lower.contains("fix me")
+            || lower.contains("hack")
+            || lower.contains("xxx")
+        {
             fixmes += 1;
         }
     }
@@ -144,12 +161,12 @@ fn analyze_file(path: &Path, ext: &str) -> Option<FileStats> {
 
 fn is_comment_line(trimmed: &str, ext: &str) -> bool {
     match ext {
-        "rs" | "c" | "cpp" | "cc" | "h" | "hpp" | "java" | "js" | "ts" | "jsx" | "tsx"
-        | "cs" | "go" | "swift" | "kt" | "scala" | "dart" => {
+        "rs" | "c" | "cpp" | "cc" | "h" | "hpp" | "java" | "js" | "ts" | "jsx" | "tsx" | "cs"
+        | "go" | "swift" | "kt" | "scala" | "dart" => {
             trimmed.starts_with("//") || trimmed.starts_with("/*") || trimmed.starts_with("*")
         }
-        "py" | "rb" | "sh" | "bash" | "zsh" | "fish" | "yaml" | "yml" | "toml" | "ini"
-        | "conf" | "cfg" | "r" => trimmed.starts_with('#'),
+        "py" | "rb" | "sh" | "bash" | "zsh" | "fish" | "yaml" | "yml" | "toml" | "ini" | "conf"
+        | "cfg" | "r" => trimmed.starts_with('#'),
         "html" | "xml" | "svg" => trimmed.starts_with("<!--"),
         "css" | "scss" | "sass" => trimmed.starts_with("/*") || trimmed.starts_with("*"),
         "lua" => trimmed.starts_with("--"),
@@ -165,7 +182,9 @@ fn is_test_file(path: &Path, content: &str, ext: &str) -> bool {
     }
     match ext {
         "rs" => content.contains("#[test]") || content.contains("#[cfg(test)]"),
-        "py" => name.contains("test_") || content.contains("def test_") || content.contains("unittest"),
+        "py" => {
+            name.contains("test_") || content.contains("def test_") || content.contains("unittest")
+        }
         "js" | "ts" | "jsx" | "tsx" => {
             name.ends_with(".test.js")
                 || name.ends_with(".spec.js")
@@ -259,7 +278,7 @@ fn format_report(files: &[FileStats], root: &Path) -> Result<String, String> {
     out.push_str("\nBY LANGUAGE (top 12 by code lines)\n");
     let mut ext_vec: Vec<(&str, (usize, usize, usize, usize))> =
         by_ext.into_iter().map(|(k, v)| (k, v)).collect();
-    ext_vec.sort_by(|a, b| b.1.2.cmp(&a.1.2));
+    ext_vec.sort_by(|a, b| b.1 .2.cmp(&a.1 .2));
     for (ext, (file_count, lines, code, _)) in ext_vec.iter().take(12) {
         out.push_str(&format!(
             "  {:12}  {:>5} files  {:>8} lines  {:>8} code\n",
@@ -278,10 +297,7 @@ fn format_report(files: &[FileStats], root: &Path) -> Result<String, String> {
             .unwrap_or(&f.path)
             .trim_start_matches(['/', '\\']);
         let test_tag = if f.is_test { " [test]" } else { "" };
-        out.push_str(&format!(
-            "  {:>6} lines  {}{}\n",
-            f.lines, rel, test_tag
-        ));
+        out.push_str(&format!("  {:>6} lines  {}{}\n", f.lines, rel, test_tag));
     }
 
     if total_todos > 0 || total_fixmes > 0 {

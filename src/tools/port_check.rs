@@ -80,15 +80,15 @@ pub async fn execute(args: &Value) -> Result<String, String> {
 
     // Try each resolved address
     let mut last_error = String::new();
-    let open = addrs.iter().any(|addr| {
-        match TcpStream::connect_timeout(addr, timeout) {
+    let open = addrs
+        .iter()
+        .any(|addr| match TcpStream::connect_timeout(addr, timeout) {
             Ok(_) => true,
             Err(e) => {
                 last_error = e.to_string();
                 false
             }
-        }
-    });
+        });
 
     let service = WELL_KNOWN
         .iter()
@@ -105,7 +105,9 @@ pub async fn execute(args: &Value) -> Result<String, String> {
     );
 
     if open {
-        out.push_str("Result     : Connection succeeded — port is reachable and accepting connections.\n");
+        out.push_str(
+            "Result     : Connection succeeded — port is reachable and accepting connections.\n",
+        );
     } else {
         out.push_str(&format!(
             "Result     : Connection refused or timed out — port is not reachable.\n\

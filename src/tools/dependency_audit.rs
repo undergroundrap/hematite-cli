@@ -37,12 +37,10 @@ pub async fn execute(args: &Value) -> Result<String, String> {
     }
 
     if manifests_found == 0 {
-        return Ok(
-            "dependency_audit: no supported manifest files found.\n\
+        return Ok("dependency_audit: no supported manifest files found.\n\
              Supports: Cargo.toml (Rust), package.json (Node.js), \
              requirements.txt / pyproject.toml (Python), go.mod (Go)."
-                .to_string(),
-        );
+            .to_string());
     }
 
     let mut out = format!(
@@ -73,7 +71,11 @@ fn audit_cargo(root: &Path) -> Option<String> {
     for line in text.lines() {
         let trimmed = line.trim();
         if trimmed.starts_with('[') {
-            section = if trimmed.contains("dependencies") { "dep" } else { "" };
+            section = if trimmed.contains("dependencies") {
+                "dep"
+            } else {
+                ""
+            };
             continue;
         }
         if section != "dep" || trimmed.is_empty() || trimmed.starts_with('#') {
@@ -91,7 +93,9 @@ fn audit_cargo(root: &Path) -> Option<String> {
     // Flag wildcard versions
     for (name, ver) in &deps {
         if ver == "*" {
-            flags.push(format!("  [WILDCARD] {name} = \"*\" — unpinned, any version will match"));
+            flags.push(format!(
+                "  [WILDCARD] {name} = \"*\" — unpinned, any version will match"
+            ));
         }
         // Flag very old-looking major versions for common crates
         flag_outdated_crate(name, ver, &mut flags);
@@ -106,7 +110,11 @@ fn audit_cargo(root: &Path) -> Option<String> {
          Dependencies listed: {}\n\
          Cargo.lock present : {}\n",
         deps.len(),
-        if lock_exists || workspace_lock { "yes" } else { "NO — add to version control for reproducible builds" }
+        if lock_exists || workspace_lock {
+            "yes"
+        } else {
+            "NO — add to version control for reproducible builds"
+        }
     );
 
     if flags.is_empty() {
@@ -209,9 +217,15 @@ fn audit_npm(root: &Path) -> Option<String> {
     let lock_pnpm = root.join("pnpm-lock.yaml").exists();
     let has_lock = lock_yarn || lock_npm || lock_pnpm;
 
-    let name = json.get("name").and_then(|v| v.as_str()).unwrap_or("(unnamed)");
+    let name = json
+        .get("name")
+        .and_then(|v| v.as_str())
+        .unwrap_or("(unnamed)");
     let version = json.get("version").and_then(|v| v.as_str()).unwrap_or("?");
-    let engines = json.get("engines").map(|e| format!("{e}")).unwrap_or_default();
+    let engines = json
+        .get("engines")
+        .map(|e| format!("{e}"))
+        .unwrap_or_default();
 
     let mut out = format!(
         "NODE.JS (package.json)\n\
@@ -219,7 +233,13 @@ fn audit_npm(root: &Path) -> Option<String> {
          Dependencies    : {dep_count} prod, {dev_dep_count} dev\n\
          Lock file       : {}\n",
         if has_lock {
-            if lock_yarn { "yarn.lock" } else if lock_npm { "package-lock.json" } else { "pnpm-lock.yaml" }
+            if lock_yarn {
+                "yarn.lock"
+            } else if lock_npm {
+                "package-lock.json"
+            } else {
+                "pnpm-lock.yaml"
+            }
         } else {
             "MISSING — run npm install / yarn install"
         }
@@ -255,17 +275,28 @@ fn flag_npm_version(name: &str, ver: &str, issues: &mut Vec<String>) {
     }
     // Warn on known deprecated packages
     let deprecated = &[
-        "request", "node-uuid", "querystring", "url", "punycode",
-        "rimraf@2", "glob@7", "lodash@3", "lodash@4.17.0",
+        "request",
+        "node-uuid",
+        "querystring",
+        "url",
+        "punycode",
+        "rimraf@2",
+        "glob@7",
+        "lodash@3",
+        "lodash@4.17.0",
     ];
     for dep in deprecated {
         if dep.contains('@') {
             let parts: Vec<&str> = dep.splitn(2, '@').collect();
             if name == parts[0] && ver.starts_with(parts[1]) {
-                issues.push(format!("  [DEPRECATED] {name}@{ver} — known deprecated version"));
+                issues.push(format!(
+                    "  [DEPRECATED] {name}@{ver} — known deprecated version"
+                ));
             }
         } else if name == *dep {
-            issues.push(format!("  [DEPRECATED] {name} — package is deprecated; find an alternative"));
+            issues.push(format!(
+                "  [DEPRECATED] {name} — package is deprecated; find an alternative"
+            ));
         }
     }
 }
@@ -317,7 +348,11 @@ fn audit_python(root: &Path) -> Option<String> {
             }
         }
     } else if setup_cfg.exists() || setup_py.exists() {
-        source = if setup_cfg.exists() { "setup.cfg" } else { "setup.py" };
+        source = if setup_cfg.exists() {
+            "setup.cfg"
+        } else {
+            "setup.py"
+        };
     } else {
         return None;
     }
@@ -334,7 +369,11 @@ fn audit_python(root: &Path) -> Option<String> {
          Packages listed : {}\n\
          Virtual env     : {}\n",
         packages.len(),
-        if venv { "present" } else { "not found (.venv / venv)" }
+        if venv {
+            "present"
+        } else {
+            "not found (.venv / venv)"
+        }
     );
 
     if issues.is_empty() {
@@ -372,15 +411,17 @@ fn flag_python_package(name: &str, ver: &str, issues: &mut Vec<String>) {
     }
     // Known deprecated / insecure
     let deprecated = &[
-        "pycrypto",    // replaced by pycryptodome
-        "md5",         // stdlib-only, never a pip package
-        "sha",         // deprecated stdlib
-        "urllib3",     // ok but flag very old
-        "requests",    // ok but note if using 1.x
+        "pycrypto", // replaced by pycryptodome
+        "md5",      // stdlib-only, never a pip package
+        "sha",      // deprecated stdlib
+        "urllib3",  // ok but flag very old
+        "requests", // ok but note if using 1.x
     ];
     for dep in deprecated {
         if lower == *dep {
-            issues.push(format!("  [INFO] {name}: review for deprecation or known CVEs"));
+            issues.push(format!(
+                "  [INFO] {name}: review for deprecation or known CVEs"
+            ));
         }
     }
 }

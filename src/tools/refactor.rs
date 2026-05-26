@@ -22,7 +22,9 @@ pub async fn execute_rename(args: &Value) -> Result<String, String> {
         return Err("refactor_rename: old_name and new_name must not be empty".to_string());
     }
     if old_name == new_name {
-        return Ok("refactor_rename: old_name and new_name are identical — nothing to do.".to_string());
+        return Ok(
+            "refactor_rename: old_name and new_name are identical — nothing to do.".to_string(),
+        );
     }
 
     let dry_run = args
@@ -174,10 +176,7 @@ fn format_result(
             ));
         }
         if r.hits.len() > shown {
-            out.push_str(&format!(
-                "  ... {} more lines\n",
-                r.hits.len() - shown
-            ));
+            out.push_str(&format!("  ... {} more lines\n", r.hits.len() - shown));
         }
     }
 
@@ -192,25 +191,25 @@ fn walk_files(root: &Path, extensions: &[&str], cb: &mut impl FnMut(&Path)) {
 
     for entry in entries.flatten() {
         let path = entry.path();
-        let name = path
-            .file_name()
-            .and_then(|n| n.to_str())
-            .unwrap_or("");
+        let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
 
         if path.is_dir() {
             if matches!(
                 name,
-                "target" | ".git" | "node_modules" | "dist" | ".hematite"
-                    | "__pycache__" | ".venv" | "build"
+                "target"
+                    | ".git"
+                    | "node_modules"
+                    | "dist"
+                    | ".hematite"
+                    | "__pycache__"
+                    | ".venv"
+                    | "build"
             ) {
                 continue;
             }
             dirs.push(path);
         } else {
-            let ext = path
-                .extension()
-                .and_then(|e| e.to_str())
-                .unwrap_or("");
+            let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
             if extensions.contains(&ext) {
                 cb(&path);
             }

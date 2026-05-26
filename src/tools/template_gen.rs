@@ -20,7 +20,10 @@ pub async fn execute(args: &Value) -> Result<String, String> {
     };
 
     let output_path = args.get("output").and_then(|v| v.as_str());
-    let dry_run = args.get("dry_run").and_then(|v| v.as_bool()).unwrap_or(false);
+    let dry_run = args
+        .get("dry_run")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
 
     // Collect substitution variables from args
     let mut vars: BTreeMap<String, String> = BTreeMap::new();
@@ -79,29 +82,53 @@ fn list_templates() -> String {
     out.push_str(&"─".repeat(60));
     out.push('\n');
     let templates: &[(&str, &str)] = &[
-        ("dockerfile-node",       "Dockerfile for a Node.js application"),
-        ("dockerfile-python",     "Dockerfile for a Python application"),
-        ("dockerfile-rust",       "Dockerfile for a Rust application (multi-stage)"),
-        ("dockerfile-go",         "Dockerfile for a Go application (multi-stage)"),
-        ("ci-github-node",        ".github/workflows/ci.yml for Node.js (GitHub Actions)"),
-        ("ci-github-python",      ".github/workflows/ci.yml for Python (GitHub Actions)"),
-        ("ci-github-rust",        ".github/workflows/ci.yml for Rust (GitHub Actions)"),
-        ("gitignore-node",        ".gitignore for Node.js projects"),
-        ("gitignore-python",      ".gitignore for Python projects"),
-        ("gitignore-rust",        ".gitignore for Rust projects"),
-        ("gitignore-general",     ".gitignore with common OS and editor exclusions"),
-        ("env-template",          ".env.example with common variable stubs"),
-        ("makefile-node",         "Makefile with common Node.js targets"),
-        ("makefile-python",       "Makefile with common Python targets"),
-        ("makefile-rust",         "Makefile with common Rust targets"),
-        ("docker-compose",        "docker-compose.yml with web + db + redis services"),
-        ("pre-commit",            ".pre-commit-config.yaml with common hooks"),
-        ("editorconfig",          ".editorconfig for consistent formatting"),
-        ("dependabot",            ".github/dependabot.yml for automated dependency updates"),
-        ("codeowners",            ".github/CODEOWNERS template"),
-        ("pr-template",           ".github/pull_request_template.md"),
-        ("issue-bug",             ".github/ISSUE_TEMPLATE/bug_report.md"),
-        ("issue-feature",         ".github/ISSUE_TEMPLATE/feature_request.md"),
+        ("dockerfile-node", "Dockerfile for a Node.js application"),
+        ("dockerfile-python", "Dockerfile for a Python application"),
+        (
+            "dockerfile-rust",
+            "Dockerfile for a Rust application (multi-stage)",
+        ),
+        (
+            "dockerfile-go",
+            "Dockerfile for a Go application (multi-stage)",
+        ),
+        (
+            "ci-github-node",
+            ".github/workflows/ci.yml for Node.js (GitHub Actions)",
+        ),
+        (
+            "ci-github-python",
+            ".github/workflows/ci.yml for Python (GitHub Actions)",
+        ),
+        (
+            "ci-github-rust",
+            ".github/workflows/ci.yml for Rust (GitHub Actions)",
+        ),
+        ("gitignore-node", ".gitignore for Node.js projects"),
+        ("gitignore-python", ".gitignore for Python projects"),
+        ("gitignore-rust", ".gitignore for Rust projects"),
+        (
+            "gitignore-general",
+            ".gitignore with common OS and editor exclusions",
+        ),
+        ("env-template", ".env.example with common variable stubs"),
+        ("makefile-node", "Makefile with common Node.js targets"),
+        ("makefile-python", "Makefile with common Python targets"),
+        ("makefile-rust", "Makefile with common Rust targets"),
+        (
+            "docker-compose",
+            "docker-compose.yml with web + db + redis services",
+        ),
+        ("pre-commit", ".pre-commit-config.yaml with common hooks"),
+        ("editorconfig", ".editorconfig for consistent formatting"),
+        (
+            "dependabot",
+            ".github/dependabot.yml for automated dependency updates",
+        ),
+        ("codeowners", ".github/CODEOWNERS template"),
+        ("pr-template", ".github/pull_request_template.md"),
+        ("issue-bug", ".github/ISSUE_TEMPLATE/bug_report.md"),
+        ("issue-feature", ".github/ISSUE_TEMPLATE/feature_request.md"),
     ];
     for (name, desc) in templates {
         out.push_str(&format!("  {:30}  {desc}\n", name));
@@ -110,14 +137,29 @@ fn list_templates() -> String {
     out
 }
 
-fn render_template(name: &str, vars: &BTreeMap<String, String>) -> Result<(&'static str, String), String> {
-    let project = vars.get("project_name").map(|s| s.as_str()).unwrap_or("my-app");
+fn render_template(
+    name: &str,
+    vars: &BTreeMap<String, String>,
+) -> Result<(&'static str, String), String> {
+    let project = vars
+        .get("project_name")
+        .map(|s| s.as_str())
+        .unwrap_or("my-app");
     let port = vars.get("port").map(|s| s.as_str()).unwrap_or("3000");
-    let python_ver = vars.get("python_version").map(|s| s.as_str()).unwrap_or("3.12");
+    let python_ver = vars
+        .get("python_version")
+        .map(|s| s.as_str())
+        .unwrap_or("3.12");
     let node_ver = vars.get("node_version").map(|s| s.as_str()).unwrap_or("20");
-    let rust_ver = vars.get("rust_version").map(|s| s.as_str()).unwrap_or("1.82");
+    let rust_ver = vars
+        .get("rust_version")
+        .map(|s| s.as_str())
+        .unwrap_or("1.82");
     let go_ver = vars.get("go_version").map(|s| s.as_str()).unwrap_or("1.23");
-    let _registry = vars.get("registry").map(|s| s.as_str()).unwrap_or("ghcr.io/your-org");
+    let _registry = vars
+        .get("registry")
+        .map(|s| s.as_str())
+        .unwrap_or("ghcr.io/your-org");
 
     match name {
         "dockerfile-node" => Ok(("Dockerfile", format!(r#"FROM node:{node_ver}-alpine AS deps

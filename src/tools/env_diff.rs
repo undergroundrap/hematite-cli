@@ -17,19 +17,23 @@ pub async fn execute(args: &Value) -> Result<String, String> {
         (Some(a), None) => diff_file_vs_process(a, &root),
         (None, None) => {
             // Auto-detect common env files in the workspace
-            let candidates = &[".env", ".env.local", ".env.development", ".env.production", ".env.test"];
+            let candidates = &[
+                ".env",
+                ".env.local",
+                ".env.development",
+                ".env.production",
+                ".env.test",
+            ];
             let found: Vec<&str> = candidates
                 .iter()
                 .filter(|f| root.join(f).exists())
                 .copied()
                 .collect();
             match found.len() {
-                0 => Ok(
-                    "env_diff: no .env files found in the workspace root.\n\
+                0 => Ok("env_diff: no .env files found in the workspace root.\n\
                      Provide file_a and file_b to compare specific files, \
                      or file_a alone to compare against the live process environment."
-                        .to_string(),
-                ),
+                    .to_string()),
                 1 => diff_file_vs_process(found[0], &root),
                 _ => diff_two_files(found[0], found[1], &root),
             }
@@ -53,7 +57,11 @@ fn parse_env_file(path: &std::path::Path) -> Result<BTreeMap<String, String>, St
         let line = line.strip_prefix("export ").unwrap_or(line).trim();
         if let Some(eq) = line.find('=') {
             let key = line[..eq].trim().to_string();
-            let val = line[eq + 1..].trim().trim_matches('"').trim_matches('\'').to_string();
+            let val = line[eq + 1..]
+                .trim()
+                .trim_matches('"')
+                .trim_matches('\'')
+                .to_string();
             map.insert(key, val);
         }
     }

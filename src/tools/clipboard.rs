@@ -37,10 +37,8 @@ pub async fn copy_to_clipboard(args: &Value) -> Result<String, String> {
 fn copy_windows(text: &str) -> Result<(), String> {
     // Write to a temp file, then use Set-Clipboard in PowerShell.
     // This preserves Unicode and large content better than piping to clip.exe.
-    let temp_path = std::env::temp_dir().join(format!(
-        "hematite-clip-tool-{}.txt",
-        std::process::id()
-    ));
+    let temp_path =
+        std::env::temp_dir().join(format!("hematite-clip-tool-{}.txt", std::process::id()));
 
     std::fs::write(&temp_path, text.as_bytes())
         .map_err(|e| format!("copy_to_clipboard: write temp file: {e}"))?;
@@ -55,8 +53,10 @@ fn copy_windows(text: &str) -> Result<(), String> {
         .args([
             "-NoProfile",
             "-NonInteractive",
-            "-WindowStyle", "Hidden",
-            "-Command", &script,
+            "-WindowStyle",
+            "Hidden",
+            "-Command",
+            &script,
         ])
         .status()
         .map_err(|e| format!("copy_to_clipboard: spawn powershell: {e}"))?;
@@ -138,9 +138,7 @@ fn copy_linux(text: &str) -> Result<(), String> {
         }
     }
 
-    Err(
-        "copy_to_clipboard: neither xclip nor xsel is available. \
+    Err("copy_to_clipboard: neither xclip nor xsel is available. \
          Install one: apt install xclip OR apt install xsel"
-            .to_string(),
-    )
+        .to_string())
 }

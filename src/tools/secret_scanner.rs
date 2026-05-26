@@ -6,39 +6,78 @@ const MAX_FILE_SIZE: u64 = 1024 * 1024; // 1 MB
 
 // Each entry: (label, regex-pattern)
 const PATTERNS: &[(&str, &str)] = &[
-    ("AWS Access Key",    r"AKIA[0-9A-Z]{16}"),
-    ("AWS Secret Key",    r#"(?i)aws[_\-]?secret[_\-]?access[_\-]?key\s*[=:]\s*["']?[A-Za-z0-9/+]{40}["']?"#),
-    ("GitHub Token",      r"(ghp|ghs|gho|ghu|ghr|github_pat)_[A-Za-z0-9_]{36,}"),
-    ("Stripe Live Key",   r"(sk|pk)_live_[A-Za-z0-9]{24,}"),
-    ("Stripe Test Key",   r"(sk|pk)_test_[A-Za-z0-9]{24,}"),
-    ("Slack Webhook",     r"hooks\.slack\.com/services/T[A-Z0-9]{8,}/B[A-Z0-9]{8,}/[A-Za-z0-9]{24,}"),
-    ("Private Key Block", r"-----BEGIN\s(?:RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----"),
-    ("Generic API Key",   r#"(?i)(?:api[_\-]?key|apikey|api[_\-]?secret|access[_\-]?token|auth[_\-]?token)\s*[=:]\s*["']?[A-Za-z0-9_\-]{20,}["']?"#),
-    ("Database URL",      r"(?i)(postgres|postgresql|mysql|mongodb|redis)://[^:\s]+:[^@\s]{6,}@"),
-    ("Bearer Token",      r#"(?i)bearer\s+[A-Za-z0-9_\-\.]{20,}"#),
-    ("Password Literal",  r#"(?i)(?:password|passwd|pwd)\s*[=:]\s*["']?(?!your|test|example|changeme|placeholder|xxx|<)[A-Za-z0-9!@#$%^&*]{8,}["']?"#),
-    ("Twilio Key",        r"SK[0-9a-fA-F]{32}"),
-    ("SendGrid Key",      r"SG\.[A-Za-z0-9_\-]{22}\.[A-Za-z0-9_\-]{43}"),
-    ("Heroku API Key",    r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"),
+    ("AWS Access Key", r"AKIA[0-9A-Z]{16}"),
+    (
+        "AWS Secret Key",
+        r#"(?i)aws[_\-]?secret[_\-]?access[_\-]?key\s*[=:]\s*["']?[A-Za-z0-9/+]{40}["']?"#,
+    ),
+    (
+        "GitHub Token",
+        r"(ghp|ghs|gho|ghu|ghr|github_pat)_[A-Za-z0-9_]{36,}",
+    ),
+    ("Stripe Live Key", r"(sk|pk)_live_[A-Za-z0-9]{24,}"),
+    ("Stripe Test Key", r"(sk|pk)_test_[A-Za-z0-9]{24,}"),
+    (
+        "Slack Webhook",
+        r"hooks\.slack\.com/services/T[A-Z0-9]{8,}/B[A-Z0-9]{8,}/[A-Za-z0-9]{24,}",
+    ),
+    (
+        "Private Key Block",
+        r"-----BEGIN\s(?:RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----",
+    ),
+    (
+        "Generic API Key",
+        r#"(?i)(?:api[_\-]?key|apikey|api[_\-]?secret|access[_\-]?token|auth[_\-]?token)\s*[=:]\s*["']?[A-Za-z0-9_\-]{20,}["']?"#,
+    ),
+    (
+        "Database URL",
+        r"(?i)(postgres|postgresql|mysql|mongodb|redis)://[^:\s]+:[^@\s]{6,}@",
+    ),
+    ("Bearer Token", r#"(?i)bearer\s+[A-Za-z0-9_\-\.]{20,}"#),
+    (
+        "Password Literal",
+        r#"(?i)(?:password|passwd|pwd)\s*[=:]\s*["']?(?!your|test|example|changeme|placeholder|xxx|<)[A-Za-z0-9!@#$%^&*]{8,}["']?"#,
+    ),
+    ("Twilio Key", r"SK[0-9a-fA-F]{32}"),
+    (
+        "SendGrid Key",
+        r"SG\.[A-Za-z0-9_\-]{22}\.[A-Za-z0-9_\-]{43}",
+    ),
+    (
+        "Heroku API Key",
+        r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}",
+    ),
 ];
 
 const SKIP_DIRS: &[&str] = &[
-    ".git", "target", "node_modules", "vendor", ".venv", "venv",
-    "__pycache__", "dist", ".next", ".nuxt", "build", "out",
+    ".git",
+    "target",
+    "node_modules",
+    "vendor",
+    ".venv",
+    "venv",
+    "__pycache__",
+    "dist",
+    ".next",
+    ".nuxt",
+    "build",
+    "out",
 ];
 
 const SKIP_EXTENSIONS: &[&str] = &[
-    "png", "jpg", "jpeg", "gif", "ico", "svg", "woff", "woff2",
-    "ttf", "otf", "eot", "mp3", "mp4", "wav", "ogg", "pdf",
-    "zip", "tar", "gz", "bz2", "xz", "7z", "rar",
-    "exe", "dll", "so", "dylib", "pdb", "lib", "a",
-    "lock", // Cargo.lock / yarn.lock contain hashes, not secrets
+    "png", "jpg", "jpeg", "gif", "ico", "svg", "woff", "woff2", "ttf", "otf", "eot", "mp3", "mp4",
+    "wav", "ogg", "pdf", "zip", "tar", "gz", "bz2", "xz", "7z", "rar", "exe", "dll", "so", "dylib",
+    "pdb", "lib", "a", "lock", // Cargo.lock / yarn.lock contain hashes, not secrets
 ];
 
 // Known false-positive file names to skip
 const SKIP_FILENAMES: &[&str] = &[
-    "Cargo.lock", "yarn.lock", "package-lock.json", "poetry.lock",
-    "*.min.js", "*.min.css",
+    "Cargo.lock",
+    "yarn.lock",
+    "package-lock.json",
+    "poetry.lock",
+    "*.min.js",
+    "*.min.css",
 ];
 
 struct Finding {
@@ -49,10 +88,7 @@ struct Finding {
 }
 
 pub async fn execute(args: &Value) -> Result<String, String> {
-    let scan_path = args
-        .get("path")
-        .and_then(|v| v.as_str())
-        .unwrap_or(".");
+    let scan_path = args.get("path").and_then(|v| v.as_str()).unwrap_or(".");
 
     let root = if let Some(r) = args.get("_root").and_then(|v| v.as_str()) {
         PathBuf::from(r)
@@ -67,22 +103,29 @@ pub async fn execute(args: &Value) -> Result<String, String> {
     };
 
     if !target.exists() {
-        return Err(format!("secret_scanner: path not found: {}", target.display()));
+        return Err(format!(
+            "secret_scanner: path not found: {}",
+            target.display()
+        ));
     }
 
     // Compile patterns
     let compiled: Vec<(String, regex::Regex)> = PATTERNS
         .iter()
-        .filter_map(|(label, pat)| {
-            regex::Regex::new(pat).ok().map(|r| (label.to_string(), r))
-        })
+        .filter_map(|(label, pat)| regex::Regex::new(pat).ok().map(|r| (label.to_string(), r)))
         .collect();
 
     let mut findings: Vec<Finding> = Vec::new();
     let mut files_scanned = 0usize;
     let mut files_skipped = 0usize;
 
-    scan_dir(&target, &compiled, &mut findings, &mut files_scanned, &mut files_skipped);
+    scan_dir(
+        &target,
+        &compiled,
+        &mut findings,
+        &mut files_scanned,
+        &mut files_skipped,
+    );
 
     format_report(&findings, files_scanned, files_skipped, &target)
 }
@@ -256,7 +299,9 @@ fn format_report(
         for f in file_findings {
             out.push_str(&format!(
                 "  line {:>4}  [{}]\n            {}\n",
-                f.line, f.kind, f.snippet.trim()
+                f.line,
+                f.kind,
+                f.snippet.trim()
             ));
         }
     }

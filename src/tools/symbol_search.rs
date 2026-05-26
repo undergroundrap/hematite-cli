@@ -111,19 +111,15 @@ fn build_patterns(symbol: &str) -> Vec<KindPattern> {
             "static",
             format!(r"(?:pub(?:\([^)]*\))?\s+)?static\s+(?:mut\s+)?{sym}\s*:"),
         ),
-        ("mod", format!(r"(?:pub(?:\([^)]*\))?\s+)?mod\s+{sym}\s*(?:\{{|;)")),
         (
-            "macro",
-            format!(r"macro_rules!\s+{sym}\s*\{{"),
+            "mod",
+            format!(r"(?:pub(?:\([^)]*\))?\s+)?mod\s+{sym}\s*(?:\{{|;)"),
         ),
+        ("macro", format!(r"macro_rules!\s+{sym}\s*\{{")),
     ];
 
     defs.iter()
-        .filter_map(|(kind, pat)| {
-            Regex::new(pat)
-                .ok()
-                .map(|re| KindPattern { kind, re })
-        })
+        .filter_map(|(kind, pat)| Regex::new(pat).ok().map(|re| KindPattern { kind, re }))
         .collect()
 }
 
@@ -237,17 +233,20 @@ fn walk_rs_files(root: &Path, cb: &mut impl FnMut(&Path)) {
 
     for entry in entries.flatten() {
         let path = entry.path();
-        let name = path
-            .file_name()
-            .and_then(|n| n.to_str())
-            .unwrap_or("");
+        let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
 
         // Skip known noise directories.
         if path.is_dir() {
             if matches!(
                 name,
-                "target" | ".git" | "node_modules" | "dist" | ".hematite"
-                    | "__pycache__" | ".venv" | "build"
+                "target"
+                    | ".git"
+                    | "node_modules"
+                    | "dist"
+                    | ".hematite"
+                    | "__pycache__"
+                    | ".venv"
+                    | "build"
             ) {
                 continue;
             }
