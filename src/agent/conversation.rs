@@ -33,9 +33,8 @@ use crate::agent::routing::{
     needs_http_request, needs_ip_tools, needs_jwt_tools, needs_lint_check, needs_number_tools,
     needs_password_gen, needs_regex_tools, needs_secret_scan, needs_semver_tools, needs_test_run,
     needs_text_tools, needs_toml_tools, needs_uuid_gen, needs_yaml_tools,
-    preferred_host_inspection_topic,
-    preferred_maintainer_workflow, preferred_workspace_workflow, DirectAnswerKind,
-    QueryIntentClass,
+    preferred_host_inspection_topic, preferred_maintainer_workflow, preferred_workspace_workflow,
+    DirectAnswerKind, QueryIntentClass,
 };
 use crate::agent::tool_registry::dispatch_builtin_tool;
 use crate::agent::truncation::safe_head;

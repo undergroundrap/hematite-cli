@@ -18109,7 +18109,10 @@ fn test_jwt_tools_sign_and_decode() {
         .unwrap_or("")
         .trim()
         .to_string();
-    assert!(!token.is_empty(), "signed token should be present in output");
+    assert!(
+        !token.is_empty(),
+        "signed token should be present in output"
+    );
     let decode_out = rt
         .block_on(jwt_tools::execute(&json!({
             "action": "decode",
@@ -18213,7 +18216,9 @@ fn test_routing_detects_jwt_tools() {
     assert!(needs_jwt_tools("decode this JWT token"));
     assert!(needs_jwt_tools("verify this JSON web token with my secret"));
     assert!(needs_jwt_tools("sign a JWT with HS256"));
-    assert!(needs_jwt_tools("this token starts with eyJhbGciOiJIUzI1NiJ9"));
+    assert!(needs_jwt_tools(
+        "this token starts with eyJhbGciOiJIUzI1NiJ9"
+    ));
     assert!(needs_jwt_tools("is my bearer token expired"));
     assert!(!needs_jwt_tools("generate a UUID"));
     assert!(!needs_jwt_tools("what is a cron job"));

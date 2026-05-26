@@ -414,7 +414,11 @@ fn euclid_gcd(a: u64, b: u64) -> u64 {
 }
 
 fn clamp(args: &serde_json::Value) -> Result<String, String> {
-    let n = get_float(args)?;
+    let n = args
+        .get("value")
+        .and_then(|v| v.as_f64())
+        .or_else(|| args.get("input").and_then(|v| v.as_f64()))
+        .ok_or("number_tools clamp: 'value' is required")?;
     let min = args
         .get("min")
         .and_then(|v| v.as_f64())

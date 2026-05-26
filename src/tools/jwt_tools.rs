@@ -214,14 +214,17 @@ fn verify(args: &serde_json::Value) -> Result<String, String> {
     let now = now_unix();
     let exp = payload.get("exp").and_then(|v| v.as_i64());
     let nbf = payload.get("nbf").and_then(|v| v.as_i64());
-    let time_valid = exp.map(|e| now < e).unwrap_or(true)
-        && nbf.map(|n| now >= n).unwrap_or(true);
+    let time_valid = exp.map(|e| now < e).unwrap_or(true) && nbf.map(|n| now >= n).unwrap_or(true);
 
     let mut out = format!("JWT VERIFY\n{}\n", "─".repeat(50));
     out.push_str(&format!("Algorithm        : {alg}\n"));
     out.push_str(&format!(
         "Signature        : {}\n",
-        if sig_valid { "VALID ✓" } else { "INVALID ✗" }
+        if sig_valid {
+            "VALID ✓"
+        } else {
+            "INVALID ✗"
+        }
     ));
 
     if let Some(e) = exp {
@@ -231,7 +234,10 @@ fn verify(args: &serde_json::Value) -> Result<String, String> {
         } else {
             format!("EXPIRED {}s ago", -diff)
         };
-        out.push_str(&format!("Expiry           : {} ({state})\n", format_timestamp(e)));
+        out.push_str(&format!(
+            "Expiry           : {} ({state})\n",
+            format_timestamp(e)
+        ));
     } else {
         out.push_str("Expiry           : (none — token does not expire)\n");
     }
