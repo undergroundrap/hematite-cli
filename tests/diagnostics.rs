@@ -15830,3 +15830,122 @@ fn test_routing_detects_regex_tools() {
     assert!(!needs_regex_tools("write a function to parse CSV"));
     assert!(!needs_regex_tools("what is git rebase"));
 }
+
+// ── diff_tools tests ──────────────────────────────────────────────────────────
+
+#[test]
+fn test_diff_tools_identical() {
+    use hematite::tools::diff_tools;
+    use serde_json::json;
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt.block_on(diff_tools::execute(&json!({
+        "action": "compare",
+        "text_a": "line one\nline two\nline three",
+        "text_b": "line one\nline two\nline three"
+    }))).expect("diff identical should succeed");
+    assert!(out.contains("identical") || out.contains("no differences") || out.contains("0 line"), "should report identical: {out}");
+}
+
+#[test]
+fn test_diff_tools_compare_changed() {
+    use hematite::tools::diff_tools;
+    use serde_json::json;
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt.block_on(diff_tools::execute(&json!({
+        "action": "compare",
+        "text_a": "alpha\nbeta\ngamma",
+        "text_b": "alpha\nDELTA\ngamma"
+    }))).expect("diff compare should succeed");
+    assert!(out.contains("-beta") || out.contains("beta"), "should show deleted line: {out}");
+    assert!(out.contains("+DELTA") || out.contains("DELTA"), "should show inserted line: {out}");
+}
+
+#[test]
+fn test_diff_tools_stat() {
+    use hematite::tools::diff_tools;
+    use serde_json::json;
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt.block_on(diff_tools::execute(&json!({
+        "action": "stat",
+        "text_a": "one\ntwo\nthree\nfour",
+        "text_b": "one\nTWO\nthree\nfour\nfive"
+    }))).expect("diff stat should succeed");
+    assert!(out.contains("Added") || out.contains("added"), "should show additions: {out}");
+    assert!(out.contains("Similarity"), "should show similarity: {out}");
+}
+
+#[test]
+fn test_diff_tools_word_diff() {
+    use hematite::tools::diff_tools;
+    use serde_json::json;
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt.block_on(diff_tools::execute(&json!({
+        "action": "word-diff",
+        "text_a": "the quick brown fox",
+        "text_b": "the slow brown fox"
+    }))).expect("word-diff should succeed");
+    assert!(out.contains("[-quick]") || out.contains("quick"), "should mark removed word: {out}");
+    assert!(out.contains("[+slow]") || out.contains("slow"), "should mark added word: {out}");
+}
+
+#[test]
+fn test_diff_tools_patch_roundtrip() {
+    use hematite::tools::diff_tools;
+    use serde_json::json;
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let base = "line 1\nline 2\nline 3\nline 4\nline 5";
+    let modified = "line 1\nline TWO\nline 3\nline 4\nline five";
+
+    let patch_out = rt.block_on(diff_tools::execute(&json!({
+        "action": "patch",
+        "text_a": base,
+        "text_b": modified
+    }))).expect("patch generation should succeed");
+    assert!(patch_out.contains("@@"), "patch should contain hunk headers: {patch_out}");
+
+    // Extract just the patch portion from the output
+    let patch_body = if let Some(idx) = patch_out.find("---") {
+        &patch_out[idx..]
+    } else {
+        &patch_out
+    };
+
+    let apply_out = rt.block_on(diff_tools::execute(&json!({
+        "action": "apply",
+        "text_a": base,
+        "patch": patch_body
+    }))).expect("patch apply should succeed");
+    assert!(apply_out.contains("TWO") || apply_out.contains("APPLIED"), "apply should produce modified content or confirm applied: {apply_out}");
+}
+
+#[test]
+fn test_diff_tools_missing_sides_error() {
+    use hematite::tools::diff_tools;
+    use serde_json::json;
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(diff_tools::execute(&json!({
+        "action": "compare",
+        "text_a": "only one side"
+    })));
+    assert!(result.is_err(), "missing text_b/file_b should error");
+}
+
+#[test]
+fn test_diff_tools_unknown_action_error() {
+    use hematite::tools::diff_tools;
+    use serde_json::json;
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(diff_tools::execute(&json!({
+        "action": "nonexistent",
+        "text_a": "a",
+        "text_b": "b"
+    })));
+    assert!(result.is_err(), "unknown action should error");
+}

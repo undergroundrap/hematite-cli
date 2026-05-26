@@ -1649,6 +1649,58 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         }),
     ));
     tools.push(make_tool(
+        "diff_tools",
+        "Compare, diff, and patch text or file content without needing external tools. \
+         Actions: \
+         `compare` — unified diff between two strings or files, with configurable context lines; \
+         `patch` — generate a unified patch from two inputs (optionally write to a file); \
+         `apply` — apply a unified patch to a base text or file; \
+         `word-diff` — word-level diff showing [+added] and [-removed] tokens inline; \
+         `stat` — summary statistics: lines added/deleted/unchanged, similarity %, visual bar. \
+         Provide text inline via 'text_a'/'text_b', or paths via 'file_a'/'file_b'.",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "Operation: compare (default), patch, apply, word-diff, stat."
+                },
+                "text_a": {
+                    "type": "string",
+                    "description": "Left/base text content (inline string)."
+                },
+                "text_b": {
+                    "type": "string",
+                    "description": "Right/new text content (inline string)."
+                },
+                "file_a": {
+                    "type": "string",
+                    "description": "Path to the left/base file (relative to workspace root or absolute)."
+                },
+                "file_b": {
+                    "type": "string",
+                    "description": "Path to the right/new file (relative to workspace root or absolute)."
+                },
+                "context": {
+                    "type": "integer",
+                    "description": "Lines of context around each change (default 3)."
+                },
+                "patch": {
+                    "type": "string",
+                    "description": "Unified patch text to apply (for 'apply' action)."
+                },
+                "patch_file": {
+                    "type": "string",
+                    "description": "Path to a .patch file to apply (for 'apply' action)."
+                },
+                "output": {
+                    "type": "string",
+                    "description": "Write patch output to this file path (for 'patch' and 'apply' actions)."
+                }
+            }
+        }),
+    ));
+    tools.push(make_tool(
         "template_gen",
         "Generate boilerplate files from built-in templates. \
          Supports Dockerfiles (Node.js, Python, Rust, Go multi-stage), \
@@ -1892,6 +1944,7 @@ pub async fn dispatch_builtin_tool(
         "template_gen" => crate::tools::template_gen::execute(args).await,
         "json_tools" => crate::tools::json_tools::execute(args).await,
         "regex_tools" => crate::tools::regex_tools::execute(args).await,
+        "diff_tools" => crate::tools::diff_tools::execute(args).await,
         "git_status" => crate::tools::git::execute_status(args).await,
         "git_diff" => crate::tools::git::execute_diff(args).await,
         "git_log" => crate::tools::git::execute_log(args).await,
