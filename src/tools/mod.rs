@@ -17,6 +17,7 @@ pub mod file_ops;
 pub mod formatter;
 pub mod git;
 pub mod git_onboarding;
+pub mod json_tools;
 pub mod github;
 pub mod guard;
 pub mod hardening;

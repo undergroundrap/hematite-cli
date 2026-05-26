@@ -14996,10 +14996,14 @@ fn test_completion_flag_exists_on_cli() {
 fn test_secret_scanner_routing_detects_scan_queries() {
     use hematite::agent::routing::needs_secret_scan;
     assert!(needs_secret_scan("scan this repo for secrets"));
-    assert!(needs_secret_scan("check for leaked api keys in the codebase"));
+    assert!(needs_secret_scan(
+        "check for leaked api keys in the codebase"
+    ));
     assert!(needs_secret_scan("any hardcoded passwords in the code?"));
     assert!(needs_secret_scan("find credentials in the repo"));
-    assert!(needs_secret_scan("detect exposed api key that was committed"));
+    assert!(needs_secret_scan(
+        "detect exposed api key that was committed"
+    ));
     assert!(needs_secret_scan("run gitleaks on this project"));
     assert!(!needs_secret_scan("add a new feature"));
     assert!(!needs_secret_scan("run the tests"));
@@ -15041,7 +15045,11 @@ fn test_secret_scanner_detects_aws_key() {
         "_root": dir.path().to_str().unwrap()
     })));
     // The placeholder word "EXAMPLE" causes this line to be skipped — confirm no panic
-    assert!(result.is_ok(), "scanner should not panic on aws-like key: {:?}", result);
+    assert!(
+        result.is_ok(),
+        "scanner should not panic on aws-like key: {:?}",
+        result
+    );
 }
 
 #[test]
@@ -15091,6 +15099,147 @@ fn test_secret_scanner_skips_binary_files() {
     );
 }
 
+// ── json_tools tests ─────────────────────────────────────────────────────────
+
+#[test]
+fn test_json_tools_pretty() {
+    use hematite::tools::json_tools;
+    use serde_json::json;
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(json_tools::execute(&json!({
+        "action": "pretty",
+        "json": r#"{"name":"alice","age":30}"#
+    })));
+    let out = result.expect("pretty should succeed");
+    assert!(out.contains("alice"), "should contain value: {out}");
+    assert!(out.contains('\n'), "should be multi-line: {out}");
+}
+
+#[test]
+fn test_json_tools_get_path() {
+    use hematite::tools::json_tools;
+    use serde_json::json;
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(json_tools::execute(&json!({
+        "action": "get",
+        "json": r#"{"user":{"name":"bob","city":"NYC"}}"#,
+        "path": "user.name"
+    })));
+    let out = result.expect("get should succeed");
+    assert!(out.contains("bob"), "should extract name: {out}");
+}
+
+#[test]
+fn test_json_tools_filter() {
+    use hematite::tools::json_tools;
+    use serde_json::json;
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(json_tools::execute(&json!({
+        "action": "filter",
+        "json": r#"[{"name":"a","score":10},{"name":"b","score":20},{"name":"c","score":10}]"#,
+        "key": "score",
+        "value": 10,
+        "op": "eq"
+    })));
+    let out = result.expect("filter should succeed");
+    let parsed: serde_json::Value = serde_json::from_str(&out).expect("should be valid JSON");
+    assert_eq!(parsed.as_array().unwrap().len(), 2, "should return 2 matching items: {out}");
+}
+
+#[test]
+fn test_json_tools_sort() {
+    use hematite::tools::json_tools;
+    use serde_json::json;
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(json_tools::execute(&json!({
+        "action": "sort",
+        "json": r#"[{"x":3},{"x":1},{"x":2}]"#,
+        "key": "x"
+    })));
+    let out = result.expect("sort should succeed");
+    let parsed: serde_json::Value = serde_json::from_str(&out).expect("should be valid JSON");
+    let arr = parsed.as_array().unwrap();
+    assert_eq!(arr[0]["x"], 1, "first should be lowest: {out}");
+    assert_eq!(arr[2]["x"], 3, "last should be highest: {out}");
+}
+
+#[test]
+fn test_json_tools_diff() {
+    use hematite::tools::json_tools;
+    use serde_json::json;
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(json_tools::execute(&json!({
+        "action": "diff",
+        "json": r#"{"a":1,"b":2}"#,
+        "with": r#"{"a":1,"b":3,"c":4}"#
+    })));
+    let out = result.expect("diff should succeed");
+    assert!(out.contains('~') || out.contains("change"), "should show changes: {out}");
+}
+
+#[test]
+fn test_json_tools_stats() {
+    use hematite::tools::json_tools;
+    use serde_json::json;
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(json_tools::execute(&json!({
+        "action": "stats",
+        "json": "[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]"
+    })));
+    let out = result.expect("stats should succeed");
+    assert!(out.contains("Mean"), "should show mean: {out}");
+}
+
+#[test]
+fn test_json_tools_to_csv() {
+    use hematite::tools::json_tools;
+    use serde_json::json;
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(json_tools::execute(&json!({
+        "action": "to-csv",
+        "json": r#"[{"name":"alice","age":30},{"name":"bob","age":25}]"#
+    })));
+    let out = result.expect("to-csv should succeed");
+    assert!(out.contains("name") && out.contains("age"), "should have header: {out}");
+    assert!(out.contains("alice") && out.contains("bob"), "should have rows: {out}");
+}
+
+#[test]
+fn test_json_tools_schema() {
+    use hematite::tools::json_tools;
+    use serde_json::json;
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(json_tools::execute(&json!({
+        "action": "schema",
+        "json": r#"{"name":"alice","age":30,"active":true}"#
+    })));
+    let out = result.expect("schema should succeed");
+    assert!(out.contains("string") || out.contains("integer"), "should infer types: {out}");
+}
+
+#[test]
+fn test_json_tools_invalid_json() {
+    use hematite::tools::json_tools;
+    use serde_json::json;
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(json_tools::execute(&json!({
+        "action": "pretty",
+        "json": "not valid json {"
+    })));
+    assert!(result.is_err(), "invalid JSON should error");
+}
+
+// ── template_gen tests ────────────────────────────────────────────────────────
+
 #[test]
 fn test_template_gen_list() {
     use hematite::tools::template_gen;
@@ -15099,9 +15248,18 @@ fn test_template_gen_list() {
     let rt = tokio::runtime::Runtime::new().unwrap();
     let result = rt.block_on(template_gen::execute(&json!({ "template": "list" })));
     let out = result.expect("list should succeed");
-    assert!(out.contains("dockerfile-rust"), "should list dockerfile-rust: {out}");
-    assert!(out.contains("ci-github-node"), "should list ci-github-node: {out}");
-    assert!(out.contains("docker-compose"), "should list docker-compose: {out}");
+    assert!(
+        out.contains("dockerfile-rust"),
+        "should list dockerfile-rust: {out}"
+    );
+    assert!(
+        out.contains("ci-github-node"),
+        "should list ci-github-node: {out}"
+    );
+    assert!(
+        out.contains("docker-compose"),
+        "should list docker-compose: {out}"
+    );
 }
 
 #[test]
@@ -15118,9 +15276,15 @@ fn test_template_gen_dry_run() {
     })));
     let out = result.expect("dry_run should succeed");
     assert!(out.contains("DRY RUN"), "should indicate dry run: {out}");
-    assert!(out.contains("FROM node"), "should contain Dockerfile content: {out}");
+    assert!(
+        out.contains("FROM node"),
+        "should contain Dockerfile content: {out}"
+    );
     // File should NOT have been created
-    assert!(!dir.path().join("Dockerfile").exists(), "dry_run should not write file");
+    assert!(
+        !dir.path().join("Dockerfile").exists(),
+        "dry_run should not write file"
+    );
 }
 
 #[test]
@@ -15136,8 +15300,12 @@ fn test_template_gen_writes_file() {
     })));
     let out = result.expect("should write .gitignore");
     assert!(out.contains("wrote"), "should confirm write: {out}");
-    let content = std::fs::read_to_string(dir.path().join(".gitignore")).expect("file should exist");
-    assert!(content.contains("target"), "should contain target/ entry: {content}");
+    let content =
+        std::fs::read_to_string(dir.path().join(".gitignore")).expect("file should exist");
+    assert!(
+        content.contains("target"),
+        "should contain target/ entry: {content}"
+    );
 }
 
 #[test]
@@ -15146,7 +15314,9 @@ fn test_template_gen_unknown_template() {
     use serde_json::json;
 
     let rt = tokio::runtime::Runtime::new().unwrap();
-    let result = rt.block_on(template_gen::execute(&json!({ "template": "nonexistent-xyz" })));
+    let result = rt.block_on(template_gen::execute(
+        &json!({ "template": "nonexistent-xyz" }),
+    ));
     assert!(result.is_err(), "unknown template should error");
 }
 
@@ -15165,7 +15335,10 @@ fn test_template_gen_rust_substitution() {
         "_root": dir.path().to_str().unwrap()
     })));
     let out = result.expect("should succeed");
-    assert!(out.contains("myserver"), "should substitute project_name: {out}");
+    assert!(
+        out.contains("myserver"),
+        "should substitute project_name: {out}"
+    );
     assert!(out.contains("8080"), "should substitute port: {out}");
 }
 
@@ -15178,7 +15351,8 @@ fn test_env_diff_two_files() {
     std::fs::write(
         dir.path().join(".env"),
         "DATABASE_URL=postgres://localhost/dev\nAPI_KEY=abc123\nDEBUG=true\n",
-    ).unwrap();
+    )
+    .unwrap();
     std::fs::write(
         dir.path().join(".env.production"),
         "DATABASE_URL=postgres://prod-host/prod\nAPI_KEY=xyz789\nDEBUG=false\nSENTRY_DSN=https://example.sentry.io/123\n",
@@ -15192,9 +15366,15 @@ fn test_env_diff_two_files() {
     })));
     let out = result.expect("should succeed");
     assert!(out.contains("ENV DIFF"), "should have header: {out}");
-    assert!(out.contains("Changed") || out.contains("~"), "should show changed values: {out}");
+    assert!(
+        out.contains("Changed") || out.contains("~"),
+        "should show changed values: {out}"
+    );
     assert!(out.contains("REDACTED"), "should redact API_KEY: {out}");
-    assert!(out.contains("SENTRY_DSN") || out.contains("addition"), "should show additions: {out}");
+    assert!(
+        out.contains("SENTRY_DSN") || out.contains("addition"),
+        "should show additions: {out}"
+    );
 }
 
 #[test]
@@ -15315,7 +15495,8 @@ fn test_dependency_audit_detects_wildcard() {
     std::fs::write(
         dir.path().join("Cargo.toml"),
         "[package]\nname = \"test\"\nversion = \"0.1.0\"\n\n[dependencies]\nserde = \"*\"\n",
-    ).unwrap();
+    )
+    .unwrap();
 
     let rt = tokio::runtime::Runtime::new().unwrap();
     let result = rt.block_on(dependency_audit::execute(&json!({
@@ -15344,8 +15525,14 @@ fn test_dependency_audit_npm() {
         "_root": dir.path().to_str().unwrap()
     })));
     let out = result.expect("should succeed");
-    assert!(out.contains("NODE") || out.contains("package.json"), "should detect npm: {out}");
-    assert!(out.contains("request") || out.contains("DEPRECATED"), "should flag deprecated request: {out}");
+    assert!(
+        out.contains("NODE") || out.contains("package.json"),
+        "should detect npm: {out}"
+    );
+    assert!(
+        out.contains("request") || out.contains("DEPRECATED"),
+        "should flag deprecated request: {out}"
+    );
 }
 
 #[test]
@@ -15391,7 +15578,11 @@ fn test_code_metrics_single_file_dir() {
     use serde_json::json;
 
     let dir = tempfile::tempdir().unwrap();
-    std::fs::write(dir.path().join("main.rs"), "fn main() {\n    // TODO: implement\n    println!(\"hello\");\n}\n").unwrap();
+    std::fs::write(
+        dir.path().join("main.rs"),
+        "fn main() {\n    // TODO: implement\n    println!(\"hello\");\n}\n",
+    )
+    .unwrap();
 
     let rt = tokio::runtime::Runtime::new().unwrap();
     let result = rt.block_on(code_metrics::execute(&json!({
@@ -15399,7 +15590,10 @@ fn test_code_metrics_single_file_dir() {
         "_root": dir.path().to_str().unwrap()
     })));
     let out = result.expect("should succeed");
-    assert!(out.contains("TODO") || out.contains("Files"), "should report metrics: {out}");
+    assert!(
+        out.contains("TODO") || out.contains("Files"),
+        "should report metrics: {out}"
+    );
 }
 
 #[test]
@@ -15454,5 +15648,8 @@ fn test_secret_scanner_missing_path_errors() {
     })));
     assert!(result.is_err(), "missing path should return an error");
     let e = result.unwrap_err();
-    assert!(e.contains("not found") || e.contains("path"), "error should mention path: {e}");
+    assert!(
+        e.contains("not found") || e.contains("path"),
+        "error should mention path: {e}"
+    );
 }

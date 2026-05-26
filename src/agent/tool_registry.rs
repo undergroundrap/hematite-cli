@@ -1528,6 +1528,72 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         }),
     ));
     tools.push(make_tool(
+        "json_tools",
+        "Query, transform, and analyze JSON data without needing jq or external tools. \
+         Provide JSON inline ('json' arg) or from a file ('file' arg). \
+         Actions: \
+         `pretty` — pretty-print JSON; \
+         `compact` — compact/minify JSON; \
+         `keys` — list all keys at the top level or at a path; \
+         `get` — extract a value by dot-path (e.g. path='user.address.city' or 'items[0].name'); \
+         `filter` — filter array by field equality/comparison (key, value, op: eq/ne/gt/lt/gte/lte/contains/starts_with); \
+         `pluck` — extract specific fields from each object in an array (fields: 'name,email,id'); \
+         `flatten` — flatten one level of nesting in an array, or flatten a nested array key; \
+         `count` — count array elements or object keys; \
+         `sort` — sort array (key arg for field sort, reverse: true for descending); \
+         `unique` — deduplicate array elements (key arg for field dedup); \
+         `merge` — merge two JSON objects (json + with args); \
+         `diff` — diff two JSON objects and show added/removed/changed paths (json + with args); \
+         `validate` — confirm JSON is valid and report type/size; \
+         `schema` — infer the shape/schema of the JSON structure; \
+         `stats` — numeric statistics for a number array (min/max/mean/median/stddev); \
+         `to-csv` — convert an array of objects to CSV format.",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "Operation to perform. Default: 'pretty'. Options: pretty, compact, keys, get, filter, pluck, flatten, count, sort, unique, merge, diff, validate, schema, stats, to-csv."
+                },
+                "json": {
+                    "type": "string",
+                    "description": "Inline JSON string to operate on."
+                },
+                "file": {
+                    "type": "string",
+                    "description": "Path to a JSON file (relative to workspace root or absolute)."
+                },
+                "path": {
+                    "type": "string",
+                    "description": "Dot-notation path for 'get' and 'keys' actions (e.g. 'user.name', 'items[0].id')."
+                },
+                "key": {
+                    "type": "string",
+                    "description": "Field name for 'filter', 'sort', 'unique', and 'flatten' actions."
+                },
+                "value": {
+                    "description": "Value to compare against in 'filter' action."
+                },
+                "op": {
+                    "type": "string",
+                    "description": "Comparison operator for 'filter': eq, ne, gt, lt, gte, lte, contains, starts_with. Default: eq."
+                },
+                "fields": {
+                    "type": "string",
+                    "description": "Comma-separated field names for 'pluck' action."
+                },
+                "reverse": {
+                    "type": "boolean",
+                    "description": "Sort in descending order for 'sort' action (default false)."
+                },
+                "with": {
+                    "type": "string",
+                    "description": "Second JSON object (inline string) for 'merge' and 'diff' actions."
+                }
+            }
+        }),
+    ));
+    tools.push(make_tool(
         "template_gen",
         "Generate boilerplate files from built-in templates. \
          Supports Dockerfiles (Node.js, Python, Rust, Go multi-stage), \
@@ -1769,6 +1835,7 @@ pub async fn dispatch_builtin_tool(
         "port_check" => crate::tools::port_check::execute(args).await,
         "env_diff" => crate::tools::env_diff::execute(args).await,
         "template_gen" => crate::tools::template_gen::execute(args).await,
+        "json_tools" => crate::tools::json_tools::execute(args).await,
         "git_status" => crate::tools::git::execute_status(args).await,
         "git_diff" => crate::tools::git::execute_diff(args).await,
         "git_log" => crate::tools::git::execute_log(args).await,
