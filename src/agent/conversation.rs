@@ -29,10 +29,10 @@ use crate::agent::routing::{
     all_host_inspection_topics, classify_query_intent, is_capability_probe_tool,
     is_scaffold_request, looks_like_mutation_request, needs_computation_sandbox, needs_crash_debug,
     needs_csv_tools, needs_diff_tools, needs_docker_ops, needs_encode_tools, needs_format,
-    needs_github_ops, needs_http_request, needs_lint_check, needs_regex_tools, needs_secret_scan,
-    needs_test_run, needs_yaml_tools, preferred_host_inspection_topic,
-    preferred_maintainer_workflow, preferred_workspace_workflow, DirectAnswerKind,
-    QueryIntentClass,
+    needs_github_ops, needs_hash_tools, needs_http_request, needs_lint_check, needs_regex_tools,
+    needs_secret_scan, needs_test_run, needs_text_tools, needs_toml_tools, needs_yaml_tools,
+    preferred_host_inspection_topic, preferred_maintainer_workflow, preferred_workspace_workflow,
+    DirectAnswerKind, QueryIntentClass,
 };
 use crate::agent::tool_registry::dispatch_builtin_tool;
 use crate::agent::truncation::safe_head;
@@ -5126,6 +5126,47 @@ impl ConversationManager {
                  All actions take an 'input' field. base64 actions also accept 'url_safe: true'. \
                  Example: encode_tools(action: \"base64-encode\", input: \"Hello, World!\") or \
                  encode_tools(action: \"jwt-decode\", input: \"eyJ...\")."
+                    .to_string(),
+            );
+        }
+
+        // ── Hash Tools Routing: steer model toward hash_tools ──
+        if loop_intervention.is_none() && needs_hash_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "HASH NOTICE: Use the `hash_tools` tool for cryptographic hashing. \
+                 Actions: sha256 (default), sha512, md5, hmac-sha256 (requires 'key'), all (runs all at once). \
+                 Provide the data via 'input' (inline string) or 'file' (path). \
+                 Example: hash_tools(action: \"sha256\", input: \"Hello, World!\") or \
+                 hash_tools(action: \"all\", file: \"src/main.rs\") or \
+                 hash_tools(action: \"hmac-sha256\", input: \"data\", key: \"secret\")."
+                    .to_string(),
+            );
+        }
+
+        // ── TOML Tools Routing: steer model toward toml_tools ──
+        if loop_intervention.is_none() && needs_toml_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "TOML NOTICE: Use the `toml_tools` tool for TOML work. \
+                 Actions: validate, format, get (dot-path query like 'package.name'), keys, to-json, from-json. \
+                 Provide inline TOML via 'toml' arg or a file path via 'file' arg. \
+                 Example: toml_tools(action: \"get\", file: \"Cargo.toml\", path: \"package.version\") or \
+                 toml_tools(action: \"to-json\", file: \"config.toml\")."
+                    .to_string(),
+            );
+        }
+
+        // ── Text Tools Routing: steer model toward text_tools ──
+        if loop_intervention.is_none() && needs_text_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "TEXT NOTICE: Use the `text_tools` tool for text transformation. \
+                 Case actions: to-snake, to-camel, to-pascal, to-kebab, to-screaming, to-title, to-lower, to-upper. \
+                 Other actions: slugify, count (word/line/char stats), truncate (with 'max' and optional 'ellipsis'), \
+                 pad (with 'width' and 'align': left/right/center), wrap (with 'width'), \
+                 repeat (with 'n' and optional 'sep'), reverse, \
+                 lines (with optional 'sort', 'dedupe', 'filter_empty' booleans). \
+                 All actions take an 'input' field. \
+                 Example: text_tools(action: \"to-snake\", input: \"MyClassName\") or \
+                 text_tools(action: \"count\", input: \"some text here\")."
                     .to_string(),
             );
         }

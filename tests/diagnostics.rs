@@ -16605,3 +16605,497 @@ fn test_routing_detects_encode_tools() {
     assert!(!needs_encode_tools("write a function to parse JSON"));
     assert!(!needs_encode_tools("how do I use git rebase"));
 }
+
+// ── hash_tools tests ─────────────────────────────────────────────────────────
+
+#[test]
+fn test_hash_tools_sha256() {
+    use hematite::tools::hash_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hash_tools::execute(&json!({
+        "action": "sha256",
+        "input": "Hello, World!"
+    })));
+    assert!(result.is_ok());
+    let out = result.unwrap();
+    // Known SHA-256 of "Hello, World!"
+    assert!(out.contains("dffd6021bb2bd5b0af676290809ec3a5"));
+    // The full hash starts with dffd60...
+    assert!(out.contains("SHA-256"));
+}
+
+#[test]
+fn test_hash_tools_sha512() {
+    use hematite::tools::hash_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hash_tools::execute(&json!({
+        "action": "sha512",
+        "input": "test"
+    })));
+    assert!(result.is_ok());
+    let out = result.unwrap();
+    assert!(out.contains("SHA-512"));
+    // SHA-512 produces 128 hex chars
+    let digest_line = out.lines().find(|l| l.contains("Digest:")).unwrap_or("");
+    let hex_part = digest_line.trim_start_matches("Digest:").trim();
+    assert_eq!(hex_part.len(), 128);
+}
+
+#[test]
+fn test_hash_tools_md5() {
+    use hematite::tools::hash_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hash_tools::execute(&json!({
+        "action": "md5",
+        "input": ""
+    })));
+    assert!(result.is_ok());
+    let out = result.unwrap();
+    assert!(out.contains("MD5"));
+    // MD5 of empty string is d41d8cd98f00b204e9800998ecf8427e
+    assert!(out.contains("d41d8cd98f00b204e9800998ecf8427e"));
+}
+
+#[test]
+fn test_hash_tools_hmac_sha256() {
+    use hematite::tools::hash_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hash_tools::execute(&json!({
+        "action": "hmac-sha256",
+        "input": "message",
+        "key": "secret"
+    })));
+    assert!(result.is_ok());
+    let out = result.unwrap();
+    assert!(out.contains("HMAC-SHA256"));
+    // HMAC-SHA256("message", "secret") is a known value
+    assert!(out.contains("8b5f48702995c1598c573db1e21866a9b825d4a794d169d7060a03605796360b"));
+}
+
+#[test]
+fn test_hash_tools_hmac_missing_key_error() {
+    use hematite::tools::hash_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hash_tools::execute(&json!({
+        "action": "hmac-sha256",
+        "input": "data"
+    })));
+    assert!(result.is_err());
+    assert!(result.unwrap_err().contains("'key' is required"));
+}
+
+#[test]
+fn test_hash_tools_all() {
+    use hematite::tools::hash_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hash_tools::execute(&json!({
+        "action": "all",
+        "input": "abc"
+    })));
+    assert!(result.is_ok());
+    let out = result.unwrap();
+    assert!(out.contains("MD5"));
+    assert!(out.contains("SHA-256"));
+    assert!(out.contains("SHA-512"));
+    // MD5("abc") = 900150983cd24fb0d6963f7d28e17f72
+    assert!(out.contains("900150983cd24fb0d6963f7d28e17f72"));
+}
+
+#[test]
+fn test_hash_tools_unknown_action() {
+    use hematite::tools::hash_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hash_tools::execute(&json!({
+        "action": "blake3",
+        "input": "test"
+    })));
+    assert!(result.is_err());
+    assert!(result.unwrap_err().contains("unknown action"));
+}
+
+#[test]
+fn test_hash_tools_missing_input_error() {
+    use hematite::tools::hash_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hash_tools::execute(&json!({
+        "action": "sha256"
+    })));
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_routing_detects_hash_tools() {
+    use hematite::agent::routing::needs_hash_tools;
+    assert!(needs_hash_tools("sha256 hash of this string"));
+    assert!(needs_hash_tools("compute sha-256 digest"));
+    assert!(needs_hash_tools("md5 hash of the file"));
+    assert!(needs_hash_tools("generate hmac for this message"));
+    assert!(needs_hash_tools("hash this string"));
+    assert!(needs_hash_tools("get the file hash"));
+    assert!(!needs_hash_tools("how do I use git rebase"));
+    assert!(!needs_hash_tools("write a function to parse JSON"));
+}
+
+// ── toml_tools tests ─────────────────────────────────────────────────────────
+
+#[test]
+fn test_toml_tools_validate_inline() {
+    use hematite::tools::toml_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(toml_tools::execute(&json!({
+        "action": "validate",
+        "toml": "[package]\nname = \"myapp\"\nversion = \"1.0.0\"\n"
+    })));
+    assert!(result.is_ok());
+    let out = result.unwrap();
+    assert!(out.contains("TOML VALID"));
+    assert!(out.contains("package"));
+}
+
+#[test]
+fn test_toml_tools_validate_invalid() {
+    use hematite::tools::toml_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(toml_tools::execute(&json!({
+        "action": "validate",
+        "toml": "key = [unclosed"
+    })));
+    assert!(result.is_err());
+    assert!(result.unwrap_err().contains("invalid TOML"));
+}
+
+#[test]
+fn test_toml_tools_get_path() {
+    use hematite::tools::toml_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(toml_tools::execute(&json!({
+        "action": "get",
+        "toml": "[package]\nname = \"myapp\"\nversion = \"1.0.0\"\n",
+        "path": "package.name"
+    })));
+    assert!(result.is_ok());
+    assert!(result.unwrap().contains("myapp"));
+}
+
+#[test]
+fn test_toml_tools_keys() {
+    use hematite::tools::toml_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(toml_tools::execute(&json!({
+        "action": "keys",
+        "toml": "[package]\nname = \"myapp\"\n\n[dependencies]\nserde = \"1.0\"\n"
+    })));
+    assert!(result.is_ok());
+    let out = result.unwrap();
+    assert!(out.contains("package"));
+    assert!(out.contains("dependencies"));
+}
+
+#[test]
+fn test_toml_tools_to_json() {
+    use hematite::tools::toml_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(toml_tools::execute(&json!({
+        "action": "to-json",
+        "toml": "[package]\nname = \"myapp\"\nversion = \"1.0.0\"\n"
+    })));
+    assert!(result.is_ok());
+    let out = result.unwrap();
+    assert!(out.contains("\"name\""));
+    assert!(out.contains("\"myapp\""));
+}
+
+#[test]
+fn test_toml_tools_from_json() {
+    use hematite::tools::toml_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(toml_tools::execute(&json!({
+        "action": "from-json",
+        "json": "{\"name\": \"myapp\", \"version\": \"1.0.0\"}"
+    })));
+    assert!(result.is_ok());
+    let out = result.unwrap();
+    assert!(out.contains("JSON → TOML"));
+    assert!(out.contains("myapp"));
+}
+
+#[test]
+fn test_toml_tools_format() {
+    use hematite::tools::toml_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(toml_tools::execute(&json!({
+        "action": "format",
+        "toml": "b = 2\na = 1\n"
+    })));
+    assert!(result.is_ok());
+    assert!(result.unwrap().contains("TOML FORMAT"));
+}
+
+#[test]
+fn test_toml_tools_unknown_action() {
+    use hematite::tools::toml_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(toml_tools::execute(&json!({
+        "action": "merge",
+        "toml": "a = 1"
+    })));
+    assert!(result.is_err());
+    assert!(result.unwrap_err().contains("unknown action"));
+}
+
+#[test]
+fn test_routing_detects_toml_tools() {
+    use hematite::agent::routing::needs_toml_tools;
+    assert!(needs_toml_tools("validate this toml file"));
+    assert!(needs_toml_tools("parse toml config"));
+    assert!(needs_toml_tools("toml to json conversion"));
+    assert!(needs_toml_tools("get cargo.toml key"));
+    assert!(needs_toml_tools("format toml document"));
+    assert!(!needs_toml_tools("parse this JSON object"));
+    assert!(!needs_toml_tools("validate yaml for me"));
+}
+
+// ── text_tools tests ─────────────────────────────────────────────────────────
+
+#[test]
+fn test_text_tools_to_snake() {
+    use hematite::tools::text_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(text_tools::execute(&json!({
+        "action": "to-snake",
+        "input": "MyClassName"
+    })));
+    assert!(result.is_ok());
+    assert!(result.unwrap().contains("my_class_name"));
+}
+
+#[test]
+fn test_text_tools_to_camel() {
+    use hematite::tools::text_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(text_tools::execute(&json!({
+        "action": "to-camel",
+        "input": "my_variable_name"
+    })));
+    assert!(result.is_ok());
+    assert!(result.unwrap().contains("myVariableName"));
+}
+
+#[test]
+fn test_text_tools_to_pascal() {
+    use hematite::tools::text_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(text_tools::execute(&json!({
+        "action": "to-pascal",
+        "input": "my_variable_name"
+    })));
+    assert!(result.is_ok());
+    assert!(result.unwrap().contains("MyVariableName"));
+}
+
+#[test]
+fn test_text_tools_to_kebab() {
+    use hematite::tools::text_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(text_tools::execute(&json!({
+        "action": "to-kebab",
+        "input": "myVariableName"
+    })));
+    assert!(result.is_ok());
+    assert!(result.unwrap().contains("my-variable-name"));
+}
+
+#[test]
+fn test_text_tools_to_screaming() {
+    use hematite::tools::text_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(text_tools::execute(&json!({
+        "action": "to-screaming",
+        "input": "my_var"
+    })));
+    assert!(result.is_ok());
+    assert!(result.unwrap().contains("MY_VAR"));
+}
+
+#[test]
+fn test_text_tools_slugify() {
+    use hematite::tools::text_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(text_tools::execute(&json!({
+        "action": "slugify",
+        "input": "Hello World! This is a Test."
+    })));
+    assert!(result.is_ok());
+    let out = result.unwrap();
+    assert!(out.contains("hello-world"));
+    assert!(!out.contains('!'));
+    assert!(!out.contains('.'));
+}
+
+#[test]
+fn test_text_tools_count() {
+    use hematite::tools::text_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(text_tools::execute(&json!({
+        "action": "count",
+        "input": "Hello World\nLine two"
+    })));
+    assert!(result.is_ok());
+    let out = result.unwrap();
+    assert!(out.contains("Words"));
+    assert!(out.contains("Lines"));
+    assert!(out.contains('3') || out.contains('4')); // words
+}
+
+#[test]
+fn test_text_tools_truncate() {
+    use hematite::tools::text_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(text_tools::execute(&json!({
+        "action": "truncate",
+        "input": "Hello, World! This is a long string.",
+        "max": 10
+    })));
+    assert!(result.is_ok());
+    let out = result.unwrap();
+    // Output line should be at most 10 chars
+    let content = out.lines().last().unwrap_or("");
+    assert!(content.chars().count() <= 10);
+    assert!(content.ends_with("...") || content.len() <= 10);
+}
+
+#[test]
+fn test_text_tools_wrap() {
+    use hematite::tools::text_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(text_tools::execute(&json!({
+        "action": "wrap",
+        "input": "The quick brown fox jumps over the lazy dog and then some more words here",
+        "width": 20
+    })));
+    assert!(result.is_ok());
+    let out = result.unwrap();
+    // Each content line should be <= 20 chars
+    let content_lines: Vec<&str> = out.lines().skip(2).collect();
+    for line in content_lines {
+        assert!(line.chars().count() <= 20, "Line too long: '{line}'");
+    }
+}
+
+#[test]
+fn test_text_tools_pad_right() {
+    use hematite::tools::text_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(text_tools::execute(&json!({
+        "action": "pad",
+        "input": "hi",
+        "width": 10,
+        "align": "left"
+    })));
+    assert!(result.is_ok());
+    let out = result.unwrap();
+    let content = out.lines().last().unwrap_or("");
+    assert_eq!(content.chars().count(), 10);
+    assert!(content.starts_with("hi"));
+}
+
+#[test]
+fn test_text_tools_repeat() {
+    use hematite::tools::text_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(text_tools::execute(&json!({
+        "action": "repeat",
+        "input": "ab",
+        "n": 3,
+        "sep": "-"
+    })));
+    assert!(result.is_ok());
+    assert!(result.unwrap().contains("ab-ab-ab"));
+}
+
+#[test]
+fn test_text_tools_reverse() {
+    use hematite::tools::text_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(text_tools::execute(&json!({
+        "action": "reverse",
+        "input": "hello"
+    })));
+    assert!(result.is_ok());
+    assert!(result.unwrap().contains("olleh"));
+}
+
+#[test]
+fn test_text_tools_lines_sort_dedupe() {
+    use hematite::tools::text_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(text_tools::execute(&json!({
+        "action": "lines",
+        "input": "banana\napple\nbanana\ncherry",
+        "sort": true,
+        "dedupe": true
+    })));
+    assert!(result.is_ok());
+    let out = result.unwrap();
+    assert!(out.contains("apple"));
+    assert!(out.contains("3 lines") || out.contains("(3"));
+    // banana should appear only once
+    let banana_count = out.matches("banana").count();
+    assert_eq!(banana_count, 1);
+}
+
+#[test]
+fn test_text_tools_unknown_action() {
+    use hematite::tools::text_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(text_tools::execute(&json!({
+        "action": "compress",
+        "input": "test"
+    })));
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_routing_detects_text_tools() {
+    use hematite::agent::routing::needs_text_tools;
+    assert!(needs_text_tools("convert this to snake_case"));
+    assert!(needs_text_tools("to camelCase please"));
+    assert!(needs_text_tools("convert to kebab-case"));
+    assert!(needs_text_tools("make a url slug from this title"));
+    assert!(needs_text_tools("word count of this paragraph"));
+    assert!(needs_text_tools("truncate this text to 80 chars"));
+    assert!(needs_text_tools("word wrap at 60 characters"));
+    assert!(needs_text_tools("sort lines and dedupe"));
+    assert!(!needs_text_tools("how do I use git rebase"));
+    assert!(!needs_text_tools("write a function to parse JSON"));
+}

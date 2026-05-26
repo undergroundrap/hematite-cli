@@ -269,6 +269,9 @@ Hematite ships a suite of zero-dependency in-agent developer tools that run enti
 - **`yaml_tools`** — validates, formats, queries, and transforms YAML documents. 8 actions: validate (type/depth/key summary), format, get (dot-path + array index navigation like `spec.containers[0].image`), keys (list keys or elements at any path), to-json, from-json, merge (deep-merge), diff (additions/removals/changes). Accepts inline YAML or file path.
 - **`csv_tools`** — reads, inspects, filters, sorts, and converts CSV data. 9 actions: read (formatted table), head, columns, stats (min/max/mean/median/stddev for numeric; unique/top values for text), filter (8 operators), sort (asc/desc), to-json (auto-coerces types), to-markdown, count. RFC 4180-compliant; handles quoted fields and escaped quotes.
 - **`encode_tools`** — encodes and decodes data between formats. 9 actions: base64-encode (standard or URL-safe), base64-decode, url-encode, url-decode, hex-encode, hex-decode, jwt-decode (header + payload + exp/iat display; no signature verification), html-encode, html-decode.
+- **`hash_tools`** — cryptographic hashing of strings or files. 5 actions: sha256 (default), sha512, md5, hmac-sha256 (requires `key`), all (MD5 + SHA-256 + SHA-512 in one call). Accepts `input` (inline) or `file` (path). Zero new deps — RustCrypto ecosystem.
+- **`toml_tools`** — validates, formats, queries, and transforms TOML documents. 6 actions: validate, format, get (dot-path + array index like `bin[0].name`), keys, to-json, from-json. Works with Cargo.toml, pyproject.toml, config.toml, and any TOML config.
+- **`text_tools`** — text transformation and analysis. 16 actions: case conversion (to-snake/camel/pascal/kebab/screaming/title/lower/upper), slugify, count (word/line/char/byte/sentence stats), truncate, pad (left/right/center), wrap (word-wrap), repeat, reverse, lines (sort/dedupe/filter_empty).
 
 ## 7. Stateful Local Workflow
 

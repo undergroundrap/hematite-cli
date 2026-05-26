@@ -6089,6 +6089,91 @@ pub fn needs_encode_tools(user_input: &str) -> bool {
         || lower.contains("decode this")
 }
 
+/// Returns true when the user wants to hash data — steer toward `hash_tools`.
+pub fn needs_hash_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    lower.contains("sha256")
+        || lower.contains("sha-256")
+        || lower.contains("sha512")
+        || lower.contains("sha-512")
+        || lower.contains("sha2")
+        || lower.contains("md5 hash")
+        || lower.contains("md5 of")
+        || lower.contains("hash this")
+        || lower.contains("hash the file")
+        || lower.contains("hash of this")
+        || lower.contains("checksum this")
+        || lower.contains("digest of")
+        || lower.contains("hmac")
+        || lower.contains("compute hash")
+        || lower.contains("generate hash")
+        || lower.contains("file hash")
+        || lower.contains("string hash")
+        || lower.contains("hash string")
+        || lower.contains("cryptographic hash")
+}
+
+/// Returns true when the user wants to work with TOML — steer toward `toml_tools`.
+pub fn needs_toml_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    lower.contains("toml file")
+        || lower.contains("parse toml")
+        || lower.contains("validate toml")
+        || lower.contains("read toml")
+        || lower.contains("check toml")
+        || lower.contains("toml to json")
+        || lower.contains("json to toml")
+        || lower.contains("format toml")
+        || lower.contains("toml key")
+        || lower.contains("toml path")
+        || lower.contains("get from toml")
+        || lower.contains("cargo.toml key")
+        || lower.contains("cargo.toml value")
+        || lower.contains("is this toml")
+        || lower.contains("toml is valid")
+}
+
+/// Returns true when the user wants text manipulation — steer toward `text_tools`.
+pub fn needs_text_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    lower.contains("snake_case")
+        || lower.contains("camelcase")
+        || lower.contains("camel case")
+        || lower.contains("pascalcase")
+        || lower.contains("pascal case")
+        || lower.contains("kebab-case")
+        || lower.contains("kebab case")
+        || lower.contains("screaming snake")
+        || lower.contains("convert to snake")
+        || lower.contains("convert to camel")
+        || lower.contains("convert to pascal")
+        || lower.contains("convert to kebab")
+        || lower.contains("to snake case")
+        || lower.contains("to camel case")
+        || lower.contains("to pascal case")
+        || lower.contains("to kebab case")
+        || lower.contains("slugify")
+        || lower.contains("make a slug")
+        || lower.contains("url slug")
+        || lower.contains("word count")
+        || lower.contains("count words")
+        || lower.contains("count characters")
+        || lower.contains("char count")
+        || lower.contains("line count")
+        || lower.contains("count lines")
+        || lower.contains("truncate text")
+        || lower.contains("truncate this")
+        || lower.contains("word wrap")
+        || lower.contains("wrap text")
+        || lower.contains("wrap at")
+        || lower.contains("pad string")
+        || lower.contains("pad text")
+        || lower.contains("sort lines")
+        || lower.contains("dedupe lines")
+        || lower.contains("reverse string")
+        || lower.contains("reverse text")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

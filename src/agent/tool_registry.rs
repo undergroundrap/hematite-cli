@@ -1833,6 +1833,148 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         }),
     ));
     tools.push(make_tool(
+        "hash_tools",
+        "Compute cryptographic hashes of strings or files without needing external tools. \
+         Actions: \
+         `sha256` (default) — SHA-256 hex digest; \
+         `sha512` — SHA-512 hex digest; \
+         `md5` — MD5 hex digest (fast; not cryptographically secure for new designs); \
+         `hmac-sha256` — HMAC-SHA256 with a secret key ('key' field required); \
+         `all` — run MD5 + SHA-256 + SHA-512 on the same input at once. \
+         Provide data via 'input' (inline string) or 'file' (path to any file).",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "Hash algorithm: sha256 (default), sha512, md5, hmac-sha256, all."
+                },
+                "input": {
+                    "type": "string",
+                    "description": "Inline string to hash."
+                },
+                "file": {
+                    "type": "string",
+                    "description": "Path to a file to hash (relative to workspace root or absolute)."
+                },
+                "key": {
+                    "type": "string",
+                    "description": "Secret key for HMAC-SHA256. Required when action is 'hmac-sha256'."
+                }
+            }
+        }),
+    ));
+    tools.push(make_tool(
+        "toml_tools",
+        "Validate, format, query, and transform TOML documents without needing external tools. \
+         Provide TOML inline ('toml' arg) or from a file ('file' arg). \
+         Actions: \
+         `validate` — parse TOML and report root type and top-level keys; \
+         `format` — re-serialize TOML with canonical pretty-printing; \
+         `get` — extract a value at a dot-path (e.g. 'package.name', 'dependencies.serde', 'bin[0].name'); \
+         `keys` — list keys at the root or at a dot-path; \
+         `to-json` — convert TOML to pretty-printed JSON; \
+         `from-json` — convert JSON ('json' arg) to TOML. \
+         Works with Cargo.toml, pyproject.toml, config.toml, and any TOML config file.",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "Operation: validate (default), format, get, keys, to-json, from-json."
+                },
+                "toml": {
+                    "type": "string",
+                    "description": "Inline TOML content to process."
+                },
+                "file": {
+                    "type": "string",
+                    "description": "Path to a TOML file (relative to workspace root or absolute)."
+                },
+                "path": {
+                    "type": "string",
+                    "description": "Dot-path to navigate into (e.g. 'package.name', 'dependencies.tokio', 'bin[0].name'). Used by get and keys."
+                },
+                "json": {
+                    "type": "string",
+                    "description": "Inline JSON string to convert (for 'from-json' action)."
+                }
+            }
+        }),
+    ));
+    tools.push(make_tool(
+        "text_tools",
+        "Transform, analyze, and manipulate text without needing external tools. \
+         All actions take an 'input' field. \
+         Case conversion actions (convert between naming conventions): \
+         `to-snake` (My Var → my_var), `to-camel` (my_var → myVar), `to-pascal` (my_var → MyVar), \
+         `to-kebab` (myVar → my-var), `to-screaming` (my_var → MY_VAR), \
+         `to-title` (my var → My Var), `to-lower`, `to-upper`. \
+         Other actions: \
+         `slugify` — URL-safe slug (lowercase, hyphens, no special chars); \
+         `count` — word, line, character, byte, and sentence counts; \
+         `truncate` — shorten to 'max' chars with optional 'ellipsis' (default '...'); \
+         `pad` — pad to 'width' with 'align' (left/right/center) and optional 'fill' char; \
+         `wrap` — word-wrap at 'width' chars (default 80); \
+         `repeat` — repeat 'n' times with optional 'sep' separator; \
+         `reverse` — reverse the string character by character; \
+         `lines` — process lines with optional 'sort', 'dedupe', 'filter_empty' booleans.",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "Operation: to-snake, to-camel, to-pascal, to-kebab, to-screaming, to-title, to-lower, to-upper, slugify, count (default), truncate, pad, wrap, repeat, reverse, lines."
+                },
+                "input": {
+                    "type": "string",
+                    "description": "The text to process."
+                },
+                "max": {
+                    "type": "integer",
+                    "description": "Maximum character count (for 'truncate'). Default: 80."
+                },
+                "ellipsis": {
+                    "type": "string",
+                    "description": "String appended when truncated (for 'truncate'). Default: '...'."
+                },
+                "width": {
+                    "type": "integer",
+                    "description": "Target width in characters (for 'pad' and 'wrap'). Default: 20 for pad, 80 for wrap."
+                },
+                "align": {
+                    "type": "string",
+                    "description": "Alignment for 'pad': left, right (default), or center."
+                },
+                "fill": {
+                    "type": "string",
+                    "description": "Fill character for 'pad'. Default: space."
+                },
+                "n": {
+                    "type": "integer",
+                    "description": "Repeat count for 'repeat'. Default: 2."
+                },
+                "sep": {
+                    "type": "string",
+                    "description": "Separator between repetitions for 'repeat'. Default: empty string."
+                },
+                "sort": {
+                    "type": "boolean",
+                    "description": "Sort lines alphabetically (for 'lines'). Default: false."
+                },
+                "dedupe": {
+                    "type": "boolean",
+                    "description": "Remove duplicate lines (for 'lines'). Default: false."
+                },
+                "filter_empty": {
+                    "type": "boolean",
+                    "description": "Remove blank lines (for 'lines'). Default: false."
+                }
+            },
+            "required": ["input"]
+        }),
+    ));
+    tools.push(make_tool(
         "template_gen",
         "Generate boilerplate files from built-in templates. \
          Supports Dockerfiles (Node.js, Python, Rust, Go multi-stage), \
@@ -2080,6 +2222,9 @@ pub async fn dispatch_builtin_tool(
         "yaml_tools" => crate::tools::yaml_tools::execute(args).await,
         "csv_tools" => crate::tools::csv_tools::execute(args).await,
         "encode_tools" => crate::tools::encode_tools::execute(args).await,
+        "hash_tools" => crate::tools::hash_tools::execute(args).await,
+        "toml_tools" => crate::tools::toml_tools::execute(args).await,
+        "text_tools" => crate::tools::text_tools::execute(args).await,
         "git_status" => crate::tools::git::execute_status(args).await,
         "git_diff" => crate::tools::git::execute_diff(args).await,
         "git_log" => crate::tools::git::execute_log(args).await,
