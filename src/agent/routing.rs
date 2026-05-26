@@ -6500,6 +6500,70 @@ pub fn needs_markdown_tools(user_input: &str) -> bool {
             && (lower.contains("parse") || lower.contains("analyze") || lower.contains("inspect")))
 }
 
+/// Returns true when the user wants URL parsing, building, or manipulation — steer toward `url_tools`.
+pub fn needs_url_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    lower.contains("parse this url")
+        || lower.contains("parse the url")
+        || lower.contains("parse url")
+        || lower.contains("decode url")
+        || lower.contains("encode url")
+        || lower.contains("url encode")
+        || lower.contains("url decode")
+        || lower.contains("percent encode")
+        || lower.contains("percent decode")
+        || lower.contains("query params")
+        || lower.contains("query parameters")
+        || lower.contains("query string")
+        || lower.contains("url params")
+        || lower.contains("build a url")
+        || lower.contains("build url")
+        || lower.contains("construct url")
+        || lower.contains("normalize url")
+        || lower.contains("validate url")
+        || lower.contains("is this a valid url")
+        || lower.contains("extract query")
+        || lower.contains("add param")
+        || lower.contains("remove param")
+        || (lower.contains("url") && lower.contains("fragment"))
+        || (lower.contains("url") && lower.contains("scheme"))
+        || (lower.contains("url") && lower.contains("hostname"))
+}
+
+/// Returns true when the user wants line-based text processing — steer toward `line_tools`.
+pub fn needs_line_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    lower.contains("grep for")
+        || lower.contains("filter lines")
+        || lower.contains("lines matching")
+        || lower.contains("lines containing")
+        || lower.contains("first 10 lines")
+        || lower.contains("last 10 lines")
+        || lower.contains("first n lines")
+        || lower.contains("last n lines")
+        || lower.contains("head of the file")
+        || lower.contains("tail of the file")
+        || lower.contains("sort these lines")
+        || lower.contains("sort the lines")
+        || lower.contains("sort lines")
+        || lower.contains("unique lines")
+        || lower.contains("deduplicate lines")
+        || lower.contains("dedup lines")
+        || lower.contains("count lines")
+        || lower.contains("line count")
+        || lower.contains("number the lines")
+        || lower.contains("add line numbers")
+        || lower.contains("join lines")
+        || lower.contains("replace in text")
+        || lower.contains("cut column")
+        || lower.contains("cut field")
+        || lower.contains("extract column")
+        || lower.contains("slice lines")
+        || lower.contains("lines from")
+        || (lower.contains("text") && lower.contains("replace all"))
+        || (lower.contains("file") && lower.contains("grep"))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

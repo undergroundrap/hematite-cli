@@ -2605,6 +2605,183 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         }),
     ));
     tools.push(make_tool(
+        "url_tools",
+        "Parse, build, encode, decode, and manipulate URLs without external utilities. \
+         Actions: \
+         `parse` (default) — break a URL into scheme, host, port, path, query parameters, fragment; \
+         `build` — construct a URL from parts: 'scheme', 'host' (required), 'path', optional 'port', \
+            'query' (raw string), 'params' (object of key/value pairs), 'fragment'; \
+         `params` — inspect or modify query parameters; pass 'op': list (default) | set | remove; \
+            'key' and 'value' for set/remove operations; \
+         `encode` — percent-encode a string ('input' required); 'component: true' for strict encoding; \
+         `decode` — percent-decode a string ('input' required); \
+         `normalize` — lowercase scheme/host, resolve dot segments; \
+         `validate` — check if a URL is valid and flag common issues (insecure HTTP, localhost). \
+         Pass 'url' with the URL string.",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "Operation: parse (default), build, params, encode, decode, normalize, validate."
+                },
+                "url": {
+                    "type": "string",
+                    "description": "The URL to parse, normalize, validate, or use as the base for params operations. Also accepted as 'input'."
+                },
+                "scheme": {
+                    "type": "string",
+                    "description": "URL scheme for 'build' (default 'https')."
+                },
+                "host": {
+                    "type": "string",
+                    "description": "Hostname or IP for 'build' (required)."
+                },
+                "path": {
+                    "type": "string",
+                    "description": "URL path for 'build' (default '/')."
+                },
+                "port": {
+                    "type": "integer",
+                    "description": "Port number for 'build' (omit for scheme default)."
+                },
+                "query": {
+                    "type": "string",
+                    "description": "Raw query string for 'build' (without leading '?')."
+                },
+                "params": {
+                    "type": "object",
+                    "description": "Key-value pairs to encode as the query string for 'build'."
+                },
+                "fragment": {
+                    "type": "string",
+                    "description": "URL fragment for 'build' (without leading '#')."
+                },
+                "op": {
+                    "type": "string",
+                    "description": "Sub-operation for 'params': list (default), set, remove."
+                },
+                "key": {
+                    "type": "string",
+                    "description": "Parameter name for 'params' set/remove."
+                },
+                "value": {
+                    "type": "string",
+                    "description": "Parameter value for 'params' set."
+                },
+                "input": {
+                    "type": "string",
+                    "description": "String to encode or decode for 'encode'/'decode' actions."
+                },
+                "component": {
+                    "type": "boolean",
+                    "description": "For 'encode': use strict component encoding (encodes all non-alphanumeric chars). Default false."
+                }
+            },
+            "required": []
+        }),
+    ));
+    tools.push(make_tool(
+        "line_tools",
+        "Line-based text processing without external utilities — a self-contained grep/head/tail/sort/cut. \
+         Actions: \
+         `grep` (default) — filter lines matching 'pattern'; 'regex: true' for regex; \
+            'invert: true' for non-matching; 'ignore_case: true'; 'line_numbers: true' (default on); 'max' cap; \
+         `head` — first N lines ('n', default 10); \
+         `tail` — last N lines ('n', default 10); \
+         `sort` — sort lines; 'numeric: true' for numeric order; 'reverse: true'; 'ignore_case: true'; \
+            'unique: true' to deduplicate after sort; \
+         `unique` — remove duplicates preserving first-occurrence order; 'count: true' to show frequency; \
+            'sorted: true' to rank by frequency; 'ignore_case: true'; \
+         `count` — line, word, character, and byte counts; \
+         `slice` — extract lines 'from' to 'to' (1-based, inclusive); \
+         `number` — add line numbers; 'start' (default 1), 'step' (default 1), 'skip_blank: true'; \
+         `join` — join all lines into one string; 'sep' (default ', '); 'trim: true' (default); 'skip_blank: true' (default); \
+         `replace` — find-and-replace across all lines; 'from' and 'to' required; 'regex: true'; \
+            'ignore_case: true'; 'limit' for max replacements; \
+         `cut` — extract one field per line by delimiter; 'field' is 1-based (default 1); \
+            'delimiter'/'sep'/'d' (default tab). \
+         Pass 'text' for inline content or 'file' for a file path.",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "Operation: grep (default), head, tail, sort, unique, count, slice, number, join, replace, cut."
+                },
+                "text": {
+                    "type": "string",
+                    "description": "Inline text to process."
+                },
+                "file": {
+                    "type": "string",
+                    "description": "Path to a text file (relative or absolute). Also accepted as 'input'."
+                },
+                "pattern": {
+                    "type": "string",
+                    "description": "Search pattern for 'grep'. Also accepted as 'query' or 'search'."
+                },
+                "regex": {
+                    "type": "boolean",
+                    "description": "Treat 'pattern'/'from' as a regular expression (default false)."
+                },
+                "invert": {
+                    "type": "boolean",
+                    "description": "For 'grep': return lines that do NOT match (default false)."
+                },
+                "ignore_case": {
+                    "type": "boolean",
+                    "description": "Case-insensitive matching for grep, sort, unique, replace (default false)."
+                },
+                "n": {
+                    "type": "integer",
+                    "description": "Number of lines for 'head' and 'tail' (default 10)."
+                },
+                "reverse": {
+                    "type": "boolean",
+                    "description": "For 'sort': reverse order (default false)."
+                },
+                "numeric": {
+                    "type": "boolean",
+                    "description": "For 'sort': numeric sort (default false)."
+                },
+                "unique": {
+                    "type": "boolean",
+                    "description": "For 'sort': deduplicate after sorting."
+                },
+                "count": {
+                    "type": "boolean",
+                    "description": "For 'unique': show frequency count next to each line."
+                },
+                "from": {
+                    "type": "string",
+                    "description": "Find string/pattern for 'replace', or start line for 'slice' (1-based)."
+                },
+                "to": {
+                    "type": "string",
+                    "description": "Replacement string for 'replace', or end line for 'slice' (1-based, inclusive)."
+                },
+                "sep": {
+                    "type": "string",
+                    "description": "Separator for 'join' (default ', ') or delimiter for 'cut' (default tab)."
+                },
+                "field": {
+                    "type": "integer",
+                    "description": "Field number for 'cut' (1-based, default 1)."
+                },
+                "start": {
+                    "type": "integer",
+                    "description": "Starting line number for 'number' (default 1)."
+                },
+                "step": {
+                    "type": "integer",
+                    "description": "Line number increment for 'number' (default 1)."
+                }
+            },
+            "required": []
+        }),
+    ));
+    tools.push(make_tool(
         "template_gen",
         "Generate boilerplate files from built-in templates. \
          Supports Dockerfiles (Node.js, Python, Rust, Go multi-stage), \
@@ -2868,6 +3045,8 @@ pub async fn dispatch_builtin_tool(
         "archive_tools" => crate::tools::archive_tools::execute(args).await,
         "sqlite_tools" => crate::tools::sqlite_tools::execute(args).await,
         "markdown_tools" => crate::tools::markdown_tools::execute(args).await,
+        "url_tools" => crate::tools::url_tools::execute(args).await,
+        "line_tools" => crate::tools::line_tools::execute(args).await,
         "git_status" => crate::tools::git::execute_status(args).await,
         "git_diff" => crate::tools::git::execute_diff(args).await,
         "git_log" => crate::tools::git::execute_log(args).await,

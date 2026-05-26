@@ -31,11 +31,12 @@ use crate::agent::routing::{
     needs_computation_sandbox, needs_crash_debug, needs_cron_tools, needs_csv_tools,
     needs_date_tools, needs_diff_tools, needs_docker_ops, needs_encode_tools, needs_format,
     needs_github_ops, needs_hash_tools, needs_http_request, needs_ip_tools, needs_jwt_tools,
-    needs_lint_check, needs_markdown_tools, needs_number_tools, needs_password_gen,
-    needs_regex_tools, needs_secret_scan, needs_semver_tools, needs_sqlite_tools, needs_test_run,
-    needs_text_tools, needs_toml_tools, needs_uuid_gen, needs_xml_tools, needs_yaml_tools,
-    preferred_host_inspection_topic, preferred_maintainer_workflow, preferred_workspace_workflow,
-    DirectAnswerKind, QueryIntentClass,
+    needs_line_tools, needs_lint_check, needs_markdown_tools, needs_number_tools,
+    needs_password_gen, needs_regex_tools, needs_secret_scan, needs_semver_tools,
+    needs_sqlite_tools, needs_test_run, needs_text_tools, needs_toml_tools, needs_url_tools,
+    needs_uuid_gen, needs_xml_tools, needs_yaml_tools, preferred_host_inspection_topic,
+    preferred_maintainer_workflow, preferred_workspace_workflow, DirectAnswerKind,
+    QueryIntentClass,
 };
 use crate::agent::tool_registry::dispatch_builtin_tool;
 use crate::agent::truncation::safe_head;
@@ -5372,6 +5373,46 @@ impl ConversationManager {
                  Pass 'text' for inline Markdown or 'file' for a .md file path. \
                  Example: markdown_tools(action: \"toc\", file: \"README.md\") or \
                  markdown_tools(action: \"stats\", text: \"# Hello\\nThis is **bold**.\")."
+                    .to_string(),
+            );
+        }
+
+        // ── URL Tools Routing: steer model toward url_tools ──
+        if loop_intervention.is_none() && needs_url_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "URL NOTICE: Use the `url_tools` tool for URL parsing, building, and manipulation without external utilities. \
+                 Actions: parse (default — break a URL into scheme, host, port, path, query params, fragment), \
+                 build (construct a URL from 'scheme', 'host', 'path', optional 'port'/'query'/'params'/'fragment'), \
+                 params (list, set, or remove query parameters; pass 'op': list | set | remove, and 'key'/'value'), \
+                 encode (percent-encode a string; 'component: true' for strict component encoding), \
+                 decode (percent-decode a string), \
+                 normalize (lowercase scheme/host, resolve dot segments), \
+                 validate (check if a URL is valid and flag common issues). \
+                 Pass 'url' with the URL string. \
+                 Example: url_tools(action: \"parse\", url: \"https://api.example.com/v2/search?q=rust&page=2\") or \
+                 url_tools(action: \"params\", url: \"https://example.com/?a=1&b=2\", op: \"set\", key: \"b\", value: \"99\")."
+                    .to_string(),
+            );
+        }
+
+        // ── Line Tools Routing: steer model toward line_tools ──
+        if loop_intervention.is_none() && needs_line_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "LINE NOTICE: Use the `line_tools` tool for line-based text processing without external utilities. \
+                 Actions: grep (default — filter lines matching a pattern; 'pattern' required; 'regex: true' for regex; 'invert: true' for non-matching; 'ignore_case: true'), \
+                 head (first N lines; 'n' default 10), \
+                 tail (last N lines; 'n' default 10), \
+                 sort (sort lines; 'numeric: true' for numeric sort; 'reverse: true'; 'ignore_case: true'; 'unique: true' to deduplicate after sort), \
+                 unique (remove duplicate lines preserving order; 'count: true' to show frequency; 'sorted: true' to rank by frequency), \
+                 count (line/word/character/byte counts), \
+                 slice (extract lines from 'from' to 'to' — 1-based line numbers), \
+                 number (add line numbers; 'start' and 'step' args), \
+                 join (join all lines into one string; 'sep' sets separator, default ', '), \
+                 replace (find-and-replace across all lines; 'from' and 'to' required; 'regex: true'; 'limit' for max replacements), \
+                 cut (extract one field per line by delimiter; 'field' is 1-based, 'd'/'delimiter' default tab). \
+                 Pass 'text' for inline text or 'file' for a file path. \
+                 Example: line_tools(action: \"grep\", file: \"app.log\", pattern: \"ERROR\") or \
+                 line_tools(action: \"sort\", text: \"banana\\napple\\ncherry\", unique: true)."
                     .to_string(),
             );
         }

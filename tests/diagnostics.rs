@@ -18948,3 +18948,416 @@ fn test_routing_detects_markdown_tools() {
     assert!(!needs_markdown_tools("run cargo test"));
     assert!(!needs_markdown_tools("query my sqlite database"));
 }
+
+// ── url_tools tests ────────────────────────────────────────────────────────────
+
+#[test]
+fn test_url_tools_parse() {
+    use hematite::tools::url_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(url_tools::execute(&json!({
+        "action": "parse",
+        "url": "https://api.example.com:8080/v2/search?q=rust&page=2#results"
+    })));
+    assert!(result.is_ok(), "{:?}", result);
+    let out = result.unwrap();
+    assert!(out.contains("https"), "{out}");
+    assert!(out.contains("api.example.com"), "{out}");
+    assert!(out.contains("8080"), "{out}");
+    assert!(out.contains("/v2/search"), "{out}");
+    assert!(out.contains("q") && out.contains("rust"), "{out}");
+    assert!(out.contains("results"), "{out}");
+}
+
+#[test]
+fn test_url_tools_parse_query_params() {
+    use hematite::tools::url_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(url_tools::execute(&json!({
+        "action": "parse",
+        "url": "https://example.com/?foo=bar&baz=qux"
+    })));
+    assert!(result.is_ok(), "{:?}", result);
+    let out = result.unwrap();
+    assert!(out.contains("foo") && out.contains("bar"), "{out}");
+    assert!(out.contains("baz") && out.contains("qux"), "{out}");
+}
+
+#[test]
+fn test_url_tools_build() {
+    use hematite::tools::url_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(url_tools::execute(&json!({
+        "action": "build",
+        "scheme": "https",
+        "host": "example.com",
+        "path": "/api/v1",
+        "params": { "key": "abc", "format": "json" }
+    })));
+    assert!(result.is_ok(), "{:?}", result);
+    let out = result.unwrap();
+    assert!(out.contains("https://example.com/api/v1"), "{out}");
+    assert!(out.contains("key") || out.contains("abc"), "{out}");
+}
+
+#[test]
+fn test_url_tools_params_list() {
+    use hematite::tools::url_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(url_tools::execute(&json!({
+        "action": "params",
+        "url": "https://example.com/?a=1&b=2&c=hello",
+        "op": "list"
+    })));
+    assert!(result.is_ok(), "{:?}", result);
+    let out = result.unwrap();
+    assert!(out.contains("a") && out.contains("1"), "{out}");
+    assert!(out.contains("c") && out.contains("hello"), "{out}");
+}
+
+#[test]
+fn test_url_tools_params_set() {
+    use hematite::tools::url_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(url_tools::execute(&json!({
+        "action": "params",
+        "url": "https://example.com/?page=1",
+        "op": "set",
+        "key": "page",
+        "value": "5"
+    })));
+    assert!(result.is_ok(), "{:?}", result);
+    let out = result.unwrap();
+    assert!(
+        out.contains("page") && (out.contains("5") || out.contains("page%3D5")),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_url_tools_encode_decode() {
+    use hematite::tools::url_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    // Encode
+    let enc = rt.block_on(url_tools::execute(&json!({
+        "action": "encode",
+        "input": "hello world & <test>",
+        "component": true
+    })));
+    assert!(enc.is_ok(), "{:?}", enc);
+    let enc_out = enc.unwrap();
+    assert!(
+        enc_out.contains("%20") || enc_out.contains("+"),
+        "{enc_out}"
+    );
+
+    // Decode round-trip
+    let dec = rt.block_on(url_tools::execute(&json!({
+        "action": "decode",
+        "input": "hello%20world"
+    })));
+    assert!(dec.is_ok(), "{:?}", dec);
+    let dec_out = dec.unwrap();
+    assert!(dec_out.contains("hello world"), "{dec_out}");
+}
+
+#[test]
+fn test_url_tools_validate_valid() {
+    use hematite::tools::url_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(url_tools::execute(&json!({
+        "action": "validate",
+        "url": "https://www.rust-lang.org/tools/install"
+    })));
+    assert!(result.is_ok(), "{:?}", result);
+    let out = result.unwrap();
+    assert!(out.contains("VALID"), "{out}");
+}
+
+#[test]
+fn test_url_tools_validate_invalid() {
+    use hematite::tools::url_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(url_tools::execute(&json!({
+        "action": "validate",
+        "url": "not a url at all"
+    })));
+    assert!(result.is_ok(), "{:?}", result);
+    let out = result.unwrap();
+    assert!(out.contains("INVALID"), "{out}");
+}
+
+#[test]
+fn test_url_tools_normalize() {
+    use hematite::tools::url_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(url_tools::execute(&json!({
+        "action": "normalize",
+        "url": "HTTPS://Example.COM/path/../other"
+    })));
+    assert!(result.is_ok(), "{:?}", result);
+    let out = result.unwrap();
+    assert!(
+        out.contains("https://") || out.contains("example.com"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_routing_detects_url_tools() {
+    use hematite::agent::routing::needs_url_tools;
+    assert!(needs_url_tools("parse this url: https://example.com"));
+    assert!(needs_url_tools("decode url: hello%20world"));
+    assert!(needs_url_tools("url encode this string"));
+    assert!(needs_url_tools("show query params from this url"));
+    assert!(needs_url_tools("build a url with https and path /api"));
+    assert!(needs_url_tools("validate url https://example.com"));
+    assert!(!needs_url_tools("run cargo test"));
+    assert!(!needs_url_tools("query my sqlite database"));
+}
+
+// ── line_tools tests ───────────────────────────────────────────────────────────
+
+const TEST_LINES: &str = "apple\nbanana\ncherry\napple\nDURAIN\nfig\nbanana\ngrape";
+
+#[test]
+fn test_line_tools_grep() {
+    use hematite::tools::line_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(line_tools::execute(&json!({
+        "action": "grep",
+        "text": TEST_LINES,
+        "pattern": "apple"
+    })));
+    assert!(result.is_ok(), "{:?}", result);
+    let out = result.unwrap();
+    assert!(out.contains("apple"), "{out}");
+    assert!(!out.contains("banana"), "{out}");
+}
+
+#[test]
+fn test_line_tools_grep_invert() {
+    use hematite::tools::line_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(line_tools::execute(&json!({
+        "action": "grep",
+        "text": "apple\nbanana\ncherry",
+        "pattern": "apple",
+        "invert": true
+    })));
+    assert!(result.is_ok(), "{:?}", result);
+    let out = result.unwrap();
+    assert!(out.contains("banana"), "{out}");
+    assert!(out.contains("cherry"), "{out}");
+    // "apple" in line numbers header is expected; check it's not a content line
+    let content_lines: Vec<&str> = out
+        .lines()
+        .filter(|l| l.trim_start().starts_with(|c: char| c.is_numeric()))
+        .collect();
+    assert!(
+        content_lines.iter().all(|l| !l.ends_with("apple")),
+        "apple should not match: {out}"
+    );
+}
+
+#[test]
+fn test_line_tools_grep_case_insensitive() {
+    use hematite::tools::line_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(line_tools::execute(&json!({
+        "action": "grep",
+        "text": TEST_LINES,
+        "pattern": "durain",
+        "ignore_case": true
+    })));
+    assert!(result.is_ok(), "{:?}", result);
+    let out = result.unwrap();
+    assert!(out.contains("DURAIN"), "{out}");
+}
+
+#[test]
+fn test_line_tools_head() {
+    use hematite::tools::line_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(line_tools::execute(&json!({
+        "action": "head",
+        "text": TEST_LINES,
+        "n": 3
+    })));
+    assert!(result.is_ok(), "{:?}", result);
+    let out = result.unwrap();
+    assert!(out.contains("apple"), "{out}");
+    assert!(out.contains("banana"), "{out}");
+    assert!(out.contains("cherry"), "{out}");
+    assert!(!out.contains("grape"), "{out}");
+}
+
+#[test]
+fn test_line_tools_tail() {
+    use hematite::tools::line_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(line_tools::execute(&json!({
+        "action": "tail",
+        "text": TEST_LINES,
+        "n": 2
+    })));
+    assert!(result.is_ok(), "{:?}", result);
+    let out = result.unwrap();
+    assert!(out.contains("banana"), "{out}");
+    assert!(out.contains("grape"), "{out}");
+    assert!(!out.contains("cherry"), "{out}");
+}
+
+#[test]
+fn test_line_tools_sort() {
+    use hematite::tools::line_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(line_tools::execute(&json!({
+        "action": "sort",
+        "text": "cherry\napple\nbanana"
+    })));
+    assert!(result.is_ok(), "{:?}", result);
+    let out = result.unwrap();
+    let apple_pos = out.find("apple").unwrap_or(usize::MAX);
+    let banana_pos = out.find("banana").unwrap_or(usize::MAX);
+    let cherry_pos = out.find("cherry").unwrap_or(usize::MAX);
+    assert!(
+        apple_pos < banana_pos && banana_pos < cherry_pos,
+        "sort order wrong: {out}"
+    );
+}
+
+#[test]
+fn test_line_tools_unique() {
+    use hematite::tools::line_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(line_tools::execute(&json!({
+        "action": "unique",
+        "text": TEST_LINES
+    })));
+    assert!(result.is_ok(), "{:?}", result);
+    let out = result.unwrap();
+    // "apple" appears twice in TEST_LINES — should appear once in unique output
+    let apple_count = out.matches("apple").count();
+    assert_eq!(apple_count, 1, "expected apple once: {out}");
+}
+
+#[test]
+fn test_line_tools_count() {
+    use hematite::tools::line_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(line_tools::execute(&json!({
+        "action": "count",
+        "text": TEST_LINES
+    })));
+    assert!(result.is_ok(), "{:?}", result);
+    let out = result.unwrap();
+    assert!(out.contains("Lines") || out.contains("line"), "{out}");
+    assert!(out.contains("Words") || out.contains("word"), "{out}");
+    assert!(out.contains('8'), "{out}"); // 8 lines in TEST_LINES
+}
+
+#[test]
+fn test_line_tools_slice() {
+    use hematite::tools::line_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    // Use a simple deterministic input without repeated words
+    let text = "alpha\nbeta\ngamma\ndelta\nepsilon";
+    let result = rt.block_on(line_tools::execute(&json!({
+        "action": "slice",
+        "text": text,
+        "from": 2,
+        "to": 4
+    })));
+    assert!(result.is_ok(), "{:?}", result);
+    let out = result.unwrap();
+    assert!(out.contains("beta"), "{out}");
+    assert!(out.contains("gamma"), "{out}");
+    assert!(out.contains("delta"), "{out}");
+    assert!(!out.contains("alpha"), "{out}");
+    assert!(!out.contains("epsilon"), "{out}");
+}
+
+#[test]
+fn test_line_tools_join() {
+    use hematite::tools::line_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(line_tools::execute(&json!({
+        "action": "join",
+        "text": "one\ntwo\nthree",
+        "sep": " | "
+    })));
+    assert!(result.is_ok(), "{:?}", result);
+    let out = result.unwrap();
+    assert!(out.contains("one | two | three"), "{out}");
+}
+
+#[test]
+fn test_line_tools_replace() {
+    use hematite::tools::line_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(line_tools::execute(&json!({
+        "action": "replace",
+        "text": "foo bar foo baz foo",
+        "from": "foo",
+        "to": "qux"
+    })));
+    assert!(result.is_ok(), "{:?}", result);
+    let out = result.unwrap();
+    assert!(out.contains("qux bar qux baz qux"), "{out}");
+    assert!(!out.contains("foo"), "{out}");
+}
+
+#[test]
+fn test_line_tools_cut() {
+    use hematite::tools::line_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(line_tools::execute(&json!({
+        "action": "cut",
+        "text": "Alice,95\nBob,87\nCarol,92",
+        "delimiter": ",",
+        "field": 2
+    })));
+    assert!(result.is_ok(), "{:?}", result);
+    let out = result.unwrap();
+    assert!(out.contains("95"), "{out}");
+    assert!(out.contains("87"), "{out}");
+    assert!(out.contains("92"), "{out}");
+    assert!(!out.contains("Alice"), "{out}");
+}
+
+#[test]
+fn test_routing_detects_line_tools() {
+    use hematite::agent::routing::needs_line_tools;
+    assert!(needs_line_tools("grep for ERROR in the log file"));
+    assert!(needs_line_tools("filter lines containing debug"));
+    assert!(needs_line_tools("first 10 lines of this file"));
+    assert!(needs_line_tools("last 10 lines of output.log"));
+    assert!(needs_line_tools("sort these lines alphabetically"));
+    assert!(needs_line_tools("unique lines in this file"));
+    assert!(needs_line_tools("count lines in the output"));
+    assert!(needs_line_tools("join lines with a comma"));
+    assert!(!needs_line_tools("run cargo test"));
+    assert!(!needs_line_tools("query my sqlite database"));
+}
