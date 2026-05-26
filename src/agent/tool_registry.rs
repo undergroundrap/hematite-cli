@@ -2131,6 +2131,266 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         }),
     ));
     tools.push(make_tool(
+        "cron_tools",
+        "Parse, explain, validate, and calculate run times for cron expressions. \
+         All computation is local — no internet required. \
+         Actions: \
+         `explain` (default) — field-by-field breakdown: minute, hour, day-of-month, month, weekday \
+            plus a one-line plain-English summary; \
+         `validate` — check whether an expression is syntactically valid; \
+         `next` — list the next N execution times from now (default 5, max 20); \
+         `describe` — one-line natural-language summary only. \
+         Accepts expressions via 'expression' or 'input' field. \
+         Supports: `*`, `/N` step, `,` list, `-` range, named months (January/Jan) and weekdays (Monday/Mon), \
+         and `0`–`7` for Sunday in the weekday field. \
+         Example: cron_tools(action: \"explain\", expression: \"0 */6 * * *\") — every 6 hours; \
+         cron_tools(action: \"next\", expression: \"30 9 * * 1-5\", n: 10) — next 10 weekday 9:30am runs.",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "Operation: explain (default), validate, next, describe."
+                },
+                "expression": {
+                    "type": "string",
+                    "description": "The cron expression (5 fields: minute hour day month weekday). E.g. '0 */6 * * *'."
+                },
+                "input": {
+                    "type": "string",
+                    "description": "Alias for 'expression'."
+                },
+                "n": {
+                    "type": "integer",
+                    "description": "Number of next run times to calculate (for 'next'). Default: 5, max: 20."
+                }
+            },
+            "required": []
+        }),
+    ));
+    tools.push(make_tool(
+        "ip_tools",
+        "IP address parsing, CIDR subnet calculations, and format conversion. Pure Rust, no internet required. \
+         Actions: \
+         `info` — parse an IPv4 or IPv6 address: class (A/B/C/D/E), type (public/private/loopback/multicast), \
+            binary representation, decimal integer, hex, and IPv4-mapped IPv6 form; \
+         `cidr` — CIDR breakdown (e.g. '192.168.1.0/24'): network address, subnet mask, broadcast, \
+            first/last usable host, usable host count, wildcard mask, binary representations; \
+         `contains` — check if an IP address falls within a CIDR network (pass 'ip' and 'cidr' fields); \
+         `convert` — convert an IPv4 address between dotted-decimal, decimal integer, hex, and binary; \
+         `subnet` — given an IP and a dotted-decimal subnet mask, show network/broadcast/prefix/usable hosts.",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "Operation: info (default), cidr, contains, convert, subnet."
+                },
+                "input": {
+                    "type": "string",
+                    "description": "IP address or CIDR notation (e.g. '192.168.1.1', '10.0.0.0/8', '255', '0xFF000000')."
+                },
+                "ip": {
+                    "type": "string",
+                    "description": "IP address to check (for 'contains'). E.g. '192.168.1.50'."
+                },
+                "cidr": {
+                    "type": "string",
+                    "description": "CIDR network to test against (for 'contains'). E.g. '192.168.1.0/24'."
+                },
+                "network": {
+                    "type": "string",
+                    "description": "Alias for 'cidr'."
+                },
+                "mask": {
+                    "type": "string",
+                    "description": "Dotted-decimal subnet mask (for 'subnet'). E.g. '255.255.255.0'."
+                }
+            },
+            "required": []
+        }),
+    ));
+    tools.push(make_tool(
+        "color_tools",
+        "Color format conversion, analysis, and palette generation. All computation is local. \
+         Accepts any of: #RRGGBB, #RGB, rgb(R,G,B), hsl(H,S%,L%), or CSS named colors (red, blue, coral, etc.). \
+         Actions: \
+         `info` (default) — full breakdown: hex, RGB, HSL, relative luminance, dark/light perception, \
+            WCAG contrast ratio against white and black; \
+         `convert` — convert a color to all formats (hex, RGB, HSL); \
+         `contrast` — WCAG contrast ratio between two colors ('color1' and 'color2') with AA/AAA grade; \
+         `mix` — blend two colors at a given ratio (0.0–1.0, default 0.5); \
+         `lighten` — increase lightness by 'amount' percent (default 10); \
+         `darken` — decrease lightness by 'amount' percent (default 10); \
+         `palette` — generate complementary, triadic, analogous, lighter, and darker variants.",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "Operation: info (default), convert, contrast, mix, lighten, darken, palette."
+                },
+                "input": {
+                    "type": "string",
+                    "description": "Color string (#RRGGBB, rgb(R,G,B), hsl(H,S%,L%), or CSS name). Used by: info, convert, lighten, darken, palette."
+                },
+                "color1": {
+                    "type": "string",
+                    "description": "First color for 'contrast' or 'mix'."
+                },
+                "color2": {
+                    "type": "string",
+                    "description": "Second color for 'contrast' or 'mix'."
+                },
+                "a": {
+                    "type": "string",
+                    "description": "Alias for 'color1'."
+                },
+                "b": {
+                    "type": "string",
+                    "description": "Alias for 'color2'."
+                },
+                "ratio": {
+                    "type": "number",
+                    "description": "Blend ratio for 'mix' (0.0 = all color1, 1.0 = all color2). Default: 0.5."
+                },
+                "amount": {
+                    "type": "number",
+                    "description": "Percentage to lighten or darken (for 'lighten'/'darken'). Default: 10."
+                }
+            },
+            "required": []
+        }),
+    ));
+    tools.push(make_tool(
+        "semver_tools",
+        "Parse, compare, bump, validate, and range-check semantic versions (SemVer 2.0). \
+         Accepts versions with or without a leading 'v' prefix. \
+         Actions: \
+         `parse` (default) — break a version into major/minor/patch, pre-release, build metadata, and stability flag; \
+         `compare` — compare two versions ('a' and 'b' fields) and report which is newer or if equal; \
+         `bump` — increment a version ('input' + 'part': major/minor/patch/premajor/preminor/prepatch); \
+         `validate` — check if a string is valid semver; \
+         `satisfies` — check if 'version' matches a 'range' (supports ^, ~, >=, <=, >, <, =, * and || OR ranges); \
+         `sort` — sort an array of versions ('versions' field) in 'asc' or 'desc' order.",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "Operation: parse (default), compare, bump, validate, satisfies, sort."
+                },
+                "input": {
+                    "type": "string",
+                    "description": "Version string to parse, bump, or validate. E.g. '1.2.3', 'v2.0.0-beta.1'."
+                },
+                "version": {
+                    "type": "string",
+                    "description": "Version to check against a range (for 'satisfies') or alias for 'input'."
+                },
+                "a": {
+                    "type": "string",
+                    "description": "First version for 'compare'. Alias: 'version1'."
+                },
+                "b": {
+                    "type": "string",
+                    "description": "Second version for 'compare'. Alias: 'version2'."
+                },
+                "part": {
+                    "type": "string",
+                    "description": "Part to bump (for 'bump'): major, minor, patch, premajor, preminor, prepatch. Default: patch."
+                },
+                "range": {
+                    "type": "string",
+                    "description": "Version range for 'satisfies'. E.g. '^1.2.3', '>=2.0.0 <3.0.0', '~1.4', '1.x', '*'."
+                },
+                "versions": {
+                    "type": "array",
+                    "description": "Array of version strings to sort (for 'sort').",
+                    "items": { "type": "string" }
+                },
+                "order": {
+                    "type": "string",
+                    "description": "Sort order for 'sort': 'asc' (oldest first, default) or 'desc' (newest first)."
+                }
+            },
+            "required": []
+        }),
+    ));
+    tools.push(make_tool(
+        "password_gen",
+        "Generate secure passwords, passphrases, and PINs, and analyze password strength. \
+         All generation uses cryptographically random bytes locally — no internet required. \
+         Actions: \
+         `generate` (default) — random password with configurable options: \
+            'length' (default 16, max 128), 'upper'/'lower'/'digits'/'symbols' booleans (all true by default), \
+            'no_ambiguous' to exclude 0/O/1/l/I, 'count' for multiple passwords at once (max 20); \
+         `passphrase` — memorable word-based passphrase: \
+            'words' (default 4, max 12), 'separator' (default '-'), 'capitalize', 'number' (appends 2-digit random), \
+            'count' for multiple; \
+         `strength` — analyze a password's strength: score 0-4, entropy bits, character class checklist, \
+            and improvement suggestions; \
+         `pin` — numeric PIN: 'length' (default 6, max 12), 'count' for multiple.",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "Operation: generate (default), passphrase, strength, pin."
+                },
+                "length": {
+                    "type": "integer",
+                    "description": "Password or PIN length. Default: 16 for generate, 6 for pin. Max: 128 for generate, 12 for pin."
+                },
+                "upper": {
+                    "type": "boolean",
+                    "description": "Include uppercase letters (for 'generate'). Default: true."
+                },
+                "lower": {
+                    "type": "boolean",
+                    "description": "Include lowercase letters (for 'generate'). Default: true."
+                },
+                "digits": {
+                    "type": "boolean",
+                    "description": "Include digits (for 'generate'). Default: true."
+                },
+                "symbols": {
+                    "type": "boolean",
+                    "description": "Include symbol characters (for 'generate'). Default: true."
+                },
+                "no_ambiguous": {
+                    "type": "boolean",
+                    "description": "Exclude ambiguous characters (0, O, 1, l, I) for readability. Default: false."
+                },
+                "count": {
+                    "type": "integer",
+                    "description": "Number of passwords/passphrases/PINs to generate at once. Max: 20."
+                },
+                "words": {
+                    "type": "integer",
+                    "description": "Number of words in passphrase (for 'passphrase'). Default: 4, max: 12."
+                },
+                "separator": {
+                    "type": "string",
+                    "description": "Word separator for passphrase (for 'passphrase'). Default: '-'."
+                },
+                "capitalize": {
+                    "type": "boolean",
+                    "description": "Capitalize first letter of each word (for 'passphrase'). Default: false."
+                },
+                "number": {
+                    "type": "boolean",
+                    "description": "Append a random 2-digit number to passphrase (for 'passphrase'). Default: true."
+                },
+                "input": {
+                    "type": "string",
+                    "description": "Password to analyze (for 'strength')."
+                }
+            },
+            "required": []
+        }),
+    ));
+    tools.push(make_tool(
         "template_gen",
         "Generate boilerplate files from built-in templates. \
          Supports Dockerfiles (Node.js, Python, Rust, Go multi-stage), \
@@ -2384,6 +2644,11 @@ pub async fn dispatch_builtin_tool(
         "date_tools" => crate::tools::date_tools::execute(args).await,
         "number_tools" => crate::tools::number_tools::execute(args).await,
         "uuid_gen" => crate::tools::uuid_gen::execute(args).await,
+        "cron_tools" => crate::tools::cron_tools::execute(args).await,
+        "ip_tools" => crate::tools::ip_tools::execute(args).await,
+        "color_tools" => crate::tools::color_tools::execute(args).await,
+        "semver_tools" => crate::tools::semver_tools::execute(args).await,
+        "password_gen" => crate::tools::password_gen::execute(args).await,
         "git_status" => crate::tools::git::execute_status(args).await,
         "git_diff" => crate::tools::git::execute_diff(args).await,
         "git_log" => crate::tools::git::execute_log(args).await,

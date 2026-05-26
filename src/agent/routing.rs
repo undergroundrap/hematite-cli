@@ -6269,6 +6269,111 @@ pub fn needs_uuid_gen(user_input: &str) -> bool {
         || lower.contains("multiple uuid")
 }
 
+/// Returns true when the user wants cron expression help — steer toward `cron_tools`.
+pub fn needs_cron_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    lower.contains("cron")
+        || lower.contains("crontab")
+        || lower.contains("cron expression")
+        || lower.contains("cron schedule")
+        || lower.contains("explain this schedule")
+        || lower.contains("next run")
+        || lower.contains("when does this job run")
+        || lower.contains("when will it run")
+        || lower.contains("scheduled job")
+        || lower.contains("0 * * * *")
+        || lower.contains("*/")
+        || (lower.contains("schedule") && lower.contains("explain"))
+}
+
+/// Returns true when the user wants IP address or CIDR tools — steer toward `ip_tools`.
+pub fn needs_ip_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    lower.contains("cidr")
+        || lower.contains("subnet mask")
+        || lower.contains("subnet calculation")
+        || lower.contains("ip address info")
+        || lower.contains("ip address class")
+        || lower.contains("network address")
+        || lower.contains("broadcast address")
+        || lower.contains("usable hosts")
+        || lower.contains("is this ip")
+        || lower.contains("ip range")
+        || lower.contains("ip subnet")
+        || lower.contains("convert ip")
+        || lower.contains("ip to decimal")
+        || lower.contains("ip in subnet")
+        || lower.contains("ip contains")
+        || lower.contains("192.168.")
+        || lower.contains("10.0.")
+        || lower.contains("/24")
+        || lower.contains("/16")
+        || lower.contains("/8")
+}
+
+/// Returns true when the user wants color conversion or analysis — steer toward `color_tools`.
+pub fn needs_color_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    lower.contains("hex color")
+        || lower.contains("rgb color")
+        || lower.contains("hsl color")
+        || lower.contains("color hex")
+        || lower.contains("color code")
+        || lower.contains("convert color")
+        || lower.contains("color conversion")
+        || lower.contains("contrast ratio")
+        || lower.contains("wcag")
+        || lower.contains("color contrast")
+        || lower.contains("lighten color")
+        || lower.contains("darken color")
+        || lower.contains("mix colors")
+        || lower.contains("blend color")
+        || lower.contains("color palette")
+        || lower.contains("complementary color")
+        || lower.contains("#rrggbb")
+        || lower.contains("rgb(")
+        || lower.contains("hsl(")
+}
+
+/// Returns true when the user wants semver parsing or comparison — steer toward `semver_tools`.
+pub fn needs_semver_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    lower.contains("semver")
+        || lower.contains("semantic version")
+        || lower.contains("bump version")
+        || lower.contains("bump the version")
+        || lower.contains("compare versions")
+        || lower.contains("version range")
+        || lower.contains("satisfies range")
+        || lower.contains("is compatible")
+        || lower.contains("version compatible")
+        || lower.contains("parse version")
+        || lower.contains("sort versions")
+        || lower.contains("which version is newer")
+        || lower.contains("version constraint")
+        || lower.contains("^1.")
+        || lower.contains("~1.")
+}
+
+/// Returns true when the user wants password generation or strength analysis — steer toward `password_gen`.
+pub fn needs_password_gen(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    lower.contains("generate password")
+        || lower.contains("generate a password")
+        || lower.contains("random password")
+        || lower.contains("secure password")
+        || lower.contains("strong password")
+        || lower.contains("passphrase")
+        || lower.contains("pass phrase")
+        || lower.contains("password strength")
+        || lower.contains("how strong is")
+        || lower.contains("check password")
+        || lower.contains("generate pin")
+        || lower.contains("random pin")
+        || lower.contains("numeric pin")
+        || lower.contains("memorable password")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

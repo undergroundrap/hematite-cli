@@ -27,10 +27,11 @@ use crate::agent::recovery_recipes::{
 };
 use crate::agent::routing::{
     all_host_inspection_topics, classify_query_intent, is_capability_probe_tool,
-    is_scaffold_request, looks_like_mutation_request, needs_computation_sandbox, needs_crash_debug,
-    needs_csv_tools, needs_date_tools, needs_diff_tools, needs_docker_ops, needs_encode_tools,
-    needs_format, needs_github_ops, needs_hash_tools, needs_http_request, needs_lint_check,
-    needs_number_tools, needs_regex_tools, needs_secret_scan, needs_test_run, needs_text_tools,
+    is_scaffold_request, looks_like_mutation_request, needs_color_tools, needs_computation_sandbox,
+    needs_crash_debug, needs_cron_tools, needs_csv_tools, needs_date_tools, needs_diff_tools,
+    needs_docker_ops, needs_encode_tools, needs_format, needs_github_ops, needs_hash_tools,
+    needs_http_request, needs_ip_tools, needs_lint_check, needs_number_tools, needs_password_gen,
+    needs_regex_tools, needs_secret_scan, needs_semver_tools, needs_test_run, needs_text_tools,
     needs_toml_tools, needs_uuid_gen, needs_yaml_tools, preferred_host_inspection_topic,
     preferred_maintainer_workflow, preferred_workspace_workflow, DirectAnswerKind,
     QueryIntentClass,
@@ -5213,6 +5214,83 @@ impl ConversationManager {
                  bulk (generate N UUIDs at once, up to 100 — pass 'n' field). \
                  All actions accept 'upper: true' for uppercase output. \
                  Example: uuid_gen(action: \"generate\") or uuid_gen(action: \"bulk\", n: 10)."
+                    .to_string(),
+            );
+        }
+
+        // ── Cron Tools Routing: steer model toward cron_tools ──
+        if loop_intervention.is_none() && needs_cron_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "CRON NOTICE: Use the `cron_tools` tool for cron expression work. \
+                 Actions: explain (field-by-field breakdown of any cron expression), \
+                 validate (check if an expression is valid), \
+                 next (list the next N run times from now — pass 'n' for count, default 5), \
+                 describe (one-line plain-English summary). \
+                 Pass the expression via 'expression' or 'input'. \
+                 Example: cron_tools(action: \"explain\", expression: \"0 */6 * * *\") or \
+                 cron_tools(action: \"next\", expression: \"0 9 * * 1\", n: 5)."
+                    .to_string(),
+            );
+        }
+
+        // ── IP Tools Routing: steer model toward ip_tools ──
+        if loop_intervention.is_none() && needs_ip_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "IP NOTICE: Use the `ip_tools` tool for IP address and CIDR calculations. \
+                 Actions: info (parse an IP address — class, type, binary, decimal, hex), \
+                 cidr (CIDR breakdown — pass '192.168.1.0/24' style input: network, broadcast, range, usable hosts), \
+                 contains (check if an IP is in a CIDR network — pass 'ip' and 'cidr' fields), \
+                 convert (convert between IPv4 decimal/hex/binary formats), \
+                 subnet (given IP + mask, show network info). \
+                 Example: ip_tools(action: \"cidr\", input: \"10.0.0.0/8\") or \
+                 ip_tools(action: \"contains\", ip: \"192.168.1.50\", cidr: \"192.168.1.0/24\")."
+                    .to_string(),
+            );
+        }
+
+        // ── Color Tools Routing: steer model toward color_tools ──
+        if loop_intervention.is_none() && needs_color_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "COLOR NOTICE: Use the `color_tools` tool for color conversion and analysis. \
+                 Actions: info (full breakdown — hex, RGB, HSL, luminance, WCAG contrast on white/black), \
+                 convert (any format → hex + RGB + HSL), \
+                 contrast (WCAG contrast ratio between two colors — pass 'color1' and 'color2'), \
+                 mix (blend two colors — pass 'color1', 'color2', optional 'ratio' 0.0–1.0), \
+                 lighten / darken (adjust lightness by 'amount' percent), \
+                 palette (complementary, triadic, analogous, lighter/darker variants). \
+                 Accepts: #RRGGBB, #RGB, rgb(R,G,B), hsl(H,S%,L%), or CSS color names. \
+                 Example: color_tools(action: \"contrast\", color1: \"#FFFFFF\", color2: \"#0066CC\")."
+                    .to_string(),
+            );
+        }
+
+        // ── SemVer Tools Routing: steer model toward semver_tools ──
+        if loop_intervention.is_none() && needs_semver_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "SEMVER NOTICE: Use the `semver_tools` tool for semantic version work. \
+                 Actions: parse (break a version into major/minor/patch/pre-release/build meta), \
+                 compare (compare two versions — pass 'a' and 'b'), \
+                 bump (increment a version — pass 'input' and 'part': major/minor/patch/premajor/preminor/prepatch), \
+                 validate (check if a string is valid semver), \
+                 satisfies (check if a version matches a range like '^1.2.3' or '>=2.0.0 <3.0.0' — pass 'version' and 'range'), \
+                 sort (sort an array of versions — pass 'versions' array and optional 'order': asc/desc). \
+                 Example: semver_tools(action: \"satisfies\", version: \"1.5.3\", range: \"^1.2.0\") or \
+                 semver_tools(action: \"bump\", input: \"1.4.2\", part: \"minor\")."
+                    .to_string(),
+            );
+        }
+
+        // ── Password Gen Routing: steer model toward password_gen ──
+        if loop_intervention.is_none() && needs_password_gen(&effective_user_input) {
+            loop_intervention = Some(
+                "PASSWORD NOTICE: Use the `password_gen` tool for secure password generation and analysis. \
+                 Actions: generate (default — random password; options: 'length' (default 16), \
+                 'upper'/'lower'/'digits'/'symbols' booleans, 'no_ambiguous', 'count' for multiple), \
+                 passphrase (word-based — options: 'words' (default 4), 'separator', 'capitalize', 'number', 'count'), \
+                 strength (analyze password strength — pass 'input'), \
+                 pin (numeric PIN — options: 'length' (default 6), 'count'). \
+                 Example: password_gen(action: \"generate\", length: 20, symbols: true) or \
+                 password_gen(action: \"passphrase\", words: 5)."
                     .to_string(),
             );
         }
