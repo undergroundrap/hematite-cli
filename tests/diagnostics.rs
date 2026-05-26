@@ -15092,6 +15092,74 @@ fn test_secret_scanner_skips_binary_files() {
 }
 
 #[test]
+fn test_env_diff_two_files() {
+    use hematite::tools::env_diff;
+    use serde_json::json;
+
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(
+        dir.path().join(".env"),
+        "DATABASE_URL=postgres://localhost/dev\nAPI_KEY=abc123\nDEBUG=true\n",
+    ).unwrap();
+    std::fs::write(
+        dir.path().join(".env.production"),
+        "DATABASE_URL=postgres://prod-host/prod\nAPI_KEY=xyz789\nDEBUG=false\nSENTRY_DSN=https://example.sentry.io/123\n",
+    ).unwrap();
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(env_diff::execute(&json!({
+        "file_a": ".env",
+        "file_b": ".env.production",
+        "_root": dir.path().to_str().unwrap()
+    })));
+    let out = result.expect("should succeed");
+    assert!(out.contains("ENV DIFF"), "should have header: {out}");
+    assert!(out.contains("Changed") || out.contains("~"), "should show changed values: {out}");
+    assert!(out.contains("REDACTED"), "should redact API_KEY: {out}");
+    assert!(out.contains("SENTRY_DSN") || out.contains("addition"), "should show additions: {out}");
+}
+
+#[test]
+fn test_env_diff_detects_no_diff() {
+    use hematite::tools::env_diff;
+    use serde_json::json;
+
+    let dir = tempfile::tempdir().unwrap();
+    let content = "FOO=bar\nBAZ=qux\n";
+    std::fs::write(dir.path().join(".env"), content).unwrap();
+    std::fs::write(dir.path().join(".env.copy"), content).unwrap();
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(env_diff::execute(&json!({
+        "file_a": ".env",
+        "file_b": ".env.copy",
+        "_root": dir.path().to_str().unwrap()
+    })));
+    let out = result.expect("should succeed");
+    assert!(
+        out.contains("identical") || out.contains("No differences"),
+        "identical files should show no diff: {out}"
+    );
+}
+
+#[test]
+fn test_env_diff_auto_detect() {
+    use hematite::tools::env_diff;
+    use serde_json::json;
+
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(dir.path().join(".env"), "FOO=dev\n").unwrap();
+    std::fs::write(dir.path().join(".env.local"), "FOO=local\n").unwrap();
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(env_diff::execute(&json!({
+        "_root": dir.path().to_str().unwrap()
+    })));
+    // Should auto-detect and compare the two files
+    assert!(result.is_ok(), "auto-detect should succeed: {:?}", result);
+}
+
+#[test]
 fn test_port_check_closed_port() {
     use hematite::tools::port_check;
     use serde_json::json;

@@ -1528,6 +1528,29 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         }),
     ));
     tools.push(make_tool(
+        "env_diff",
+        "Compare environment variables between two .env files, or between a .env file and the live process environment. \
+         Shows additions (+), removals (-), and changed values (~) with secret values automatically redacted. \
+         With no arguments, auto-detects .env files in the workspace root (compares .env vs .env.local if both exist, \
+         or .env vs process env if only one exists). \
+         Useful for debugging CI vs local discrepancies, staging vs production config drift, \
+         and validating .env changes before deploying. \
+         Example: env_diff(file_a: '.env', file_b: '.env.production') or env_diff(file_a: '.env') to compare against process.",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "file_a": {
+                    "type": "string",
+                    "description": "First .env file path (relative to workspace root or absolute). Auto-detected if omitted."
+                },
+                "file_b": {
+                    "type": "string",
+                    "description": "Second .env file path. If omitted with file_a present, compares file_a against the live process environment."
+                }
+            }
+        }),
+    ));
+    tools.push(make_tool(
         "port_check",
         "Test whether a TCP port is reachable on a given host. \
          Returns OPEN or CLOSED/FILTERED with the resolved IP, response time, and port service annotation. \
@@ -1685,6 +1708,7 @@ pub async fn dispatch_builtin_tool(
         "code_metrics" => crate::tools::code_metrics::execute(args).await,
         "dependency_audit" => crate::tools::dependency_audit::execute(args).await,
         "port_check" => crate::tools::port_check::execute(args).await,
+        "env_diff" => crate::tools::env_diff::execute(args).await,
         "git_status" => crate::tools::git::execute_status(args).await,
         "git_diff" => crate::tools::git::execute_diff(args).await,
         "git_log" => crate::tools::git::execute_log(args).await,

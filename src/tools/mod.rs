@@ -11,6 +11,7 @@ pub mod debugger;
 pub mod dependency_audit;
 pub mod deps;
 pub mod docker_ops;
+pub mod env_diff;
 pub mod file_edit;
 pub mod file_ops;
 pub mod formatter;
