@@ -252,7 +252,22 @@ Hematite is more than a chat shell around a local model.
 - **Grounded toolchain guidance**: `describe_toolchain` gives the model a verified read-only map of Hematite's actual built-in tools, when to use them, and what investigation order makes sense
 - **Vision support**: screenshot and diagram analysis can flow through `vision_analyze` when a task benefits from visual inspection
 
-## 6. Stateful Local Workflow
+## 6. Developer Utility Tools
+
+Hematite ships a suite of zero-dependency in-agent developer tools that run entirely in Rust — no external binaries, no internet, no Python sandbox required.
+
+- **`secret_scanner`** — scans the workspace for accidentally committed secrets using 14 compiled regex patterns (AWS keys, GitHub tokens, Stripe keys, Slack webhooks, private key blocks, database URLs, bearer tokens, password literals, Twilio, SendGrid, Heroku, and more). Skips binaries, lock files, and obvious placeholders. Groups findings by file with line numbers, secret type, and a redacted snippet. Includes actionable remediation steps (rotate, .gitignore, git filter-repo).
+- **`changelog_gen`** — generates Markdown changelogs from git commit history grouped by conventional commit type (feat/fix/perf/refactor/docs/test/chore/ci/build/style). Supports version range scoping via `from`/`to` tags, custom title, up to 500 commits. Scopes in bold, short hash appended.
+- **`code_metrics`** — reports lines of code, comment density, blank lines, TODO/FIXME counts, language breakdown by file extension, test file ratio, and top 10 largest files. Skips binaries, build artifacts, and vendor directories.
+- **`dependency_audit`** — audits Cargo.toml, package.json, requirements.txt/pyproject.toml, and go.mod for pinning issues, wildcard versions, deprecated packages, missing lock files, and outdated major versions. No network required.
+- **`port_check`** — tests TCP port reachability with configurable timeout. Annotates 40+ well-known ports. Returns OPEN or CLOSED/FILTERED with actionable startup hints.
+- **`env_diff`** — compares two `.env` files or a `.env` file against the live process environment. Reports additions, removals, and changed values with secrets automatically redacted. Auto-detects `.env`/`.env.local` pairs.
+- **`template_gen`** — generates 23 built-in project templates: Dockerfiles (Node/Python/Rust/Go multi-stage), GitHub Actions CI workflows, .gitignore for 4 ecosystems, .env.example, Makefiles, docker-compose.yml, .pre-commit-config.yaml, .editorconfig, Dependabot config, CODEOWNERS, PR template, and issue templates.
+- **`json_tools`** — queries, transforms, and analyzes JSON without needing jq. 16 actions: pretty, compact, keys, get (dot-path + array index navigation), filter (field comparison with 8 operators), pluck, flatten, count, sort, unique, merge, diff, validate, schema (recursive type inference), stats (numeric min/max/mean/median/stddev), to-csv. Accepts inline JSON or file path.
+- **`regex_tools`** — tests, extracts, replaces, splits, and explains regular expressions without external tools. 6 actions: test (match/no-match with excerpts, single or array input), extract (all matches or named/numbered capture groups), replace (with optional limit), split, explain (plain-English breakdown of each syntax component), named-groups. Flags: case_insensitive, multiline, dot_all.
+- **`diff_tools`** — compares, patches, and analyzes text or file differences. 5 actions: compare (unified diff with configurable context lines), patch (generate a unified .patch), apply (apply a unified patch to a base), word-diff (inline `[+added]`/`[-removed]` word-level diff), stat (added/deleted/unchanged lines, similarity %, ASCII bar). Accepts inline text or file paths.
+
+## 7. Stateful Local Workflow
 
 Hematite is built for repeated project use, not one-off prompts.
 
@@ -276,7 +291,7 @@ Hematite is built for repeated project use, not one-off prompts.
 
 - **Grounded storage walkthroughs**: teacher mode can now build step-by-step remediation around `docker_filesystems` and `wsl_filesystems`, so mount/path/storage fixes start from observed bind mounts, VHDX growth, and bridge health rather than generic advice
 
-## 7. Voice and TUI Integration
+## 8. Voice and TUI Integration
 
 Hematite includes built-in operator experience features that are part of the product, not bolted on later.
 
@@ -285,7 +300,7 @@ Hematite includes built-in operator experience features that are part of the pro
 - **Live diagnostics**: runtime state, GPU load, and tool activity are surfaced during use
 - **Hybrid thinking**: non-Gemma models (Qwen etc.) automatically use `/think` mode so the model decides how much reasoning each turn needs without user intervention
 
-## 8. Sandboxed Code Execution
+## 9. Sandboxed Code Execution
 
 Hematite can run code the model writes in a restricted subprocess — enabling real computation, not pattern-matched guesses from training data.
 
@@ -317,7 +332,7 @@ That result cannot come from training data. SHA-256 is deterministic but not mem
 - **Computational Ledger (Scientific Memory)**: A persistent, RAG-indexed notebook (`.hematite/docs/scientific_ledger.md`) where Hematite stores derivations, constants, and multi-step theorem proofs. This allows the model to recall previous project math in future turns without eating context.
 - **Dataset Bridge**: Seamless integration between SQL data (CSV/DB/JSON) and high-precision scientific solvers, enabling statistical analysis and formal math on production datasets.
 
-## 11. Unlimited Hardened Technical Research
+## 12. Unlimited Hardened Technical Research
 
 Hematite transforms technical discovery into a privacy-first, grounded competency using a **hardened, self-healing search infrastructure** — a curated technical-source engine pool with no cloud API keys or rate limits.
 
@@ -327,7 +342,7 @@ Hematite transforms technical discovery into a privacy-first, grounded competenc
 - **Self-Healing Lifecycle**: Hematite manages the search engine's health autonomously, performing heartbeat checks during the runtime boot sequence and auto-booting the container if it's offline. If Docker is unavailable, Hematite surfaces a compact startup note with the fix instead of silently failing.
 - **Intent-Aware Routing**: The system's intent classifier distinguishes between "Research" (external web discovery) and "Analysis" (local codebase exploration), ensuring that "search" queries meant for the repository don't wander to the internet.
 
-## 12. Headless IT Automation
+## 13. Headless IT Automation
 
 Every diagnostic command runs without a model, TUI, or network. The full headless surface is scriptable and CI-friendly.
 

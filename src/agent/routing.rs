@@ -5757,6 +5757,35 @@ pub fn needs_secret_scan(user_input: &str) -> bool {
         || lower.contains("trufflehog")
 }
 
+/// Returns true when the user wants to diff or compare text/files — steer toward `diff_tools`.
+pub fn needs_diff_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    lower.contains("diff these")
+        || lower.contains("diff the")
+        || lower.contains("diff two files")
+        || lower.contains("compare these files")
+        || lower.contains("compare the files")
+        || lower.contains("compare these two")
+        || lower.contains("show me the diff")
+        || lower.contains("show the diff")
+        || lower.contains("generate a patch")
+        || lower.contains("make a patch")
+        || lower.contains("apply this patch")
+        || lower.contains("apply the patch")
+        || lower.contains("word diff")
+        || lower.contains("word-diff")
+        || lower.contains("diff stat")
+        || lower.contains("how many lines changed")
+        || lower.contains("what changed between")
+        || lower.contains("what's the difference between")
+        || lower.contains("what is the difference between")
+        || (lower.contains("diff") && lower.contains("file"))
+        || (lower.contains("diff") && lower.contains("config"))
+        || (lower.contains("unified diff") || lower.contains("unified patch"))
+        || (lower.contains("compare") && lower.contains("versions"))
+        || (lower.contains("similarity") && lower.contains("files"))
+}
+
 /// Returns true when the user wants regex help — steer toward `regex_tools`.
 pub fn needs_regex_tools(user_input: &str) -> bool {
     let lower = user_input.to_lowercase();

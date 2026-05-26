@@ -28,8 +28,9 @@ use crate::agent::recovery_recipes::{
 use crate::agent::routing::{
     all_host_inspection_topics, classify_query_intent, is_capability_probe_tool,
     is_scaffold_request, looks_like_mutation_request, needs_computation_sandbox, needs_crash_debug,
-    needs_docker_ops, needs_format, needs_github_ops, needs_http_request, needs_lint_check,
-    needs_regex_tools, needs_secret_scan, needs_test_run, preferred_host_inspection_topic,
+    needs_diff_tools, needs_docker_ops, needs_format, needs_github_ops, needs_http_request,
+    needs_lint_check, needs_regex_tools, needs_secret_scan, needs_test_run,
+    preferred_host_inspection_topic,
     preferred_maintainer_workflow, preferred_workspace_workflow, DirectAnswerKind,
     QueryIntentClass,
 };
@@ -5060,6 +5061,19 @@ impl ConversationManager {
                  Results are grouped by file with line numbers and a redacted snippet. \
                  Example: secret_scanner() to scan the entire workspace, or \
                  secret_scanner(path: \"src\") to scan a subdirectory."
+                    .to_string(),
+            );
+        }
+
+        // ── Diff Tools Routing: steer model toward diff_tools ──
+        if loop_intervention.is_none() && needs_diff_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "DIFF NOTICE: Use the `diff_tools` tool for comparing or patching text/files. \
+                 Actions: compare (unified diff with context lines), patch (generate a .patch file), \
+                 apply (apply a unified patch to a base), word-diff (inline [+added]/[-removed] tokens), \
+                 stat (lines added/deleted/unchanged + similarity %). \
+                 Provide text inline via 'text_a'/'text_b' or file paths via 'file_a'/'file_b'. \
+                 Example: diff_tools(action: \"compare\", file_a: \"old.json\", file_b: \"new.json\", context: 5)."
                     .to_string(),
             );
         }

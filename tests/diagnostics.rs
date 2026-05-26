@@ -15146,7 +15146,11 @@ fn test_json_tools_filter() {
     })));
     let out = result.expect("filter should succeed");
     let parsed: serde_json::Value = serde_json::from_str(&out).expect("should be valid JSON");
-    assert_eq!(parsed.as_array().unwrap().len(), 2, "should return 2 matching items: {out}");
+    assert_eq!(
+        parsed.as_array().unwrap().len(),
+        2,
+        "should return 2 matching items: {out}"
+    );
 }
 
 #[test]
@@ -15179,7 +15183,10 @@ fn test_json_tools_diff() {
         "with": r#"{"a":1,"b":3,"c":4}"#
     })));
     let out = result.expect("diff should succeed");
-    assert!(out.contains('~') || out.contains("change"), "should show changes: {out}");
+    assert!(
+        out.contains('~') || out.contains("change"),
+        "should show changes: {out}"
+    );
 }
 
 #[test]
@@ -15207,8 +15214,14 @@ fn test_json_tools_to_csv() {
         "json": r#"[{"name":"alice","age":30},{"name":"bob","age":25}]"#
     })));
     let out = result.expect("to-csv should succeed");
-    assert!(out.contains("name") && out.contains("age"), "should have header: {out}");
-    assert!(out.contains("alice") && out.contains("bob"), "should have rows: {out}");
+    assert!(
+        out.contains("name") && out.contains("age"),
+        "should have header: {out}"
+    );
+    assert!(
+        out.contains("alice") && out.contains("bob"),
+        "should have rows: {out}"
+    );
 }
 
 #[test]
@@ -15222,7 +15235,10 @@ fn test_json_tools_schema() {
         "json": r#"{"name":"alice","age":30,"active":true}"#
     })));
     let out = result.expect("schema should succeed");
-    assert!(out.contains("string") || out.contains("integer"), "should infer types: {out}");
+    assert!(
+        out.contains("string") || out.contains("integer"),
+        "should infer types: {out}"
+    );
 }
 
 #[test]
@@ -15662,12 +15678,17 @@ fn test_regex_tools_test_match() {
     use serde_json::json;
 
     let rt = tokio::runtime::Runtime::new().unwrap();
-    let out = rt.block_on(regex_tools::execute(&json!({
-        "action": "test",
-        "pattern": r"\d+",
-        "text": "abc 123 def"
-    }))).expect("regex test should succeed");
-    assert!(out.contains("MATCH") || out.contains("match"), "should report a match: {out}");
+    let out = rt
+        .block_on(regex_tools::execute(&json!({
+            "action": "test",
+            "pattern": r"\d+",
+            "text": "abc 123 def"
+        })))
+        .expect("regex test should succeed");
+    assert!(
+        out.contains("MATCH") || out.contains("match"),
+        "should report a match: {out}"
+    );
 }
 
 #[test]
@@ -15676,12 +15697,17 @@ fn test_regex_tools_test_no_match() {
     use serde_json::json;
 
     let rt = tokio::runtime::Runtime::new().unwrap();
-    let out = rt.block_on(regex_tools::execute(&json!({
-        "action": "test",
-        "pattern": r"\d+",
-        "text": "no digits here"
-    }))).expect("regex test should succeed");
-    assert!(out.contains("NO MATCH") || out.contains("no match") || out.contains("0 match"), "should report no match: {out}");
+    let out = rt
+        .block_on(regex_tools::execute(&json!({
+            "action": "test",
+            "pattern": r"\d+",
+            "text": "no digits here"
+        })))
+        .expect("regex test should succeed");
+    assert!(
+        out.contains("NO MATCH") || out.contains("no match") || out.contains("0 match"),
+        "should report no match: {out}"
+    );
 }
 
 #[test]
@@ -15690,13 +15716,18 @@ fn test_regex_tools_test_multiple_texts() {
     use serde_json::json;
 
     let rt = tokio::runtime::Runtime::new().unwrap();
-    let out = rt.block_on(regex_tools::execute(&json!({
-        "action": "test",
-        "pattern": r"^\d{4}-\d{2}-\d{2}$",
-        "texts": ["2024-01-15", "not-a-date", "2025-12-31"]
-    }))).expect("regex test multi should succeed");
+    let out = rt
+        .block_on(regex_tools::execute(&json!({
+            "action": "test",
+            "pattern": r"^\d{4}-\d{2}-\d{2}$",
+            "texts": ["2024-01-15", "not-a-date", "2025-12-31"]
+        })))
+        .expect("regex test multi should succeed");
     assert!(out.contains("Summary"), "should show summary: {out}");
-    assert!(out.contains("2") && (out.contains("match") || out.contains("Match")), "should show 2 matches: {out}");
+    assert!(
+        out.contains("2") && (out.contains("match") || out.contains("Match")),
+        "should show 2 matches: {out}"
+    );
 }
 
 #[test]
@@ -15705,11 +15736,13 @@ fn test_regex_tools_extract() {
     use serde_json::json;
 
     let rt = tokio::runtime::Runtime::new().unwrap();
-    let out = rt.block_on(regex_tools::execute(&json!({
-        "action": "extract",
-        "pattern": r"\d+",
-        "text": "port 8080 and 443 are open"
-    }))).expect("regex extract should succeed");
+    let out = rt
+        .block_on(regex_tools::execute(&json!({
+            "action": "extract",
+            "pattern": r"\d+",
+            "text": "port 8080 and 443 are open"
+        })))
+        .expect("regex extract should succeed");
     assert!(out.contains("8080"), "should find 8080: {out}");
     assert!(out.contains("443"), "should find 443: {out}");
 }
@@ -15720,13 +15753,18 @@ fn test_regex_tools_replace() {
     use serde_json::json;
 
     let rt = tokio::runtime::Runtime::new().unwrap();
-    let out = rt.block_on(regex_tools::execute(&json!({
-        "action": "replace",
-        "pattern": r"\d+",
-        "text": "version 1 patch 2",
-        "replacement": "X"
-    }))).expect("regex replace should succeed");
-    assert!(out.contains("version X patch X"), "should replace digits: {out}");
+    let out = rt
+        .block_on(regex_tools::execute(&json!({
+            "action": "replace",
+            "pattern": r"\d+",
+            "text": "version 1 patch 2",
+            "replacement": "X"
+        })))
+        .expect("regex replace should succeed");
+    assert!(
+        out.contains("version X patch X"),
+        "should replace digits: {out}"
+    );
 }
 
 #[test]
@@ -15735,12 +15773,17 @@ fn test_regex_tools_split() {
     use serde_json::json;
 
     let rt = tokio::runtime::Runtime::new().unwrap();
-    let out = rt.block_on(regex_tools::execute(&json!({
-        "action": "split",
-        "pattern": r",\s*",
-        "text": "one, two,three,  four"
-    }))).expect("regex split should succeed");
-    assert!(out.contains("4 part") || out.contains("4 Part"), "should split into 4 parts: {out}");
+    let out = rt
+        .block_on(regex_tools::execute(&json!({
+            "action": "split",
+            "pattern": r",\s*",
+            "text": "one, two,three,  four"
+        })))
+        .expect("regex split should succeed");
+    assert!(
+        out.contains("4 part") || out.contains("4 Part"),
+        "should split into 4 parts: {out}"
+    );
     assert!(out.contains("one"), "should contain 'one': {out}");
 }
 
@@ -15750,12 +15793,20 @@ fn test_regex_tools_explain() {
     use serde_json::json;
 
     let rt = tokio::runtime::Runtime::new().unwrap();
-    let out = rt.block_on(regex_tools::execute(&json!({
-        "action": "explain",
-        "pattern": r"^\d+\.\d+$"
-    }))).expect("regex explain should succeed");
-    assert!(out.contains("EXPLAIN") || out.contains("start"), "should explain pattern: {out}");
-    assert!(out.contains("digit") || out.contains("\\d"), "should mention digits: {out}");
+    let out = rt
+        .block_on(regex_tools::execute(&json!({
+            "action": "explain",
+            "pattern": r"^\d+\.\d+$"
+        })))
+        .expect("regex explain should succeed");
+    assert!(
+        out.contains("EXPLAIN") || out.contains("start"),
+        "should explain pattern: {out}"
+    );
+    assert!(
+        out.contains("digit") || out.contains("\\d"),
+        "should mention digits: {out}"
+    );
 }
 
 #[test]
@@ -15764,11 +15815,13 @@ fn test_regex_tools_named_groups() {
     use serde_json::json;
 
     let rt = tokio::runtime::Runtime::new().unwrap();
-    let out = rt.block_on(regex_tools::execute(&json!({
-        "action": "named-groups",
-        "pattern": r"(?P<year>\d{4})-(?P<month>\d{2})-(?P<day>\d{2})",
-        "text": "Event on 2024-03-15 and 2025-12-01"
-    }))).expect("named-groups should succeed");
+    let out = rt
+        .block_on(regex_tools::execute(&json!({
+            "action": "named-groups",
+            "pattern": r"(?P<year>\d{4})-(?P<month>\d{2})-(?P<day>\d{2})",
+            "text": "Event on 2024-03-15 and 2025-12-01"
+        })))
+        .expect("named-groups should succeed");
     assert!(out.contains("year"), "should show year group: {out}");
     assert!(out.contains("month"), "should show month group: {out}");
     assert!(out.contains("2024"), "should extract year value: {out}");
@@ -15787,7 +15840,10 @@ fn test_regex_tools_invalid_pattern_error() {
     })));
     assert!(result.is_err(), "invalid pattern should return an error");
     let e = result.unwrap_err();
-    assert!(e.contains("invalid") || e.contains("pattern"), "error should mention invalid pattern: {e}");
+    assert!(
+        e.contains("invalid") || e.contains("pattern"),
+        "error should mention invalid pattern: {e}"
+    );
 }
 
 #[test]
@@ -15796,13 +15852,18 @@ fn test_regex_tools_case_insensitive_flag() {
     use serde_json::json;
 
     let rt = tokio::runtime::Runtime::new().unwrap();
-    let out = rt.block_on(regex_tools::execute(&json!({
-        "action": "test",
-        "pattern": "hello",
-        "text": "HELLO WORLD",
-        "case_insensitive": true
-    }))).expect("case-insensitive test should succeed");
-    assert!(out.contains("MATCH") && !out.contains("NO MATCH"), "should match case-insensitively: {out}");
+    let out = rt
+        .block_on(regex_tools::execute(&json!({
+            "action": "test",
+            "pattern": "hello",
+            "text": "HELLO WORLD",
+            "case_insensitive": true
+        })))
+        .expect("case-insensitive test should succeed");
+    assert!(
+        out.contains("MATCH") && !out.contains("NO MATCH"),
+        "should match case-insensitively: {out}"
+    );
 }
 
 #[test]
@@ -15839,12 +15900,17 @@ fn test_diff_tools_identical() {
     use serde_json::json;
 
     let rt = tokio::runtime::Runtime::new().unwrap();
-    let out = rt.block_on(diff_tools::execute(&json!({
-        "action": "compare",
-        "text_a": "line one\nline two\nline three",
-        "text_b": "line one\nline two\nline three"
-    }))).expect("diff identical should succeed");
-    assert!(out.contains("identical") || out.contains("no differences") || out.contains("0 line"), "should report identical: {out}");
+    let out = rt
+        .block_on(diff_tools::execute(&json!({
+            "action": "compare",
+            "text_a": "line one\nline two\nline three",
+            "text_b": "line one\nline two\nline three"
+        })))
+        .expect("diff identical should succeed");
+    assert!(
+        out.contains("identical") || out.contains("no differences") || out.contains("0 line"),
+        "should report identical: {out}"
+    );
 }
 
 #[test]
@@ -15853,13 +15919,21 @@ fn test_diff_tools_compare_changed() {
     use serde_json::json;
 
     let rt = tokio::runtime::Runtime::new().unwrap();
-    let out = rt.block_on(diff_tools::execute(&json!({
-        "action": "compare",
-        "text_a": "alpha\nbeta\ngamma",
-        "text_b": "alpha\nDELTA\ngamma"
-    }))).expect("diff compare should succeed");
-    assert!(out.contains("-beta") || out.contains("beta"), "should show deleted line: {out}");
-    assert!(out.contains("+DELTA") || out.contains("DELTA"), "should show inserted line: {out}");
+    let out = rt
+        .block_on(diff_tools::execute(&json!({
+            "action": "compare",
+            "text_a": "alpha\nbeta\ngamma",
+            "text_b": "alpha\nDELTA\ngamma"
+        })))
+        .expect("diff compare should succeed");
+    assert!(
+        out.contains("-beta") || out.contains("beta"),
+        "should show deleted line: {out}"
+    );
+    assert!(
+        out.contains("+DELTA") || out.contains("DELTA"),
+        "should show inserted line: {out}"
+    );
 }
 
 #[test]
@@ -15868,12 +15942,17 @@ fn test_diff_tools_stat() {
     use serde_json::json;
 
     let rt = tokio::runtime::Runtime::new().unwrap();
-    let out = rt.block_on(diff_tools::execute(&json!({
-        "action": "stat",
-        "text_a": "one\ntwo\nthree\nfour",
-        "text_b": "one\nTWO\nthree\nfour\nfive"
-    }))).expect("diff stat should succeed");
-    assert!(out.contains("Added") || out.contains("added"), "should show additions: {out}");
+    let out = rt
+        .block_on(diff_tools::execute(&json!({
+            "action": "stat",
+            "text_a": "one\ntwo\nthree\nfour",
+            "text_b": "one\nTWO\nthree\nfour\nfive"
+        })))
+        .expect("diff stat should succeed");
+    assert!(
+        out.contains("Added") || out.contains("added"),
+        "should show additions: {out}"
+    );
     assert!(out.contains("Similarity"), "should show similarity: {out}");
 }
 
@@ -15883,13 +15962,21 @@ fn test_diff_tools_word_diff() {
     use serde_json::json;
 
     let rt = tokio::runtime::Runtime::new().unwrap();
-    let out = rt.block_on(diff_tools::execute(&json!({
-        "action": "word-diff",
-        "text_a": "the quick brown fox",
-        "text_b": "the slow brown fox"
-    }))).expect("word-diff should succeed");
-    assert!(out.contains("[-quick]") || out.contains("quick"), "should mark removed word: {out}");
-    assert!(out.contains("[+slow]") || out.contains("slow"), "should mark added word: {out}");
+    let out = rt
+        .block_on(diff_tools::execute(&json!({
+            "action": "word-diff",
+            "text_a": "the quick brown fox",
+            "text_b": "the slow brown fox"
+        })))
+        .expect("word-diff should succeed");
+    assert!(
+        out.contains("[-quick]") || out.contains("quick"),
+        "should mark removed word: {out}"
+    );
+    assert!(
+        out.contains("[+slow]") || out.contains("slow"),
+        "should mark added word: {out}"
+    );
 }
 
 #[test]
@@ -15901,12 +15988,17 @@ fn test_diff_tools_patch_roundtrip() {
     let base = "line 1\nline 2\nline 3\nline 4\nline 5";
     let modified = "line 1\nline TWO\nline 3\nline 4\nline five";
 
-    let patch_out = rt.block_on(diff_tools::execute(&json!({
-        "action": "patch",
-        "text_a": base,
-        "text_b": modified
-    }))).expect("patch generation should succeed");
-    assert!(patch_out.contains("@@"), "patch should contain hunk headers: {patch_out}");
+    let patch_out = rt
+        .block_on(diff_tools::execute(&json!({
+            "action": "patch",
+            "text_a": base,
+            "text_b": modified
+        })))
+        .expect("patch generation should succeed");
+    assert!(
+        patch_out.contains("@@"),
+        "patch should contain hunk headers: {patch_out}"
+    );
 
     // Extract just the patch portion from the output
     let patch_body = if let Some(idx) = patch_out.find("---") {
@@ -15915,12 +16007,17 @@ fn test_diff_tools_patch_roundtrip() {
         &patch_out
     };
 
-    let apply_out = rt.block_on(diff_tools::execute(&json!({
-        "action": "apply",
-        "text_a": base,
-        "patch": patch_body
-    }))).expect("patch apply should succeed");
-    assert!(apply_out.contains("TWO") || apply_out.contains("APPLIED"), "apply should produce modified content or confirm applied: {apply_out}");
+    let apply_out = rt
+        .block_on(diff_tools::execute(&json!({
+            "action": "apply",
+            "text_a": base,
+            "patch": patch_body
+        })))
+        .expect("patch apply should succeed");
+    assert!(
+        apply_out.contains("TWO") || apply_out.contains("APPLIED"),
+        "apply should produce modified content or confirm applied: {apply_out}"
+    );
 }
 
 #[test]
@@ -15948,4 +16045,18 @@ fn test_diff_tools_unknown_action_error() {
         "text_b": "b"
     })));
     assert!(result.is_err(), "unknown action should error");
+}
+
+#[test]
+fn test_routing_detects_diff_tools() {
+    use hematite::agent::routing::needs_diff_tools;
+    assert!(needs_diff_tools("diff these two config files"));
+    assert!(needs_diff_tools("show me the diff between old.json and new.json"));
+    assert!(needs_diff_tools("generate a patch from these files"));
+    assert!(needs_diff_tools("apply this patch to the base file"));
+    assert!(needs_diff_tools("word diff the two readme files"));
+    assert!(needs_diff_tools("compare the versions of this file"));
+    assert!(needs_diff_tools("what changed between v1 and v2"));
+    assert!(!needs_diff_tools("write a function to parse JSON"));
+    assert!(!needs_diff_tools("how do I use git rebase"));
 }
