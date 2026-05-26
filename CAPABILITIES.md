@@ -280,6 +280,7 @@ Hematite ships a suite of zero-dependency in-agent developer tools that run enti
 - **`color_tools`** — Color conversion and manipulation. 7 actions: info (full RGB/HSL/hex breakdown), convert (any format → all), mix (blend with ratio), lighten (HSL lightness +%), darken (HSL lightness -%), contrast (WCAG 2.1 ratio + AA/AAA grade), palette (complementary/triadic/analogous variants). Accepts #RRGGBB, #RGB, rgb(), hsl(), 31 CSS names. Pure math — zero new deps.
 - **`semver_tools`** — SemVer 2.0 implementation. 6 actions: parse (full breakdown), compare (A vs B ordering), bump (major/minor/patch/premajor/preminor/prepatch), validate (YES/NO), satisfies (range checking with ^, ~, >=, <=, >, <, =, *, ||, space-AND), sort (asc/desc with correct pre-release ordering). Zero new deps — pure Rust.
 - **`password_gen`** — Password and passphrase generator. 4 actions: generate (configurable chars, Fisher-Yates shuffle, 8–128 length), passphrase (~500 words, configurable separator/capitalize/number), strength (entropy bits, score bar, checklist), pin (numeric 4–12 digits). Zero new deps — rand already in Cargo.toml.
+- **`jwt_tools`** — JWT decode, verify, sign, inspect. 4 actions: decode (header + claims + human-readable timestamps), verify (HS256/HS384/HS512 HMAC check + expiry → VALID/INVALID verdict), sign (create JWT with any claims + HMAC), inspect (validity/expiry summary without secret). Zero new deps — base64, hmac, sha2 already in Cargo.toml.
 
 ## 7. Stateful Local Workflow
 

@@ -30,9 +30,10 @@ use crate::agent::routing::{
     is_scaffold_request, looks_like_mutation_request, needs_color_tools, needs_computation_sandbox,
     needs_crash_debug, needs_cron_tools, needs_csv_tools, needs_date_tools, needs_diff_tools,
     needs_docker_ops, needs_encode_tools, needs_format, needs_github_ops, needs_hash_tools,
-    needs_http_request, needs_ip_tools, needs_lint_check, needs_number_tools, needs_password_gen,
-    needs_regex_tools, needs_secret_scan, needs_semver_tools, needs_test_run, needs_text_tools,
-    needs_toml_tools, needs_uuid_gen, needs_yaml_tools, preferred_host_inspection_topic,
+    needs_http_request, needs_ip_tools, needs_jwt_tools, needs_lint_check, needs_number_tools,
+    needs_password_gen, needs_regex_tools, needs_secret_scan, needs_semver_tools, needs_test_run,
+    needs_text_tools, needs_toml_tools, needs_uuid_gen, needs_yaml_tools,
+    preferred_host_inspection_topic,
     preferred_maintainer_workflow, preferred_workspace_workflow, DirectAnswerKind,
     QueryIntentClass,
 };
@@ -5291,6 +5292,20 @@ impl ConversationManager {
                  pin (numeric PIN — options: 'length' (default 6), 'count'). \
                  Example: password_gen(action: \"generate\", length: 20, symbols: true) or \
                  password_gen(action: \"passphrase\", words: 5)."
+                    .to_string(),
+            );
+        }
+
+        // ── JWT Tools Routing: steer model toward jwt_tools ──
+        if loop_intervention.is_none() && needs_jwt_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "JWT NOTICE: Use the `jwt_tools` tool for JWT decode, verification, and signing. \
+                 Actions: decode (decode header + claims without signature check — pass 'token'), \
+                 verify (verify HS256/HS384/HS512 HMAC signature — pass 'token' and 'secret'), \
+                 sign (create a new JWT — pass 'claims' object, 'secret', optional 'algorithm' default HS256), \
+                 inspect (expiry/validity summary without secret — pass 'token'). \
+                 Example: jwt_tools(action: \"verify\", token: \"eyJ...\", secret: \"my-secret\") or \
+                 jwt_tools(action: \"sign\", claims: {\"sub\": \"user123\", \"exp\": 9999999999}, secret: \"key\")."
                     .to_string(),
             );
         }

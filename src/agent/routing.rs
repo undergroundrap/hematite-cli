@@ -6374,6 +6374,26 @@ pub fn needs_password_gen(user_input: &str) -> bool {
         || lower.contains("memorable password")
 }
 
+/// Returns true when the user wants JWT decode/verify/sign — steer toward `jwt_tools`.
+pub fn needs_jwt_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    lower.contains("jwt")
+        || lower.contains("json web token")
+        || lower.contains("bearer token")
+        || lower.contains("decode token")
+        || lower.contains("verify token")
+        || lower.contains("sign token")
+        || lower.contains("token claims")
+        || lower.contains("token expiry")
+        || lower.contains("token expired")
+        || lower.contains("eyj") // JWT header always starts with base64("{"alg")
+        || lower.contains("hs256")
+        || lower.contains("hs384")
+        || lower.contains("hs512")
+        || (lower.contains("token") && lower.contains("verify"))
+        || (lower.contains("token") && lower.contains("sign"))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

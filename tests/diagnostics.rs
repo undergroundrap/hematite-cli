@@ -18067,3 +18067,154 @@ fn test_routing_detects_password_gen() {
     assert!(!needs_password_gen("how do I use git rebase"));
     assert!(!needs_password_gen("format this json file"));
 }
+
+// ── jwt_tools ─────────────────────────────────────────────────────────────────
+
+fn jwt_sign_for_test(
+    rt: &tokio::runtime::Runtime,
+    claims: serde_json::Value,
+    secret: &str,
+) -> String {
+    use hematite::tools::jwt_tools;
+    let out = rt
+        .block_on(jwt_tools::execute(&serde_json::json!({
+            "action": "sign",
+            "claims": claims,
+            "secret": secret
+        })))
+        .expect("sign should succeed");
+    out.lines()
+        .find(|l| l.trim().starts_with("eyJ"))
+        .unwrap_or("")
+        .trim()
+        .to_string()
+}
+
+#[test]
+fn test_jwt_tools_sign_and_decode() {
+    use hematite::tools::jwt_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let sign_out = rt
+        .block_on(jwt_tools::execute(&json!({
+            "action": "sign",
+            "claims": {"sub": "testuser", "iss": "hematite"},
+            "secret": "my-test-key"
+        })))
+        .unwrap();
+    assert!(sign_out.contains("JWT SIGN"));
+    let token = sign_out
+        .lines()
+        .find(|l| l.trim().starts_with("eyJ"))
+        .unwrap_or("")
+        .trim()
+        .to_string();
+    assert!(!token.is_empty(), "signed token should be present in output");
+    let decode_out = rt
+        .block_on(jwt_tools::execute(&json!({
+            "action": "decode",
+            "token": token
+        })))
+        .unwrap();
+    assert!(decode_out.contains("JWT DECODE"));
+    assert!(decode_out.contains("testuser"));
+    assert!(decode_out.contains("HS256"));
+}
+
+#[test]
+fn test_jwt_tools_verify_valid() {
+    use hematite::tools::jwt_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let token = jwt_sign_for_test(
+        &rt,
+        json!({"sub": "u1", "exp": 9999999999i64}),
+        "verify-key",
+    );
+    let out = rt
+        .block_on(jwt_tools::execute(&json!({
+            "action": "verify",
+            "token": token,
+            "secret": "verify-key"
+        })))
+        .unwrap();
+    assert!(out.contains("VALID"), "expected VALID in: {out}");
+}
+
+#[test]
+fn test_jwt_tools_verify_invalid_secret() {
+    use hematite::tools::jwt_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let token = jwt_sign_for_test(&rt, json!({"sub": "u1"}), "correct-key");
+    let out = rt
+        .block_on(jwt_tools::execute(&json!({
+            "action": "verify",
+            "token": token,
+            "secret": "wrong-key"
+        })))
+        .unwrap();
+    assert!(out.contains("INVALID"), "expected INVALID in: {out}");
+}
+
+#[test]
+fn test_jwt_tools_sign_verify_roundtrip() {
+    use hematite::tools::jwt_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let token = jwt_sign_for_test(&rt, json!({"sub": "roundtrip"}), "roundtrip-key");
+    let out = rt
+        .block_on(jwt_tools::execute(&json!({
+            "action": "verify",
+            "token": token,
+            "secret": "roundtrip-key"
+        })))
+        .unwrap();
+    assert!(out.contains("VALID"), "roundtrip verify failed: {out}");
+}
+
+#[test]
+fn test_jwt_tools_inspect() {
+    use hematite::tools::jwt_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let token = jwt_sign_for_test(
+        &rt,
+        json!({"sub": "alice", "exp": 9999999999i64}),
+        "inspect-key",
+    );
+    let out = rt
+        .block_on(jwt_tools::execute(&json!({
+            "action": "inspect",
+            "token": token
+        })))
+        .unwrap();
+    assert!(out.contains("JWT INSPECT"));
+    assert!(out.contains("alice"));
+    assert!(out.contains("ACTIVE") || out.contains("Expires"));
+}
+
+#[test]
+fn test_jwt_tools_invalid_token() {
+    use hematite::tools::jwt_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(jwt_tools::execute(&json!({
+        "action": "decode",
+        "token": "not.a.valid.jwt.with.too.many.parts"
+    })));
+    // splitn(4, '.') gives 4 parts for 3 dots, should error
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_routing_detects_jwt_tools() {
+    use hematite::agent::routing::needs_jwt_tools;
+    assert!(needs_jwt_tools("decode this JWT token"));
+    assert!(needs_jwt_tools("verify this JSON web token with my secret"));
+    assert!(needs_jwt_tools("sign a JWT with HS256"));
+    assert!(needs_jwt_tools("this token starts with eyJhbGciOiJIUzI1NiJ9"));
+    assert!(needs_jwt_tools("is my bearer token expired"));
+    assert!(!needs_jwt_tools("generate a UUID"));
+    assert!(!needs_jwt_tools("what is a cron job"));
+}

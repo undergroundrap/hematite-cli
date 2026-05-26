@@ -2391,6 +2391,45 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         }),
     ));
     tools.push(make_tool(
+        "jwt_tools",
+        "Decode, verify, sign, and inspect JSON Web Tokens (JWTs) without external utilities. \
+         Supports HS256, HS384, and HS512 HMAC algorithms. \
+         Actions: \
+         `decode` (default) — decode header and payload, display claims with human-readable exp/iat timestamps; \
+            pass 'token'; signature is NOT verified in this action; \
+         `verify` — verify HMAC signature and check expiry/nbf; pass 'token' and 'secret'; \
+            reports VALID or INVALID with a clear verdict and per-claim expiry state; \
+         `sign` — create a new signed JWT; pass 'claims' (JSON object), 'secret', \
+            optional 'algorithm' (HS256/HS384/HS512, default HS256); \
+         `inspect` — show expiry status, subject, issuer, audience, and validity window without verifying signature.",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "Operation: decode (default), verify, sign, inspect."
+                },
+                "token": {
+                    "type": "string",
+                    "description": "The JWT string (for decode, verify, inspect). Also accepted as 'input'."
+                },
+                "secret": {
+                    "type": "string",
+                    "description": "HMAC secret key (for verify and sign). Also accepted as 'key'."
+                },
+                "claims": {
+                    "type": "object",
+                    "description": "Claims payload object for 'sign'. Also accepted as 'payload'. Example: {\"sub\": \"user123\", \"exp\": 9999999999}."
+                },
+                "algorithm": {
+                    "type": "string",
+                    "description": "HMAC algorithm for 'sign': HS256 (default), HS384, HS512. Also accepted as 'alg'."
+                }
+            },
+            "required": []
+        }),
+    ));
+    tools.push(make_tool(
         "template_gen",
         "Generate boilerplate files from built-in templates. \
          Supports Dockerfiles (Node.js, Python, Rust, Go multi-stage), \
@@ -2649,6 +2688,7 @@ pub async fn dispatch_builtin_tool(
         "color_tools" => crate::tools::color_tools::execute(args).await,
         "semver_tools" => crate::tools::semver_tools::execute(args).await,
         "password_gen" => crate::tools::password_gen::execute(args).await,
+        "jwt_tools" => crate::tools::jwt_tools::execute(args).await,
         "git_status" => crate::tools::git::execute_status(args).await,
         "git_diff" => crate::tools::git::execute_diff(args).await,
         "git_log" => crate::tools::git::execute_log(args).await,

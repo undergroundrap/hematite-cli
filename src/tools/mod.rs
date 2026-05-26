@@ -32,6 +32,7 @@ pub mod host_inspect;
 pub mod http_client;
 pub mod ip_tools;
 pub mod json_tools;
+pub mod jwt_tools;
 pub mod linter;
 pub mod lsp_tools;
 pub mod math_util;
