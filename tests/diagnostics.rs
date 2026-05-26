@@ -15092,6 +15092,54 @@ fn test_secret_scanner_skips_binary_files() {
 }
 
 #[test]
+fn test_code_metrics_on_workspace() {
+    use hematite::tools::code_metrics;
+    use serde_json::json;
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(code_metrics::execute(&json!({ "path": "." })));
+    let out = result.expect("code_metrics should succeed on the project workspace");
+    assert!(
+        out.contains("Files scanned") || out.contains("code_metrics"),
+        "should contain summary: {out}"
+    );
+    assert!(
+        out.contains("SUMMARY") || out.contains("Total lines"),
+        "should contain totals: {out}"
+    );
+}
+
+#[test]
+fn test_code_metrics_single_file_dir() {
+    use hematite::tools::code_metrics;
+    use serde_json::json;
+
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(dir.path().join("main.rs"), "fn main() {\n    // TODO: implement\n    println!(\"hello\");\n}\n").unwrap();
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(code_metrics::execute(&json!({
+        "path": ".",
+        "_root": dir.path().to_str().unwrap()
+    })));
+    let out = result.expect("should succeed");
+    assert!(out.contains("TODO") || out.contains("Files"), "should report metrics: {out}");
+}
+
+#[test]
+fn test_code_metrics_missing_path() {
+    use hematite::tools::code_metrics;
+    use serde_json::json;
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(code_metrics::execute(&json!({
+        "path": "nonexistent_path_xyz",
+        "_root": std::env::temp_dir().to_str().unwrap()
+    })));
+    assert!(result.is_err(), "missing path should error");
+}
+
+#[test]
 fn test_changelog_gen_produces_output() {
     use hematite::tools::git;
     use serde_json::json;

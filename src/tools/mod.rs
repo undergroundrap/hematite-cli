@@ -3,6 +3,7 @@ pub use tool::RiskLevel;
 pub mod build_cache;
 pub mod build_errors;
 pub mod clipboard;
+pub mod code_metrics;
 pub mod code_sandbox;
 pub mod data_query;
 pub mod data_tools;

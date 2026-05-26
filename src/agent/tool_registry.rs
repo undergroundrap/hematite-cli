@@ -1528,6 +1528,24 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         }),
     ));
     tools.push(make_tool(
+        "code_metrics",
+        "Analyze codebase health metrics: total lines, code lines, comment lines, blank lines, \
+         TODO/FIXME counts, test file ratio, and language breakdown by file extension. \
+         Reports the 10 largest files by line count and a test coverage proxy (% of code in test files). \
+         Skips build artifacts, binaries, node_modules, vendor, target, and .git. \
+         Useful for codebase hygiene checks, onboarding new contributors, or tracking technical debt. \
+         Example: code_metrics() for the whole workspace, code_metrics(path: 'src') for a subdirectory.",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "path": {
+                    "type": "string",
+                    "description": "Subdirectory to analyze relative to workspace root (default '.' for entire workspace)."
+                }
+            }
+        }),
+    ));
+    tools.push(make_tool(
         "secret_scanner",
         "Scan the workspace (or a given subdirectory) for accidentally committed secrets, \
          API keys, tokens, passwords, and credentials. \
@@ -1622,6 +1640,7 @@ pub async fn dispatch_builtin_tool(
         "http_request" => crate::tools::http_client::execute(args).await,
         "docker_ops" => crate::tools::docker_ops::execute(args).await,
         "secret_scanner" => crate::tools::secret_scanner::execute(args).await,
+        "code_metrics" => crate::tools::code_metrics::execute(args).await,
         "git_status" => crate::tools::git::execute_status(args).await,
         "git_diff" => crate::tools::git::execute_diff(args).await,
         "git_log" => crate::tools::git::execute_log(args).await,
