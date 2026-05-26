@@ -6014,6 +6014,81 @@ pub fn needs_computation_sandbox(user_input: &str) -> bool {
         || geometry
 }
 
+/// Returns true when the user wants to work with YAML — steer toward `yaml_tools`.
+pub fn needs_yaml_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    lower.contains("validate yaml")
+        || lower.contains("parse yaml")
+        || lower.contains("format yaml")
+        || lower.contains("yaml file")
+        || lower.contains("yaml path")
+        || lower.contains("yaml key")
+        || lower.contains("yaml to json")
+        || lower.contains("json to yaml")
+        || lower.contains("merge yaml")
+        || lower.contains("diff yaml")
+        || lower.contains("yaml diff")
+        || lower.contains("get from yaml")
+        || lower.contains("read yaml")
+        || lower.contains("check yaml")
+        || lower.contains("yaml is valid")
+        || lower.contains("is this yaml")
+        || lower.contains("kubernetes yaml")
+        || lower.contains("helm chart")
+        || lower.contains("docker-compose yaml")
+        || lower.contains("ansible yaml")
+}
+
+/// Returns true when the user wants to work with CSV data — steer toward `csv_tools`.
+pub fn needs_csv_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    lower.contains("csv file")
+        || lower.contains("read csv")
+        || lower.contains("parse csv")
+        || lower.contains("csv column")
+        || lower.contains("csv row")
+        || lower.contains("csv header")
+        || lower.contains("csv stats")
+        || lower.contains("csv filter")
+        || lower.contains("csv sort")
+        || lower.contains("csv to json")
+        || lower.contains("csv to markdown")
+        || lower.contains("from csv")
+        || lower.contains("analyse csv")
+        || lower.contains("analyze csv")
+        || lower.contains("count rows")
+        || lower.contains("columns in csv")
+        || lower.contains("head of csv")
+        || lower.contains("preview csv")
+}
+
+/// Returns true when the user wants encoding/decoding operations — steer toward `encode_tools`.
+pub fn needs_encode_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    lower.contains("base64")
+        || lower.contains("url encode")
+        || lower.contains("url decode")
+        || lower.contains("urlencode")
+        || lower.contains("urldecode")
+        || lower.contains("percent encode")
+        || lower.contains("percent decode")
+        || lower.contains("hex encode")
+        || lower.contains("hex decode")
+        || lower.contains("encode to hex")
+        || lower.contains("decode hex")
+        || lower.contains("decode jwt")
+        || lower.contains("jwt decode")
+        || lower.contains("parse jwt")
+        || lower.contains("jwt token")
+        || lower.contains("html encode")
+        || lower.contains("html decode")
+        || lower.contains("html entity")
+        || lower.contains("escape html")
+        || lower.contains("unescape html")
+        || lower.contains("encode this")
+        || lower.contains("decode this")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

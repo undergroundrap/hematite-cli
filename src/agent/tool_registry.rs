@@ -1701,6 +1701,138 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         }),
     ));
     tools.push(make_tool(
+        "yaml_tools",
+        "Validate, format, query, and transform YAML documents without needing external tools. \
+         Provide YAML inline ('yaml' arg) or from a file ('file' arg). \
+         Actions: \
+         `validate` — parse YAML and report root type, depth, and top-level keys; \
+         `format` — re-serialize YAML with canonical formatting; \
+         `get` — extract a value at a dot-path (e.g. 'metadata.name', 'spec.containers[0].image'); \
+         `keys` — list keys/elements at the root or at a dot-path; \
+         `to-json` — convert YAML to pretty-printed JSON; \
+         `from-json` — convert JSON ('json' arg) to YAML; \
+         `merge` — deep-merge a second YAML document ('with' arg) into the base; \
+         `diff` — compare two YAML documents and list additions, removals, and changes.",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "Operation: validate (default), format, get, keys, to-json, from-json, merge, diff."
+                },
+                "yaml": {
+                    "type": "string",
+                    "description": "Inline YAML content to process."
+                },
+                "file": {
+                    "type": "string",
+                    "description": "Path to a YAML file (relative to workspace root or absolute)."
+                },
+                "path": {
+                    "type": "string",
+                    "description": "Dot-path to navigate into (e.g. 'metadata.name', 'spec.containers[0].image'). Used by get and keys."
+                },
+                "json": {
+                    "type": "string",
+                    "description": "Inline JSON string to convert (for 'from-json' action)."
+                },
+                "with": {
+                    "type": "string",
+                    "description": "Second YAML document to merge or diff against the base (for 'merge' and 'diff' actions)."
+                }
+            }
+        }),
+    ));
+    tools.push(make_tool(
+        "csv_tools",
+        "Read, inspect, filter, sort, and convert CSV files without needing external tools. \
+         Provide CSV inline ('csv' arg) or from a file ('file' arg). \
+         Actions: \
+         `read` — display the CSV as a formatted table (paginated, first 50 rows); \
+         `head` — show the first N rows (default 10); \
+         `columns` — list all column names; \
+         `stats` — compute per-column statistics (min/max/mean/median/stddev for numeric, unique count and top values for text); \
+         `filter` — filter rows by column value (ops: eq, ne, gt, lt, gte, lte, contains, starts-with, ends-with); \
+         `sort` — sort rows by a column (ascending or descending); \
+         `to-json` — convert CSV to a JSON array of objects (auto-coerces numbers and booleans); \
+         `to-markdown` — convert CSV to a Markdown table; \
+         `count` — return total row count (excluding header).",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "Operation: read (default), head, columns, stats, filter, sort, to-json, to-markdown, count."
+                },
+                "csv": {
+                    "type": "string",
+                    "description": "Inline CSV content to process."
+                },
+                "file": {
+                    "type": "string",
+                    "description": "Path to a CSV file (relative to workspace root or absolute)."
+                },
+                "delimiter": {
+                    "type": "string",
+                    "description": "Field delimiter character (default: ','). Use '\\t' for TSV."
+                },
+                "n": {
+                    "type": "integer",
+                    "description": "Number of rows to show (for 'head' action, default 10)."
+                },
+                "column": {
+                    "type": "string",
+                    "description": "Column name to filter or sort by."
+                },
+                "op": {
+                    "type": "string",
+                    "description": "Filter operator: eq, ne, gt, lt, gte, lte, contains (default), starts-with, ends-with."
+                },
+                "value": {
+                    "type": "string",
+                    "description": "Value to compare against (for 'filter' action)."
+                },
+                "order": {
+                    "type": "string",
+                    "description": "Sort order: asc (default) or desc (for 'sort' action)."
+                }
+            }
+        }),
+    ));
+    tools.push(make_tool(
+        "encode_tools",
+        "Encode and decode data between formats without needing external tools. \
+         Actions: \
+         `base64-encode` — encode text to Base64 (standard or URL-safe); \
+         `base64-decode` — decode Base64 text back to the original string; \
+         `url-encode` — percent-encode a string for use in URLs; \
+         `url-decode` — decode a percent-encoded string; \
+         `hex-encode` — encode text as hexadecimal; \
+         `hex-decode` — decode a hex string back to text; \
+         `jwt-decode` — decode a JWT token's header and payload (no signature verification); shows exp/iat in human-readable form; \
+         `html-encode` — escape HTML entities (&, <, >, \", '); \
+         `html-decode` — unescape HTML entities back to plain text. \
+         All actions take an 'input' field. base64 actions also accept 'url_safe: true'.",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "Operation: base64-encode (default), base64-decode, url-encode, url-decode, hex-encode, hex-decode, jwt-decode, html-encode, html-decode."
+                },
+                "input": {
+                    "type": "string",
+                    "description": "The string to encode or decode."
+                },
+                "url_safe": {
+                    "type": "boolean",
+                    "description": "Use URL-safe Base64 alphabet (no +/ padding). Applies to base64-encode and base64-decode. Default: false."
+                }
+            },
+            "required": ["input"]
+        }),
+    ));
+    tools.push(make_tool(
         "template_gen",
         "Generate boilerplate files from built-in templates. \
          Supports Dockerfiles (Node.js, Python, Rust, Go multi-stage), \
@@ -1945,6 +2077,9 @@ pub async fn dispatch_builtin_tool(
         "json_tools" => crate::tools::json_tools::execute(args).await,
         "regex_tools" => crate::tools::regex_tools::execute(args).await,
         "diff_tools" => crate::tools::diff_tools::execute(args).await,
+        "yaml_tools" => crate::tools::yaml_tools::execute(args).await,
+        "csv_tools" => crate::tools::csv_tools::execute(args).await,
+        "encode_tools" => crate::tools::encode_tools::execute(args).await,
         "git_status" => crate::tools::git::execute_status(args).await,
         "git_diff" => crate::tools::git::execute_diff(args).await,
         "git_log" => crate::tools::git::execute_log(args).await,

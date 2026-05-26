@@ -16051,7 +16051,9 @@ fn test_diff_tools_unknown_action_error() {
 fn test_routing_detects_diff_tools() {
     use hematite::agent::routing::needs_diff_tools;
     assert!(needs_diff_tools("diff these two config files"));
-    assert!(needs_diff_tools("show me the diff between old.json and new.json"));
+    assert!(needs_diff_tools(
+        "show me the diff between old.json and new.json"
+    ));
     assert!(needs_diff_tools("generate a patch from these files"));
     assert!(needs_diff_tools("apply this patch to the base file"));
     assert!(needs_diff_tools("word diff the two readme files"));
@@ -16059,4 +16061,547 @@ fn test_routing_detects_diff_tools() {
     assert!(needs_diff_tools("what changed between v1 and v2"));
     assert!(!needs_diff_tools("write a function to parse JSON"));
     assert!(!needs_diff_tools("how do I use git rebase"));
+}
+
+// ── yaml_tools tests ─────────────────────────────────────────────────────────
+
+#[test]
+fn test_yaml_tools_validate_inline() {
+    use hematite::tools::yaml_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(yaml_tools::execute(&json!({
+        "action": "validate",
+        "yaml": "name: Alice\nage: 30\n"
+    })));
+    assert!(result.is_ok());
+    let out = result.unwrap();
+    assert!(out.contains("YAML VALID"));
+    assert!(out.contains("object"));
+}
+
+#[test]
+fn test_yaml_tools_validate_invalid() {
+    use hematite::tools::yaml_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(yaml_tools::execute(&json!({
+        "action": "validate",
+        "yaml": "key: [unclosed"
+    })));
+    assert!(result.is_err());
+    assert!(result.unwrap_err().contains("invalid YAML"));
+}
+
+#[test]
+fn test_yaml_tools_format() {
+    use hematite::tools::yaml_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(yaml_tools::execute(&json!({
+        "action": "format",
+        "yaml": "b: 2\na: 1\n"
+    })));
+    assert!(result.is_ok());
+    assert!(result.unwrap().contains("YAML FORMAT"));
+}
+
+#[test]
+fn test_yaml_tools_get_path() {
+    use hematite::tools::yaml_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(yaml_tools::execute(&json!({
+        "action": "get",
+        "yaml": "metadata:\n  name: my-app\n  namespace: default\n",
+        "path": "metadata.name"
+    })));
+    assert!(result.is_ok());
+    let out = result.unwrap();
+    assert!(out.contains("my-app"));
+}
+
+#[test]
+fn test_yaml_tools_get_array_index() {
+    use hematite::tools::yaml_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(yaml_tools::execute(&json!({
+        "action": "get",
+        "yaml": "containers:\n  - name: web\n    image: nginx\n  - name: db\n    image: postgres\n",
+        "path": "containers[1].image"
+    })));
+    assert!(result.is_ok());
+    assert!(result.unwrap().contains("postgres"));
+}
+
+#[test]
+fn test_yaml_tools_keys() {
+    use hematite::tools::yaml_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(yaml_tools::execute(&json!({
+        "action": "keys",
+        "yaml": "name: Alice\nage: 30\ncity: NYC\n"
+    })));
+    assert!(result.is_ok());
+    let out = result.unwrap();
+    assert!(out.contains("name"));
+    assert!(out.contains("age"));
+    assert!(out.contains("Total: 3 key(s)"));
+}
+
+#[test]
+fn test_yaml_tools_to_json() {
+    use hematite::tools::yaml_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(yaml_tools::execute(&json!({
+        "action": "to-json",
+        "yaml": "name: Alice\nage: 30\n"
+    })));
+    assert!(result.is_ok());
+    let out = result.unwrap();
+    assert!(out.contains("\"name\""));
+    assert!(out.contains("\"Alice\""));
+}
+
+#[test]
+fn test_yaml_tools_from_json() {
+    use hematite::tools::yaml_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(yaml_tools::execute(&json!({
+        "action": "from-json",
+        "json": "{\"name\": \"Alice\", \"age\": 30}"
+    })));
+    assert!(result.is_ok());
+    let out = result.unwrap();
+    assert!(out.contains("JSON → YAML"));
+    assert!(out.contains("Alice"));
+}
+
+#[test]
+fn test_yaml_tools_merge() {
+    use hematite::tools::yaml_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(yaml_tools::execute(&json!({
+        "action": "merge",
+        "yaml": "name: Alice\nage: 30\n",
+        "with": "age: 31\ncity: NYC\n"
+    })));
+    assert!(result.is_ok());
+    let out = result.unwrap();
+    assert!(out.contains("YAML MERGE"));
+    assert!(out.contains("Alice"));
+    assert!(out.contains("NYC"));
+}
+
+#[test]
+fn test_yaml_tools_diff_identical() {
+    use hematite::tools::yaml_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(yaml_tools::execute(&json!({
+        "action": "diff",
+        "yaml": "name: Alice\nage: 30\n",
+        "with": "name: Alice\nage: 30\n"
+    })));
+    assert!(result.is_ok());
+    assert!(result.unwrap().contains("identical"));
+}
+
+#[test]
+fn test_yaml_tools_diff_changed() {
+    use hematite::tools::yaml_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(yaml_tools::execute(&json!({
+        "action": "diff",
+        "yaml": "name: Alice\nage: 30\n",
+        "with": "name: Bob\nage: 30\n"
+    })));
+    assert!(result.is_ok());
+    let out = result.unwrap();
+    assert!(out.contains("name"));
+    assert!(out.contains("Alice"));
+    assert!(out.contains("Bob"));
+}
+
+#[test]
+fn test_yaml_tools_unknown_action() {
+    use hematite::tools::yaml_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(yaml_tools::execute(&json!({
+        "action": "blorp",
+        "yaml": "x: 1"
+    })));
+    assert!(result.is_err());
+    assert!(result.unwrap_err().contains("unknown action"));
+}
+
+#[test]
+fn test_routing_detects_yaml_tools() {
+    use hematite::agent::routing::needs_yaml_tools;
+    assert!(needs_yaml_tools("validate yaml for me"));
+    assert!(needs_yaml_tools("parse this yaml file"));
+    assert!(needs_yaml_tools("yaml to json conversion"));
+    assert!(needs_yaml_tools("merge yaml documents"));
+    assert!(needs_yaml_tools("diff yaml files"));
+    assert!(needs_yaml_tools("get value from yaml path"));
+    assert!(!needs_yaml_tools("parse this JSON object"));
+    assert!(!needs_yaml_tools("how do I write a for loop"));
+}
+
+// ── csv_tools tests ──────────────────────────────────────────────────────────
+
+#[test]
+fn test_csv_tools_read() {
+    use hematite::tools::csv_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(csv_tools::execute(&json!({
+        "action": "read",
+        "csv": "name,age,city\nAlice,30,NYC\nBob,25,LA\n"
+    })));
+    assert!(result.is_ok());
+    let out = result.unwrap();
+    assert!(out.contains("Alice"));
+    assert!(out.contains("Bob"));
+}
+
+#[test]
+fn test_csv_tools_columns() {
+    use hematite::tools::csv_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(csv_tools::execute(&json!({
+        "action": "columns",
+        "csv": "name,age,city\nAlice,30,NYC\n"
+    })));
+    assert!(result.is_ok());
+    let out = result.unwrap();
+    assert!(out.contains("name"));
+    assert!(out.contains("age"));
+    assert!(out.contains("city"));
+}
+
+#[test]
+fn test_csv_tools_count() {
+    use hematite::tools::csv_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(csv_tools::execute(&json!({
+        "action": "count",
+        "csv": "name,age\nAlice,30\nBob,25\nCarol,22\n"
+    })));
+    assert!(result.is_ok());
+    assert!(result.unwrap().contains('3'));
+}
+
+#[test]
+fn test_csv_tools_head() {
+    use hematite::tools::csv_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(csv_tools::execute(&json!({
+        "action": "head",
+        "csv": "name,age\nAlice,30\nBob,25\nCarol,22\nDave,40\n",
+        "n": 2
+    })));
+    assert!(result.is_ok());
+    let out = result.unwrap();
+    assert!(out.contains("Alice"));
+    assert!(!out.contains("Carol"));
+}
+
+#[test]
+fn test_csv_tools_stats() {
+    use hematite::tools::csv_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(csv_tools::execute(&json!({
+        "action": "stats",
+        "csv": "name,age\nAlice,30\nBob,25\nCarol,35\n"
+    })));
+    assert!(result.is_ok());
+    let out = result.unwrap();
+    assert!(out.contains("age"));
+    assert!(out.contains("mean") || out.contains("avg") || out.contains("30"));
+}
+
+#[test]
+fn test_csv_tools_filter() {
+    use hematite::tools::csv_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(csv_tools::execute(&json!({
+        "action": "filter",
+        "csv": "name,city\nAlice,NYC\nBob,LA\nCarol,NYC\n",
+        "column": "city",
+        "op": "eq",
+        "value": "NYC"
+    })));
+    assert!(result.is_ok());
+    let out = result.unwrap();
+    assert!(out.contains("Alice"));
+    assert!(out.contains("Carol"));
+    assert!(!out.contains("Bob"));
+}
+
+#[test]
+fn test_csv_tools_sort() {
+    use hematite::tools::csv_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(csv_tools::execute(&json!({
+        "action": "sort",
+        "csv": "name,age\nCarol,35\nAlice,30\nBob,25\n",
+        "column": "age",
+        "order": "asc"
+    })));
+    assert!(result.is_ok());
+    let out = result.unwrap();
+    // Bob (25) should appear before Carol (35)
+    let bob_pos = out.find("Bob").unwrap_or(usize::MAX);
+    let carol_pos = out.find("Carol").unwrap_or(usize::MAX);
+    assert!(bob_pos < carol_pos);
+}
+
+#[test]
+fn test_csv_tools_to_json() {
+    use hematite::tools::csv_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(csv_tools::execute(&json!({
+        "action": "to-json",
+        "csv": "name,age\nAlice,30\nBob,25\n"
+    })));
+    assert!(result.is_ok());
+    let out = result.unwrap();
+    assert!(out.contains("\"name\""));
+    assert!(out.contains("\"Alice\""));
+}
+
+#[test]
+fn test_csv_tools_to_markdown() {
+    use hematite::tools::csv_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(csv_tools::execute(&json!({
+        "action": "to-markdown",
+        "csv": "name,age\nAlice,30\n"
+    })));
+    assert!(result.is_ok());
+    let out = result.unwrap();
+    assert!(out.contains("| name |") || out.contains("|name|") || out.contains("name"));
+    assert!(out.contains("---") || out.contains("─"));
+}
+
+#[test]
+fn test_csv_tools_quoted_fields() {
+    use hematite::tools::csv_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(csv_tools::execute(&json!({
+        "action": "read",
+        "csv": "name,bio\n\"Alice, Jr.\",\"Loves \"\"quotes\"\"\"\n"
+    })));
+    assert!(result.is_ok());
+    let out = result.unwrap();
+    assert!(out.contains("Alice, Jr."));
+}
+
+#[test]
+fn test_csv_tools_unknown_action() {
+    use hematite::tools::csv_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(csv_tools::execute(&json!({
+        "action": "explode",
+        "csv": "a,b\n1,2\n"
+    })));
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_routing_detects_csv_tools() {
+    use hematite::agent::routing::needs_csv_tools;
+    assert!(needs_csv_tools("read this csv file"));
+    assert!(needs_csv_tools("parse csv data"));
+    assert!(needs_csv_tools("csv column names"));
+    assert!(needs_csv_tools("filter csv rows"));
+    assert!(needs_csv_tools("csv to json"));
+    assert!(needs_csv_tools("count rows in csv"));
+    assert!(!needs_csv_tools("parse this JSON object"));
+    assert!(!needs_csv_tools("how do I write a loop"));
+}
+
+// ── encode_tools tests ───────────────────────────────────────────────────────
+
+#[test]
+fn test_encode_tools_base64_roundtrip() {
+    use hematite::tools::encode_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let encoded = rt
+        .block_on(encode_tools::execute(&json!({
+            "action": "base64-encode",
+            "input": "Hello, World!"
+        })))
+        .unwrap();
+    assert!(encoded.contains("SGVsbG8sIFdvcmxkIQ=="));
+
+    let decoded = rt
+        .block_on(encode_tools::execute(&json!({
+            "action": "base64-decode",
+            "input": "SGVsbG8sIFdvcmxkIQ=="
+        })))
+        .unwrap();
+    assert!(decoded.contains("Hello, World!"));
+}
+
+#[test]
+fn test_encode_tools_url_roundtrip() {
+    use hematite::tools::encode_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let encoded = rt
+        .block_on(encode_tools::execute(&json!({
+            "action": "url-encode",
+            "input": "hello world & foo=bar"
+        })))
+        .unwrap();
+    assert!(encoded.contains("%20") || encoded.contains('+'));
+    assert!(encoded.contains("%26") || encoded.contains("&amp;"));
+
+    let decoded = rt
+        .block_on(encode_tools::execute(&json!({
+            "action": "url-decode",
+            "input": "hello%20world%20%26%20foo%3Dbar"
+        })))
+        .unwrap();
+    assert!(decoded.contains("hello world"));
+}
+
+#[test]
+fn test_encode_tools_hex_roundtrip() {
+    use hematite::tools::encode_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let encoded = rt
+        .block_on(encode_tools::execute(&json!({
+            "action": "hex-encode",
+            "input": "AB"
+        })))
+        .unwrap();
+    assert!(encoded.contains("4142"));
+
+    let decoded = rt
+        .block_on(encode_tools::execute(&json!({
+            "action": "hex-decode",
+            "input": "4142"
+        })))
+        .unwrap();
+    assert!(decoded.contains("AB"));
+}
+
+#[test]
+fn test_encode_tools_html_roundtrip() {
+    use hematite::tools::encode_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let encoded = rt
+        .block_on(encode_tools::execute(&json!({
+            "action": "html-encode",
+            "input": "<script>alert('xss')</script>"
+        })))
+        .unwrap();
+    assert!(encoded.contains("&lt;script&gt;"));
+    assert!(encoded.contains("&#x27;") || encoded.contains("&#39;") || encoded.contains("&apos;"));
+
+    let decoded = rt
+        .block_on(encode_tools::execute(&json!({
+            "action": "html-decode",
+            "input": "&lt;b&gt;Hello &amp; World&lt;/b&gt;"
+        })))
+        .unwrap();
+    assert!(decoded.contains("<b>Hello & World</b>"));
+}
+
+#[test]
+fn test_encode_tools_jwt_decode() {
+    use hematite::tools::encode_tools;
+    use serde_json::json;
+    // A real (expired) example JWT
+    let jwt = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c";
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(encode_tools::execute(&json!({
+        "action": "jwt-decode",
+        "input": jwt
+    })));
+    assert!(result.is_ok());
+    let out = result.unwrap();
+    assert!(out.contains("JWT DECODE"));
+    assert!(out.contains("John Doe") || out.contains("sub"));
+}
+
+#[test]
+fn test_encode_tools_base64_url_safe() {
+    use hematite::tools::encode_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(encode_tools::execute(&json!({
+        "action": "base64-encode",
+        "input": "test data ~> something",
+        "url_safe": true
+    })));
+    assert!(result.is_ok());
+    let out = result.unwrap();
+    assert!(out.contains("URL-safe"));
+    // URL-safe base64 must not contain + or /
+    let encoded_line = out.lines().last().unwrap_or("");
+    assert!(!encoded_line.contains('+'));
+    assert!(!encoded_line.contains('/'));
+}
+
+#[test]
+fn test_encode_tools_hex_odd_length_error() {
+    use hematite::tools::encode_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(encode_tools::execute(&json!({
+        "action": "hex-decode",
+        "input": "abc"
+    })));
+    assert!(result.is_err());
+    assert!(result.unwrap_err().contains("even"));
+}
+
+#[test]
+fn test_encode_tools_unknown_action() {
+    use hematite::tools::encode_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(encode_tools::execute(&json!({
+        "action": "magic-encode",
+        "input": "test"
+    })));
+    assert!(result.is_err());
+    assert!(result.unwrap_err().contains("unknown action"));
+}
+
+#[test]
+fn test_routing_detects_encode_tools() {
+    use hematite::agent::routing::needs_encode_tools;
+    assert!(needs_encode_tools("base64 encode this string"));
+    assert!(needs_encode_tools("url encode this URL"));
+    assert!(needs_encode_tools("hex decode this value"));
+    assert!(needs_encode_tools("decode jwt token"));
+    assert!(needs_encode_tools("html encode special characters"));
+    assert!(needs_encode_tools("escape html entities"));
+    assert!(!needs_encode_tools("write a function to parse JSON"));
+    assert!(!needs_encode_tools("how do I use git rebase"));
 }

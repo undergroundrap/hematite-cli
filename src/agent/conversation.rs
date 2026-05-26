@@ -28,9 +28,9 @@ use crate::agent::recovery_recipes::{
 use crate::agent::routing::{
     all_host_inspection_topics, classify_query_intent, is_capability_probe_tool,
     is_scaffold_request, looks_like_mutation_request, needs_computation_sandbox, needs_crash_debug,
-    needs_diff_tools, needs_docker_ops, needs_format, needs_github_ops, needs_http_request,
-    needs_lint_check, needs_regex_tools, needs_secret_scan, needs_test_run,
-    preferred_host_inspection_topic,
+    needs_csv_tools, needs_diff_tools, needs_docker_ops, needs_encode_tools, needs_format,
+    needs_github_ops, needs_http_request, needs_lint_check, needs_regex_tools, needs_secret_scan,
+    needs_test_run, needs_yaml_tools, preferred_host_inspection_topic,
     preferred_maintainer_workflow, preferred_workspace_workflow, DirectAnswerKind,
     QueryIntentClass,
 };
@@ -5088,6 +5088,44 @@ impl ConversationManager {
                  Flags: case_insensitive, multiline, dot_all. \
                  Example: regex_tools(action: \"test\", pattern: \"\\\\d+\", text: \"abc 123\") or \
                  regex_tools(action: \"explain\", pattern: \"^(?P<year>\\\\d{4})-(?P<month>\\\\d{2})\")."
+                    .to_string(),
+            );
+        }
+
+        // ── YAML Tools Routing: steer model toward yaml_tools ──
+        if loop_intervention.is_none() && needs_yaml_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "YAML NOTICE: Use the `yaml_tools` tool for YAML work. \
+                 Actions: validate, format, get (dot-path query like 'metadata.name'), keys, \
+                 to-json, from-json, merge, diff. \
+                 Provide inline YAML via 'yaml' arg or a file path via 'file' arg. \
+                 Example: yaml_tools(action: \"get\", file: \"k8s/deploy.yaml\", path: \"spec.replicas\")."
+                    .to_string(),
+            );
+        }
+
+        // ── CSV Tools Routing: steer model toward csv_tools ──
+        if loop_intervention.is_none() && needs_csv_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "CSV NOTICE: Use the `csv_tools` tool for CSV data. \
+                 Actions: read (table view), head (first N rows), columns, stats, filter, sort, \
+                 to-json, to-markdown, count. \
+                 Provide inline CSV via 'csv' arg or a file path via 'file' arg. \
+                 Example: csv_tools(action: \"stats\", file: \"data.csv\") or \
+                 csv_tools(action: \"filter\", file: \"data.csv\", column: \"status\", op: \"eq\", value: \"active\")."
+                    .to_string(),
+            );
+        }
+
+        // ── Encode Tools Routing: steer model toward encode_tools ──
+        if loop_intervention.is_none() && needs_encode_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "ENCODE NOTICE: Use the `encode_tools` tool for encoding/decoding. \
+                 Actions: base64-encode, base64-decode, url-encode, url-decode, hex-encode, hex-decode, \
+                 jwt-decode, html-encode, html-decode. \
+                 All actions take an 'input' field. base64 actions also accept 'url_safe: true'. \
+                 Example: encode_tools(action: \"base64-encode\", input: \"Hello, World!\") or \
+                 encode_tools(action: \"jwt-decode\", input: \"eyJ...\")."
                     .to_string(),
             );
         }
