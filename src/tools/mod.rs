@@ -26,6 +26,7 @@ pub mod linter;
 pub mod lsp_tools;
 pub mod math_util;
 pub mod plan;
+pub mod port_check;
 pub mod profiler;
 pub mod refactor;
 pub mod repo_script;

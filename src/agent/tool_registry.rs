@@ -1528,6 +1528,34 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         }),
     ));
     tools.push(make_tool(
+        "port_check",
+        "Test whether a TCP port is reachable on a given host. \
+         Returns OPEN or CLOSED/FILTERED with the resolved IP, response time, and port service annotation. \
+         Annotates 40+ well-known ports (SSH, HTTP, HTTPS, MySQL, PostgreSQL, Redis, MongoDB, \
+         Elasticsearch, LM Studio, Ollama, Jupyter, Kubernetes, RDP, etc.). \
+         Includes actionable hints when a port is closed (how to start the service, config to check). \
+         Example: port_check(host: 'localhost', port: 5432) — test if PostgreSQL is up. \
+         Default host is localhost, default timeout 3000ms.",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "host": {
+                    "type": "string",
+                    "description": "Hostname or IP address to test (default 'localhost')."
+                },
+                "port": {
+                    "type": "integer",
+                    "description": "TCP port number to test (required)."
+                },
+                "timeout_ms": {
+                    "type": "integer",
+                    "description": "Connection timeout in milliseconds (default 3000)."
+                }
+            },
+            "required": ["port"]
+        }),
+    ));
+    tools.push(make_tool(
         "dependency_audit",
         "Audit project dependencies for version pinning, wildcard versions, deprecated packages, \
          and missing lock files. Supports Rust (Cargo.toml), Node.js (package.json), \
@@ -1656,6 +1684,7 @@ pub async fn dispatch_builtin_tool(
         "secret_scanner" => crate::tools::secret_scanner::execute(args).await,
         "code_metrics" => crate::tools::code_metrics::execute(args).await,
         "dependency_audit" => crate::tools::dependency_audit::execute(args).await,
+        "port_check" => crate::tools::port_check::execute(args).await,
         "git_status" => crate::tools::git::execute_status(args).await,
         "git_diff" => crate::tools::git::execute_diff(args).await,
         "git_log" => crate::tools::git::execute_log(args).await,

@@ -15092,6 +15092,56 @@ fn test_secret_scanner_skips_binary_files() {
 }
 
 #[test]
+fn test_port_check_closed_port() {
+    use hematite::tools::port_check;
+    use serde_json::json;
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    // Port 19 (chargen) is almost certainly not open
+    let result = rt.block_on(port_check::execute(&json!({
+        "host": "localhost",
+        "port": 19,
+        "timeout_ms": 500
+    })));
+    let out = result.expect("should not error even on closed port");
+    assert!(
+        out.contains("CLOSED") || out.contains("FILTERED") || out.contains("OPEN"),
+        "should report status: {out}"
+    );
+}
+
+#[test]
+fn test_port_check_requires_port() {
+    use hematite::tools::port_check;
+    use serde_json::json;
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(port_check::execute(&json!({ "host": "localhost" })));
+    assert!(result.is_err(), "missing port should error");
+    let e = result.unwrap_err();
+    assert!(e.contains("port"), "error should mention port: {e}");
+}
+
+#[test]
+fn test_port_check_well_known_annotation() {
+    use hematite::tools::port_check;
+    use serde_json::json;
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    // Port 5432 is PostgreSQL — annotation should appear regardless of open/closed
+    let result = rt.block_on(port_check::execute(&json!({
+        "host": "localhost",
+        "port": 5432,
+        "timeout_ms": 500
+    })));
+    let out = result.expect("should succeed");
+    assert!(
+        out.contains("PostgreSQL") || out.contains("5432"),
+        "should annotate well-known port: {out}"
+    );
+}
+
+#[test]
 fn test_dependency_audit_on_rust_workspace() {
     use hematite::tools::dependency_audit;
     use serde_json::json;
