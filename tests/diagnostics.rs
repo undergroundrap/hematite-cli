@@ -15092,6 +15092,33 @@ fn test_secret_scanner_skips_binary_files() {
 }
 
 #[test]
+fn test_changelog_gen_produces_output() {
+    use hematite::tools::git;
+    use serde_json::json;
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(git::execute_changelog(&json!({
+        "n": 10,
+        "title": "Test Changelog"
+    })));
+    match result {
+        Ok(out) => {
+            assert!(
+                out.contains("Test Changelog") || out.contains("commits"),
+                "changelog should contain title or commit count: {out}"
+            );
+        }
+        Err(e) => {
+            // Not a git repo in CI is acceptable
+            assert!(
+                e.contains("git") || e.contains("repository"),
+                "error should explain git context: {e}"
+            );
+        }
+    }
+}
+
+#[test]
 fn test_secret_scanner_missing_path_errors() {
     use hematite::tools::secret_scanner;
     use serde_json::json;

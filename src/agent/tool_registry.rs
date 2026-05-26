@@ -1094,6 +1094,36 @@ pub fn get_tools() -> Vec<ToolDefinition> {
             }),
         ),
         make_tool(
+            "changelog_gen",
+            "Generate a structured changelog from git commit history grouped by conventional commit type \
+             (feat, fix, perf, refactor, docs, test, chore, ci, build, style). \
+             Supports scoping to a version range (from='v0.11.0', to='v0.12.0') or recent N commits. \
+             Output is formatted Markdown with a section per commit type, scope in bold, and short hash. \
+             Use title to customize the changelog heading. \
+             Example: changelog_gen(from: 'v0.11.0', title: 'v0.12.0') to document a release.",
+            serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "n": {
+                        "type": "integer",
+                        "description": "Number of recent commits to include (default 100, max 500). Ignored when from/to is set."
+                    },
+                    "from": {
+                        "type": "string",
+                        "description": "Starting ref or tag (e.g. 'v0.11.0'). Commits after this ref are included."
+                    },
+                    "to": {
+                        "type": "string",
+                        "description": "Ending ref or tag (default HEAD)."
+                    },
+                    "title": {
+                        "type": "string",
+                        "description": "Heading for the changelog (default 'Changelog')."
+                    }
+                }
+            }),
+        ),
+        make_tool(
             "clarify",
             "Ask the user a clarifying question when you genuinely cannot proceed without \
              more information. Use this ONLY when you are blocked and cannot make a \
@@ -1595,6 +1625,7 @@ pub async fn dispatch_builtin_tool(
         "git_status" => crate::tools::git::execute_status(args).await,
         "git_diff" => crate::tools::git::execute_diff(args).await,
         "git_log" => crate::tools::git::execute_log(args).await,
+        "changelog_gen" => crate::tools::git::execute_changelog(args).await,
         "git_onboarding" => crate::tools::git_onboarding::execute(args).await,
         "run_with_backtrace" => crate::tools::debugger::execute(args).await,
         "profile_process" => crate::tools::profiler::execute(args).await,

@@ -376,10 +376,7 @@ pub async fn execute_diff(args: &Value) -> Result<String, String> {
         return Err("Current directory is not a Git repository".to_string());
     }
 
-    let mode = args
-        .get("mode")
-        .and_then(|v| v.as_str())
-        .unwrap_or("diff");
+    let mode = args.get("mode").and_then(|v| v.as_str()).unwrap_or("diff");
 
     let from = args.get("from").and_then(|v| v.as_str());
     let to = args.get("to").and_then(|v| v.as_str());
@@ -432,7 +429,9 @@ pub async fn execute_diff(args: &Value) -> Result<String, String> {
     }
 
     if stdout.trim().is_empty() {
-        return Ok("No differences found (working tree is clean or refs are identical).".to_string());
+        return Ok(
+            "No differences found (working tree is clean or refs are identical).".to_string(),
+        );
     }
 
     // For full diff mode, cap at 12 KB and add a stat header so the model gets
@@ -548,4 +547,141 @@ pub async fn execute_log(args: &Value) -> Result<String, String> {
     }
 
     Ok(stdout)
+}
+
+/// tool: changelog_gen
+///
+/// Generates a structured changelog from git commit history grouped by conventional commit type.
+/// Supports scoping to a version range (tag..tag) or a fixed number of recent commits.
+pub async fn execute_changelog(args: &Value) -> Result<String, String> {
+    if !is_git_repo(Path::new(".")) {
+        return Err("changelog_gen: not a git repository".to_string());
+    }
+
+    let n = args
+        .get("n")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(100)
+        .min(500) as usize;
+    let from = args.get("from").and_then(|v| v.as_str());
+    let to = args.get("to").and_then(|v| v.as_str());
+    let title = args.get("title").and_then(|v| v.as_str()).unwrap_or("Changelog");
+
+    // Collect: hash\x1fsub\x1eauthor\x1edate
+    let n_str = format!("-{n}");
+    let mut git_args: Vec<&str> = vec!["log", "--pretty=format:%h\x1f%s\x1e%an\x1e%ai"];
+    if from.is_some() || to.is_some() {
+        // suppress -N when using a range
+    } else {
+        git_args.push(&n_str);
+    }
+    let range_str;
+    match (from, to) {
+        (Some(f), Some(t)) => {
+            range_str = format!("{f}..{t}");
+            git_args.push(&range_str);
+        }
+        (Some(f), None) => {
+            git_args.push(f);
+        }
+        _ => {}
+    }
+
+    let output = Command::new("git")
+        .args(&git_args)
+        .output()
+        .map_err(|e| format!("changelog_gen: git error: {e}"))?;
+
+    if !output.status.success() {
+        let err = String::from_utf8_lossy(&output.stderr);
+        return Err(format!("changelog_gen: git log failed: {}", err.trim()));
+    }
+
+    let raw = String::from_utf8_lossy(&output.stdout);
+    if raw.trim().is_empty() {
+        return Ok("changelog_gen: no commits found in the specified range.".to_string());
+    }
+
+    // Parse commits
+    let mut sections: std::collections::BTreeMap<&str, Vec<String>> = std::collections::BTreeMap::new();
+    let mut uncategorized: Vec<String> = Vec::new();
+
+    for entry in raw.split('\x1e').map(str::trim).filter(|s| !s.is_empty()) {
+        let mut parts = entry.splitn(2, '\x1f');
+        let hash = parts.next().unwrap_or("").trim();
+        let rest = parts.next().unwrap_or("").trim();
+        // rest = "subject\nauthor\ndate" — we only need subject
+        let subject = rest.lines().next().unwrap_or("").trim();
+
+        let (kind, scope, message) = parse_conventional_commit(subject);
+        let display = if scope.is_empty() {
+            format!("- {message} ({hash})")
+        } else {
+            format!("- **{scope}**: {message} ({hash})")
+        };
+
+        match kind {
+            "feat" => sections.entry("Features").or_default().push(display),
+            "fix" => sections.entry("Bug Fixes").or_default().push(display),
+            "perf" => sections.entry("Performance").or_default().push(display),
+            "refactor" => sections.entry("Refactoring").or_default().push(display),
+            "docs" => sections.entry("Documentation").or_default().push(display),
+            "test" => sections.entry("Tests").or_default().push(display),
+            "chore" => sections.entry("Chores").or_default().push(display),
+            "ci" => sections.entry("CI").or_default().push(display),
+            "build" => sections.entry("Build").or_default().push(display),
+            "style" => sections.entry("Style").or_default().push(display),
+            _ => uncategorized.push(display),
+        }
+    }
+
+    // Render — preferred section order
+    let section_order = [
+        "Features", "Bug Fixes", "Performance", "Refactoring",
+        "Documentation", "Tests", "Build", "CI", "Style", "Chores",
+    ];
+
+    let mut out = format!("# {title}\n\n");
+    for &name in &section_order {
+        if let Some(items) = sections.get(name) {
+            out.push_str(&format!("## {name}\n\n"));
+            for item in items {
+                out.push_str(item);
+                out.push('\n');
+            }
+            out.push('\n');
+        }
+    }
+    if !uncategorized.is_empty() {
+        out.push_str("## Other\n\n");
+        for item in &uncategorized {
+            out.push_str(item);
+            out.push('\n');
+        }
+        out.push('\n');
+    }
+
+    let total: usize = sections.values().map(|v| v.len()).sum::<usize>() + uncategorized.len();
+    out.push_str(&format!("---\n_{total} commits included._"));
+
+    Ok(out)
+}
+
+fn parse_conventional_commit<'a>(subject: &'a str) -> (&'a str, &'a str, &'a str) {
+    // Matches: feat(scope): message  OR  feat: message  OR  feat!: message
+    let s = subject.trim_start_matches("- ").trim();
+    if let Some(colon_pos) = s.find(':') {
+        let prefix = &s[..colon_pos].trim_end_matches('!');
+        let message = s[colon_pos + 1..].trim();
+        if let Some(paren) = prefix.find('(') {
+            let kind = &prefix[..paren];
+            let scope_end = prefix.rfind(')').unwrap_or(prefix.len());
+            let scope = &prefix[paren + 1..scope_end];
+            return (kind, scope, message);
+        }
+        // No scope
+        return (prefix, "", message);
+    }
+    // Non-conventional commit
+    ("other", "", s)
 }
