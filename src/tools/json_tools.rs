@@ -59,18 +59,20 @@ fn resolve_input(args: &Value) -> Result<String, String> {
 }
 
 fn pretty(json: &Value) -> Result<String, String> {
-    serde_json::to_string_pretty(json)
-        .map_err(|e| format!("json_tools pretty: {e}"))
+    serde_json::to_string_pretty(json).map_err(|e| format!("json_tools pretty: {e}"))
 }
 
 fn compact(json: &Value) -> Result<String, String> {
-    serde_json::to_string(json)
-        .map_err(|e| format!("json_tools compact: {e}"))
+    serde_json::to_string(json).map_err(|e| format!("json_tools compact: {e}"))
 }
 
 fn keys(json: &Value, args: &Value) -> Result<String, String> {
     let path = args.get("path").and_then(|v| v.as_str());
-    let target = if let Some(p) = path { navigate(json, p)? } else { json };
+    let target = if let Some(p) = path {
+        navigate(json, p)?
+    } else {
+        json
+    };
     match target {
         Value::Object(map) => {
             let mut keys: Vec<&str> = map.keys().map(|s| s.as_str()).collect();
@@ -93,35 +95,50 @@ fn get_path(json: &Value, args: &Value) -> Result<String, String> {
 
 fn filter_array(json: &Value, args: &Value) -> Result<String, String> {
     let arr = require_array(json, "filter")?;
-    let key = args.get("key").and_then(|v| v.as_str())
+    let key = args
+        .get("key")
+        .and_then(|v| v.as_str())
         .ok_or("json_tools filter: 'key' is required (field name to match on)")?;
-    let value = args.get("value")
+    let value = args
+        .get("value")
         .ok_or("json_tools filter: 'value' is required")?;
     let op = args.get("op").and_then(|v| v.as_str()).unwrap_or("eq");
 
-    let filtered: Vec<&Value> = arr.iter().filter(|item| {
-        if let Some(field) = item.get(key) {
-            match op {
-                "eq" => field == value,
-                "ne" => field != value,
-                "gt" => cmp_numeric(field, value) == Some(std::cmp::Ordering::Greater),
-                "lt" => cmp_numeric(field, value) == Some(std::cmp::Ordering::Less),
-                "gte" => matches!(cmp_numeric(field, value), Some(std::cmp::Ordering::Greater) | Some(std::cmp::Ordering::Equal)),
-                "lte" => matches!(cmp_numeric(field, value), Some(std::cmp::Ordering::Less) | Some(std::cmp::Ordering::Equal)),
-                "contains" => {
-                    let needle = value.as_str().unwrap_or("");
-                    field.as_str().map(|s| s.contains(needle)).unwrap_or(false)
+    let filtered: Vec<&Value> = arr
+        .iter()
+        .filter(|item| {
+            if let Some(field) = item.get(key) {
+                match op {
+                    "eq" => field == value,
+                    "ne" => field != value,
+                    "gt" => cmp_numeric(field, value) == Some(std::cmp::Ordering::Greater),
+                    "lt" => cmp_numeric(field, value) == Some(std::cmp::Ordering::Less),
+                    "gte" => matches!(
+                        cmp_numeric(field, value),
+                        Some(std::cmp::Ordering::Greater) | Some(std::cmp::Ordering::Equal)
+                    ),
+                    "lte" => matches!(
+                        cmp_numeric(field, value),
+                        Some(std::cmp::Ordering::Less) | Some(std::cmp::Ordering::Equal)
+                    ),
+                    "contains" => {
+                        let needle = value.as_str().unwrap_or("");
+                        field.as_str().map(|s| s.contains(needle)).unwrap_or(false)
+                    }
+                    "starts_with" => {
+                        let needle = value.as_str().unwrap_or("");
+                        field
+                            .as_str()
+                            .map(|s| s.starts_with(needle))
+                            .unwrap_or(false)
+                    }
+                    _ => false,
                 }
-                "starts_with" => {
-                    let needle = value.as_str().unwrap_or("");
-                    field.as_str().map(|s| s.starts_with(needle)).unwrap_or(false)
-                }
-                _ => false,
+            } else {
+                false
             }
-        } else {
-            false
-        }
-    }).collect();
+        })
+        .collect();
 
     let result = Value::Array(filtered.into_iter().cloned().collect());
     serde_json::to_string_pretty(&result).map_err(|e| e.to_string())
@@ -129,12 +146,15 @@ fn filter_array(json: &Value, args: &Value) -> Result<String, String> {
 
 fn pluck_array(json: &Value, args: &Value) -> Result<String, String> {
     let arr = require_array(json, "pluck")?;
-    let fields_raw = args.get("fields").and_then(|v| v.as_str())
+    let fields_raw = args
+        .get("fields")
+        .and_then(|v| v.as_str())
         .ok_or("json_tools pluck: 'fields' is required (comma-separated field names)")?;
     let fields: Vec<&str> = fields_raw.split(',').map(str::trim).collect();
 
-    let result: Vec<Value> = arr.iter().map(|item| {
-        match item {
+    let result: Vec<Value> = arr
+        .iter()
+        .map(|item| match item {
             Value::Object(map) => {
                 let mut out = Map::new();
                 for f in &fields {
@@ -145,8 +165,8 @@ fn pluck_array(json: &Value, args: &Value) -> Result<String, String> {
                 Value::Object(out)
             }
             other => other.clone(),
-        }
-    }).collect();
+        })
+        .collect();
 
     serde_json::to_string_pretty(&Value::Array(result)).map_err(|e| e.to_string())
 }
@@ -185,12 +205,23 @@ fn count(json: &Value) -> Result<String, String> {
 fn sort_array(json: &Value, args: &Value) -> Result<String, String> {
     let arr = require_array(json, "sort")?;
     let key = args.get("key").and_then(|v| v.as_str());
-    let reverse = args.get("reverse").and_then(|v| v.as_bool()).unwrap_or(false);
+    let reverse = args
+        .get("reverse")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
 
     let mut items = arr.to_vec();
     items.sort_by(|a, b| {
-        let va = if let Some(k) = key { a.get(k).unwrap_or(a) } else { a };
-        let vb = if let Some(k) = key { b.get(k).unwrap_or(b) } else { b };
+        let va = if let Some(k) = key {
+            a.get(k).unwrap_or(a)
+        } else {
+            a
+        };
+        let vb = if let Some(k) = key {
+            b.get(k).unwrap_or(b)
+        } else {
+            b
+        };
         compare_values(va, vb)
     });
     if reverse {
@@ -220,9 +251,13 @@ fn unique_array(json: &Value, args: &Value) -> Result<String, String> {
 }
 
 fn merge(args: &Value) -> Result<String, String> {
-    let a_str = args.get("json").and_then(|v| v.as_str())
+    let a_str = args
+        .get("json")
+        .and_then(|v| v.as_str())
         .ok_or("json_tools merge: 'json' (first object) is required")?;
-    let b_str = args.get("with").and_then(|v| v.as_str())
+    let b_str = args
+        .get("with")
+        .and_then(|v| v.as_str())
         .ok_or("json_tools merge: 'with' (second object) is required")?;
 
     let mut a: Map<String, Value> = serde_json::from_str(a_str)
@@ -237,9 +272,13 @@ fn merge(args: &Value) -> Result<String, String> {
 }
 
 fn json_diff(args: &Value) -> Result<String, String> {
-    let a_str = args.get("json").and_then(|v| v.as_str())
+    let a_str = args
+        .get("json")
+        .and_then(|v| v.as_str())
         .ok_or("json_tools diff: 'json' (first object) is required")?;
-    let b_str = args.get("with").and_then(|v| v.as_str())
+    let b_str = args
+        .get("with")
+        .and_then(|v| v.as_str())
         .ok_or("json_tools diff: 'with' (second object) is required")?;
 
     let a: Value = serde_json::from_str(a_str)
@@ -253,7 +292,11 @@ fn json_diff(args: &Value) -> Result<String, String> {
     if changes.is_empty() {
         Ok("No differences found — the two JSON values are identical.".to_string())
     } else {
-        Ok(format!("JSON DIFF ({} change(s)):\n{}", changes.len(), changes.join("\n")))
+        Ok(format!(
+            "JSON DIFF ({} change(s)):\n{}",
+            changes.len(),
+            changes.join("\n")
+        ))
     }
 }
 
@@ -301,7 +344,11 @@ fn build_schema(val: &Value, depth: usize) -> String {
         }
         Value::String(_) => format!("{indent}<string>"),
         Value::Number(n) => {
-            if n.is_f64() { format!("{indent}<float>") } else { format!("{indent}<integer>") }
+            if n.is_f64() {
+                format!("{indent}<float>")
+            } else {
+                format!("{indent}<integer>")
+            }
         }
         Value::Bool(_) => format!("{indent}<boolean>"),
         Value::Null => format!("{indent}<null>"),
@@ -338,14 +385,21 @@ fn array_stats(json: &Value) -> Result<String, String> {
              Mean   : {:.4}\n\
              Median : {:.4}\n\
              StdDev : {:.4}\n",
-            sorted[0], sorted[sorted.len() - 1], sum, mean, median, std_dev
+            sorted[0],
+            sorted[sorted.len() - 1],
+            sum,
+            mean,
+            median,
+            std_dev
         ));
     } else {
         // String or mixed stats
-        let types: std::collections::BTreeMap<&str, usize> = arr.iter().fold(
-            std::collections::BTreeMap::new(),
-            |mut m, v| { *m.entry(type_name(v)).or_default() += 1; m }
-        );
+        let types: std::collections::BTreeMap<&str, usize> =
+            arr.iter()
+                .fold(std::collections::BTreeMap::new(), |mut m, v| {
+                    *m.entry(type_name(v)).or_default() += 1;
+                    m
+                });
         for (t, n) in &types {
             out.push_str(&format!("  {t}: {n} item(s)\n"));
         }
@@ -377,13 +431,14 @@ fn to_csv(json: &Value) -> Result<String, String> {
 
     let mut lines = vec![all_keys.join(",")];
     for item in arr {
-        let row: Vec<String> = all_keys.iter().map(|k| {
-            match item.get(k) {
+        let row: Vec<String> = all_keys
+            .iter()
+            .map(|k| match item.get(k) {
                 Some(Value::String(s)) => csv_escape(s),
                 Some(v) => v.to_string(),
                 None => String::new(),
-            }
-        }).collect();
+            })
+            .collect();
         lines.push(row.join(","));
     }
     Ok(lines.join("\n"))
@@ -405,13 +460,16 @@ fn navigate<'a>(json: &'a Value, path: &str) -> Result<&'a Value, String> {
                 .parse()
                 .map_err(|_| format!("json_tools get: invalid array index '{idx_str}'"))?;
             if !key.is_empty() {
-                current = current.get(key)
+                current = current
+                    .get(key)
                     .ok_or_else(|| format!("json_tools get: key '{key}' not found"))?;
             }
-            current = current.get(idx)
+            current = current
+                .get(idx)
                 .ok_or_else(|| format!("json_tools get: index [{idx}] out of bounds"))?;
         } else {
-            current = current.get(segment)
+            current = current
+                .get(segment)
                 .ok_or_else(|| format!("json_tools get: key '{segment}' not found"))?;
         }
     }

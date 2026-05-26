@@ -44,7 +44,8 @@ fn get_pattern(args: &Value) -> Result<(Regex, bool), String> {
     builder.multi_line(multiline);
     builder.dot_matches_new_line(dot_all);
 
-    let re = builder.build()
+    let re = builder
+        .build()
         .map_err(|e| format!("regex_tools: invalid pattern '{pattern_str}': {e}"))?;
 
     Ok((re, case_insensitive))
@@ -62,7 +63,9 @@ fn test_pattern(args: &Value) -> Result<String, String> {
 
     // Accept multiple test strings as array or single string
     let texts: Vec<String> = if let Some(arr) = args.get("texts").and_then(|v| v.as_array()) {
-        arr.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect()
+        arr.iter()
+            .filter_map(|v| v.as_str().map(|s| s.to_string()))
+            .collect()
     } else {
         vec![get_text(args)?]
     };
@@ -80,7 +83,11 @@ fn test_pattern(args: &Value) -> Result<String, String> {
 
     for text in &texts {
         let is_match = re.is_match(text);
-        if is_match { match_count += 1; } else { no_match_count += 1; }
+        if is_match {
+            match_count += 1;
+        } else {
+            no_match_count += 1;
+        }
 
         let display = if text.len() > 80 {
             format!("{}...", &text[..80])
@@ -88,13 +95,22 @@ fn test_pattern(args: &Value) -> Result<String, String> {
             text.clone()
         };
 
-        let status = if is_match { "✓ MATCH" } else { "✗ NO MATCH" };
+        let status = if is_match {
+            "✓ MATCH"
+        } else {
+            "✗ NO MATCH"
+        };
         out.push_str(&format!("{status}  \"{display}\"\n"));
 
         if is_match {
             // Show what matched
             for (i, m) in re.find_iter(text).enumerate().take(3) {
-                out.push_str(&format!("         match[{i}]: {:?} at {}..{}\n", m.as_str(), m.start(), m.end()));
+                out.push_str(&format!(
+                    "         match[{i}]: {:?} at {}..{}\n",
+                    m.as_str(),
+                    m.start(),
+                    m.end()
+                ));
             }
             let total = re.find_iter(text).count();
             if total > 3 {
@@ -115,7 +131,10 @@ fn extract_matches(args: &Value) -> Result<String, String> {
     let flags = build_flags_display(args);
 
     let has_groups = re.captures_len() > 1;
-    let mut out = format!("REGEX EXTRACT: /{pattern_str}/{flags}\n{}\n\n", "─".repeat(60));
+    let mut out = format!(
+        "REGEX EXTRACT: /{pattern_str}/{flags}\n{}\n\n",
+        "─".repeat(60)
+    );
 
     if has_groups {
         let group_names: Vec<Option<&str>> = re.capture_names().collect();
@@ -124,7 +143,8 @@ fn extract_matches(args: &Value) -> Result<String, String> {
             out.push_str(&format!("  full: {:?}\n", caps.get(0).map(|m| m.as_str())));
             for (g, name) in group_names.iter().enumerate().skip(1) {
                 if let Some(m) = caps.get(g) {
-                    let label = name.map(|n| n.to_string())
+                    let label = name
+                        .map(|n| n.to_string())
                         .unwrap_or_else(|| format!("group {g}"));
                     out.push_str(&format!("  {label}: {:?}\n", m.as_str()));
                 }
@@ -139,7 +159,10 @@ fn extract_matches(args: &Value) -> Result<String, String> {
                 out.push_str(&format!("  [{i}] {m:?}\n"));
             }
             if matches.len() > 50 {
-                out.push_str(&format!("  ... ({} total matches, showing first 50)\n", matches.len()));
+                out.push_str(&format!(
+                    "  ... ({} total matches, showing first 50)\n",
+                    matches.len()
+                ));
             } else {
                 out.push_str(&format!("\nTotal: {} match(es)\n", matches.len()));
             }
@@ -152,7 +175,10 @@ fn extract_matches(args: &Value) -> Result<String, String> {
 fn replace_matches(args: &Value) -> Result<String, String> {
     let (re, _) = get_pattern(args)?;
     let text = get_text(args)?;
-    let replacement = args.get("replacement").and_then(|v| v.as_str()).unwrap_or("");
+    let replacement = args
+        .get("replacement")
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
     let limit = args.get("limit").and_then(|v| v.as_u64()).unwrap_or(0) as usize;
 
     let result = if limit == 0 || limit > 1 {
@@ -164,7 +190,9 @@ fn replace_matches(args: &Value) -> Result<String, String> {
             let mut count = 0;
             while count < limit {
                 let new = re.replacen(&s, 1, replacement).to_string();
-                if new == s { break; }
+                if new == s {
+                    break;
+                }
                 s = new;
                 count += 1;
             }
@@ -195,7 +223,8 @@ fn split_on_pattern(args: &Value) -> Result<String, String> {
     let parts: Vec<&str> = re.split(&text).collect();
     let mut out = format!(
         "REGEX SPLIT: /{pattern_str}/\n{}\n{} part(s):\n\n",
-        "─".repeat(60), parts.len()
+        "─".repeat(60),
+        parts.len()
     );
     for (i, part) in parts.iter().enumerate() {
         out.push_str(&format!("  [{i}] {part:?}\n"));
@@ -204,12 +233,13 @@ fn split_on_pattern(args: &Value) -> Result<String, String> {
 }
 
 fn explain_pattern(args: &Value) -> Result<String, String> {
-    let pattern_str = args.get("pattern").and_then(|v| v.as_str())
+    let pattern_str = args
+        .get("pattern")
+        .and_then(|v| v.as_str())
         .ok_or("regex_tools explain: 'pattern' is required")?;
 
     // Validate the pattern compiles
-    regex::Regex::new(pattern_str)
-        .map_err(|e| format!("regex_tools: invalid pattern: {e}"))?;
+    regex::Regex::new(pattern_str).map_err(|e| format!("regex_tools: invalid pattern: {e}"))?;
 
     let mut out = format!("REGEX EXPLAIN: /{pattern_str}/\n{}\n\n", "─".repeat(60));
 
@@ -263,40 +293,55 @@ fn analyze_pattern(pattern: &str) -> Vec<String> {
                         '0'..='9' => Some("\\N — backreference to capture group N"),
                         _ => Some("\\? — escaped literal character"),
                     }
-                } else { None }
+                } else {
+                    None
+                }
             }
             '[' => {
                 // Find matching ]
                 let start = i;
-                while i < chars.len() && chars[i] != ']' { i += 1; }
-                let class: String = chars[start..=i.min(chars.len()-1)].iter().collect();
-                out.push(format!("{class} — character class (matches any one of the listed characters)"));
+                while i < chars.len() && chars[i] != ']' {
+                    i += 1;
+                }
+                let class: String = chars[start..=i.min(chars.len() - 1)].iter().collect();
+                out.push(format!(
+                    "{class} — character class (matches any one of the listed characters)"
+                ));
                 i += 1;
                 continue;
             }
             '(' => {
                 if i + 1 < chars.len() {
-                    if chars[i+1] == '?' {
+                    if chars[i + 1] == '?' {
                         if i + 2 < chars.len() {
-                            match chars[i+2] {
+                            match chars[i + 2] {
                                 ':' => out.push("(?:...) — non-capturing group".to_string()),
                                 '=' => out.push("(?=...) — positive lookahead".to_string()),
                                 '!' => out.push("(?!...) — negative lookahead".to_string()),
                                 '<' => {
                                     if i + 3 < chars.len() {
-                                        match chars[i+3] {
-                                            '=' => out.push("(?<=...) — positive lookbehind".to_string()),
-                                            '!' => out.push("(?<!...) — negative lookbehind".to_string()),
-                                            _ => out.push("(?<name>...) — named capture group".to_string()),
+                                        match chars[i + 3] {
+                                            '=' => out
+                                                .push("(?<=...) — positive lookbehind".to_string()),
+                                            '!' => out
+                                                .push("(?<!...) — negative lookbehind".to_string()),
+                                            _ => out.push(
+                                                "(?<name>...) — named capture group".to_string(),
+                                            ),
                                         }
                                     }
                                 }
-                                'P' => out.push("(?P<name>...) — named capture group (Python syntax)".to_string()),
+                                'P' => out.push(
+                                    "(?P<name>...) — named capture group (Python syntax)"
+                                        .to_string(),
+                                ),
                                 _ => {}
                             }
                         }
                     } else {
-                        out.push("(...) — capture group (captured and numbered from 1)".to_string());
+                        out.push(
+                            "(...) — capture group (captured and numbered from 1)".to_string(),
+                        );
                     }
                 }
                 i += 1;
@@ -305,9 +350,13 @@ fn analyze_pattern(pattern: &str) -> Vec<String> {
             '{' => {
                 // Find matching }
                 let start = i;
-                while i < chars.len() && chars[i] != '}' { i += 1; }
-                let quant: String = chars[start..=i.min(chars.len()-1)].iter().collect();
-                out.push(format!("{quant} — quantifier: repeat a specific number of times"));
+                while i < chars.len() && chars[i] != '}' {
+                    i += 1;
+                }
+                let quant: String = chars[start..=i.min(chars.len() - 1)].iter().collect();
+                out.push(format!(
+                    "{quant} — quantifier: repeat a specific number of times"
+                ));
                 i += 1;
                 continue;
             }
@@ -358,13 +407,25 @@ fn named_groups(args: &Value) -> Result<String, String> {
 
 fn build_flags_display(args: &Value) -> String {
     let mut flags = String::new();
-    if args.get("case_insensitive").and_then(|v| v.as_bool()).unwrap_or(false) {
+    if args
+        .get("case_insensitive")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false)
+    {
         flags.push('i');
     }
-    if args.get("multiline").and_then(|v| v.as_bool()).unwrap_or(false) {
+    if args
+        .get("multiline")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false)
+    {
         flags.push('m');
     }
-    if args.get("dot_all").and_then(|v| v.as_bool()).unwrap_or(false) {
+    if args
+        .get("dot_all")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false)
+    {
         flags.push('s');
     }
     flags

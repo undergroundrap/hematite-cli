@@ -71,10 +71,16 @@ fn compute_diff(left_lines: &[&str], right_lines: &[&str]) -> Vec<Edit> {
         return vec![];
     }
     if n == 0 {
-        return right_lines.iter().map(|l| Edit::Insert(l.to_string())).collect();
+        return right_lines
+            .iter()
+            .map(|l| Edit::Insert(l.to_string()))
+            .collect();
     }
     if m == 0 {
-        return left_lines.iter().map(|l| Edit::Delete(l.to_string())).collect();
+        return left_lines
+            .iter()
+            .map(|l| Edit::Delete(l.to_string()))
+            .collect();
     }
 
     // LCS-based diff via DP table
@@ -109,10 +115,7 @@ fn compute_diff(left_lines: &[&str], right_lines: &[&str]) -> Vec<Edit> {
 
 fn compare(args: &Value) -> Result<String, String> {
     let (left, label_a, right, label_b) = get_sides(args)?;
-    let context = args
-        .get("context")
-        .and_then(|v| v.as_u64())
-        .unwrap_or(3) as usize;
+    let context = args.get("context").and_then(|v| v.as_u64()).unwrap_or(3) as usize;
 
     let left_lines: Vec<&str> = left.lines().collect();
     let right_lines: Vec<&str> = right.lines().collect();
@@ -143,8 +146,14 @@ fn compare(args: &Value) -> Result<String, String> {
     out.push_str(&hunk_lines);
 
     // Summary line
-    let added: usize = edits.iter().filter(|e| matches!(e, Edit::Insert(_))).count();
-    let deleted: usize = edits.iter().filter(|e| matches!(e, Edit::Delete(_))).count();
+    let added: usize = edits
+        .iter()
+        .filter(|e| matches!(e, Edit::Insert(_)))
+        .count();
+    let deleted: usize = edits
+        .iter()
+        .filter(|e| matches!(e, Edit::Delete(_)))
+        .count();
     out.push_str(&format!(
         "\n{} line(s) added, {} line(s) removed",
         added, deleted
@@ -195,9 +204,16 @@ fn build_hunk_lines(edits: &[Edit], context: usize) -> String {
         // Advance counters to hunk_start
         while edit_pos < hunk_start {
             match &edits[edit_pos] {
-                Edit::Keep(_) => { left_line += 1; right_line += 1; }
-                Edit::Delete(_) => { left_line += 1; }
-                Edit::Insert(_) => { right_line += 1; }
+                Edit::Keep(_) => {
+                    left_line += 1;
+                    right_line += 1;
+                }
+                Edit::Delete(_) => {
+                    left_line += 1;
+                }
+                Edit::Insert(_) => {
+                    right_line += 1;
+                }
             }
             edit_pos += 1;
         }
@@ -246,10 +262,7 @@ fn build_hunk_lines(edits: &[Edit], context: usize) -> String {
 
 fn make_patch(args: &Value) -> Result<String, String> {
     let (left, label_a, right, label_b) = get_sides(args)?;
-    let context = args
-        .get("context")
-        .and_then(|v| v.as_u64())
-        .unwrap_or(3) as usize;
+    let context = args.get("context").and_then(|v| v.as_u64()).unwrap_or(3) as usize;
 
     let left_lines: Vec<&str> = left.lines().collect();
     let right_lines: Vec<&str> = right.lines().collect();
@@ -258,8 +271,14 @@ fn make_patch(args: &Value) -> Result<String, String> {
     let mut patch = format!("--- {label_a}\n+++ {label_b}\n");
     patch.push_str(&build_hunk_lines(&edits, context));
 
-    let added: usize = edits.iter().filter(|e| matches!(e, Edit::Insert(_))).count();
-    let deleted: usize = edits.iter().filter(|e| matches!(e, Edit::Delete(_))).count();
+    let added: usize = edits
+        .iter()
+        .filter(|e| matches!(e, Edit::Insert(_)))
+        .count();
+    let deleted: usize = edits
+        .iter()
+        .filter(|e| matches!(e, Edit::Delete(_)))
+        .count();
 
     if added == 0 && deleted == 0 {
         return Ok(format!(
@@ -294,15 +313,16 @@ fn apply_patch(args: &Value) -> Result<String, String> {
         std::fs::read_to_string(&path)
             .map_err(|e| format!("diff_tools: cannot read patch '{f}': {e}"))?
     } else {
-        return Err("diff_tools apply: provide 'patch' (inline text) or 'patch_file' (path)".into());
+        return Err(
+            "diff_tools apply: provide 'patch' (inline text) or 'patch_file' (path)".into(),
+        );
     };
 
     let target_text = if let Some(t) = args.get("text_a").and_then(|v| v.as_str()) {
         t.to_string()
     } else if let Some(f) = args.get("file_a").and_then(|v| v.as_str()) {
         let path = resolve_path(args, f);
-        std::fs::read_to_string(&path)
-            .map_err(|e| format!("diff_tools: cannot read '{f}': {e}"))?
+        std::fs::read_to_string(&path).map_err(|e| format!("diff_tools: cannot read '{f}': {e}"))?
     } else {
         return Err("diff_tools apply: provide 'text_a' or 'file_a' as the base to patch".into());
     };
@@ -446,8 +466,14 @@ fn diff_stat(args: &Value) -> Result<String, String> {
     let right_lines: Vec<&str> = right.lines().collect();
     let edits = compute_diff(&left_lines, &right_lines);
 
-    let added: usize = edits.iter().filter(|e| matches!(e, Edit::Insert(_))).count();
-    let deleted: usize = edits.iter().filter(|e| matches!(e, Edit::Delete(_))).count();
+    let added: usize = edits
+        .iter()
+        .filter(|e| matches!(e, Edit::Insert(_)))
+        .count();
+    let deleted: usize = edits
+        .iter()
+        .filter(|e| matches!(e, Edit::Delete(_)))
+        .count();
     let kept: usize = edits.iter().filter(|e| matches!(e, Edit::Keep(_))).count();
     let changed = added > 0 || deleted > 0;
 
