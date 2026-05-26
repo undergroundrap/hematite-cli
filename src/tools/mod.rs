@@ -8,6 +8,7 @@ pub mod code_sandbox;
 pub mod data_query;
 pub mod data_tools;
 pub mod debugger;
+pub mod dependency_audit;
 pub mod deps;
 pub mod docker_ops;
 pub mod file_edit;

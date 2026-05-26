@@ -15092,6 +15092,86 @@ fn test_secret_scanner_skips_binary_files() {
 }
 
 #[test]
+fn test_dependency_audit_on_rust_workspace() {
+    use hematite::tools::dependency_audit;
+    use serde_json::json;
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    // Run on the actual project — should find Cargo.toml
+    let result = rt.block_on(dependency_audit::execute(&json!({})));
+    let out = result.expect("should succeed on Cargo.toml workspace");
+    assert!(
+        out.contains("RUST") || out.contains("Cargo"),
+        "should detect Cargo.toml: {out}"
+    );
+    assert!(
+        out.contains("Dependencies listed"),
+        "should count dependencies: {out}"
+    );
+}
+
+#[test]
+fn test_dependency_audit_detects_wildcard() {
+    use hematite::tools::dependency_audit;
+    use serde_json::json;
+
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(
+        dir.path().join("Cargo.toml"),
+        "[package]\nname = \"test\"\nversion = \"0.1.0\"\n\n[dependencies]\nserde = \"*\"\n",
+    ).unwrap();
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(dependency_audit::execute(&json!({
+        "_root": dir.path().to_str().unwrap()
+    })));
+    let out = result.expect("should succeed");
+    assert!(
+        out.contains("WILDCARD") || out.contains("*"),
+        "should flag wildcard version: {out}"
+    );
+}
+
+#[test]
+fn test_dependency_audit_npm() {
+    use hematite::tools::dependency_audit;
+    use serde_json::json;
+
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(
+        dir.path().join("package.json"),
+        r#"{"name":"my-app","version":"1.0.0","dependencies":{"express":"^4.18.0","request":"2.88.0"}}"#,
+    ).unwrap();
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(dependency_audit::execute(&json!({
+        "_root": dir.path().to_str().unwrap()
+    })));
+    let out = result.expect("should succeed");
+    assert!(out.contains("NODE") || out.contains("package.json"), "should detect npm: {out}");
+    assert!(out.contains("request") || out.contains("DEPRECATED"), "should flag deprecated request: {out}");
+}
+
+#[test]
+fn test_dependency_audit_no_manifests() {
+    use hematite::tools::dependency_audit;
+    use serde_json::json;
+
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(dir.path().join("README.md"), "# Hello\n").unwrap();
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(dependency_audit::execute(&json!({
+        "_root": dir.path().to_str().unwrap()
+    })));
+    let out = result.expect("should succeed even with no manifests");
+    assert!(
+        out.contains("no supported manifest") || out.contains("Cargo.toml"),
+        "should indicate no manifests: {out}"
+    );
+}
+
+#[test]
 fn test_code_metrics_on_workspace() {
     use hematite::tools::code_metrics;
     use serde_json::json;

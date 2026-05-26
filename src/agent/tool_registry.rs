@@ -1528,6 +1528,20 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         }),
     ));
     tools.push(make_tool(
+        "dependency_audit",
+        "Audit project dependencies for version pinning, wildcard versions, deprecated packages, \
+         and missing lock files. Supports Rust (Cargo.toml), Node.js (package.json), \
+         Python (requirements.txt / pyproject.toml), and Go (go.mod). \
+         Flags unpinned wildcards, known deprecated packages, missing lock files, \
+         and outdated major versions of popular libraries. \
+         No network required — reads local manifest files only. \
+         For CVE scanning, follow up with `cargo audit`, `npm audit`, or `safety check`.",
+        serde_json::json!({
+            "type": "object",
+            "properties": {}
+        }),
+    ));
+    tools.push(make_tool(
         "code_metrics",
         "Analyze codebase health metrics: total lines, code lines, comment lines, blank lines, \
          TODO/FIXME counts, test file ratio, and language breakdown by file extension. \
@@ -1641,6 +1655,7 @@ pub async fn dispatch_builtin_tool(
         "docker_ops" => crate::tools::docker_ops::execute(args).await,
         "secret_scanner" => crate::tools::secret_scanner::execute(args).await,
         "code_metrics" => crate::tools::code_metrics::execute(args).await,
+        "dependency_audit" => crate::tools::dependency_audit::execute(args).await,
         "git_status" => crate::tools::git::execute_status(args).await,
         "git_diff" => crate::tools::git::execute_diff(args).await,
         "git_log" => crate::tools::git::execute_log(args).await,
