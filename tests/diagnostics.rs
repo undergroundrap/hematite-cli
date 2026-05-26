@@ -15653,3 +15653,180 @@ fn test_secret_scanner_missing_path_errors() {
         "error should mention path: {e}"
     );
 }
+
+// ── regex_tools tests ─────────────────────────────────────────────────────────
+
+#[test]
+fn test_regex_tools_test_match() {
+    use hematite::tools::regex_tools;
+    use serde_json::json;
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt.block_on(regex_tools::execute(&json!({
+        "action": "test",
+        "pattern": r"\d+",
+        "text": "abc 123 def"
+    }))).expect("regex test should succeed");
+    assert!(out.contains("MATCH") || out.contains("match"), "should report a match: {out}");
+}
+
+#[test]
+fn test_regex_tools_test_no_match() {
+    use hematite::tools::regex_tools;
+    use serde_json::json;
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt.block_on(regex_tools::execute(&json!({
+        "action": "test",
+        "pattern": r"\d+",
+        "text": "no digits here"
+    }))).expect("regex test should succeed");
+    assert!(out.contains("NO MATCH") || out.contains("no match") || out.contains("0 match"), "should report no match: {out}");
+}
+
+#[test]
+fn test_regex_tools_test_multiple_texts() {
+    use hematite::tools::regex_tools;
+    use serde_json::json;
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt.block_on(regex_tools::execute(&json!({
+        "action": "test",
+        "pattern": r"^\d{4}-\d{2}-\d{2}$",
+        "texts": ["2024-01-15", "not-a-date", "2025-12-31"]
+    }))).expect("regex test multi should succeed");
+    assert!(out.contains("Summary"), "should show summary: {out}");
+    assert!(out.contains("2") && (out.contains("match") || out.contains("Match")), "should show 2 matches: {out}");
+}
+
+#[test]
+fn test_regex_tools_extract() {
+    use hematite::tools::regex_tools;
+    use serde_json::json;
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt.block_on(regex_tools::execute(&json!({
+        "action": "extract",
+        "pattern": r"\d+",
+        "text": "port 8080 and 443 are open"
+    }))).expect("regex extract should succeed");
+    assert!(out.contains("8080"), "should find 8080: {out}");
+    assert!(out.contains("443"), "should find 443: {out}");
+}
+
+#[test]
+fn test_regex_tools_replace() {
+    use hematite::tools::regex_tools;
+    use serde_json::json;
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt.block_on(regex_tools::execute(&json!({
+        "action": "replace",
+        "pattern": r"\d+",
+        "text": "version 1 patch 2",
+        "replacement": "X"
+    }))).expect("regex replace should succeed");
+    assert!(out.contains("version X patch X"), "should replace digits: {out}");
+}
+
+#[test]
+fn test_regex_tools_split() {
+    use hematite::tools::regex_tools;
+    use serde_json::json;
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt.block_on(regex_tools::execute(&json!({
+        "action": "split",
+        "pattern": r",\s*",
+        "text": "one, two,three,  four"
+    }))).expect("regex split should succeed");
+    assert!(out.contains("4 part") || out.contains("4 Part"), "should split into 4 parts: {out}");
+    assert!(out.contains("one"), "should contain 'one': {out}");
+}
+
+#[test]
+fn test_regex_tools_explain() {
+    use hematite::tools::regex_tools;
+    use serde_json::json;
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt.block_on(regex_tools::execute(&json!({
+        "action": "explain",
+        "pattern": r"^\d+\.\d+$"
+    }))).expect("regex explain should succeed");
+    assert!(out.contains("EXPLAIN") || out.contains("start"), "should explain pattern: {out}");
+    assert!(out.contains("digit") || out.contains("\\d"), "should mention digits: {out}");
+}
+
+#[test]
+fn test_regex_tools_named_groups() {
+    use hematite::tools::regex_tools;
+    use serde_json::json;
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt.block_on(regex_tools::execute(&json!({
+        "action": "named-groups",
+        "pattern": r"(?P<year>\d{4})-(?P<month>\d{2})-(?P<day>\d{2})",
+        "text": "Event on 2024-03-15 and 2025-12-01"
+    }))).expect("named-groups should succeed");
+    assert!(out.contains("year"), "should show year group: {out}");
+    assert!(out.contains("month"), "should show month group: {out}");
+    assert!(out.contains("2024"), "should extract year value: {out}");
+}
+
+#[test]
+fn test_regex_tools_invalid_pattern_error() {
+    use hematite::tools::regex_tools;
+    use serde_json::json;
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(regex_tools::execute(&json!({
+        "action": "test",
+        "pattern": r"[unclosed",
+        "text": "anything"
+    })));
+    assert!(result.is_err(), "invalid pattern should return an error");
+    let e = result.unwrap_err();
+    assert!(e.contains("invalid") || e.contains("pattern"), "error should mention invalid pattern: {e}");
+}
+
+#[test]
+fn test_regex_tools_case_insensitive_flag() {
+    use hematite::tools::regex_tools;
+    use serde_json::json;
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt.block_on(regex_tools::execute(&json!({
+        "action": "test",
+        "pattern": "hello",
+        "text": "HELLO WORLD",
+        "case_insensitive": true
+    }))).expect("case-insensitive test should succeed");
+    assert!(out.contains("MATCH") && !out.contains("NO MATCH"), "should match case-insensitively: {out}");
+}
+
+#[test]
+fn test_regex_tools_unknown_action_error() {
+    use hematite::tools::regex_tools;
+    use serde_json::json;
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(regex_tools::execute(&json!({
+        "action": "bogus_action",
+        "pattern": r"\d+",
+        "text": "test"
+    })));
+    assert!(result.is_err(), "unknown action should return an error");
+}
+
+#[test]
+fn test_routing_detects_regex_tools() {
+    use hematite::agent::routing::needs_regex_tools;
+    assert!(needs_regex_tools("test this regex pattern for me"));
+    assert!(needs_regex_tools("does this pattern match my input"));
+    assert!(needs_regex_tools("explain this regex: ^\\d{4}$"));
+    assert!(needs_regex_tools("extract with regex from this text"));
+    assert!(needs_regex_tools("named capture groups for my pattern"));
+    assert!(!needs_regex_tools("write a function to parse CSV"));
+    assert!(!needs_regex_tools("what is git rebase"));
+}

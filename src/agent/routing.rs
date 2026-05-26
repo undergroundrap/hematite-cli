@@ -5752,10 +5752,40 @@ pub fn needs_secret_scan(user_input: &str) -> bool {
         || (lower.contains("secret") && lower.contains("codebase"))
         || (lower.contains("credential") && lower.contains("repo"))
         || (lower.contains("credential") && lower.contains("codebase"))
-        || (lower.contains("api key")
-            && (lower.contains("committed") || lower.contains("expose")))
+        || (lower.contains("api key") && (lower.contains("committed") || lower.contains("expose")))
         || lower.contains("gitleaks")
         || lower.contains("trufflehog")
+}
+
+/// Returns true when the user wants regex help — steer toward `regex_tools`.
+pub fn needs_regex_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    lower.contains("test this regex")
+        || lower.contains("test regex")
+        || lower.contains("test my regex")
+        || lower.contains("test pattern")
+        || lower.contains("regex match")
+        || lower.contains("does this pattern match")
+        || lower.contains("does my regex")
+        || lower.contains("extract with regex")
+        || lower.contains("extract using regex")
+        || lower.contains("regex extract")
+        || lower.contains("replace with regex")
+        || lower.contains("replace using regex")
+        || lower.contains("regex replace")
+        || lower.contains("regex split")
+        || lower.contains("split on regex")
+        || lower.contains("split with regex")
+        || lower.contains("explain this regex")
+        || lower.contains("explain regex")
+        || lower.contains("what does this regex")
+        || lower.contains("what does this pattern")
+        || lower.contains("named capture group")
+        || lower.contains("named groups")
+        || lower.contains("regex named")
+        || (lower.contains("regex") && lower.contains("pattern") && lower.contains("test"))
+        || (lower.contains("regular expression") && lower.contains("test"))
+        || (lower.contains("regular expression") && lower.contains("match"))
 }
 
 /// Returns true when the user's query involves computation that must be exact —

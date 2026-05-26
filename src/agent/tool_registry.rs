@@ -1594,6 +1594,61 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         }),
     ));
     tools.push(make_tool(
+        "regex_tools",
+        "Test, extract, replace, split, and explain regular expressions without needing external tools. \
+         Actions: \
+         `test` — check if a pattern matches one or more strings (accepts 'text' or 'texts' array); \
+         `extract` — find all matches or named/numbered capture groups in text; \
+         `replace` — substitute matches with a replacement string (optional 'limit' arg); \
+         `split` — split text on a regex delimiter; \
+         `explain` — produce a plain-English breakdown of each component in the pattern; \
+         `named-groups` — extract all named capture groups from text by name. \
+         Flags: case_insensitive (bool), multiline (bool, ^ and $ match line boundaries), dot_all (bool, . matches newline).",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "Operation to perform. Default: 'test'. Options: test, extract, replace, split, explain, named-groups."
+                },
+                "pattern": {
+                    "type": "string",
+                    "description": "The regular expression pattern (Rust regex syntax)."
+                },
+                "text": {
+                    "type": "string",
+                    "description": "The input text to operate on (single string)."
+                },
+                "texts": {
+                    "type": "array",
+                    "items": { "type": "string" },
+                    "description": "Array of test strings for the 'test' action."
+                },
+                "replacement": {
+                    "type": "string",
+                    "description": "Replacement string for 'replace' action. Supports $1, $name capture references."
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "Max number of replacements for 'replace' action (0 = replace all, default 0)."
+                },
+                "case_insensitive": {
+                    "type": "boolean",
+                    "description": "Enable case-insensitive matching (flag: i)."
+                },
+                "multiline": {
+                    "type": "boolean",
+                    "description": "Enable multiline mode: ^ and $ match line boundaries (flag: m)."
+                },
+                "dot_all": {
+                    "type": "boolean",
+                    "description": "Enable dot-all mode: . matches newline characters (flag: s)."
+                }
+            },
+            "required": ["pattern"]
+        }),
+    ));
+    tools.push(make_tool(
         "template_gen",
         "Generate boilerplate files from built-in templates. \
          Supports Dockerfiles (Node.js, Python, Rust, Go multi-stage), \
@@ -1836,6 +1891,7 @@ pub async fn dispatch_builtin_tool(
         "env_diff" => crate::tools::env_diff::execute(args).await,
         "template_gen" => crate::tools::template_gen::execute(args).await,
         "json_tools" => crate::tools::json_tools::execute(args).await,
+        "regex_tools" => crate::tools::regex_tools::execute(args).await,
         "git_status" => crate::tools::git::execute_status(args).await,
         "git_diff" => crate::tools::git::execute_diff(args).await,
         "git_log" => crate::tools::git::execute_log(args).await,

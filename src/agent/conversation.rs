@@ -29,8 +29,9 @@ use crate::agent::routing::{
     all_host_inspection_topics, classify_query_intent, is_capability_probe_tool,
     is_scaffold_request, looks_like_mutation_request, needs_computation_sandbox, needs_crash_debug,
     needs_docker_ops, needs_format, needs_github_ops, needs_http_request, needs_lint_check,
-    needs_secret_scan, needs_test_run, preferred_host_inspection_topic, preferred_maintainer_workflow,
-    preferred_workspace_workflow, DirectAnswerKind, QueryIntentClass,
+    needs_regex_tools, needs_secret_scan, needs_test_run, preferred_host_inspection_topic,
+    preferred_maintainer_workflow, preferred_workspace_workflow, DirectAnswerKind,
+    QueryIntentClass,
 };
 use crate::agent::tool_registry::dispatch_builtin_tool;
 use crate::agent::truncation::safe_head;
@@ -5059,6 +5060,20 @@ impl ConversationManager {
                  Results are grouped by file with line numbers and a redacted snippet. \
                  Example: secret_scanner() to scan the entire workspace, or \
                  secret_scanner(path: \"src\") to scan a subdirectory."
+                    .to_string(),
+            );
+        }
+
+        // ── Regex Tools Routing: steer model toward regex_tools ──
+        if loop_intervention.is_none() && needs_regex_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "REGEX NOTICE: Use the `regex_tools` tool for regex work. \
+                 Actions: test (match/no-match with excerpts), extract (all matches or named groups), \
+                 replace (with optional limit), split (partition text), explain (plain-English breakdown), \
+                 named-groups (extract named captures). \
+                 Flags: case_insensitive, multiline, dot_all. \
+                 Example: regex_tools(action: \"test\", pattern: \"\\\\d+\", text: \"abc 123\") or \
+                 regex_tools(action: \"explain\", pattern: \"^(?P<year>\\\\d{4})-(?P<month>\\\\d{2})\")."
                     .to_string(),
             );
         }

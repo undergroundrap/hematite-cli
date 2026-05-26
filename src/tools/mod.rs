@@ -31,6 +31,7 @@ pub mod plan;
 pub mod port_check;
 pub mod profiler;
 pub mod refactor;
+pub mod regex_tools;
 pub mod repo_script;
 pub mod research;
 pub mod risk_evaluator;
