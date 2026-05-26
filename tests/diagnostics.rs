@@ -18223,3 +18223,318 @@ fn test_routing_detects_jwt_tools() {
     assert!(!needs_jwt_tools("generate a UUID"));
     assert!(!needs_jwt_tools("what is a cron job"));
 }
+
+// ── xml_tools tests ───────────────────────────────────────────────────────────
+
+const TEST_XML: &str = r#"<?xml version="1.0" encoding="UTF-8"?>
+<project>
+  <groupId>com.example</groupId>
+  <artifactId>my-app</artifactId>
+  <version>1.0.0</version>
+  <dependencies>
+    <dependency>
+      <groupId>org.springframework</groupId>
+      <artifactId>spring-core</artifactId>
+      <version>5.3.0</version>
+    </dependency>
+    <dependency>
+      <groupId>junit</groupId>
+      <artifactId>junit</artifactId>
+      <version>4.13</version>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+  <build>
+    <sourceDirectory>src/main/java</sourceDirectory>
+  </build>
+</project>"#;
+
+#[test]
+fn test_xml_tools_validate() {
+    use hematite::tools::xml_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(xml_tools::execute(&json!({
+        "action": "validate",
+        "xml": TEST_XML
+    })));
+    assert!(result.is_ok(), "validate should succeed: {:?}", result);
+    let out = result.unwrap();
+    assert!(out.contains("XML VALID"));
+    assert!(out.contains("<project>"));
+    assert!(out.contains("Elements"));
+}
+
+#[test]
+fn test_xml_tools_format() {
+    use hematite::tools::xml_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(xml_tools::execute(&json!({
+        "action": "format",
+        "xml": "<root><child>text</child></root>"
+    })));
+    assert!(result.is_ok(), "format should succeed: {:?}", result);
+    let out = result.unwrap();
+    assert!(out.contains("XML FORMAT"));
+    assert!(out.contains("<root>"));
+    assert!(out.contains("<child>"));
+}
+
+#[test]
+fn test_xml_tools_get_path() {
+    use hematite::tools::xml_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(xml_tools::execute(&json!({
+        "action": "get",
+        "xml": TEST_XML,
+        "path": "dependencies"
+    })));
+    assert!(result.is_ok(), "get should succeed: {:?}", result);
+    let out = result.unwrap();
+    assert!(out.contains("<dependencies>") || out.contains("dependencies"));
+    assert!(out.contains("children"));
+}
+
+#[test]
+fn test_xml_tools_get_path_missing() {
+    use hematite::tools::xml_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(xml_tools::execute(&json!({
+        "action": "get",
+        "xml": TEST_XML,
+        "path": "nonexistent.child"
+    })));
+    assert!(result.is_err());
+    assert!(result.unwrap_err().contains("not found"));
+}
+
+#[test]
+fn test_xml_tools_keys() {
+    use hematite::tools::xml_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(xml_tools::execute(&json!({
+        "action": "keys",
+        "xml": TEST_XML
+    })));
+    assert!(result.is_ok(), "keys should succeed: {:?}", result);
+    let out = result.unwrap();
+    assert!(out.contains("XML KEYS"));
+    assert!(out.contains("<groupId>") || out.contains("groupId"));
+    assert!(out.contains("<dependencies>") || out.contains("dependencies"));
+}
+
+#[test]
+fn test_xml_tools_to_json() {
+    use hematite::tools::xml_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(xml_tools::execute(&json!({
+        "action": "to-json",
+        "xml": TEST_XML
+    })));
+    assert!(result.is_ok(), "to-json should succeed: {:?}", result);
+    let out = result.unwrap();
+    assert!(out.contains("XML → JSON"));
+    assert!(out.contains("project"));
+    assert!(out.contains("groupId") || out.contains("artifactId"));
+}
+
+#[test]
+fn test_xml_tools_query() {
+    use hematite::tools::xml_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(xml_tools::execute(&json!({
+        "action": "query",
+        "xml": TEST_XML,
+        "tag": "dependency"
+    })));
+    assert!(result.is_ok(), "query should succeed: {:?}", result);
+    let out = result.unwrap();
+    assert!(out.contains("XML QUERY"));
+    assert!(out.contains("Found 2 match"));
+}
+
+#[test]
+fn test_xml_tools_invalid_xml() {
+    use hematite::tools::xml_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(xml_tools::execute(&json!({
+        "action": "validate",
+        "xml": "<root><unclosed>"
+    })));
+    // Unclosed tags may or may not error depending on quick-xml's behavior,
+    // but at minimum we should not get a panic — a valid output or a clean error.
+    let _ = result; // just verify no panic
+}
+
+#[test]
+fn test_xml_tools_attributes() {
+    use hematite::tools::xml_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(xml_tools::execute(&json!({
+        "action": "validate",
+        "xml": r#"<root xmlns="http://example.com" version="2.0"><child id="1">text</child></root>"#
+    })));
+    assert!(
+        result.is_ok(),
+        "should parse element with attributes: {:?}",
+        result
+    );
+    let out = result.unwrap();
+    assert!(out.contains("XML VALID"));
+    assert!(out.contains("Attributes") || out.contains("version") || out.contains("xmlns"));
+}
+
+#[test]
+fn test_routing_detects_xml_tools() {
+    use hematite::agent::routing::needs_xml_tools;
+    assert!(needs_xml_tools("parse this xml document"));
+    assert!(needs_xml_tools("validate my pom.xml file"));
+    assert!(needs_xml_tools("convert xml to json"));
+    assert!(needs_xml_tools("format this xml string"));
+    assert!(needs_xml_tools("query the maven pom for dependencies"));
+    assert!(!needs_xml_tools("validate my package.json"));
+    assert!(!needs_xml_tools("convert yaml to json"));
+}
+
+// ── archive_tools tests ───────────────────────────────────────────────────────
+
+fn make_test_zip() -> tempfile::NamedTempFile {
+    use std::io::Write;
+    use zip::write::SimpleFileOptions;
+    use zip::ZipWriter;
+
+    let tmp = tempfile::NamedTempFile::with_suffix(".zip").unwrap();
+    let file = std::fs::OpenOptions::new()
+        .write(true)
+        .open(tmp.path())
+        .unwrap();
+    let mut zip = ZipWriter::new(file);
+    let opts = SimpleFileOptions::default().compression_method(zip::CompressionMethod::Stored);
+
+    zip.start_file("hello.txt", opts).unwrap();
+    zip.write_all(b"Hello, World!\n").unwrap();
+
+    let opts2 = SimpleFileOptions::default().compression_method(zip::CompressionMethod::Stored);
+    zip.start_file("data/config.json", opts2).unwrap();
+    zip.write_all(b"{\"key\": \"value\"}").unwrap();
+
+    zip.finish().unwrap();
+    tmp
+}
+
+#[test]
+fn test_archive_tools_list() {
+    use hematite::tools::archive_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let tmp = make_test_zip();
+    let result = rt.block_on(archive_tools::execute(&json!({
+        "action": "list",
+        "file": tmp.path().to_str().unwrap()
+    })));
+    assert!(result.is_ok(), "list should succeed: {:?}", result);
+    let out = result.unwrap();
+    assert!(out.contains("ARCHIVE LIST"));
+    assert!(out.contains("hello.txt"));
+    assert!(out.contains("data/config.json"));
+}
+
+#[test]
+fn test_archive_tools_info() {
+    use hematite::tools::archive_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let tmp = make_test_zip();
+    let result = rt.block_on(archive_tools::execute(&json!({
+        "action": "info",
+        "file": tmp.path().to_str().unwrap()
+    })));
+    assert!(result.is_ok(), "info should succeed: {:?}", result);
+    let out = result.unwrap();
+    assert!(out.contains("ARCHIVE INFO"));
+    assert!(out.contains("Files"));
+    assert!(out.contains("2") || out.contains("Archive size"));
+}
+
+#[test]
+fn test_archive_tools_inspect() {
+    use hematite::tools::archive_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let tmp = make_test_zip();
+    let result = rt.block_on(archive_tools::execute(&json!({
+        "action": "inspect",
+        "file": tmp.path().to_str().unwrap(),
+        "entry": "hello.txt"
+    })));
+    assert!(result.is_ok(), "inspect should succeed: {:?}", result);
+    let out = result.unwrap();
+    assert!(out.contains("ARCHIVE INSPECT"));
+    assert!(out.contains("hello.txt"));
+    assert!(out.contains("File"));
+}
+
+#[test]
+fn test_archive_tools_extract() {
+    use hematite::tools::archive_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let tmp = make_test_zip();
+    let result = rt.block_on(archive_tools::execute(&json!({
+        "action": "extract",
+        "file": tmp.path().to_str().unwrap(),
+        "entry": "hello.txt"
+    })));
+    assert!(result.is_ok(), "extract should succeed: {:?}", result);
+    let out = result.unwrap();
+    assert!(out.contains("Hello, World!"));
+}
+
+#[test]
+fn test_archive_tools_extract_missing_entry() {
+    use hematite::tools::archive_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let tmp = make_test_zip();
+    let result = rt.block_on(archive_tools::execute(&json!({
+        "action": "extract",
+        "file": tmp.path().to_str().unwrap(),
+        "entry": "does_not_exist.txt"
+    })));
+    assert!(result.is_err());
+    assert!(result.unwrap_err().contains("not found"));
+}
+
+#[test]
+fn test_archive_tools_missing_file() {
+    use hematite::tools::archive_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(archive_tools::execute(&json!({
+        "action": "list",
+        "file": "/tmp/nonexistent_hematite_test_12345.zip"
+    })));
+    assert!(result.is_err());
+    let err = result.unwrap_err();
+    assert!(err.contains("not found") || err.contains("cannot open"));
+}
+
+#[test]
+fn test_routing_detects_archive_tools() {
+    use hematite::agent::routing::needs_archive_tools;
+    assert!(needs_archive_tools("list the contents of app.jar"));
+    assert!(needs_archive_tools("what's inside this .zip file"));
+    assert!(needs_archive_tools("extract README.md from dist.zip"));
+    assert!(needs_archive_tools("inspect the .whl file"));
+    assert!(needs_archive_tools("unzip this archive"));
+    assert!(!needs_archive_tools("create a new rust project"));
+    assert!(!needs_archive_tools("format my yaml config"));
+}

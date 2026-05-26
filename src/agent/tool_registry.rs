@@ -2430,6 +2430,86 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         }),
     ));
     tools.push(make_tool(
+        "xml_tools",
+        "Parse, format, query, and convert XML documents without external utilities. \
+         Actions: \
+         `validate` (default) — parse the document and summarize root element, element count, depth, and children; \
+         `format` — pretty-print the document with 2-space indentation; \
+         `get` — navigate to an element by dot-path like 'project.build' or 'deps.dependency[2]' (pass 'path'); \
+         `keys` — list immediate child elements and attributes of the root or a path target (pass optional 'path'); \
+         `to-json` — convert the full document to JSON (@ prefix for attributes, #text for text content, \
+            arrays for repeated elements); \
+         `query` — find all elements matching a tag name anywhere in the document (pass 'tag'). \
+         Pass 'xml' for inline XML or 'file' for a file path. Works with Maven POMs, Android manifests, \
+         Spring configs, SOAP responses, RSS/Atom feeds, SVG, XHTML, and any XML document.",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "Operation: validate (default), format, get, keys, to-json, query."
+                },
+                "xml": {
+                    "type": "string",
+                    "description": "Inline XML string. Provide either 'xml' or 'file'."
+                },
+                "file": {
+                    "type": "string",
+                    "description": "Path to an XML file (relative to workspace root or absolute). Provide either 'xml' or 'file'."
+                },
+                "path": {
+                    "type": "string",
+                    "description": "Dot-path for 'get' and 'keys' actions. Example: 'project.dependencies' or 'root.items.item[0]'."
+                },
+                "tag": {
+                    "type": "string",
+                    "description": "Element tag name to search for in 'query' action. Case-sensitive."
+                }
+            },
+            "required": []
+        }),
+    ));
+    tools.push(make_tool(
+        "archive_tools",
+        "Inspect and read zip archives without external utilities. \
+         Works with .zip, .jar, .whl, .vsix, .apk, and any zip-format archive. \
+         Actions: \
+         `list` (default) — tabular listing of all entries: name, compressed size, uncompressed size, \
+            compression method, file vs directory; supports 'max' (default 100) and 'filter' (name substring); \
+         `info` — overall archive statistics: file count, directory count, total size, \
+            compression ratio, and archive comment; \
+         `inspect` — detailed metadata for a specific entry: size, compression method, \
+            CRC-32, last-modified timestamp (pass 'entry' with the entry name); \
+         `extract` — read a specific text entry as a UTF-8 string (pass 'entry'; limited to 1 MB). \
+         Pass 'file' with the path to the archive.",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "Operation: list (default), info, inspect, extract."
+                },
+                "file": {
+                    "type": "string",
+                    "description": "Path to the zip archive (relative to workspace root or absolute). Also accepted as 'path' or 'input'."
+                },
+                "entry": {
+                    "type": "string",
+                    "description": "Name of the entry inside the archive for 'inspect' and 'extract'. Use 'list' first to see entry names."
+                },
+                "max": {
+                    "type": "integer",
+                    "description": "Maximum entries to show in 'list' (default 100)."
+                },
+                "filter": {
+                    "type": "string",
+                    "description": "Substring filter for entry names in 'list' (case-insensitive)."
+                }
+            },
+            "required": []
+        }),
+    ));
+    tools.push(make_tool(
         "template_gen",
         "Generate boilerplate files from built-in templates. \
          Supports Dockerfiles (Node.js, Python, Rust, Go multi-stage), \
@@ -2689,6 +2769,8 @@ pub async fn dispatch_builtin_tool(
         "semver_tools" => crate::tools::semver_tools::execute(args).await,
         "password_gen" => crate::tools::password_gen::execute(args).await,
         "jwt_tools" => crate::tools::jwt_tools::execute(args).await,
+        "xml_tools" => crate::tools::xml_tools::execute(args).await,
+        "archive_tools" => crate::tools::archive_tools::execute(args).await,
         "git_status" => crate::tools::git::execute_status(args).await,
         "git_diff" => crate::tools::git::execute_diff(args).await,
         "git_log" => crate::tools::git::execute_log(args).await,

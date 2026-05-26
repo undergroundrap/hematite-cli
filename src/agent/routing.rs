@@ -6397,6 +6397,57 @@ pub fn needs_jwt_tools(user_input: &str) -> bool {
         || (lower.contains("token") && lower.contains("sign"))
 }
 
+/// Returns true when the user wants to parse, format, or convert XML — steer toward `xml_tools`.
+pub fn needs_xml_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    lower.contains("xml")
+        || lower.contains("parse xml")
+        || lower.contains("format xml")
+        || lower.contains("validate xml")
+        || lower.contains("maven pom")
+        || lower.contains("pom.xml")
+        || lower.contains("android manifest")
+        || lower.contains("spring config")
+        || lower.contains("soap")
+        || lower.contains("rss feed")
+        || lower.contains("atom feed")
+        || lower.contains("svg file")
+        || lower.contains("xhtml")
+        || lower.contains("xml to json")
+        || lower.contains("convert xml")
+        || lower.contains("xml element")
+        || lower.contains("xml attribute")
+        || lower.contains("<project>")
+        || lower.contains("<?xml")
+}
+
+/// Returns true when the user wants to inspect a zip or archive — steer toward `archive_tools`.
+pub fn needs_archive_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    lower.contains("zip file")
+        || lower.contains("zip archive")
+        || lower.contains("unzip")
+        || lower.contains("extract zip")
+        || lower.contains("list zip")
+        || lower.contains("inspect zip")
+        || lower.contains("inside the zip")
+        || lower.contains("contents of the zip")
+        || lower.contains("open zip")
+        || lower.contains(".zip")
+        || lower.contains(".jar")
+        || lower.contains(".war")
+        || lower.contains(".ear")
+        || lower.contains(".whl")
+        || lower.contains(".vsix")
+        || lower.contains(".apk")
+        || lower.contains("archive contents")
+        || lower.contains("list archive")
+        || lower.contains("what's in the archive")
+        || lower.contains("peek inside")
+        || (lower.contains("archive") && lower.contains("list"))
+        || (lower.contains("archive") && lower.contains("extract"))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

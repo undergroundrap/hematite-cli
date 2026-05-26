@@ -27,14 +27,15 @@ use crate::agent::recovery_recipes::{
 };
 use crate::agent::routing::{
     all_host_inspection_topics, classify_query_intent, is_capability_probe_tool,
-    is_scaffold_request, looks_like_mutation_request, needs_color_tools, needs_computation_sandbox,
-    needs_crash_debug, needs_cron_tools, needs_csv_tools, needs_date_tools, needs_diff_tools,
-    needs_docker_ops, needs_encode_tools, needs_format, needs_github_ops, needs_hash_tools,
-    needs_http_request, needs_ip_tools, needs_jwt_tools, needs_lint_check, needs_number_tools,
-    needs_password_gen, needs_regex_tools, needs_secret_scan, needs_semver_tools, needs_test_run,
-    needs_text_tools, needs_toml_tools, needs_uuid_gen, needs_yaml_tools,
-    preferred_host_inspection_topic, preferred_maintainer_workflow, preferred_workspace_workflow,
-    DirectAnswerKind, QueryIntentClass,
+    is_scaffold_request, looks_like_mutation_request, needs_archive_tools, needs_color_tools,
+    needs_computation_sandbox, needs_crash_debug, needs_cron_tools, needs_csv_tools,
+    needs_date_tools, needs_diff_tools, needs_docker_ops, needs_encode_tools, needs_format,
+    needs_github_ops, needs_hash_tools, needs_http_request, needs_ip_tools, needs_jwt_tools,
+    needs_lint_check, needs_number_tools, needs_password_gen, needs_regex_tools, needs_secret_scan,
+    needs_semver_tools, needs_test_run, needs_text_tools, needs_toml_tools, needs_uuid_gen,
+    needs_xml_tools, needs_yaml_tools, preferred_host_inspection_topic,
+    preferred_maintainer_workflow, preferred_workspace_workflow, DirectAnswerKind,
+    QueryIntentClass,
 };
 use crate::agent::tool_registry::dispatch_builtin_tool;
 use crate::agent::truncation::safe_head;
@@ -5305,6 +5306,38 @@ impl ConversationManager {
                  inspect (expiry/validity summary without secret — pass 'token'). \
                  Example: jwt_tools(action: \"verify\", token: \"eyJ...\", secret: \"my-secret\") or \
                  jwt_tools(action: \"sign\", claims: {\"sub\": \"user123\", \"exp\": 9999999999}, secret: \"key\")."
+                    .to_string(),
+            );
+        }
+
+        // ── XML Tools Routing: steer model toward xml_tools ──
+        if loop_intervention.is_none() && needs_xml_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "XML NOTICE: Use the `xml_tools` tool for XML parsing, formatting, and conversion. \
+                 Actions: validate (default — parse and summarize root element, depth, child count), \
+                 format (pretty-print with 2-space indentation), \
+                 get (navigate to a specific element via dot-path like 'project.build' or 'deps.dep[2]' — pass 'path'), \
+                 keys (list immediate children/attributes of an element — pass optional 'path'), \
+                 to-json (convert the XML document to JSON with @ prefix for attributes, #text for content), \
+                 query (find all elements matching a tag name anywhere in the document — pass 'tag'). \
+                 Pass 'xml' for inline XML or 'file' for a file path. \
+                 Example: xml_tools(action: \"to-json\", file: \"pom.xml\") or \
+                 xml_tools(action: \"query\", xml: \"<root>...</root>\", tag: \"dependency\")."
+                    .to_string(),
+            );
+        }
+
+        // ── Archive Tools Routing: steer model toward archive_tools ──
+        if loop_intervention.is_none() && needs_archive_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "ARCHIVE NOTICE: Use the `archive_tools` tool to inspect and read zip archives without external tools. \
+                 Actions: list (default — tabular listing of all entries with name, size, method; supports 'max' and 'filter'), \
+                 info (overall archive statistics — file count, total size, compression ratio), \
+                 inspect (detailed metadata for a specific entry — pass 'entry' with the entry name), \
+                 extract (read a specific text entry as a string — pass 'entry'; limited to 1 MB text files). \
+                 Pass 'file' with the path to the .zip, .jar, .whl, .vsix, .apk, or other zip-format archive. \
+                 Example: archive_tools(action: \"list\", file: \"app.jar\") or \
+                 archive_tools(action: \"extract\", file: \"dist.zip\", entry: \"README.md\")."
                     .to_string(),
             );
         }

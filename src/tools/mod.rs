@@ -1,5 +1,6 @@
 pub mod tool;
 pub use tool::RiskLevel;
+pub mod archive_tools;
 pub mod build_cache;
 pub mod build_errors;
 pub mod clipboard;
@@ -66,4 +67,5 @@ pub mod uuid_gen;
 pub mod verify_build;
 pub mod vision;
 pub mod workspace_workflow;
+pub mod xml_tools;
 pub mod yaml_tools;

@@ -96,6 +96,8 @@ dirs = "5"
 anyhow = "1.0.102"
 pdf-extract = "0.7"
 lopdf = { version = "0.34", default-features = false, features = ["nom_parser"] }
+quick-xml = "0.36"
+zip = "6"
 
 # Performance overrides for heavy AI logic in Debug mode
 [dev-dependencies]
