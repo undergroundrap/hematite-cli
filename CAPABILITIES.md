@@ -272,6 +272,9 @@ Hematite ships a suite of zero-dependency in-agent developer tools that run enti
 - **`hash_tools`** — cryptographic hashing of strings or files. 5 actions: sha256 (default), sha512, md5, hmac-sha256 (requires `key`), all (MD5 + SHA-256 + SHA-512 in one call). Accepts `input` (inline) or `file` (path). Zero new deps — RustCrypto ecosystem.
 - **`toml_tools`** — validates, formats, queries, and transforms TOML documents. 6 actions: validate, format, get (dot-path + array index like `bin[0].name`), keys, to-json, from-json. Works with Cargo.toml, pyproject.toml, config.toml, and any TOML config.
 - **`text_tools`** — text transformation and analysis. 16 actions: case conversion (to-snake/camel/pascal/kebab/screaming/title/lower/upper), slugify, count (word/line/char/byte/sentence stats), truncate, pad (left/right/center), wrap (word-wrap), repeat, reverse, lines (sort/dedupe/filter_empty).
+- **`date_tools`** — date/time parsing, formatting, arithmetic, and conversion. 9 actions: now (UTC/local/ISO/epoch/week), parse (ISO 8601, RFC 2822, natural formats), format (strftime), add (days/weeks/months/years/hours/minutes with month rollover), diff (duration breakdown), timestamp (date→epoch), from-timestamp (epoch→date, auto-detects ms), relative ("3 days ago"), weekday (day name + ISO week). Zero new deps.
+- **`number_tools`** — base conversion, formatting, and math utilities. 8 actions: convert (base 2–36, 0x/0b/0o prefixes, shows all at once if no 'to'), format (thousands/scientific/engineering/SI), roman, from-roman, si (SI prefix), factors (prime factorization + primality), gcd (Euclidean GCD + LCM), clamp. Pure Rust stdlib, zero new deps.
+- **`uuid_gen`** — UUID generation and validation. 4 actions: generate (UUID v4 with metadata), validate (decode version/variant), nil (all-zeros UUID), bulk (up to 100 UUIDs via 'n'). Accepts 'upper' for uppercase. Zero new deps — rand already in Cargo.toml.
 
 ## 7. Stateful Local Workflow
 

@@ -1975,6 +1975,162 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         }),
     ));
     tools.push(make_tool(
+        "date_tools",
+        "Work with dates and times: parse, format, add/subtract, diff, convert timestamps, \
+         and describe relative time. All actions are zero-dependency (no internet required). \
+         Actions: \
+         `now` — current UTC and local time, Unix timestamp, ISO 8601, week number; \
+         `parse` — parse a date string in many formats (ISO 8601, RFC 2822, natural like 'June 15, 2024') \
+            and show normalized UTC, epoch, day-of-week, day-of-year, week number; \
+         `format` — reformat a date using a strftime format string (e.g. '%d/%m/%Y'); \
+         `add` — add days/weeks/months/years/hours/minutes to a date; \
+         `diff` — calculate the duration between two dates (weeks, days, hours, approx months/years); \
+         `timestamp` — convert a date string to Unix epoch seconds (and milliseconds); \
+         `from-timestamp` — convert a Unix epoch (seconds or auto-detected milliseconds) to a human date; \
+         `relative` — describe a date relative to now ('3 days ago', 'in 2 hours'); \
+         `weekday` — get the weekday name and ISO week number for any date.",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "Operation: now (default), parse, format, add, diff, timestamp, from-timestamp, relative, weekday."
+                },
+                "input": {
+                    "type": "string",
+                    "description": "Date/time string to parse. Accepts ISO 8601, RFC 2822, 'June 15 2024', 'dd/mm/yyyy', etc. Required for parse, format, add, diff (as 'from'), timestamp, relative, weekday."
+                },
+                "format": {
+                    "type": "string",
+                    "description": "strftime format string for 'format' action (e.g. '%Y/%m/%d', '%B %d, %Y'). Also accepted by 'now' to format current time."
+                },
+                "from": {
+                    "type": "string",
+                    "description": "Start date string for 'diff' action."
+                },
+                "to": {
+                    "type": "string",
+                    "description": "End date string for 'diff' action."
+                },
+                "days": {
+                    "type": "integer",
+                    "description": "Number of days to add (for 'add'). Negative to subtract."
+                },
+                "weeks": {
+                    "type": "integer",
+                    "description": "Number of weeks to add (for 'add')."
+                },
+                "months": {
+                    "type": "integer",
+                    "description": "Number of months to add (for 'add')."
+                },
+                "years": {
+                    "type": "integer",
+                    "description": "Number of years to add (for 'add')."
+                },
+                "hours": {
+                    "type": "integer",
+                    "description": "Number of hours to add (for 'add')."
+                },
+                "minutes": {
+                    "type": "integer",
+                    "description": "Number of minutes to add (for 'add')."
+                }
+            },
+            "required": []
+        }),
+    ));
+    tools.push(make_tool(
+        "number_tools",
+        "Number base conversion, formatting, and math utilities. No dependencies required. \
+         Actions: \
+         `convert` — convert an integer between bases. If no 'to' is given, shows decimal/hex/binary/octal all at once. \
+            Accepts 0x, 0b, 0o prefixes for the input. Supports base 2–36 via 'from'/'to' parameters; \
+         `format` — format a number with thousands separators, scientific notation, engineering notation, \
+            and SI prefix (k/M/G/T/P/E); \
+         `roman` — convert a decimal integer (1–3999) to a Roman numeral; \
+         `from-roman` — convert a Roman numeral string to a decimal integer; \
+         `si` — show the value with the appropriate SI prefix (e.g. 1500 → 1.5k, 2000000 → 2M); \
+         `factors` — prime factorization of a positive integer, with primality flag; \
+         `gcd` — Euclidean GCD and LCM of two integers ('a' and 'b' fields); \
+         `clamp` — clamp a number to [min, max] range ('value', 'min', 'max' fields).",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "Operation: convert (default), format, roman, from-roman, si, factors, gcd, clamp."
+                },
+                "input": {
+                    "type": ["string", "number"],
+                    "description": "The number to process. Accepts integer strings with 0x/0b/0o prefixes for 'convert'."
+                },
+                "from": {
+                    "type": "integer",
+                    "description": "Source base for 'convert' (2–36). Default: auto-detected from prefix."
+                },
+                "to": {
+                    "type": "integer",
+                    "description": "Target base for 'convert' (2–36). If omitted, all common bases are shown."
+                },
+                "a": {
+                    "type": "integer",
+                    "description": "First integer for 'gcd'."
+                },
+                "b": {
+                    "type": "integer",
+                    "description": "Second integer for 'gcd'."
+                },
+                "value": {
+                    "type": "number",
+                    "description": "Number to clamp (for 'clamp')."
+                },
+                "min": {
+                    "type": "number",
+                    "description": "Minimum bound for 'clamp'."
+                },
+                "max": {
+                    "type": "number",
+                    "description": "Maximum bound for 'clamp'."
+                }
+            },
+            "required": []
+        }),
+    ));
+    tools.push(make_tool(
+        "uuid_gen",
+        "Generate, validate, and work with UUIDs (Universally Unique Identifiers). \
+         All generation uses cryptographically random bytes — no internet required. \
+         Actions: \
+         `generate` (default) — generate a single UUID v4 with version/variant metadata; \
+         `validate` — validate a UUID string and decode its version and variant; \
+         `nil` — return the nil UUID (all zeros: 00000000-0000-0000-0000-000000000000); \
+         `bulk` — generate N UUIDs at once (up to 100, default 5). \
+         All actions accept 'upper' boolean to output uppercase hex.",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "Operation: generate (default), validate, nil, bulk."
+                },
+                "input": {
+                    "type": "string",
+                    "description": "UUID string to validate (for 'validate' action)."
+                },
+                "n": {
+                    "type": "integer",
+                    "description": "Number of UUIDs to generate (for 'bulk'). Default: 5, max: 100."
+                },
+                "upper": {
+                    "type": "boolean",
+                    "description": "Output UUIDs in uppercase hex. Default: false."
+                }
+            },
+            "required": []
+        }),
+    ));
+    tools.push(make_tool(
         "template_gen",
         "Generate boilerplate files from built-in templates. \
          Supports Dockerfiles (Node.js, Python, Rust, Go multi-stage), \
@@ -2225,6 +2381,9 @@ pub async fn dispatch_builtin_tool(
         "hash_tools" => crate::tools::hash_tools::execute(args).await,
         "toml_tools" => crate::tools::toml_tools::execute(args).await,
         "text_tools" => crate::tools::text_tools::execute(args).await,
+        "date_tools" => crate::tools::date_tools::execute(args).await,
+        "number_tools" => crate::tools::number_tools::execute(args).await,
+        "uuid_gen" => crate::tools::uuid_gen::execute(args).await,
         "git_status" => crate::tools::git::execute_status(args).await,
         "git_diff" => crate::tools::git::execute_diff(args).await,
         "git_log" => crate::tools::git::execute_log(args).await,

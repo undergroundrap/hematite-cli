@@ -6174,6 +6174,101 @@ pub fn needs_text_tools(user_input: &str) -> bool {
         || lower.contains("reverse text")
 }
 
+/// Returns true when the user wants date/time work — steer toward `date_tools`.
+pub fn needs_date_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    lower.contains("what time is it")
+        || lower.contains("what's the date")
+        || lower.contains("what is the date")
+        || lower.contains("current date")
+        || lower.contains("current time")
+        || lower.contains("date now")
+        || lower.contains("unix timestamp")
+        || lower.contains("unix epoch")
+        || lower.contains("from timestamp")
+        || lower.contains("timestamp to date")
+        || lower.contains("epoch to date")
+        || lower.contains("date to timestamp")
+        || lower.contains("date format")
+        || lower.contains("format date")
+        || lower.contains("format this date")
+        || lower.contains("parse date")
+        || lower.contains("parse this date")
+        || lower.contains("add days")
+        || lower.contains("add weeks")
+        || lower.contains("add months")
+        || lower.contains("add years")
+        || lower.contains("date diff")
+        || lower.contains("days between")
+        || lower.contains("days until")
+        || lower.contains("days since")
+        || lower.contains("how many days")
+        || lower.contains("date difference")
+        || lower.contains("relative date")
+        || lower.contains("time ago")
+        || lower.contains("how long ago")
+        || lower.contains("what day of the week")
+        || lower.contains("what weekday")
+        || lower.contains("which day")
+        || lower.contains("iso 8601")
+        || lower.contains("rfc 3339")
+        || lower.contains("week number")
+}
+
+/// Returns true when the user wants number formatting or conversion — steer toward `number_tools`.
+pub fn needs_number_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    lower.contains("roman numeral")
+        || lower.contains("to roman")
+        || lower.contains("from roman")
+        || lower.contains("convert to hex")
+        || lower.contains("convert to binary")
+        || lower.contains("convert to octal")
+        || lower.contains("hex to decimal")
+        || lower.contains("binary to decimal")
+        || lower.contains("decimal to hex")
+        || lower.contains("decimal to binary")
+        || lower.contains("base conversion")
+        || lower.contains("number base")
+        || lower.contains("convert base")
+        || lower.contains("si prefix")
+        || lower.contains("si unit")
+        || lower.contains("kilobytes")
+        || lower.contains("megabytes")
+        || lower.contains("gigabytes")
+        || lower.contains("prime factors")
+        || lower.contains("prime factorization")
+        || lower.contains("factorize")
+        || lower.contains("is prime")
+        || lower.contains("check prime")
+        || lower.contains("gcd of")
+        || lower.contains("lcm of")
+        || lower.contains("greatest common")
+        || lower.contains("least common multiple")
+        || lower.contains("clamp number")
+        || lower.contains("format number")
+        || lower.contains("thousands separator")
+        || lower.contains("engineering notation")
+        || lower.contains("scientific notation")
+        || lower.contains("number format")
+}
+
+/// Returns true when the user wants UUID generation or validation — steer toward `uuid_gen`.
+pub fn needs_uuid_gen(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    lower.contains("uuid")
+        || lower.contains("generate id")
+        || lower.contains("generate an id")
+        || lower.contains("unique id")
+        || lower.contains("unique identifier")
+        || lower.contains("guid")
+        || lower.contains("validate uuid")
+        || lower.contains("is this a uuid")
+        || lower.contains("nil uuid")
+        || lower.contains("bulk uuid")
+        || lower.contains("multiple uuid")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -28,11 +28,12 @@ use crate::agent::recovery_recipes::{
 use crate::agent::routing::{
     all_host_inspection_topics, classify_query_intent, is_capability_probe_tool,
     is_scaffold_request, looks_like_mutation_request, needs_computation_sandbox, needs_crash_debug,
-    needs_csv_tools, needs_diff_tools, needs_docker_ops, needs_encode_tools, needs_format,
-    needs_github_ops, needs_hash_tools, needs_http_request, needs_lint_check, needs_regex_tools,
-    needs_secret_scan, needs_test_run, needs_text_tools, needs_toml_tools, needs_yaml_tools,
-    preferred_host_inspection_topic, preferred_maintainer_workflow, preferred_workspace_workflow,
-    DirectAnswerKind, QueryIntentClass,
+    needs_csv_tools, needs_date_tools, needs_diff_tools, needs_docker_ops, needs_encode_tools,
+    needs_format, needs_github_ops, needs_hash_tools, needs_http_request, needs_lint_check,
+    needs_number_tools, needs_regex_tools, needs_secret_scan, needs_test_run, needs_text_tools,
+    needs_toml_tools, needs_uuid_gen, needs_yaml_tools, preferred_host_inspection_topic,
+    preferred_maintainer_workflow, preferred_workspace_workflow, DirectAnswerKind,
+    QueryIntentClass,
 };
 use crate::agent::tool_registry::dispatch_builtin_tool;
 use crate::agent::truncation::safe_head;
@@ -5167,6 +5168,51 @@ impl ConversationManager {
                  All actions take an 'input' field. \
                  Example: text_tools(action: \"to-snake\", input: \"MyClassName\") or \
                  text_tools(action: \"count\", input: \"some text here\")."
+                    .to_string(),
+            );
+        }
+
+        // ── Date Tools Routing: steer model toward date_tools ──
+        if loop_intervention.is_none() && needs_date_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "DATE NOTICE: Use the `date_tools` tool for date/time work. \
+                 Actions: now (current time in UTC/local/ISO/epoch/week), \
+                 parse (parse any date string), format (reformat with strftime pattern), \
+                 add (add days/weeks/months/years/hours/minutes), \
+                 diff (duration between two dates via 'from'/'to' fields), \
+                 timestamp (date → Unix epoch), from-timestamp (epoch → human date, auto-detects ms), \
+                 relative ('3 days ago' / 'in 2 hours'), weekday (weekday name + ISO week). \
+                 Example: date_tools(action: \"diff\", from: \"2024-01-01\", to: \"2024-12-31\") or \
+                 date_tools(action: \"add\", input: \"2024-06-15\", months: 3)."
+                    .to_string(),
+            );
+        }
+
+        // ── Number Tools Routing: steer model toward number_tools ──
+        if loop_intervention.is_none() && needs_number_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "NUMBER NOTICE: Use the `number_tools` tool for number conversion and math. \
+                 Actions: convert (base conversion — omit 'to' to show all bases at once; \
+                 accepts 0x/0b/0o prefixes), format (thousands separators, scientific, engineering, SI), \
+                 roman (int → Roman numeral), from-roman (Roman → int), \
+                 si (show with SI prefix like k/M/G), factors (prime factorization + primality), \
+                 gcd (GCD + LCM via 'a' and 'b' fields), clamp (clamp 'value' to 'min'/'max'). \
+                 Example: number_tools(action: \"convert\", input: \"255\") or \
+                 number_tools(action: \"factors\", input: 360)."
+                    .to_string(),
+            );
+        }
+
+        // ── UUID Gen Routing: steer model toward uuid_gen ──
+        if loop_intervention.is_none() && needs_uuid_gen(&effective_user_input) {
+            loop_intervention = Some(
+                "UUID NOTICE: Use the `uuid_gen` tool for UUID generation and validation. \
+                 Actions: generate (default — single UUID v4 with metadata), \
+                 validate (check format, decode version/variant), \
+                 nil (return the all-zeros nil UUID), \
+                 bulk (generate N UUIDs at once, up to 100 — pass 'n' field). \
+                 All actions accept 'upper: true' for uppercase output. \
+                 Example: uuid_gen(action: \"generate\") or uuid_gen(action: \"bulk\", n: 10)."
                     .to_string(),
             );
         }

@@ -17099,3 +17099,361 @@ fn test_routing_detects_text_tools() {
     assert!(!needs_text_tools("how do I use git rebase"));
     assert!(!needs_text_tools("write a function to parse JSON"));
 }
+
+// ── date_tools tests ──────────────────────────────────────────────────────────
+
+#[test]
+fn test_date_tools_now() {
+    use hematite::tools::date_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(date_tools::execute(&json!({ "action": "now" })));
+    assert!(result.is_ok());
+    let out = result.unwrap();
+    assert!(out.contains("UTC"));
+    assert!(out.contains("Unix"));
+}
+
+#[test]
+fn test_date_tools_parse() {
+    use hematite::tools::date_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(date_tools::execute(&json!({
+        "action": "parse",
+        "input": "2024-06-15"
+    })));
+    assert!(result.is_ok());
+    let out = result.unwrap();
+    assert!(out.contains("2024-06-15"));
+    assert!(out.contains("Saturday"));
+}
+
+#[test]
+fn test_date_tools_format() {
+    use hematite::tools::date_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(date_tools::execute(&json!({
+        "action": "format",
+        "input": "2024-01-15",
+        "format": "%d/%m/%Y"
+    })));
+    assert!(result.is_ok());
+    assert!(result.unwrap().contains("15/01/2024"));
+}
+
+#[test]
+fn test_date_tools_add() {
+    use hematite::tools::date_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(date_tools::execute(&json!({
+        "action": "add",
+        "input": "2024-01-01",
+        "days": 30
+    })));
+    assert!(result.is_ok());
+    assert!(result.unwrap().contains("2024-01-31"));
+}
+
+#[test]
+fn test_date_tools_diff() {
+    use hematite::tools::date_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(date_tools::execute(&json!({
+        "action": "diff",
+        "from": "2024-01-01",
+        "to": "2024-12-31"
+    })));
+    assert!(result.is_ok());
+    let out = result.unwrap();
+    assert!(out.contains("365") || out.contains("day"));
+}
+
+#[test]
+fn test_date_tools_timestamp() {
+    use hematite::tools::date_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(date_tools::execute(&json!({
+        "action": "timestamp",
+        "input": "2024-01-01"
+    })));
+    assert!(result.is_ok());
+    assert!(result.unwrap().contains("1704067200"));
+}
+
+#[test]
+fn test_date_tools_from_timestamp() {
+    use hematite::tools::date_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(date_tools::execute(&json!({
+        "action": "from-timestamp",
+        "input": 1704067200_i64
+    })));
+    assert!(result.is_ok());
+    assert!(result.unwrap().contains("2024"));
+}
+
+#[test]
+fn test_date_tools_weekday() {
+    use hematite::tools::date_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(date_tools::execute(&json!({
+        "action": "weekday",
+        "input": "2024-06-15"
+    })));
+    assert!(result.is_ok());
+    assert!(result.unwrap().contains("Saturday"));
+}
+
+#[test]
+fn test_date_tools_unknown_action() {
+    use hematite::tools::date_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(date_tools::execute(&json!({
+        "action": "teleport",
+        "input": "2024-01-01"
+    })));
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_routing_detects_date_tools() {
+    use hematite::agent::routing::needs_date_tools;
+    assert!(needs_date_tools("what's the date today"));
+    assert!(needs_date_tools("current time please"));
+    assert!(needs_date_tools("days between 2024-01-01 and 2024-12-31"));
+    assert!(needs_date_tools("convert unix timestamp 1704067200"));
+    assert!(needs_date_tools("what day of the week is 2024-06-15"));
+    assert!(needs_date_tools("add 3 months to 2024-01-01"));
+    assert!(!needs_date_tools("how do I use git rebase"));
+    assert!(!needs_date_tools("format this json file"));
+}
+
+// ── number_tools tests ────────────────────────────────────────────────────────
+
+#[test]
+fn test_number_tools_convert_all_bases() {
+    use hematite::tools::number_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(number_tools::execute(&json!({
+        "action": "convert",
+        "input": "255"
+    })));
+    assert!(result.is_ok());
+    let out = result.unwrap();
+    assert!(out.contains("ff") || out.contains("FF"));
+    assert!(out.contains("11111111"));
+}
+
+#[test]
+fn test_number_tools_convert_hex_prefix() {
+    use hematite::tools::number_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(number_tools::execute(&json!({
+        "action": "convert",
+        "input": "0xFF"
+    })));
+    assert!(result.is_ok());
+    assert!(result.unwrap().contains("255"));
+}
+
+#[test]
+fn test_number_tools_roman() {
+    use hematite::tools::number_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(number_tools::execute(&json!({
+        "action": "roman",
+        "input": 2024
+    })));
+    assert!(result.is_ok());
+    assert!(result.unwrap().contains("MMXXIV"));
+}
+
+#[test]
+fn test_number_tools_from_roman() {
+    use hematite::tools::number_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(number_tools::execute(&json!({
+        "action": "from-roman",
+        "input": "MMXXIV"
+    })));
+    assert!(result.is_ok());
+    assert!(result.unwrap().contains("2024"));
+}
+
+#[test]
+fn test_number_tools_factors() {
+    use hematite::tools::number_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(number_tools::execute(&json!({
+        "action": "factors",
+        "input": 360
+    })));
+    assert!(result.is_ok());
+    let out = result.unwrap();
+    assert!(out.contains("2") && out.contains("3") && out.contains("5"));
+}
+
+#[test]
+fn test_number_tools_gcd() {
+    use hematite::tools::number_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(number_tools::execute(&json!({
+        "action": "gcd",
+        "a": 48,
+        "b": 18
+    })));
+    assert!(result.is_ok());
+    let out = result.unwrap();
+    assert!(out.contains("6"));
+    assert!(out.contains("144"));
+}
+
+#[test]
+fn test_number_tools_clamp() {
+    use hematite::tools::number_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(number_tools::execute(&json!({
+        "action": "clamp",
+        "value": 150.0,
+        "min": 0.0,
+        "max": 100.0
+    })));
+    assert!(result.is_ok());
+    assert!(result.unwrap().contains("100"));
+}
+
+#[test]
+fn test_number_tools_si() {
+    use hematite::tools::number_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(number_tools::execute(&json!({
+        "action": "si",
+        "input": 1500000
+    })));
+    assert!(result.is_ok());
+    let out = result.unwrap();
+    assert!(out.contains("1.5M") || out.contains("M"));
+}
+
+#[test]
+fn test_routing_detects_number_tools() {
+    use hematite::agent::routing::needs_number_tools;
+    assert!(needs_number_tools("convert 255 to hex"));
+    assert!(needs_number_tools("convert to binary"));
+    assert!(needs_number_tools("roman numeral for 2024"));
+    assert!(needs_number_tools("prime factorization of 360"));
+    assert!(needs_number_tools("gcd of 48 and 18"));
+    assert!(needs_number_tools("format number with thousands separator"));
+    assert!(!needs_number_tools("how do I use git rebase"));
+    assert!(!needs_number_tools("format this json file"));
+}
+
+// ── uuid_gen tests ────────────────────────────────────────────────────────────
+
+#[test]
+fn test_uuid_gen_generate() {
+    use hematite::tools::uuid_gen;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(uuid_gen::execute(&json!({ "action": "generate" })));
+    assert!(result.is_ok());
+    let out = result.unwrap();
+    assert!(out.contains("UUID v4"));
+    assert!(out.contains("RFC 4122"));
+}
+
+#[test]
+fn test_uuid_gen_validate_valid() {
+    use hematite::tools::uuid_gen;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(uuid_gen::execute(&json!({
+        "action": "validate",
+        "input": "550e8400-e29b-41d4-a716-446655440000"
+    })));
+    assert!(result.is_ok());
+    assert!(result.unwrap().contains("YES"));
+}
+
+#[test]
+fn test_uuid_gen_validate_invalid() {
+    use hematite::tools::uuid_gen;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(uuid_gen::execute(&json!({
+        "action": "validate",
+        "input": "not-a-uuid"
+    })));
+    assert!(result.is_ok());
+    assert!(result.unwrap().contains("NO"));
+}
+
+#[test]
+fn test_uuid_gen_nil() {
+    use hematite::tools::uuid_gen;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(uuid_gen::execute(&json!({ "action": "nil" })));
+    assert!(result.is_ok());
+    assert!(result
+        .unwrap()
+        .contains("00000000-0000-0000-0000-000000000000"));
+}
+
+#[test]
+fn test_uuid_gen_bulk() {
+    use hematite::tools::uuid_gen;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(uuid_gen::execute(&json!({
+        "action": "bulk",
+        "n": 3
+    })));
+    assert!(result.is_ok());
+    let out = result.unwrap();
+    let uuid_count = out
+        .lines()
+        .filter(|l| l.contains('-') && l.len() == 36)
+        .count();
+    assert_eq!(uuid_count, 3);
+}
+
+#[test]
+fn test_uuid_gen_default_action() {
+    use hematite::tools::uuid_gen;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(uuid_gen::execute(&json!({})));
+    assert!(result.is_ok());
+    assert!(result.unwrap().contains("UUID v4"));
+}
+
+#[test]
+fn test_routing_detects_uuid_gen() {
+    use hematite::agent::routing::needs_uuid_gen;
+    assert!(needs_uuid_gen("generate a UUID"));
+    assert!(needs_uuid_gen("I need a unique identifier"));
+    assert!(needs_uuid_gen(
+        "validate this uuid: 550e8400-e29b-41d4-a716-446655440000"
+    ));
+    assert!(needs_uuid_gen("generate a guid"));
+    assert!(needs_uuid_gen("bulk uuid generation"));
+    assert!(!needs_uuid_gen("how do I use git rebase"));
+    assert!(!needs_uuid_gen("format this json file"));
+}
