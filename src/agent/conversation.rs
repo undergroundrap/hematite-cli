@@ -31,11 +31,11 @@ use crate::agent::routing::{
     needs_computation_sandbox, needs_crash_debug, needs_cron_tools, needs_csv_tools,
     needs_date_tools, needs_diff_tools, needs_docker_ops, needs_encode_tools, needs_format,
     needs_github_ops, needs_hash_tools, needs_http_request, needs_ip_tools, needs_jwt_tools,
-    needs_lint_check, needs_number_tools, needs_password_gen, needs_regex_tools, needs_secret_scan,
-    needs_semver_tools, needs_test_run, needs_text_tools, needs_toml_tools, needs_uuid_gen,
-    needs_xml_tools, needs_yaml_tools, preferred_host_inspection_topic,
-    preferred_maintainer_workflow, preferred_workspace_workflow, DirectAnswerKind,
-    QueryIntentClass,
+    needs_lint_check, needs_markdown_tools, needs_number_tools, needs_password_gen,
+    needs_regex_tools, needs_secret_scan, needs_semver_tools, needs_sqlite_tools, needs_test_run,
+    needs_text_tools, needs_toml_tools, needs_uuid_gen, needs_xml_tools, needs_yaml_tools,
+    preferred_host_inspection_topic, preferred_maintainer_workflow, preferred_workspace_workflow,
+    DirectAnswerKind, QueryIntentClass,
 };
 use crate::agent::tool_registry::dispatch_builtin_tool;
 use crate::agent::truncation::safe_head;
@@ -5338,6 +5338,40 @@ impl ConversationManager {
                  Pass 'file' with the path to the .zip, .jar, .whl, .vsix, .apk, or other zip-format archive. \
                  Example: archive_tools(action: \"list\", file: \"app.jar\") or \
                  archive_tools(action: \"extract\", file: \"dist.zip\", entry: \"README.md\")."
+                    .to_string(),
+            );
+        }
+
+        // ── SQLite Tools Routing: steer model toward sqlite_tools ──
+        if loop_intervention.is_none() && needs_sqlite_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "SQLITE NOTICE: Use the `sqlite_tools` tool to inspect and query SQLite databases in read-only mode. \
+                 Actions: tables (default — list all tables with row counts, plus views and indexes), \
+                 schema (show CREATE SQL and column info; pass 'table' to scope to one table), \
+                 query (run a SELECT/EXPLAIN/WITH/PRAGMA statement; pass 'sql'; max 100 rows, use 'limit' to override), \
+                 info (database file metadata — page size, encoding, journal mode, SQLite version), \
+                 export (dump a table as CSV or JSON; pass 'table' and optionally 'format' and 'limit'). \
+                 Pass 'file' with the path to the .sqlite or .db file. Only read-only SQL is allowed — \
+                 INSERT/UPDATE/DELETE/DROP/CREATE are blocked. \
+                 Example: sqlite_tools(action: \"tables\", file: \"app.db\") or \
+                 sqlite_tools(action: \"query\", file: \"data.sqlite\", sql: \"SELECT * FROM users LIMIT 10\")."
+                    .to_string(),
+            );
+        }
+
+        // ── Markdown Tools Routing: steer model toward markdown_tools ──
+        if loop_intervention.is_none() && needs_markdown_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "MARKDOWN NOTICE: Use the `markdown_tools` tool to parse and analyze Markdown documents without external tools. \
+                 Actions: toc (generate a table of contents with anchor links; 'depth' limits heading levels), \
+                 stats (word count, reading time, heading/code/link/image/table/blockquote counts), \
+                 extract (extract specific elements; pass 'what' = headings | code | links | images; 'lang' filters code by language), \
+                 links (list all hyperlinks and images with text and URL), \
+                 to-html (render Markdown to HTML; 'wrap: true' for a full HTML document with optional 'title'), \
+                 strip (remove all Markdown formatting and return plain text). \
+                 Pass 'text' for inline Markdown or 'file' for a .md file path. \
+                 Example: markdown_tools(action: \"toc\", file: \"README.md\") or \
+                 markdown_tools(action: \"stats\", text: \"# Hello\\nThis is **bold**.\")."
                     .to_string(),
             );
         }

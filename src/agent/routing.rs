@@ -6448,6 +6448,58 @@ pub fn needs_archive_tools(user_input: &str) -> bool {
         || (lower.contains("archive") && lower.contains("extract"))
 }
 
+/// Returns true when the user wants to inspect or query a SQLite database — steer toward `sqlite_tools`.
+pub fn needs_sqlite_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    lower.contains("sqlite")
+        || lower.contains(".sqlite")
+        || lower.contains(".db file")
+        || lower.contains("sqlite3")
+        || lower.contains("sql file")
+        || lower.contains("query the database")
+        || lower.contains("query database")
+        || lower.contains("inspect the db")
+        || lower.contains("what tables")
+        || lower.contains("list tables")
+        || lower.contains("show tables")
+        || lower.contains("database schema")
+        || lower.contains("db schema")
+        || lower.contains("export table")
+        || lower.contains("export csv")
+        || lower.contains("table schema")
+        || (lower.contains("database") && lower.contains("query"))
+        || (lower.contains(".db")
+            && (lower.contains("open") || lower.contains("read") || lower.contains("inspect")))
+}
+
+/// Returns true when the user wants to work with markdown content — steer toward `markdown_tools`.
+pub fn needs_markdown_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    lower.contains("table of contents")
+        || lower.contains("toc from")
+        || lower.contains("generate toc")
+        || lower.contains("markdown stats")
+        || lower.contains("markdown statistics")
+        || lower.contains("count words in")
+        || lower.contains("word count in")
+        || lower.contains("extract headings")
+        || lower.contains("extract links")
+        || lower.contains("extract code blocks")
+        || lower.contains("links in the markdown")
+        || lower.contains("links in this markdown")
+        || lower.contains("markdown to html")
+        || lower.contains("convert markdown to html")
+        || lower.contains("render markdown")
+        || lower.contains("strip markdown")
+        || lower.contains("remove markdown")
+        || lower.contains("plain text from markdown")
+        || lower.contains("reading time")
+        || (lower.contains("markdown") && lower.contains("heading"))
+        || (lower.contains("markdown") && lower.contains("link"))
+        || (lower.contains(".md file")
+            && (lower.contains("parse") || lower.contains("analyze") || lower.contains("inspect")))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -18538,3 +18538,413 @@ fn test_routing_detects_archive_tools() {
     assert!(!needs_archive_tools("create a new rust project"));
     assert!(!needs_archive_tools("format my yaml config"));
 }
+
+// ── sqlite_tools tests ─────────────────────────────────────────────────────────
+
+fn make_test_db() -> tempfile::NamedTempFile {
+    let tmp = tempfile::NamedTempFile::with_suffix(".sqlite").unwrap();
+    let conn = rusqlite::Connection::open(tmp.path()).unwrap();
+    conn.execute_batch(
+        "CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT NOT NULL, score REAL);
+         INSERT INTO users VALUES (1, 'Alice', 95.5);
+         INSERT INTO users VALUES (2, 'Bob', 87.0);
+         INSERT INTO users VALUES (3, 'Carol', 92.3);
+         CREATE TABLE products (id INTEGER PRIMARY KEY, title TEXT, price REAL);
+         INSERT INTO products VALUES (1, 'Widget', 9.99);",
+    )
+    .unwrap();
+    tmp
+}
+
+#[test]
+fn test_sqlite_tools_tables() {
+    use hematite::tools::sqlite_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let tmp = make_test_db();
+    let result = rt.block_on(sqlite_tools::execute(&json!({
+        "action": "tables",
+        "file": tmp.path().to_str().unwrap()
+    })));
+    assert!(result.is_ok(), "{:?}", result);
+    let out = result.unwrap();
+    assert!(out.contains("users"), "expected 'users' table: {out}");
+    assert!(out.contains("products"), "expected 'products' table: {out}");
+    assert!(
+        out.contains('3') || out.contains("rows") || out.contains("Rows"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_sqlite_tools_schema() {
+    use hematite::tools::sqlite_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let tmp = make_test_db();
+    let result = rt.block_on(sqlite_tools::execute(&json!({
+        "action": "schema",
+        "file": tmp.path().to_str().unwrap(),
+        "table": "users"
+    })));
+    assert!(result.is_ok(), "{:?}", result);
+    let out = result.unwrap();
+    assert!(out.contains("CREATE TABLE"), "{out}");
+    assert!(out.contains("name"), "{out}");
+    assert!(out.contains("score"), "{out}");
+}
+
+#[test]
+fn test_sqlite_tools_query() {
+    use hematite::tools::sqlite_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let tmp = make_test_db();
+    let result = rt.block_on(sqlite_tools::execute(&json!({
+        "action": "query",
+        "file": tmp.path().to_str().unwrap(),
+        "sql": "SELECT name, score FROM users ORDER BY score DESC"
+    })));
+    assert!(result.is_ok(), "{:?}", result);
+    let out = result.unwrap();
+    assert!(out.contains("Alice"), "{out}");
+    assert!(out.contains("Bob"), "{out}");
+    assert!(out.contains("95.5"), "{out}");
+}
+
+#[test]
+fn test_sqlite_tools_query_blocked_insert() {
+    use hematite::tools::sqlite_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let tmp = make_test_db();
+    let result = rt.block_on(sqlite_tools::execute(&json!({
+        "action": "query",
+        "file": tmp.path().to_str().unwrap(),
+        "sql": "INSERT INTO users VALUES (99, 'Evil', 0.0)"
+    })));
+    assert!(result.is_err());
+    let err = result.unwrap_err();
+    assert!(
+        err.contains("not allowed") || err.contains("read-only") || err.contains("only SELECT"),
+        "{err}"
+    );
+}
+
+#[test]
+fn test_sqlite_tools_info() {
+    use hematite::tools::sqlite_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let tmp = make_test_db();
+    let result = rt.block_on(sqlite_tools::execute(&json!({
+        "action": "info",
+        "file": tmp.path().to_str().unwrap()
+    })));
+    assert!(result.is_ok(), "{:?}", result);
+    let out = result.unwrap();
+    assert!(
+        out.contains("SQLite version") || out.contains("sqlite_version"),
+        "{out}"
+    );
+    assert!(
+        out.contains("Page size") || out.contains("page_size"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_sqlite_tools_export_csv() {
+    use hematite::tools::sqlite_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let tmp = make_test_db();
+    let result = rt.block_on(sqlite_tools::execute(&json!({
+        "action": "export",
+        "file": tmp.path().to_str().unwrap(),
+        "table": "users",
+        "format": "csv"
+    })));
+    assert!(result.is_ok(), "{:?}", result);
+    let out = result.unwrap();
+    assert!(out.contains("id,name,score") || out.contains("id"), "{out}");
+    assert!(out.contains("Alice"), "{out}");
+}
+
+#[test]
+fn test_sqlite_tools_export_json() {
+    use hematite::tools::sqlite_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let tmp = make_test_db();
+    let result = rt.block_on(sqlite_tools::execute(&json!({
+        "action": "export",
+        "file": tmp.path().to_str().unwrap(),
+        "table": "products",
+        "format": "json"
+    })));
+    assert!(result.is_ok(), "{:?}", result);
+    let out = result.unwrap();
+    assert!(out.contains("Widget"), "{out}");
+    assert!(out.contains("title") || out.contains("price"), "{out}");
+}
+
+#[test]
+fn test_sqlite_tools_missing_file() {
+    use hematite::tools::sqlite_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(sqlite_tools::execute(&json!({
+        "action": "tables",
+        "file": "/tmp/nonexistent_hematite_test_sqlite.db"
+    })));
+    assert!(result.is_err());
+    assert!(result.unwrap_err().contains("not found"));
+}
+
+#[test]
+fn test_routing_detects_sqlite_tools() {
+    use hematite::agent::routing::needs_sqlite_tools;
+    assert!(needs_sqlite_tools("query my sqlite database"));
+    assert!(needs_sqlite_tools("what tables are in app.db"));
+    assert!(needs_sqlite_tools("show the schema of users.sqlite"));
+    assert!(needs_sqlite_tools("list tables in the sqlite file"));
+    assert!(needs_sqlite_tools("export a sqlite table to csv"));
+    assert!(!needs_sqlite_tools("format my yaml config"));
+    assert!(!needs_sqlite_tools("run cargo test"));
+}
+
+// ── markdown_tools tests ───────────────────────────────────────────────────────
+
+const TEST_MD: &str = r#"# Hello World
+
+This is a **test** document with some _emphasis_.
+
+## Features
+
+- Item one
+- Item two
+- Item three
+
+## Code Examples
+
+```rust
+fn main() {
+    println!("Hello");
+}
+```
+
+```python
+print("Hello")
+```
+
+### Links and Images
+
+See [Rust docs](https://doc.rust-lang.org) and [crates.io](https://crates.io "Crate registry").
+
+![Logo](https://example.com/logo.png "Example logo")
+
+## Tables
+
+| Name | Score |
+|------|-------|
+| Alice | 95 |
+| Bob | 87 |
+
+> This is a blockquote.
+"#;
+
+#[test]
+fn test_markdown_tools_toc() {
+    use hematite::tools::markdown_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(markdown_tools::execute(&json!({
+        "action": "toc",
+        "text": TEST_MD
+    })));
+    assert!(result.is_ok(), "{:?}", result);
+    let out = result.unwrap();
+    assert!(
+        out.contains("Hello World") || out.contains("hello-world"),
+        "{out}"
+    );
+    assert!(out.contains("Features"), "{out}");
+    assert!(
+        out.contains("Code Examples") || out.contains("code-examples"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_markdown_tools_toc_depth_limit() {
+    use hematite::tools::markdown_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(markdown_tools::execute(&json!({
+        "action": "toc",
+        "text": TEST_MD,
+        "depth": 2
+    })));
+    assert!(result.is_ok(), "{:?}", result);
+    let out = result.unwrap();
+    assert!(out.contains("Features"), "{out}");
+    // H3 "Links and Images" should NOT appear when depth=2
+    assert!(
+        !out.contains("Links and Images"),
+        "H3 should be excluded at depth 2: {out}"
+    );
+}
+
+#[test]
+fn test_markdown_tools_stats() {
+    use hematite::tools::markdown_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(markdown_tools::execute(&json!({
+        "action": "stats",
+        "text": TEST_MD
+    })));
+    assert!(result.is_ok(), "{:?}", result);
+    let out = result.unwrap();
+    assert!(out.contains("Words") || out.contains("word"), "{out}");
+    assert!(out.contains("Headings") || out.contains("heading"), "{out}");
+    assert!(out.contains("Code blocks") || out.contains("code"), "{out}");
+    assert!(out.contains("Links") || out.contains("link"), "{out}");
+}
+
+#[test]
+fn test_markdown_tools_extract_headings() {
+    use hematite::tools::markdown_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(markdown_tools::execute(&json!({
+        "action": "extract",
+        "text": TEST_MD,
+        "what": "headings"
+    })));
+    assert!(result.is_ok(), "{:?}", result);
+    let out = result.unwrap();
+    assert!(out.contains("Hello World"), "{out}");
+    assert!(out.contains("Features"), "{out}");
+    assert!(out.contains("Code Examples"), "{out}");
+}
+
+#[test]
+fn test_markdown_tools_extract_code_blocks() {
+    use hematite::tools::markdown_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(markdown_tools::execute(&json!({
+        "action": "extract",
+        "text": TEST_MD,
+        "what": "code"
+    })));
+    assert!(result.is_ok(), "{:?}", result);
+    let out = result.unwrap();
+    assert!(out.contains("rust") || out.contains("fn main"), "{out}");
+    assert!(out.contains("python") || out.contains("print"), "{out}");
+}
+
+#[test]
+fn test_markdown_tools_extract_code_lang_filter() {
+    use hematite::tools::markdown_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(markdown_tools::execute(&json!({
+        "action": "extract",
+        "text": TEST_MD,
+        "what": "code",
+        "lang": "rust"
+    })));
+    assert!(result.is_ok(), "{:?}", result);
+    let out = result.unwrap();
+    assert!(out.contains("fn main"), "{out}");
+    // Python block should not appear when filtered to rust
+    assert!(
+        !out.contains("print(\"Hello\")"),
+        "Python block should be filtered: {out}"
+    );
+}
+
+#[test]
+fn test_markdown_tools_links() {
+    use hematite::tools::markdown_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(markdown_tools::execute(&json!({
+        "action": "links",
+        "text": TEST_MD
+    })));
+    assert!(result.is_ok(), "{:?}", result);
+    let out = result.unwrap();
+    assert!(
+        out.contains("doc.rust-lang.org") || out.contains("Rust docs"),
+        "{out}"
+    );
+    assert!(out.contains("crates.io"), "{out}");
+}
+
+#[test]
+fn test_markdown_tools_to_html() {
+    use hematite::tools::markdown_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(markdown_tools::execute(&json!({
+        "action": "to-html",
+        "text": "# Hello\n\nThis is **bold**."
+    })));
+    assert!(result.is_ok(), "{:?}", result);
+    let out = result.unwrap();
+    assert!(out.contains("<h1>") || out.contains("Hello"), "{out}");
+    assert!(out.contains("<strong>") || out.contains("bold"), "{out}");
+}
+
+#[test]
+fn test_markdown_tools_to_html_wrapped() {
+    use hematite::tools::markdown_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(markdown_tools::execute(&json!({
+        "action": "to-html",
+        "text": "# Hello",
+        "wrap": true,
+        "title": "My Doc"
+    })));
+    assert!(result.is_ok(), "{:?}", result);
+    let out = result.unwrap();
+    assert!(out.contains("<!DOCTYPE html>"), "{out}");
+    assert!(out.contains("My Doc"), "{out}");
+}
+
+#[test]
+fn test_markdown_tools_strip() {
+    use hematite::tools::markdown_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(markdown_tools::execute(&json!({
+        "action": "strip",
+        "text": "# Hello\n\nThis is **bold** and _italic_."
+    })));
+    assert!(result.is_ok(), "{:?}", result);
+    let out = result.unwrap();
+    assert!(out.contains("Hello"), "{out}");
+    assert!(out.contains("bold"), "{out}");
+    // Should not contain markdown syntax characters for bold/italic
+    assert!(!out.contains("**"), "markdown ** should be stripped: {out}");
+}
+
+#[test]
+fn test_routing_detects_markdown_tools() {
+    use hematite::agent::routing::needs_markdown_tools;
+    assert!(needs_markdown_tools(
+        "generate a table of contents for README.md"
+    ));
+    assert!(needs_markdown_tools("markdown stats for this file"));
+    assert!(needs_markdown_tools("extract headings from the markdown"));
+    assert!(needs_markdown_tools("convert markdown to html"));
+    assert!(needs_markdown_tools("strip markdown formatting"));
+    assert!(needs_markdown_tools("word count in the .md file"));
+    assert!(!needs_markdown_tools("run cargo test"));
+    assert!(!needs_markdown_tools("query my sqlite database"));
+}

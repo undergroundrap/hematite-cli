@@ -2510,6 +2510,101 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         }),
     ));
     tools.push(make_tool(
+        "sqlite_tools",
+        "Inspect and query SQLite databases in read-only mode — no sqlite3 CLI required. \
+         Actions: \
+         `tables` (default) — list all tables with row counts, plus views and index count; \
+         `schema` — show CREATE SQL and PRAGMA table_info column details; pass 'table' to scope to one table; \
+         `query` — execute a SELECT/EXPLAIN/WITH/PRAGMA statement; pass 'sql'; max 100 rows (use 'limit' to override); \
+            INSERT/UPDATE/DELETE/DROP/CREATE are blocked — read-only only; \
+         `info` — database metadata: file size, SQLite version, page size, encoding, journal mode, user_version; \
+         `export` — dump a full table as CSV (default) or JSON; pass 'table', optionally 'format' and 'limit' (default 1000). \
+         Pass 'file' with the path to the .sqlite or .db file.",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "Operation: tables (default), schema, query, info, export."
+                },
+                "file": {
+                    "type": "string",
+                    "description": "Path to the SQLite database file (.sqlite, .db). Also accepted as 'db' or 'database'."
+                },
+                "table": {
+                    "type": "string",
+                    "description": "Table name for 'schema' (scope to one table) and 'export' (required)."
+                },
+                "sql": {
+                    "type": "string",
+                    "description": "SELECT/EXPLAIN/WITH/PRAGMA statement for the 'query' action. Also accepted as 'query'."
+                },
+                "format": {
+                    "type": "string",
+                    "description": "Output format for 'export': csv (default) or json."
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "Max rows for 'query' (default 100) or 'export' (default 1000)."
+                }
+            },
+            "required": []
+        }),
+    ));
+    tools.push(make_tool(
+        "markdown_tools",
+        "Parse and analyze Markdown documents without external tools. \
+         Actions: \
+         `toc` (default) — generate a table of contents with anchor links; 'depth' limits heading levels (default 3); \
+         `stats` — word count, reading time estimate, heading count by level, code block count and lines, \
+            link count, image count, list item count, table count, blockquote count; \
+         `extract` — extract specific elements; pass 'what' = headings (default) | code | links | images; \
+            for code, 'lang' filters by language (e.g. lang: \"rust\"); \
+            for headings, 'depth' limits levels; \
+         `links` — list all hyperlinks with display text and URL, plus images with URL; \
+         `to-html` — render Markdown to HTML; 'wrap: true' for a full HTML document with optional 'title' field; \
+         `strip` — remove all Markdown formatting and return plain text. \
+         Pass 'text' for inline Markdown or 'file' for a .md file path.",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "Operation: toc (default), stats, extract, links, to-html, strip."
+                },
+                "text": {
+                    "type": "string",
+                    "description": "Inline Markdown content to process."
+                },
+                "file": {
+                    "type": "string",
+                    "description": "Path to a .md file (relative to workspace root or absolute). Also accepted as 'input'."
+                },
+                "what": {
+                    "type": "string",
+                    "description": "Element type for 'extract': headings (default), code, links, images."
+                },
+                "depth": {
+                    "type": "integer",
+                    "description": "Maximum heading level for 'toc' and 'extract' headings (1–6, default 3 for toc / 6 for extract)."
+                },
+                "lang": {
+                    "type": "string",
+                    "description": "Language filter for 'extract' code action (e.g. 'rust', 'python')."
+                },
+                "wrap": {
+                    "type": "boolean",
+                    "description": "For 'to-html': wrap in a full HTML document (default false)."
+                },
+                "title": {
+                    "type": "string",
+                    "description": "Document title for 'to-html' when wrap is true (default 'Document')."
+                }
+            },
+            "required": []
+        }),
+    ));
+    tools.push(make_tool(
         "template_gen",
         "Generate boilerplate files from built-in templates. \
          Supports Dockerfiles (Node.js, Python, Rust, Go multi-stage), \
@@ -2771,6 +2866,8 @@ pub async fn dispatch_builtin_tool(
         "jwt_tools" => crate::tools::jwt_tools::execute(args).await,
         "xml_tools" => crate::tools::xml_tools::execute(args).await,
         "archive_tools" => crate::tools::archive_tools::execute(args).await,
+        "sqlite_tools" => crate::tools::sqlite_tools::execute(args).await,
+        "markdown_tools" => crate::tools::markdown_tools::execute(args).await,
         "git_status" => crate::tools::git::execute_status(args).await,
         "git_diff" => crate::tools::git::execute_diff(args).await,
         "git_log" => crate::tools::git::execute_log(args).await,
