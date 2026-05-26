@@ -1098,6 +1098,16 @@ This roadmap reflects that design philosophy: things that are worth doing now be
 
 Nothing currently queued. All roadmap items shipped.
 
+### Recently Shipped (developer toolkit wave)
+
+- **Secret scanner** — ✓ Done. `secret_scanner` tool scans the workspace for accidentally committed secrets using 14 regex patterns (AWS keys, GitHub tokens, Stripe keys, Slack webhooks, private key blocks, database URLs, bearer tokens, password literals, and more). Skips binary files, lock files, and obvious placeholder values. Findings grouped by file with line numbers and redacted snippets plus actionable remediation steps. Routing detects natural-language variants including "scan for secrets", "leaked credentials", "hardcoded password", "gitleaks", "trufflehog".
+- **Changelog generator** — ✓ Done. `changelog_gen` tool generates Markdown changelogs from git commit history grouped by conventional commit type (feat/fix/perf/refactor/docs/test/chore/ci/build/style). Supports version range scoping via `from`/`to` tags, custom titles, and up to 500 commits. Scopes rendered in bold, short hash appended to each entry.
+- **Code metrics** — ✓ Done. `code_metrics` tool reports lines of code, comment density, blank lines, TODO/FIXME counts, language breakdown by file extension, test file ratio, and top 10 largest files. Skips binaries, build artifacts, and vendor directories. Provides a test coverage proxy (% of code lines in test files).
+- **Dependency audit** — ✓ Done. `dependency_audit` tool audits Cargo.toml, package.json, requirements.txt/pyproject.toml, and go.mod for pinning issues, wildcard versions, deprecated packages, missing lock files, and outdated major versions. No network required. Directs users to cargo audit/npm audit/safety for CVE scanning as follow-up.
+- **Port check** — ✓ Done. `port_check` tool tests TCP port reachability with configurable timeout. Annotates 40+ well-known ports (PostgreSQL, Redis, MongoDB, MySQL, SSH, HTTP/S, LM Studio, Ollama, Jupyter, Kubernetes, RDP, etc.). Returns OPEN or CLOSED/FILTERED with actionable hints for closed ports.
+- **Environment diff** — ✓ Done. `env_diff` tool compares two `.env` files or a `.env` file against the live process environment. Reports additions (+), removals (-), and changed values (~) with secret values automatically redacted. Auto-detects `.env`/`.env.local` pairs in the workspace root when called with no arguments.
+- **Template generator** — ✓ Done. `template_gen` tool generates 23 built-in project templates: Dockerfiles (Node/Python/Rust/Go multi-stage), GitHub Actions CI workflows, .gitignore for 4 ecosystems, .env.example, Makefiles, docker-compose.yml with web+db+redis, .pre-commit-config.yaml, .editorconfig, Dependabot config, CODEOWNERS, PR template, and bug/feature issue templates. Supports variable substitution (project_name, port, language versions). Use `template='list'` to see all templates.
+
 ### Recently Shipped (0.8.0 wave)
 
 - **Enterprise enrollment diagnostics** — ✓ Done. `inspect_host(topic: “mdm_enrollment”)` covers dsregcmd AAD/MDM join state, registry enrollment accounts with UPN/type/server URL, Intune Management Extension service health, recent MDM event log errors, and plain-English findings for enrolled/unenrolled/stalled states.
