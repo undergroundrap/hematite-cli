@@ -2782,6 +2782,110 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         }),
     ));
     tools.push(make_tool(
+        "hex_tools",
+        "Hex dump, binary analysis, and hex encoding/decoding without external utilities. \
+         Actions: \
+         `dump` (default) — xxd-style hex dump with offset, hex bytes, and ASCII sidebar; \
+            'width' bytes per row (default 16); 'limit' max bytes (default 4096); 'offset' starting offset; \
+         `strings` — extract printable ASCII strings from binary data; \
+            'min' minimum string length (default 4); 'max' max results (default 200); \
+         `bytes` — byte frequency histogram, null count, high-byte count, Shannon entropy, top-8 bytes; \
+         `analyze` — magic byte file type detection (30+ formats) + entropy estimate from first 256 bytes; \
+         `to-hex` — encode bytes or text to a hex string; 'sep' separator (default space); 'upper: true'; \
+         `from-hex` — decode a hex string back to bytes; attempts UTF-8 interpretation. \
+         Pass 'file' for a file path, 'hex' for an existing hex string, or 'text'/'input' for UTF-8 text.",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "Operation: dump (default), strings, bytes, analyze, to-hex, from-hex."
+                },
+                "file": {
+                    "type": "string",
+                    "description": "Path to a file to analyze (relative or absolute)."
+                },
+                "hex": {
+                    "type": "string",
+                    "description": "Hex string input (for from-hex or as source bytes)."
+                },
+                "text": {
+                    "type": "string",
+                    "description": "UTF-8 text input (treated as bytes). Also accepted as 'input'."
+                },
+                "width": {
+                    "type": "integer",
+                    "description": "Bytes per row in 'dump' output (default 16)."
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "Maximum bytes to show in 'dump' (default 4096)."
+                },
+                "offset": {
+                    "type": "integer",
+                    "description": "Starting byte offset for 'dump' address column (default 0)."
+                },
+                "min": {
+                    "type": "integer",
+                    "description": "Minimum printable string length for 'strings' action (default 4)."
+                },
+                "sep": {
+                    "type": "string",
+                    "description": "Separator between hex bytes in 'to-hex' output (default space). Use '' for compact."
+                },
+                "upper": {
+                    "type": "boolean",
+                    "description": "Use uppercase hex digits in 'to-hex' output (default false)."
+                }
+            },
+            "required": []
+        }),
+    ));
+    tools.push(make_tool(
+        "ini_tools",
+        "Parse, query, validate, and convert INI/config files without external utilities. \
+         Handles standard INI format: [section] headers, key=value pairs, ; and # comments, \
+         inline comments, global keys before any section, and colon-separated key: value syntax. \
+         Actions: \
+         `parse` (default) — display all sections and key-value pairs with counts; \
+         `get` — retrieve a specific value; pass 'key' as 'section.key' dot notation or \
+            separate 'section' + 'key' args; \
+         `sections` — list all section names with their key counts; \
+         `keys` — list all keys in a section; pass 'section' to scope (omit for global keys); \
+         `validate` — check for duplicate keys, duplicate section names, and empty sections; \
+         `to-json` — convert the full INI document to a JSON object (sections become nested objects); \
+         `to-toml` — convert the INI document to TOML format. \
+         Pass 'text' or 'ini' for inline INI content, or 'file' for a file path. \
+         Example: ini_tools(action: 'get', file: 'config.ini', key: 'database.host') or \
+         ini_tools(action: 'to-json', text: '[server]\\nport=8080\\nhost=localhost').",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "Operation: parse (default), get, sections, keys, validate, to-json, to-toml."
+                },
+                "text": {
+                    "type": "string",
+                    "description": "Inline INI content. Also accepted as 'ini' or 'input'."
+                },
+                "file": {
+                    "type": "string",
+                    "description": "Path to an INI/config file (relative or absolute)."
+                },
+                "key": {
+                    "type": "string",
+                    "description": "Key to retrieve for 'get'. Use 'section.key' dot notation or pair with 'section'."
+                },
+                "section": {
+                    "type": "string",
+                    "description": "Section name for 'get' and 'keys'. Omit for global (no-section) keys."
+                }
+            },
+            "required": []
+        }),
+    ));
+    tools.push(make_tool(
         "template_gen",
         "Generate boilerplate files from built-in templates. \
          Supports Dockerfiles (Node.js, Python, Rust, Go multi-stage), \
@@ -3047,6 +3151,8 @@ pub async fn dispatch_builtin_tool(
         "markdown_tools" => crate::tools::markdown_tools::execute(args).await,
         "url_tools" => crate::tools::url_tools::execute(args).await,
         "line_tools" => crate::tools::line_tools::execute(args).await,
+        "hex_tools" => crate::tools::hex_tools::execute(args).await,
+        "ini_tools" => crate::tools::ini_tools::execute(args).await,
         "git_status" => crate::tools::git::execute_status(args).await,
         "git_diff" => crate::tools::git::execute_diff(args).await,
         "git_log" => crate::tools::git::execute_log(args).await,

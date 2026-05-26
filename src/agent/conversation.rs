@@ -30,13 +30,13 @@ use crate::agent::routing::{
     is_scaffold_request, looks_like_mutation_request, needs_archive_tools, needs_color_tools,
     needs_computation_sandbox, needs_crash_debug, needs_cron_tools, needs_csv_tools,
     needs_date_tools, needs_diff_tools, needs_docker_ops, needs_encode_tools, needs_format,
-    needs_github_ops, needs_hash_tools, needs_http_request, needs_ip_tools, needs_jwt_tools,
-    needs_line_tools, needs_lint_check, needs_markdown_tools, needs_number_tools,
-    needs_password_gen, needs_regex_tools, needs_secret_scan, needs_semver_tools,
-    needs_sqlite_tools, needs_test_run, needs_text_tools, needs_toml_tools, needs_url_tools,
-    needs_uuid_gen, needs_xml_tools, needs_yaml_tools, preferred_host_inspection_topic,
-    preferred_maintainer_workflow, preferred_workspace_workflow, DirectAnswerKind,
-    QueryIntentClass,
+    needs_github_ops, needs_hash_tools, needs_hex_tools, needs_http_request, needs_ini_tools,
+    needs_ip_tools, needs_jwt_tools, needs_line_tools, needs_lint_check, needs_markdown_tools,
+    needs_number_tools, needs_password_gen, needs_regex_tools, needs_secret_scan,
+    needs_semver_tools, needs_sqlite_tools, needs_test_run, needs_text_tools, needs_toml_tools,
+    needs_url_tools, needs_uuid_gen, needs_xml_tools, needs_yaml_tools,
+    preferred_host_inspection_topic, preferred_maintainer_workflow, preferred_workspace_workflow,
+    DirectAnswerKind, QueryIntentClass,
 };
 use crate::agent::tool_registry::dispatch_builtin_tool;
 use crate::agent::truncation::safe_head;
@@ -5413,6 +5413,41 @@ impl ConversationManager {
                  Pass 'text' for inline text or 'file' for a file path. \
                  Example: line_tools(action: \"grep\", file: \"app.log\", pattern: \"ERROR\") or \
                  line_tools(action: \"sort\", text: \"banana\\napple\\ncherry\", unique: true)."
+                    .to_string(),
+            );
+        }
+
+        // ── Hex Tools Routing: steer model toward hex_tools ──
+        if loop_intervention.is_none() && needs_hex_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "HEX NOTICE: Use the `hex_tools` tool for hex dump, binary analysis, and hex encoding/decoding without external utilities. \
+                 Actions: dump (default — xxd-style hex dump; 'width' bytes per row, default 16; 'limit' max bytes, default 4096), \
+                 strings (extract printable ASCII strings from binary data; 'min' minimum length, default 4), \
+                 bytes (byte frequency histogram, null count, high-byte count, Shannon entropy), \
+                 analyze (magic byte file type detection + entropy estimate), \
+                 to-hex (encode bytes or text as hex string; 'sep' separator, 'upper: true' for uppercase), \
+                 from-hex (decode a hex string back to bytes or text). \
+                 Pass 'file' for a file path, 'hex' for an existing hex string, or 'text'/'input' for UTF-8 text. \
+                 Example: hex_tools(action: \"dump\", file: \"binary.bin\") or \
+                 hex_tools(action: \"to-hex\", text: \"Hello\")."
+                    .to_string(),
+            );
+        }
+
+        // ── INI Tools Routing: steer model toward ini_tools ──
+        if loop_intervention.is_none() && needs_ini_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "INI NOTICE: Use the `ini_tools` tool to parse, query, and convert INI/config files without external utilities. \
+                 Actions: parse (default — display all sections and key-value pairs), \
+                 get (retrieve a specific value; pass 'key' as 'section.key' dot notation or separate 'section' + 'key' args), \
+                 sections (list all section names with key counts), \
+                 keys (list all keys in a section; pass 'section' to scope), \
+                 validate (check for duplicate keys, duplicate sections, empty sections), \
+                 to-json (convert the INI document to a JSON object), \
+                 to-toml (convert the INI document to TOML format). \
+                 Pass 'text' or 'ini' for inline INI text, or 'file' for a file path. \
+                 Example: ini_tools(action: \"get\", file: \"config.ini\", key: \"database.host\") or \
+                 ini_tools(action: \"to-json\", text: \"[server]\\nport=8080\")."
                     .to_string(),
             );
         }

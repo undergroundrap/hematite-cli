@@ -19361,3 +19361,360 @@ fn test_routing_detects_line_tools() {
     assert!(!needs_line_tools("run cargo test"));
     assert!(!needs_line_tools("query my sqlite database"));
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// hex_tools tests
+// ─────────────────────────────────────────────────────────────────────────────
+
+#[test]
+fn test_hex_tools_to_hex() {
+    use hematite::tools::hex_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hex_tools::execute(&json!({
+        "action": "to-hex",
+        "text": "Hello"
+    })));
+    assert!(result.is_ok(), "{:?}", result);
+    let out = result.unwrap();
+    assert!(out.contains("48"), "{out}");
+    assert!(out.contains("65"), "{out}");
+    assert!(out.contains("6c"), "{out}");
+    assert!(out.contains("6f"), "{out}");
+}
+
+#[test]
+fn test_hex_tools_to_hex_upper() {
+    use hematite::tools::hex_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hex_tools::execute(&json!({
+        "action": "to-hex",
+        "text": "Hi",
+        "upper": true,
+        "sep": ""
+    })));
+    assert!(result.is_ok(), "{:?}", result);
+    let out = result.unwrap();
+    assert!(out.contains("4869"), "{out}");
+}
+
+#[test]
+fn test_hex_tools_from_hex() {
+    use hematite::tools::hex_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hex_tools::execute(&json!({
+        "action": "from-hex",
+        "hex": "48656c6c6f"
+    })));
+    assert!(result.is_ok(), "{:?}", result);
+    let out = result.unwrap();
+    assert!(out.contains("Hello"), "{out}");
+}
+
+#[test]
+fn test_hex_tools_dump() {
+    use hematite::tools::hex_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hex_tools::execute(&json!({
+        "action": "dump",
+        "text": "ABCD"
+    })));
+    assert!(result.is_ok(), "{:?}", result);
+    let out = result.unwrap();
+    assert!(out.contains("41"), "{out}");
+    assert!(out.contains("42"), "{out}");
+    assert!(out.contains("|ABCD"), "{out}");
+}
+
+#[test]
+fn test_hex_tools_bytes_info() {
+    use hematite::tools::hex_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hex_tools::execute(&json!({
+        "action": "bytes",
+        "text": "Hello World"
+    })));
+    assert!(result.is_ok(), "{:?}", result);
+    let out = result.unwrap();
+    assert!(out.contains("Total bytes"), "{out}");
+    assert!(out.contains("Entropy"), "{out}");
+}
+
+#[test]
+fn test_hex_tools_strings() {
+    use hematite::tools::hex_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hex_tools::execute(&json!({
+        "action": "strings",
+        "text": "Hello, world! How are you?",
+        "min": 4
+    })));
+    assert!(result.is_ok(), "{:?}", result);
+    let out = result.unwrap();
+    assert!(out.contains("Hello"), "{out}");
+}
+
+#[test]
+fn test_hex_tools_analyze_png() {
+    use hematite::tools::hex_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hex_tools::execute(&json!({
+        "action": "analyze",
+        "hex": "89504e470d0a1a0a0000000000000000"
+    })));
+    assert!(result.is_ok(), "{:?}", result);
+    let out = result.unwrap();
+    assert!(out.to_lowercase().contains("png"), "{out}");
+}
+
+#[test]
+fn test_hex_tools_analyze_pdf() {
+    use hematite::tools::hex_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hex_tools::execute(&json!({
+        "action": "analyze",
+        "text": "%PDF-1.4 test document"
+    })));
+    assert!(result.is_ok(), "{:?}", result);
+    let out = result.unwrap();
+    assert!(out.to_lowercase().contains("pdf"), "{out}");
+}
+
+#[test]
+fn test_routing_detects_hex_tools() {
+    use hematite::agent::routing::needs_hex_tools;
+    assert!(needs_hex_tools("hex dump this binary file"));
+    assert!(needs_hex_tools("show me a hexdump of the executable"));
+    assert!(needs_hex_tools("what are the magic bytes of this file"));
+    assert!(needs_hex_tools("encode this string to hex"));
+    assert!(needs_hex_tools("decode this hex string"));
+    assert!(needs_hex_tools("analyze this binary file"));
+    assert!(needs_hex_tools("shannon entropy of this data"));
+    assert!(!needs_hex_tools("parse this YAML config file"));
+    assert!(!needs_hex_tools("run cargo build"));
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ini_tools tests
+// ─────────────────────────────────────────────────────────────────────────────
+
+const TEST_INI: &str = "
+; Database configuration
+[database]
+host = localhost
+port = 5432
+name = myapp_db
+
+; Server settings
+[server]
+host = 0.0.0.0
+port = 8080
+debug = false
+
+[cache]
+backend = redis
+ttl = 300
+";
+
+#[test]
+fn test_ini_tools_parse() {
+    use hematite::tools::ini_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(ini_tools::execute(&json!({
+        "action": "parse",
+        "text": TEST_INI
+    })));
+    assert!(result.is_ok(), "{:?}", result);
+    let out = result.unwrap();
+    assert!(out.contains("[database]"), "{out}");
+    assert!(out.contains("[server]"), "{out}");
+    assert!(out.contains("[cache]"), "{out}");
+    assert!(out.contains("host = localhost"), "{out}");
+    assert!(out.contains("port = 5432"), "{out}");
+}
+
+#[test]
+fn test_ini_tools_get_dotnotation() {
+    use hematite::tools::ini_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(ini_tools::execute(&json!({
+        "action": "get",
+        "text": TEST_INI,
+        "key": "database.host"
+    })));
+    assert!(result.is_ok(), "{:?}", result);
+    let out = result.unwrap();
+    assert!(out.contains("localhost"), "{out}");
+}
+
+#[test]
+fn test_ini_tools_get_separate_args() {
+    use hematite::tools::ini_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(ini_tools::execute(&json!({
+        "action": "get",
+        "text": TEST_INI,
+        "section": "server",
+        "key": "port"
+    })));
+    assert!(result.is_ok(), "{:?}", result);
+    let out = result.unwrap();
+    assert!(out.contains("8080"), "{out}");
+}
+
+#[test]
+fn test_ini_tools_get_missing_key() {
+    use hematite::tools::ini_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(ini_tools::execute(&json!({
+        "action": "get",
+        "text": TEST_INI,
+        "key": "database.nonexistent"
+    })));
+    assert!(result.is_err(), "Expected error for missing key");
+    assert!(result.unwrap_err().contains("not found"));
+}
+
+#[test]
+fn test_ini_tools_sections() {
+    use hematite::tools::ini_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(ini_tools::execute(&json!({
+        "action": "sections",
+        "text": TEST_INI
+    })));
+    assert!(result.is_ok(), "{:?}", result);
+    let out = result.unwrap();
+    assert!(out.contains("[database]"), "{out}");
+    assert!(out.contains("[server]"), "{out}");
+    assert!(out.contains("[cache]"), "{out}");
+    assert!(out.contains("3 section(s)"), "{out}");
+}
+
+#[test]
+fn test_ini_tools_keys() {
+    use hematite::tools::ini_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(ini_tools::execute(&json!({
+        "action": "keys",
+        "text": TEST_INI,
+        "section": "database"
+    })));
+    assert!(result.is_ok(), "{:?}", result);
+    let out = result.unwrap();
+    assert!(out.contains("host"), "{out}");
+    assert!(out.contains("port"), "{out}");
+    assert!(out.contains("name"), "{out}");
+}
+
+#[test]
+fn test_ini_tools_validate_clean() {
+    use hematite::tools::ini_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(ini_tools::execute(&json!({
+        "action": "validate",
+        "text": TEST_INI
+    })));
+    assert!(result.is_ok(), "{:?}", result);
+    let out = result.unwrap();
+    assert!(out.contains("VALID"), "{out}");
+    assert!(out.contains("No issues"), "{out}");
+}
+
+#[test]
+fn test_ini_tools_validate_duplicates() {
+    use hematite::tools::ini_tools;
+    use serde_json::json;
+    let bad_ini = "[db]\nhost = a\nhost = b\n";
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(ini_tools::execute(&json!({
+        "action": "validate",
+        "text": bad_ini
+    })));
+    assert!(result.is_ok(), "{:?}", result);
+    let out = result.unwrap();
+    assert!(
+        out.contains("ISSUES FOUND") || out.contains("Duplicate"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_ini_tools_to_json() {
+    use hematite::tools::ini_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(ini_tools::execute(&json!({
+        "action": "to-json",
+        "text": TEST_INI
+    })));
+    assert!(result.is_ok(), "{:?}", result);
+    let out = result.unwrap();
+    assert!(out.contains("\"database\""), "{out}");
+    assert!(out.contains("\"localhost\""), "{out}");
+    assert!(out.contains("\"server\""), "{out}");
+}
+
+#[test]
+fn test_ini_tools_to_toml() {
+    use hematite::tools::ini_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(ini_tools::execute(&json!({
+        "action": "to-toml",
+        "text": TEST_INI
+    })));
+    assert!(result.is_ok(), "{:?}", result);
+    let out = result.unwrap();
+    assert!(out.contains("[database]"), "{out}");
+    assert!(out.contains("host = \"localhost\""), "{out}");
+    assert!(out.contains("[server]"), "{out}");
+}
+
+#[test]
+fn test_ini_tools_inline_comments_stripped() {
+    use hematite::tools::ini_tools;
+    use serde_json::json;
+    let ini_with_inline = "[app]\nport = 8080 ; this is the HTTP port\nname = MyApp\n";
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(ini_tools::execute(&json!({
+        "action": "get",
+        "text": ini_with_inline,
+        "key": "app.port"
+    })));
+    assert!(result.is_ok(), "{:?}", result);
+    let out = result.unwrap();
+    assert!(out.contains("8080"), "{out}");
+    assert!(!out.contains("this is the HTTP port"), "{out}");
+}
+
+#[test]
+fn test_routing_detects_ini_tools() {
+    use hematite::agent::routing::needs_ini_tools;
+    assert!(needs_ini_tools("parse this .ini config file"));
+    assert!(needs_ini_tools(
+        "read my config.ini and get the database section"
+    ));
+    assert!(needs_ini_tools("validate this configuration file"));
+    assert!(needs_ini_tools("convert ini to json"));
+    assert!(needs_ini_tools(
+        "what keys are in the database section of my .cfg file"
+    ));
+    assert!(!needs_ini_tools("parse this YAML file"));
+    assert!(!needs_ini_tools("run cargo build"));
+    assert!(!needs_ini_tools("query my sqlite database"));
+}

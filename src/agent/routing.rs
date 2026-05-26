@@ -6564,6 +6564,55 @@ pub fn needs_line_tools(user_input: &str) -> bool {
         || (lower.contains("file") && lower.contains("grep"))
 }
 
+/// Returns true when the user wants hex dump, binary analysis, or encoding — steer toward `hex_tools`.
+pub fn needs_hex_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    lower.contains("hex dump")
+        || lower.contains("hexdump")
+        || lower.contains("xxd")
+        || lower.contains("hex encode")
+        || lower.contains("hex decode")
+        || lower.contains("decode hex")
+        || lower.contains("encode hex")
+        || lower.contains("to hex")
+        || lower.contains("from hex")
+        || lower.contains("hex string")
+        || lower.contains("binary file")
+        || lower.contains("magic bytes")
+        || lower.contains("file signature")
+        || lower.contains("file type detection")
+        || lower.contains("extract strings")
+        || lower.contains("strings from binary")
+        || lower.contains("byte frequency")
+        || lower.contains("shannon entropy")
+        || lower.contains("entropy of")
+        || (lower.contains("analyze") && lower.contains("binary"))
+        || (lower.contains("inspect") && lower.contains("binary"))
+}
+
+/// Returns true when the user wants to read or query an INI/config file — steer toward `ini_tools`.
+pub fn needs_ini_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    lower.contains(".ini")
+        || lower.contains(".cfg")
+        || lower.contains(".conf")
+        || lower.contains("ini file")
+        || lower.contains("ini config")
+        || lower.contains("config file")
+        || lower.contains("parse ini")
+        || lower.contains("read ini")
+        || lower.contains("ini section")
+        || lower.contains("ini key")
+        || lower.contains("get from config")
+        || lower.contains("config section")
+        || lower.contains("configuration file")
+        || lower.contains("ini to json")
+        || lower.contains("ini to toml")
+        || lower.contains("validate ini")
+        || lower.contains("windows registry")
+        || (lower.contains("section") && lower.contains("key") && lower.contains("value"))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
