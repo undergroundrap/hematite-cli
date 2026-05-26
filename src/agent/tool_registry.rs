@@ -1528,6 +1528,65 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         }),
     ));
     tools.push(make_tool(
+        "template_gen",
+        "Generate boilerplate files from built-in templates. \
+         Supports Dockerfiles (Node.js, Python, Rust, Go multi-stage), \
+         GitHub Actions CI workflows, .gitignore files, .env.example, \
+         Makefiles, docker-compose.yml, .pre-commit-config.yaml, .editorconfig, \
+         Dependabot config, CODEOWNERS, PR template, and GitHub issue templates. \
+         Use template='list' to see all 23 available templates. \
+         Writes the file to the workspace root (or output path). Won't overwrite existing files. \
+         Accepts substitution variables: project_name, port, node_version, python_version, rust_version, go_version, owner. \
+         Example: template_gen(template: 'dockerfile-rust', project_name: 'my-server', port: '8080') \
+         or template_gen(template: 'ci-github-rust') to scaffold a full CI pipeline.",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "template": {
+                    "type": "string",
+                    "description": "Template name. Use 'list' to see all available templates."
+                },
+                "output": {
+                    "type": "string",
+                    "description": "Output file path relative to workspace root. Defaults to the template's canonical filename."
+                },
+                "dry_run": {
+                    "type": "boolean",
+                    "description": "Preview the generated content without writing to disk (default false)."
+                },
+                "project_name": {
+                    "type": "string",
+                    "description": "Project name substituted into templates (default 'my-app')."
+                },
+                "port": {
+                    "type": "string",
+                    "description": "Port number for Dockerfile/docker-compose templates (default '3000')."
+                },
+                "node_version": {
+                    "type": "string",
+                    "description": "Node.js version for Node templates (default '20')."
+                },
+                "python_version": {
+                    "type": "string",
+                    "description": "Python version for Python templates (default '3.12')."
+                },
+                "rust_version": {
+                    "type": "string",
+                    "description": "Rust toolchain version for Rust templates (default '1.82')."
+                },
+                "go_version": {
+                    "type": "string",
+                    "description": "Go version for Go templates (default '1.23')."
+                },
+                "owner": {
+                    "type": "string",
+                    "description": "GitHub username/team for CODEOWNERS template (default 'your-team')."
+                }
+            },
+            "required": ["template"]
+        }),
+    ));
+    tools.push(make_tool(
         "env_diff",
         "Compare environment variables between two .env files, or between a .env file and the live process environment. \
          Shows additions (+), removals (-), and changed values (~) with secret values automatically redacted. \
@@ -1709,6 +1768,7 @@ pub async fn dispatch_builtin_tool(
         "dependency_audit" => crate::tools::dependency_audit::execute(args).await,
         "port_check" => crate::tools::port_check::execute(args).await,
         "env_diff" => crate::tools::env_diff::execute(args).await,
+        "template_gen" => crate::tools::template_gen::execute(args).await,
         "git_status" => crate::tools::git::execute_status(args).await,
         "git_diff" => crate::tools::git::execute_diff(args).await,
         "git_log" => crate::tools::git::execute_log(args).await,

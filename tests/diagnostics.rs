@@ -15092,6 +15092,84 @@ fn test_secret_scanner_skips_binary_files() {
 }
 
 #[test]
+fn test_template_gen_list() {
+    use hematite::tools::template_gen;
+    use serde_json::json;
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(template_gen::execute(&json!({ "template": "list" })));
+    let out = result.expect("list should succeed");
+    assert!(out.contains("dockerfile-rust"), "should list dockerfile-rust: {out}");
+    assert!(out.contains("ci-github-node"), "should list ci-github-node: {out}");
+    assert!(out.contains("docker-compose"), "should list docker-compose: {out}");
+}
+
+#[test]
+fn test_template_gen_dry_run() {
+    use hematite::tools::template_gen;
+    use serde_json::json;
+
+    let dir = tempfile::tempdir().unwrap();
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(template_gen::execute(&json!({
+        "template": "dockerfile-node",
+        "dry_run": true,
+        "_root": dir.path().to_str().unwrap()
+    })));
+    let out = result.expect("dry_run should succeed");
+    assert!(out.contains("DRY RUN"), "should indicate dry run: {out}");
+    assert!(out.contains("FROM node"), "should contain Dockerfile content: {out}");
+    // File should NOT have been created
+    assert!(!dir.path().join("Dockerfile").exists(), "dry_run should not write file");
+}
+
+#[test]
+fn test_template_gen_writes_file() {
+    use hematite::tools::template_gen;
+    use serde_json::json;
+
+    let dir = tempfile::tempdir().unwrap();
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(template_gen::execute(&json!({
+        "template": "gitignore-rust",
+        "_root": dir.path().to_str().unwrap()
+    })));
+    let out = result.expect("should write .gitignore");
+    assert!(out.contains("wrote"), "should confirm write: {out}");
+    let content = std::fs::read_to_string(dir.path().join(".gitignore")).expect("file should exist");
+    assert!(content.contains("target"), "should contain target/ entry: {content}");
+}
+
+#[test]
+fn test_template_gen_unknown_template() {
+    use hematite::tools::template_gen;
+    use serde_json::json;
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(template_gen::execute(&json!({ "template": "nonexistent-xyz" })));
+    assert!(result.is_err(), "unknown template should error");
+}
+
+#[test]
+fn test_template_gen_rust_substitution() {
+    use hematite::tools::template_gen;
+    use serde_json::json;
+
+    let dir = tempfile::tempdir().unwrap();
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(template_gen::execute(&json!({
+        "template": "dockerfile-rust",
+        "project_name": "myserver",
+        "port": "8080",
+        "dry_run": true,
+        "_root": dir.path().to_str().unwrap()
+    })));
+    let out = result.expect("should succeed");
+    assert!(out.contains("myserver"), "should substitute project_name: {out}");
+    assert!(out.contains("8080"), "should substitute port: {out}");
+}
+
+#[test]
 fn test_env_diff_two_files() {
     use hematite::tools::env_diff;
     use serde_json::json;
