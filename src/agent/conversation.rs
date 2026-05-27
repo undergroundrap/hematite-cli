@@ -35,10 +35,11 @@ use crate::agent::routing::{
     needs_jwt_tools, needs_keyval_tools, needs_line_tools, needs_lint_check, needs_markdown_tools,
     needs_money_tools, needs_net_lookup_tools, needs_number_tools, needs_password_gen,
     needs_path_tools, needs_regex_tools, needs_rss_tools, needs_secret_scan, needs_semver_tools,
-    needs_sqlite_tools, needs_stat_tools, needs_table_tools, needs_template_tools, needs_test_run,
-    needs_text_tools, needs_toml_tools, needs_url_tools, needs_uuid_gen, needs_xml_tools,
-    needs_yaml_tools, preferred_host_inspection_topic, preferred_maintainer_workflow,
-    preferred_workspace_workflow, DirectAnswerKind, QueryIntentClass,
+    needs_size_tools, needs_sqlite_tools, needs_stat_tools, needs_table_tools,
+    needs_template_tools, needs_test_run, needs_text_tools, needs_toml_tools, needs_url_tools,
+    needs_uuid_gen, needs_validate_tools, needs_xml_tools, needs_yaml_tools,
+    preferred_host_inspection_topic, preferred_maintainer_workflow, preferred_workspace_workflow,
+    DirectAnswerKind, QueryIntentClass,
 };
 use crate::agent::tool_registry::dispatch_builtin_tool;
 use crate::agent::truncation::safe_head;
@@ -5647,6 +5648,37 @@ impl ConversationManager {
                  split_bill (total + people + optional tip % → per-person share). \
                  Example: money_tools(action: \"loan\", principal: 250000, annual_rate: 6.5, term_months: 360) or \
                  money_tools(action: \"compound_interest\", principal: 10000, rate: 5, periods: 10, n: 12)."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_size_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "SIZE NOTICE: Use the `size_tools` tool to convert, parse, and compare data sizes without shell commands. \
+                 Actions: convert (default — bytes ↔ KB/MB/GB/TB/KiB/MiB/GiB/TiB; optional 'to' for a specific unit), \
+                 parse (resolve a size string to bytes + human-readable forms), \
+                 format (auto/decimal/binary human-readable label), \
+                 compare (compare two sizes and show ratio and difference), \
+                 bandwidth (estimate transfer time at a given speed, or compute speed from size+time; \
+                   omit 'speed'/'time' for a table of common connection speeds). \
+                 Input 'size'/'input'/'value': '1.5 GB', '512 MiB', '2048', '100 Mbps'. \
+                 Example: size_tools(action: 'convert', size: '1.5 GB') or \
+                 size_tools(action: 'bandwidth', size: '4 GB', speed: '100 Mbps')."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_validate_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "VALIDATE NOTICE: Use the `validate_tools` tool to validate common data formats without external utilities. \
+                 Actions (or use 'auto' to detect type automatically): \
+                 email, ipv4, ipv6, cidr, mac, url, credit_card (Luhn check), isbn (ISBN-10/13), \
+                 uuid (RFC 4122 version/variant), phone (NANP US/CA or E.164 international), \
+                 semver (SemVer 2.0), hex_color (#RGB / #RRGGBB / #RGBA / #RRGGBBAA). \
+                 Pass 'value'/'input'/'text' with the string to validate. \
+                 Example: validate_tools(action: 'email', value: 'user@example.com') or \
+                 validate_tools(action: 'cidr', value: '192.168.1.0/24') or \
+                 validate_tools(action: 'auto', value: '2.0.0-alpha.1')."
                     .to_string(),
             );
         }

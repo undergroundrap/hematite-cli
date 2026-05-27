@@ -6851,6 +6851,68 @@ pub fn needs_net_lookup_tools(user_input: &str) -> bool {
         || (lower.contains("net_lookup") || lower.contains("net lookup"))
 }
 
+/// Returns true when the user wants to parse or convert data sizes — steer toward `size_tools`.
+pub fn needs_size_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    lower.contains("convert bytes")
+        || lower.contains("bytes to mb")
+        || lower.contains("bytes to gb")
+        || lower.contains("mb to gb")
+        || lower.contains("gb to tb")
+        || lower.contains("gib to gb")
+        || lower.contains("mib to mb")
+        || lower.contains("file size")
+        || lower.contains("memory size")
+        || lower.contains("parse size")
+        || lower.contains("size_tools")
+        || lower.contains("transfer time")
+        || lower.contains("download time")
+        || lower.contains("how long to download")
+        || lower.contains("bandwidth calculation")
+        || lower.contains("how many bytes")
+        || lower.contains("kibibyte")
+        || lower.contains("mebibyte")
+        || lower.contains("gibibyte")
+        || (lower.contains("size") && lower.contains("convert"))
+        || (lower.contains("gb") && lower.contains("mb") && lower.contains("convert"))
+        || (lower.contains("mbps") && (lower.contains("time") || lower.contains("download")))
+}
+
+/// Returns true when the user wants to validate a common data format — steer toward `validate_tools`.
+pub fn needs_validate_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    lower.contains("validate email")
+        || lower.contains("valid email")
+        || lower.contains("is this a valid email")
+        || lower.contains("validate ip")
+        || lower.contains("valid ipv4")
+        || lower.contains("valid ipv6")
+        || lower.contains("validate mac")
+        || lower.contains("valid mac address")
+        || lower.contains("validate url")
+        || lower.contains("valid url")
+        || lower.contains("validate uuid")
+        || lower.contains("valid uuid")
+        || lower.contains("validate credit card")
+        || lower.contains("luhn check")
+        || lower.contains("validate isbn")
+        || lower.contains("isbn check")
+        || lower.contains("validate phone")
+        || lower.contains("validate semver")
+        || lower.contains("validate hex color")
+        || lower.contains("validate cidr")
+        || lower.contains("validate_tools")
+        || (lower.contains("validate") && lower.contains("format"))
+        || (lower.contains("is")
+            && lower.contains("valid")
+            && (lower.contains("email")
+                || lower.contains("ip")
+                || lower.contains("url")
+                || lower.contains("uuid")
+                || lower.contains("isbn")
+                || lower.contains("mac")))
+}
+
 /// Returns true when the user wants financial calculations — steer toward `money_tools`.
 pub fn needs_money_tools(user_input: &str) -> bool {
     let lower = user_input.to_lowercase();

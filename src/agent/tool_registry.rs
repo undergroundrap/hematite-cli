@@ -3396,6 +3396,85 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         }),
     ));
     tools.push(make_tool(
+        "size_tools",
+        "Parse, convert, format, and compare data sizes (bytes/KB/MB/GB/TB and binary KiB/MiB/GiB/TiB) \
+         and estimate bandwidth transfer times — no shell commands needed. \
+         Actions: \
+         `convert` (default) — show all conversions for a size; optional 'to' unit for a single result; \
+         `parse` — resolve a human-readable size string to exact bytes; \
+         `format` — format bytes as a human-readable label; 'style: decimal/binary/auto'; \
+         `compare` — compare two sizes ('a', 'b') and show ratio and difference; \
+         `bandwidth` — estimate transfer time given 'speed' (e.g. '100 Mbps'); \
+            or compute speed given 'time' (e.g. '30s'); omit both to see a table of common speeds. \
+         Input: 'size'/'input'/'value' as a string like '1.5 GB', '512 MiB', '1073741824'. \
+         Accepts B, KB, MB, GB, TB, PB (SI/decimal) and KiB, MiB, GiB, TiB, PiB (IEC/binary). \
+         Example: size_tools(action: 'convert', size: '1.5 GB') or \
+         size_tools(action: 'bandwidth', size: '4 GB', speed: '100 Mbps').",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "Operation: convert (default), parse, format, compare, bandwidth."
+                },
+                "size": {
+                    "type": "string",
+                    "description": "Size to convert/parse/format (e.g. '1.5 GB', '512 MiB', '2048'). Also 'input'/'value'."
+                },
+                "to": {
+                    "type": "string",
+                    "description": "Target unit for 'convert': KB, MB, GB, TB, KiB, MiB, GiB, TiB."
+                },
+                "style": {
+                    "type": "string",
+                    "description": "For 'format': 'decimal' (SI), 'binary' (IEC), or 'auto' (default)."
+                },
+                "a": {
+                    "type": "string",
+                    "description": "First size for 'compare' (e.g. '2 GB')."
+                },
+                "b": {
+                    "type": "string",
+                    "description": "Second size for 'compare'."
+                },
+                "speed": {
+                    "type": "string",
+                    "description": "Transfer speed for 'bandwidth' (e.g. '100 Mbps', '1 Gbps', '50 MB/s')."
+                },
+                "time": {
+                    "type": "string",
+                    "description": "Transfer duration for 'bandwidth' (e.g. '30s', '5m', '2h')."
+                }
+            },
+            "required": []
+        }),
+    ));
+    tools.push(make_tool(
+        "validate_tools",
+        "Validate common data formats — email, IPv4, IPv6, CIDR, MAC, URL, credit card (Luhn), \
+         ISBN-10/13, UUID, phone (NANP/E.164), SemVer 2.0, hex color — without external utilities. \
+         Actions: email, ipv4, ipv6, cidr, mac, url, credit_card, isbn, uuid, phone, semver, hex_color, \
+         auto (default — detects the format type automatically). \
+         Pass 'value'/'input'/'text' with the string to validate. \
+         Example: validate_tools(action: 'email', value: 'user@example.com') or \
+         validate_tools(action: 'cidr', value: '192.168.1.0/24') or \
+         validate_tools(action: 'auto', value: 'v2.0.0-alpha.1').",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "Format to validate: email, ipv4, ipv6, cidr, mac, url, credit_card, isbn, uuid, phone, semver, hex_color, auto (default)."
+                },
+                "value": {
+                    "type": "string",
+                    "description": "The value to validate. Also 'input'/'text'."
+                }
+            },
+            "required": []
+        }),
+    ));
+    tools.push(make_tool(
         "hex_tools",
         "Hex dump, binary analysis, and hex encoding/decoding without external utilities. \
          Actions: \
@@ -3779,6 +3858,8 @@ pub async fn dispatch_builtin_tool(
         "keyval_tools" => crate::tools::keyval_tools::execute(args).await,
         "net_lookup_tools" => crate::tools::net_lookup_tools::execute(args).await,
         "money_tools" => crate::tools::money_tools::execute(args).await,
+        "size_tools" => crate::tools::size_tools::execute(args).await,
+        "validate_tools" => crate::tools::validate_tools::execute(args).await,
         "git_status" => crate::tools::git::execute_status(args).await,
         "git_diff" => crate::tools::git::execute_diff(args).await,
         "git_log" => crate::tools::git::execute_log(args).await,

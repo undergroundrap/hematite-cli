@@ -21674,3 +21674,235 @@ fn test_routing_detects_money_tools() {
     assert!(!needs_money_tools("calculate the hash of a string"));
     assert!(!needs_money_tools("list network connections"));
 }
+
+// ── size_tools tests ──────────────────────────────────────────────────────
+
+#[tokio::test]
+async fn test_size_tools_convert_gb() {
+    let args = serde_json::json!({ "action": "convert", "size": "1 GB" });
+    let result = hematite::tools::size_tools::execute(&args).await.unwrap();
+    assert!(result.contains("Bytes (raw)"), "should show byte count");
+    assert!(
+        result.contains("1,000,000,000") || result.contains("1000000000"),
+        "1 GB = 1e9 bytes"
+    );
+    assert!(result.contains("Decimal"), "should show decimal section");
+    assert!(result.contains("Binary"), "should show binary section");
+}
+
+#[tokio::test]
+async fn test_size_tools_convert_to_unit() {
+    let args = serde_json::json!({ "action": "convert", "size": "1073741824", "to": "GiB" });
+    let result = hematite::tools::size_tools::execute(&args).await.unwrap();
+    assert!(
+        result.contains("1.0000 GiB") || result.contains("1.00"),
+        "1073741824 bytes = 1 GiB"
+    );
+}
+
+#[tokio::test]
+async fn test_size_tools_parse() {
+    let args = serde_json::json!({ "action": "parse", "size": "2.5 MiB" });
+    let result = hematite::tools::size_tools::execute(&args).await.unwrap();
+    assert!(result.contains("Parsed"), "should have Parsed header");
+    assert!(
+        result.contains("2,621,440") || result.contains("2621440"),
+        "2.5 MiB = 2621440 bytes"
+    );
+}
+
+#[tokio::test]
+async fn test_size_tools_format_decimal() {
+    let args = serde_json::json!({ "action": "format", "size": "1500000", "style": "decimal" });
+    let result = hematite::tools::size_tools::execute(&args).await.unwrap();
+    assert!(
+        result.contains("1.50 MB") || result.contains("MB"),
+        "should format as MB"
+    );
+}
+
+#[tokio::test]
+async fn test_size_tools_compare() {
+    let args = serde_json::json!({ "action": "compare", "a": "1 GB", "b": "1 GiB" });
+    let result = hematite::tools::size_tools::execute(&args).await.unwrap();
+    assert!(result.contains("Size Comparison"), "should have header");
+    assert!(
+        result.contains("A < B") || result.contains("Ratio"),
+        "1 GB < 1 GiB"
+    );
+}
+
+#[tokio::test]
+async fn test_size_tools_bandwidth_table() {
+    let args = serde_json::json!({ "action": "bandwidth", "size": "1 GB" });
+    let result = hematite::tools::size_tools::execute(&args).await.unwrap();
+    assert!(
+        result.contains("Transfer Time"),
+        "should show transfer time header"
+    );
+    assert!(
+        result.contains("Mbps") || result.contains("Gbps"),
+        "should list speeds"
+    );
+}
+
+#[tokio::test]
+async fn test_size_tools_bandwidth_speed() {
+    let args = serde_json::json!({ "action": "bandwidth", "size": "500 MB", "speed": "100 Mbps" });
+    let result = hematite::tools::size_tools::execute(&args).await.unwrap();
+    assert!(result.contains("Bandwidth"), "should have header");
+    assert!(result.contains("Time"), "should show time");
+    // 500 MB * 8 bits/byte / 100 Mbps = 40 seconds
+    assert!(result.contains("40"), "should be ~40 seconds");
+}
+
+#[test]
+fn test_routing_detects_size_tools() {
+    use hematite::agent::routing::needs_size_tools;
+    assert!(needs_size_tools("convert bytes to GB"));
+    assert!(needs_size_tools(
+        "how long to download a 4 GB file at 100 Mbps"
+    ));
+    assert!(needs_size_tools("convert 2 gb to mb"));
+    assert!(needs_size_tools("parse size 1.5 GB"));
+    assert!(!needs_size_tools("parse json file"));
+    assert!(!needs_size_tools("what port does https use"));
+}
+
+// ── validate_tools tests ──────────────────────────────────────────────────
+
+#[tokio::test]
+async fn test_validate_tools_email_valid() {
+    let args = serde_json::json!({ "action": "email", "value": "user@example.com" });
+    let result = hematite::tools::validate_tools::execute(&args)
+        .await
+        .unwrap();
+    assert!(result.contains("VALID"), "valid email should pass");
+    assert!(result.contains("Local"), "should show local part");
+}
+
+#[tokio::test]
+async fn test_validate_tools_email_invalid() {
+    let args = serde_json::json!({ "action": "email", "value": "not-an-email" });
+    let result = hematite::tools::validate_tools::execute(&args)
+        .await
+        .unwrap();
+    assert!(result.contains("INVALID"), "invalid email should fail");
+}
+
+#[tokio::test]
+async fn test_validate_tools_ipv4_valid() {
+    let args = serde_json::json!({ "action": "ipv4", "value": "192.168.1.100" });
+    let result = hematite::tools::validate_tools::execute(&args)
+        .await
+        .unwrap();
+    assert!(result.contains("VALID"), "valid IPv4 should pass");
+    assert!(result.contains("Private"), "192.168.x.x is private");
+}
+
+#[tokio::test]
+async fn test_validate_tools_cidr() {
+    let args = serde_json::json!({ "action": "cidr", "value": "10.0.0.0/24" });
+    let result = hematite::tools::validate_tools::execute(&args)
+        .await
+        .unwrap();
+    assert!(result.contains("VALID"), "valid CIDR should pass");
+    assert!(result.contains("Network"), "should show network address");
+    assert!(result.contains("10.0.0.0"), "should show network");
+}
+
+#[tokio::test]
+async fn test_validate_tools_mac_valid() {
+    let args = serde_json::json!({ "action": "mac", "value": "00:1A:2B:3C:4D:5E" });
+    let result = hematite::tools::validate_tools::execute(&args)
+        .await
+        .unwrap();
+    assert!(result.contains("VALID"), "valid MAC should pass");
+    assert!(
+        result.contains("Normalized") || result.contains("00:"),
+        "should show normalized form"
+    );
+}
+
+#[tokio::test]
+async fn test_validate_tools_uuid_valid() {
+    let args =
+        serde_json::json!({ "action": "uuid", "value": "550e8400-e29b-41d4-a716-446655440000" });
+    let result = hematite::tools::validate_tools::execute(&args)
+        .await
+        .unwrap();
+    assert!(result.contains("VALID"), "valid UUID should pass");
+    assert!(
+        result.contains("Version") || result.contains("version"),
+        "should show version"
+    );
+}
+
+#[tokio::test]
+async fn test_validate_tools_credit_card_luhn() {
+    // Known valid Luhn test card number (Visa test)
+    let args = serde_json::json!({ "action": "credit_card", "value": "4532015112830366" });
+    let result = hematite::tools::validate_tools::execute(&args)
+        .await
+        .unwrap();
+    assert!(result.contains("VALID"), "Luhn-valid card should pass");
+    assert!(
+        result.contains("Visa") || result.contains("Luhn"),
+        "should identify Visa"
+    );
+}
+
+#[tokio::test]
+async fn test_validate_tools_isbn13() {
+    // ISBN-13 for "The Rust Programming Language"
+    let args = serde_json::json!({ "action": "isbn", "value": "9781718500440" });
+    let result = hematite::tools::validate_tools::execute(&args)
+        .await
+        .unwrap();
+    assert!(result.contains("VALID"), "valid ISBN-13 should pass");
+}
+
+#[tokio::test]
+async fn test_validate_tools_semver() {
+    let args = serde_json::json!({ "action": "semver", "value": "1.2.3-alpha.1+build.42" });
+    let result = hematite::tools::validate_tools::execute(&args)
+        .await
+        .unwrap();
+    assert!(result.contains("VALID"), "valid semver should pass");
+    assert!(result.contains("pre-release"), "should detect pre-release");
+    assert!(result.contains("alpha"), "should show pre-release id");
+}
+
+#[tokio::test]
+async fn test_validate_tools_hex_color() {
+    let args = serde_json::json!({ "action": "hex_color", "value": "#1E90FF" });
+    let result = hematite::tools::validate_tools::execute(&args)
+        .await
+        .unwrap();
+    assert!(result.contains("VALID"), "valid hex color should pass");
+    assert!(result.contains("rgb("), "should show RGB values");
+}
+
+#[tokio::test]
+async fn test_validate_tools_url() {
+    let args = serde_json::json!({ "action": "url", "value": "https://example.com/path?q=1" });
+    let result = hematite::tools::validate_tools::execute(&args)
+        .await
+        .unwrap();
+    assert!(result.contains("VALID"), "valid https URL should pass");
+    assert!(result.contains("HTTPS"), "should note HTTPS");
+}
+
+#[test]
+fn test_routing_detects_validate_tools() {
+    use hematite::agent::routing::needs_validate_tools;
+    assert!(needs_validate_tools(
+        "validate email address user@example.com"
+    ));
+    assert!(needs_validate_tools("is this a valid url"));
+    assert!(needs_validate_tools("validate cidr notation 10.0.0.0/8"));
+    assert!(needs_validate_tools("luhn check this credit card number"));
+    assert!(needs_validate_tools("validate this isbn"));
+    assert!(!needs_validate_tools("parse a json file"));
+    assert!(!needs_validate_tools("list processes"));
+}
