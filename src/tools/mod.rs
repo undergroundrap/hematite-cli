@@ -1,5 +1,6 @@
 pub mod tool;
 pub use tool::RiskLevel;
+pub mod ansi_tools;
 pub mod archive_tools;
 pub mod build_cache;
 pub mod build_errors;
@@ -67,6 +68,7 @@ pub mod symbol_search;
 pub mod table_tools;
 pub mod tasks;
 pub mod template_gen;
+pub mod template_tools;
 pub mod test_runner;
 pub mod text_tools;
 pub mod toml_tools;

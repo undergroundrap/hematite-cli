@@ -2993,6 +2993,81 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         }),
     ));
     tools.push(make_tool(
+        "ansi_tools",
+        "Process ANSI/VT100 escape codes — strip, colorize, measure, or parse terminal sequences without external utilities. \
+         Actions: \
+         `strip` (default) — remove all ANSI escape sequences and return plain text; \
+         `colorize` — wrap text in ANSI SGR codes using 'fg'/'bg' color name and/or 'style' (single string or array); \
+            colors: black, red, green, yellow, blue, magenta, cyan, white, gray, bright_red, bright_green, etc.; \
+            styles: bold, dim, italic, underline, blink, reverse, strikethrough; \
+         `length` — count visible (non-escape) characters; \
+         `parse` — identify and describe each ANSI sequence found in input text.",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "Operation: strip (default), colorize, length, parse."
+                },
+                "text": {
+                    "type": "string",
+                    "description": "Input text (may contain or not contain ANSI sequences). Also 'input'."
+                },
+                "fg": {
+                    "type": "string",
+                    "description": "colorize: foreground color name (red, green, blue, yellow, cyan, magenta, white, black, gray, bright_*)."
+                },
+                "bg": {
+                    "type": "string",
+                    "description": "colorize: background color name."
+                },
+                "style": {
+                    "description": "colorize: style name or array of style names (bold, dim, italic, underline, blink, reverse, strikethrough)."
+                }
+            },
+            "required": []
+        }),
+    ));
+    tools.push(make_tool(
+        "template_tools",
+        "Render {{VAR}} placeholder templates, list placeholders, validate, and preview without external utilities. \
+         Actions: \
+         `render` (default) — substitute {{VAR}} and {{VAR|default}} placeholders using 'vars' object; \
+            'strict: true' to error on undefined variables (default: leave undefined as-is); \
+         `list` — list all unique {{VAR}} placeholder names found in the template with any defaults; \
+         `validate` — check for unbalanced braces; if 'vars' provided, report undefined variables; \
+         `preview` — show each placeholder as DEFINED/MISSING with the rendered output using [MISSING:VAR] markers. \
+         Pass 'template' (or 'text'/'file') for the template string. \
+         Pass 'vars' as a JSON object mapping variable names to values.",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "Operation: render (default), list, validate, preview."
+                },
+                "template": {
+                    "type": "string",
+                    "description": "Template string containing {{VAR}} and {{VAR|default}} placeholders. Also 'text'."
+                },
+                "file": {
+                    "type": "string",
+                    "description": "Path to a template file."
+                },
+                "vars": {
+                    "type": "object",
+                    "description": "JSON object mapping variable names to their substitution values.",
+                    "additionalProperties": true
+                },
+                "strict": {
+                    "type": "boolean",
+                    "description": "render: error if any variable is undefined (default false — leaves undefined as placeholder)."
+                }
+            },
+            "required": []
+        }),
+    ));
+    tools.push(make_tool(
         "hex_tools",
         "Hex dump, binary analysis, and hex encoding/decoding without external utilities. \
          Actions: \
@@ -3368,6 +3443,8 @@ pub async fn dispatch_builtin_tool(
         "table_tools" => crate::tools::table_tools::execute(args).await,
         "duration_tools" => crate::tools::duration_tools::execute(args).await,
         "dotenv_tools" => crate::tools::dotenv_tools::execute(args).await,
+        "ansi_tools" => crate::tools::ansi_tools::execute(args).await,
+        "template_tools" => crate::tools::template_tools::execute(args).await,
         "git_status" => crate::tools::git::execute_status(args).await,
         "git_diff" => crate::tools::git::execute_diff(args).await,
         "git_log" => crate::tools::git::execute_log(args).await,

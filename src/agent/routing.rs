@@ -6694,6 +6694,38 @@ pub fn needs_duration_tools(user_input: &str) -> bool {
         || (lower.contains("seconds") && lower.contains("human readable"))
 }
 
+/// Returns true when the user wants to process ANSI escape codes — steer toward `ansi_tools`.
+pub fn needs_ansi_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    lower.contains("ansi")
+        || lower.contains("strip escape")
+        || lower.contains("remove escape")
+        || lower.contains("escape code")
+        || lower.contains("terminal color")
+        || lower.contains("colorize text")
+        || lower.contains("color code")
+        || lower.contains("visible length")
+        || lower.contains("vt100")
+        || lower.contains("sgr code")
+        || (lower.contains("strip") && lower.contains("color"))
+}
+
+/// Returns true when the user wants to render a text template — steer toward `template_tools`.
+pub fn needs_template_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    lower.contains("render template")
+        || lower.contains("fill template")
+        || lower.contains("template render")
+        || lower.contains("variable substitution")
+        || lower.contains("substitute variables")
+        || lower.contains("placeholder")
+        || lower.contains("mustache")
+        || lower.contains("handlebars")
+        || lower.contains("{{")
+        || (lower.contains("template") && lower.contains("variable"))
+        || (lower.contains("template") && lower.contains("fill"))
+}
+
 /// Returns true when the user wants to parse or convert a .env file — steer toward `dotenv_tools`.
 pub fn needs_dotenv_tools(user_input: &str) -> bool {
     let lower = user_input.to_lowercase();

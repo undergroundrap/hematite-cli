@@ -27,17 +27,17 @@ use crate::agent::recovery_recipes::{
 };
 use crate::agent::routing::{
     all_host_inspection_topics, classify_query_intent, is_capability_probe_tool,
-    is_scaffold_request, looks_like_mutation_request, needs_archive_tools, needs_color_tools,
-    needs_computation_sandbox, needs_crash_debug, needs_cron_tools, needs_csv_tools,
-    needs_date_tools, needs_diff_tools, needs_docker_ops, needs_dotenv_tools, needs_duration_tools,
-    needs_encode_tools, needs_format, needs_github_ops, needs_hash_tools, needs_hex_tools,
-    needs_http_request, needs_ini_tools, needs_ip_tools, needs_jwt_tools, needs_line_tools,
-    needs_lint_check, needs_markdown_tools, needs_number_tools, needs_password_gen,
-    needs_path_tools, needs_regex_tools, needs_secret_scan, needs_semver_tools, needs_sqlite_tools,
-    needs_table_tools, needs_test_run, needs_text_tools, needs_toml_tools, needs_url_tools,
-    needs_uuid_gen, needs_xml_tools, needs_yaml_tools, preferred_host_inspection_topic,
-    preferred_maintainer_workflow, preferred_workspace_workflow, DirectAnswerKind,
-    QueryIntentClass,
+    is_scaffold_request, looks_like_mutation_request, needs_ansi_tools, needs_archive_tools,
+    needs_color_tools, needs_computation_sandbox, needs_crash_debug, needs_cron_tools,
+    needs_csv_tools, needs_date_tools, needs_diff_tools, needs_docker_ops, needs_dotenv_tools,
+    needs_duration_tools, needs_encode_tools, needs_format, needs_github_ops, needs_hash_tools,
+    needs_hex_tools, needs_http_request, needs_ini_tools, needs_ip_tools, needs_jwt_tools,
+    needs_line_tools, needs_lint_check, needs_markdown_tools, needs_number_tools,
+    needs_password_gen, needs_path_tools, needs_regex_tools, needs_secret_scan, needs_semver_tools,
+    needs_sqlite_tools, needs_table_tools, needs_template_tools, needs_test_run, needs_text_tools,
+    needs_toml_tools, needs_url_tools, needs_uuid_gen, needs_xml_tools, needs_yaml_tools,
+    preferred_host_inspection_topic, preferred_maintainer_workflow, preferred_workspace_workflow,
+    DirectAnswerKind, QueryIntentClass,
 };
 use crate::agent::tool_registry::dispatch_builtin_tool;
 use crate::agent::truncation::safe_head;
@@ -5517,6 +5517,38 @@ impl ConversationManager {
                  Pass 'text' for inline .env content or 'file' for a file path. \
                  Example: dotenv_tools(action: \"parse\", file: \".env\") or \
                  dotenv_tools(action: \"merge\", base: \"KEY=a\", overlay: \"KEY=b\\nNEW=c\")."
+                    .to_string(),
+            );
+        }
+
+        // ── ANSI Tools Routing: steer model toward ansi_tools ──
+        if loop_intervention.is_none() && needs_ansi_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "ANSI NOTICE: Use the `ansi_tools` tool to process ANSI/VT100 escape codes without external utilities. \
+                 Actions: strip (default — remove all ANSI escape sequences, output plain text), \
+                 colorize (wrap text in ANSI SGR codes; pass 'fg'/'bg' color name, 'style' or array of styles), \
+                 length (print visible character count, excluding ANSI escape sequences), \
+                 parse (identify and describe all ANSI sequences found in input). \
+                 Colors: black, red, green, yellow, blue, magenta, cyan, white, bright_red, bright_green, etc. \
+                 Styles: bold, dim, italic, underline, blink, reverse, strikethrough. \
+                 Example: ansi_tools(action: \"strip\", text: \"\\x1b[31mHello\\x1b[0m\") or \
+                 ansi_tools(action: \"colorize\", text: \"Warning!\", fg: \"yellow\", style: \"bold\")."
+                    .to_string(),
+            );
+        }
+
+        // ── Template Tools Routing: steer model toward template_tools ──
+        if loop_intervention.is_none() && needs_template_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "TEMPLATE NOTICE: Use the `template_tools` tool to render {{VAR}} placeholder templates without external utilities. \
+                 Actions: render (default — substitute {{VAR}} and {{VAR|default}} placeholders using 'vars' object; \
+                   'strict: true' to error on undefined vars), \
+                 list (list all unique {{VAR}} placeholder names found in the template), \
+                 validate (check for unbalanced braces and undefined variables given 'vars'), \
+                 preview (show each placeholder with DEFINED/MISSING status + rendered preview with [MISSING:VAR] markers). \
+                 Pass 'template' (or 'text'/'file') for the template string. Pass 'vars' as a JSON object of substitutions. \
+                 Example: template_tools(action: \"render\", template: \"Hello {{NAME}}!\", vars: {\"NAME\": \"World\"}) or \
+                 template_tools(action: \"list\", template: \"{{HOST}}:{{PORT|8080}}/{{PATH}}\")."
                     .to_string(),
             );
         }

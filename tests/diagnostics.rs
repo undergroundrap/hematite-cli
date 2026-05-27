@@ -20427,3 +20427,303 @@ fn test_routing_detects_dotenv_tools() {
     assert!(!needs_dotenv_tools("list running processes"));
     assert!(!needs_dotenv_tools("show system environment variables"));
 }
+
+// â”€â”€ ansi_tools â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+#[test]
+fn test_ansi_tools_strip_basic() {
+    use hematite::tools::ansi_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(ansi_tools::execute(&json!({
+            "action": "strip",
+            "text": "\x1b[31mHello\x1b[0m World"
+        })))
+        .unwrap();
+    assert!(
+        out.contains("Hello World"),
+        "Expected plain text, got: {out}"
+    );
+    assert!(
+        !out.contains("\x1b["),
+        "Expected no escape sequences, got: {out}"
+    );
+}
+
+#[test]
+fn test_ansi_tools_strip_no_sequences() {
+    use hematite::tools::ansi_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(ansi_tools::execute(&json!({
+            "action": "strip",
+            "text": "plain text no escapes"
+        })))
+        .unwrap();
+    assert!(out.contains("plain text no escapes"), "{out}");
+    assert!(out.contains("0 escape chars removed"), "{out}");
+}
+
+#[test]
+fn test_ansi_tools_colorize_fg() {
+    use hematite::tools::ansi_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(ansi_tools::execute(&json!({
+            "action": "colorize",
+            "text": "Error!",
+            "fg": "red"
+        })))
+        .unwrap();
+    // Should contain the red SGR code 31
+    assert!(out.contains("31"), "Expected red code 31, got: {out}");
+    assert!(out.contains("Error!"), "{out}");
+}
+
+#[test]
+fn test_ansi_tools_colorize_bold() {
+    use hematite::tools::ansi_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(ansi_tools::execute(&json!({
+            "action": "colorize",
+            "text": "Important",
+            "style": "bold"
+        })))
+        .unwrap();
+    assert!(out.contains("1"), "Expected bold code 1, got: {out}");
+    assert!(out.contains("Important"), "{out}");
+}
+
+#[test]
+fn test_ansi_tools_colorize_error_no_options() {
+    use hematite::tools::ansi_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(ansi_tools::execute(&json!({
+        "action": "colorize",
+        "text": "test"
+    })));
+    assert!(result.is_err(), "Expected error without fg/bg/style");
+}
+
+#[test]
+fn test_ansi_tools_length() {
+    use hematite::tools::ansi_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    // "Hello" = 5 visible chars, but with ANSI the raw count is more
+    let out = rt
+        .block_on(ansi_tools::execute(&json!({
+            "action": "length",
+            "text": "\x1b[32mHello\x1b[0m"
+        })))
+        .unwrap();
+    assert!(
+        out.contains("Visible chars: 5"),
+        "Expected 5 visible chars, got: {out}"
+    );
+}
+
+#[test]
+fn test_ansi_tools_parse_sequences() {
+    use hematite::tools::ansi_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(ansi_tools::execute(&json!({
+            "action": "parse",
+            "text": "\x1b[1;32mBold Green\x1b[0m"
+        })))
+        .unwrap();
+    assert!(out.contains("escape sequence"), "{out}");
+    assert!(out.contains("SGR"), "{out}");
+}
+
+#[test]
+fn test_ansi_tools_parse_no_sequences() {
+    use hematite::tools::ansi_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(ansi_tools::execute(&json!({
+            "action": "parse",
+            "text": "plain text"
+        })))
+        .unwrap();
+    assert!(out.contains("No ANSI"), "{out}");
+}
+
+#[test]
+fn test_routing_detects_ansi_tools() {
+    use hematite::agent::routing::needs_ansi_tools;
+    assert!(needs_ansi_tools("strip ansi escape codes from this output"));
+    assert!(needs_ansi_tools("remove escape codes from terminal output"));
+    assert!(needs_ansi_tools("colorize text with terminal colors"));
+    assert!(needs_ansi_tools("get visible length of ansi string"));
+    assert!(needs_ansi_tools("parse ansi escape sequences"));
+    assert!(needs_ansi_tools("vt100 terminal sequences"));
+    assert!(!needs_ansi_tools("list running processes"));
+    assert!(!needs_ansi_tools("parse json file"));
+}
+
+// â”€â”€ template_tools â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+#[test]
+fn test_template_tools_render_basic() {
+    use hematite::tools::template_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(template_tools::execute(&json!({
+            "action": "render",
+            "template": "Hello {{NAME}}! Welcome to {{PLACE}}.",
+            "vars": {"NAME": "Alice", "PLACE": "Hematite"}
+        })))
+        .unwrap();
+    assert!(
+        out.contains("Hello Alice!"),
+        "Expected rendered text, got: {out}"
+    );
+    assert!(out.contains("Welcome to Hematite"), "{out}");
+}
+
+#[test]
+fn test_template_tools_render_default_value() {
+    use hematite::tools::template_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(template_tools::execute(&json!({
+            "action": "render",
+            "template": "Port: {{PORT|8080}}",
+            "vars": {}
+        })))
+        .unwrap();
+    assert!(
+        out.contains("Port: 8080"),
+        "Expected default value, got: {out}"
+    );
+}
+
+#[test]
+fn test_template_tools_render_undefined_non_strict() {
+    use hematite::tools::template_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(template_tools::execute(&json!({
+            "action": "render",
+            "template": "Hello {{NAME}}!",
+            "vars": {}
+        })))
+        .unwrap();
+    // Non-strict: undefined vars left as placeholders
+    assert!(
+        out.contains("{{NAME}}"),
+        "Expected placeholder left in, got: {out}"
+    );
+}
+
+#[test]
+fn test_template_tools_render_strict_error() {
+    use hematite::tools::template_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(template_tools::execute(&json!({
+        "action": "render",
+        "template": "Hello {{NAME}}!",
+        "vars": {},
+        "strict": true
+    })));
+    assert!(
+        result.is_err(),
+        "Expected error in strict mode for undefined var"
+    );
+}
+
+#[test]
+fn test_template_tools_list() {
+    use hematite::tools::template_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(template_tools::execute(&json!({
+            "action": "list",
+            "template": "{{HOST}}:{{PORT|8080}}/{{PATH}}"
+        })))
+        .unwrap();
+    assert!(out.contains("HOST"), "{out}");
+    assert!(out.contains("PORT"), "{out}");
+    assert!(out.contains("8080"), "Expected default shown, got: {out}");
+    assert!(out.contains("PATH"), "{out}");
+    assert!(out.contains("3 unique"), "{out}");
+}
+
+#[test]
+fn test_template_tools_validate_clean() {
+    use hematite::tools::template_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(template_tools::execute(&json!({
+            "action": "validate",
+            "template": "{{A}} and {{B|default}}",
+            "vars": {"A": "x", "B": "y"}
+        })))
+        .unwrap();
+    assert!(out.contains("VALID"), "{out}");
+}
+
+#[test]
+fn test_template_tools_validate_missing_var() {
+    use hematite::tools::template_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(template_tools::execute(&json!({
+            "action": "validate",
+            "template": "{{A}} and {{B}}",
+            "vars": {"A": "x"}
+        })))
+        .unwrap();
+    assert!(out.contains("INVALID"), "{out}");
+    assert!(out.contains("B"), "{out}");
+}
+
+#[test]
+fn test_template_tools_preview() {
+    use hematite::tools::template_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(template_tools::execute(&json!({
+            "action": "preview",
+            "template": "{{HOST}}:{{PORT}}",
+            "vars": {"HOST": "localhost"}
+        })))
+        .unwrap();
+    assert!(out.contains("DEFINED"), "{out}");
+    assert!(out.contains("MISSING"), "{out}");
+    assert!(
+        out.contains("[MISSING:PORT]"),
+        "Expected missing marker, got: {out}"
+    );
+}
+
+#[test]
+fn test_routing_detects_template_tools() {
+    use hematite::agent::routing::needs_template_tools;
+    assert!(needs_template_tools("render this template with variables"));
+    assert!(needs_template_tools("fill in the template placeholders"));
+    assert!(needs_template_tools("variable substitution in template"));
+    assert!(needs_template_tools("mustache template rendering"));
+    assert!(needs_template_tools("replace {{NAME}} placeholder"));
+    assert!(needs_template_tools("list template variables"));
+    assert!(!needs_template_tools("list running processes"));
+    assert!(!needs_template_tools("parse json file"));
+}
