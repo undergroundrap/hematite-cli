@@ -3247,6 +3247,155 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         }),
     ));
     tools.push(make_tool(
+        "net_lookup_tools",
+        "Look up well-known TCP/UDP port numbers, service names, and IANA IP protocol numbers — no shell required. \
+         Actions: \
+         `port` (default) — look up a port number; returns the service name(s) and description; 'port' (number) required; \
+            optional 'protocol'/'proto' to filter to tcp or udp; \
+         `service` — look up a service name; returns all matching port/protocol entries; 'name'/'service' required; \
+         `search` — fuzzy search across service names and descriptions; 'query'/'q' required; \
+         `protocol` — look up an IANA IP protocol by number ('number'/'num') or name ('name'/'proto'); omit args to list all. \
+         Example: net_lookup_tools(action: 'port', port: 443) or \
+         net_lookup_tools(action: 'service', name: 'postgresql') or \
+         net_lookup_tools(action: 'search', query: 'database') or \
+         net_lookup_tools(action: 'protocol', number: 6).",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "Operation: port (default), service, search, protocol."
+                },
+                "port": {
+                    "type": "integer",
+                    "description": "Port number to look up (for 'port' action). Also 'number'."
+                },
+                "name": {
+                    "type": "string",
+                    "description": "Service or protocol name to look up (for 'service' or 'protocol' action)."
+                },
+                "protocol": {
+                    "type": "string",
+                    "description": "Filter to 'tcp' or 'udp' (for 'port' action). Also 'proto'."
+                },
+                "query": {
+                    "type": "string",
+                    "description": "Search term for 'search' action. Also 'q'."
+                },
+                "number": {
+                    "type": "integer",
+                    "description": "IANA IP protocol number to look up (for 'protocol' action). Also 'num'."
+                }
+            },
+            "required": []
+        }),
+    ));
+    tools.push(make_tool(
+        "money_tools",
+        "Financial calculations: compound interest, loan payments, APR/APY conversion, discounts, \
+         tip splitting, and currency formatting — no external libraries needed. \
+         Actions: \
+         `compound_interest` — final amount and total interest; 'principal', 'rate' (% per year), \
+            'periods' (years), 'n' (compounds per year, default 1); \
+         `loan` — monthly payment and amortization summary; 'principal', 'annual_rate' (%), 'term_months'; \
+         `apr_to_apy` — convert APR to APY; 'apr' (%), 'n' (compounds per year, default 12); \
+         `discount` — sale price and savings; 'price' (original), 'percent' (% off); \
+         `percent_of` — what percent A is of B, or what X% of N is; \
+            'a'/'value' and 'b'/'total', OR 'percent' and 'of'; \
+         `format_currency` — format a number with symbol and thousands separators; \
+            'amount', optional 'symbol' (default '$'), 'decimals' (default 2); \
+         `tip` — tip amount and per-person total; 'bill', 'tip_percent' (default 18), 'people' (default 1); \
+         `split_bill` — per-person share; 'total', 'people', optional 'tip_percent'. \
+         Example: money_tools(action: 'loan', principal: 250000, annual_rate: 6.5, term_months: 360) or \
+         money_tools(action: 'tip', bill: 85.50, tip_percent: 20, people: 4).",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "Operation: compound_interest, loan, apr_to_apy, discount, percent_of, format_currency, tip, split_bill."
+                },
+                "principal": {
+                    "type": "number",
+                    "description": "Loan or investment principal amount."
+                },
+                "rate": {
+                    "type": "number",
+                    "description": "Annual interest rate as a percentage (e.g. 5 for 5%)."
+                },
+                "annual_rate": {
+                    "type": "number",
+                    "description": "Annual interest rate as a percentage for loan calculations."
+                },
+                "periods": {
+                    "type": "number",
+                    "description": "Number of years for compound interest."
+                },
+                "n": {
+                    "type": "integer",
+                    "description": "Number of compounding periods per year (default 1 for compound_interest, 12 for apr_to_apy)."
+                },
+                "term_months": {
+                    "type": "integer",
+                    "description": "Loan term in months."
+                },
+                "apr": {
+                    "type": "number",
+                    "description": "Annual percentage rate to convert (for apr_to_apy)."
+                },
+                "price": {
+                    "type": "number",
+                    "description": "Original price (for discount)."
+                },
+                "percent": {
+                    "type": "number",
+                    "description": "Percentage value (for discount: % off; for percent_of: the % rate)."
+                },
+                "a": {
+                    "type": "number",
+                    "description": "Value part for percent_of (what percent is 'a' of 'b')."
+                },
+                "b": {
+                    "type": "number",
+                    "description": "Total for percent_of."
+                },
+                "of": {
+                    "type": "number",
+                    "description": "Base for percent_of (what is X% of 'of')."
+                },
+                "amount": {
+                    "type": "number",
+                    "description": "Amount to format (for format_currency)."
+                },
+                "symbol": {
+                    "type": "string",
+                    "description": "Currency symbol (default '$')."
+                },
+                "decimals": {
+                    "type": "integer",
+                    "description": "Decimal places for format_currency (default 2)."
+                },
+                "bill": {
+                    "type": "number",
+                    "description": "Bill amount before tip (for tip)."
+                },
+                "tip_percent": {
+                    "type": "number",
+                    "description": "Tip percentage (default 18)."
+                },
+                "people": {
+                    "type": "integer",
+                    "description": "Number of people splitting (default 1)."
+                },
+                "total": {
+                    "type": "number",
+                    "description": "Total bill amount including tax (for split_bill)."
+                }
+            },
+            "required": ["action"]
+        }),
+    ));
+    tools.push(make_tool(
         "hex_tools",
         "Hex dump, binary analysis, and hex encoding/decoding without external utilities. \
          Actions: \
@@ -3628,6 +3777,8 @@ pub async fn dispatch_builtin_tool(
         "stat_tools" => crate::tools::stat_tools::execute(args).await,
         "rss_tools" => crate::tools::rss_tools::execute(args).await,
         "keyval_tools" => crate::tools::keyval_tools::execute(args).await,
+        "net_lookup_tools" => crate::tools::net_lookup_tools::execute(args).await,
+        "money_tools" => crate::tools::money_tools::execute(args).await,
         "git_status" => crate::tools::git::execute_status(args).await,
         "git_diff" => crate::tools::git::execute_diff(args).await,
         "git_log" => crate::tools::git::execute_log(args).await,

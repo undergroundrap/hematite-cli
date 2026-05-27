@@ -21419,3 +21419,258 @@ fn test_routing_detects_keyval_tools() {
     assert!(!needs_keyval_tools("list running processes"));
     assert!(!needs_keyval_tools("parse json file"));
 }
+
+// ── net_lookup_tools tests ────────────────────────────────────────────────
+
+#[tokio::test]
+async fn test_net_lookup_tools_port() {
+    let args = serde_json::json!({ "action": "port", "port": 443 });
+    let result = hematite::tools::net_lookup_tools::execute(&args)
+        .await
+        .unwrap();
+    assert!(result.contains("443"), "should show port number");
+    assert!(
+        result.contains("https") || result.contains("HTTPS"),
+        "should identify HTTPS"
+    );
+}
+
+#[tokio::test]
+async fn test_net_lookup_tools_port_ssh() {
+    let args = serde_json::json!({ "action": "port", "port": 22, "protocol": "tcp" });
+    let result = hematite::tools::net_lookup_tools::execute(&args)
+        .await
+        .unwrap();
+    assert!(result.contains("22"), "should show port 22");
+    assert!(
+        result.contains("ssh") || result.contains("SSH"),
+        "should identify SSH"
+    );
+}
+
+#[tokio::test]
+async fn test_net_lookup_tools_service() {
+    let args = serde_json::json!({ "action": "service", "name": "redis" });
+    let result = hematite::tools::net_lookup_tools::execute(&args)
+        .await
+        .unwrap();
+    assert!(result.contains("6379"), "should show Redis port 6379");
+}
+
+#[tokio::test]
+async fn test_net_lookup_tools_search() {
+    let args = serde_json::json!({ "action": "search", "query": "mail" });
+    let result = hematite::tools::net_lookup_tools::execute(&args)
+        .await
+        .unwrap();
+    assert!(result.contains("result"), "should show result count");
+    // Mail-related ports should appear
+    assert!(
+        result.contains("25") || result.contains("587") || result.contains("993"),
+        "should find mail-related ports"
+    );
+}
+
+#[tokio::test]
+async fn test_net_lookup_tools_protocol_by_number() {
+    let args = serde_json::json!({ "action": "protocol", "number": 6 });
+    let result = hematite::tools::net_lookup_tools::execute(&args)
+        .await
+        .unwrap();
+    assert!(
+        result.contains("tcp") || result.contains("TCP"),
+        "should identify TCP"
+    );
+    assert!(result.contains("6"), "should show protocol number 6");
+}
+
+#[tokio::test]
+async fn test_net_lookup_tools_protocol_list() {
+    let args = serde_json::json!({ "action": "protocol" });
+    let result = hematite::tools::net_lookup_tools::execute(&args)
+        .await
+        .unwrap();
+    assert!(
+        result.contains("icmp") || result.contains("ICMP"),
+        "should list ICMP"
+    );
+    assert!(
+        result.contains("udp") || result.contains("UDP"),
+        "should list UDP"
+    );
+}
+
+#[tokio::test]
+async fn test_net_lookup_tools_unknown_port() {
+    let args = serde_json::json!({ "action": "port", "port": 65432 });
+    let result = hematite::tools::net_lookup_tools::execute(&args)
+        .await
+        .unwrap();
+    assert!(
+        result.contains("not found") || result.contains("65432"),
+        "should report unknown port"
+    );
+}
+
+#[test]
+fn test_routing_detects_net_lookup_tools() {
+    use hematite::agent::routing::needs_net_lookup_tools;
+    assert!(needs_net_lookup_tools("what port does postgresql use"));
+    assert!(needs_net_lookup_tools("what service runs on port 8080"));
+    assert!(needs_net_lookup_tools("look up port 443"));
+    assert!(needs_net_lookup_tools("ip protocol number 6"));
+    assert!(!needs_net_lookup_tools("is port 443 reachable"));
+    assert!(!needs_net_lookup_tools("parse json file"));
+}
+
+// ── money_tools tests ─────────────────────────────────────────────────────
+
+#[tokio::test]
+async fn test_money_tools_compound_interest() {
+    let args = serde_json::json!({
+        "action": "compound_interest",
+        "principal": 10000,
+        "rate": 5,
+        "periods": 10,
+        "n": 12
+    });
+    let result = hematite::tools::money_tools::execute(&args).await.unwrap();
+    assert!(result.contains("Compound Interest"), "should have header");
+    assert!(result.contains("16,"), "final amount should be ~$16,470");
+    assert!(result.contains("Principal"), "should show principal");
+}
+
+#[tokio::test]
+async fn test_money_tools_loan() {
+    let args = serde_json::json!({
+        "action": "loan",
+        "principal": 200000,
+        "annual_rate": 6.0,
+        "term_months": 360
+    });
+    let result = hematite::tools::money_tools::execute(&args).await.unwrap();
+    assert!(result.contains("Loan"), "should have header");
+    assert!(
+        result.contains("1,199") || result.contains("1,200"),
+        "monthly payment ~$1,199"
+    );
+    assert!(
+        result.contains("Total Interest"),
+        "should show total interest"
+    );
+}
+
+#[tokio::test]
+async fn test_money_tools_apr_to_apy() {
+    let args = serde_json::json!({
+        "action": "apr_to_apy",
+        "apr": 5.0,
+        "n": 12
+    });
+    let result = hematite::tools::money_tools::execute(&args).await.unwrap();
+    assert!(result.contains("APR to APY"), "should have header");
+    assert!(
+        result.contains("5.116") || result.contains("5.117"),
+        "APY ~5.1162%"
+    );
+}
+
+#[tokio::test]
+async fn test_money_tools_discount() {
+    let args = serde_json::json!({
+        "action": "discount",
+        "price": 100.0,
+        "percent": 25.0
+    });
+    let result = hematite::tools::money_tools::execute(&args).await.unwrap();
+    assert!(result.contains("Discount"), "should have header");
+    assert!(
+        result.contains("25.00") || result.contains("25.0"),
+        "savings should be $25"
+    );
+    assert!(result.contains("75.00"), "sale price should be $75");
+}
+
+#[tokio::test]
+async fn test_money_tools_percent_of_ab() {
+    let args = serde_json::json!({
+        "action": "percent_of",
+        "a": 25,
+        "b": 200
+    });
+    let result = hematite::tools::money_tools::execute(&args).await.unwrap();
+    assert!(result.contains("12.5"), "25 is 12.5% of 200");
+}
+
+#[tokio::test]
+async fn test_money_tools_percent_of_rate() {
+    let args = serde_json::json!({
+        "action": "percent_of",
+        "percent": 15,
+        "of": 80
+    });
+    let result = hematite::tools::money_tools::execute(&args).await.unwrap();
+    assert!(result.contains("12"), "15% of 80 = 12");
+}
+
+#[tokio::test]
+async fn test_money_tools_format_currency() {
+    let args = serde_json::json!({
+        "action": "format_currency",
+        "amount": 1234567.89
+    });
+    let result = hematite::tools::money_tools::execute(&args).await.unwrap();
+    assert!(
+        result.contains("1,234,567.89"),
+        "should have thousands separators"
+    );
+    assert!(result.contains("$"), "should have dollar sign");
+}
+
+#[tokio::test]
+async fn test_money_tools_tip() {
+    let args = serde_json::json!({
+        "action": "tip",
+        "bill": 80.0,
+        "tip_percent": 20.0,
+        "people": 4
+    });
+    let result = hematite::tools::money_tools::execute(&args).await.unwrap();
+    assert!(result.contains("Tip Calculator"), "should have header");
+    assert!(result.contains("16.00"), "tip = $16");
+    assert!(result.contains("96.00"), "total = $96");
+    assert!(result.contains("24.00"), "per person = $24");
+}
+
+#[tokio::test]
+async fn test_money_tools_split_bill() {
+    let args = serde_json::json!({
+        "action": "split_bill",
+        "total": 120.0,
+        "people": 3,
+        "tip_percent": 18.0
+    });
+    let result = hematite::tools::money_tools::execute(&args).await.unwrap();
+    assert!(result.contains("Split Bill"), "should have header");
+    assert!(
+        result.contains("Per Person"),
+        "should show per-person amount"
+    );
+    // 120 * 1.18 = 141.6, /3 = 47.2
+    assert!(result.contains("47.2"), "per person ~$47.20");
+}
+
+#[test]
+fn test_routing_detects_money_tools() {
+    use hematite::agent::routing::needs_money_tools;
+    assert!(needs_money_tools(
+        "calculate compound interest on $10000 at 5% for 10 years"
+    ));
+    assert!(needs_money_tools("what is my monthly mortgage payment"));
+    assert!(needs_money_tools("convert APR to APY"));
+    assert!(needs_money_tools("calculate a 20 percent discount on $150"));
+    assert!(needs_money_tools("tip calculator for a restaurant bill"));
+    assert!(needs_money_tools("split the bill among 4 people"));
+    assert!(!needs_money_tools("calculate the hash of a string"));
+    assert!(!needs_money_tools("list network connections"));
+}

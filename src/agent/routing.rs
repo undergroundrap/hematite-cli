@@ -6828,6 +6828,56 @@ pub fn needs_stat_tools(user_input: &str) -> bool {
         || (lower.contains("mean") && lower.contains("std dev"))
 }
 
+/// Returns true when the user wants to look up ports, services, or IP protocol numbers
+/// — steer toward `net_lookup_tools`.
+pub fn needs_net_lookup_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    lower.contains("what port")
+        || lower.contains("which port")
+        || lower.contains("port number")
+        || lower.contains("port lookup")
+        || lower.contains("well-known port")
+        || lower.contains("well known port")
+        || lower.contains("service port")
+        || lower.contains("ip protocol number")
+        || lower.contains("protocol number")
+        || lower.contains("iana protocol")
+        || lower.contains("what service runs on")
+        || lower.contains("what runs on port")
+        || lower.contains("which service uses port")
+        || (lower.contains("port") && lower.contains("service name"))
+        || (lower.contains("lookup") && lower.contains("port"))
+        || (lower.contains("look up") && lower.contains("port"))
+        || (lower.contains("net_lookup") || lower.contains("net lookup"))
+}
+
+/// Returns true when the user wants financial calculations — steer toward `money_tools`.
+pub fn needs_money_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    lower.contains("compound interest")
+        || lower.contains("loan payment")
+        || lower.contains("monthly payment")
+        || lower.contains("mortgage payment")
+        || lower.contains("apr to apy")
+        || lower.contains("apy from apr")
+        || lower.contains("annual percentage")
+        || lower.contains("percent discount")
+        || lower.contains("percentage discount")
+        || lower.contains("calculate discount")
+        || lower.contains("percent of")
+        || lower.contains("tip calculator")
+        || lower.contains("split bill")
+        || lower.contains("split the bill")
+        || lower.contains("format currency")
+        || lower.contains("format money")
+        || lower.contains("money_tools")
+        || lower.contains("money tools")
+        || (lower.contains("interest") && lower.contains("rate") && lower.contains("years"))
+        || (lower.contains("loan") && lower.contains("monthly"))
+        || (lower.contains("tip") && lower.contains("restaurant"))
+        || (lower.contains("bill") && lower.contains("split") && lower.contains("people"))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

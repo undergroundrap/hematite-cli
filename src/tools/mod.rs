@@ -46,6 +46,8 @@ pub mod linter;
 pub mod lsp_tools;
 pub mod markdown_tools;
 pub mod math_util;
+pub mod money_tools;
+pub mod net_lookup_tools;
 pub mod number_tools;
 pub mod password_gen;
 pub mod path_tools;

@@ -33,12 +33,12 @@ use crate::agent::routing::{
     needs_dotenv_tools, needs_duration_tools, needs_encode_tools, needs_format, needs_github_ops,
     needs_hash_tools, needs_hex_tools, needs_http_request, needs_ini_tools, needs_ip_tools,
     needs_jwt_tools, needs_keyval_tools, needs_line_tools, needs_lint_check, needs_markdown_tools,
-    needs_number_tools, needs_password_gen, needs_path_tools, needs_regex_tools, needs_rss_tools,
-    needs_secret_scan, needs_semver_tools, needs_sqlite_tools, needs_stat_tools, needs_table_tools,
-    needs_template_tools, needs_test_run, needs_text_tools, needs_toml_tools, needs_url_tools,
-    needs_uuid_gen, needs_xml_tools, needs_yaml_tools, preferred_host_inspection_topic,
-    preferred_maintainer_workflow, preferred_workspace_workflow, DirectAnswerKind,
-    QueryIntentClass,
+    needs_money_tools, needs_net_lookup_tools, needs_number_tools, needs_password_gen,
+    needs_path_tools, needs_regex_tools, needs_rss_tools, needs_secret_scan, needs_semver_tools,
+    needs_sqlite_tools, needs_stat_tools, needs_table_tools, needs_template_tools, needs_test_run,
+    needs_text_tools, needs_toml_tools, needs_url_tools, needs_uuid_gen, needs_xml_tools,
+    needs_yaml_tools, preferred_host_inspection_topic, preferred_maintainer_workflow,
+    preferred_workspace_workflow, DirectAnswerKind, QueryIntentClass,
 };
 use crate::agent::tool_registry::dispatch_builtin_tool;
 use crate::agent::truncation::safe_head;
@@ -5615,6 +5615,38 @@ impl ConversationManager {
                  Use 'namespace'/'ns' to prefix all keys (e.g. ns: 'build' → key 'build:version'). \
                  Example: keyval_tools(action: \"set\", key: \"api_version\", value: \"v2\") or \
                  keyval_tools(action: \"list\")."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_net_lookup_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "NET LOOKUP NOTICE: Use the `net_lookup_tools` tool to look up well-known TCP/UDP ports, \
+                 service names, and IANA IP protocol numbers — no shell commands needed. \
+                 Actions: port (look up a port number → service/protocol), \
+                 service (look up a service name → port numbers), \
+                 search (fuzzy search across service names and descriptions), \
+                 protocol (look up an IP protocol number or name; omit args to list all). \
+                 Example: net_lookup_tools(action: \"port\", port: 443) or \
+                 net_lookup_tools(action: \"search\", query: \"database\") or \
+                 net_lookup_tools(action: \"protocol\", number: 6)."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_money_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "MONEY NOTICE: Use the `money_tools` tool for financial calculations — no external libraries needed. \
+                 Actions: compound_interest (principal, rate %, periods, n compounds/yr), \
+                 loan (principal, annual_rate %, term_months → monthly payment + amortization summary), \
+                 apr_to_apy (convert APR to APY given compounds per year), \
+                 discount (original price + % off → sale price and savings), \
+                 percent_of (what percent is A of B, or what is X% of N), \
+                 format_currency (format a number with currency symbol and thousands separators), \
+                 tip (bill amount + tip % + optional split → per-person total), \
+                 split_bill (total + people + optional tip % → per-person share). \
+                 Example: money_tools(action: \"loan\", principal: 250000, annual_rate: 6.5, term_months: 360) or \
+                 money_tools(action: \"compound_interest\", principal: 10000, rate: 5, periods: 10, n: 12)."
                     .to_string(),
             );
         }
