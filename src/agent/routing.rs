@@ -6564,6 +6564,62 @@ pub fn needs_line_tools(user_input: &str) -> bool {
         || (lower.contains("file") && lower.contains("grep"))
 }
 
+/// Returns true when the user wants path manipulation — steer toward `path_tools`.
+pub fn needs_path_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    lower.contains("parse this path")
+        || lower.contains("parse the path")
+        || lower.contains("path components")
+        || lower.contains("join path")
+        || lower.contains("join these paths")
+        || lower.contains("normalize path")
+        || lower.contains("relative path")
+        || lower.contains("path relative to")
+        || lower.contains("basename of")
+        || lower.contains("dirname of")
+        || lower.contains("file extension")
+        || lower.contains("filename without extension")
+        || lower.contains("stem of")
+        || lower.contains("path stem")
+        || lower.contains("is absolute")
+        || lower.contains("absolute path")
+        || lower.contains("is relative")
+        || lower.contains("path manipulation")
+        || lower.contains("split path")
+        || lower.contains("path separator")
+        || (lower.contains("change") && lower.contains("extension"))
+        || (lower.contains("replace") && lower.contains("extension"))
+}
+
+/// Returns true when the user wants ASCII/markdown table formatting — steer toward `table_tools`.
+pub fn needs_table_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    lower.contains("format as table")
+        || lower.contains("format as a table")
+        || lower.contains("ascii table")
+        || lower.contains("format in columns")
+        || lower.contains("align columns")
+        || (lower.contains("align") && lower.contains("column"))
+        || lower.contains("tabular format")
+        || lower.contains("tabular view")
+        || lower.contains("table view")
+        || lower.contains("as a markdown table")
+        || lower.contains("to markdown table")
+        || lower.contains("markdown table")
+        || lower.contains("pretty print table")
+        || lower.contains("pretty-print table")
+        || lower.contains("bordered table")
+        || lower.contains("box table")
+        || lower.contains("display as table")
+        || lower.contains("show as table")
+        || lower.contains("render as table")
+        || lower.contains("format this data as a table")
+        || lower.contains("transpose the table")
+        || lower.contains("transpose rows")
+        || (lower.contains("table") && lower.contains("from csv"))
+        || (lower.contains("table") && lower.contains("from json"))
+}
+
 /// Returns true when the user wants hex dump, binary analysis, or encoding — steer toward `hex_tools`.
 pub fn needs_hex_tools(user_input: &str) -> bool {
     let lower = user_input.to_lowercase();

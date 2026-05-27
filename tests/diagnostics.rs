@@ -19718,3 +19718,357 @@ fn test_routing_detects_ini_tools() {
     assert!(!needs_ini_tools("run cargo build"));
     assert!(!needs_ini_tools("query my sqlite database"));
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// path_tools tests
+// ─────────────────────────────────────────────────────────────────────────────
+
+#[test]
+fn test_path_tools_parse() {
+    use hematite::tools::path_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(path_tools::execute(&json!({
+        "action": "parse",
+        "path": "src/tools/mod.rs"
+    })));
+    assert!(result.is_ok(), "{:?}", result);
+    let out = result.unwrap();
+    assert!(out.contains("mod.rs"), "{out}");
+    assert!(out.contains("mod"), "{out}");
+    assert!(out.contains("rs"), "{out}");
+    assert!(out.contains("src"), "{out}");
+}
+
+#[test]
+fn test_path_tools_parse_absolute() {
+    use hematite::tools::path_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(path_tools::execute(&json!({
+        "action": "parse",
+        "path": "/usr/local/bin/cargo"
+    })));
+    assert!(result.is_ok(), "{:?}", result);
+    let out = result.unwrap();
+    assert!(out.contains("cargo"), "{out}");
+    assert!(
+        out.contains("Absolute  : true") || out.contains("Absolute"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_path_tools_basename() {
+    use hematite::tools::path_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(path_tools::execute(&json!({
+        "action": "basename",
+        "path": "/home/user/docs/report.pdf"
+    })));
+    assert!(result.is_ok(), "{:?}", result);
+    let out = result.unwrap();
+    assert!(out.contains("report.pdf"), "{out}");
+}
+
+#[test]
+fn test_path_tools_stem() {
+    use hematite::tools::path_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(path_tools::execute(&json!({
+        "action": "stem",
+        "path": "archive.tar.gz"
+    })));
+    assert!(result.is_ok(), "{:?}", result);
+    let out = result.unwrap();
+    assert!(out.contains("archive.tar"), "{out}");
+}
+
+#[test]
+fn test_path_tools_extension() {
+    use hematite::tools::path_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(path_tools::execute(&json!({
+        "action": "extension",
+        "path": "document.docx"
+    })));
+    assert!(result.is_ok(), "{:?}", result);
+    let out = result.unwrap();
+    assert!(out.contains("docx"), "{out}");
+}
+
+#[test]
+fn test_path_tools_extension_replace() {
+    use hematite::tools::path_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(path_tools::execute(&json!({
+        "action": "extension",
+        "path": "main.rs",
+        "replace": "txt"
+    })));
+    assert!(result.is_ok(), "{:?}", result);
+    let out = result.unwrap();
+    assert!(out.contains("main.txt"), "{out}");
+}
+
+#[test]
+fn test_path_tools_normalize() {
+    use hematite::tools::path_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(path_tools::execute(&json!({
+        "action": "normalize",
+        "path": "a/b/../c/./d"
+    })));
+    assert!(result.is_ok(), "{:?}", result);
+    let out = result.unwrap();
+    // Should resolve to a/c/d (with forward or backslash depending on OS)
+    assert!(
+        out.contains("a") && out.contains("c") && out.contains("d"),
+        "{out}"
+    );
+    // Should not contain ".." or "./" in the normalized output line
+    let normalized_line = out.lines().find(|l| l.contains("Normalized")).unwrap_or("");
+    assert!(!normalized_line.contains(".."), "{out}");
+}
+
+#[test]
+fn test_path_tools_join() {
+    use hematite::tools::path_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(path_tools::execute(&json!({
+        "action": "join",
+        "base": "/usr/local",
+        "parts": ["lib", "python3.12"]
+    })));
+    assert!(result.is_ok(), "{:?}", result);
+    let out = result.unwrap();
+    assert!(out.contains("python3.12"), "{out}");
+    assert!(out.contains("lib"), "{out}");
+}
+
+#[test]
+fn test_path_tools_relative() {
+    use hematite::tools::path_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(path_tools::execute(&json!({
+        "action": "relative",
+        "from": "src/agent",
+        "to": "src/tools/mod.rs"
+    })));
+    assert!(result.is_ok(), "{:?}", result);
+    let out = result.unwrap();
+    assert!(out.contains(".."), "{out}");
+    assert!(out.contains("mod.rs"), "{out}");
+}
+
+#[test]
+fn test_path_tools_is_absolute_yes() {
+    use hematite::tools::path_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    // Use a path that is genuinely absolute on the test platform
+    #[cfg(windows)]
+    let abs_path = r"C:\Windows\System32\cmd.exe";
+    #[cfg(not(windows))]
+    let abs_path = "/usr/bin/env";
+    let result = rt.block_on(path_tools::execute(&json!({
+        "action": "is-absolute",
+        "path": abs_path
+    })));
+    assert!(result.is_ok(), "{:?}", result);
+    let out = result.unwrap();
+    assert!(out.contains("YES"), "{out}");
+}
+
+#[test]
+fn test_path_tools_is_absolute_no() {
+    use hematite::tools::path_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(path_tools::execute(&json!({
+        "action": "is-absolute",
+        "path": "relative/path/file.txt"
+    })));
+    assert!(result.is_ok(), "{:?}", result);
+    let out = result.unwrap();
+    assert!(out.contains("NO"), "{out}");
+}
+
+#[test]
+fn test_routing_detects_path_tools() {
+    use hematite::agent::routing::needs_path_tools;
+    assert!(needs_path_tools("parse this path for me"));
+    assert!(needs_path_tools("basename of this file path"));
+    assert!(needs_path_tools("get the file extension"));
+    assert!(needs_path_tools("normalize path with dots"));
+    assert!(needs_path_tools("join path segments together"));
+    assert!(needs_path_tools("relative path from src to tests"));
+    assert!(needs_path_tools("is this an absolute path?"));
+    assert!(!needs_path_tools("run cargo build"));
+    assert!(!needs_path_tools("parse this JSON object"));
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// table_tools tests
+// ─────────────────────────────────────────────────────────────────────────────
+
+#[test]
+fn test_table_tools_format() {
+    use hematite::tools::table_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(table_tools::execute(&json!({
+        "action": "format",
+        "headers": ["Name", "Score", "Grade"],
+        "rows": [
+            ["Alice", "95", "A"],
+            ["Bob", "87", "B"],
+            ["Carol", "92", "A"]
+        ]
+    })));
+    assert!(result.is_ok(), "{:?}", result);
+    let out = result.unwrap();
+    assert!(out.contains("Alice"), "{out}");
+    assert!(out.contains("Name"), "{out}");
+    assert!(out.contains("Score"), "{out}");
+    assert!(out.contains("3 row(s)"), "{out}");
+}
+
+#[test]
+fn test_table_tools_format_bordered() {
+    use hematite::tools::table_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(table_tools::execute(&json!({
+        "action": "format",
+        "headers": ["Col A", "Col B"],
+        "rows": [["1", "2"], ["3", "4"]],
+        "style": "bordered"
+    })));
+    assert!(result.is_ok(), "{:?}", result);
+    let out = result.unwrap();
+    assert!(out.contains("|"), "{out}");
+    assert!(out.contains("+"), "{out}");
+    assert!(out.contains("Col A"), "{out}");
+}
+
+#[test]
+fn test_table_tools_from_csv() {
+    use hematite::tools::table_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(table_tools::execute(&json!({
+        "action": "from-csv",
+        "text": "name,age,city\nAlice,30,NYC\nBob,25,LA\nCarol,35,Chicago"
+    })));
+    assert!(result.is_ok(), "{:?}", result);
+    let out = result.unwrap();
+    assert!(out.contains("Alice"), "{out}");
+    assert!(out.contains("name"), "{out}");
+    assert!(out.contains("age"), "{out}");
+    assert!(out.contains("3 row(s)"), "{out}");
+}
+
+#[test]
+fn test_table_tools_from_csv_no_header() {
+    use hematite::tools::table_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(table_tools::execute(&json!({
+        "action": "from-csv",
+        "text": "one,two\nthree,four",
+        "header": false
+    })));
+    assert!(result.is_ok(), "{:?}", result);
+    let out = result.unwrap();
+    assert!(out.contains("one"), "{out}");
+    assert!(out.contains("three"), "{out}");
+    assert!(out.contains("2 row(s)"), "{out}");
+}
+
+#[test]
+fn test_table_tools_from_json_objects() {
+    use hematite::tools::table_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(table_tools::execute(&json!({
+        "action": "from-json",
+        "json": "[{\"name\":\"Alice\",\"score\":95},{\"name\":\"Bob\",\"score\":87}]"
+    })));
+    assert!(result.is_ok(), "{:?}", result);
+    let out = result.unwrap();
+    assert!(out.contains("Alice"), "{out}");
+    assert!(out.contains("name"), "{out}");
+    assert!(out.contains("score"), "{out}");
+    assert!(out.contains("2 row(s)"), "{out}");
+}
+
+#[test]
+fn test_table_tools_to_markdown() {
+    use hematite::tools::table_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(table_tools::execute(&json!({
+        "action": "to-markdown",
+        "headers": ["Name", "Value"],
+        "rows": [["alpha", "1"], ["beta", "2"]]
+    })));
+    assert!(result.is_ok(), "{:?}", result);
+    let out = result.unwrap();
+    assert!(out.contains("| Name"), "{out}");
+    assert!(out.contains("| alpha"), "{out}");
+    // Markdown tables have --- separator row
+    assert!(out.contains("---"), "{out}");
+}
+
+#[test]
+fn test_table_tools_transpose() {
+    use hematite::tools::table_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(table_tools::execute(&json!({
+        "action": "transpose",
+        "headers": ["A", "B", "C"],
+        "rows": [
+            ["1", "2", "3"],
+            ["4", "5", "6"]
+        ]
+    })));
+    assert!(result.is_ok(), "{:?}", result);
+    let out = result.unwrap();
+    assert!(out.contains("transposed"), "{out}");
+    // After transposing, the 3 columns become 3 rows
+    assert!(out.contains("3 row(s)"), "{out}");
+}
+
+#[test]
+fn test_table_tools_no_data_error() {
+    use hematite::tools::table_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(table_tools::execute(&json!({
+        "action": "format"
+    })));
+    assert!(result.is_err(), "Expected error with no data");
+}
+
+#[test]
+fn test_routing_detects_table_tools() {
+    use hematite::agent::routing::needs_table_tools;
+    assert!(needs_table_tools("format this data as a table"));
+    assert!(needs_table_tools("show results as an ascii table"));
+    assert!(needs_table_tools("render as a markdown table"));
+    assert!(needs_table_tools("align these columns nicely"));
+    assert!(needs_table_tools("display in tabular format"));
+    assert!(needs_table_tools("table from csv"));
+    assert!(needs_table_tools("bordered table"));
+    assert!(!needs_table_tools("run cargo test"));
+    assert!(!needs_table_tools("parse the ini config file"));
+}

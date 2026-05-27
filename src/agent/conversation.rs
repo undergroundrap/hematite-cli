@@ -32,9 +32,9 @@ use crate::agent::routing::{
     needs_date_tools, needs_diff_tools, needs_docker_ops, needs_encode_tools, needs_format,
     needs_github_ops, needs_hash_tools, needs_hex_tools, needs_http_request, needs_ini_tools,
     needs_ip_tools, needs_jwt_tools, needs_line_tools, needs_lint_check, needs_markdown_tools,
-    needs_number_tools, needs_password_gen, needs_regex_tools, needs_secret_scan,
-    needs_semver_tools, needs_sqlite_tools, needs_test_run, needs_text_tools, needs_toml_tools,
-    needs_url_tools, needs_uuid_gen, needs_xml_tools, needs_yaml_tools,
+    needs_number_tools, needs_password_gen, needs_path_tools, needs_regex_tools, needs_secret_scan,
+    needs_semver_tools, needs_sqlite_tools, needs_table_tools, needs_test_run, needs_text_tools,
+    needs_toml_tools, needs_url_tools, needs_uuid_gen, needs_xml_tools, needs_yaml_tools,
     preferred_host_inspection_topic, preferred_maintainer_workflow, preferred_workspace_workflow,
     DirectAnswerKind, QueryIntentClass,
 };
@@ -5413,6 +5413,41 @@ impl ConversationManager {
                  Pass 'text' for inline text or 'file' for a file path. \
                  Example: line_tools(action: \"grep\", file: \"app.log\", pattern: \"ERROR\") or \
                  line_tools(action: \"sort\", text: \"banana\\napple\\ncherry\", unique: true)."
+                    .to_string(),
+            );
+        }
+
+        // ── Path Tools Routing: steer model toward path_tools ──
+        if loop_intervention.is_none() && needs_path_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "PATH NOTICE: Use the `path_tools` tool for path parsing and manipulation without external utilities. \
+                 Actions: parse (default — split a path into parent, filename, stem, extension, and components), \
+                 join (join path segments; 'base' + 'parts' array, or 'paths' array), \
+                 normalize (resolve . and .. segments logically without touching the filesystem), \
+                 relative (compute relative path from 'from' to 'to'), \
+                 basename (filename with extension), \
+                 stem (filename without extension), \
+                 extension (current extension; optionally pass 'replace' to swap it), \
+                 is-absolute (check if a path is absolute or relative). \
+                 Pass 'path' for the path string. \
+                 Example: path_tools(action: \"parse\", path: \"src/tools/mod.rs\") or \
+                 path_tools(action: \"relative\", from: \"/a/b\", to: \"/a/c/d\")."
+                    .to_string(),
+            );
+        }
+
+        // ── Table Tools Routing: steer model toward table_tools ──
+        if loop_intervention.is_none() && needs_table_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "TABLE NOTICE: Use the `table_tools` tool to format tabular data as ASCII or markdown tables without external utilities. \
+                 Actions: format (default — format 'rows' (2D array) + optional 'headers' as a table), \
+                 from-csv (parse CSV text from 'text' or 'csv' and render as table; 'header: true' by default), \
+                 from-json (format a JSON array of objects or 2D array as a table; pass 'json' or 'text'), \
+                 to-markdown (render any input as a GitHub-flavored markdown table), \
+                 transpose (flip rows and columns; pass 'rows' 2D array and optional 'headers'). \
+                 Style options: 'simple' (default — spaces + dashes), 'bordered' (| boxes), 'markdown'. \
+                 Example: table_tools(action: \"format\", headers: [\"Name\",\"Score\"], rows: [[\"Alice\",\"95\"],[\"Bob\",\"87\"]]) or \
+                 table_tools(action: \"from-csv\", text: \"name,age\\nAlice,30\\nBob,25\")."
                     .to_string(),
             );
         }

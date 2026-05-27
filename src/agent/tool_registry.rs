@@ -2782,6 +2782,115 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         }),
     ));
     tools.push(make_tool(
+        "path_tools",
+        "Path string parsing and manipulation without external utilities or filesystem access. \
+         Actions: \
+         `parse` (default) — split a path into parent, filename, stem, extension, absolute flag, and components; \
+         `join` — join path segments; pass 'base' + 'parts' array, or 'paths' array; \
+         `normalize` — logically resolve . and .. segments without touching the filesystem; \
+         `relative` — compute the relative path from 'from' to 'to'; \
+         `basename` — filename with extension; \
+         `stem` — filename without extension; \
+         `extension` — current extension; optionally pass 'replace' to swap it; \
+         `is-absolute` — YES/NO whether the path is absolute. \
+         All actions accept 'path' as the input path string (also 'input' or 'text').",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "Operation: parse (default), join, normalize, relative, basename, stem, extension, is-absolute."
+                },
+                "path": {
+                    "type": "string",
+                    "description": "The path string to operate on. Also accepted as 'input' or 'text'."
+                },
+                "from": {
+                    "type": "string",
+                    "description": "Source path for 'relative' action."
+                },
+                "to": {
+                    "type": "string",
+                    "description": "Target path for 'relative' action."
+                },
+                "base": {
+                    "type": "string",
+                    "description": "Base path for 'join' action."
+                },
+                "parts": {
+                    "type": "array",
+                    "description": "Path segments to append for 'join' action.",
+                    "items": { "type": "string" }
+                },
+                "paths": {
+                    "type": "array",
+                    "description": "All path segments to join for 'join' action (alternative to base+parts).",
+                    "items": { "type": "string" }
+                },
+                "replace": {
+                    "type": "string",
+                    "description": "New extension to swap in for 'extension' action (e.g. 'txt')."
+                }
+            },
+            "required": []
+        }),
+    ));
+    tools.push(make_tool(
+        "table_tools",
+        "Format tabular data as ASCII or markdown tables without external utilities. \
+         Actions: \
+         `format` (default) — render 'rows' (2D array) + optional 'headers' as a table; \
+         `from-csv` — parse CSV text (from 'text' or 'csv') and render as a table; \
+            'header: true' (default) treats the first row as column headers; \
+         `from-json` — format a JSON array of objects or 2D array as a table; pass 'json' or 'text'; \
+         `to-markdown` — render any input as a GitHub-flavored markdown table; \
+         `transpose` — flip rows and columns; pass 'rows' 2D array and optional 'headers'. \
+         Style options via 'style': 'simple' (default — spaces + dash separator), \
+            'bordered' (ASCII box drawing with | and +), 'markdown'. \
+         Example: table_tools(action: 'format', headers: ['Name','Score'], rows: [['Alice','95'],['Bob','87']]) or \
+         table_tools(action: 'from-csv', text: 'name,age\\nAlice,30', style: 'bordered').",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "Operation: format (default), from-csv, from-json, to-markdown, transpose."
+                },
+                "rows": {
+                    "type": "array",
+                    "description": "2D array of data rows. Each row is an array of cell values.",
+                    "items": { "type": "array" }
+                },
+                "headers": {
+                    "type": "array",
+                    "description": "Optional array of column header strings.",
+                    "items": { "type": "string" }
+                },
+                "text": {
+                    "type": "string",
+                    "description": "Raw CSV text (for from-csv) or JSON text (for from-json and to-markdown)."
+                },
+                "csv": {
+                    "type": "string",
+                    "description": "Raw CSV text — alias for 'text' in from-csv action."
+                },
+                "json": {
+                    "type": "string",
+                    "description": "JSON text (array of objects or 2D array) for from-json or to-markdown."
+                },
+                "style": {
+                    "type": "string",
+                    "description": "Table style: 'simple' (default), 'bordered' (| and + box), 'markdown'."
+                },
+                "header": {
+                    "type": "boolean",
+                    "description": "Whether the first row is a header row in from-csv (default true)."
+                }
+            },
+            "required": []
+        }),
+    ));
+    tools.push(make_tool(
         "hex_tools",
         "Hex dump, binary analysis, and hex encoding/decoding without external utilities. \
          Actions: \
@@ -3153,6 +3262,8 @@ pub async fn dispatch_builtin_tool(
         "line_tools" => crate::tools::line_tools::execute(args).await,
         "hex_tools" => crate::tools::hex_tools::execute(args).await,
         "ini_tools" => crate::tools::ini_tools::execute(args).await,
+        "path_tools" => crate::tools::path_tools::execute(args).await,
+        "table_tools" => crate::tools::table_tools::execute(args).await,
         "git_status" => crate::tools::git::execute_status(args).await,
         "git_diff" => crate::tools::git::execute_diff(args).await,
         "git_log" => crate::tools::git::execute_log(args).await,
