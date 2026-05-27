@@ -2891,6 +2891,108 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         }),
     ));
     tools.push(make_tool(
+        "duration_tools",
+        "Parse, humanize, convert, and add time durations without external utilities. \
+         Actions: \
+         `parse` (default) — break any duration string into years/days/hours/minutes/seconds breakdown, \
+            compact form, and long-form human label; \
+         `humanize` — convert a duration to readable text; 'style: compact' for short form (1h 30m 45s); \
+         `convert` — express a duration in seconds/minutes/hours/days/weeks; \
+            'to' for a specific unit (seconds, minutes, hours, days, weeks) or omit for all; \
+         `add` — sum two durations via 'a' and 'b', or sum an array via 'durations'. \
+         Pass 'duration' (or 'input'/'value') with the duration string. \
+         Input formats: '1h 30m 45s', '90 minutes', '2 days 4 hours', '5400' (seconds), \
+         '1:30:45' (HH:MM:SS), 'PT1H30M45S' (ISO 8601).",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "Operation: parse (default), humanize, convert, add."
+                },
+                "duration": {
+                    "type": "string",
+                    "description": "Duration string: '1h 30m 45s', '90 minutes', '5400', '1:30:45', 'PT1H30M45S'. Also 'input' or 'value'."
+                },
+                "style": {
+                    "type": "string",
+                    "description": "humanize style: 'long' (default, full words) or 'compact' (1h 30m 45s)."
+                },
+                "to": {
+                    "type": "string",
+                    "description": "convert: target unit — seconds, minutes, hours, days, weeks. Omit for all."
+                },
+                "a": {
+                    "type": "string",
+                    "description": "add: first duration string."
+                },
+                "b": {
+                    "type": "string",
+                    "description": "add: second duration string."
+                },
+                "durations": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "add: array of duration strings to sum."
+                }
+            },
+            "required": []
+        }),
+    ));
+    tools.push(make_tool(
+        "dotenv_tools",
+        "Parse, validate, convert, and merge .env files without external utilities. \
+         Actions: \
+         `parse` (default) — display all key-value pairs with line numbers; 'show_values: false' to redact; \
+         `validate` — check key names (A-Z, a-z, 0-9, _), quote balance, duplicate keys; \
+         `get` — retrieve a specific key's value; pass 'key'; \
+         `list` — show key names only (no values); \
+         `to-json` — convert to a JSON object; \
+         `to-shell` — generate export/SET commands; 'shell: bash' (default), 'powershell', or 'cmd'; \
+         `merge` — overlay one .env on another; pass 'base' and 'overlay' text — overlay wins on conflict, \
+            base order preserved, overlay-only keys appended. \
+         Pass 'text' or 'env' for inline .env content, or 'file' for a file path. \
+         Handles: KEY=value, KEY=\"quoted\", KEY='single', # comments, empty values.",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "Operation: parse (default), validate, get, list, to-json, to-shell, merge."
+                },
+                "text": {
+                    "type": "string",
+                    "description": "Inline .env content. Also accepted as 'env' or 'input'."
+                },
+                "file": {
+                    "type": "string",
+                    "description": "Path to a .env file."
+                },
+                "key": {
+                    "type": "string",
+                    "description": "get: the environment variable key to retrieve."
+                },
+                "shell": {
+                    "type": "string",
+                    "description": "to-shell: target shell format — bash (default), powershell, cmd."
+                },
+                "show_values": {
+                    "type": "boolean",
+                    "description": "parse: whether to show values (default true). Set false to redact."
+                },
+                "base": {
+                    "type": "string",
+                    "description": "merge: base .env content (inline text)."
+                },
+                "overlay": {
+                    "type": "string",
+                    "description": "merge: overlay .env content — wins on conflict with base."
+                }
+            },
+            "required": []
+        }),
+    ));
+    tools.push(make_tool(
         "hex_tools",
         "Hex dump, binary analysis, and hex encoding/decoding without external utilities. \
          Actions: \
@@ -3264,6 +3366,8 @@ pub async fn dispatch_builtin_tool(
         "ini_tools" => crate::tools::ini_tools::execute(args).await,
         "path_tools" => crate::tools::path_tools::execute(args).await,
         "table_tools" => crate::tools::table_tools::execute(args).await,
+        "duration_tools" => crate::tools::duration_tools::execute(args).await,
+        "dotenv_tools" => crate::tools::dotenv_tools::execute(args).await,
         "git_status" => crate::tools::git::execute_status(args).await,
         "git_diff" => crate::tools::git::execute_diff(args).await,
         "git_log" => crate::tools::git::execute_log(args).await,

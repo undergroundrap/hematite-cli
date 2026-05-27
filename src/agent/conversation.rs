@@ -29,14 +29,15 @@ use crate::agent::routing::{
     all_host_inspection_topics, classify_query_intent, is_capability_probe_tool,
     is_scaffold_request, looks_like_mutation_request, needs_archive_tools, needs_color_tools,
     needs_computation_sandbox, needs_crash_debug, needs_cron_tools, needs_csv_tools,
-    needs_date_tools, needs_diff_tools, needs_docker_ops, needs_encode_tools, needs_format,
-    needs_github_ops, needs_hash_tools, needs_hex_tools, needs_http_request, needs_ini_tools,
-    needs_ip_tools, needs_jwt_tools, needs_line_tools, needs_lint_check, needs_markdown_tools,
-    needs_number_tools, needs_password_gen, needs_path_tools, needs_regex_tools, needs_secret_scan,
-    needs_semver_tools, needs_sqlite_tools, needs_table_tools, needs_test_run, needs_text_tools,
-    needs_toml_tools, needs_url_tools, needs_uuid_gen, needs_xml_tools, needs_yaml_tools,
-    preferred_host_inspection_topic, preferred_maintainer_workflow, preferred_workspace_workflow,
-    DirectAnswerKind, QueryIntentClass,
+    needs_date_tools, needs_diff_tools, needs_docker_ops, needs_dotenv_tools, needs_duration_tools,
+    needs_encode_tools, needs_format, needs_github_ops, needs_hash_tools, needs_hex_tools,
+    needs_http_request, needs_ini_tools, needs_ip_tools, needs_jwt_tools, needs_line_tools,
+    needs_lint_check, needs_markdown_tools, needs_number_tools, needs_password_gen,
+    needs_path_tools, needs_regex_tools, needs_secret_scan, needs_semver_tools, needs_sqlite_tools,
+    needs_table_tools, needs_test_run, needs_text_tools, needs_toml_tools, needs_url_tools,
+    needs_uuid_gen, needs_xml_tools, needs_yaml_tools, preferred_host_inspection_topic,
+    preferred_maintainer_workflow, preferred_workspace_workflow, DirectAnswerKind,
+    QueryIntentClass,
 };
 use crate::agent::tool_registry::dispatch_builtin_tool;
 use crate::agent::truncation::safe_head;
@@ -5483,6 +5484,39 @@ impl ConversationManager {
                  Pass 'text' or 'ini' for inline INI text, or 'file' for a file path. \
                  Example: ini_tools(action: \"get\", file: \"config.ini\", key: \"database.host\") or \
                  ini_tools(action: \"to-json\", text: \"[server]\\nport=8080\")."
+                    .to_string(),
+            );
+        }
+
+        // ── Duration Tools Routing: steer model toward duration_tools ──
+        if loop_intervention.is_none() && needs_duration_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "DURATION NOTICE: Use the `duration_tools` tool to parse, humanize, convert, and add time durations. \
+                 Actions: parse (default — break any duration into years/days/hours/minutes/seconds), \
+                 humanize (convert seconds to readable text; 'style: compact' for short form like '1h 30m'), \
+                 convert (express as seconds/minutes/hours/days/weeks; pass 'to' for a specific unit), \
+                 add (sum two durations via 'a'/'b' or sum an array via 'durations'). \
+                 Input formats: '1h 30m 45s', '90 minutes', '5400' (seconds), '1:30:45' (HH:MM:SS), 'PT1H30M45S' (ISO 8601). \
+                 Example: duration_tools(action: \"parse\", duration: \"1h 30m\") or \
+                 duration_tools(action: \"humanize\", duration: \"5400\", style: \"compact\")."
+                    .to_string(),
+            );
+        }
+
+        // ── Dotenv Tools Routing: steer model toward dotenv_tools ──
+        if loop_intervention.is_none() && needs_dotenv_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "DOTENV NOTICE: Use the `dotenv_tools` tool to parse, validate, convert, and merge .env files without external utilities. \
+                 Actions: parse (default — display all key-value pairs with line numbers; 'show_values: false' to redact), \
+                 validate (check key names, quote balance, duplicate keys), \
+                 get (retrieve a specific key's value; pass 'key'), \
+                 list (show key names only, no values), \
+                 to-json (convert to JSON object), \
+                 to-shell (generate export/SET commands; 'shell: powershell' or 'shell: cmd'), \
+                 merge (overlay one .env on another; pass 'base' and 'overlay' text — overlay wins on conflict). \
+                 Pass 'text' for inline .env content or 'file' for a file path. \
+                 Example: dotenv_tools(action: \"parse\", file: \".env\") or \
+                 dotenv_tools(action: \"merge\", base: \"KEY=a\", overlay: \"KEY=b\\nNEW=c\")."
                     .to_string(),
             );
         }

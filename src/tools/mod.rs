@@ -17,6 +17,8 @@ pub mod dependency_audit;
 pub mod deps;
 pub mod diff_tools;
 pub mod docker_ops;
+pub mod dotenv_tools;
+pub mod duration_tools;
 pub mod encode_tools;
 pub mod env_diff;
 pub mod file_edit;

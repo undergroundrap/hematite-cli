@@ -20072,3 +20072,358 @@ fn test_routing_detects_table_tools() {
     assert!(!needs_table_tools("run cargo test"));
     assert!(!needs_table_tools("parse the ini config file"));
 }
+
+// â”€â”€ duration_tools â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+#[test]
+fn test_duration_tools_parse_hms() {
+    use hematite::tools::duration_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(duration_tools::execute(&json!({
+            "action": "parse",
+            "duration": "1h 30m 45s"
+        })))
+        .unwrap();
+    assert!(out.contains("5445"), "Expected 5445 total secs, got: {out}");
+    assert!(out.contains("Hours      : 1"), "{out}");
+    assert!(out.contains("Minutes    : 30"), "{out}");
+    assert!(out.contains("Seconds    : 45"), "{out}");
+}
+
+#[test]
+fn test_duration_tools_parse_minutes_only() {
+    use hematite::tools::duration_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(duration_tools::execute(&json!({
+            "action": "parse",
+            "duration": "90 minutes"
+        })))
+        .unwrap();
+    assert!(out.contains("5400"), "{out}");
+    assert!(out.contains("Hours      : 1"), "{out}");
+    assert!(out.contains("Minutes    : 30"), "{out}");
+}
+
+#[test]
+fn test_duration_tools_parse_seconds_only() {
+    use hematite::tools::duration_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(duration_tools::execute(&json!({
+            "action": "parse",
+            "duration": "5400"
+        })))
+        .unwrap();
+    assert!(out.contains("5400"), "{out}");
+}
+
+#[test]
+fn test_duration_tools_parse_colon_format() {
+    use hematite::tools::duration_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(duration_tools::execute(&json!({
+            "action": "parse",
+            "duration": "1:30:45"
+        })))
+        .unwrap();
+    assert!(out.contains("5445"), "{out}");
+}
+
+#[test]
+fn test_duration_tools_parse_iso8601() {
+    use hematite::tools::duration_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(duration_tools::execute(&json!({
+            "action": "parse",
+            "duration": "PT1H30M"
+        })))
+        .unwrap();
+    assert!(out.contains("5400"), "{out}");
+}
+
+#[test]
+fn test_duration_tools_humanize_long() {
+    use hematite::tools::duration_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(duration_tools::execute(&json!({
+            "action": "humanize",
+            "duration": "3661"
+        })))
+        .unwrap();
+    assert!(out.contains("1 hour"), "{out}");
+    assert!(out.contains("1 minute"), "{out}");
+    assert!(out.contains("1 second"), "{out}");
+}
+
+#[test]
+fn test_duration_tools_humanize_compact() {
+    use hematite::tools::duration_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(duration_tools::execute(&json!({
+            "action": "humanize",
+            "duration": "5445",
+            "style": "compact"
+        })))
+        .unwrap();
+    assert!(out.contains("1h"), "{out}");
+    assert!(out.contains("30m"), "{out}");
+    assert!(out.contains("45s"), "{out}");
+}
+
+#[test]
+fn test_duration_tools_convert_all() {
+    use hematite::tools::duration_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(duration_tools::execute(&json!({
+            "action": "convert",
+            "duration": "1h 30m"
+        })))
+        .unwrap();
+    assert!(out.contains("Minutes"), "{out}");
+    assert!(out.contains("Hours"), "{out}");
+    assert!(out.contains("Days"), "{out}");
+}
+
+#[test]
+fn test_duration_tools_convert_to_minutes() {
+    use hematite::tools::duration_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(duration_tools::execute(&json!({
+            "action": "convert",
+            "duration": "1h 30m",
+            "to": "minutes"
+        })))
+        .unwrap();
+    assert!(out.contains("90"), "{out}");
+}
+
+#[test]
+fn test_duration_tools_add_ab() {
+    use hematite::tools::duration_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(duration_tools::execute(&json!({
+            "action": "add",
+            "a": "1h",
+            "b": "30m"
+        })))
+        .unwrap();
+    assert!(out.contains("5400"), "{out}");
+}
+
+#[test]
+fn test_duration_tools_add_array() {
+    use hematite::tools::duration_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(duration_tools::execute(&json!({
+            "action": "add",
+            "durations": ["1h", "30m", "45s"]
+        })))
+        .unwrap();
+    assert!(out.contains("5445"), "{out}");
+}
+
+#[test]
+fn test_routing_detects_duration_tools() {
+    use hematite::agent::routing::needs_duration_tools;
+    assert!(needs_duration_tools("parse this duration 1h 30m 45s"));
+    assert!(needs_duration_tools("humanize 5400 seconds"));
+    assert!(needs_duration_tools("convert duration to minutes"));
+    assert!(needs_duration_tools("add duration 1h and 30m"));
+    assert!(needs_duration_tools("seconds to hours conversion"));
+    assert!(needs_duration_tools("how many seconds in 2 days"));
+    assert!(!needs_duration_tools("list files in directory"));
+    assert!(!needs_duration_tools("parse json file"));
+}
+
+// â”€â”€ dotenv_tools â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+#[test]
+fn test_dotenv_tools_parse_basic() {
+    use hematite::tools::dotenv_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let env_text = "DATABASE_URL=postgres://localhost/mydb\nAPI_KEY=secret123\nDEBUG=true";
+    let out = rt
+        .block_on(dotenv_tools::execute(&json!({
+            "action": "parse",
+            "text": env_text
+        })))
+        .unwrap();
+    assert!(out.contains("3 variable(s)"), "{out}");
+    assert!(out.contains("DATABASE_URL"), "{out}");
+    assert!(out.contains("API_KEY"), "{out}");
+    assert!(out.contains("DEBUG"), "{out}");
+}
+
+#[test]
+fn test_dotenv_tools_parse_quoted() {
+    use hematite::tools::dotenv_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let env_text = "GREETING=\"hello world\"\nNOTE=single_word";
+    let out = rt
+        .block_on(dotenv_tools::execute(&json!({
+            "action": "parse",
+            "text": env_text
+        })))
+        .unwrap();
+    assert!(out.contains("GREETING"), "{out}");
+    assert!(out.contains("hello world"), "{out}");
+}
+
+#[test]
+fn test_dotenv_tools_validate_clean() {
+    use hematite::tools::dotenv_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let env_text = "PORT=8080\nHOST=localhost\nDEBUG=false";
+    let out = rt
+        .block_on(dotenv_tools::execute(&json!({
+            "action": "validate",
+            "text": env_text
+        })))
+        .unwrap();
+    assert!(out.contains("VALID"), "{out}");
+    assert!(out.contains("3 key(s)"), "{out}");
+}
+
+#[test]
+fn test_dotenv_tools_validate_duplicate() {
+    use hematite::tools::dotenv_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let env_text = "KEY=first\nKEY=second";
+    let out = rt
+        .block_on(dotenv_tools::execute(&json!({
+            "action": "validate",
+            "text": env_text
+        })))
+        .unwrap();
+    assert!(out.contains("INVALID"), "{out}");
+    assert!(out.contains("duplicate"), "{out}");
+}
+
+#[test]
+fn test_dotenv_tools_get_key() {
+    use hematite::tools::dotenv_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let env_text = "DATABASE_URL=postgres://localhost/mydb\nPORT=5432";
+    let out = rt
+        .block_on(dotenv_tools::execute(&json!({
+            "action": "get",
+            "text": env_text,
+            "key": "PORT"
+        })))
+        .unwrap();
+    assert!(out.contains("5432"), "{out}");
+}
+
+#[test]
+fn test_dotenv_tools_list() {
+    use hematite::tools::dotenv_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let env_text = "FOO=bar\nBAZ=qux\nHELLO=world";
+    let out = rt
+        .block_on(dotenv_tools::execute(&json!({
+            "action": "list",
+            "text": env_text
+        })))
+        .unwrap();
+    assert!(out.contains("FOO"), "{out}");
+    assert!(out.contains("BAZ"), "{out}");
+    assert!(out.contains("HELLO"), "{out}");
+    assert!(out.contains("3 variable(s)"), "{out}");
+}
+
+#[test]
+fn test_dotenv_tools_to_json() {
+    use hematite::tools::dotenv_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let env_text = "PORT=8080\nHOST=localhost";
+    let out = rt
+        .block_on(dotenv_tools::execute(&json!({
+            "action": "to-json",
+            "text": env_text
+        })))
+        .unwrap();
+    assert!(out.contains("PORT"), "{out}");
+    assert!(out.contains("8080"), "{out}");
+    assert!(out.contains("HOST"), "{out}");
+    assert!(out.contains("localhost"), "{out}");
+    assert!(out.contains('{'), "{out}");
+}
+
+#[test]
+fn test_dotenv_tools_to_shell_bash() {
+    use hematite::tools::dotenv_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let env_text = "PORT=8080\nAPI_KEY=secret";
+    let out = rt
+        .block_on(dotenv_tools::execute(&json!({
+            "action": "to-shell",
+            "text": env_text,
+            "shell": "bash"
+        })))
+        .unwrap();
+    assert!(out.contains("export PORT="), "{out}");
+    assert!(out.contains("export API_KEY="), "{out}");
+}
+
+#[test]
+fn test_dotenv_tools_merge() {
+    use hematite::tools::dotenv_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let base = "PORT=8080\nHOST=localhost\nDEBUG=false";
+    let overlay = "DEBUG=true\nNEW_KEY=added";
+    let out = rt
+        .block_on(dotenv_tools::execute(&json!({
+            "action": "merge",
+            "base": base,
+            "overlay": overlay
+        })))
+        .unwrap();
+    assert!(out.contains("Changed"), "{out}");
+    assert!(out.contains("DEBUG"), "{out}");
+    assert!(out.contains("Added"), "{out}");
+    assert!(out.contains("NEW_KEY"), "{out}");
+    assert!(out.contains("Result vars    : 4"), "{out}");
+}
+
+#[test]
+fn test_routing_detects_dotenv_tools() {
+    use hematite::agent::routing::needs_dotenv_tools;
+    assert!(needs_dotenv_tools("parse my .env file"));
+    assert!(needs_dotenv_tools("validate the dotenv file"));
+    assert!(needs_dotenv_tools("convert .env to json"));
+    assert!(needs_dotenv_tools("merge two .env files"));
+    assert!(needs_dotenv_tools("export env variables to shell"));
+    assert!(needs_dotenv_tools("load the env file and validate it"));
+    assert!(!needs_dotenv_tools("list running processes"));
+    assert!(!needs_dotenv_tools("show system environment variables"));
+}

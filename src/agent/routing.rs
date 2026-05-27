@@ -6669,6 +6669,48 @@ pub fn needs_ini_tools(user_input: &str) -> bool {
         || (lower.contains("section") && lower.contains("key") && lower.contains("value"))
 }
 
+/// Returns true when the user wants to parse or convert a duration — steer toward `duration_tools`.
+pub fn needs_duration_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    lower.contains("parse duration")
+        || lower.contains("humanize duration")
+        || lower.contains("humanize seconds")
+        || lower.contains("duration in seconds")
+        || lower.contains("convert duration")
+        || lower.contains("add duration")
+        || lower.contains("seconds to hours")
+        || lower.contains("seconds to minutes")
+        || lower.contains("hours to seconds")
+        || lower.contains("minutes to seconds")
+        || lower.contains("duration format")
+        || lower.contains("time duration")
+        || lower.contains("how many seconds in")
+        || lower.contains("duration breakdown")
+        || (lower.contains("1h") && lower.contains("30m"))
+        || lower.contains("pt1h")
+        || lower.contains("pt2h")
+        || (lower.contains("duration") && lower.contains("humanize"))
+        || (lower.contains("humanize") && lower.contains("second"))
+        || (lower.contains("seconds") && lower.contains("human readable"))
+}
+
+/// Returns true when the user wants to parse or convert a .env file — steer toward `dotenv_tools`.
+pub fn needs_dotenv_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    lower.contains(".env")
+        || lower.contains("dotenv")
+        || lower.contains("dot env")
+        || lower.contains("merge env")
+        || lower.contains("export env")
+        || lower.contains("env to json")
+        || lower.contains("env variables file")
+        || (lower.contains("env file")
+            && (lower.contains("parse")
+                || lower.contains("read")
+                || lower.contains("validate")
+                || lower.contains("load")))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
