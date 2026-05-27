@@ -3169,6 +3169,84 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         }),
     ));
     tools.push(make_tool(
+        "rss_tools",
+        "Parse RSS 2.0 and Atom 1.0 feeds — list entries, extract metadata, links, or search without external utilities. \
+         Actions: \
+         `list` (default) — show all entries with title/date/author/link/description snippet; 'limit' to cap (default 20); \
+         `info` — feed metadata: type (RSS/Atom), title, description, language, generator, last updated, author list; \
+         `links` — extract all entry hyperlinks with their titles; \
+         `search` — filter entries matching 'query' or 'q' substring against title, description, and author. \
+         Pass 'text'/'xml'/'rss' for inline feed content or 'file' for a path to an .xml/.rss file.",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "Operation: list (default), info, links, search."
+                },
+                "text": {
+                    "type": "string",
+                    "description": "Inline RSS/Atom XML content. Also accepted as 'xml' or 'rss'."
+                },
+                "file": {
+                    "type": "string",
+                    "description": "Path to an RSS or Atom .xml file."
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "For 'list': maximum number of entries to show (default 20)."
+                },
+                "query": {
+                    "type": "string",
+                    "description": "For 'search': substring to match against title, description, and author. Also 'q'."
+                }
+            },
+            "required": []
+        }),
+    ));
+    tools.push(make_tool(
+        "keyval_tools",
+        "Persistent key-value store in `.hematite/kv.json` — set, get, list, delete, and clear named values across tool calls. \
+         Actions: \
+         `set` — store a value; 'key' (string) + 'value' (any JSON type: string, number, boolean, array, object); \
+         `get` — retrieve a value by 'key'; returns error if not found; \
+         `list` — show all keys and values; optional 'prefix' to filter to a namespace; \
+         `delete` — remove a key by name; \
+         `clear` — wipe all keys, or all keys matching 'prefix'; \
+         `keys` — list key names only (no values). \
+         Use 'namespace'/'ns' to automatically prefix all keys (e.g. ns='build', key='version' → stored as 'build:version'). \
+         Store location: `.hematite/kv.json` in the nearest parent with .hematite/, or `~/.hematite/kv.json` as fallback.",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "Operation: set, get, list (default), delete, clear, keys."
+                },
+                "key": {
+                    "type": "string",
+                    "description": "Key name for set/get/delete operations."
+                },
+                "value": {
+                    "description": "Value to store (any JSON type: string, number, boolean, array, or object). Required for 'set'."
+                },
+                "namespace": {
+                    "type": "string",
+                    "description": "Namespace prefix applied to all keys (e.g. 'build' → 'build:key'). Also 'ns'."
+                },
+                "prefix": {
+                    "type": "string",
+                    "description": "For 'list'/'clear'/'keys': filter to keys starting with this prefix."
+                },
+                "store": {
+                    "type": "string",
+                    "description": "Custom path to the store JSON file (overrides default .hematite/kv.json)."
+                }
+            },
+            "required": []
+        }),
+    ));
+    tools.push(make_tool(
         "hex_tools",
         "Hex dump, binary analysis, and hex encoding/decoding without external utilities. \
          Actions: \
@@ -3548,6 +3626,8 @@ pub async fn dispatch_builtin_tool(
         "template_tools" => crate::tools::template_tools::execute(args).await,
         "char_tools" => crate::tools::char_tools::execute(args).await,
         "stat_tools" => crate::tools::stat_tools::execute(args).await,
+        "rss_tools" => crate::tools::rss_tools::execute(args).await,
+        "keyval_tools" => crate::tools::keyval_tools::execute(args).await,
         "git_status" => crate::tools::git::execute_status(args).await,
         "git_diff" => crate::tools::git::execute_diff(args).await,
         "git_log" => crate::tools::git::execute_log(args).await,

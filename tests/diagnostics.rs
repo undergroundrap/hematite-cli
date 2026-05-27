@@ -21062,3 +21062,360 @@ fn test_routing_detects_stat_tools() {
     assert!(!needs_stat_tools("list running processes"));
     assert!(!needs_stat_tools("parse yaml file"));
 }
+
+// â”€â”€ rss_tools â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+const SAMPLE_RSS: &str = r#"<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>Test Blog</title>
+    <link>https://example.com</link>
+    <description>A test RSS feed</description>
+    <language>en-us</language>
+    <item>
+      <title>First Post</title>
+      <link>https://example.com/1</link>
+      <description>This is the first post about Rust.</description>
+      <pubDate>Mon, 01 Jan 2024 00:00:00 +0000</pubDate>
+      <author>Alice</author>
+    </item>
+    <item>
+      <title>Second Post</title>
+      <link>https://example.com/2</link>
+      <description>This is the second post about Python.</description>
+      <pubDate>Tue, 02 Jan 2024 00:00:00 +0000</pubDate>
+      <author>Bob</author>
+    </item>
+    <item>
+      <title>Third Post</title>
+      <link>https://example.com/3</link>
+      <description>Another Rust article for developers.</description>
+      <pubDate>Wed, 03 Jan 2024 00:00:00 +0000</pubDate>
+      <author>Alice</author>
+    </item>
+  </channel>
+</rss>"#;
+
+#[test]
+fn test_rss_tools_list_basic() {
+    use hematite::tools::rss_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(rss_tools::execute(&json!({
+            "action": "list",
+            "text": SAMPLE_RSS
+        })))
+        .unwrap();
+    assert!(out.contains("Test Blog"), "Expected feed title, got: {out}");
+    assert!(
+        out.contains("First Post"),
+        "Expected first entry, got: {out}"
+    );
+    assert!(
+        out.contains("Second Post"),
+        "Expected second entry, got: {out}"
+    );
+    assert!(
+        out.contains("Entries (3/3)"),
+        "Expected 3 entries, got: {out}"
+    );
+}
+
+#[test]
+fn test_rss_tools_list_limit() {
+    use hematite::tools::rss_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(rss_tools::execute(&json!({
+            "action": "list",
+            "text": SAMPLE_RSS,
+            "limit": 1
+        })))
+        .unwrap();
+    assert!(
+        out.contains("First Post"),
+        "Expected first entry, got: {out}"
+    );
+    assert!(
+        !out.contains("Second Post"),
+        "Expected limit enforced, got: {out}"
+    );
+    assert!(out.contains("2 more"), "Expected 'more' note, got: {out}");
+}
+
+#[test]
+fn test_rss_tools_info() {
+    use hematite::tools::rss_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(rss_tools::execute(&json!({
+            "action": "info",
+            "text": SAMPLE_RSS
+        })))
+        .unwrap();
+    assert!(out.contains("Test Blog"), "Expected feed title, got: {out}");
+    assert!(out.contains("RSS 2.0"), "Expected feed type, got: {out}");
+    assert!(out.contains("3"), "Expected entry count, got: {out}");
+    assert!(out.contains("en-us"), "Expected language, got: {out}");
+}
+
+#[test]
+fn test_rss_tools_links() {
+    use hematite::tools::rss_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(rss_tools::execute(&json!({
+            "action": "links",
+            "text": SAMPLE_RSS
+        })))
+        .unwrap();
+    assert!(
+        out.contains("https://example.com/1"),
+        "Expected first link, got: {out}"
+    );
+    assert!(
+        out.contains("https://example.com/2"),
+        "Expected second link, got: {out}"
+    );
+    assert!(
+        out.contains("First Post"),
+        "Expected link title, got: {out}"
+    );
+}
+
+#[test]
+fn test_rss_tools_search_found() {
+    use hematite::tools::rss_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(rss_tools::execute(&json!({
+            "action": "search",
+            "text": SAMPLE_RSS,
+            "query": "rust"
+        })))
+        .unwrap();
+    assert!(
+        out.contains("First Post"),
+        "Expected Rust post found, got: {out}"
+    );
+    assert!(
+        out.contains("Third Post"),
+        "Expected second Rust post, got: {out}"
+    );
+    // Python post should not appear
+    assert!(
+        !out.contains("Second Post"),
+        "Expected Python post filtered, got: {out}"
+    );
+}
+
+#[test]
+fn test_rss_tools_search_not_found() {
+    use hematite::tools::rss_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(rss_tools::execute(&json!({
+            "action": "search",
+            "text": SAMPLE_RSS,
+            "query": "javascript"
+        })))
+        .unwrap();
+    assert!(
+        out.contains("No matching"),
+        "Expected no results, got: {out}"
+    );
+}
+
+#[test]
+fn test_routing_detects_rss_tools() {
+    use hematite::agent::routing::needs_rss_tools;
+    assert!(needs_rss_tools("parse this rss feed"));
+    assert!(needs_rss_tools("list entries in this atom feed"));
+    assert!(needs_rss_tools("read the news feed xml"));
+    assert!(needs_rss_tools("parse rss entries from this file"));
+    assert!(needs_rss_tools("podcast feed xml"));
+    assert!(!needs_rss_tools("list running processes"));
+    assert!(!needs_rss_tools("parse json file"));
+}
+
+// â”€â”€ keyval_tools â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+#[test]
+fn test_keyval_tools_set_get() {
+    use hematite::tools::keyval_tools;
+    use serde_json::json;
+    use std::path::PathBuf;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let store = PathBuf::from(std::env::temp_dir()).join("hematite_test_kv.json");
+    let store_str = store.to_str().unwrap();
+
+    // Set a value
+    let out = rt
+        .block_on(keyval_tools::execute(&json!({
+            "action": "set",
+            "key": "test_key",
+            "value": "hello world",
+            "store": store_str
+        })))
+        .unwrap();
+    assert!(
+        out.contains("Created") || out.contains("Updated"),
+        "Expected set confirmation, got: {out}"
+    );
+
+    // Get it back
+    let out = rt
+        .block_on(keyval_tools::execute(&json!({
+            "action": "get",
+            "key": "test_key",
+            "store": store_str
+        })))
+        .unwrap();
+    assert!(out.contains("hello world"), "Expected value, got: {out}");
+
+    // Clean up
+    let _ = std::fs::remove_file(&store);
+}
+
+#[test]
+fn test_keyval_tools_list() {
+    use hematite::tools::keyval_tools;
+    use serde_json::json;
+    use std::path::PathBuf;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let store = PathBuf::from(std::env::temp_dir()).join("hematite_test_kv2.json");
+    let store_str = store.to_str().unwrap();
+
+    rt.block_on(keyval_tools::execute(
+        &json!({"action": "set", "key": "a", "value": 1, "store": store_str}),
+    ))
+    .unwrap();
+    rt.block_on(keyval_tools::execute(
+        &json!({"action": "set", "key": "b", "value": 2, "store": store_str}),
+    ))
+    .unwrap();
+
+    let out = rt
+        .block_on(keyval_tools::execute(&json!({
+            "action": "list",
+            "store": store_str
+        })))
+        .unwrap();
+    assert!(out.contains("2 key"), "Expected 2 keys, got: {out}");
+    assert!(out.contains("\"a\"") || out.contains("a"), "{out}");
+    assert!(out.contains("\"b\"") || out.contains("b"), "{out}");
+
+    let _ = std::fs::remove_file(&store);
+}
+
+#[test]
+fn test_keyval_tools_delete() {
+    use hematite::tools::keyval_tools;
+    use serde_json::json;
+    use std::path::PathBuf;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let store = PathBuf::from(std::env::temp_dir()).join("hematite_test_kv3.json");
+    let store_str = store.to_str().unwrap();
+
+    rt.block_on(keyval_tools::execute(
+        &json!({"action": "set", "key": "x", "value": "keep", "store": store_str}),
+    ))
+    .unwrap();
+    rt.block_on(keyval_tools::execute(
+        &json!({"action": "set", "key": "y", "value": "delete_me", "store": store_str}),
+    ))
+    .unwrap();
+    rt.block_on(keyval_tools::execute(
+        &json!({"action": "delete", "key": "y", "store": store_str}),
+    ))
+    .unwrap();
+
+    let result = rt.block_on(keyval_tools::execute(
+        &json!({"action": "get", "key": "y", "store": store_str}),
+    ));
+    assert!(result.is_err(), "Expected error for deleted key");
+
+    let out = rt
+        .block_on(keyval_tools::execute(
+            &json!({"action": "get", "key": "x", "store": store_str}),
+        ))
+        .unwrap();
+    assert!(out.contains("keep"), "Expected remaining key, got: {out}");
+
+    let _ = std::fs::remove_file(&store);
+}
+
+#[test]
+fn test_keyval_tools_namespace() {
+    use hematite::tools::keyval_tools;
+    use serde_json::json;
+    use std::path::PathBuf;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let store = PathBuf::from(std::env::temp_dir()).join("hematite_test_kv4.json");
+    let store_str = store.to_str().unwrap();
+
+    rt.block_on(keyval_tools::execute(&json!({"action": "set", "key": "version", "value": "1.0", "ns": "build", "store": store_str}))).unwrap();
+    let out = rt
+        .block_on(keyval_tools::execute(
+            &json!({"action": "get", "key": "version", "ns": "build", "store": store_str}),
+        ))
+        .unwrap();
+    assert!(
+        out.contains("build:version"),
+        "Expected namespaced key, got: {out}"
+    );
+    assert!(out.contains("1.0"), "Expected value, got: {out}");
+
+    let _ = std::fs::remove_file(&store);
+}
+
+#[test]
+fn test_keyval_tools_clear() {
+    use hematite::tools::keyval_tools;
+    use serde_json::json;
+    use std::path::PathBuf;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let store = PathBuf::from(std::env::temp_dir()).join("hematite_test_kv5.json");
+    let store_str = store.to_str().unwrap();
+
+    rt.block_on(keyval_tools::execute(
+        &json!({"action": "set", "key": "p", "value": "v1", "store": store_str}),
+    ))
+    .unwrap();
+    rt.block_on(keyval_tools::execute(
+        &json!({"action": "set", "key": "q", "value": "v2", "store": store_str}),
+    ))
+    .unwrap();
+    let out = rt
+        .block_on(keyval_tools::execute(
+            &json!({"action": "clear", "store": store_str}),
+        ))
+        .unwrap();
+    assert!(out.contains("2"), "Expected 2 keys cleared, got: {out}");
+
+    let out = rt
+        .block_on(keyval_tools::execute(
+            &json!({"action": "list", "store": store_str}),
+        ))
+        .unwrap();
+    assert!(out.contains("empty"), "Expected empty store, got: {out}");
+
+    let _ = std::fs::remove_file(&store);
+}
+
+#[test]
+fn test_routing_detects_keyval_tools() {
+    use hematite::agent::routing::needs_keyval_tools;
+    assert!(needs_keyval_tools("use the key-value store to save this"));
+    assert!(needs_keyval_tools("store this value in the kv store"));
+    assert!(needs_keyval_tools("store this key and value for later"));
+    assert!(needs_keyval_tools("keyval set my preference"));
+    assert!(!needs_keyval_tools("list running processes"));
+    assert!(!needs_keyval_tools("parse json file"));
+}

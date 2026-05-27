@@ -32,12 +32,13 @@ use crate::agent::routing::{
     needs_cron_tools, needs_csv_tools, needs_date_tools, needs_diff_tools, needs_docker_ops,
     needs_dotenv_tools, needs_duration_tools, needs_encode_tools, needs_format, needs_github_ops,
     needs_hash_tools, needs_hex_tools, needs_http_request, needs_ini_tools, needs_ip_tools,
-    needs_jwt_tools, needs_line_tools, needs_lint_check, needs_markdown_tools, needs_number_tools,
-    needs_password_gen, needs_path_tools, needs_regex_tools, needs_secret_scan, needs_semver_tools,
-    needs_sqlite_tools, needs_stat_tools, needs_table_tools, needs_template_tools, needs_test_run,
-    needs_text_tools, needs_toml_tools, needs_url_tools, needs_uuid_gen, needs_xml_tools,
-    needs_yaml_tools, preferred_host_inspection_topic, preferred_maintainer_workflow,
-    preferred_workspace_workflow, DirectAnswerKind, QueryIntentClass,
+    needs_jwt_tools, needs_keyval_tools, needs_line_tools, needs_lint_check, needs_markdown_tools,
+    needs_number_tools, needs_password_gen, needs_path_tools, needs_regex_tools, needs_rss_tools,
+    needs_secret_scan, needs_semver_tools, needs_sqlite_tools, needs_stat_tools, needs_table_tools,
+    needs_template_tools, needs_test_run, needs_text_tools, needs_toml_tools, needs_url_tools,
+    needs_uuid_gen, needs_xml_tools, needs_yaml_tools, preferred_host_inspection_topic,
+    preferred_maintainer_workflow, preferred_workspace_workflow, DirectAnswerKind,
+    QueryIntentClass,
 };
 use crate::agent::tool_registry::dispatch_builtin_tool;
 use crate::agent::truncation::safe_head;
@@ -5581,6 +5582,39 @@ impl ConversationManager {
                  Pass 'numbers' as a JSON array or 'data' as a comma/newline-delimited string. \
                  Example: stat_tools(action: \"describe\", numbers: [1, 2, 3, 4, 5]) or \
                  stat_tools(action: \"outliers\", numbers: [...], threshold: 2.5)."
+                    .to_string(),
+            );
+        }
+
+        // ── RSS Tools Routing: steer model toward rss_tools ──
+        if loop_intervention.is_none() && needs_rss_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "RSS NOTICE: Use the `rss_tools` tool to parse RSS 2.0 and Atom 1.0 feeds without external utilities. \
+                 Actions: list (default — show all entries with title/date/author/link/description snippet; 'limit' to cap count), \
+                 info (feed metadata — type, title, description, language, generator, last updated, author list), \
+                 links (extract all entry hyperlinks with titles), \
+                 search (filter entries by 'query' or 'q' — matches title, description, and author). \
+                 Pass 'text'/'xml'/'rss' for inline feed content or 'file' for a path to an .xml or .rss file. \
+                 Example: rss_tools(action: \"list\", file: \"feed.xml\") or \
+                 rss_tools(action: \"search\", text: \"...\", query: \"python\")."
+                    .to_string(),
+            );
+        }
+
+        // ── KeyVal Tools Routing: steer model toward keyval_tools ──
+        if loop_intervention.is_none() && needs_keyval_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "KEYVAL NOTICE: Use the `keyval_tools` tool to set, get, list, and delete persistent key-value pairs \
+                 stored in `.hematite/kv.json` (or `~/.hematite/kv.json` outside a project). \
+                 Actions: set (store a value; 'key' + 'value' — value can be any JSON type), \
+                 get (retrieve a value by 'key'), \
+                 list (show all keys and values; optional 'prefix' to filter), \
+                 delete (remove a key), \
+                 clear (wipe all keys or all keys matching 'prefix'), \
+                 keys (list key names only). \
+                 Use 'namespace'/'ns' to prefix all keys (e.g. ns: 'build' → key 'build:version'). \
+                 Example: keyval_tools(action: \"set\", key: \"api_version\", value: \"v2\") or \
+                 keyval_tools(action: \"list\")."
                     .to_string(),
             );
         }

@@ -6764,6 +6764,44 @@ pub fn needs_char_tools(user_input: &str) -> bool {
         || (lower.contains("\\u") && (lower.contains("escape") || lower.contains("unescape")))
 }
 
+/// Returns true when the user wants to parse an RSS or Atom feed — steer toward `rss_tools`.
+pub fn needs_rss_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    lower.contains("rss feed")
+        || lower.contains("atom feed")
+        || lower.contains("parse feed")
+        || lower.contains("parse rss")
+        || lower.contains("parse atom")
+        || lower.contains("rss entries")
+        || lower.contains("feed entries")
+        || lower.contains("news feed")
+        || lower.contains("feed items")
+        || lower.contains("<rss")
+        || lower.contains("<feed")
+        || lower.contains("podcast feed")
+        || (lower.contains("feed") && lower.contains("xml"))
+        || (lower.contains("rss")
+            && (lower.contains("list") || lower.contains("read") || lower.contains("parse")))
+}
+
+/// Returns true when the user wants to store or retrieve key-value data — steer toward `keyval_tools`.
+pub fn needs_keyval_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    lower.contains("key-value store")
+        || lower.contains("keyvalue store")
+        || lower.contains("key value store")
+        || lower.contains("kv store")
+        || lower.contains("store this value")
+        || lower.contains("save this value")
+        || lower.contains("remember this value")
+        || lower.contains("retrieve a value")
+        || lower.contains("keyval")
+        || lower.contains("hematite kv")
+        || (lower.contains("set key") && lower.contains("value"))
+        || (lower.contains("get key") && lower.contains("store"))
+        || (lower.contains("store") && lower.contains("key") && lower.contains("value"))
+}
+
 /// Returns true when the user wants statistical analysis on numbers — steer toward `stat_tools`.
 pub fn needs_stat_tools(user_input: &str) -> bool {
     let lower = user_input.to_lowercase();
