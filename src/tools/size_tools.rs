@@ -147,9 +147,11 @@ fn convert_action(args: &Value) -> Result<String, String> {
             "gib" => (1_073_741_824.0, "GiB"),
             "tib" => (1_099_511_627_776.0, "TiB"),
             "pib" => (1_125_899_906_842_624.0, "PiB"),
-            other => return Err(format!(
+            other => {
+                return Err(format!(
                 "size_tools: unknown target unit '{other}'. Use KB, MB, GB, TB, KiB, MiB, GiB, TiB"
-            )),
+            ))
+            }
         };
         let result = bytes / factor;
         return Ok(format!("{result:.4} {label}\n"));
