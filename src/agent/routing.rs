@@ -6940,6 +6940,52 @@ pub fn needs_money_tools(user_input: &str) -> bool {
         || (lower.contains("bill") && lower.contains("split") && lower.contains("people"))
 }
 
+pub fn needs_token_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "estimate tokens",
+            "token count",
+            "how many tokens",
+            "token budget",
+            "context window fill",
+            "fits in context window",
+            "truncate to tokens",
+            "token estimate",
+            "tokens in this text",
+            "token cost",
+            "context fill",
+            "llm token",
+        ],
+    )
+}
+
+pub fn needs_mime_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "mime type",
+            "mimetype",
+            "content-type header",
+            "media type for",
+            "file extension for mime",
+            "look up mime",
+            "mime for .",
+            "which mime",
+            "content type for .",
+            "application/pdf",
+            "image/png",
+            "image/jpeg",
+            "text/html",
+            "text/plain",
+            "audio/mpeg",
+            "video/mp4",
+        ],
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

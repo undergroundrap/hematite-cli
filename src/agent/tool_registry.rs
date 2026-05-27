@@ -3475,6 +3475,85 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         }),
     ));
     tools.push(make_tool(
+        "token_tools",
+        "Estimate LLM token counts, check context window budget, compare token costs, and truncate text to a token limit — no external libraries. \
+         Actions: estimate (default — chars/4 + words*1.3 heuristics with fill bars for 4K/8K/32K/128K context windows), \
+         budget (show fill % and remaining tokens for a specific context window size; 'context_size' defaults to 8192), \
+         compare (token cost diff between two texts via 'a'/'b' fields), \
+         truncate (cut text to approximately N tokens; 'max_tokens' defaults to 1000). \
+         Example: token_tools(action: 'estimate', text: '...') or \
+         token_tools(action: 'budget', text: '...', context_size: 4096) or \
+         token_tools(action: 'compare', a: '...', b: '...').",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "estimate (default), budget, compare, truncate"
+                },
+                "text": {
+                    "type": "string",
+                    "description": "Input text. Also accepted as 'input' or 'content'."
+                },
+                "context_size": {
+                    "type": "integer",
+                    "description": "Context window size in tokens for the budget action (default 8192)."
+                },
+                "a": {
+                    "type": "string",
+                    "description": "First text for the compare action."
+                },
+                "b": {
+                    "type": "string",
+                    "description": "Second text for the compare action."
+                },
+                "max_tokens": {
+                    "type": "integer",
+                    "description": "Token limit for the truncate action (default 1000)."
+                }
+            },
+            "required": []
+        }),
+    ));
+    tools.push(make_tool(
+        "mime_tools",
+        "Look up MIME content types by file extension, find extensions for a MIME type, search, and list by category — 130+ entries, no external utilities. \
+         Actions: from_ext (default — extension to MIME type + category; pass 'ext' like 'js', '.ts', or 'report.pdf'), \
+         from_mime (MIME type string to file extensions; pass 'mime' like 'image/png'), \
+         search (fuzzy search on extension or MIME type string; pass 'query'), \
+         category (list all types in a category — text/image/audio/video/application/font; omit 'category' for a summary). \
+         Example: mime_tools(action: 'from_ext', ext: 'pdf') or \
+         mime_tools(action: 'from_mime', mime: 'application/json') or \
+         mime_tools(action: 'search', query: 'audio') or \
+         mime_tools(action: 'category', category: 'image').",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "from_ext (default), from_mime, search, category"
+                },
+                "ext": {
+                    "type": "string",
+                    "description": "File extension for from_ext action — e.g. 'js', '.ts', 'report.pdf'. Also 'extension'/'file'/'input'."
+                },
+                "mime": {
+                    "type": "string",
+                    "description": "MIME type string for from_mime action — e.g. 'image/png'. Also 'type'/'input'."
+                },
+                "query": {
+                    "type": "string",
+                    "description": "Search term for the search action. Also 'q'/'input'."
+                },
+                "category": {
+                    "type": "string",
+                    "description": "Category for the category action: text, image, audio, video, application, font. Omit for a summary."
+                }
+            },
+            "required": []
+        }),
+    ));
+    tools.push(make_tool(
         "hex_tools",
         "Hex dump, binary analysis, and hex encoding/decoding without external utilities. \
          Actions: \
@@ -3860,6 +3939,8 @@ pub async fn dispatch_builtin_tool(
         "money_tools" => crate::tools::money_tools::execute(args).await,
         "size_tools" => crate::tools::size_tools::execute(args).await,
         "validate_tools" => crate::tools::validate_tools::execute(args).await,
+        "token_tools" => crate::tools::token_tools::execute(args).await,
+        "mime_tools" => crate::tools::mime_tools::execute(args).await,
         "git_status" => crate::tools::git::execute_status(args).await,
         "git_diff" => crate::tools::git::execute_diff(args).await,
         "git_log" => crate::tools::git::execute_log(args).await,

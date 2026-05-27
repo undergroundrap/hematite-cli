@@ -33,11 +33,11 @@ use crate::agent::routing::{
     needs_dotenv_tools, needs_duration_tools, needs_encode_tools, needs_format, needs_github_ops,
     needs_hash_tools, needs_hex_tools, needs_http_request, needs_ini_tools, needs_ip_tools,
     needs_jwt_tools, needs_keyval_tools, needs_line_tools, needs_lint_check, needs_markdown_tools,
-    needs_money_tools, needs_net_lookup_tools, needs_number_tools, needs_password_gen,
-    needs_path_tools, needs_regex_tools, needs_rss_tools, needs_secret_scan, needs_semver_tools,
-    needs_size_tools, needs_sqlite_tools, needs_stat_tools, needs_table_tools,
-    needs_template_tools, needs_test_run, needs_text_tools, needs_toml_tools, needs_url_tools,
-    needs_uuid_gen, needs_validate_tools, needs_xml_tools, needs_yaml_tools,
+    needs_mime_tools, needs_money_tools, needs_net_lookup_tools, needs_number_tools,
+    needs_password_gen, needs_path_tools, needs_regex_tools, needs_rss_tools, needs_secret_scan,
+    needs_semver_tools, needs_size_tools, needs_sqlite_tools, needs_stat_tools, needs_table_tools,
+    needs_template_tools, needs_test_run, needs_text_tools, needs_token_tools, needs_toml_tools,
+    needs_url_tools, needs_uuid_gen, needs_validate_tools, needs_xml_tools, needs_yaml_tools,
     preferred_host_inspection_topic, preferred_maintainer_workflow, preferred_workspace_workflow,
     DirectAnswerKind, QueryIntentClass,
 };
@@ -5679,6 +5679,33 @@ impl ConversationManager {
                  Example: validate_tools(action: 'email', value: 'user@example.com') or \
                  validate_tools(action: 'cidr', value: '192.168.1.0/24') or \
                  validate_tools(action: 'auto', value: '2.0.0-alpha.1')."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_token_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "TOKEN NOTICE: Use the `token_tools` tool to estimate LLM token counts without external utilities. \
+                 Actions: estimate (default — chars/4 + words*1.3 heuristics with context window fill bars for 4K/8K/32K/128K), \
+                 budget (fill % for a specific context window — pass 'context_size' in tokens, default 8192), \
+                 compare (token cost difference between two texts — pass 'a' and 'b'), \
+                 truncate (cut text to approximately N tokens — pass 'text' and 'max_tokens', default 1000). \
+                 Example: token_tools(action: 'estimate', text: '...') or \
+                 token_tools(action: 'budget', text: '...', context_size: 4096)."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_mime_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "MIME NOTICE: Use the `mime_tools` tool to look up MIME types by extension without external utilities. \
+                 Actions: from_ext (default — file extension to MIME type and category; pass 'ext' like 'js', '.ts', or 'image.json'), \
+                 from_mime (MIME type string to file extensions; pass 'mime' like 'image/png'), \
+                 search (fuzzy search on extension or MIME type string; pass 'query'), \
+                 category (list all types in a category — text/image/audio/video/application/font; omit for summary). \
+                 Example: mime_tools(action: 'from_ext', ext: 'pdf') or \
+                 mime_tools(action: 'search', query: 'audio') or \
+                 mime_tools(action: 'category', category: 'image')."
                     .to_string(),
             );
         }

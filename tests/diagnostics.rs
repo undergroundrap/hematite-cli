@@ -21906,3 +21906,118 @@ fn test_routing_detects_validate_tools() {
     assert!(!needs_validate_tools("parse a json file"));
     assert!(!needs_validate_tools("list processes"));
 }
+
+// â”€â”€ token_tools â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+#[tokio::test]
+async fn test_token_tools_estimate() {
+    let args = serde_json::json!({"action": "estimate", "text": "Hello world this is a test sentence for token counting purposes"});
+    let result = hematite::tools::token_tools::execute(&args).await.unwrap();
+    assert!(result.contains("Token Estimate"));
+    assert!(result.contains("tokens"));
+    assert!(result.contains("Context window fill"));
+}
+
+#[tokio::test]
+async fn test_token_tools_budget() {
+    let args = serde_json::json!({"action": "budget", "text": "short text", "context_size": 8192});
+    let result = hematite::tools::token_tools::execute(&args).await.unwrap();
+    assert!(result.contains("Context Budget"));
+    assert!(result.contains("8192"));
+    assert!(result.contains("OK"));
+}
+
+#[tokio::test]
+async fn test_token_tools_compare() {
+    let args = serde_json::json!({"action": "compare", "a": "short", "b": "a much longer piece of text with many more words and characters"});
+    let result = hematite::tools::token_tools::execute(&args).await.unwrap();
+    assert!(result.contains("Token Comparison"));
+    assert!(result.contains("Difference"));
+}
+
+#[tokio::test]
+async fn test_token_tools_truncate_no_op() {
+    let args = serde_json::json!({"action": "truncate", "text": "tiny", "max_tokens": 1000});
+    let result = hematite::tools::token_tools::execute(&args).await.unwrap();
+    assert!(result.contains("No truncation needed"));
+}
+
+#[tokio::test]
+async fn test_token_tools_truncate_active() {
+    let long: String = "word ".repeat(2000);
+    let args = serde_json::json!({"action": "truncate", "text": long, "max_tokens": 50});
+    let result = hematite::tools::token_tools::execute(&args).await.unwrap();
+    assert!(result.contains("truncated"));
+}
+
+#[test]
+fn test_routing_detects_token_tools() {
+    use hematite::agent::routing::needs_token_tools;
+    assert!(needs_token_tools("estimate tokens for this prompt"));
+    assert!(needs_token_tools("how many tokens does this text use"));
+    assert!(needs_token_tools("check my token budget"));
+    assert!(!needs_token_tools("parse a json file"));
+}
+
+// â”€â”€ mime_tools â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+#[tokio::test]
+async fn test_mime_tools_from_ext_js() {
+    let args = serde_json::json!({"action": "from_ext", "ext": "js"});
+    let result = hematite::tools::mime_tools::execute(&args).await.unwrap();
+    assert!(result.contains("application/javascript"));
+}
+
+#[tokio::test]
+async fn test_mime_tools_from_ext_pdf() {
+    let args = serde_json::json!({"action": "from_ext", "ext": "pdf"});
+    let result = hematite::tools::mime_tools::execute(&args).await.unwrap();
+    assert!(result.contains("application/pdf"));
+}
+
+#[tokio::test]
+async fn test_mime_tools_from_ext_path() {
+    let args = serde_json::json!({"action": "from_ext", "ext": "report.pdf"});
+    let result = hematite::tools::mime_tools::execute(&args).await.unwrap();
+    assert!(result.contains("application/pdf"));
+}
+
+#[tokio::test]
+async fn test_mime_tools_from_mime() {
+    let args = serde_json::json!({"action": "from_mime", "mime": "image/png"});
+    let result = hematite::tools::mime_tools::execute(&args).await.unwrap();
+    assert!(result.contains(".png"));
+}
+
+#[tokio::test]
+async fn test_mime_tools_search_audio() {
+    let args = serde_json::json!({"action": "search", "query": "audio"});
+    let result = hematite::tools::mime_tools::execute(&args).await.unwrap();
+    assert!(result.contains("audio/mpeg") || result.contains("audio/wav"));
+}
+
+#[tokio::test]
+async fn test_mime_tools_category_image() {
+    let args = serde_json::json!({"action": "category", "category": "image"});
+    let result = hematite::tools::mime_tools::execute(&args).await.unwrap();
+    assert!(result.contains("image/png"));
+    assert!(result.contains("image/jpeg"));
+}
+
+#[tokio::test]
+async fn test_mime_tools_category_summary() {
+    let args = serde_json::json!({"action": "category"});
+    let result = hematite::tools::mime_tools::execute(&args).await.unwrap();
+    assert!(result.contains("Categories"));
+    assert!(result.contains("image"));
+    assert!(result.contains("audio"));
+}
+
+#[test]
+fn test_routing_detects_mime_tools() {
+    use hematite::agent::routing::needs_mime_tools;
+    assert!(needs_mime_tools("what mime type is image/png"));
+    assert!(needs_mime_tools("what is the mime type for a PDF file"));
+    assert!(needs_mime_tools("look up mime for .js"));
+    assert!(!needs_mime_tools("list all processes running"));
+}
