@@ -3068,6 +3068,107 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         }),
     ));
     tools.push(make_tool(
+        "char_tools",
+        "Unicode character inspection, codepoint lookup, escape/unescape, and property checks without external utilities. \
+         Actions: \
+         `info` (default) — full Unicode info for a char or string: codepoint (U+XXXX), block name, category, decimal/hex/octal/binary, uppercase/lowercase variants; \
+         `codepoint` — convert a character to its codepoint (U+XXXX); pass 'codepoint' as number or 'U+XXXX' string to reverse (codepoint → char); \
+         `escape` — escape non-printable or non-ASCII chars to Unicode escape sequences; \
+            'style: unicode' (default) = \\u{XXXXX}; 'style: json' = \\uXXXX (with surrogate pairs for SMP); 'style: hex' = \\xXX; \
+         `unescape` — decode \\u{XXXXX}, \\uXXXX, \\xXX, \\n, \\t, \\r sequences back to characters; \
+         `check` — test character properties for every char in 'input': is_ascii, is_alphabetic, is_numeric, is_alphanumeric, is_uppercase, is_lowercase, is_whitespace, is_control, is_ascii_punctuation. \
+         Pass 'input' or 'text' for the string. For 'codepoint' action: pass 'codepoint' as a number or 'U+XXXX' string for reverse lookup.",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "Operation: info (default), codepoint, escape, unescape, check."
+                },
+                "input": {
+                    "type": "string",
+                    "description": "Input string to inspect. Also accepted as 'text' or 'char'."
+                },
+                "codepoint": {
+                    "description": "For 'codepoint' action (reverse lookup): a decimal integer or 'U+XXXX' hex string to convert to a character.",
+                    "oneOf": [{"type": "integer"}, {"type": "string"}]
+                },
+                "style": {
+                    "type": "string",
+                    "description": "For 'escape' action: unicode (default, \\u{XXXXX}), json (\\uXXXX with surrogate pairs), hex (\\xXX)."
+                }
+            },
+            "required": []
+        }),
+    ));
+    tools.push(make_tool(
+        "stat_tools",
+        "Statistical analysis on number arrays without external utilities. \
+         Actions: \
+         `describe` (default) — count/sum/min/max/range/mean/median/stddev/variance/Q1/Q3/IQR summary; \
+         `histogram` — ASCII bar chart; 'bins' (default 10); 'width' bar width in chars (default 40); \
+         `percentile` — compute percentiles; 'p' as a JSON array (e.g. [25, 50, 75, 90, 99]) or single value; \
+         `mode` — most frequent values with occurrence counts and percentages; 'top' for top-N limit; \
+         `outliers` — find values beyond N standard deviations; 'threshold' sigma cutoff (default 2.0); \
+            'method: zscore' (default) or 'method: iqr' (uses IQR fence); \
+         `zscore` — normalize each value to its z-score (value − mean) / stddev; \
+         `correlate` — Pearson r between two number series; pass 'a' and 'b' as arrays. \
+         Pass 'numbers' as a JSON array or 'data' as a comma/space/newline-delimited string.",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "Operation: describe (default), histogram, percentile, mode, outliers, zscore, correlate."
+                },
+                "numbers": {
+                    "type": "array",
+                    "items": {"type": "number"},
+                    "description": "Array of numbers to analyze."
+                },
+                "data": {
+                    "type": "string",
+                    "description": "Comma, space, semicolon, or newline-delimited numbers (alternative to 'numbers' array)."
+                },
+                "bins": {
+                    "type": "integer",
+                    "description": "For 'histogram': number of bins (default 10, max 50)."
+                },
+                "width": {
+                    "type": "integer",
+                    "description": "For 'histogram': bar width in characters (default 40)."
+                },
+                "p": {
+                    "description": "For 'percentile': single number or array of percentile values (e.g. [25, 50, 75, 90, 99]).",
+                    "oneOf": [{"type": "number"}, {"type": "array", "items": {"type": "number"}}]
+                },
+                "top": {
+                    "type": "integer",
+                    "description": "For 'mode': show top-N most frequent values (default 10)."
+                },
+                "threshold": {
+                    "type": "number",
+                    "description": "For 'outliers': sigma cutoff (default 2.0). Also 'sigma'."
+                },
+                "method": {
+                    "type": "string",
+                    "description": "For 'outliers': zscore (default) or iqr."
+                },
+                "a": {
+                    "type": "array",
+                    "items": {"type": "number"},
+                    "description": "For 'correlate': first data series."
+                },
+                "b": {
+                    "type": "array",
+                    "items": {"type": "number"},
+                    "description": "For 'correlate': second data series."
+                }
+            },
+            "required": []
+        }),
+    ));
+    tools.push(make_tool(
         "hex_tools",
         "Hex dump, binary analysis, and hex encoding/decoding without external utilities. \
          Actions: \
@@ -3445,6 +3546,8 @@ pub async fn dispatch_builtin_tool(
         "dotenv_tools" => crate::tools::dotenv_tools::execute(args).await,
         "ansi_tools" => crate::tools::ansi_tools::execute(args).await,
         "template_tools" => crate::tools::template_tools::execute(args).await,
+        "char_tools" => crate::tools::char_tools::execute(args).await,
+        "stat_tools" => crate::tools::stat_tools::execute(args).await,
         "git_status" => crate::tools::git::execute_status(args).await,
         "git_diff" => crate::tools::git::execute_diff(args).await,
         "git_log" => crate::tools::git::execute_log(args).await,

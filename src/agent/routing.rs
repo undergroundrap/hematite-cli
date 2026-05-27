@@ -6743,6 +6743,53 @@ pub fn needs_dotenv_tools(user_input: &str) -> bool {
                 || lower.contains("load")))
 }
 
+/// Returns true when the user wants Unicode character inspection — steer toward `char_tools`.
+pub fn needs_char_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    lower.contains("unicode character")
+        || lower.contains("codepoint")
+        || lower.contains("code point")
+        || lower.contains("unicode block")
+        || lower.contains("unicode category")
+        || lower.contains("escape unicode")
+        || lower.contains("unescape unicode")
+        || lower.contains("unicode escape")
+        || lower.contains("is alphabetic")
+        || lower.contains("is numeric")
+        || lower.contains("char category")
+        || lower.contains("character info")
+        || lower.contains("what character")
+        || lower.contains("what unicode")
+        || (lower.contains("u+") && lower.contains("char"))
+        || (lower.contains("\\u") && (lower.contains("escape") || lower.contains("unescape")))
+}
+
+/// Returns true when the user wants statistical analysis on numbers — steer toward `stat_tools`.
+pub fn needs_stat_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    lower.contains("descriptive statistics")
+        || lower.contains("statistical summary")
+        || lower.contains("mean and median")
+        || lower.contains("mean median")
+        || lower.contains("standard deviation")
+        || lower.contains("outlier detection")
+        || lower.contains("find outliers")
+        || lower.contains("detect outliers")
+        || lower.contains("percentile")
+        || lower.contains("z-score")
+        || lower.contains("zscore")
+        || lower.contains("histogram of")
+        || lower.contains("frequency distribution")
+        || lower.contains("mode of these")
+        || lower.contains("correlate these")
+        || lower.contains("pearson correlation")
+        || (lower.contains("statistics") && lower.contains("numbers"))
+        || (lower.contains("stats") && lower.contains("array"))
+        || (lower.contains("describe") && lower.contains("dataset"))
+        || (lower.contains("mean") && lower.contains("stddev"))
+        || (lower.contains("mean") && lower.contains("std dev"))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

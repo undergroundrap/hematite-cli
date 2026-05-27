@@ -20727,3 +20727,338 @@ fn test_routing_detects_template_tools() {
     assert!(!needs_template_tools("list running processes"));
     assert!(!needs_template_tools("parse json file"));
 }
+
+// â”€â”€ char_tools â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+#[test]
+fn test_char_tools_info_single() {
+    use hematite::tools::char_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(char_tools::execute(&json!({
+            "action": "info",
+            "input": "A"
+        })))
+        .unwrap();
+    assert!(
+        out.contains("U+0041"),
+        "Expected codepoint U+0041, got: {out}"
+    );
+    assert!(
+        out.contains("Basic Latin"),
+        "Expected block name, got: {out}"
+    );
+}
+
+#[test]
+fn test_char_tools_info_string() {
+    use hematite::tools::char_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(char_tools::execute(&json!({
+            "input": "Hi!"
+        })))
+        .unwrap();
+    assert!(out.contains("3 chars"), "Expected char count, got: {out}");
+    assert!(out.contains("U+0048"), "Expected H codepoint, got: {out}");
+}
+
+#[test]
+fn test_char_tools_codepoint_char_to_cp() {
+    use hematite::tools::char_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    // Test codepoint lookup for 'Z' (U+005A) — avoids encoding issues with non-ASCII in source
+    let out = rt
+        .block_on(char_tools::execute(&json!({
+            "action": "codepoint",
+            "input": "Z"
+        })))
+        .unwrap();
+    assert!(
+        out.contains("U+005A"),
+        "Expected codepoint U+005A for Z, got: {out}"
+    );
+}
+
+#[test]
+fn test_char_tools_codepoint_cp_to_char() {
+    use hematite::tools::char_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(char_tools::execute(&json!({
+            "action": "codepoint",
+            "codepoint": "U+0041"
+        })))
+        .unwrap();
+    assert!(
+        out.contains("U+0041"),
+        "Expected codepoint shown, got: {out}"
+    );
+    assert!(out.contains("A"), "Expected char A, got: {out}");
+}
+
+#[test]
+fn test_char_tools_escape_unicode() {
+    use hematite::tools::char_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(char_tools::execute(&json!({
+            "action": "escape",
+            "input": "Hello\nWorld",
+            "style": "unicode"
+        })))
+        .unwrap();
+    assert!(
+        out.contains("\\u{A}")
+            || out.contains("\\u{a}")
+            || out.contains("\\u{000A}")
+            || out.contains("\\u{A}"),
+        "Expected newline escaped, got: {out}"
+    );
+}
+
+#[test]
+fn test_char_tools_unescape() {
+    use hematite::tools::char_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(char_tools::execute(&json!({
+            "action": "unescape",
+            "input": "Hello\\nWorld"
+        })))
+        .unwrap();
+    assert!(
+        out.contains("Unescaped"),
+        "Expected unescaped output, got: {out}"
+    );
+}
+
+#[test]
+fn test_char_tools_check_ascii() {
+    use hematite::tools::char_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(char_tools::execute(&json!({
+            "action": "check",
+            "input": "hello"
+        })))
+        .unwrap();
+    assert!(
+        out.contains("is_ascii"),
+        "Expected is_ascii check, got: {out}"
+    );
+    assert!(
+        out.contains("is_alphabetic"),
+        "Expected is_alphabetic check, got: {out}"
+    );
+}
+
+#[test]
+fn test_char_tools_check_mixed() {
+    use hematite::tools::char_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(char_tools::execute(&json!({
+            "action": "check",
+            "input": "abc123"
+        })))
+        .unwrap();
+    assert!(out.contains("is_alphanumeric"), "{out}");
+}
+
+#[test]
+fn test_routing_detects_char_tools() {
+    use hematite::agent::routing::needs_char_tools;
+    assert!(needs_char_tools("what unicode character is U+1F600"));
+    assert!(needs_char_tools("get the codepoint for this character"));
+    assert!(needs_char_tools("escape unicode characters in this string"));
+    assert!(needs_char_tools("what unicode block is this char"));
+    assert!(needs_char_tools("check character info for this input"));
+    assert!(!needs_char_tools("run the test suite"));
+    assert!(!needs_char_tools("parse json file"));
+}
+
+// â”€â”€ stat_tools â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+#[test]
+fn test_stat_tools_describe_basic() {
+    use hematite::tools::stat_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(stat_tools::execute(&json!({
+            "action": "describe",
+            "numbers": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+        })))
+        .unwrap();
+    assert!(out.contains("Count:"), "Expected Count, got: {out}");
+    assert!(out.contains("Mean:"), "Expected Mean, got: {out}");
+    assert!(out.contains("Median:"), "Expected Median, got: {out}");
+    assert!(out.contains("Std Dev:"), "Expected Std Dev, got: {out}");
+}
+
+#[test]
+fn test_stat_tools_describe_delimited() {
+    use hematite::tools::stat_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(stat_tools::execute(&json!({
+            "data": "10,20,30,40,50"
+        })))
+        .unwrap();
+    assert!(out.contains("5"), "Expected n=5, got: {out}");
+    assert!(out.contains("Mean:"), "{out}");
+}
+
+#[test]
+fn test_stat_tools_histogram() {
+    use hematite::tools::stat_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(stat_tools::execute(&json!({
+            "action": "histogram",
+            "numbers": [1,1,2,2,3,3,3,4,5,5],
+            "bins": 5
+        })))
+        .unwrap();
+    assert!(
+        out.contains("Histogram"),
+        "Expected Histogram header, got: {out}"
+    );
+    assert!(out.contains("bins=5"), "Expected bins count, got: {out}");
+}
+
+#[test]
+fn test_stat_tools_percentile() {
+    use hematite::tools::stat_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(stat_tools::execute(&json!({
+            "action": "percentile",
+            "numbers": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+            "p": [50, 90]
+        })))
+        .unwrap();
+    assert!(out.contains("p50"), "Expected p50, got: {out}");
+    assert!(out.contains("p90"), "Expected p90, got: {out}");
+}
+
+#[test]
+fn test_stat_tools_mode() {
+    use hematite::tools::stat_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(stat_tools::execute(&json!({
+            "action": "mode",
+            "numbers": [1, 2, 2, 3, 3, 3, 4]
+        })))
+        .unwrap();
+    assert!(out.contains("3"), "Expected mode 3, got: {out}");
+    assert!(out.contains("Unique values"), "{out}");
+}
+
+#[test]
+fn test_stat_tools_outliers_found() {
+    use hematite::tools::stat_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(stat_tools::execute(&json!({
+            "action": "outliers",
+            "numbers": [1, 2, 2, 3, 2, 2, 100],
+            "threshold": 2.0
+        })))
+        .unwrap();
+    assert!(
+        out.contains("outlier"),
+        "Expected outlier found, got: {out}"
+    );
+    assert!(
+        out.contains("100"),
+        "Expected outlier value 100, got: {out}"
+    );
+}
+
+#[test]
+fn test_stat_tools_outliers_none() {
+    use hematite::tools::stat_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(stat_tools::execute(&json!({
+            "action": "outliers",
+            "numbers": [5, 5, 5, 5, 5],
+            "threshold": 2.0
+        })))
+        .unwrap();
+    assert!(
+        out.contains("zero") || out.contains("No outliers") || out.contains("effectively zero"),
+        "Expected no outliers, got: {out}"
+    );
+}
+
+#[test]
+fn test_stat_tools_zscore() {
+    use hematite::tools::stat_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(stat_tools::execute(&json!({
+            "action": "zscore",
+            "numbers": [2, 4, 4, 4, 5, 5, 7, 9]
+        })))
+        .unwrap();
+    assert!(
+        out.contains("Z-Scores"),
+        "Expected Z-Scores header, got: {out}"
+    );
+    assert!(out.contains("z ="), "Expected z = values, got: {out}");
+}
+
+#[test]
+fn test_stat_tools_correlate() {
+    use hematite::tools::stat_tools;
+    use serde_json::json;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(stat_tools::execute(&json!({
+            "action": "correlate",
+            "a": [1, 2, 3, 4, 5],
+            "b": [2, 4, 6, 8, 10]
+        })))
+        .unwrap();
+    assert!(
+        out.contains("Pearson"),
+        "Expected Pearson correlation, got: {out}"
+    );
+    // Perfect linear correlation should be very close to 1.0
+    assert!(
+        out.contains("1.000000") || out.contains("strong positive"),
+        "Expected strong correlation, got: {out}"
+    );
+}
+
+#[test]
+fn test_routing_detects_stat_tools() {
+    use hematite::agent::routing::needs_stat_tools;
+    assert!(needs_stat_tools("descriptive statistics for this dataset"));
+    assert!(needs_stat_tools("find outliers in these numbers"));
+    assert!(needs_stat_tools("compute percentile of my data"));
+    assert!(needs_stat_tools("pearson correlation between two arrays"));
+    assert!(needs_stat_tools("compute mean and stddev"));
+    assert!(needs_stat_tools("show histogram of this data"));
+    assert!(!needs_stat_tools("list running processes"));
+    assert!(!needs_stat_tools("parse yaml file"));
+}

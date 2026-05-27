@@ -28,16 +28,16 @@ use crate::agent::recovery_recipes::{
 use crate::agent::routing::{
     all_host_inspection_topics, classify_query_intent, is_capability_probe_tool,
     is_scaffold_request, looks_like_mutation_request, needs_ansi_tools, needs_archive_tools,
-    needs_color_tools, needs_computation_sandbox, needs_crash_debug, needs_cron_tools,
-    needs_csv_tools, needs_date_tools, needs_diff_tools, needs_docker_ops, needs_dotenv_tools,
-    needs_duration_tools, needs_encode_tools, needs_format, needs_github_ops, needs_hash_tools,
-    needs_hex_tools, needs_http_request, needs_ini_tools, needs_ip_tools, needs_jwt_tools,
-    needs_line_tools, needs_lint_check, needs_markdown_tools, needs_number_tools,
+    needs_char_tools, needs_color_tools, needs_computation_sandbox, needs_crash_debug,
+    needs_cron_tools, needs_csv_tools, needs_date_tools, needs_diff_tools, needs_docker_ops,
+    needs_dotenv_tools, needs_duration_tools, needs_encode_tools, needs_format, needs_github_ops,
+    needs_hash_tools, needs_hex_tools, needs_http_request, needs_ini_tools, needs_ip_tools,
+    needs_jwt_tools, needs_line_tools, needs_lint_check, needs_markdown_tools, needs_number_tools,
     needs_password_gen, needs_path_tools, needs_regex_tools, needs_secret_scan, needs_semver_tools,
-    needs_sqlite_tools, needs_table_tools, needs_template_tools, needs_test_run, needs_text_tools,
-    needs_toml_tools, needs_url_tools, needs_uuid_gen, needs_xml_tools, needs_yaml_tools,
-    preferred_host_inspection_topic, preferred_maintainer_workflow, preferred_workspace_workflow,
-    DirectAnswerKind, QueryIntentClass,
+    needs_sqlite_tools, needs_stat_tools, needs_table_tools, needs_template_tools, needs_test_run,
+    needs_text_tools, needs_toml_tools, needs_url_tools, needs_uuid_gen, needs_xml_tools,
+    needs_yaml_tools, preferred_host_inspection_topic, preferred_maintainer_workflow,
+    preferred_workspace_workflow, DirectAnswerKind, QueryIntentClass,
 };
 use crate::agent::tool_registry::dispatch_builtin_tool;
 use crate::agent::truncation::safe_head;
@@ -5549,6 +5549,38 @@ impl ConversationManager {
                  Pass 'template' (or 'text'/'file') for the template string. Pass 'vars' as a JSON object of substitutions. \
                  Example: template_tools(action: \"render\", template: \"Hello {{NAME}}!\", vars: {\"NAME\": \"World\"}) or \
                  template_tools(action: \"list\", template: \"{{HOST}}:{{PORT|8080}}/{{PATH}}\")."
+                    .to_string(),
+            );
+        }
+
+        // ── Char Tools Routing: steer model toward char_tools ──
+        if loop_intervention.is_none() && needs_char_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "CHAR NOTICE: Use the `char_tools` tool for Unicode character inspection without external utilities. \
+                 Actions: info (default — full Unicode info for a char or string: codepoint, block, category, decimal/hex/octal/binary representations), \
+                 codepoint (char → U+XXXX or provide 'codepoint' number/U+XXXX string → char), \
+                 escape (escape non-printable or non-ASCII chars; 'style: unicode' for \\u{XXXXX} (default), 'json' for \\uXXXX, 'hex' for \\xXX), \
+                 unescape (decode \\u{XXXXX}, \\uXXXX, \\xXX sequences back to chars), \
+                 check (test character properties: is_ascii, is_alphabetic, is_numeric, is_alphanumeric, is_uppercase, is_lowercase, is_whitespace, is_control). \
+                 Pass 'input' or 'text' for string input. For codepoint action: pass 'codepoint' for reverse lookup."
+                    .to_string(),
+            );
+        }
+
+        // ── Stat Tools Routing: steer model toward stat_tools ──
+        if loop_intervention.is_none() && needs_stat_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "STAT NOTICE: Use the `stat_tools` tool for statistical analysis on number arrays without external utilities. \
+                 Actions: describe (default — count/sum/min/max/range/mean/median/stddev/variance/Q1/Q3/IQR), \
+                 histogram (ASCII bar chart; 'bins' for bin count, 'width' for bar width), \
+                 percentile (compute percentiles; 'p' for custom list like [25, 50, 75, 90, 99] or single value), \
+                 mode (most frequent values with frequency counts), \
+                 outliers (find values beyond N stddevs; 'threshold' for sigma cutoff (default 2.0); 'method: iqr' for IQR fences), \
+                 zscore (normalize each value to its z-score), \
+                 correlate (Pearson r between two series; pass 'a' and 'b' as arrays). \
+                 Pass 'numbers' as a JSON array or 'data' as a comma/newline-delimited string. \
+                 Example: stat_tools(action: \"describe\", numbers: [1, 2, 3, 4, 5]) or \
+                 stat_tools(action: \"outliers\", numbers: [...], threshold: 2.5)."
                     .to_string(),
             );
         }
