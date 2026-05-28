@@ -5683,6 +5683,31 @@ pub fn needs_http_request(user_input: &str) -> bool {
 }
 
 /// Returns true when the user's query is about Docker — steer toward `docker_ops`.
+pub fn needs_docker_compose_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "docker-compose.yml",
+            "docker-compose.yaml",
+            "compose.yml",
+            "compose.yaml",
+            "parse docker-compose",
+            "parse compose",
+            "docker compose services",
+            "services in docker-compose",
+            "docker compose ports",
+            "docker compose volumes",
+            "docker compose networks",
+            "compose file",
+            "explain docker-compose",
+            "validate docker-compose",
+            "docker compose env",
+            "compose service",
+        ],
+    )
+}
+
 pub fn needs_docker_ops(user_input: &str) -> bool {
     let lower = user_input.to_lowercase();
     let docker_noun = lower.contains("docker")
@@ -7111,6 +7136,29 @@ pub fn needs_license_tools(user_input: &str) -> bool {
             "permissive license",
             "license for my project",
             "which license",
+        ],
+    )
+}
+
+pub fn needs_ssh_config_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "ssh config",
+            "ssh_config",
+            "~/.ssh/config",
+            "ssh configuration",
+            "explain ssh config",
+            "parse ssh config",
+            "validate ssh config",
+            "ssh host alias",
+            "ssh host block",
+            "proxyjump",
+            "identityfile",
+            "stricthostkeychecking",
+            "ssh identityfile",
+            "ssh host options",
         ],
     )
 }

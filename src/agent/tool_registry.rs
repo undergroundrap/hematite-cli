@@ -1528,6 +1528,39 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         }),
     ));
     tools.push(make_tool(
+        "docker_compose_tools",
+        "Parse, inspect, and validate docker-compose.yml files without running Docker or external tools. \
+         Actions: services (default — all services with image, ports, restart policy, depends_on, volume/env counts), \
+         inspect (full detail for one service including command, entrypoint, healthcheck; pass 'service'), \
+         ports (all host:container port mappings across services with well-known port annotations), \
+         volumes (named top-level volumes + per-service bind mounts and named volume mounts), \
+         networks (defined networks with driver + service→network membership), \
+         env (environment variables per service with secrets redacted; optional 'service' filter), \
+         validate (check for missing image/build, undefined depends_on targets, privileged mode, host network mode). \
+         Pass the compose file content as 'text'. \
+         Example: docker_compose_tools(action: 'services', text: '...') or \
+         docker_compose_tools(action: 'inspect', text: '...', service: 'api') or \
+         docker_compose_tools(action: 'validate', text: '...').",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "services (default), inspect, ports, volumes, networks, env, validate"
+                },
+                "text": {
+                    "type": "string",
+                    "description": "docker-compose.yml content as a string. Also 'yaml'/'compose'/'content'/'input'."
+                },
+                "service": {
+                    "type": "string",
+                    "description": "Service name for 'inspect' action, or filter for 'env' action. Partial match supported."
+                }
+            },
+            "required": []
+        }),
+    ));
+    tools.push(make_tool(
         "json_tools",
         "Query, transform, and analyze JSON data without needing jq or external tools. \
          Provide JSON inline ('json' arg) or from a file ('file' arg). \
@@ -3802,6 +3835,37 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         }),
     ));
     tools.push(make_tool(
+        "ssh_config_tools",
+        "Parse, query, explain, and validate SSH config files (~/.ssh/config) without external utilities. \
+         Actions: list (default — summary of all Host blocks with HostName, User, Port, IdentityFile, and ProxyJump), \
+         get (all options for a named host; pass 'host' — partial match supported), \
+         explain (plain-English description of every option for all hosts or a filtered host; pass optional 'host'), \
+         validate (check for duplicate Host patterns, StrictHostKeyChecking=no security warnings, relative IdentityFile paths). \
+         Pass the config file content as 'text'. \
+         Example: ssh_config_tools(action: 'list', text: '...') or \
+         ssh_config_tools(action: 'get', text: '...', host: 'prod') or \
+         ssh_config_tools(action: 'explain', text: '...') or \
+         ssh_config_tools(action: 'validate', text: '...').",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "list (default), get, explain, validate"
+                },
+                "text": {
+                    "type": "string",
+                    "description": "SSH config file content as a string. Also 'config'/'content'/'input'."
+                },
+                "host": {
+                    "type": "string",
+                    "description": "Host pattern to look up (for 'get' and 'explain' actions). Partial match supported."
+                }
+            },
+            "required": []
+        }),
+    ));
+    tools.push(make_tool(
         "csp_tools",
         "Parse, explain, validate, and build Content Security Policy (CSP) headers without external utilities. \
          Actions: parse (default — break CSP into directives with per-source descriptions and unsafe flags), \
@@ -4243,6 +4307,7 @@ pub async fn dispatch_builtin_tool(
         "format_code" => crate::tools::formatter::execute(args).await,
         "http_request" => crate::tools::http_client::execute(args).await,
         "docker_ops" => crate::tools::docker_ops::execute(args).await,
+        "docker_compose_tools" => crate::tools::docker_compose_tools::execute(args).await,
         "secret_scanner" => crate::tools::secret_scanner::execute(args).await,
         "code_metrics" => crate::tools::code_metrics::execute(args).await,
         "dependency_audit" => crate::tools::dependency_audit::execute(args).await,
@@ -4301,6 +4366,7 @@ pub async fn dispatch_builtin_tool(
         "license_tools" => crate::tools::license_tools::execute(args).await,
         "make_tools" => crate::tools::make_tools::execute(args).await,
         "changelog_tools" => crate::tools::changelog_tools::execute(args).await,
+        "ssh_config_tools" => crate::tools::ssh_config_tools::execute(args).await,
         "git_status" => crate::tools::git::execute_status(args).await,
         "git_diff" => crate::tools::git::execute_diff(args).await,
         "git_log" => crate::tools::git::execute_log(args).await,

@@ -30,17 +30,18 @@ use crate::agent::routing::{
     is_scaffold_request, looks_like_mutation_request, needs_ansi_tools, needs_archive_tools,
     needs_changelog_tools, needs_char_tools, needs_color_tools, needs_computation_sandbox,
     needs_crash_debug, needs_cron_tools, needs_csp_tools, needs_csv_tools, needs_date_tools,
-    needs_diff_tools, needs_docker_ops, needs_dotenv_tools, needs_duration_tools,
-    needs_encode_tools, needs_format, needs_github_ops, needs_gitignore_tools, needs_glob_tools,
-    needs_hash_tools, needs_hex_tools, needs_http_request, needs_http_status_tools,
-    needs_ini_tools, needs_ip_tools, needs_jwt_tools, needs_keyval_tools, needs_license_tools,
-    needs_line_tools, needs_lint_check, needs_log_parse_tools, needs_make_tools,
-    needs_markdown_tools, needs_mime_tools, needs_money_tools, needs_net_lookup_tools,
-    needs_number_tools, needs_password_gen, needs_path_tools, needs_regex_tools,
-    needs_robots_txt_tools, needs_rss_tools, needs_secret_scan, needs_semver_tools,
-    needs_sitemap_tools, needs_size_tools, needs_sqlite_tools, needs_stat_tools, needs_table_tools,
-    needs_template_tools, needs_test_run, needs_text_tools, needs_token_tools, needs_toml_tools,
-    needs_url_tools, needs_uuid_gen, needs_validate_tools, needs_xml_tools, needs_yaml_tools,
+    needs_diff_tools, needs_docker_compose_tools, needs_docker_ops, needs_dotenv_tools,
+    needs_duration_tools, needs_encode_tools, needs_format, needs_github_ops,
+    needs_gitignore_tools, needs_glob_tools, needs_hash_tools, needs_hex_tools, needs_http_request,
+    needs_http_status_tools, needs_ini_tools, needs_ip_tools, needs_jwt_tools, needs_keyval_tools,
+    needs_license_tools, needs_line_tools, needs_lint_check, needs_log_parse_tools,
+    needs_make_tools, needs_markdown_tools, needs_mime_tools, needs_money_tools,
+    needs_net_lookup_tools, needs_number_tools, needs_password_gen, needs_path_tools,
+    needs_regex_tools, needs_robots_txt_tools, needs_rss_tools, needs_secret_scan,
+    needs_semver_tools, needs_sitemap_tools, needs_size_tools, needs_sqlite_tools,
+    needs_ssh_config_tools, needs_stat_tools, needs_table_tools, needs_template_tools,
+    needs_test_run, needs_text_tools, needs_token_tools, needs_toml_tools, needs_url_tools,
+    needs_uuid_gen, needs_validate_tools, needs_xml_tools, needs_yaml_tools,
     preferred_host_inspection_topic, preferred_maintainer_workflow, preferred_workspace_workflow,
     DirectAnswerKind, QueryIntentClass,
 };
@@ -5050,6 +5051,25 @@ impl ConversationManager {
             );
         }
 
+        // ── Docker Compose File Parsing: steer model toward docker_compose_tools ──
+        if loop_intervention.is_none() && needs_docker_compose_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "DOCKER COMPOSE NOTICE: Use the `docker_compose_tools` tool to parse and analyze docker-compose.yml files. \
+                 Actions: services (default — summary of all services with image, ports, restart, depends_on), \
+                 inspect (full detail for one service; pass 'service'), \
+                 ports (all host:container port mappings across services), \
+                 volumes (named volumes and bind mounts per service), \
+                 networks (network definitions and service membership), \
+                 env (environment variables per service; secrets redacted; optional 'service' filter), \
+                 validate (check for missing image/build, undefined depends_on targets, privileged mode). \
+                 Pass the compose file content as 'text'. \
+                 Example: docker_compose_tools(action: 'services', text: '...') or \
+                 docker_compose_tools(action: 'inspect', text: '...', service: 'api') or \
+                 docker_compose_tools(action: 'validate', text: '...')."
+                    .to_string(),
+            );
+        }
+
         // ── Docker Routing: steer model toward docker_ops instead of raw shell docker ──
         if loop_intervention.is_none() && needs_docker_ops(&effective_user_input) {
             loop_intervention = Some(
@@ -5850,6 +5870,21 @@ impl ConversationManager {
                  Example: changelog_tools(action: 'list', text: '...') or \
                  changelog_tools(action: 'get', text: '...', version: '1.2.0') or \
                  changelog_tools(action: 'latest', text: '...')."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_ssh_config_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "SSH CONFIG NOTICE: Use the `ssh_config_tools` tool to parse, query, explain, and validate ~/.ssh/config files. \
+                 Actions: list (default — summary of all host blocks with HostName/User/Port/IdentityFile/ProxyJump), \
+                 get (all options for a specific host; pass 'host'), \
+                 explain (plain-English explanation of every option; optional 'host' filter), \
+                 validate (check for duplicate patterns, StrictHostKeyChecking=no warnings, relative IdentityFile paths). \
+                 Pass the config content as 'text'. \
+                 Example: ssh_config_tools(action: 'list', text: '...') or \
+                 ssh_config_tools(action: 'get', text: '...', host: 'myserver') or \
+                 ssh_config_tools(action: 'explain', text: '...')."
                     .to_string(),
             );
         }

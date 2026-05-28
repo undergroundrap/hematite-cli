@@ -23062,3 +23062,275 @@ async fn test_changelog_routing() {
         "false positive on change log"
     );
 }
+
+// ── ssh_config_tools ────────────────────────────────────────────────────────
+
+#[tokio::test]
+async fn test_ssh_config_list() {
+    let config = "Host prod\n  HostName 10.0.0.1\n  User deploy\n  Port 2222\n  IdentityFile ~/.ssh/id_rsa\n\nHost dev\n  HostName 192.168.1.100\n  User root\n";
+    let args = serde_json::json!({"action": "list", "text": config});
+    let out = hematite::tools::ssh_config_tools::execute(&args)
+        .await
+        .unwrap();
+    assert!(out.contains("prod"), "should list prod host: {}", out);
+    assert!(out.contains("dev"), "should list dev host: {}", out);
+    assert!(out.contains("10.0.0.1"), "should show hostname: {}", out);
+    assert!(out.contains("2222"), "should show port: {}", out);
+}
+
+#[tokio::test]
+async fn test_ssh_config_get() {
+    let config =
+        "Host bastion\n  HostName bastion.example.com\n  User ec2-user\n  ProxyJump jumphost\n";
+    let args = serde_json::json!({"action": "get", "text": config, "host": "bastion"});
+    let out = hematite::tools::ssh_config_tools::execute(&args)
+        .await
+        .unwrap();
+    assert!(
+        out.contains("bastion.example.com"),
+        "should show hostname: {}",
+        out
+    );
+    assert!(out.contains("ec2-user"), "should show user: {}", out);
+    assert!(out.contains("jumphost"), "should show ProxyJump: {}", out);
+}
+
+#[tokio::test]
+async fn test_ssh_config_explain() {
+    let config = "Host server\n  Port 2222\n  IdentityFile ~/.ssh/key.pem\n  ForwardAgent yes\n  ServerAliveInterval 60\n";
+    let args = serde_json::json!({"action": "explain", "text": config});
+    let out = hematite::tools::ssh_config_tools::execute(&args)
+        .await
+        .unwrap();
+    assert!(out.contains("SSH port"), "should explain Port: {}", out);
+    assert!(
+        out.contains("Private key"),
+        "should explain IdentityFile: {}",
+        out
+    );
+    assert!(
+        out.contains("keepalive"),
+        "should explain ServerAliveInterval: {}",
+        out
+    );
+}
+
+#[tokio::test]
+async fn test_ssh_config_validate_warnings() {
+    let config = "Host unsafe\n  StrictHostKeyChecking no\n  IdentityFile relative_key\n";
+    let args = serde_json::json!({"action": "validate", "text": config});
+    let out = hematite::tools::ssh_config_tools::execute(&args)
+        .await
+        .unwrap();
+    assert!(out.contains("WARN"), "should warn on issues: {}", out);
+    assert!(
+        out.contains("StrictHostKeyChecking"),
+        "should flag StrictHostKeyChecking=no: {}",
+        out
+    );
+}
+
+#[tokio::test]
+async fn test_ssh_config_validate_clean() {
+    let config = "Host myserver\n  HostName 10.0.0.5\n  User admin\n  Port 22\n  IdentityFile ~/.ssh/id_ed25519\n";
+    let args = serde_json::json!({"action": "validate", "text": config});
+    let out = hematite::tools::ssh_config_tools::execute(&args)
+        .await
+        .unwrap();
+    assert!(
+        out.contains("VALID"),
+        "clean config should be valid: {}",
+        out
+    );
+    assert!(
+        !out.contains("[WARN]"),
+        "clean config should have no warnings: {}",
+        out
+    );
+}
+
+#[tokio::test]
+async fn test_ssh_config_routing() {
+    use hematite::agent::routing::needs_ssh_config_tools;
+    assert!(
+        needs_ssh_config_tools("explain my ssh config"),
+        "should detect ssh config"
+    );
+    assert!(
+        needs_ssh_config_tools("parse ~/.ssh/config"),
+        "should detect ~/.ssh/config"
+    );
+    assert!(
+        needs_ssh_config_tools("validate ssh configuration"),
+        "should detect ssh configuration"
+    );
+    assert!(
+        needs_ssh_config_tools("what does ProxyJump do in ssh config"),
+        "should detect proxyjump"
+    );
+    assert!(
+        !needs_ssh_config_tools("configure nginx server"),
+        "false positive on server config"
+    );
+}
+
+// ── docker_compose_tools ────────────────────────────────────────────────────
+
+static COMPOSE_YAML: &str = "
+version: \"3.8\"
+services:
+  api:
+    image: myapp:latest
+    ports:
+      - \"8080:80\"
+    environment:
+      - DB_HOST=db
+      - DB_PASSWORD=secret123
+    depends_on:
+      - db
+    restart: unless-stopped
+  db:
+    image: postgres:15
+    ports:
+      - \"5432:5432\"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    environment:
+      POSTGRES_PASSWORD: secret
+    restart: always
+  redis:
+    image: redis:7
+    ports:
+      - \"6379:6379\"
+    restart: always
+volumes:
+  pgdata:
+networks:
+  default:
+    driver: bridge
+";
+
+#[tokio::test]
+async fn test_docker_compose_services() {
+    let args = serde_json::json!({"action": "services", "text": COMPOSE_YAML});
+    let out = hematite::tools::docker_compose_tools::execute(&args)
+        .await
+        .unwrap();
+    assert!(out.contains("api"), "should list api service: {}", out);
+    assert!(out.contains("db"), "should list db service: {}", out);
+    assert!(out.contains("redis"), "should list redis service: {}", out);
+    assert!(out.contains("postgres:15"), "should show db image: {}", out);
+}
+
+#[tokio::test]
+async fn test_docker_compose_inspect() {
+    let args = serde_json::json!({"action": "inspect", "text": COMPOSE_YAML, "service": "api"});
+    let out = hematite::tools::docker_compose_tools::execute(&args)
+        .await
+        .unwrap();
+    assert!(out.contains("myapp:latest"), "should show image: {}", out);
+    assert!(out.contains("8080"), "should show port: {}", out);
+    assert!(out.contains("db"), "should show depends_on: {}", out);
+    assert!(
+        out.contains("unless-stopped"),
+        "should show restart: {}",
+        out
+    );
+}
+
+#[tokio::test]
+async fn test_docker_compose_ports() {
+    let args = serde_json::json!({"action": "ports", "text": COMPOSE_YAML});
+    let out = hematite::tools::docker_compose_tools::execute(&args)
+        .await
+        .unwrap();
+    assert!(out.contains("8080"), "should show api port: {}", out);
+    assert!(out.contains("5432"), "should show db port: {}", out);
+    assert!(out.contains("6379"), "should show redis port: {}", out);
+}
+
+#[tokio::test]
+async fn test_docker_compose_volumes() {
+    let args = serde_json::json!({"action": "volumes", "text": COMPOSE_YAML});
+    let out = hematite::tools::docker_compose_tools::execute(&args)
+        .await
+        .unwrap();
+    assert!(out.contains("pgdata"), "should show named volume: {}", out);
+}
+
+#[tokio::test]
+async fn test_docker_compose_env_redacts_secrets() {
+    let args = serde_json::json!({"action": "env", "text": COMPOSE_YAML, "service": "db"});
+    let out = hematite::tools::docker_compose_tools::execute(&args)
+        .await
+        .unwrap();
+    assert!(
+        out.contains("POSTGRES_PASSWORD"),
+        "should show key: {}",
+        out
+    );
+    assert!(
+        !out.contains("secret"),
+        "should redact secret value: {}",
+        out
+    );
+    assert!(out.contains("REDACTED"), "should show REDACTED: {}", out);
+}
+
+#[tokio::test]
+async fn test_docker_compose_networks() {
+    let args = serde_json::json!({"action": "networks", "text": COMPOSE_YAML});
+    let out = hematite::tools::docker_compose_tools::execute(&args)
+        .await
+        .unwrap();
+    assert!(out.contains("bridge"), "should show bridge driver: {}", out);
+}
+
+#[tokio::test]
+async fn test_docker_compose_validate_clean() {
+    let args = serde_json::json!({"action": "validate", "text": COMPOSE_YAML});
+    let out = hematite::tools::docker_compose_tools::execute(&args)
+        .await
+        .unwrap();
+    assert!(out.contains("VALID"), "should be valid: {}", out);
+}
+
+#[tokio::test]
+async fn test_docker_compose_validate_privileged_warning() {
+    let compose = "version: \"3\"\nservices:\n  app:\n    image: myapp\n    privileged: true\n    restart: always\n";
+    let args = serde_json::json!({"action": "validate", "text": compose});
+    let out = hematite::tools::docker_compose_tools::execute(&args)
+        .await
+        .unwrap();
+    assert!(out.contains("WARN"), "should warn on issues: {}", out);
+    assert!(
+        out.contains("privileged"),
+        "should warn on privileged mode: {}",
+        out
+    );
+}
+
+#[tokio::test]
+async fn test_docker_compose_routing() {
+    use hematite::agent::routing::needs_docker_compose_tools;
+    assert!(
+        needs_docker_compose_tools("parse docker-compose.yml"),
+        "should detect docker-compose.yml"
+    );
+    assert!(
+        needs_docker_compose_tools("what services are in my compose file"),
+        "should detect compose file"
+    );
+    assert!(
+        needs_docker_compose_tools("docker compose services"),
+        "should detect docker compose services"
+    );
+    assert!(
+        needs_docker_compose_tools("explain docker-compose.yaml"),
+        "should detect docker-compose.yaml"
+    );
+    assert!(
+        !needs_docker_compose_tools("run docker ps"),
+        "false positive on docker ps"
+    );
+}
