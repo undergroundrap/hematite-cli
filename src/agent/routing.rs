@@ -6986,6 +6986,53 @@ pub fn needs_mime_tools(user_input: &str) -> bool {
     )
 }
 
+pub fn needs_http_status_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "http status code",
+            "http status",
+            "what does http",
+            "http error code",
+            "status code meaning",
+            "what is a 404",
+            "what is a 500",
+            "what is a 200",
+            "what is a 422",
+            "what is a 429",
+            "http 4xx",
+            "http 5xx",
+            "http 2xx",
+            "http 3xx",
+            "list http codes",
+            "search http codes",
+        ],
+    )
+}
+
+pub fn needs_glob_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "glob pattern",
+            "test glob",
+            "glob match",
+            "glob filter",
+            "glob to regex",
+            "convert glob",
+            "explain glob",
+            "gitignore pattern",
+            "file pattern match",
+            "wildcard pattern",
+            "does this glob",
+            "filter paths with",
+            "match files with",
+        ],
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

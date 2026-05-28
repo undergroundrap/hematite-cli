@@ -31,15 +31,16 @@ use crate::agent::routing::{
     needs_char_tools, needs_color_tools, needs_computation_sandbox, needs_crash_debug,
     needs_cron_tools, needs_csv_tools, needs_date_tools, needs_diff_tools, needs_docker_ops,
     needs_dotenv_tools, needs_duration_tools, needs_encode_tools, needs_format, needs_github_ops,
-    needs_hash_tools, needs_hex_tools, needs_http_request, needs_ini_tools, needs_ip_tools,
-    needs_jwt_tools, needs_keyval_tools, needs_line_tools, needs_lint_check, needs_markdown_tools,
-    needs_mime_tools, needs_money_tools, needs_net_lookup_tools, needs_number_tools,
-    needs_password_gen, needs_path_tools, needs_regex_tools, needs_rss_tools, needs_secret_scan,
-    needs_semver_tools, needs_size_tools, needs_sqlite_tools, needs_stat_tools, needs_table_tools,
-    needs_template_tools, needs_test_run, needs_text_tools, needs_token_tools, needs_toml_tools,
-    needs_url_tools, needs_uuid_gen, needs_validate_tools, needs_xml_tools, needs_yaml_tools,
-    preferred_host_inspection_topic, preferred_maintainer_workflow, preferred_workspace_workflow,
-    DirectAnswerKind, QueryIntentClass,
+    needs_glob_tools, needs_hash_tools, needs_hex_tools, needs_http_request,
+    needs_http_status_tools, needs_ini_tools, needs_ip_tools, needs_jwt_tools, needs_keyval_tools,
+    needs_line_tools, needs_lint_check, needs_markdown_tools, needs_mime_tools, needs_money_tools,
+    needs_net_lookup_tools, needs_number_tools, needs_password_gen, needs_path_tools,
+    needs_regex_tools, needs_rss_tools, needs_secret_scan, needs_semver_tools, needs_size_tools,
+    needs_sqlite_tools, needs_stat_tools, needs_table_tools, needs_template_tools, needs_test_run,
+    needs_text_tools, needs_token_tools, needs_toml_tools, needs_url_tools, needs_uuid_gen,
+    needs_validate_tools, needs_xml_tools, needs_yaml_tools, preferred_host_inspection_topic,
+    preferred_maintainer_workflow, preferred_workspace_workflow, DirectAnswerKind,
+    QueryIntentClass,
 };
 use crate::agent::tool_registry::dispatch_builtin_tool;
 use crate::agent::truncation::safe_head;
@@ -5706,6 +5707,34 @@ impl ConversationManager {
                  Example: mime_tools(action: 'from_ext', ext: 'pdf') or \
                  mime_tools(action: 'search', query: 'audio') or \
                  mime_tools(action: 'category', category: 'image')."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_http_status_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "HTTP STATUS NOTICE: Use the `http_status_tools` tool to look up HTTP status codes without external utilities. \
+                 Actions: lookup (default — code number to reason and description; pass 'code' like 404), \
+                 search (keyword search in reason and description; pass 'query'), \
+                 category (list codes in a category — 1xx/2xx/3xx/4xx/5xx; omit for summary), \
+                 list (all codes or filtered by 'category'). \
+                 Example: http_status_tools(action: 'lookup', code: 429) or \
+                 http_status_tools(action: 'category', category: '4xx') or \
+                 http_status_tools(action: 'search', query: 'redirect')."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_glob_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "GLOB NOTICE: Use the `glob_tools` tool to test, filter, explain, and convert glob patterns without external utilities. \
+                 Actions: match (test if a single path matches a pattern; pass 'pattern' and 'path'), \
+                 filter (filter a list of paths; pass 'pattern' and 'paths' as array or newline string), \
+                 explain (tokenize and describe each component of a pattern; pass 'pattern'), \
+                 convert (show the equivalent regex; pass 'pattern'). \
+                 Glob syntax: ** matches any depth, * matches one segment, ? matches one char, [!abc] negates. \
+                 Example: glob_tools(action: 'match', pattern: '**/*.rs', path: 'src/tools/mod.rs') or \
+                 glob_tools(action: 'explain', pattern: 'src/**/*.{ts,tsx}')."
                     .to_string(),
             );
         }

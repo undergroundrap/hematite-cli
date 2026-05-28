@@ -22021,3 +22021,213 @@ fn test_routing_detects_mime_tools() {
     assert!(needs_mime_tools("look up mime for .js"));
     assert!(!needs_mime_tools("list all processes running"));
 }
+
+// â”€â”€ http_status_tools â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+#[tokio::test]
+async fn test_http_status_lookup_known() {
+    let args = serde_json::json!({"action": "lookup", "code": 404});
+    let out = hematite::tools::http_status_tools::execute(&args)
+        .await
+        .unwrap();
+    assert!(
+        out.contains("Not Found"),
+        "expected Not Found in 404 output: {}",
+        out
+    );
+    assert!(out.contains("4xx"), "expected 4xx category: {}", out);
+}
+
+#[tokio::test]
+async fn test_http_status_lookup_as_string() {
+    let args = serde_json::json!({"code": "200"});
+    let out = hematite::tools::http_status_tools::execute(&args)
+        .await
+        .unwrap();
+    assert!(
+        out.contains("OK") || out.contains("200"),
+        "expected OK in 200 output: {}",
+        out
+    );
+}
+
+#[tokio::test]
+async fn test_http_status_lookup_unknown() {
+    let args = serde_json::json!({"action": "lookup", "code": 999});
+    let out = hematite::tools::http_status_tools::execute(&args)
+        .await
+        .unwrap();
+    assert!(
+        out.contains("not a registered"),
+        "expected not registered: {}",
+        out
+    );
+}
+
+#[tokio::test]
+async fn test_http_status_search() {
+    let args = serde_json::json!({"action": "search", "query": "redirect"});
+    let out = hematite::tools::http_status_tools::execute(&args)
+        .await
+        .unwrap();
+    assert!(
+        out.contains("301") || out.contains("302") || out.contains("Redirect"),
+        "expected redirect codes: {}",
+        out
+    );
+}
+
+#[tokio::test]
+async fn test_http_status_category_summary() {
+    let args = serde_json::json!({"action": "category"});
+    let out = hematite::tools::http_status_tools::execute(&args)
+        .await
+        .unwrap();
+    assert!(
+        out.contains("1xx") && out.contains("5xx"),
+        "expected category summary: {}",
+        out
+    );
+}
+
+#[tokio::test]
+async fn test_http_status_category_4xx() {
+    let args = serde_json::json!({"action": "category", "category": "4xx"});
+    let out = hematite::tools::http_status_tools::execute(&args)
+        .await
+        .unwrap();
+    assert!(out.contains("404"), "expected 404 in 4xx listing: {}", out);
+    assert!(
+        !out.contains("500"),
+        "5xx should not appear in 4xx listing: {}",
+        out
+    );
+}
+
+#[tokio::test]
+async fn test_http_status_list_all() {
+    let args = serde_json::json!({"action": "list"});
+    let out = hematite::tools::http_status_tools::execute(&args)
+        .await
+        .unwrap();
+    assert!(
+        out.contains("200") && out.contains("404") && out.contains("500"),
+        "list should include all categories: {}",
+        out
+    );
+}
+
+// â”€â”€ glob_tools â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+#[tokio::test]
+async fn test_glob_match_true() {
+    let args =
+        serde_json::json!({"action": "match", "pattern": "**/*.rs", "path": "src/tools/mod.rs"});
+    let out = hematite::tools::glob_tools::execute(&args).await.unwrap();
+    assert!(out.contains("MATCH"), "expected MATCH: {}", out);
+}
+
+#[tokio::test]
+async fn test_glob_match_false() {
+    let args =
+        serde_json::json!({"action": "match", "pattern": "src/*.rs", "path": "src/tools/mod.rs"});
+    let out = hematite::tools::glob_tools::execute(&args).await.unwrap();
+    assert!(
+        out.contains("NO MATCH"),
+        "expected NO MATCH for nested path with single-star: {}",
+        out
+    );
+}
+
+#[tokio::test]
+async fn test_glob_filter() {
+    let args = serde_json::json!({
+        "action": "filter",
+        "pattern": "**/*.ts",
+        "paths": ["src/index.ts", "src/utils.rs", "tests/app.ts", "README.md"]
+    });
+    let out = hematite::tools::glob_tools::execute(&args).await.unwrap();
+    assert!(
+        out.contains("src/index.ts"),
+        "ts file should match: {}",
+        out
+    );
+    assert!(
+        out.contains("tests/app.ts"),
+        "ts file should match: {}",
+        out
+    );
+    assert!(
+        !out.contains("utils.rs"),
+        "rs file should not match: {}",
+        out
+    );
+}
+
+#[tokio::test]
+async fn test_glob_explain() {
+    let args = serde_json::json!({"action": "explain", "pattern": "src/**/*.rs"});
+    let out = hematite::tools::glob_tools::execute(&args).await.unwrap();
+    assert!(
+        out.contains("globstar") || out.contains("any path"),
+        "expected globstar description: {}",
+        out
+    );
+    assert!(
+        out.contains("regex") || out.contains("Regex"),
+        "expected regex in output: {}",
+        out
+    );
+}
+
+#[tokio::test]
+async fn test_glob_convert() {
+    let args = serde_json::json!({"action": "convert", "pattern": "**/*.json"});
+    let out = hematite::tools::glob_tools::execute(&args).await.unwrap();
+    assert!(
+        out.contains("^") && out.contains("$"),
+        "regex should be anchored: {}",
+        out
+    );
+    assert!(out.contains(".*"), "** should become .* in regex: {}", out);
+}
+
+#[tokio::test]
+async fn test_glob_routing_match() {
+    use hematite::agent::routing::needs_glob_tools;
+    assert!(
+        needs_glob_tools("test this glob pattern"),
+        "should detect glob pattern"
+    );
+    assert!(
+        needs_glob_tools("does this glob match"),
+        "should detect glob match"
+    );
+    assert!(
+        needs_glob_tools("convert glob to regex"),
+        "should detect convert glob"
+    );
+    assert!(
+        !needs_glob_tools("list files in directory"),
+        "false positive on list files"
+    );
+}
+
+#[tokio::test]
+async fn test_http_status_routing() {
+    use hematite::agent::routing::needs_http_status_tools;
+    assert!(
+        needs_http_status_tools("what does http status code 404 mean"),
+        "should detect http status code"
+    );
+    assert!(
+        needs_http_status_tools("http status 429 too many requests"),
+        "should detect http status"
+    );
+    assert!(
+        needs_http_status_tools("list http codes in 4xx category"),
+        "should detect list http codes"
+    );
+    assert!(
+        !needs_http_status_tools("make a get request to the api"),
+        "false positive on http request"
+    );
+}

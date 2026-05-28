@@ -3554,6 +3554,74 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         }),
     ));
     tools.push(make_tool(
+        "http_status_tools",
+        "Look up, search, and list HTTP status codes — 65 standard codes across all 5 categories, no external utilities. \
+         Actions: lookup (default — code number to reason phrase and description; pass 'code' like 404 or '404'), \
+         search (keyword search in reason and description; pass 'query'), \
+         category (list codes in a category — 1xx/2xx/3xx/4xx/5xx; omit 'category' for a summary with counts), \
+         list (all codes or filtered by 'category'). \
+         Example: http_status_tools(action: 'lookup', code: 429) or \
+         http_status_tools(action: 'category', category: '4xx') or \
+         http_status_tools(action: 'search', query: 'redirect').",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "lookup (default), search, category, list"
+                },
+                "code": {
+                    "type": ["integer", "string"],
+                    "description": "HTTP status code number for lookup action — e.g. 404 or '404'. Also 'status'."
+                },
+                "query": {
+                    "type": "string",
+                    "description": "Search term for the search action — e.g. 'redirect' or 'rate limit'. Also 'q'."
+                },
+                "category": {
+                    "type": "string",
+                    "description": "Category for category/list actions: 1xx, 2xx, 3xx, 4xx, 5xx. Omit for summary."
+                }
+            },
+            "required": []
+        }),
+    ));
+    tools.push(make_tool(
+        "glob_tools",
+        "Test, filter, explain, and convert glob patterns without external utilities. \
+         Actions: match (test if a single path matches; pass 'pattern' and 'path'), \
+         filter (filter a list of paths; pass 'pattern' and 'paths' as JSON array or newline string), \
+         explain (tokenize and describe each component of the pattern; pass 'pattern'), \
+         convert (show the equivalent regex; pass 'pattern'). \
+         Glob syntax: ** matches any depth including separators, * matches a single segment, \
+         ? matches one character, [abc] character class, [!abc] negated class. \
+         Example: glob_tools(action: 'match', pattern: '**/*.rs', path: 'src/tools/mod.rs') or \
+         glob_tools(action: 'filter', pattern: 'src/**/*.ts', paths: ['src/index.ts', 'tests/x.ts']) or \
+         glob_tools(action: 'explain', pattern: '**/*.{ts,tsx}').",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "match, filter, explain (default), convert"
+                },
+                "pattern": {
+                    "type": "string",
+                    "description": "Glob pattern to test or explain — e.g. '**/*.rs', 'src/[!_]*.ts'. Also 'glob'/'pat'."
+                },
+                "path": {
+                    "type": "string",
+                    "description": "Single path to test against the pattern (for match action). Also 'input'."
+                },
+                "paths": {
+                    "type": ["array", "string"],
+                    "description": "Array of paths or newline-delimited string of paths to filter (for filter action). Also 'list'."
+                }
+            },
+            "required": []
+        }),
+    ));
+    tools.push(make_tool(
         "hex_tools",
         "Hex dump, binary analysis, and hex encoding/decoding without external utilities. \
          Actions: \
@@ -3941,6 +4009,8 @@ pub async fn dispatch_builtin_tool(
         "validate_tools" => crate::tools::validate_tools::execute(args).await,
         "token_tools" => crate::tools::token_tools::execute(args).await,
         "mime_tools" => crate::tools::mime_tools::execute(args).await,
+        "http_status_tools" => crate::tools::http_status_tools::execute(args).await,
+        "glob_tools" => crate::tools::glob_tools::execute(args).await,
         "git_status" => crate::tools::git::execute_status(args).await,
         "git_diff" => crate::tools::git::execute_diff(args).await,
         "git_log" => crate::tools::git::execute_log(args).await,
