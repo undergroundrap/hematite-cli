@@ -22666,3 +22666,226 @@ async fn test_sitemap_routing() {
         "false positive on robots.txt"
     );
 }
+
+// ── gitignore_tools ───────────────────────────────────────────────────────────
+
+#[tokio::test]
+async fn test_gitignore_parse() {
+    let gi = "# Build\ntarget/\n*.log\n\n# IDE\n.idea/\n.vscode/\n";
+    let args = serde_json::json!({"action": "parse", "text": gi});
+    let out = hematite::tools::gitignore_tools::execute(&args)
+        .await
+        .unwrap();
+    assert!(
+        out.contains("target/"),
+        "should list target pattern: {}",
+        out
+    );
+    assert!(out.contains("*.log"), "should list log pattern: {}", out);
+    assert!(out.contains(".idea/"), "should list IDE pattern: {}", out);
+}
+
+#[tokio::test]
+async fn test_gitignore_check_ignored() {
+    let gi = "target/\n*.log\ndist/\n";
+    let args = serde_json::json!({"action": "check", "text": gi, "path": "dist/bundle.js"});
+    let out = hematite::tools::gitignore_tools::execute(&args)
+        .await
+        .unwrap();
+    assert!(
+        out.contains("IGNORED"),
+        "dist/bundle.js should be ignored: {}",
+        out
+    );
+}
+
+#[tokio::test]
+async fn test_gitignore_check_not_ignored() {
+    let gi = "target/\n*.log\n";
+    let args = serde_json::json!({"action": "check", "text": gi, "path": "src/main.rs"});
+    let out = hematite::tools::gitignore_tools::execute(&args)
+        .await
+        .unwrap();
+    assert!(
+        out.contains("NOT IGNORED"),
+        "src/main.rs should not be ignored: {}",
+        out
+    );
+}
+
+#[tokio::test]
+async fn test_gitignore_generate_rust() {
+    let args = serde_json::json!({"action": "generate", "language": "rust"});
+    let out = hematite::tools::gitignore_tools::execute(&args)
+        .await
+        .unwrap();
+    assert!(
+        out.contains("/target/"),
+        "Rust gitignore should include /target/: {}",
+        out
+    );
+    assert!(out.contains("Rust"), "should label as Rust: {}", out);
+}
+
+#[tokio::test]
+async fn test_gitignore_generate_node() {
+    let args = serde_json::json!({"action": "generate", "language": "node"});
+    let out = hematite::tools::gitignore_tools::execute(&args)
+        .await
+        .unwrap();
+    assert!(
+        out.contains("node_modules/"),
+        "Node gitignore should include node_modules: {}",
+        out
+    );
+    assert!(
+        out.contains(".env"),
+        "Node gitignore should include .env: {}",
+        out
+    );
+}
+
+#[tokio::test]
+async fn test_gitignore_routing() {
+    use hematite::agent::routing::needs_gitignore_tools;
+    assert!(
+        needs_gitignore_tools("check if this file is in .gitignore"),
+        "should detect .gitignore"
+    );
+    assert!(
+        needs_gitignore_tools("generate a gitignore for python"),
+        "should detect generate gitignore"
+    );
+    assert!(
+        needs_gitignore_tools("explain this gitignore pattern"),
+        "should detect gitignore pattern"
+    );
+    assert!(
+        needs_gitignore_tools("is this file ignored by git"),
+        "should detect ignored by git"
+    );
+    assert!(
+        !needs_gitignore_tools("git status check"),
+        "false positive on git status"
+    );
+}
+
+// ── license_tools ─────────────────────────────────────────────────────────────
+
+#[tokio::test]
+async fn test_license_info_mit() {
+    let args = serde_json::json!({"action": "info", "license": "MIT"});
+    let out = hematite::tools::license_tools::execute(&args)
+        .await
+        .unwrap();
+    assert!(out.contains("MIT"), "should show MIT: {}", out);
+    assert!(
+        out.contains("Permissive"),
+        "MIT should be Permissive: {}",
+        out
+    );
+    assert!(
+        out.contains("Commercial use"),
+        "MIT should allow commercial use: {}",
+        out
+    );
+}
+
+#[tokio::test]
+async fn test_license_info_gpl() {
+    let args = serde_json::json!({"action": "info", "license": "GPL-3.0"});
+    let out = hematite::tools::license_tools::execute(&args)
+        .await
+        .unwrap();
+    assert!(
+        out.contains("GPL") || out.contains("Copyleft"),
+        "GPL should show copyleft: {}",
+        out
+    );
+    assert!(
+        out.contains("Source code disclosure") || out.contains("copyleft"),
+        "GPL should mention source disclosure: {}",
+        out
+    );
+}
+
+#[tokio::test]
+async fn test_license_detect() {
+    let text = "MIT License\nCopyright (c) 2024\nPermission is hereby granted, free of charge, to any person obtaining a copy";
+    let args = serde_json::json!({"action": "detect", "text": text});
+    let out = hematite::tools::license_tools::execute(&args)
+        .await
+        .unwrap();
+    assert!(out.contains("MIT"), "should detect MIT license: {}", out);
+}
+
+#[tokio::test]
+async fn test_license_compare() {
+    let args = serde_json::json!({"action": "compare", "a": "MIT", "b": "GPL-3.0"});
+    let out = hematite::tools::license_tools::execute(&args)
+        .await
+        .unwrap();
+    assert!(
+        out.contains("MIT"),
+        "should show MIT in comparison: {}",
+        out
+    );
+    assert!(
+        out.contains("GPL"),
+        "should show GPL in comparison: {}",
+        out
+    );
+    assert!(
+        out.contains("Copyleft"),
+        "should compare copyleft property: {}",
+        out
+    );
+}
+
+#[tokio::test]
+async fn test_license_list() {
+    let args = serde_json::json!({"action": "list"});
+    let out = hematite::tools::license_tools::execute(&args)
+        .await
+        .unwrap();
+    assert!(out.contains("MIT"), "list should include MIT: {}", out);
+    assert!(
+        out.contains("Apache-2.0"),
+        "list should include Apache-2.0: {}",
+        out
+    );
+    assert!(
+        out.contains("Permissive"),
+        "list should show Permissive category: {}",
+        out
+    );
+}
+
+#[tokio::test]
+async fn test_license_routing() {
+    use hematite::agent::routing::needs_license_tools;
+    assert!(
+        needs_license_tools("what is the MIT license"),
+        "should detect MIT license"
+    );
+    assert!(
+        needs_license_tools("compare open source licenses"),
+        "should detect license comparison"
+    );
+    assert!(
+        needs_license_tools("detect this software license"),
+        "should detect license detection"
+    );
+    assert!(
+        needs_license_tools("is this copyleft"),
+        "should detect copyleft"
+    );
+    assert!(
+        needs_license_tools("what spdx id is this"),
+        "should detect SPDX"
+    );
+    assert!(
+        !needs_license_tools("license plate lookup"),
+        "false positive on license plate"
+    );
+}

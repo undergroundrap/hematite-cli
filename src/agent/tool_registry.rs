@@ -3668,6 +3668,82 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         }),
     ));
     tools.push(make_tool(
+        "gitignore_tools",
+        "Parse, check path inclusion, generate, and explain .gitignore files without external utilities. \
+         Actions: parse (default — list all patterns grouped by comment sections with pattern/negation/dir-only counts), \
+         check (test if a file path is IGNORED or NOT IGNORED; pass 'path' and 'text'), \
+         generate (produce a standard .gitignore for a language; pass 'language': rust/node/python/go/java/dotnet/react/docker), \
+         explain (plain-English description of each pattern — scope, glob semantics, negation, directory-only). \
+         Example: gitignore_tools(action: 'check', text: '...', path: 'dist/bundle.js') or \
+         gitignore_tools(action: 'generate', language: 'node') or \
+         gitignore_tools(action: 'explain', text: '...').",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "parse (default), check, generate, explain"
+                },
+                "text": {
+                    "type": "string",
+                    "description": ".gitignore content as a string. Also 'gitignore'/'content'/'input'."
+                },
+                "path": {
+                    "type": "string",
+                    "description": "File path to test in the 'check' action (e.g. 'dist/bundle.js'). Also 'file'."
+                },
+                "language": {
+                    "type": "string",
+                    "description": "Language/framework for the 'generate' action: rust, node, python, go, java, dotnet, react, docker. Also 'lang'."
+                }
+            },
+            "required": []
+        }),
+    ));
+    tools.push(make_tool(
+        "license_tools",
+        "Look up, detect, compare, and list software licenses without external utilities. \
+         Covers 14 SPDX licenses: MIT, Apache-2.0, GPL-2.0, GPL-3.0, LGPL-2.1, LGPL-3.0, MPL-2.0, AGPL-3.0, BSD-2-Clause, BSD-3-Clause, ISC, Unlicense, CC0-1.0, EUPL-1.2. \
+         Actions: info (default — full license detail: SPDX ID, category, copyleft, patent grant, commercial use, sublicensing, conditions, permissions, limitations; pass 'license'), \
+         detect (identify license from raw license file text; pass 'text'), \
+         compare (side-by-side property comparison of two licenses; pass 'a' and 'b'), \
+         list (all licenses grouped by category — Permissive/Weak Copyleft/Strong Copyleft/Public Domain; optional 'category' filter). \
+         Example: license_tools(action: 'info', license: 'MIT') or \
+         license_tools(action: 'compare', a: 'MIT', b: 'GPL-3.0') or \
+         license_tools(action: 'detect', text: 'MIT License...') or \
+         license_tools(action: 'list', category: 'permissive').",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "info (default), detect, compare, list"
+                },
+                "license": {
+                    "type": "string",
+                    "description": "License name or SPDX ID for the 'info' action (e.g. 'MIT', 'Apache-2.0', 'gpl'). Also 'id'/'name'."
+                },
+                "text": {
+                    "type": "string",
+                    "description": "License file content for the 'detect' action. Also 'content'."
+                },
+                "a": {
+                    "type": "string",
+                    "description": "First license for the 'compare' action (SPDX ID or name)."
+                },
+                "b": {
+                    "type": "string",
+                    "description": "Second license for the 'compare' action (SPDX ID or name)."
+                },
+                "category": {
+                    "type": "string",
+                    "description": "Category filter for the 'list' action: permissive, copyleft, public domain. Also 'filter'."
+                }
+            },
+            "required": []
+        }),
+    ));
+    tools.push(make_tool(
         "csp_tools",
         "Parse, explain, validate, and build Content Security Policy (CSP) headers without external utilities. \
          Actions: parse (default — break CSP into directives with per-source descriptions and unsafe flags), \
@@ -4163,6 +4239,8 @@ pub async fn dispatch_builtin_tool(
         "csp_tools" => crate::tools::csp_tools::execute(args).await,
         "robots_txt_tools" => crate::tools::robots_txt_tools::execute(args).await,
         "sitemap_tools" => crate::tools::sitemap_tools::execute(args).await,
+        "gitignore_tools" => crate::tools::gitignore_tools::execute(args).await,
+        "license_tools" => crate::tools::license_tools::execute(args).await,
         "git_status" => crate::tools::git::execute_status(args).await,
         "git_diff" => crate::tools::git::execute_diff(args).await,
         "git_log" => crate::tools::git::execute_log(args).await,

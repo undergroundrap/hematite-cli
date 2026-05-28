@@ -31,15 +31,16 @@ use crate::agent::routing::{
     needs_char_tools, needs_color_tools, needs_computation_sandbox, needs_crash_debug,
     needs_cron_tools, needs_csp_tools, needs_csv_tools, needs_date_tools, needs_diff_tools,
     needs_docker_ops, needs_dotenv_tools, needs_duration_tools, needs_encode_tools, needs_format,
-    needs_github_ops, needs_glob_tools, needs_hash_tools, needs_hex_tools, needs_http_request,
-    needs_http_status_tools, needs_ini_tools, needs_ip_tools, needs_jwt_tools, needs_keyval_tools,
-    needs_line_tools, needs_lint_check, needs_log_parse_tools, needs_markdown_tools,
-    needs_mime_tools, needs_money_tools, needs_net_lookup_tools, needs_number_tools,
-    needs_password_gen, needs_path_tools, needs_regex_tools, needs_robots_txt_tools,
-    needs_rss_tools, needs_secret_scan, needs_semver_tools, needs_sitemap_tools, needs_size_tools,
-    needs_sqlite_tools, needs_stat_tools, needs_table_tools, needs_template_tools, needs_test_run,
-    needs_text_tools, needs_token_tools, needs_toml_tools, needs_url_tools, needs_uuid_gen,
-    needs_validate_tools, needs_xml_tools, needs_yaml_tools, preferred_host_inspection_topic,
+    needs_github_ops, needs_gitignore_tools, needs_glob_tools, needs_hash_tools, needs_hex_tools,
+    needs_http_request, needs_http_status_tools, needs_ini_tools, needs_ip_tools, needs_jwt_tools,
+    needs_keyval_tools, needs_license_tools, needs_line_tools, needs_lint_check,
+    needs_log_parse_tools, needs_markdown_tools, needs_mime_tools, needs_money_tools,
+    needs_net_lookup_tools, needs_number_tools, needs_password_gen, needs_path_tools,
+    needs_regex_tools, needs_robots_txt_tools, needs_rss_tools, needs_secret_scan,
+    needs_semver_tools, needs_sitemap_tools, needs_size_tools, needs_sqlite_tools,
+    needs_stat_tools, needs_table_tools, needs_template_tools, needs_test_run, needs_text_tools,
+    needs_token_tools, needs_toml_tools, needs_url_tools, needs_uuid_gen, needs_validate_tools,
+    needs_xml_tools, needs_yaml_tools, preferred_host_inspection_topic,
     preferred_maintainer_workflow, preferred_workspace_workflow, DirectAnswerKind,
     QueryIntentClass,
 };
@@ -5793,6 +5794,34 @@ impl ConversationManager {
                  Example: sitemap_tools(action: 'parse', xml: '...') or \
                  sitemap_tools(action: 'search', xml: '...', query: '/blog/') or \
                  sitemap_tools(action: 'stats', xml: '...')."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_gitignore_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "GITIGNORE NOTICE: Use the `gitignore_tools` tool to parse, check, generate, and explain .gitignore files. \
+                 Actions: parse (default — list all patterns grouped by comment sections with counts), \
+                 check (test if a file path is IGNORED or NOT IGNORED; pass 'path'), \
+                 generate (produce a standard .gitignore for a language; pass 'language': rust/node/python/go/java/dotnet/react/docker), \
+                 explain (plain-English description of each pattern — scope, glob semantics, negation). \
+                 Example: gitignore_tools(action: 'check', text: '...', path: 'dist/bundle.js') or \
+                 gitignore_tools(action: 'generate', language: 'rust')."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_license_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "LICENSE NOTICE: Use the `license_tools` tool to look up, detect, compare, and list software licenses. \
+                 Actions: info (default — full details for a named license: SPDX ID, category, copyleft, patent grant, conditions, permissions, limitations; pass 'license'), \
+                 detect (identify the license from file text; pass 'text'), \
+                 compare (side-by-side comparison of two licenses; pass 'a' and 'b'), \
+                 list (all 14 supported licenses grouped by category; optional 'category' filter). \
+                 Supports: MIT, Apache-2.0, GPL-2.0, GPL-3.0, LGPL-2.1, LGPL-3.0, MPL-2.0, AGPL-3.0, BSD-2-Clause, BSD-3-Clause, ISC, Unlicense, CC0-1.0, EUPL-1.2. \
+                 Example: license_tools(action: 'info', license: 'MIT') or \
+                 license_tools(action: 'compare', a: 'MIT', b: 'GPL-3.0') or \
+                 license_tools(action: 'detect', text: '...')."
                     .to_string(),
             );
         }

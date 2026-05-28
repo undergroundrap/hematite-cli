@@ -7026,6 +7026,53 @@ pub fn needs_sitemap_tools(user_input: &str) -> bool {
     )
 }
 
+pub fn needs_gitignore_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            ".gitignore",
+            "gitignore",
+            "check gitignore",
+            "is this file ignored",
+            "git ignore pattern",
+            "ignored by git",
+            "generate gitignore",
+            "gitignore for",
+            "gitignore pattern",
+            "explain gitignore",
+            "parse gitignore",
+            "validate gitignore",
+        ],
+    )
+}
+
+pub fn needs_license_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "software license",
+            "open source license",
+            "license info",
+            "license comparison",
+            "compare licenses",
+            "mit license",
+            "apache license",
+            "gpl license",
+            "detect license",
+            "identify license",
+            "what license",
+            "license file",
+            "spdx",
+            "copyleft",
+            "permissive license",
+            "license for my project",
+            "which license",
+        ],
+    )
+}
+
 pub fn needs_log_parse_tools(user_input: &str) -> bool {
     let lower = user_input.to_lowercase();
     contains_any(
