@@ -28,21 +28,21 @@ use crate::agent::recovery_recipes::{
 use crate::agent::routing::{
     all_host_inspection_topics, classify_query_intent, is_capability_probe_tool,
     is_scaffold_request, looks_like_mutation_request, needs_ansi_tools, needs_archive_tools,
-    needs_char_tools, needs_color_tools, needs_computation_sandbox, needs_crash_debug,
-    needs_cron_tools, needs_csp_tools, needs_csv_tools, needs_date_tools, needs_diff_tools,
-    needs_docker_ops, needs_dotenv_tools, needs_duration_tools, needs_encode_tools, needs_format,
-    needs_github_ops, needs_gitignore_tools, needs_glob_tools, needs_hash_tools, needs_hex_tools,
-    needs_http_request, needs_http_status_tools, needs_ini_tools, needs_ip_tools, needs_jwt_tools,
-    needs_keyval_tools, needs_license_tools, needs_line_tools, needs_lint_check,
-    needs_log_parse_tools, needs_markdown_tools, needs_mime_tools, needs_money_tools,
-    needs_net_lookup_tools, needs_number_tools, needs_password_gen, needs_path_tools,
-    needs_regex_tools, needs_robots_txt_tools, needs_rss_tools, needs_secret_scan,
-    needs_semver_tools, needs_sitemap_tools, needs_size_tools, needs_sqlite_tools,
-    needs_stat_tools, needs_table_tools, needs_template_tools, needs_test_run, needs_text_tools,
-    needs_token_tools, needs_toml_tools, needs_url_tools, needs_uuid_gen, needs_validate_tools,
-    needs_xml_tools, needs_yaml_tools, preferred_host_inspection_topic,
-    preferred_maintainer_workflow, preferred_workspace_workflow, DirectAnswerKind,
-    QueryIntentClass,
+    needs_changelog_tools, needs_char_tools, needs_color_tools, needs_computation_sandbox,
+    needs_crash_debug, needs_cron_tools, needs_csp_tools, needs_csv_tools, needs_date_tools,
+    needs_diff_tools, needs_docker_ops, needs_dotenv_tools, needs_duration_tools,
+    needs_encode_tools, needs_format, needs_github_ops, needs_gitignore_tools, needs_glob_tools,
+    needs_hash_tools, needs_hex_tools, needs_http_request, needs_http_status_tools,
+    needs_ini_tools, needs_ip_tools, needs_jwt_tools, needs_keyval_tools, needs_license_tools,
+    needs_line_tools, needs_lint_check, needs_log_parse_tools, needs_make_tools,
+    needs_markdown_tools, needs_mime_tools, needs_money_tools, needs_net_lookup_tools,
+    needs_number_tools, needs_password_gen, needs_path_tools, needs_regex_tools,
+    needs_robots_txt_tools, needs_rss_tools, needs_secret_scan, needs_semver_tools,
+    needs_sitemap_tools, needs_size_tools, needs_sqlite_tools, needs_stat_tools, needs_table_tools,
+    needs_template_tools, needs_test_run, needs_text_tools, needs_token_tools, needs_toml_tools,
+    needs_url_tools, needs_uuid_gen, needs_validate_tools, needs_xml_tools, needs_yaml_tools,
+    preferred_host_inspection_topic, preferred_maintainer_workflow, preferred_workspace_workflow,
+    DirectAnswerKind, QueryIntentClass,
 };
 use crate::agent::tool_registry::dispatch_builtin_tool;
 use crate::agent::truncation::safe_head;
@@ -5822,6 +5822,34 @@ impl ConversationManager {
                  Example: license_tools(action: 'info', license: 'MIT') or \
                  license_tools(action: 'compare', a: 'MIT', b: 'GPL-3.0') or \
                  license_tools(action: 'detect', text: '...')."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_make_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "MAKEFILE NOTICE: Use the `make_tools` tool to parse, inspect, and analyze Makefiles without external utilities. \
+                 Actions: list (default — all targets with deps and phony flag), \
+                 explain (full detail for one target — dependencies and commands; pass 'target'), \
+                 deps (dependency graph for all targets or a specific target; pass optional 'target'), \
+                 vars (all variable assignments with operator and value). \
+                 Example: make_tools(action: 'list', text: '...') or \
+                 make_tools(action: 'explain', text: '...', target: 'build') or \
+                 make_tools(action: 'vars', text: '...')."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_changelog_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "CHANGELOG NOTICE: Use the `changelog_tools` tool to parse, query, and validate CHANGELOG.md files (Keep a Changelog format). \
+                 Actions: list (default — all releases with version/date/section counts), \
+                 get (full body of a specific version; pass 'version'), \
+                 latest (full body of the most recent non-Unreleased release), \
+                 validate (check Keep a Changelog compliance — Unreleased section, dates, standard section names, YANKED releases). \
+                 Example: changelog_tools(action: 'list', text: '...') or \
+                 changelog_tools(action: 'get', text: '...', version: '1.2.0') or \
+                 changelog_tools(action: 'latest', text: '...')."
                     .to_string(),
             );
         }

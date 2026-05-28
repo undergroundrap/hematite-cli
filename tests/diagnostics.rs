@@ -22889,3 +22889,176 @@ async fn test_license_routing() {
         "false positive on license plate"
     );
 }
+
+// ── make_tools ────────────────────────────────────────────────────────────────
+
+#[tokio::test]
+async fn test_make_tools_list() {
+    let makefile = ".PHONY: build test clean\n\nbuild: src/main.rs\n\tcargo build\n\ntest: build\n\tcargo test\n\nclean:\n\trm -rf target/\n";
+    let args = serde_json::json!({"action": "list", "text": makefile});
+    let out = hematite::tools::make_tools::execute(&args).await.unwrap();
+    assert!(out.contains("build"), "should list build target: {}", out);
+    assert!(out.contains("test"), "should list test target: {}", out);
+    assert!(out.contains("clean"), "should list clean target: {}", out);
+}
+
+#[tokio::test]
+async fn test_make_tools_explain() {
+    let makefile =
+        "# Run all tests\ntest: build\n\tcargo test --all\n\tbuild: src/\n\tcargo build\n";
+    let args = serde_json::json!({"action": "explain", "text": makefile, "target": "test"});
+    let out = hematite::tools::make_tools::execute(&args).await.unwrap();
+    assert!(out.contains("test"), "should show target name: {}", out);
+    assert!(
+        out.contains("cargo test"),
+        "should show test command: {}",
+        out
+    );
+}
+
+#[tokio::test]
+async fn test_make_tools_vars() {
+    let makefile = "CC := gcc\nFLAGS = -Wall -O2\nOUTDIR ?= bin\n\nbuild:\n\t$(CC) $(FLAGS) main.c -o $(OUTDIR)/app\n";
+    let args = serde_json::json!({"action": "vars", "text": makefile});
+    let out = hematite::tools::make_tools::execute(&args).await.unwrap();
+    assert!(out.contains("CC"), "should list CC variable: {}", out);
+    assert!(out.contains("gcc"), "should show gcc value: {}", out);
+    assert!(
+        out.contains("FLAGS") || out.contains("OUTDDIR") || out.contains("Wall"),
+        "should list make vars: {}",
+        out
+    );
+}
+
+#[tokio::test]
+async fn test_make_tools_deps() {
+    let makefile = "all: build test\nbuild: src/main.c\n\tgcc -o app src/main.c\ntest: build\n\t./run_tests.sh\n";
+    let args = serde_json::json!({"action": "deps", "text": makefile});
+    let out = hematite::tools::make_tools::execute(&args).await.unwrap();
+    assert!(out.contains("all"), "should list all target deps: {}", out);
+    assert!(
+        out.contains("build"),
+        "should show build in dep graph: {}",
+        out
+    );
+}
+
+#[tokio::test]
+async fn test_make_tools_routing() {
+    use hematite::agent::routing::needs_make_tools;
+    assert!(
+        needs_make_tools("list all Makefile targets"),
+        "should detect Makefile targets"
+    );
+    assert!(
+        needs_make_tools("explain make target build"),
+        "should detect make target"
+    );
+    assert!(
+        needs_make_tools("show makefile variables"),
+        "should detect makefile variables"
+    );
+    assert!(
+        needs_make_tools("parse this makefile"),
+        "should detect parse makefile"
+    );
+    assert!(
+        !needs_make_tools("make a new file"),
+        "false positive on make a file"
+    );
+}
+
+// ── changelog_tools ───────────────────────────────────────────────────────────
+
+#[tokio::test]
+async fn test_changelog_list() {
+    let changelog = "# Changelog\n\n## [Unreleased]\n\n## [1.2.0] - 2024-03-01\n### Added\n- New feature A\n\n## [1.1.0] - 2024-01-15\n### Fixed\n- Bug fix B\n";
+    let args = serde_json::json!({"action": "list", "text": changelog});
+    let out = hematite::tools::changelog_tools::execute(&args)
+        .await
+        .unwrap();
+    assert!(out.contains("1.2.0"), "should list 1.2.0: {}", out);
+    assert!(out.contains("1.1.0"), "should list 1.1.0: {}", out);
+    assert!(
+        out.contains("Unreleased") || out.contains("unreleased"),
+        "should list Unreleased: {}",
+        out
+    );
+}
+
+#[tokio::test]
+async fn test_changelog_get_version() {
+    let changelog = "## [1.2.0] - 2024-03-01\n### Added\n- Feature X\n- Feature Y\n\n## [1.1.0] - 2024-01-01\n### Fixed\n- Bug fix\n";
+    let args = serde_json::json!({"action": "get", "text": changelog, "version": "1.2.0"});
+    let out = hematite::tools::changelog_tools::execute(&args)
+        .await
+        .unwrap();
+    assert!(
+        out.contains("Feature X"),
+        "should show 1.2.0 content: {}",
+        out
+    );
+    assert!(
+        !out.contains("Bug fix"),
+        "should not include 1.1.0 content: {}",
+        out
+    );
+}
+
+#[tokio::test]
+async fn test_changelog_latest() {
+    let changelog = "## [Unreleased]\n### Added\n- Draft feature\n\n## [2.0.0] - 2024-06-01\n### Added\n- Big release\n";
+    let args = serde_json::json!({"action": "latest", "text": changelog});
+    let out = hematite::tools::changelog_tools::execute(&args)
+        .await
+        .unwrap();
+    assert!(
+        out.contains("2.0.0"),
+        "should show latest released version: {}",
+        out
+    );
+    assert!(
+        out.contains("Big release"),
+        "should show latest release content: {}",
+        out
+    );
+}
+
+#[tokio::test]
+async fn test_changelog_validate() {
+    let changelog = "## [1.0.0]\n### CustomSection\n- Item\n";
+    let args = serde_json::json!({"action": "validate", "text": changelog});
+    let out = hematite::tools::changelog_tools::execute(&args)
+        .await
+        .unwrap();
+    assert!(
+        out.contains("WARN") || out.contains("warn") || out.contains("warning"),
+        "should warn on missing date and non-standard section: {}",
+        out
+    );
+}
+
+#[tokio::test]
+async fn test_changelog_routing() {
+    use hematite::agent::routing::needs_changelog_tools;
+    assert!(
+        needs_changelog_tools("parse this changelog"),
+        "should detect changelog"
+    );
+    assert!(
+        needs_changelog_tools("what changed in version 1.2.0"),
+        "should detect what changed"
+    );
+    assert!(
+        needs_changelog_tools("show latest release notes"),
+        "should detect release notes"
+    );
+    assert!(
+        needs_changelog_tools("validate the CHANGELOG.md"),
+        "should detect changelog.md"
+    );
+    assert!(
+        !needs_changelog_tools("change log output level"),
+        "false positive on change log"
+    );
+}

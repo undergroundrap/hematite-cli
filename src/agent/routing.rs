@@ -7026,6 +7026,48 @@ pub fn needs_sitemap_tools(user_input: &str) -> bool {
     )
 }
 
+pub fn needs_make_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "makefile",
+            "make target",
+            "make targets",
+            "list make",
+            "make deps",
+            "make variables",
+            "explain make",
+            "parse makefile",
+            "makefile target",
+            "makefile variable",
+            "make recipe",
+            "make rule",
+            "makefile deps",
+            "gnumake",
+        ],
+    )
+}
+
+pub fn needs_changelog_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "changelog",
+            "release notes",
+            "parse changelog",
+            "read changelog",
+            "latest release",
+            "changelog version",
+            "what changed in version",
+            "changelog.md",
+            "keep a changelog",
+            "release history",
+        ],
+    )
+}
+
 pub fn needs_gitignore_tools(user_input: &str) -> bool {
     let lower = user_input.to_lowercase();
     contains_any(

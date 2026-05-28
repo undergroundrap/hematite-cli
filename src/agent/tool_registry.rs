@@ -3668,6 +3668,64 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         }),
     ));
     tools.push(make_tool(
+        "make_tools",
+        "Parse and analyze Makefiles without external utilities. \
+         Actions: list (default — all targets with dependencies, phony flag, and inline comment; tabular view), \
+         explain (full detail for one target — description, phony flag, deps, command list; pass 'target'), \
+         deps (dependency graph for all targets or a specific one; pass optional 'target'), \
+         vars (all variable assignments — name, operator (=/:=/?=/+=), and value). \
+         Example: make_tools(action: 'list', text: '...') or \
+         make_tools(action: 'explain', text: '...', target: 'build') or \
+         make_tools(action: 'vars', text: '...').",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "list (default), explain, deps, vars"
+                },
+                "text": {
+                    "type": "string",
+                    "description": "Makefile content as a string. Also 'makefile'/'content'/'input'."
+                },
+                "target": {
+                    "type": "string",
+                    "description": "Target name for the 'explain' or 'deps' actions."
+                }
+            },
+            "required": []
+        }),
+    ));
+    tools.push(make_tool(
+        "changelog_tools",
+        "Parse, query, and validate CHANGELOG.md files in Keep a Changelog format. \
+         Actions: list (default — all releases with version, date, section names, item counts; YANKED flag), \
+         get (full body of a specific version; pass 'version' — partial match supported), \
+         latest (full body of the most recent non-Unreleased release), \
+         validate (Keep a Changelog compliance check — Unreleased section, dates on releases, standard section names: Added/Changed/Deprecated/Removed/Fixed/Security, empty releases, YANKED releases). \
+         Example: changelog_tools(action: 'list', text: '...') or \
+         changelog_tools(action: 'get', text: '...', version: '1.2.0') or \
+         changelog_tools(action: 'validate', text: '...').",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "list (default), get, latest, validate"
+                },
+                "text": {
+                    "type": "string",
+                    "description": "CHANGELOG.md content as a string. Also 'changelog'/'content'/'input'."
+                },
+                "version": {
+                    "type": "string",
+                    "description": "Version string for the 'get' action (e.g. '1.2.0', 'Unreleased'). Partial match supported."
+                }
+            },
+            "required": []
+        }),
+    ));
+    tools.push(make_tool(
         "gitignore_tools",
         "Parse, check path inclusion, generate, and explain .gitignore files without external utilities. \
          Actions: parse (default — list all patterns grouped by comment sections with pattern/negation/dir-only counts), \
@@ -4241,6 +4299,8 @@ pub async fn dispatch_builtin_tool(
         "sitemap_tools" => crate::tools::sitemap_tools::execute(args).await,
         "gitignore_tools" => crate::tools::gitignore_tools::execute(args).await,
         "license_tools" => crate::tools::license_tools::execute(args).await,
+        "make_tools" => crate::tools::make_tools::execute(args).await,
+        "changelog_tools" => crate::tools::changelog_tools::execute(args).await,
         "git_status" => crate::tools::git::execute_status(args).await,
         "git_diff" => crate::tools::git::execute_diff(args).await,
         "git_log" => crate::tools::git::execute_log(args).await,
