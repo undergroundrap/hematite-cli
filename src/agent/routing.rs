@@ -6986,6 +6986,46 @@ pub fn needs_mime_tools(user_input: &str) -> bool {
     )
 }
 
+pub fn needs_robots_txt_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "robots.txt",
+            "robots txt",
+            "parse robots",
+            "check robots",
+            "validate robots",
+            "user-agent block",
+            "disallow rule",
+            "crawl-delay",
+            "is this url allowed",
+            "is this path blocked",
+            "can googlebot crawl",
+            "crawl rules",
+        ],
+    )
+}
+
+pub fn needs_sitemap_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "sitemap.xml",
+            "sitemap xml",
+            "parse sitemap",
+            "search sitemap",
+            "list sitemap",
+            "sitemap stats",
+            "sitemap index",
+            "urlset",
+            "sitemap urls",
+            "how many urls in sitemap",
+        ],
+    )
+}
+
 pub fn needs_log_parse_tools(user_input: &str) -> bool {
     let lower = user_input.to_lowercase();
     contains_any(

@@ -3597,6 +3597,77 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         }),
     ));
     tools.push(make_tool(
+        "robots_txt_tools",
+        "Parse, check, validate, and summarize robots.txt files without external utilities. \
+         Actions: parse (default — show all user-agent blocks with Allow/Disallow/crawl-delay; pass 'text'), \
+         check (test whether a path is allowed or blocked; pass 'text', 'url'/'path', optional 'agent' default '*'; follows RFC 9309 specificity rules), \
+         validate (check for unknown directives, paths without leading slash, missing wildcard block, Disallow: /), \
+         summary (table: all blocks with allow/disallow counts and crawl-delay). \
+         Example: robots_txt_tools(action: 'check', text: '...', path: '/admin/', agent: 'Googlebot') or \
+         robots_txt_tools(action: 'parse', text: '...').",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "parse (default), check, validate, summary"
+                },
+                "text": {
+                    "type": "string",
+                    "description": "robots.txt file content as a string. Also 'input'/'robots'/'content'."
+                },
+                "url": {
+                    "type": "string",
+                    "description": "Full URL or path to test for the 'check' action (e.g. '/admin/login' or 'https://example.com/secret/'). Also 'path'."
+                },
+                "agent": {
+                    "type": "string",
+                    "description": "User-agent name for the 'check' action (e.g. 'Googlebot', 'Bingbot'). Defaults to '*'. Also 'user_agent'/'ua'."
+                }
+            },
+            "required": []
+        }),
+    ));
+    tools.push(make_tool(
+        "sitemap_tools",
+        "Parse, search, and analyze sitemap.xml files without external utilities. \
+         Handles both urlset (standard sitemap) and sitemapindex (sitemap of sitemaps). \
+         Actions: parse (default — list URLs with lastmod/changefreq/priority; 'max' to limit, default 20), \
+         search (filter URLs containing a query string; pass 'query'/'q'), \
+         stats (total URLs, lastmod/changefreq/priority coverage rates, distribution tables), \
+         list (all URL paths or filtered by prefix; pass optional 'filter'). \
+         Pass 'xml' with the raw sitemap XML content. \
+         Example: sitemap_tools(action: 'parse', xml: '...') or \
+         sitemap_tools(action: 'search', xml: '...', query: '/blog/') or \
+         sitemap_tools(action: 'stats', xml: '...').",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "parse (default), search, stats, list"
+                },
+                "xml": {
+                    "type": "string",
+                    "description": "sitemap.xml content as a string. Also 'text'/'sitemap'/'input'."
+                },
+                "query": {
+                    "type": "string",
+                    "description": "URL fragment to search for in the 'search' action. Also 'q'."
+                },
+                "filter": {
+                    "type": "string",
+                    "description": "Path prefix to filter results in the 'list' action. Also 'prefix'."
+                },
+                "max": {
+                    "type": "integer",
+                    "description": "Maximum URLs to show in 'parse' output (default 20)."
+                }
+            },
+            "required": []
+        }),
+    ));
+    tools.push(make_tool(
         "csp_tools",
         "Parse, explain, validate, and build Content Security Policy (CSP) headers without external utilities. \
          Actions: parse (default — break CSP into directives with per-source descriptions and unsafe flags), \
@@ -4090,6 +4161,8 @@ pub async fn dispatch_builtin_tool(
         "glob_tools" => crate::tools::glob_tools::execute(args).await,
         "log_parse_tools" => crate::tools::log_parse_tools::execute(args).await,
         "csp_tools" => crate::tools::csp_tools::execute(args).await,
+        "robots_txt_tools" => crate::tools::robots_txt_tools::execute(args).await,
+        "sitemap_tools" => crate::tools::sitemap_tools::execute(args).await,
         "git_status" => crate::tools::git::execute_status(args).await,
         "git_diff" => crate::tools::git::execute_diff(args).await,
         "git_log" => crate::tools::git::execute_log(args).await,

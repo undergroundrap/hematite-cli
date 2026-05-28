@@ -35,12 +35,13 @@ use crate::agent::routing::{
     needs_http_status_tools, needs_ini_tools, needs_ip_tools, needs_jwt_tools, needs_keyval_tools,
     needs_line_tools, needs_lint_check, needs_log_parse_tools, needs_markdown_tools,
     needs_mime_tools, needs_money_tools, needs_net_lookup_tools, needs_number_tools,
-    needs_password_gen, needs_path_tools, needs_regex_tools, needs_rss_tools, needs_secret_scan,
-    needs_semver_tools, needs_size_tools, needs_sqlite_tools, needs_stat_tools, needs_table_tools,
-    needs_template_tools, needs_test_run, needs_text_tools, needs_token_tools, needs_toml_tools,
-    needs_url_tools, needs_uuid_gen, needs_validate_tools, needs_xml_tools, needs_yaml_tools,
-    preferred_host_inspection_topic, preferred_maintainer_workflow, preferred_workspace_workflow,
-    DirectAnswerKind, QueryIntentClass,
+    needs_password_gen, needs_path_tools, needs_regex_tools, needs_robots_txt_tools,
+    needs_rss_tools, needs_secret_scan, needs_semver_tools, needs_sitemap_tools, needs_size_tools,
+    needs_sqlite_tools, needs_stat_tools, needs_table_tools, needs_template_tools, needs_test_run,
+    needs_text_tools, needs_token_tools, needs_toml_tools, needs_url_tools, needs_uuid_gen,
+    needs_validate_tools, needs_xml_tools, needs_yaml_tools, preferred_host_inspection_topic,
+    preferred_maintainer_workflow, preferred_workspace_workflow, DirectAnswerKind,
+    QueryIntentClass,
 };
 use crate::agent::tool_registry::dispatch_builtin_tool;
 use crate::agent::truncation::safe_head;
@@ -5764,6 +5765,34 @@ impl ConversationManager {
                  Pass 'header' with the raw CSP value (strips 'Content-Security-Policy:' prefix automatically). \
                  Example: csp_tools(action: 'parse', header: \"default-src 'self'; script-src 'nonce-xyz'\") or \
                  csp_tools(action: 'build', preset: 'strict')."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_robots_txt_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "ROBOTS.TXT NOTICE: Use the `robots_txt_tools` tool to parse, check, validate, and summarize robots.txt files without external utilities. \
+                 Actions: parse (default — show all user-agent blocks with Allow/Disallow rules; pass 'text'), \
+                 check (test whether a specific path is allowed or blocked; pass 'text', 'url' or 'path', optional 'agent' for user-agent; defaults to '*'), \
+                 validate (check for unknown directives, paths without leading slash, missing wildcard block, Disallow: /), \
+                 summary (table view of all blocks with rule counts and crawl-delay). \
+                 Example: robots_txt_tools(action: 'check', text: '...', path: '/admin/', agent: 'Googlebot') or \
+                 robots_txt_tools(action: 'validate', text: '...')."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_sitemap_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "SITEMAP NOTICE: Use the `sitemap_tools` tool to parse, search, and analyze sitemap.xml files without external utilities. \
+                 Actions: parse (default — list all URLs with lastmod/changefreq/priority; 'max' to limit shown, default 20), \
+                 search (filter URLs containing a query string; pass 'query'), \
+                 stats (URL count, lastmod/changefreq/priority coverage, distribution), \
+                 list (all URLs or filtered by prefix; pass optional 'filter'). \
+                 Handles both urlset (standard sitemap) and sitemapindex (sitemap of sitemaps). \
+                 Example: sitemap_tools(action: 'parse', xml: '...') or \
+                 sitemap_tools(action: 'search', xml: '...', query: '/blog/') or \
+                 sitemap_tools(action: 'stats', xml: '...')."
                     .to_string(),
             );
         }

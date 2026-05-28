@@ -22431,3 +22431,238 @@ async fn test_csp_routing() {
         "false positive on cors"
     );
 }
+
+// ── robots_txt_tools ──────────────────────────────────────────────────────────
+
+#[tokio::test]
+async fn test_robots_txt_parse() {
+    let robots = "User-agent: *\nDisallow: /admin/\nAllow: /public/\n\nUser-agent: Googlebot\nDisallow: /tmp/\n\nSitemap: https://example.com/sitemap.xml\n";
+    let args = serde_json::json!({"action": "parse", "text": robots});
+    let out = hematite::tools::robots_txt_tools::execute(&args)
+        .await
+        .unwrap();
+    assert!(
+        out.contains("user-agent"),
+        "should list user-agent blocks: {}",
+        out
+    );
+    assert!(out.contains("*"), "should show wildcard agent: {}", out);
+    assert!(
+        out.contains("Googlebot"),
+        "should show Googlebot block: {}",
+        out
+    );
+    assert!(
+        out.contains("Sitemap") || out.contains("sitemap"),
+        "should list sitemaps: {}",
+        out
+    );
+}
+
+#[tokio::test]
+async fn test_robots_txt_check_allowed() {
+    let robots = "User-agent: *\nDisallow: /admin/\nAllow: /public/\n";
+    let args = serde_json::json!({"action": "check", "text": robots, "url": "/public/page.html"});
+    let out = hematite::tools::robots_txt_tools::execute(&args)
+        .await
+        .unwrap();
+    assert!(
+        out.contains("ALLOWED"),
+        "public path should be allowed: {}",
+        out
+    );
+}
+
+#[tokio::test]
+async fn test_robots_txt_check_blocked() {
+    let robots = "User-agent: *\nDisallow: /admin/\n";
+    let args = serde_json::json!({"action": "check", "text": robots, "url": "/admin/login"});
+    let out = hematite::tools::robots_txt_tools::execute(&args)
+        .await
+        .unwrap();
+    assert!(
+        out.contains("BLOCKED"),
+        "admin path should be blocked: {}",
+        out
+    );
+}
+
+#[tokio::test]
+async fn test_robots_txt_validate() {
+    let robots = "User-agent: *\nDisallow: /admin/\nSitemap: /sitemap.xml\n";
+    let args = serde_json::json!({"action": "validate", "text": robots});
+    let out = hematite::tools::robots_txt_tools::execute(&args)
+        .await
+        .unwrap();
+    assert!(
+        out.contains("WARN") || out.contains("warn") || out.contains("should be an absolute"),
+        "relative sitemap URL should warn: {}",
+        out
+    );
+}
+
+#[tokio::test]
+async fn test_robots_txt_summary() {
+    let robots = "User-agent: *\nDisallow: /admin/\nAllow: /public/\nCrawl-delay: 5\n";
+    let args = serde_json::json!({"action": "summary", "text": robots});
+    let out = hematite::tools::robots_txt_tools::execute(&args)
+        .await
+        .unwrap();
+    assert!(
+        out.contains("User-agent") || out.contains("block"),
+        "should show summary table: {}",
+        out
+    );
+}
+
+#[tokio::test]
+async fn test_robots_txt_routing() {
+    use hematite::agent::routing::needs_robots_txt_tools;
+    assert!(
+        needs_robots_txt_tools("parse this robots.txt file"),
+        "should detect robots.txt"
+    );
+    assert!(
+        needs_robots_txt_tools("can googlebot crawl my site"),
+        "should detect crawl question"
+    );
+    assert!(
+        needs_robots_txt_tools("check disallow rule for /admin"),
+        "should detect disallow rule"
+    );
+    assert!(
+        needs_robots_txt_tools("validate robots txt"),
+        "should detect validate robots"
+    );
+    assert!(
+        !needs_robots_txt_tools("parse this sitemap.xml"),
+        "false positive on sitemap"
+    );
+}
+
+// ── sitemap_tools ─────────────────────────────────────────────────────────────
+
+#[tokio::test]
+async fn test_sitemap_parse_urlset() {
+    let xml = r#"<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>https://example.com/page1</loc><lastmod>2024-01-01</lastmod><priority>0.8</priority></url>
+  <url><loc>https://example.com/page2</loc><changefreq>weekly</changefreq></url>
+</urlset>"#;
+    let args = serde_json::json!({"action": "parse", "xml": xml});
+    let out = hematite::tools::sitemap_tools::execute(&args)
+        .await
+        .unwrap();
+    assert!(
+        out.contains("example.com/page1"),
+        "should list first URL: {}",
+        out
+    );
+    assert!(
+        out.contains("example.com/page2"),
+        "should list second URL: {}",
+        out
+    );
+    assert!(out.contains("2"), "should show URL count: {}", out);
+}
+
+#[tokio::test]
+async fn test_sitemap_search() {
+    let xml = r#"<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>https://example.com/blog/post-1</loc></url>
+  <url><loc>https://example.com/about</loc></url>
+  <url><loc>https://example.com/blog/post-2</loc></url>
+</urlset>"#;
+    let args = serde_json::json!({"action": "search", "xml": xml, "query": "blog"});
+    let out = hematite::tools::sitemap_tools::execute(&args)
+        .await
+        .unwrap();
+    assert!(
+        out.contains("blog/post-1"),
+        "should find blog post 1: {}",
+        out
+    );
+    assert!(
+        out.contains("blog/post-2"),
+        "should find blog post 2: {}",
+        out
+    );
+    assert!(
+        !out.contains("/about"),
+        "should not include about page: {}",
+        out
+    );
+}
+
+#[tokio::test]
+async fn test_sitemap_stats() {
+    let xml = r#"<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>https://example.com/p1</loc><changefreq>daily</changefreq><priority>0.9</priority></url>
+  <url><loc>https://example.com/p2</loc><changefreq>weekly</changefreq></url>
+  <url><loc>https://example.com/p3</loc></url>
+</urlset>"#;
+    let args = serde_json::json!({"action": "stats", "xml": xml});
+    let out = hematite::tools::sitemap_tools::execute(&args)
+        .await
+        .unwrap();
+    assert!(
+        out.contains("3") || out.contains("Total"),
+        "should show URL count: {}",
+        out
+    );
+    assert!(
+        out.contains("daily") || out.contains("weekly") || out.contains("Change"),
+        "should show changefreq distribution: {}",
+        out
+    );
+}
+
+#[tokio::test]
+async fn test_sitemap_index() {
+    let xml = r#"<?xml version="1.0" encoding="UTF-8"?>
+<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <sitemap><loc>https://example.com/sitemap-posts.xml</loc><lastmod>2024-01-01</lastmod></sitemap>
+  <sitemap><loc>https://example.com/sitemap-pages.xml</loc></sitemap>
+</sitemapindex>"#;
+    let args = serde_json::json!({"action": "parse", "xml": xml});
+    let out = hematite::tools::sitemap_tools::execute(&args)
+        .await
+        .unwrap();
+    assert!(
+        out.contains("sitemap-posts.xml"),
+        "should list child sitemaps: {}",
+        out
+    );
+    assert!(
+        out.contains("Index") || out.contains("index"),
+        "should indicate sitemap index: {}",
+        out
+    );
+}
+
+#[tokio::test]
+async fn test_sitemap_routing() {
+    use hematite::agent::routing::needs_sitemap_tools;
+    assert!(
+        needs_sitemap_tools("parse this sitemap.xml"),
+        "should detect sitemap.xml"
+    );
+    assert!(
+        needs_sitemap_tools("list all sitemap urls"),
+        "should detect sitemap urls"
+    );
+    assert!(
+        needs_sitemap_tools("how many urls in sitemap"),
+        "should detect sitemap count"
+    );
+    assert!(
+        needs_sitemap_tools("search sitemap for blog posts"),
+        "should detect sitemap search"
+    );
+    assert!(
+        !needs_sitemap_tools("parse this robots.txt"),
+        "false positive on robots.txt"
+    );
+}
