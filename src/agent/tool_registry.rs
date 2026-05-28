@@ -3554,6 +3554,83 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         }),
     ));
     tools.push(make_tool(
+        "log_parse_tools",
+        "Parse, detect, filter, and aggregate structured log lines without external utilities. \
+         Supports JSON Lines, key=value, Apache Common/Combined, and Syslog formats — auto-detected from the first line. \
+         Actions: parse (default — detect format and extract fields from each line; 'max' limits lines shown, default 20), \
+         detect (identify the log format and show per-format distribution), \
+         filter (keep only lines where a named field matches a value; pass 'field' and 'value'), \
+         stats (count occurrences of a field's values; 'field' defaults to 'status' for Apache or 'level' for others). \
+         Pass 'format' to override detection: json/jsonl, kv/keyvalue, apache/common, combined, syslog. \
+         Example: log_parse_tools(text: '...') or \
+         log_parse_tools(action: 'filter', text: '...', field: 'status', value: '5') or \
+         log_parse_tools(action: 'stats', text: '...', field: 'level').",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "parse (default), detect, filter, stats"
+                },
+                "text": {
+                    "type": "string",
+                    "description": "Log lines as a multi-line string. Also 'input'/'log'/'lines'."
+                },
+                "format": {
+                    "type": "string",
+                    "description": "Override format detection: json, kv, apache, combined, syslog."
+                },
+                "field": {
+                    "type": "string",
+                    "description": "Field name for filter/stats actions (e.g. 'status', 'level', 'method')."
+                },
+                "value": {
+                    "type": "string",
+                    "description": "Value to match for the filter action (case-insensitive substring)."
+                },
+                "max": {
+                    "type": "integer",
+                    "description": "Maximum lines to parse and display (default 20)."
+                }
+            },
+            "required": []
+        }),
+    ));
+    tools.push(make_tool(
+        "csp_tools",
+        "Parse, explain, validate, and build Content Security Policy (CSP) headers without external utilities. \
+         Actions: parse (default — break CSP into directives with per-source descriptions and unsafe flags), \
+         explain (plain-English summary of what each directive allows), \
+         validate (check for 'unsafe-inline', 'unsafe-eval', wildcard *, missing base-uri/object-src, deprecated report-uri), \
+         build (generate a CSP from a 'directives' object or a named 'preset': strict/moderate/api). \
+         Strips 'Content-Security-Policy:' prefix automatically. \
+         Example: csp_tools(action: 'parse', header: \"default-src 'self'; img-src *\") or \
+         csp_tools(action: 'validate', header: \"...\") or \
+         csp_tools(action: 'build', preset: 'strict').",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "parse (default), explain, validate, build"
+                },
+                "header": {
+                    "type": "string",
+                    "description": "Raw CSP header value — 'Content-Security-Policy:' prefix is stripped automatically. Also 'policy'/'csp'/'input'."
+                },
+                "preset": {
+                    "type": "string",
+                    "description": "Named CSP preset for build action: strict, moderate, or api."
+                },
+                "directives": {
+                    "type": "object",
+                    "description": "Directives object for build action: { \"script-src\": [\"'self'\", \"https://cdn.example.com\"] }."
+                }
+            },
+            "required": []
+        }),
+    ));
+    tools.push(make_tool(
         "http_status_tools",
         "Look up, search, and list HTTP status codes — 65 standard codes across all 5 categories, no external utilities. \
          Actions: lookup (default — code number to reason phrase and description; pass 'code' like 404 or '404'), \
@@ -4011,6 +4088,8 @@ pub async fn dispatch_builtin_tool(
         "mime_tools" => crate::tools::mime_tools::execute(args).await,
         "http_status_tools" => crate::tools::http_status_tools::execute(args).await,
         "glob_tools" => crate::tools::glob_tools::execute(args).await,
+        "log_parse_tools" => crate::tools::log_parse_tools::execute(args).await,
+        "csp_tools" => crate::tools::csp_tools::execute(args).await,
         "git_status" => crate::tools::git::execute_status(args).await,
         "git_diff" => crate::tools::git::execute_diff(args).await,
         "git_log" => crate::tools::git::execute_log(args).await,

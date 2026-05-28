@@ -6986,6 +6986,52 @@ pub fn needs_mime_tools(user_input: &str) -> bool {
     )
 }
 
+pub fn needs_log_parse_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "parse log",
+            "parse logs",
+            "parse this log",
+            "log file parse",
+            "parse json logs",
+            "parse syslog",
+            "parse apache log",
+            "parse nginx log",
+            "log line parse",
+            "filter log",
+            "log stats",
+            "log format detect",
+            "structured log",
+            "key=value log",
+            "access log parse",
+        ],
+    )
+}
+
+pub fn needs_csp_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "content security policy",
+            "csp header",
+            "content-security-policy",
+            "parse csp",
+            "explain csp",
+            "validate csp",
+            "build csp",
+            "csp directive",
+            "unsafe-inline",
+            "unsafe-eval",
+            "default-src",
+            "script-src",
+            "frame-ancestors",
+        ],
+    )
+}
+
 pub fn needs_http_status_tools(user_input: &str) -> bool {
     let lower = user_input.to_lowercase();
     contains_any(

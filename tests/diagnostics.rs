@@ -22231,3 +22231,203 @@ async fn test_http_status_routing() {
         "false positive on http request"
     );
 }
+
+// â”€â”€ log_parse_tools â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+#[tokio::test]
+async fn test_log_parse_json_lines() {
+    let log = r#"{"level":"info","msg":"started","ts":"2025-01-01T00:00:00Z"}
+{"level":"error","msg":"failed","code":500}"#;
+    let args = serde_json::json!({"action": "parse", "text": log});
+    let out = hematite::tools::log_parse_tools::execute(&args)
+        .await
+        .unwrap();
+    assert!(
+        out.contains("JSON Lines"),
+        "expected JSON Lines format: {}",
+        out
+    );
+    assert!(
+        out.contains("info") || out.contains("level"),
+        "expected parsed fields: {}",
+        out
+    );
+}
+
+#[tokio::test]
+async fn test_log_parse_kv() {
+    let log = r#"ts=2025-01-01 level=info msg="request processed" status=200 latency=12ms"#;
+    let args = serde_json::json!({"action": "parse", "text": log, "format": "kv"});
+    let out = hematite::tools::log_parse_tools::execute(&args)
+        .await
+        .unwrap();
+    assert!(
+        out.contains("level") || out.contains("status"),
+        "expected kv fields: {}",
+        out
+    );
+}
+
+#[tokio::test]
+async fn test_log_parse_detect() {
+    let log = r#"{"level":"info","msg":"ok"}
+{"level":"error","msg":"fail"}"#;
+    let args = serde_json::json!({"action": "detect", "text": log});
+    let out = hematite::tools::log_parse_tools::execute(&args)
+        .await
+        .unwrap();
+    assert!(out.contains("JSON"), "expected JSON detection: {}", out);
+}
+
+#[tokio::test]
+async fn test_log_parse_filter() {
+    let log = r#"{"level":"info","msg":"ok"}
+{"level":"error","msg":"fail"}
+{"level":"error","msg":"another fail"}"#;
+    let args =
+        serde_json::json!({"action": "filter", "text": log, "field": "level", "value": "error"});
+    let out = hematite::tools::log_parse_tools::execute(&args)
+        .await
+        .unwrap();
+    assert!(
+        out.contains("2 of 3") || out.contains("2"),
+        "expected 2 matches: {}",
+        out
+    );
+}
+
+#[tokio::test]
+async fn test_log_parse_stats() {
+    let log = r#"{"level":"info","msg":"ok"}
+{"level":"error","msg":"fail"}
+{"level":"info","msg":"ok2"}"#;
+    let args = serde_json::json!({"action": "stats", "text": log, "field": "level"});
+    let out = hematite::tools::log_parse_tools::execute(&args)
+        .await
+        .unwrap();
+    assert!(
+        out.contains("info") && out.contains("error"),
+        "expected level distribution: {}",
+        out
+    );
+}
+
+#[tokio::test]
+async fn test_log_parse_routing() {
+    use hematite::agent::routing::needs_log_parse_tools;
+    assert!(
+        needs_log_parse_tools("parse this log file"),
+        "should detect parse log"
+    );
+    assert!(
+        needs_log_parse_tools("parse json logs from app"),
+        "should detect json logs"
+    );
+    assert!(
+        needs_log_parse_tools("filter log by status"),
+        "should detect filter log"
+    );
+    assert!(
+        !needs_log_parse_tools("show me the git log"),
+        "false positive on git log"
+    );
+}
+
+// â”€â”€ csp_tools â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+#[tokio::test]
+async fn test_csp_parse_basic() {
+    let args = serde_json::json!({
+        "action": "parse",
+        "header": "default-src 'self'; img-src *; script-src 'self' 'unsafe-inline'"
+    });
+    let out = hematite::tools::csp_tools::execute(&args).await.unwrap();
+    assert!(out.contains("default-src"), "expected default-src: {}", out);
+    assert!(out.contains("img-src"), "expected img-src: {}", out);
+    assert!(
+        out.contains("UNSAFE") || out.contains("unsafe"),
+        "expected unsafe flag: {}",
+        out
+    );
+}
+
+#[tokio::test]
+async fn test_csp_parse_strips_header_name() {
+    let args = serde_json::json!({
+        "header": "Content-Security-Policy: default-src 'self'"
+    });
+    let out = hematite::tools::csp_tools::execute(&args).await.unwrap();
+    assert!(
+        out.contains("default-src"),
+        "should strip header name prefix: {}",
+        out
+    );
+    assert!(
+        !out.contains("content-security-policy:"),
+        "prefix should be stripped: {}",
+        out
+    );
+}
+
+#[tokio::test]
+async fn test_csp_explain() {
+    let args = serde_json::json!({
+        "action": "explain",
+        "header": "default-src 'none'; script-src 'self'; img-src 'self' data:"
+    });
+    let out = hematite::tools::csp_tools::execute(&args).await.unwrap();
+    assert!(
+        out.contains("block all") || out.contains("none"),
+        "expected none explanation: {}",
+        out
+    );
+}
+
+#[tokio::test]
+async fn test_csp_validate_finds_unsafe() {
+    let args = serde_json::json!({
+        "action": "validate",
+        "header": "default-src 'self'; script-src 'self' 'unsafe-eval'"
+    });
+    let out = hematite::tools::csp_tools::execute(&args).await.unwrap();
+    assert!(
+        out.contains("WARN") || out.contains("unsafe-eval"),
+        "should warn about unsafe-eval: {}",
+        out
+    );
+}
+
+#[tokio::test]
+async fn test_csp_build_preset_strict() {
+    let args = serde_json::json!({"action": "build", "preset": "strict"});
+    let out = hematite::tools::csp_tools::execute(&args).await.unwrap();
+    assert!(
+        out.contains("default-src"),
+        "strict preset should include default-src: {}",
+        out
+    );
+    assert!(
+        out.contains("none") || out.contains("'self'"),
+        "strict preset should restrict sources: {}",
+        out
+    );
+}
+
+#[tokio::test]
+async fn test_csp_routing() {
+    use hematite::agent::routing::needs_csp_tools;
+    assert!(
+        needs_csp_tools("explain this content security policy"),
+        "should detect csp"
+    );
+    assert!(
+        needs_csp_tools("parse this csp header"),
+        "should detect csp header"
+    );
+    assert!(
+        needs_csp_tools("validate content-security-policy"),
+        "should detect csp"
+    );
+    assert!(
+        !needs_csp_tools("set up cross-origin sharing"),
+        "false positive on cors"
+    );
+}
