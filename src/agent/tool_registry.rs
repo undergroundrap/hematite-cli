@@ -4111,6 +4111,64 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         }),
     ));
     tools.push(make_tool(
+        "sql_tools",
+        "Parse, explain, and validate SQL statements (DDL and DML) without external utilities. \
+         Pass the SQL content as 'text' (also 'sql'/'query'/'content'/'input'). \
+         Actions: parse (default — count statements by type, list each with referenced tables, join count, subquery flag), \
+         tables (extract CREATE TABLE definitions: column names, types, NOT NULL/PK/FK flags, table-level primary keys, foreign key relationships), \
+         explain (plain-English explanation per statement: what it reads/writes, tables involved, joins, filters, subqueries, CTEs), \
+         validate (warn on: SELECT *, DELETE/UPDATE without WHERE, DROP TABLE without IF EXISTS, implicit cross joins, NOT IN NULL risk, leading-wildcard LIKE, CREATE TABLE without PK). \
+         Example: sql_tools(action: 'parse', text: '...') or \
+         sql_tools(action: 'tables', sql: '...') or \
+         sql_tools(action: 'explain', text: '...') or \
+         sql_tools(action: 'validate', text: '...').",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "parse (default), tables, explain, validate"
+                },
+                "text": {
+                    "type": "string",
+                    "description": "SQL content. Also 'sql'/'query'/'content'/'input'."
+                }
+            },
+            "required": []
+        }),
+    ));
+    tools.push(make_tool(
+        "proto_tools",
+        "Parse, inspect, and validate Protocol Buffer (.proto) files without external utilities. \
+         Pass the .proto content as 'text' (also 'proto'/'content'/'input'). \
+         Actions: info (default — syntax version, package, imports, file options, message/enum/service counts with per-item summaries), \
+         messages (detailed message and enum listing with field names, types, field numbers, labels optional/repeated/required, and inline field options), \
+         services (all service definitions with RPC method signatures, streaming classification: unary/client-streaming/server-streaming/bidirectional), \
+         validate (checks: unrecognised syntax, missing package declaration, empty messages, duplicate field numbers, field number 0 or reserved range 19000–19999, proto2 required fields, proto3 enum first value ≠ 0, empty services). \
+         Example: proto_tools(action: 'info', text: '...') or \
+         proto_tools(action: 'messages', text: '...') or \
+         proto_tools(action: 'services', text: '...') or \
+         proto_tools(action: 'validate', text: '...').",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "info (default), messages, services, validate"
+                },
+                "text": {
+                    "type": "string",
+                    "description": "Protobuf .proto file content. Also 'proto'/'content'/'input'."
+                },
+                "filter": {
+                    "type": "string",
+                    "description": "For 'messages' action: filter by message name substring."
+                }
+            },
+            "required": []
+        }),
+    ));
+    tools.push(make_tool(
         "csp_tools",
         "Parse, explain, validate, and build Content Security Policy (CSP) headers without external utilities. \
          Actions: parse (default — break CSP into directives with per-source descriptions and unsafe flags), \
@@ -4560,6 +4618,8 @@ pub async fn dispatch_builtin_tool(
         "github_actions_tools" => crate::tools::github_actions_tools::execute(args).await,
         "terraform_tools" => crate::tools::terraform_tools::execute(args).await,
         "package_json_tools" => crate::tools::package_json_tools::execute(args).await,
+        "sql_tools" => crate::tools::sql_tools::execute(args).await,
+        "proto_tools" => crate::tools::proto_tools::execute(args).await,
         "secret_scanner" => crate::tools::secret_scanner::execute(args).await,
         "code_metrics" => crate::tools::code_metrics::execute(args).await,
         "dependency_audit" => crate::tools::dependency_audit::execute(args).await,

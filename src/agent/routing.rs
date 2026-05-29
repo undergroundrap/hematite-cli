@@ -7417,6 +7417,58 @@ pub fn needs_glob_tools(user_input: &str) -> bool {
     )
 }
 
+pub fn needs_sql_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "sql query",
+            "sql file",
+            "sql statement",
+            "sql schema",
+            "create table",
+            "select statement",
+            "explain this sql",
+            "parse sql",
+            "validate sql",
+            "analyze sql",
+            "sql joins",
+            "sql ddl",
+            "sql dml",
+            "database schema sql",
+            "check this query",
+            "review this query",
+        ],
+    ) || (lower.contains(".sql") && !lower.contains("nosql"))
+        || lower.contains("create table ")
+        || lower.contains("select * from")
+        || lower.contains("insert into ")
+}
+
+pub fn needs_proto_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "proto file",
+            ".proto",
+            "protobuf",
+            "protocol buffer",
+            "grpc",
+            "proto schema",
+            "proto message",
+            "proto service",
+            "proto rpc",
+            "validate proto",
+            "parse proto",
+            "review proto",
+            "proto definition",
+            "protobuf message",
+            "rpc method",
+        ],
+    )
+}
+
 pub fn needs_terraform_tools(user_input: &str) -> bool {
     let lower = user_input.to_lowercase();
     contains_any(

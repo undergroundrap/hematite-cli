@@ -24342,3 +24342,180 @@ fn test_routing_detects_package_json_tools() {
         "should not trigger for cargo"
     );
 }
+
+// ── sql_tools routing ─────────────────────────────────────────────────────────
+
+static SQL_DDL: &str = r#"
+CREATE TABLE users (
+    id         BIGINT PRIMARY KEY,
+    email      VARCHAR(255) NOT NULL UNIQUE,
+    name       VARCHAR(100),
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    role_id    INT REFERENCES roles(id)
+);
+
+CREATE TABLE roles (
+    id   INT PRIMARY KEY,
+    name VARCHAR(50) NOT NULL
+);
+
+SELECT u.id, u.email, r.name AS role
+FROM users u
+INNER JOIN roles r ON u.role_id = r.id
+WHERE u.created_at > '2024-01-01'
+ORDER BY u.name;
+
+DELETE FROM users WHERE id = 42;
+"#;
+
+#[tokio::test]
+async fn test_sql_tools_parse() {
+    use hematite::tools::sql_tools;
+    let args = serde_json::json!({ "action": "parse", "text": SQL_DDL });
+    let result = sql_tools::execute(&args).await.unwrap();
+    assert!(result.contains("statement"), "should show statement count");
+}
+
+#[tokio::test]
+async fn test_sql_tools_tables() {
+    use hematite::tools::sql_tools;
+    let args = serde_json::json!({ "action": "tables", "text": SQL_DDL });
+    let result = sql_tools::execute(&args).await.unwrap();
+    assert!(
+        result.contains("USERS") || result.contains("users"),
+        "should find users table"
+    );
+    assert!(result.contains("email"), "should list email column");
+}
+
+#[tokio::test]
+async fn test_sql_tools_explain() {
+    use hematite::tools::sql_tools;
+    let args = serde_json::json!({ "action": "explain", "text": SQL_DDL });
+    let result = sql_tools::execute(&args).await.unwrap();
+    assert!(
+        result.contains("CREATE") || result.contains("table"),
+        "should explain CREATE TABLE"
+    );
+}
+
+#[tokio::test]
+async fn test_sql_tools_validate() {
+    use hematite::tools::sql_tools;
+    let args = serde_json::json!({ "action": "validate", "text": SQL_DDL });
+    let result = sql_tools::execute(&args).await.unwrap();
+    assert!(
+        result.contains("Validation"),
+        "should show validation header"
+    );
+}
+
+#[test]
+fn test_routing_detects_sql_tools() {
+    use hematite::agent::routing::needs_sql_tools;
+    assert!(
+        needs_sql_tools("explain this sql query"),
+        "should detect sql query"
+    );
+    assert!(
+        needs_sql_tools("validate this create table statement"),
+        "should detect create table"
+    );
+    assert!(
+        needs_sql_tools("parse this schema.sql file"),
+        "should detect .sql file"
+    );
+    assert!(
+        !needs_sql_tools("select a font for my app"),
+        "should not trigger for font selection"
+    );
+}
+
+// ── proto_tools routing ───────────────────────────────────────────────────────
+
+static PROTO_FILE: &str = r#"
+syntax = "proto3";
+
+package example;
+
+option go_package = "github.com/example/proto";
+
+message User {
+    int64  id    = 1;
+    string email = 2;
+    string name  = 3;
+}
+
+message GetUserRequest {
+    int64 id = 1;
+}
+
+message GetUserResponse {
+    User user = 1;
+}
+
+service UserService {
+    rpc GetUser (GetUserRequest) returns (GetUserResponse);
+    rpc ListUsers (GetUserRequest) returns (stream GetUserResponse);
+}
+"#;
+
+#[tokio::test]
+async fn test_proto_tools_info() {
+    use hematite::tools::proto_tools;
+    let args = serde_json::json!({ "action": "info", "text": PROTO_FILE });
+    let result = proto_tools::execute(&args).await.unwrap();
+    assert!(result.contains("proto3"), "should show syntax");
+    assert!(result.contains("example"), "should show package");
+    assert!(result.contains("Messages"), "should show message count");
+}
+
+#[tokio::test]
+async fn test_proto_tools_messages() {
+    use hematite::tools::proto_tools;
+    let args = serde_json::json!({ "action": "messages", "text": PROTO_FILE });
+    let result = proto_tools::execute(&args).await.unwrap();
+    assert!(result.contains("User"), "should list User message");
+    assert!(result.contains("email"), "should list email field");
+}
+
+#[tokio::test]
+async fn test_proto_tools_services() {
+    use hematite::tools::proto_tools;
+    let args = serde_json::json!({ "action": "services", "text": PROTO_FILE });
+    let result = proto_tools::execute(&args).await.unwrap();
+    assert!(result.contains("UserService"), "should list UserService");
+    assert!(result.contains("GetUser"), "should list GetUser method");
+}
+
+#[tokio::test]
+async fn test_proto_tools_validate() {
+    use hematite::tools::proto_tools;
+    let args = serde_json::json!({ "action": "validate", "text": PROTO_FILE });
+    let result = proto_tools::execute(&args).await.unwrap();
+    assert!(
+        result.contains("Validation"),
+        "should show validation header"
+    );
+}
+
+#[test]
+fn test_routing_detects_proto_tools() {
+    use hematite::agent::routing::needs_proto_tools;
+    assert!(
+        needs_proto_tools("parse this .proto file"),
+        "should detect .proto"
+    );
+    assert!(
+        needs_proto_tools("explain the grpc service in this protobuf schema"),
+        "should detect grpc protobuf"
+    );
+    assert!(
+        needs_proto_tools("validate this protocol buffer message definition"),
+        "should detect protocol buffer"
+    );
+    assert!(
+        !needs_proto_tools("parse this package.json"),
+        "should not trigger for package.json"
+    );
+}

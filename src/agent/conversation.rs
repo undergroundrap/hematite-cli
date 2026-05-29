@@ -38,14 +38,15 @@ use crate::agent::routing::{
     needs_license_tools, needs_line_tools, needs_lint_check, needs_log_parse_tools,
     needs_make_tools, needs_markdown_tools, needs_mime_tools, needs_money_tools,
     needs_net_lookup_tools, needs_nginx_conf_tools, needs_number_tools, needs_openapi_tools,
-    needs_package_json_tools, needs_password_gen, needs_path_tools, needs_regex_tools,
-    needs_robots_txt_tools, needs_rss_tools, needs_secret_scan, needs_semver_tools,
-    needs_sitemap_tools, needs_size_tools, needs_sqlite_tools, needs_ssh_config_tools,
-    needs_stat_tools, needs_systemd_tools, needs_table_tools, needs_template_tools,
-    needs_terraform_tools, needs_test_run, needs_text_tools, needs_token_tools, needs_toml_tools,
-    needs_url_tools, needs_uuid_gen, needs_validate_tools, needs_xml_tools, needs_yaml_tools,
-    preferred_host_inspection_topic, preferred_maintainer_workflow, preferred_workspace_workflow,
-    DirectAnswerKind, QueryIntentClass,
+    needs_package_json_tools, needs_password_gen, needs_path_tools, needs_proto_tools,
+    needs_regex_tools, needs_robots_txt_tools, needs_rss_tools, needs_secret_scan,
+    needs_semver_tools, needs_sitemap_tools, needs_size_tools, needs_sql_tools, needs_sqlite_tools,
+    needs_ssh_config_tools, needs_stat_tools, needs_systemd_tools, needs_table_tools,
+    needs_template_tools, needs_terraform_tools, needs_test_run, needs_text_tools,
+    needs_token_tools, needs_toml_tools, needs_url_tools, needs_uuid_gen, needs_validate_tools,
+    needs_xml_tools, needs_yaml_tools, preferred_host_inspection_topic,
+    preferred_maintainer_workflow, preferred_workspace_workflow, DirectAnswerKind,
+    QueryIntentClass,
 };
 use crate::agent::tool_registry::dispatch_builtin_tool;
 use crate::agent::truncation::safe_head;
@@ -6014,6 +6015,38 @@ impl ConversationManager {
                  package_json_tools(action: 'scripts', text: '...') or \
                  package_json_tools(action: 'deps', text: '...', kind: 'dev') or \
                  package_json_tools(action: 'validate', text: '...')."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_sql_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "SQL NOTICE: Use the `sql_tools` tool to parse, explain, and validate SQL statements without external utilities. \
+                 Pass the SQL content as 'text' (also 'sql'/'query'/'content'/'input'). \
+                 Actions: parse (default — count statements by type, list each with referenced tables, join count, and subquery flag), \
+                 tables (extract CREATE TABLE definitions with column names, types, NOT NULL/PK/FK flags, and foreign key relationships), \
+                 explain (plain-English description of what each statement does — reads, writes, joins, filters, ordering), \
+                 validate (warn on SELECT *, DELETE/UPDATE without WHERE, DROP TABLE without IF EXISTS, implicit cross joins, NOT IN with NULL risk, LIKE with leading wildcard, CREATE TABLE missing PK). \
+                 Example: sql_tools(action: 'parse', text: '...') or \
+                 sql_tools(action: 'tables', text: '...') or \
+                 sql_tools(action: 'explain', text: '...') or \
+                 sql_tools(action: 'validate', text: '...')."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_proto_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "PROTOBUF NOTICE: Use the `proto_tools` tool to parse, inspect, and validate Protocol Buffer (.proto) files. \
+                 Pass the .proto content as 'text' (also 'proto'/'content'/'input'). \
+                 Actions: info (default — syntax version, package, imports, file options, message/enum/service counts), \
+                 messages (detailed message and enum listing with field names, types, field numbers, labels, and inline options), \
+                 services (all service definitions with RPC method signatures, streaming flags, and unary/streaming classification), \
+                 validate (check: unrecognised syntax, missing package, empty messages, duplicate field numbers, field number 0 or in reserved range 19000-19999, proto2 required fields, proto3 enum first value not 0, empty services). \
+                 Example: proto_tools(action: 'info', text: '...') or \
+                 proto_tools(action: 'messages', text: '...') or \
+                 proto_tools(action: 'services', text: '...') or \
+                 proto_tools(action: 'validate', text: '...')."
                     .to_string(),
             );
         }
