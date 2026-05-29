@@ -31,19 +31,20 @@ use crate::agent::routing::{
     needs_changelog_tools, needs_char_tools, needs_color_tools, needs_computation_sandbox,
     needs_crash_debug, needs_cron_tools, needs_csp_tools, needs_csv_tools, needs_date_tools,
     needs_diff_tools, needs_docker_compose_tools, needs_docker_ops, needs_dotenv_tools,
-    needs_duration_tools, needs_encode_tools, needs_format, needs_github_ops,
-    needs_gitignore_tools, needs_glob_tools, needs_hash_tools, needs_hex_tools, needs_http_request,
-    needs_http_status_tools, needs_ini_tools, needs_ip_tools, needs_jwt_tools, needs_keyval_tools,
-    needs_license_tools, needs_line_tools, needs_lint_check, needs_log_parse_tools,
-    needs_make_tools, needs_markdown_tools, needs_mime_tools, needs_money_tools,
-    needs_net_lookup_tools, needs_nginx_conf_tools, needs_number_tools, needs_openapi_tools,
-    needs_password_gen, needs_path_tools, needs_regex_tools, needs_robots_txt_tools,
-    needs_rss_tools, needs_secret_scan, needs_semver_tools, needs_sitemap_tools, needs_size_tools,
-    needs_sqlite_tools, needs_ssh_config_tools, needs_stat_tools, needs_table_tools,
-    needs_template_tools, needs_test_run, needs_text_tools, needs_token_tools, needs_toml_tools,
-    needs_url_tools, needs_uuid_gen, needs_validate_tools, needs_xml_tools, needs_yaml_tools,
-    preferred_host_inspection_topic, preferred_maintainer_workflow, preferred_workspace_workflow,
-    DirectAnswerKind, QueryIntentClass,
+    needs_duration_tools, needs_encode_tools, needs_format, needs_github_actions_tools,
+    needs_github_ops, needs_gitignore_tools, needs_glob_tools, needs_hash_tools, needs_hex_tools,
+    needs_http_request, needs_http_status_tools, needs_ini_tools, needs_ip_tools, needs_jwt_tools,
+    needs_keyval_tools, needs_license_tools, needs_line_tools, needs_lint_check,
+    needs_log_parse_tools, needs_make_tools, needs_markdown_tools, needs_mime_tools,
+    needs_money_tools, needs_net_lookup_tools, needs_nginx_conf_tools, needs_number_tools,
+    needs_openapi_tools, needs_password_gen, needs_path_tools, needs_regex_tools,
+    needs_robots_txt_tools, needs_rss_tools, needs_secret_scan, needs_semver_tools,
+    needs_sitemap_tools, needs_size_tools, needs_sqlite_tools, needs_ssh_config_tools,
+    needs_stat_tools, needs_systemd_tools, needs_table_tools, needs_template_tools, needs_test_run,
+    needs_text_tools, needs_token_tools, needs_toml_tools, needs_url_tools, needs_uuid_gen,
+    needs_validate_tools, needs_xml_tools, needs_yaml_tools, preferred_host_inspection_topic,
+    preferred_maintainer_workflow, preferred_workspace_workflow, DirectAnswerKind,
+    QueryIntentClass,
 };
 use crate::agent::tool_registry::dispatch_builtin_tool;
 use crate::agent::truncation::safe_head;
@@ -5818,6 +5819,22 @@ impl ConversationManager {
             );
         }
 
+        if loop_intervention.is_none() && needs_github_actions_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "GITHUB ACTIONS NOTICE: Use the `github_actions_tools` tool to parse, inspect, and validate GitHub Actions workflow YAML. \
+                 Pass the workflow YAML content as 'text'. \
+                 Actions: info (default — workflow name, triggers, and per-job summary), \
+                 jobs (detailed job listing with runs-on, step count, needs, matrix, and env vars), \
+                 steps (all steps per job with uses/run/if; optional 'job' filter for a specific job), \
+                 triggers (full trigger detail including branches/tags/paths filters, cron schedules, workflow_dispatch inputs), \
+                 validate (checks: missing 'on' triggers, missing runs-on, undefined needs references, steps without uses/run, missing top-level permissions). \
+                 Example: github_actions_tools(action: 'info', text: '...') or \
+                 github_actions_tools(action: 'steps', text: '...', job: 'build') or \
+                 github_actions_tools(action: 'validate', text: '...')."
+                    .to_string(),
+            );
+        }
+
         if loop_intervention.is_none() && needs_gitignore_tools(&effective_user_input) {
             loop_intervention = Some(
                 "GITIGNORE NOTICE: Use the `gitignore_tools` tool to parse, check, generate, and explain .gitignore files. \
@@ -5885,6 +5902,22 @@ impl ConversationManager {
                  Example: ssh_config_tools(action: 'list', text: '...') or \
                  ssh_config_tools(action: 'get', text: '...', host: 'myserver') or \
                  ssh_config_tools(action: 'explain', text: '...')."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_systemd_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "SYSTEMD UNIT NOTICE: Use the `systemd_tools` tool to parse, inspect, and validate systemd unit files (.service/.timer/.socket). \
+                 Pass the unit file content as 'text'. \
+                 Actions: info (default — unit type, description, [Unit]/[Service]/[Timer]/[Socket]/[Install] summary), \
+                 service (detailed [Service] section breakdown: exec commands, identity, restart policy, environment, security hardening), \
+                 timer (timer triggers with human-readable schedule explanations for OnCalendar/OnBootSec/OnUnitActiveSec, Persistent flag), \
+                 validate (warn on missing Description, missing ExecStart, Type=forking without PIDFile, no Restart=, running as root, missing security directives, missing [Install] section). \
+                 Example: systemd_tools(action: 'info', text: '...') or \
+                 systemd_tools(action: 'service', text: '...') or \
+                 systemd_tools(action: 'timer', text: '...') or \
+                 systemd_tools(action: 'validate', text: '...')."
                     .to_string(),
             );
         }

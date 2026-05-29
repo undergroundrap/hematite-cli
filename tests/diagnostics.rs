@@ -23612,3 +23612,290 @@ async fn test_openapi_routing() {
         "false positive on npm"
     );
 }
+
+// ============================================================
+// github_actions_tools tests
+// ============================================================
+
+static ACTIONS_WORKFLOW: &str = r#"
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Build
+        run: cargo build --release
+
+  test:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Run tests
+        run: cargo test
+        if: always()
+"#;
+
+#[tokio::test]
+async fn test_github_actions_info() {
+    let args = serde_json::json!({ "action": "info", "text": ACTIONS_WORKFLOW });
+    let out = hematite::tools::github_actions_tools::execute(&args)
+        .await
+        .unwrap();
+    assert!(out.contains("CI"), "should show workflow name: {}", out);
+    assert!(out.contains("push"), "should show push trigger: {}", out);
+    assert!(out.contains("build"), "should show build job: {}", out);
+}
+
+#[tokio::test]
+async fn test_github_actions_jobs() {
+    let args = serde_json::json!({ "action": "jobs", "text": ACTIONS_WORKFLOW });
+    let out = hematite::tools::github_actions_tools::execute(&args)
+        .await
+        .unwrap();
+    assert!(out.contains("ubuntu-latest"), "should show runner: {}", out);
+    assert!(out.contains("build"), "should show build job: {}", out);
+    assert!(out.contains("test"), "should show test job: {}", out);
+    assert!(
+        out.contains("needs"),
+        "should show needs dependency: {}",
+        out
+    );
+}
+
+#[tokio::test]
+async fn test_github_actions_steps() {
+    let args = serde_json::json!({ "action": "steps", "text": ACTIONS_WORKFLOW });
+    let out = hematite::tools::github_actions_tools::execute(&args)
+        .await
+        .unwrap();
+    assert!(
+        out.contains("Checkout"),
+        "should list checkout step: {}",
+        out
+    );
+    assert!(
+        out.contains("actions/checkout"),
+        "should show uses: {}",
+        out
+    );
+    assert!(
+        out.contains("cargo build"),
+        "should show run command: {}",
+        out
+    );
+}
+
+#[tokio::test]
+async fn test_github_actions_steps_filter() {
+    let args = serde_json::json!({ "action": "steps", "text": ACTIONS_WORKFLOW, "job": "test" });
+    let out = hematite::tools::github_actions_tools::execute(&args)
+        .await
+        .unwrap();
+    assert!(out.contains("cargo test"), "should show test run: {}", out);
+    assert!(out.contains("if:"), "should show if condition: {}", out);
+}
+
+#[tokio::test]
+async fn test_github_actions_triggers() {
+    let args = serde_json::json!({ "action": "triggers", "text": ACTIONS_WORKFLOW });
+    let out = hematite::tools::github_actions_tools::execute(&args)
+        .await
+        .unwrap();
+    assert!(out.contains("push"), "should show push event: {}", out);
+    assert!(out.contains("main"), "should show main branch: {}", out);
+    assert!(
+        out.contains("pull_request"),
+        "should show pr trigger: {}",
+        out
+    );
+}
+
+#[tokio::test]
+async fn test_github_actions_validate() {
+    let args = serde_json::json!({ "action": "validate", "text": ACTIONS_WORKFLOW });
+    let out = hematite::tools::github_actions_tools::execute(&args)
+        .await
+        .unwrap();
+    assert!(out.contains("VALID"), "should be valid: {}", out);
+    assert!(
+        out.contains("permissions"),
+        "should warn on missing permissions: {}",
+        out
+    );
+}
+
+#[tokio::test]
+async fn test_github_actions_routing() {
+    use hematite::agent::routing::needs_github_actions_tools;
+    assert!(
+        needs_github_actions_tools("parse this github actions workflow yaml"),
+        "should detect workflow yaml"
+    );
+    assert!(
+        needs_github_actions_tools("explain the jobs in this .github/workflows file"),
+        "should detect .github/workflows"
+    );
+    assert!(
+        needs_github_actions_tools("what triggers this github actions workflow"),
+        "should detect triggers query"
+    );
+    assert!(
+        !needs_github_actions_tools("list available npm packages"),
+        "false positive on npm"
+    );
+}
+
+// ============================================================
+// systemd_tools tests
+// ============================================================
+
+static SYSTEMD_SERVICE: &str = r#"
+[Unit]
+Description=My Web Application
+After=network.target
+Wants=redis.service
+
+[Service]
+Type=simple
+User=webapp
+Group=webapp
+WorkingDirectory=/opt/webapp
+ExecStart=/opt/webapp/bin/server --port 8080
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target
+"#;
+
+static SYSTEMD_TIMER: &str = r#"
+[Unit]
+Description=Daily backup timer
+
+[Timer]
+OnCalendar=daily
+Persistent=yes
+
+[Install]
+WantedBy=timers.target
+"#;
+
+#[tokio::test]
+async fn test_systemd_info() {
+    let args = serde_json::json!({ "action": "info", "text": SYSTEMD_SERVICE });
+    let out = hematite::tools::systemd_tools::execute(&args)
+        .await
+        .unwrap();
+    assert!(
+        out.contains("My Web Application"),
+        "should show description: {}",
+        out
+    );
+    assert!(
+        out.contains("service"),
+        "should detect service type: {}",
+        out
+    );
+    assert!(out.contains("ExecStart"), "should show ExecStart: {}", out);
+    assert!(
+        out.contains("multi-user.target"),
+        "should show WantedBy: {}",
+        out
+    );
+}
+
+#[tokio::test]
+async fn test_systemd_service_action() {
+    let args = serde_json::json!({ "action": "service", "text": SYSTEMD_SERVICE });
+    let out = hematite::tools::systemd_tools::execute(&args)
+        .await
+        .unwrap();
+    assert!(out.contains("ExecStart"), "should show exec: {}", out);
+    assert!(out.contains("webapp"), "should show user: {}", out);
+    assert!(
+        out.contains("on-failure"),
+        "should show restart policy: {}",
+        out
+    );
+    assert!(
+        out.contains("NoNewPrivileges"),
+        "should show security: {}",
+        out
+    );
+}
+
+#[tokio::test]
+async fn test_systemd_timer_action() {
+    let args = serde_json::json!({ "action": "timer", "text": SYSTEMD_TIMER });
+    let out = hematite::tools::systemd_tools::execute(&args)
+        .await
+        .unwrap();
+    assert!(out.contains("daily"), "should show OnCalendar: {}", out);
+    assert!(
+        out.contains("Persistent"),
+        "should show persistent: {}",
+        out
+    );
+    assert!(
+        out.contains("midnight") || out.contains("every day"),
+        "should explain daily: {}",
+        out
+    );
+}
+
+#[tokio::test]
+async fn test_systemd_validate_ok() {
+    let args = serde_json::json!({ "action": "validate", "text": SYSTEMD_SERVICE });
+    let out = hematite::tools::systemd_tools::execute(&args)
+        .await
+        .unwrap();
+    assert!(out.contains("VALID"), "should be valid: {}", out);
+}
+
+#[tokio::test]
+async fn test_systemd_validate_warnings() {
+    let minimal = "[Service]\nExecStart=/usr/bin/foo\n";
+    let args = serde_json::json!({ "action": "validate", "text": minimal });
+    let out = hematite::tools::systemd_tools::execute(&args)
+        .await
+        .unwrap();
+    assert!(out.contains("WARN"), "should produce warnings: {}", out);
+    assert!(
+        out.contains("Install") || out.contains("Description"),
+        "should warn on missing sections: {}",
+        out
+    );
+}
+
+#[tokio::test]
+async fn test_systemd_routing() {
+    use hematite::agent::routing::needs_systemd_tools;
+    assert!(
+        needs_systemd_tools("explain this systemd service file"),
+        "should detect service file"
+    );
+    assert!(
+        needs_systemd_tools("validate this .service file"),
+        "should detect .service"
+    );
+    assert!(
+        needs_systemd_tools("explain the OnCalendar in this systemd timer"),
+        "should detect timer"
+    );
+    assert!(
+        !needs_systemd_tools("install the node packages"),
+        "false positive on install"
+    );
+}

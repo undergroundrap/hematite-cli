@@ -3866,6 +3866,33 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         }),
     ));
     tools.push(make_tool(
+        "systemd_tools",
+        "Parse, inspect, and validate systemd unit files (.service/.timer/.socket) without external utilities. \
+         Pass the unit file content as 'text'. \
+         Actions: info (default — unit type, description, [Unit]/[Service]/[Timer]/[Socket]/[Install] summary), \
+         service (detailed [Service] section: exec commands, identity, restart policy, environment, security hardening), \
+         timer (timer triggers with schedule explanations for OnCalendar/OnBootSec/OnUnitActiveSec, Persistent flag), \
+         validate (warn on missing Description, missing ExecStart, Type=forking without PIDFile, no Restart=, running as root, missing security hardening, missing [Install]). \
+         Example: systemd_tools(action: 'info', text: '...') or \
+         systemd_tools(action: 'service', text: '...') or \
+         systemd_tools(action: 'timer', text: '...') or \
+         systemd_tools(action: 'validate', text: '...').",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "info (default), service, timer, validate"
+                },
+                "text": {
+                    "type": "string",
+                    "description": "Systemd unit file content as a string. Also 'unit'/'content'/'input'."
+                }
+            },
+            "required": []
+        }),
+    ));
+    tools.push(make_tool(
         "nginx_conf_tools",
         "Parse, inspect, and validate nginx.conf files without external utilities. \
          Actions: list (default — all server blocks with server_name, listen ports, root/proxy, SSL, location count), \
@@ -3932,6 +3959,38 @@ pub fn get_tools() -> Vec<ToolDefinition> {
                 "query": {
                     "type": "string",
                     "description": "Search term for the 'search' action — matches path, summary, operationId, tag, or HTTP method. Also 'q'."
+                }
+            },
+            "required": []
+        }),
+    ));
+    tools.push(make_tool(
+        "github_actions_tools",
+        "Parse, inspect, and validate GitHub Actions workflow YAML without external utilities. \
+         Pass the workflow YAML content as 'text'. \
+         Actions: info (default — workflow name, triggers, and per-job summary with runs-on/steps/needs), \
+         jobs (detailed job listing — runs-on, step count, needs, matrix, concurrency, env vars), \
+         steps (all steps per job with name, uses, run preview, and if condition; optional 'job' filter), \
+         triggers (full trigger detail: branches/tags/paths filters, cron schedules, workflow_dispatch inputs, concurrency group), \
+         validate (checks: missing 'on' triggers, missing runs-on, undefined needs references, steps without uses/run, missing top-level permissions). \
+         Example: github_actions_tools(action: 'info', text: '...') or \
+         github_actions_tools(action: 'steps', text: '...', job: 'build') or \
+         github_actions_tools(action: 'triggers', text: '...') or \
+         github_actions_tools(action: 'validate', text: '...').",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "info (default), jobs, steps, triggers, validate"
+                },
+                "text": {
+                    "type": "string",
+                    "description": "GitHub Actions workflow YAML content. Also 'yaml'/'workflow'/'content'/'input'."
+                },
+                "job": {
+                    "type": "string",
+                    "description": "Job ID filter for the 'steps' action. Partial match, case-insensitive."
                 }
             },
             "required": []
@@ -4382,6 +4441,7 @@ pub async fn dispatch_builtin_tool(
         "docker_compose_tools" => crate::tools::docker_compose_tools::execute(args).await,
         "nginx_conf_tools" => crate::tools::nginx_conf_tools::execute(args).await,
         "openapi_tools" => crate::tools::openapi_tools::execute(args).await,
+        "github_actions_tools" => crate::tools::github_actions_tools::execute(args).await,
         "secret_scanner" => crate::tools::secret_scanner::execute(args).await,
         "code_metrics" => crate::tools::code_metrics::execute(args).await,
         "dependency_audit" => crate::tools::dependency_audit::execute(args).await,
@@ -4441,6 +4501,7 @@ pub async fn dispatch_builtin_tool(
         "make_tools" => crate::tools::make_tools::execute(args).await,
         "changelog_tools" => crate::tools::changelog_tools::execute(args).await,
         "ssh_config_tools" => crate::tools::ssh_config_tools::execute(args).await,
+        "systemd_tools" => crate::tools::systemd_tools::execute(args).await,
         "git_status" => crate::tools::git::execute_status(args).await,
         "git_diff" => crate::tools::git::execute_diff(args).await,
         "git_log" => crate::tools::git::execute_log(args).await,

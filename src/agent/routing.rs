@@ -7141,6 +7141,32 @@ pub fn needs_changelog_tools(user_input: &str) -> bool {
     )
 }
 
+pub fn needs_github_actions_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "github actions",
+            "github workflow",
+            ".github/workflows",
+            "actions workflow",
+            "ci workflow yaml",
+            "workflow yaml",
+            "workflow triggers",
+            "workflow jobs",
+            "workflow steps",
+            "parse workflow",
+            "validate workflow",
+            "actions on:",
+            "runs-on:",
+            "uses: actions/",
+            "workflow_dispatch",
+            "on: push",
+            "on: pull_request",
+        ],
+    )
+}
+
 pub fn needs_gitignore_tools(user_input: &str) -> bool {
     let lower = user_input.to_lowercase();
     contains_any(
@@ -7207,6 +7233,34 @@ pub fn needs_ssh_config_tools(user_input: &str) -> bool {
             "stricthostkeychecking",
             "ssh identityfile",
             "ssh host options",
+        ],
+    )
+}
+
+pub fn needs_systemd_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "systemd unit",
+            "systemd service",
+            "systemd timer",
+            "systemd socket",
+            ".service file",
+            ".timer file",
+            ".socket file",
+            "unit file",
+            "validate unit",
+            "parse unit file",
+            "execstart",
+            "wantedby=",
+            "oncalendar",
+            "onbootsec",
+            "systemctl enable",
+            "systemd hardening",
+            "privatetmp",
+            "nonewprivileges",
+            "protectsystem",
         ],
     )
 }
