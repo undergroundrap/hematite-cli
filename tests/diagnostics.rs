@@ -23899,3 +23899,219 @@ async fn test_systemd_routing() {
         "false positive on install"
     );
 }
+
+// ============================================================
+// dockerfile_tools tests
+// ============================================================
+
+static DOCKERFILE: &str = r#"
+FROM node:18-alpine AS builder
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci
+COPY . .
+RUN npm run build
+
+FROM node:18-alpine
+WORKDIR /app
+USER node
+COPY --from=builder /app/dist ./dist
+EXPOSE 3000
+HEALTHCHECK --interval=30s CMD node healthcheck.js
+CMD ["node", "dist/server.js"]
+"#;
+
+#[tokio::test]
+async fn test_dockerfile_info() {
+    let args = serde_json::json!({ "action": "info", "text": DOCKERFILE });
+    let out = hematite::tools::dockerfile_tools::execute(&args)
+        .await
+        .unwrap();
+    assert!(out.contains("Stage"), "should show stages: {}", out);
+    assert!(out.contains("node"), "should show base image: {}", out);
+    assert!(out.contains("3000"), "should show exposed port: {}", out);
+    assert!(out.contains("WorkDir"), "should show workdir: {}", out);
+}
+
+#[tokio::test]
+async fn test_dockerfile_layers() {
+    let args = serde_json::json!({ "action": "layers", "text": DOCKERFILE });
+    let out = hematite::tools::dockerfile_tools::execute(&args)
+        .await
+        .unwrap();
+    assert!(out.contains("FROM"), "should list FROM: {}", out);
+    assert!(out.contains("RUN"), "should list RUN: {}", out);
+    assert!(out.contains("COPY"), "should list COPY: {}", out);
+    assert!(out.contains("EXPOSE"), "should list EXPOSE: {}", out);
+}
+
+#[tokio::test]
+async fn test_dockerfile_validate_clean() {
+    let args = serde_json::json!({ "action": "validate", "text": DOCKERFILE });
+    let out = hematite::tools::dockerfile_tools::execute(&args)
+        .await
+        .unwrap();
+    assert!(out.contains("VALID"), "should be valid: {}", out);
+    // Uses pinned tag, has USER node, no ADD, no curl|sh
+}
+
+#[tokio::test]
+async fn test_dockerfile_validate_warns_latest() {
+    let bad = "FROM ubuntu:latest\nRUN apt-get update\nCMD [\"bash\"]\n";
+    let args = serde_json::json!({ "action": "validate", "text": bad });
+    let out = hematite::tools::dockerfile_tools::execute(&args)
+        .await
+        .unwrap();
+    assert!(out.contains("WARN"), "should warn: {}", out);
+    assert!(out.contains("latest"), "should warn on latest tag: {}", out);
+}
+
+#[tokio::test]
+async fn test_dockerfile_validate_warns_root() {
+    let bad = "FROM alpine:3.18\nRUN echo hello\nCMD [\"sh\"]\n";
+    let args = serde_json::json!({ "action": "validate", "text": bad });
+    let out = hematite::tools::dockerfile_tools::execute(&args)
+        .await
+        .unwrap();
+    assert!(
+        out.contains("root") || out.contains("USER"),
+        "should warn on root: {}",
+        out
+    );
+}
+
+#[tokio::test]
+async fn test_dockerfile_routing() {
+    use hematite::agent::routing::needs_dockerfile_tools;
+    assert!(
+        needs_dockerfile_tools("review this Dockerfile"),
+        "should detect dockerfile"
+    );
+    assert!(
+        needs_dockerfile_tools("validate my dockerfile best practices"),
+        "should detect dockerfile best practices"
+    );
+    assert!(
+        needs_dockerfile_tools("what layers are in this dockerfile"),
+        "should detect dockerfile layers"
+    );
+    assert!(
+        !needs_dockerfile_tools("list running docker containers"),
+        "should not trigger for docker ops"
+    );
+}
+
+// ============================================================
+// k8s_tools tests
+// ============================================================
+
+static K8S_DEPLOYMENT: &str = r#"
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: my-app
+  namespace: production
+  labels:
+    app: my-app
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: my-app
+  template:
+    metadata:
+      labels:
+        app: my-app
+    spec:
+      containers:
+        - name: app
+          image: my-app:1.2.3
+          ports:
+            - containerPort: 8080
+              protocol: TCP
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8080
+          securityContext:
+            runAsNonRoot: true
+            readOnlyRootFilesystem: true
+"#;
+
+#[tokio::test]
+async fn test_k8s_info() {
+    let args = serde_json::json!({ "action": "info", "text": K8S_DEPLOYMENT });
+    let out = hematite::tools::k8s_tools::execute(&args).await.unwrap();
+    assert!(out.contains("Deployment"), "should show kind: {}", out);
+    assert!(out.contains("my-app"), "should show name: {}", out);
+    assert!(out.contains("production"), "should show namespace: {}", out);
+    assert!(out.contains("3"), "should show replicas: {}", out);
+}
+
+#[tokio::test]
+async fn test_k8s_containers() {
+    let args = serde_json::json!({ "action": "containers", "text": K8S_DEPLOYMENT });
+    let out = hematite::tools::k8s_tools::execute(&args).await.unwrap();
+    assert!(out.contains("app"), "should show container name: {}", out);
+    assert!(out.contains("my-app:1.2.3"), "should show image: {}", out);
+    assert!(out.contains("8080"), "should show port: {}", out);
+    assert!(out.contains("100m"), "should show cpu request: {}", out);
+    assert!(
+        out.contains("liveness"),
+        "should show liveness probe: {}",
+        out
+    );
+}
+
+#[tokio::test]
+async fn test_k8s_validate_clean() {
+    let args = serde_json::json!({ "action": "validate", "text": K8S_DEPLOYMENT });
+    let out = hematite::tools::k8s_tools::execute(&args).await.unwrap();
+    assert!(out.contains("VALID"), "should be valid: {}", out);
+    // Pinned tag, resource limits, runAsNonRoot, probes defined
+}
+
+#[tokio::test]
+async fn test_k8s_validate_warns_no_limits() {
+    let minimal = "apiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: bad\nspec:\n  template:\n    spec:\n      containers:\n        - name: app\n          image: myapp:latest\n";
+    let args = serde_json::json!({ "action": "validate", "text": minimal });
+    let out = hematite::tools::k8s_tools::execute(&args).await.unwrap();
+    assert!(out.contains("WARN"), "should warn: {}", out);
+    assert!(
+        out.contains("limit") || out.contains("latest"),
+        "should warn on limits or tag: {}",
+        out
+    );
+}
+
+#[tokio::test]
+async fn test_k8s_routing() {
+    use hematite::agent::routing::needs_k8s_tools;
+    assert!(
+        needs_k8s_tools("validate this kubernetes deployment yaml"),
+        "should detect kubernetes"
+    );
+    assert!(
+        needs_k8s_tools("explain the containers in this k8s manifest"),
+        "should detect k8s"
+    );
+    assert!(
+        needs_k8s_tools("what resource limits are set in this kubernetes pod spec"),
+        "should detect kubernetes pod spec"
+    );
+    assert!(
+        !needs_k8s_tools("list docker images"),
+        "should not trigger for docker images"
+    );
+}

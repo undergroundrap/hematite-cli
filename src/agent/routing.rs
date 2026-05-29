@@ -5708,6 +5708,27 @@ pub fn needs_docker_compose_tools(user_input: &str) -> bool {
     )
 }
 
+pub fn needs_dockerfile_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "dockerfile",
+            "docker file",
+            "parse dockerfile",
+            "validate dockerfile",
+            "review dockerfile",
+            "dockerfile layers",
+            "dockerfile best practices",
+            "from instruction",
+            "cmd instruction",
+            "entrypoint instruction",
+            "healthcheck instruction",
+            "docker image build",
+        ],
+    )
+}
+
 pub fn needs_docker_ops(user_input: &str) -> bool {
     let lower = user_input.to_lowercase();
     let docker_noun = lower.contains("docker")
@@ -6420,6 +6441,44 @@ pub fn needs_jwt_tools(user_input: &str) -> bool {
         || lower.contains("hs512")
         || (lower.contains("token") && lower.contains("verify"))
         || (lower.contains("token") && lower.contains("sign"))
+}
+
+pub fn needs_k8s_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "kubernetes",
+            "kubectl",
+            "k8s",
+            "kubernetes manifest",
+            "k8s manifest",
+            "kubernetes yaml",
+            "k8s yaml",
+            "deployment yaml",
+            "pod spec",
+            "kubernetes deployment",
+            "kubernetes service",
+            "kubernetes ingress",
+            "kubernetes pod",
+            "kubernetes configmap",
+            "kubernetes statefulset",
+            "kubernetes daemonset",
+            "kubernetes job",
+            "kubernetes cronjob",
+            "kind: deployment",
+            "kind: service",
+            "kind: pod",
+            "apiversion: apps/v1",
+            "apiversion: v1",
+            "livenessProbe",
+            "readinessprobe",
+            "resource limits",
+            "kubernetes resource",
+            "validate k8s",
+            "validate kubernetes",
+        ],
+    )
 }
 
 /// Returns true when the user wants to parse, format, or convert XML — steer toward `xml_tools`.

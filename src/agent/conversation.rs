@@ -30,21 +30,21 @@ use crate::agent::routing::{
     is_scaffold_request, looks_like_mutation_request, needs_ansi_tools, needs_archive_tools,
     needs_changelog_tools, needs_char_tools, needs_color_tools, needs_computation_sandbox,
     needs_crash_debug, needs_cron_tools, needs_csp_tools, needs_csv_tools, needs_date_tools,
-    needs_diff_tools, needs_docker_compose_tools, needs_docker_ops, needs_dotenv_tools,
-    needs_duration_tools, needs_encode_tools, needs_format, needs_github_actions_tools,
-    needs_github_ops, needs_gitignore_tools, needs_glob_tools, needs_hash_tools, needs_hex_tools,
-    needs_http_request, needs_http_status_tools, needs_ini_tools, needs_ip_tools, needs_jwt_tools,
-    needs_keyval_tools, needs_license_tools, needs_line_tools, needs_lint_check,
-    needs_log_parse_tools, needs_make_tools, needs_markdown_tools, needs_mime_tools,
-    needs_money_tools, needs_net_lookup_tools, needs_nginx_conf_tools, needs_number_tools,
-    needs_openapi_tools, needs_password_gen, needs_path_tools, needs_regex_tools,
-    needs_robots_txt_tools, needs_rss_tools, needs_secret_scan, needs_semver_tools,
-    needs_sitemap_tools, needs_size_tools, needs_sqlite_tools, needs_ssh_config_tools,
-    needs_stat_tools, needs_systemd_tools, needs_table_tools, needs_template_tools, needs_test_run,
-    needs_text_tools, needs_token_tools, needs_toml_tools, needs_url_tools, needs_uuid_gen,
-    needs_validate_tools, needs_xml_tools, needs_yaml_tools, preferred_host_inspection_topic,
-    preferred_maintainer_workflow, preferred_workspace_workflow, DirectAnswerKind,
-    QueryIntentClass,
+    needs_diff_tools, needs_docker_compose_tools, needs_docker_ops, needs_dockerfile_tools,
+    needs_dotenv_tools, needs_duration_tools, needs_encode_tools, needs_format,
+    needs_github_actions_tools, needs_github_ops, needs_gitignore_tools, needs_glob_tools,
+    needs_hash_tools, needs_hex_tools, needs_http_request, needs_http_status_tools,
+    needs_ini_tools, needs_ip_tools, needs_jwt_tools, needs_k8s_tools, needs_keyval_tools,
+    needs_license_tools, needs_line_tools, needs_lint_check, needs_log_parse_tools,
+    needs_make_tools, needs_markdown_tools, needs_mime_tools, needs_money_tools,
+    needs_net_lookup_tools, needs_nginx_conf_tools, needs_number_tools, needs_openapi_tools,
+    needs_password_gen, needs_path_tools, needs_regex_tools, needs_robots_txt_tools,
+    needs_rss_tools, needs_secret_scan, needs_semver_tools, needs_sitemap_tools, needs_size_tools,
+    needs_sqlite_tools, needs_ssh_config_tools, needs_stat_tools, needs_systemd_tools,
+    needs_table_tools, needs_template_tools, needs_test_run, needs_text_tools, needs_token_tools,
+    needs_toml_tools, needs_url_tools, needs_uuid_gen, needs_validate_tools, needs_xml_tools,
+    needs_yaml_tools, preferred_host_inspection_topic, preferred_maintainer_workflow,
+    preferred_workspace_workflow, DirectAnswerKind, QueryIntentClass,
 };
 use crate::agent::tool_registry::dispatch_builtin_tool;
 use crate::agent::truncation::safe_head;
@@ -5071,6 +5071,20 @@ impl ConversationManager {
             );
         }
 
+        if loop_intervention.is_none() && needs_dockerfile_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "DOCKERFILE NOTICE: Use the `dockerfile_tools` tool to parse, inspect, and validate Dockerfiles. \
+                 Pass the Dockerfile content as 'text'. \
+                 Actions: info (default — base image and tag per stage, exposed ports, labels, WORKDIR, USER, CMD, instruction counts), \
+                 layers (all instructions in order with type and content), \
+                 validate (check for: latest tag, running as root, ADD instead of COPY, curl|sh pipe, secrets in ENV/ARG, missing CMD/ENTRYPOINT, no HEALTHCHECK). \
+                 Example: dockerfile_tools(action: 'info', text: '...') or \
+                 dockerfile_tools(action: 'validate', text: '...') or \
+                 dockerfile_tools(action: 'layers', text: '...')."
+                    .to_string(),
+            );
+        }
+
         // ── Docker Routing: steer model toward docker_ops instead of raw shell docker ──
         if loop_intervention.is_none() && needs_docker_ops(&effective_user_input) {
             loop_intervention = Some(
@@ -5334,6 +5348,21 @@ impl ConversationManager {
                  inspect (expiry/validity summary without secret — pass 'token'). \
                  Example: jwt_tools(action: \"verify\", token: \"eyJ...\", secret: \"my-secret\") or \
                  jwt_tools(action: \"sign\", claims: {\"sub\": \"user123\", \"exp\": 9999999999}, secret: \"key\")."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_k8s_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "KUBERNETES NOTICE: Use the `k8s_tools` tool to parse, inspect, and validate Kubernetes manifests (Deployment, Service, Pod, StatefulSet, DaemonSet, Job, CronJob, Ingress, ConfigMap). \
+                 Pass the manifest YAML content as 'text'. \
+                 Actions: info (default — kind, apiVersion, name, namespace, labels, replicas, selector, port list, container summary), \
+                 containers (detailed per-container breakdown: image, ports, resource requests/limits, env vars, volume mounts, liveness/readiness probes, security context), \
+                 volumes (all volume types with source details: ConfigMap, Secret, PVC, HostPath, EmptyDir, NFS), \
+                 validate (checks: missing kind/apiVersion/name, image latest tag, missing resource limits, privileged containers, running as root, missing liveness/readiness probes, hostPath volumes, hostNetwork, single replica). \
+                 Example: k8s_tools(action: 'info', text: '...') or \
+                 k8s_tools(action: 'containers', text: '...') or \
+                 k8s_tools(action: 'validate', text: '...')."
                     .to_string(),
             );
         }

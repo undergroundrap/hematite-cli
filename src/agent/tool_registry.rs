@@ -1561,6 +1561,57 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         }),
     ));
     tools.push(make_tool(
+        "dockerfile_tools",
+        "Parse, inspect, and validate Dockerfiles without external utilities. \
+         Pass the Dockerfile content as 'text'. \
+         Actions: info (default — base image and tag per stage, exposed ports, labels, WORKDIR, USER, CMD/ENTRYPOINT, instruction counts), \
+         layers (all instructions in order with type and full content), \
+         validate (check for: latest tag on FROM, running as root, ADD instead of COPY, curl/wget piped to shell, secrets in ENV/ARG, missing CMD/ENTRYPOINT, no HEALTHCHECK). \
+         Example: dockerfile_tools(action: 'info', text: '...') or \
+         dockerfile_tools(action: 'validate', text: '...') or \
+         dockerfile_tools(action: 'layers', text: '...').",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "info (default), layers, validate"
+                },
+                "text": {
+                    "type": "string",
+                    "description": "Dockerfile content as a string. Also 'dockerfile'/'content'/'input'."
+                }
+            },
+            "required": []
+        }),
+    ));
+    tools.push(make_tool(
+        "k8s_tools",
+        "Parse, inspect, and validate Kubernetes manifests (Deployment, Service, Pod, StatefulSet, DaemonSet, Job, CronJob, Ingress, ConfigMap) without external utilities. \
+         Pass the manifest YAML content as 'text'. \
+         Actions: info (default — kind, apiVersion, name, namespace, labels, replicas/selector/strategy for workloads, port list for Services, key list for ConfigMaps), \
+         containers (per-container breakdown: image, ports, resource requests/limits, env vars, volume mounts, liveness/readiness/startup probes, security context), \
+         volumes (volume types with source details: ConfigMap, Secret, PVC, HostPath, EmptyDir, NFS, Projected), \
+         validate (checks: missing kind/apiVersion/name, image without pinned tag, missing resource limits, privileged containers, no runAsNonRoot/runAsUser, missing liveness/readiness probes, hostPath volumes, hostNetwork/hostPID, single replica). \
+         Example: k8s_tools(action: 'info', text: '...') or \
+         k8s_tools(action: 'containers', text: '...') or \
+         k8s_tools(action: 'validate', text: '...').",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "info (default), containers, volumes, validate"
+                },
+                "text": {
+                    "type": "string",
+                    "description": "Kubernetes manifest YAML content as a string. Also 'yaml'/'manifest'/'content'/'input'."
+                }
+            },
+            "required": []
+        }),
+    ));
+    tools.push(make_tool(
         "json_tools",
         "Query, transform, and analyze JSON data without needing jq or external tools. \
          Provide JSON inline ('json' arg) or from a file ('file' arg). \
@@ -4439,6 +4490,8 @@ pub async fn dispatch_builtin_tool(
         "http_request" => crate::tools::http_client::execute(args).await,
         "docker_ops" => crate::tools::docker_ops::execute(args).await,
         "docker_compose_tools" => crate::tools::docker_compose_tools::execute(args).await,
+        "dockerfile_tools" => crate::tools::dockerfile_tools::execute(args).await,
+        "k8s_tools" => crate::tools::k8s_tools::execute(args).await,
         "nginx_conf_tools" => crate::tools::nginx_conf_tools::execute(args).await,
         "openapi_tools" => crate::tools::openapi_tools::execute(args).await,
         "github_actions_tools" => crate::tools::github_actions_tools::execute(args).await,
