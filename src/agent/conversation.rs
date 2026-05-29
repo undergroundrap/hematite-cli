@@ -28,14 +28,15 @@ use crate::agent::recovery_recipes::{
 use crate::agent::routing::{
     all_host_inspection_topics, classify_query_intent, is_capability_probe_tool,
     is_scaffold_request, looks_like_mutation_request, needs_ansi_tools, needs_archive_tools,
-    needs_changelog_tools, needs_char_tools, needs_color_tools, needs_computation_sandbox,
-    needs_crash_debug, needs_cron_tools, needs_csp_tools, needs_csv_tools, needs_date_tools,
-    needs_diff_tools, needs_docker_compose_tools, needs_docker_ops, needs_dockerfile_tools,
-    needs_dotenv_tools, needs_duration_tools, needs_encode_tools, needs_env_schema_tools,
-    needs_format, needs_github_actions_tools, needs_github_ops, needs_gitignore_tools,
-    needs_glob_tools, needs_graphql_tools, needs_hash_tools, needs_hex_tools, needs_http_request,
-    needs_http_status_tools, needs_ini_tools, needs_ip_tools, needs_jwt_tools, needs_k8s_tools,
-    needs_keyval_tools, needs_license_tools, needs_line_tools, needs_lint_check,
+    needs_base_tools, needs_changelog_tools, needs_char_tools, needs_color_tools,
+    needs_computation_sandbox, needs_crash_debug, needs_cron_tools, needs_csp_tools,
+    needs_csv_tools, needs_date_tools, needs_diff_tools, needs_docker_compose_tools,
+    needs_docker_ops, needs_dockerfile_tools, needs_dotenv_tools, needs_duration_tools,
+    needs_encode_tools, needs_env_schema_tools, needs_format, needs_github_actions_tools,
+    needs_github_ops, needs_gitignore_tools, needs_glob_tools, needs_graphql_tools,
+    needs_hash_tools, needs_hex_tools, needs_http_request, needs_http_status_tools,
+    needs_ini_tools, needs_ip_tools, needs_jwt_tools, needs_k8s_tools, needs_keyval_tools,
+    needs_license_tools, needs_line_tools, needs_lint_check, needs_lock_file_tools,
     needs_log_parse_tools, needs_make_tools, needs_markdown_tools, needs_mime_tools,
     needs_money_tools, needs_net_lookup_tools, needs_nginx_conf_tools, needs_number_tools,
     needs_openapi_tools, needs_package_json_tools, needs_password_gen, needs_path_tools,
@@ -6110,6 +6111,35 @@ impl ConversationManager {
                  Example: sql_migrate_tools(action: 'analyze', text: '...') or \
                  sql_migrate_tools(action: 'risk', text: '...') or \
                  sql_migrate_tools(action: 'validate', text: '...')."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_base_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "BASE ENCODING NOTICE: Use the `base_tools` tool for extended base encoding and decoding \
+                 without external utilities. Actions: encode (default — show all encodings or specify 'encoding': \
+                 base16/base32/base58/base85; pass 'input'), \
+                 decode (convert encoded string back to bytes; requires 'encoding': base16/base32/base58/base85; \
+                 shows UTF-8 and hex representations), \
+                 identify (guess the encoding of a string from character set and length heuristics). \
+                 Example: base_tools(action: 'encode', input: 'hello world', encoding: 'base58') or \
+                 base_tools(action: 'decode', input: 'StV1DL6CwTryKyV', encoding: 'base58')."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_lock_file_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "LOCK FILE NOTICE: Use the `lock_file_tools` tool to parse and analyze dependency lock files \
+                 without external utilities. Supports Cargo.lock (cargo), package-lock.json (npm), yarn.lock (yarn), \
+                 and poetry.lock (poetry). Pass content as 'text' or a file path as 'file'; optionally pass 'format' \
+                 to override auto-detection. Actions: info (default — package count, duplicates, format metadata), \
+                 list (all packages sorted by name; pass 'limit' to cap), \
+                 search (find packages by name substring; pass 'query'), \
+                 duplicates (packages appearing at multiple versions — the root cause of bundle bloat). \
+                 Example: lock_file_tools(action: 'info', file: 'Cargo.lock') or \
+                 lock_file_tools(action: 'duplicates', file: 'package-lock.json')."
                     .to_string(),
             );
         }

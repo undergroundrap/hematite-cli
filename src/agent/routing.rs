@@ -7634,6 +7634,54 @@ pub fn needs_package_json_tools(user_input: &str) -> bool {
     )
 }
 
+pub fn needs_base_tools(user_input: &str) -> bool {
+    contains_any(
+        user_input,
+        &[
+            "base32",
+            "base58",
+            "base85",
+            "base16 encode",
+            "b32 encode",
+            "b58 encode",
+            "z85",
+            "ascii85",
+            "encode base",
+            "decode base",
+            "identify encoding",
+            "guess encoding",
+            "bitcoin base58",
+            "ipfs base58",
+            "rfc 4648",
+        ],
+    )
+}
+
+pub fn needs_lock_file_tools(user_input: &str) -> bool {
+    contains_any(
+        user_input,
+        &[
+            "cargo.lock",
+            "package-lock.json",
+            "yarn.lock",
+            "poetry.lock",
+            "lock file",
+            "lockfile",
+            "lock file analysis",
+            "lock file packages",
+            "analyze lock",
+            "parse lock",
+            "dependency lock",
+            "duplicate dependencies",
+            "duplicate packages",
+            "dedupe",
+            "lock file duplicates",
+            "packages in lock",
+            "what packages are locked",
+        ],
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

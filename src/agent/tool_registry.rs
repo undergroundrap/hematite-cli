@@ -4294,6 +4294,81 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         }),
     ));
     tools.push(make_tool(
+        "base_tools",
+        "Extended base encoding and decoding toolkit — base16 (hex), base32 (RFC 4648), \
+         base58 (Bitcoin/IPFS alphabet), and base85 (Z85/ZeroMQ) — without external utilities. \
+         Actions: encode (default — encode 'input' text/bytes; specify 'encoding': base16/base32/base58/base85 \
+         or omit to show all four at once), \
+         decode (reverse; requires 'encoding'; shows UTF-8 and hex representations of the decoded bytes), \
+         identify (guess encoding from character set and length heuristics — returns all plausible matches). \
+         Example: base_tools(action: 'encode', input: 'hello', encoding: 'base58') or \
+         base_tools(action: 'decode', input: 'Cn8eVZg', encoding: 'base58') or \
+         base_tools(action: 'identify', input: 'NBSWY3DPEB3W64TMMQ').",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "encode (default), decode, identify"
+                },
+                "input": {
+                    "type": "string",
+                    "description": "Text or encoded string to process. Also 'text'/'data'."
+                },
+                "encoding": {
+                    "type": "string",
+                    "description": "base16, base32, base58, base85 (or 'all' for encode). Also 'format'."
+                }
+            },
+            "required": []
+        }),
+    ));
+    tools.push(make_tool(
+        "lock_file_tools",
+        "Parse and analyze dependency lock files without external utilities. \
+         Supports Cargo.lock (cargo), package-lock.json (npm v1/v2/v3), yarn.lock (yarn v1/v2), \
+         and poetry.lock (poetry) — auto-detected from filename or content. \
+         Actions: info (default — package count, unique names, duplicate-version count, format metadata), \
+         list (all packages sorted by name with versions; pass 'limit' to cap at N), \
+         search (find packages matching a name substring; pass 'query'/'q'/'name'), \
+         duplicates (packages appearing at more than one version — root cause of bundle bloat; \
+         includes remediation hint: npm dedupe / yarn dedupe / cargo update). \
+         Pass 'file' for a lock file path or 'text' for inline content. Pass 'format' to override detection. \
+         Example: lock_file_tools(action: 'info', file: 'Cargo.lock') or \
+         lock_file_tools(action: 'duplicates', file: 'package-lock.json') or \
+         lock_file_tools(action: 'search', text: '...', query: 'tokio').",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "info (default), list, search, duplicates"
+                },
+                "file": {
+                    "type": "string",
+                    "description": "Path to lock file. Also 'path'."
+                },
+                "text": {
+                    "type": "string",
+                    "description": "Inline lock file content. Also 'content'/'lock'."
+                },
+                "format": {
+                    "type": "string",
+                    "description": "cargo, npm, yarn, poetry (auto-detected if omitted). Also 'type'."
+                },
+                "query": {
+                    "type": "string",
+                    "description": "Package name search term (for search action). Also 'q'/'name'."
+                },
+                "limit": {
+                    "type": "number",
+                    "description": "Max packages to show in list action (default 100)."
+                }
+            },
+            "required": []
+        }),
+    ));
+    tools.push(make_tool(
         "csp_tools",
         "Parse, explain, validate, and build Content Security Policy (CSP) headers without external utilities. \
          Actions: parse (default — break CSP into directives with per-source descriptions and unsafe flags), \
@@ -4749,6 +4824,8 @@ pub async fn dispatch_builtin_tool(
         "env_schema_tools" => crate::tools::env_schema_tools::execute(args).await,
         "graphql_tools" => crate::tools::graphql_tools::execute(args).await,
         "sql_migrate_tools" => crate::tools::sql_migrate_tools::execute(args).await,
+        "base_tools" => crate::tools::base_tools::execute(args).await,
+        "lock_file_tools" => crate::tools::lock_file_tools::execute(args).await,
         "secret_scanner" => crate::tools::secret_scanner::execute(args).await,
         "code_metrics" => crate::tools::code_metrics::execute(args).await,
         "dependency_audit" => crate::tools::dependency_audit::execute(args).await,
