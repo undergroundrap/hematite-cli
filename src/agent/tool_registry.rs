@@ -4048,6 +4048,69 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         }),
     ));
     tools.push(make_tool(
+        "terraform_tools",
+        "Parse, inspect, and validate Terraform HCL files (.tf) without external utilities. \
+         Pass the HCL content as 'text' (also 'hcl'/'tf'/'content'/'input'). \
+         Actions: info (default — required_version, provider list with source/version, block counts for resource/data/module/variable/output/local), \
+         resources (list all resource blocks with type, name, and key attributes: ami, instance_type, name, location, etc.), \
+         variables (list all input variable blocks with type, description, default value or '(required)', SENSITIVE flag), \
+         outputs (list all output blocks with value expression and SENSITIVE flag), \
+         validate (warn on: missing required_version, permissive/wildcard provider versions, hardcoded credentials in resource bodies, sensitive-named outputs/variables without sensitive=true). \
+         Example: terraform_tools(action: 'info', text: '...') or \
+         terraform_tools(action: 'resources', text: '...') or \
+         terraform_tools(action: 'variables', text: '...') or \
+         terraform_tools(action: 'validate', text: '...').",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "info (default), resources, variables, outputs, validate"
+                },
+                "text": {
+                    "type": "string",
+                    "description": "Terraform HCL content. Also 'hcl'/'tf'/'content'/'input'."
+                }
+            },
+            "required": []
+        }),
+    ));
+    tools.push(make_tool(
+        "package_json_tools",
+        "Parse, inspect, and validate package.json files without external utilities. \
+         Pass the JSON content as 'text' (also 'json'/'content'/'input'). \
+         Actions: info (default — name, version, description, license, author, main/module/types, engines, script/dep counts, keywords, repository), \
+         scripts (list all npm scripts with their command strings; pass 'filter' to narrow by name or command), \
+         deps (list dependencies — prod/dev/peer/optional with version ranges, wildcard flags, URL-dep flags; pass 'kind': prod/dev/peer/optional/all), \
+         validate (check for missing name/version/description/license, no engines field, wildcard dep versions, http:// deps, missing test/build scripts, no files whitelist, duplicate deps across sections). \
+         Example: package_json_tools(action: 'info', text: '...') or \
+         package_json_tools(action: 'scripts', text: '...') or \
+         package_json_tools(action: 'deps', text: '...', kind: 'dev') or \
+         package_json_tools(action: 'validate', text: '...').",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "info (default), scripts, deps, validate"
+                },
+                "text": {
+                    "type": "string",
+                    "description": "package.json content. Also 'json'/'content'/'input'."
+                },
+                "kind": {
+                    "type": "string",
+                    "description": "For 'deps' action: prod, dev, peer, optional, or all (default)."
+                },
+                "filter": {
+                    "type": "string",
+                    "description": "For 'scripts' or 'deps': filter by name/command substring."
+                }
+            },
+            "required": []
+        }),
+    ));
+    tools.push(make_tool(
         "csp_tools",
         "Parse, explain, validate, and build Content Security Policy (CSP) headers without external utilities. \
          Actions: parse (default — break CSP into directives with per-source descriptions and unsafe flags), \
@@ -4495,6 +4558,8 @@ pub async fn dispatch_builtin_tool(
         "nginx_conf_tools" => crate::tools::nginx_conf_tools::execute(args).await,
         "openapi_tools" => crate::tools::openapi_tools::execute(args).await,
         "github_actions_tools" => crate::tools::github_actions_tools::execute(args).await,
+        "terraform_tools" => crate::tools::terraform_tools::execute(args).await,
+        "package_json_tools" => crate::tools::package_json_tools::execute(args).await,
         "secret_scanner" => crate::tools::secret_scanner::execute(args).await,
         "code_metrics" => crate::tools::code_metrics::execute(args).await,
         "dependency_audit" => crate::tools::dependency_audit::execute(args).await,

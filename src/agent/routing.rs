@@ -7417,6 +7417,58 @@ pub fn needs_glob_tools(user_input: &str) -> bool {
     )
 }
 
+pub fn needs_terraform_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "terraform",
+            ".tf file",
+            "hcl file",
+            "main.tf",
+            "variables.tf",
+            "outputs.tf",
+            "terraform resource",
+            "terraform variable",
+            "terraform output",
+            "terraform module",
+            "terraform provider",
+            "tf resource",
+            "validate terraform",
+            "review terraform",
+            "parse terraform",
+            "infrastructure as code",
+            "iac file",
+        ],
+    ) || lower.contains(".tf\"")
+        || lower.contains(".tf'")
+        || lower.ends_with(".tf")
+}
+
+pub fn needs_package_json_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "package.json",
+            "npm scripts",
+            "node dependencies",
+            "npm deps",
+            "npm package",
+            "parse package.json",
+            "validate package.json",
+            "review package.json",
+            "package scripts",
+            "node package",
+            "devdependencies",
+            "peerdependencies",
+            "npm version",
+            "what scripts are in",
+            "list npm scripts",
+        ],
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

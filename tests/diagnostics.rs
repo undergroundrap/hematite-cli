@@ -24115,3 +24115,230 @@ async fn test_k8s_routing() {
         "should not trigger for docker images"
     );
 }
+
+// ── terraform_tools routing ──────────────────────────────────────────────────
+
+static TERRAFORM_HCL: &str = r#"
+terraform {
+  required_version = ">= 1.3.0"
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
+  }
+}
+
+provider "aws" {
+  region = "us-east-1"
+}
+
+variable "instance_type" {
+  type        = string
+  description = "EC2 instance type"
+  default     = "t3.micro"
+}
+
+variable "db_password" {
+  type        = string
+  description = "Database password"
+  sensitive   = true
+}
+
+resource "aws_instance" "web" {
+  ami           = "ami-0c55b159cbfafe1f0"
+  instance_type = var.instance_type
+  tags = {
+    Name = "web-server"
+  }
+}
+
+output "instance_ip" {
+  value = aws_instance.web.public_ip
+}
+
+output "db_connection" {
+  value     = "postgres://user@${aws_db_instance.main.endpoint}/db"
+  sensitive = true
+}
+"#;
+
+#[tokio::test]
+async fn test_terraform_tools_info() {
+    use hematite::tools::terraform_tools;
+    let args = serde_json::json!({ "action": "info", "text": TERRAFORM_HCL });
+    let result = terraform_tools::execute(&args).await.unwrap();
+    assert!(
+        result.contains("required_version"),
+        "should show required_version"
+    );
+    assert!(result.contains("aws"), "should show aws provider");
+}
+
+#[tokio::test]
+async fn test_terraform_tools_resources() {
+    use hematite::tools::terraform_tools;
+    let args = serde_json::json!({ "action": "resources", "text": TERRAFORM_HCL });
+    let result = terraform_tools::execute(&args).await.unwrap();
+    assert!(
+        result.contains("aws_instance"),
+        "should list aws_instance resource"
+    );
+    assert!(result.contains("web"), "should show resource name");
+}
+
+#[tokio::test]
+async fn test_terraform_tools_variables() {
+    use hematite::tools::terraform_tools;
+    let args = serde_json::json!({ "action": "variables", "text": TERRAFORM_HCL });
+    let result = terraform_tools::execute(&args).await.unwrap();
+    assert!(
+        result.contains("instance_type"),
+        "should list instance_type variable"
+    );
+    assert!(
+        result.contains("db_password"),
+        "should list db_password variable"
+    );
+    assert!(
+        result.contains("SENSITIVE"),
+        "should flag sensitive variable"
+    );
+}
+
+#[tokio::test]
+async fn test_terraform_tools_outputs() {
+    use hematite::tools::terraform_tools;
+    let args = serde_json::json!({ "action": "outputs", "text": TERRAFORM_HCL });
+    let result = terraform_tools::execute(&args).await.unwrap();
+    assert!(
+        result.contains("instance_ip"),
+        "should list instance_ip output"
+    );
+    assert!(
+        result.contains("db_connection"),
+        "should list db_connection output"
+    );
+}
+
+#[tokio::test]
+async fn test_terraform_tools_validate() {
+    use hematite::tools::terraform_tools;
+    let args = serde_json::json!({ "action": "validate", "text": TERRAFORM_HCL });
+    let result = terraform_tools::execute(&args).await.unwrap();
+    assert!(
+        result.contains("Validation"),
+        "should show validation header"
+    );
+}
+
+#[test]
+fn test_routing_detects_terraform_tools() {
+    use hematite::agent::routing::needs_terraform_tools;
+    assert!(
+        needs_terraform_tools("parse this terraform file"),
+        "should detect terraform"
+    );
+    assert!(
+        needs_terraform_tools("validate this main.tf HCL configuration"),
+        "should detect main.tf"
+    );
+    assert!(
+        needs_terraform_tools("list the terraform resources in this file"),
+        "should detect terraform resources"
+    );
+    assert!(
+        !needs_terraform_tools("deploy to kubernetes"),
+        "should not trigger for kubernetes"
+    );
+}
+
+// ── package_json_tools routing ───────────────────────────────────────────────
+
+static PACKAGE_JSON: &str = r#"{
+  "name": "my-app",
+  "version": "1.2.3",
+  "description": "A sample Node.js application",
+  "license": "MIT",
+  "main": "dist/index.js",
+  "engines": { "node": ">=18.0.0" },
+  "scripts": {
+    "build": "tsc",
+    "test": "jest",
+    "lint": "eslint src",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "axios": "^1.6.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0",
+    "jest": "^29.0.0",
+    "@types/node": "^20.0.0"
+  }
+}"#;
+
+#[tokio::test]
+async fn test_package_json_tools_info() {
+    use hematite::tools::package_json_tools;
+    let args = serde_json::json!({ "action": "info", "text": PACKAGE_JSON });
+    let result = package_json_tools::execute(&args).await.unwrap();
+    assert!(result.contains("my-app"), "should show package name");
+    assert!(result.contains("1.2.3"), "should show version");
+    assert!(result.contains("MIT"), "should show license");
+}
+
+#[tokio::test]
+async fn test_package_json_tools_scripts() {
+    use hematite::tools::package_json_tools;
+    let args = serde_json::json!({ "action": "scripts", "text": PACKAGE_JSON });
+    let result = package_json_tools::execute(&args).await.unwrap();
+    assert!(result.contains("build"), "should list build script");
+    assert!(result.contains("test"), "should list test script");
+    assert!(result.contains("tsc"), "should show script command");
+}
+
+#[tokio::test]
+async fn test_package_json_tools_deps() {
+    use hematite::tools::package_json_tools;
+    let args = serde_json::json!({ "action": "deps", "text": PACKAGE_JSON });
+    let result = package_json_tools::execute(&args).await.unwrap();
+    assert!(result.contains("express"), "should list express dep");
+    assert!(
+        result.contains("typescript"),
+        "should list typescript devDep"
+    );
+}
+
+#[tokio::test]
+async fn test_package_json_tools_validate_clean() {
+    use hematite::tools::package_json_tools;
+    let args = serde_json::json!({ "action": "validate", "text": PACKAGE_JSON });
+    let result = package_json_tools::execute(&args).await.unwrap();
+    assert!(
+        result.contains("Validation"),
+        "should show validation header"
+    );
+}
+
+#[test]
+fn test_routing_detects_package_json_tools() {
+    use hematite::agent::routing::needs_package_json_tools;
+    assert!(
+        needs_package_json_tools("inspect this package.json"),
+        "should detect package.json"
+    );
+    assert!(
+        needs_package_json_tools("list npm scripts in this project"),
+        "should detect npm scripts"
+    );
+    assert!(
+        needs_package_json_tools("validate the package.json dependencies"),
+        "should detect package.json deps"
+    );
+    assert!(
+        !needs_package_json_tools("run cargo build"),
+        "should not trigger for cargo"
+    );
+}

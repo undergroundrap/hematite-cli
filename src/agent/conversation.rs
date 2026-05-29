@@ -38,13 +38,14 @@ use crate::agent::routing::{
     needs_license_tools, needs_line_tools, needs_lint_check, needs_log_parse_tools,
     needs_make_tools, needs_markdown_tools, needs_mime_tools, needs_money_tools,
     needs_net_lookup_tools, needs_nginx_conf_tools, needs_number_tools, needs_openapi_tools,
-    needs_password_gen, needs_path_tools, needs_regex_tools, needs_robots_txt_tools,
-    needs_rss_tools, needs_secret_scan, needs_semver_tools, needs_sitemap_tools, needs_size_tools,
-    needs_sqlite_tools, needs_ssh_config_tools, needs_stat_tools, needs_systemd_tools,
-    needs_table_tools, needs_template_tools, needs_test_run, needs_text_tools, needs_token_tools,
-    needs_toml_tools, needs_url_tools, needs_uuid_gen, needs_validate_tools, needs_xml_tools,
-    needs_yaml_tools, preferred_host_inspection_topic, preferred_maintainer_workflow,
-    preferred_workspace_workflow, DirectAnswerKind, QueryIntentClass,
+    needs_package_json_tools, needs_password_gen, needs_path_tools, needs_regex_tools,
+    needs_robots_txt_tools, needs_rss_tools, needs_secret_scan, needs_semver_tools,
+    needs_sitemap_tools, needs_size_tools, needs_sqlite_tools, needs_ssh_config_tools,
+    needs_stat_tools, needs_systemd_tools, needs_table_tools, needs_template_tools,
+    needs_terraform_tools, needs_test_run, needs_text_tools, needs_token_tools, needs_toml_tools,
+    needs_url_tools, needs_uuid_gen, needs_validate_tools, needs_xml_tools, needs_yaml_tools,
+    preferred_host_inspection_topic, preferred_maintainer_workflow, preferred_workspace_workflow,
+    DirectAnswerKind, QueryIntentClass,
 };
 use crate::agent::tool_registry::dispatch_builtin_tool;
 use crate::agent::truncation::safe_head;
@@ -5980,6 +5981,39 @@ impl ConversationManager {
                  openapi_tools(action: 'endpoints', text: '...', tag: 'users') or \
                  openapi_tools(action: 'search', text: '...', query: 'POST') or \
                  openapi_tools(action: 'validate', text: '...')."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_terraform_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "TERRAFORM NOTICE: Use the `terraform_tools` tool to parse, inspect, and validate Terraform HCL files. \
+                 Pass the HCL content as 'text'. \
+                 Actions: info (default — required_version, provider list with source/version, block counts for resource/data/module/variable/output/local), \
+                 resources (list all resource blocks with type, name, and key attributes like ami/instance_type/name/location), \
+                 variables (list all variable blocks with type, description, default or '(required)', SENSITIVE flag), \
+                 outputs (list all output blocks with value expression and SENSITIVE flag), \
+                 validate (warn on missing required_version, permissive provider versions, hardcoded credentials, sensitive outputs/variables without sensitive=true). \
+                 Example: terraform_tools(action: 'info', text: '...') or \
+                 terraform_tools(action: 'resources', text: '...') or \
+                 terraform_tools(action: 'variables', text: '...') or \
+                 terraform_tools(action: 'validate', text: '...')."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_package_json_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "PACKAGE.JSON NOTICE: Use the `package_json_tools` tool to parse, inspect, and validate package.json files. \
+                 Pass the JSON content as 'text'. \
+                 Actions: info (default — name, version, description, license, author, main/module/types, engine requirements, script/dep/devDep counts, keywords, repository), \
+                 scripts (list all npm scripts with their command strings; pass 'filter' to narrow), \
+                 deps (list dependencies by section: prod/dev/peer/optional with version ranges and URL-dep/wildcard flags; pass 'kind' to filter), \
+                 validate (check for missing name/version/description/license, no engines field, wildcard dep versions, http:// deps, missing test/build scripts, no files whitelist, duplicate deps). \
+                 Example: package_json_tools(action: 'info', text: '...') or \
+                 package_json_tools(action: 'scripts', text: '...') or \
+                 package_json_tools(action: 'deps', text: '...', kind: 'dev') or \
+                 package_json_tools(action: 'validate', text: '...')."
                     .to_string(),
             );
         }
