@@ -3866,6 +3866,78 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         }),
     ));
     tools.push(make_tool(
+        "nginx_conf_tools",
+        "Parse, inspect, and validate nginx.conf files without external utilities. \
+         Actions: list (default — all server blocks with server_name, listen ports, root/proxy, SSL, location count), \
+         inspect (full detail for one server block with all directives and location blocks; pass 'server' as server_name or 1-based index), \
+         locations (all location blocks with proxy_pass/root/alias targets; optional 'server' filter), \
+         directives (global and http-context directives plus upstream definitions), \
+         validate (warn on missing server_name, SSL listen without ssl_certificate, proxy_pass without Host header, multiple default servers). \
+         Pass the config file content as 'text'. \
+         Example: nginx_conf_tools(action: 'list', text: '...') or \
+         nginx_conf_tools(action: 'inspect', text: '...', server: 'example.com') or \
+         nginx_conf_tools(action: 'validate', text: '...').",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "list (default), inspect, locations, directives, validate"
+                },
+                "text": {
+                    "type": "string",
+                    "description": "nginx.conf content as a string. Also 'config'/'conf'/'content'/'input'."
+                },
+                "server": {
+                    "type": "string",
+                    "description": "server_name or 1-based index for 'inspect' and 'locations' actions. Partial match on server_name."
+                }
+            },
+            "required": []
+        }),
+    ));
+    tools.push(make_tool(
+        "openapi_tools",
+        "Parse, query, search, and validate OpenAPI 3.x / Swagger 2.x specs (YAML or JSON) without external utilities. \
+         Actions: info (default — title, API version, description, servers list, endpoint/schema/tag counts, auth schemes), \
+         endpoints (all paths + HTTP methods with summary, operationId, tags, deprecated flag; pass 'tag' to filter by tag), \
+         schemas (all schema/definition names with type, description, and properties; pass 'schema' to filter by name), \
+         search (filter endpoints by path, summary, operationId, tag, or HTTP method keyword; pass 'query'), \
+         validate (missing info section, empty paths, missing summaries/operationIds, duplicate operationIds, deprecated endpoints). \
+         Pass the spec content as 'text'. \
+         Example: openapi_tools(action: 'info', text: '...') or \
+         openapi_tools(action: 'endpoints', text: '...', tag: 'users') or \
+         openapi_tools(action: 'search', text: '...', query: 'POST') or \
+         openapi_tools(action: 'schemas', text: '...') or \
+         openapi_tools(action: 'validate', text: '...').",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "info (default), endpoints, schemas, search, validate"
+                },
+                "text": {
+                    "type": "string",
+                    "description": "OpenAPI/Swagger spec content (YAML or JSON). Also 'yaml'/'json'/'spec'/'content'/'input'."
+                },
+                "tag": {
+                    "type": "string",
+                    "description": "Tag name to filter endpoints in the 'endpoints' action."
+                },
+                "schema": {
+                    "type": "string",
+                    "description": "Schema name filter for the 'schemas' action. Partial match."
+                },
+                "query": {
+                    "type": "string",
+                    "description": "Search term for the 'search' action — matches path, summary, operationId, tag, or HTTP method. Also 'q'."
+                }
+            },
+            "required": []
+        }),
+    ));
+    tools.push(make_tool(
         "csp_tools",
         "Parse, explain, validate, and build Content Security Policy (CSP) headers without external utilities. \
          Actions: parse (default — break CSP into directives with per-source descriptions and unsafe flags), \
@@ -4308,6 +4380,8 @@ pub async fn dispatch_builtin_tool(
         "http_request" => crate::tools::http_client::execute(args).await,
         "docker_ops" => crate::tools::docker_ops::execute(args).await,
         "docker_compose_tools" => crate::tools::docker_compose_tools::execute(args).await,
+        "nginx_conf_tools" => crate::tools::nginx_conf_tools::execute(args).await,
+        "openapi_tools" => crate::tools::openapi_tools::execute(args).await,
         "secret_scanner" => crate::tools::secret_scanner::execute(args).await,
         "code_metrics" => crate::tools::code_metrics::execute(args).await,
         "dependency_audit" => crate::tools::dependency_audit::execute(args).await,

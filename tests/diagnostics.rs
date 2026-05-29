@@ -23334,3 +23334,281 @@ async fn test_docker_compose_routing() {
         "false positive on docker ps"
     );
 }
+
+// ── nginx_conf_tools ─────────────────────────────────────────────────────────
+
+static NGINX_CONF: &str = r#"
+http {
+    server {
+        listen 80;
+        server_name example.com www.example.com;
+        root /var/www/html;
+        index index.html;
+
+        location / {
+            try_files $uri $uri/ =404;
+        }
+
+        location /api/ {
+            proxy_pass http://backend:8080;
+            proxy_set_header Host $host;
+        }
+    }
+
+    server {
+        listen 443 ssl;
+        server_name example.com;
+        ssl_certificate /etc/ssl/cert.pem;
+        ssl_certificate_key /etc/ssl/key.pem;
+
+        location / {
+            proxy_pass http://backend:8080;
+            proxy_set_header Host $host;
+        }
+    }
+}
+"#;
+
+#[tokio::test]
+async fn test_nginx_conf_list() {
+    let args = serde_json::json!({"action": "list", "text": NGINX_CONF});
+    let out = hematite::tools::nginx_conf_tools::execute(&args)
+        .await
+        .unwrap();
+    assert!(
+        out.contains("example.com"),
+        "should show server_name: {}",
+        out
+    );
+    assert!(out.contains("80"), "should show port 80: {}", out);
+    assert!(out.contains("443"), "should show port 443: {}", out);
+}
+
+#[tokio::test]
+async fn test_nginx_conf_inspect() {
+    let args =
+        serde_json::json!({"action": "inspect", "text": NGINX_CONF, "server": "example.com"});
+    let out = hematite::tools::nginx_conf_tools::execute(&args)
+        .await
+        .unwrap();
+    assert!(out.contains("/var/www/html"), "should show root: {}", out);
+    assert!(
+        out.contains("location /"),
+        "should show location blocks: {}",
+        out
+    );
+}
+
+#[tokio::test]
+async fn test_nginx_conf_locations() {
+    let args = serde_json::json!({"action": "locations", "text": NGINX_CONF});
+    let out = hematite::tools::nginx_conf_tools::execute(&args)
+        .await
+        .unwrap();
+    assert!(out.contains("/api/"), "should show /api/ location: {}", out);
+    assert!(
+        out.contains("backend:8080"),
+        "should show proxy target: {}",
+        out
+    );
+}
+
+#[tokio::test]
+async fn test_nginx_conf_validate_clean() {
+    let args = serde_json::json!({"action": "validate", "text": NGINX_CONF});
+    let out = hematite::tools::nginx_conf_tools::execute(&args)
+        .await
+        .unwrap();
+    assert!(out.contains("VALID"), "should be valid: {}", out);
+}
+
+#[tokio::test]
+async fn test_nginx_conf_validate_missing_cert() {
+    let conf = "http {\n  server {\n    listen 443 ssl;\n    server_name test.com;\n  }\n}\n";
+    let args = serde_json::json!({"action": "validate", "text": conf});
+    let out = hematite::tools::nginx_conf_tools::execute(&args)
+        .await
+        .unwrap();
+    assert!(out.contains("WARN"), "should warn: {}", out);
+    assert!(
+        out.contains("ssl_certificate"),
+        "should warn on missing cert: {}",
+        out
+    );
+}
+
+#[tokio::test]
+async fn test_nginx_conf_routing() {
+    use hematite::agent::routing::needs_nginx_conf_tools;
+    assert!(
+        needs_nginx_conf_tools("parse my nginx.conf"),
+        "should detect nginx.conf"
+    );
+    assert!(
+        needs_nginx_conf_tools("explain nginx server block"),
+        "should detect server block"
+    );
+    assert!(
+        needs_nginx_conf_tools("validate nginx configuration"),
+        "should detect nginx configuration"
+    );
+    assert!(
+        needs_nginx_conf_tools("nginx location proxy_pass setup"),
+        "should detect proxy_pass"
+    );
+    assert!(
+        !needs_nginx_conf_tools("configure apache webserver"),
+        "false positive on apache"
+    );
+}
+
+// ── openapi_tools ─────────────────────────────────────────────────────────────
+
+static OPENAPI_SPEC: &str = r#"
+openapi: "3.0.3"
+info:
+  title: Pet Store API
+  version: "1.0.0"
+  description: A sample API for testing
+servers:
+  - url: https://api.example.com/v1
+    description: Production
+paths:
+  /pets:
+    get:
+      summary: List all pets
+      operationId: listPets
+      tags:
+        - pets
+      responses:
+        "200":
+          description: A list of pets
+    post:
+      summary: Create a pet
+      operationId: createPet
+      tags:
+        - pets
+      responses:
+        "201":
+          description: Created
+  /pets/{petId}:
+    get:
+      summary: Get a pet by ID
+      operationId: showPetById
+      tags:
+        - pets
+      deprecated: true
+      responses:
+        "200":
+          description: A pet
+components:
+  schemas:
+    Pet:
+      type: object
+      required:
+        - id
+        - name
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        tag:
+          type: string
+"#;
+
+#[tokio::test]
+async fn test_openapi_info() {
+    let args = serde_json::json!({"action": "info", "text": OPENAPI_SPEC});
+    let out = hematite::tools::openapi_tools::execute(&args)
+        .await
+        .unwrap();
+    assert!(out.contains("Pet Store API"), "should show title: {}", out);
+    assert!(
+        out.contains("3.0.3") || out.contains("3"),
+        "should show version: {}",
+        out
+    );
+    assert!(
+        out.contains("api.example.com"),
+        "should show server: {}",
+        out
+    );
+}
+
+#[tokio::test]
+async fn test_openapi_endpoints() {
+    let args = serde_json::json!({"action": "endpoints", "text": OPENAPI_SPEC});
+    let out = hematite::tools::openapi_tools::execute(&args)
+        .await
+        .unwrap();
+    assert!(out.contains("/pets"), "should list /pets: {}", out);
+    assert!(out.contains("GET"), "should show GET method: {}", out);
+    assert!(out.contains("POST"), "should show POST method: {}", out);
+    assert!(
+        out.contains("List all pets"),
+        "should show summary: {}",
+        out
+    );
+}
+
+#[tokio::test]
+async fn test_openapi_schemas() {
+    let args = serde_json::json!({"action": "schemas", "text": OPENAPI_SPEC});
+    let out = hematite::tools::openapi_tools::execute(&args)
+        .await
+        .unwrap();
+    assert!(out.contains("Pet"), "should list Pet schema: {}", out);
+    assert!(out.contains("id"), "should show id property: {}", out);
+    assert!(out.contains("name"), "should show name property: {}", out);
+}
+
+#[tokio::test]
+async fn test_openapi_search() {
+    let args = serde_json::json!({"action": "search", "text": OPENAPI_SPEC, "query": "POST"});
+    let out = hematite::tools::openapi_tools::execute(&args)
+        .await
+        .unwrap();
+    assert!(out.contains("POST"), "should find POST endpoint: {}", out);
+    assert!(out.contains("createPet"), "should show createPet: {}", out);
+}
+
+#[tokio::test]
+async fn test_openapi_validate() {
+    let args = serde_json::json!({"action": "validate", "text": OPENAPI_SPEC});
+    let out = hematite::tools::openapi_tools::execute(&args)
+        .await
+        .unwrap();
+    assert!(out.contains("VALID"), "should be valid: {}", out);
+    // showPetById is deprecated, should flag it
+    assert!(
+        out.contains("deprecated") || out.contains("WARN"),
+        "should warn on deprecated: {}",
+        out
+    );
+}
+
+#[tokio::test]
+async fn test_openapi_routing() {
+    use hematite::agent::routing::needs_openapi_tools;
+    assert!(
+        needs_openapi_tools("parse openapi spec"),
+        "should detect openapi"
+    );
+    assert!(
+        needs_openapi_tools("validate swagger yaml"),
+        "should detect swagger"
+    );
+    assert!(
+        needs_openapi_tools("list api endpoints from openapi.yaml"),
+        "should detect openapi.yaml"
+    );
+    assert!(
+        needs_openapi_tools("what are the api schemas in this spec"),
+        "should detect api schemas"
+    );
+    assert!(
+        !needs_openapi_tools("list available npm packages"),
+        "false positive on npm"
+    );
+}

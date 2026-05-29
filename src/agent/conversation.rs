@@ -36,12 +36,12 @@ use crate::agent::routing::{
     needs_http_status_tools, needs_ini_tools, needs_ip_tools, needs_jwt_tools, needs_keyval_tools,
     needs_license_tools, needs_line_tools, needs_lint_check, needs_log_parse_tools,
     needs_make_tools, needs_markdown_tools, needs_mime_tools, needs_money_tools,
-    needs_net_lookup_tools, needs_number_tools, needs_password_gen, needs_path_tools,
-    needs_regex_tools, needs_robots_txt_tools, needs_rss_tools, needs_secret_scan,
-    needs_semver_tools, needs_sitemap_tools, needs_size_tools, needs_sqlite_tools,
-    needs_ssh_config_tools, needs_stat_tools, needs_table_tools, needs_template_tools,
-    needs_test_run, needs_text_tools, needs_token_tools, needs_toml_tools, needs_url_tools,
-    needs_uuid_gen, needs_validate_tools, needs_xml_tools, needs_yaml_tools,
+    needs_net_lookup_tools, needs_nginx_conf_tools, needs_number_tools, needs_openapi_tools,
+    needs_password_gen, needs_path_tools, needs_regex_tools, needs_robots_txt_tools,
+    needs_rss_tools, needs_secret_scan, needs_semver_tools, needs_sitemap_tools, needs_size_tools,
+    needs_sqlite_tools, needs_ssh_config_tools, needs_stat_tools, needs_table_tools,
+    needs_template_tools, needs_test_run, needs_text_tools, needs_token_tools, needs_toml_tools,
+    needs_url_tools, needs_uuid_gen, needs_validate_tools, needs_xml_tools, needs_yaml_tools,
     preferred_host_inspection_topic, preferred_maintainer_workflow, preferred_workspace_workflow,
     DirectAnswerKind, QueryIntentClass,
 };
@@ -5885,6 +5885,39 @@ impl ConversationManager {
                  Example: ssh_config_tools(action: 'list', text: '...') or \
                  ssh_config_tools(action: 'get', text: '...', host: 'myserver') or \
                  ssh_config_tools(action: 'explain', text: '...')."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_nginx_conf_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "NGINX CONFIG NOTICE: Use the `nginx_conf_tools` tool to parse, inspect, and validate nginx.conf files. \
+                 Actions: list (default — all server blocks with server_name, listen, root/proxy, SSL state, location count), \
+                 inspect (full detail for one server including all directives and location blocks; pass 'server' as server_name or index), \
+                 locations (all location blocks with proxy_pass/root/alias targets; optional 'server' filter), \
+                 directives (global and http-block directives plus upstream definitions), \
+                 validate (warn on missing server_name, SSL without certificate, proxy without Host header, multiple default servers). \
+                 Pass the config file content as 'text'. \
+                 Example: nginx_conf_tools(action: 'list', text: '...') or \
+                 nginx_conf_tools(action: 'inspect', text: '...', server: 'example.com') or \
+                 nginx_conf_tools(action: 'validate', text: '...')."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_openapi_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "OPENAPI NOTICE: Use the `openapi_tools` tool to parse, query, search, and validate OpenAPI 3.x / Swagger 2.x specs. \
+                 Actions: info (default — title, version, description, servers, endpoint/schema counts, tags, auth schemes), \
+                 endpoints (list all paths+methods with summary, operationId, tags, deprecated flag; pass 'tag' to filter), \
+                 schemas (list schema/definition names with types, properties, required flags; pass 'schema' to filter), \
+                 search (filter endpoints by path, summary, operationId, tag, or HTTP method; pass 'query'), \
+                 validate (check for missing info section, no endpoints, missing summaries/operationIds, duplicate operationIds, deprecated endpoints). \
+                 Pass the spec content (YAML or JSON) as 'text'. \
+                 Example: openapi_tools(action: 'info', text: '...') or \
+                 openapi_tools(action: 'endpoints', text: '...', tag: 'users') or \
+                 openapi_tools(action: 'search', text: '...', query: 'POST') or \
+                 openapi_tools(action: 'validate', text: '...')."
                     .to_string(),
             );
         }

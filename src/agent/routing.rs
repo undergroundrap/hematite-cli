@@ -6855,6 +6855,54 @@ pub fn needs_stat_tools(user_input: &str) -> bool {
 
 /// Returns true when the user wants to look up ports, services, or IP protocol numbers
 /// — steer toward `net_lookup_tools`.
+pub fn needs_nginx_conf_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "nginx.conf",
+            "nginx config",
+            "nginx configuration",
+            "nginx server block",
+            "nginx location",
+            "parse nginx",
+            "explain nginx",
+            "validate nginx",
+            "nginx upstream",
+            "nginx proxy_pass",
+            "nginx vhost",
+            "nginx virtual host",
+            "nginx sites-available",
+            "nginx sites-enabled",
+        ],
+    )
+}
+
+pub fn needs_openapi_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "openapi",
+            "open api",
+            "swagger",
+            "swagger spec",
+            "api spec",
+            "oas3",
+            "oas 3",
+            "swagger.yaml",
+            "swagger.json",
+            "openapi.yaml",
+            "openapi.json",
+            "api endpoints",
+            "parse openapi",
+            "validate openapi",
+            "api schemas",
+            "api definitions",
+        ],
+    )
+}
+
 pub fn needs_net_lookup_tools(user_input: &str) -> bool {
     let lower = user_input.to_lowercase();
     lower.contains("what port")
