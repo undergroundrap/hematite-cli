@@ -4369,6 +4369,136 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         }),
     ));
     tools.push(make_tool(
+        "binary_tools",
+        "Bit manipulation, bitfield packing/unpacking, and binary analysis without external utilities. \
+         Actions: info (default — show decimal/hex/octal/binary, popcount, parity, leading/trailing zeros, \
+         Gray code, IEEE 754 float view; pass 'value' as integer or 0x/0b/0o string; optional 'width' in bits), \
+         flags (show each bit position as SET/clear with SET bits highlighted; optional 'names' array for named flags), \
+         pack (assemble fields into a packed integer; 'fields' array of {value, bits, name?} from MSB to LSB), \
+         unpack (extract named fields from a packed integer; 'value' + 'layout' array of {bits, name?} from MSB to LSB), \
+         ops (compute AND/OR/XOR/NOT/NAND/NOR/XNOR, shifts, rotates, popcount, Gray code; \
+         'value' for A, optional 'b' for B, optional 'shift' count). \
+         Example: binary_tools(action: 'flags', value: '0xFF', width: 8, names: ['b7','b6','b5','b4','b3','b2','b1','b0']) or \
+         binary_tools(action: 'pack', fields: [{name: 'version', value: 3, bits: 4}, {name: 'type', value: 1, bits: 4}]) or \
+         binary_tools(action: 'unpack', value: '0xABCD', layout: [{name: 'hi', bits: 8}, {name: 'lo', bits: 8}]).",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "info (default), flags, pack, unpack, ops"
+                },
+                "value": {
+                    "type": ["number", "string"],
+                    "description": "Integer value to analyze (decimal, 0x hex, 0b binary, 0o octal). Also 'n'/'input'."
+                },
+                "b": {
+                    "type": ["number", "string"],
+                    "description": "Second operand for ops action."
+                },
+                "width": {
+                    "type": "number",
+                    "description": "Bit width to display (8, 16, 32, 64). Auto-detected if omitted."
+                },
+                "shift": {
+                    "type": "number",
+                    "description": "Shift/rotate amount for ops action (default 1)."
+                },
+                "names": {
+                    "type": "array",
+                    "description": "Named flag labels for flags action, MSB first."
+                },
+                "fields": {
+                    "type": "array",
+                    "description": "Array of {value, bits, name?} field objects for pack action."
+                },
+                "layout": {
+                    "type": "array",
+                    "description": "Array of {bits, name?} field descriptors for unpack action, MSB first."
+                }
+            },
+            "required": []
+        }),
+    ));
+    tools.push(make_tool(
+        "ascii_tools",
+        "Generate ASCII/Unicode art, box drawings, progress bars, tables, and trees without external utilities. \
+         Actions: banner (default — block-letter ASCII art from text; pass 'text', max 30 chars), \
+         box (draw a Unicode border box around text lines; 'text' with optional newlines; \
+         'style': single/double/rounded/heavy/ascii; optional 'padding' integer), \
+         bar (render a fill/progress bar; 'value' required; 'max' default 100, 'width' default 40, \
+         'style': block/hash/equals/shade/circle/dot, optional 'label'), \
+         table (render a formatted Unicode table; 'headers' string array, 'rows' 2D string array; \
+         'style': single/double/heavy/rounded), \
+         tree (render a directory-style tree; supply 'root' string + 'nodes' array of {label, children?} objects; \
+         OR 'text' indented-outline string with 2-space depth + optional 'root' label). \
+         Example: ascii_tools(action: 'box', text: 'Hello!', style: 'double') or \
+         ascii_tools(action: 'bar', value: 73, label: 'CPU') or \
+         ascii_tools(action: 'table', headers: ['Name','Value'], rows: [['foo','1'],['bar','2']]).",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "banner (default), box, bar, table, tree"
+                },
+                "text": {
+                    "type": "string",
+                    "description": "Text input (required for banner/box; outline for tree). Also 'input'/'label'."
+                },
+                "style": {
+                    "type": "string",
+                    "description": "Visual style. box: single/double/rounded/heavy/ascii. bar: block/hash/equals/shade/circle/dot. table: single/double/heavy/rounded."
+                },
+                "padding": {
+                    "type": "number",
+                    "description": "Padding spaces inside the box (box action, default 1)."
+                },
+                "value": {
+                    "type": "number",
+                    "description": "Current value for bar action. Also 'v'."
+                },
+                "max": {
+                    "type": "number",
+                    "description": "Maximum value for bar action (default 100)."
+                },
+                "width": {
+                    "type": "number",
+                    "description": "Bar character width (default 40)."
+                },
+                "label": {
+                    "type": "string",
+                    "description": "Label prefix for bar action."
+                },
+                "headers": {
+                    "type": "array",
+                    "description": "Column header strings for table action."
+                },
+                "rows": {
+                    "type": "array",
+                    "description": "2D array of cell values for table action."
+                },
+                "root": {
+                    "type": ["string", "object"],
+                    "description": "Root node label string, or root node object for tree action."
+                },
+                "nodes": {
+                    "type": "array",
+                    "description": "Top-level child nodes [{label, children?}] for tree action."
+                },
+                "label_key": {
+                    "type": "string",
+                    "description": "Object key to use as node label in tree action (default: 'label')."
+                },
+                "children_key": {
+                    "type": "string",
+                    "description": "Object key to use as children array in tree action (default: 'children')."
+                }
+            },
+            "required": []
+        }),
+    ));
+    tools.push(make_tool(
         "csp_tools",
         "Parse, explain, validate, and build Content Security Policy (CSP) headers without external utilities. \
          Actions: parse (default — break CSP into directives with per-source descriptions and unsafe flags), \
@@ -4826,6 +4956,8 @@ pub async fn dispatch_builtin_tool(
         "sql_migrate_tools" => crate::tools::sql_migrate_tools::execute(args).await,
         "base_tools" => crate::tools::base_tools::execute(args).await,
         "lock_file_tools" => crate::tools::lock_file_tools::execute(args).await,
+        "binary_tools" => crate::tools::binary_tools::execute(args).await,
+        "ascii_tools" => crate::tools::ascii_tools::execute(args).await,
         "secret_scanner" => crate::tools::secret_scanner::execute(args).await,
         "code_metrics" => crate::tools::code_metrics::execute(args).await,
         "dependency_audit" => crate::tools::dependency_audit::execute(args).await,

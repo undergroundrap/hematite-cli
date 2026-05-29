@@ -25394,3 +25394,267 @@ fn test_routing_detects_lock_file_tools() {
         "should not trigger for generic config"
     );
 }
+
+// ── binary_tools tests ────────────────────────────────────────────────────────
+
+#[tokio::test]
+async fn test_binary_tools_info_decimal() {
+    let result = hematite::tools::binary_tools::execute(&serde_json::json!({
+        "action": "info",
+        "value": 255
+    }))
+    .await
+    .unwrap();
+    assert!(result.contains("0xFF"), "should show hex");
+    assert!(result.contains("8"), "should show popcount or width");
+    assert!(
+        result.contains("even") || result.contains("odd"),
+        "should show parity"
+    );
+}
+
+#[tokio::test]
+async fn test_binary_tools_info_hex_string() {
+    let result = hematite::tools::binary_tools::execute(&serde_json::json!({
+        "action": "info",
+        "value": "0xDEAD",
+        "width": 16
+    }))
+    .await
+    .unwrap();
+    assert!(
+        result.contains("0xDEAD") || result.contains("DEAD"),
+        "should show hex value"
+    );
+    assert!(result.contains("16"), "should show 16-bit width");
+}
+
+#[tokio::test]
+async fn test_binary_tools_flags() {
+    let result = hematite::tools::binary_tools::execute(&serde_json::json!({
+        "action": "flags",
+        "value": 5,
+        "width": 4,
+        "names": ["bit3", "bit2", "bit1", "bit0"]
+    }))
+    .await
+    .unwrap();
+    assert!(result.contains("SET"), "should show SET for set bits");
+    assert!(
+        result.contains("bit0") || result.contains("bit2"),
+        "should show flag names"
+    );
+    assert!(result.contains("5"), "should show the value");
+}
+
+#[tokio::test]
+async fn test_binary_tools_pack() {
+    let result = hematite::tools::binary_tools::execute(&serde_json::json!({
+        "action": "pack",
+        "fields": [
+            {"name": "version", "value": 3, "bits": 4},
+            {"name": "type", "value": 1, "bits": 4}
+        ]
+    }))
+    .await
+    .unwrap();
+    assert!(result.contains("version"), "should show field names");
+    assert!(result.contains("type"), "should show field names");
+    assert!(result.contains("8"), "should show total bits");
+}
+
+#[tokio::test]
+async fn test_binary_tools_unpack() {
+    let result = hematite::tools::binary_tools::execute(&serde_json::json!({
+        "action": "unpack",
+        "value": "0xAB",
+        "layout": [
+            {"name": "hi", "bits": 4},
+            {"name": "lo", "bits": 4}
+        ]
+    }))
+    .await
+    .unwrap();
+    assert!(result.contains("hi"), "should show field 'hi'");
+    assert!(result.contains("lo"), "should show field 'lo'");
+    assert!(
+        result.contains("0xA") || result.contains("10"),
+        "should show hi nibble value 0xA=10"
+    );
+}
+
+#[tokio::test]
+async fn test_binary_tools_ops() {
+    let result = hematite::tools::binary_tools::execute(&serde_json::json!({
+        "action": "ops",
+        "value": 12,
+        "b": 10
+    }))
+    .await
+    .unwrap();
+    assert!(result.contains("AND"), "should show AND");
+    assert!(result.contains("OR"), "should show OR");
+    assert!(result.contains("XOR"), "should show XOR");
+    // 12 AND 10 = 8
+    assert!(
+        result.contains("0x8") || result.contains(" 8"),
+        "should show AND result 8"
+    );
+}
+
+#[tokio::test]
+async fn test_binary_tools_routing() {
+    use hematite::agent::routing::needs_binary_tools;
+    assert!(
+        needs_binary_tools("show bit manipulation"),
+        "should detect bit manipulation"
+    );
+    assert!(
+        needs_binary_tools("pack bits into a bitfield"),
+        "should detect bitfield"
+    );
+    assert!(
+        needs_binary_tools("how do I set bit flags"),
+        "should detect bit flags"
+    );
+    assert!(
+        needs_binary_tools("what is a bitmask"),
+        "should detect bitmask"
+    );
+    assert!(
+        !needs_binary_tools("base64 encode this string"),
+        "should not trigger for encoding"
+    );
+}
+
+// ── ascii_tools tests ─────────────────────────────────────────────────────────
+
+#[tokio::test]
+async fn test_ascii_tools_banner() {
+    let result = hematite::tools::ascii_tools::execute(&serde_json::json!({
+        "action": "banner",
+        "text": "HI"
+    }))
+    .await
+    .unwrap();
+    assert!(
+        result.contains("ascii_tools — banner"),
+        "should show header"
+    );
+    // banner output has 5 rows of art
+    let non_empty: Vec<_> = result.lines().filter(|l| !l.trim().is_empty()).collect();
+    assert!(non_empty.len() >= 5, "should have at least 5 rows of art");
+}
+
+#[tokio::test]
+async fn test_ascii_tools_box_single() {
+    let result = hematite::tools::ascii_tools::execute(&serde_json::json!({
+        "action": "box",
+        "text": "Hello World",
+        "style": "single"
+    }))
+    .await
+    .unwrap();
+    assert!(result.contains("Hello World"), "should contain the text");
+    assert!(
+        result.contains('┌') || result.contains('│'),
+        "should contain box drawing chars"
+    );
+}
+
+#[tokio::test]
+async fn test_ascii_tools_box_double() {
+    let result = hematite::tools::ascii_tools::execute(&serde_json::json!({
+        "action": "box",
+        "text": "Test",
+        "style": "double"
+    }))
+    .await
+    .unwrap();
+    assert!(result.contains("Test"), "should contain text");
+    assert!(
+        result.contains('╔') || result.contains('║'),
+        "should use double-line chars"
+    );
+}
+
+#[tokio::test]
+async fn test_ascii_tools_bar() {
+    let result = hematite::tools::ascii_tools::execute(&serde_json::json!({
+        "action": "bar",
+        "value": 75.0,
+        "max": 100.0,
+        "label": "CPU"
+    }))
+    .await
+    .unwrap();
+    assert!(result.contains("75"), "should show value");
+    assert!(result.contains("CPU"), "should show label");
+    assert!(result.contains('%'), "should show percentage");
+}
+
+#[tokio::test]
+async fn test_ascii_tools_table() {
+    let result = hematite::tools::ascii_tools::execute(&serde_json::json!({
+        "action": "table",
+        "headers": ["Name", "Score"],
+        "rows": [["Alice", "95"], ["Bob", "87"]]
+    }))
+    .await
+    .unwrap();
+    assert!(result.contains("Name"), "should contain header");
+    assert!(result.contains("Alice"), "should contain row data");
+    assert!(result.contains("Bob"), "should contain row data");
+    assert!(result.contains("95"), "should contain cell values");
+}
+
+#[tokio::test]
+async fn test_ascii_tools_tree() {
+    let result = hematite::tools::ascii_tools::execute(&serde_json::json!({
+        "action": "tree",
+        "root": "project",
+        "nodes": [
+            {"label": "src", "children": [{"label": "main.rs"}, {"label": "lib.rs"}]},
+            {"label": "tests"}
+        ]
+    }))
+    .await
+    .unwrap();
+    assert!(result.contains("project"), "should show root");
+    assert!(result.contains("src"), "should show child");
+    assert!(result.contains("main.rs"), "should show grandchild");
+    assert!(result.contains("tests"), "should show second child");
+    assert!(
+        result.contains("└──") || result.contains("├──"),
+        "should use tree chars"
+    );
+}
+
+#[tokio::test]
+async fn test_ascii_tools_routing() {
+    use hematite::agent::routing::needs_ascii_tools;
+    assert!(
+        needs_ascii_tools("make an ascii art banner"),
+        "should detect ascii art"
+    );
+    assert!(
+        needs_ascii_tools("draw a box around this text"),
+        "should detect box drawing"
+    );
+    assert!(
+        needs_ascii_tools("show a progress bar"),
+        "should detect progress bar"
+    );
+    assert!(
+        needs_ascii_tools("render an ascii table"),
+        "should detect ascii table"
+    );
+    assert!(
+        needs_ascii_tools("draw a tree diagram"),
+        "should detect tree diagram"
+    );
+    assert!(
+        !needs_ascii_tools("parse this yaml file"),
+        "should not trigger for yaml"
+    );
+}

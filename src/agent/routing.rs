@@ -7682,6 +7682,67 @@ pub fn needs_lock_file_tools(user_input: &str) -> bool {
     )
 }
 
+pub fn needs_binary_tools(user_input: &str) -> bool {
+    contains_any(
+        user_input,
+        &[
+            "bit manipulation",
+            "bitfield",
+            "bit field",
+            "pack bits",
+            "unpack bits",
+            "flag bits",
+            "bitmask",
+            "bit mask",
+            "bit operations",
+            "bitwise ops",
+            "popcount",
+            "bit count",
+            "gray code",
+            "rotate bits",
+            "bit shift",
+            "set bit",
+            "clear bit",
+            "toggle bit",
+            "bit packing",
+            "binary flags",
+            "binary field",
+            "ieee 754 float",
+            "bit decompose",
+            "bit layout",
+        ],
+    )
+}
+
+pub fn needs_ascii_tools(user_input: &str) -> bool {
+    contains_any(
+        user_input,
+        &[
+            "ascii art",
+            "ascii banner",
+            "big text",
+            "big letters",
+            "ascii box",
+            "box drawing",
+            "draw box",
+            "draw a box",
+            "ascii table",
+            "progress bar",
+            "ascii bar",
+            "ascii tree",
+            "text tree",
+            "directory tree",
+            "tree diagram",
+            "ascii progress",
+            "ascii border",
+            "ascii frame",
+            "banner text",
+            "terminal banner",
+            "ascii chart",
+        ],
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -28,26 +28,27 @@ use crate::agent::recovery_recipes::{
 use crate::agent::routing::{
     all_host_inspection_topics, classify_query_intent, is_capability_probe_tool,
     is_scaffold_request, looks_like_mutation_request, needs_ansi_tools, needs_archive_tools,
-    needs_base_tools, needs_changelog_tools, needs_char_tools, needs_color_tools,
-    needs_computation_sandbox, needs_crash_debug, needs_cron_tools, needs_csp_tools,
-    needs_csv_tools, needs_date_tools, needs_diff_tools, needs_docker_compose_tools,
-    needs_docker_ops, needs_dockerfile_tools, needs_dotenv_tools, needs_duration_tools,
-    needs_encode_tools, needs_env_schema_tools, needs_format, needs_github_actions_tools,
-    needs_github_ops, needs_gitignore_tools, needs_glob_tools, needs_graphql_tools,
-    needs_hash_tools, needs_hex_tools, needs_http_request, needs_http_status_tools,
-    needs_ini_tools, needs_ip_tools, needs_jwt_tools, needs_k8s_tools, needs_keyval_tools,
-    needs_license_tools, needs_line_tools, needs_lint_check, needs_lock_file_tools,
-    needs_log_parse_tools, needs_make_tools, needs_markdown_tools, needs_mime_tools,
-    needs_money_tools, needs_net_lookup_tools, needs_nginx_conf_tools, needs_number_tools,
-    needs_openapi_tools, needs_package_json_tools, needs_password_gen, needs_path_tools,
-    needs_pem_tools, needs_proto_tools, needs_regex_tools, needs_robots_txt_tools, needs_rss_tools,
-    needs_secret_scan, needs_semver_tools, needs_sitemap_tools, needs_size_tools,
-    needs_sql_migrate_tools, needs_sql_tools, needs_sqlite_tools, needs_ssh_config_tools,
-    needs_stat_tools, needs_systemd_tools, needs_table_tools, needs_template_tools,
-    needs_terraform_tools, needs_test_run, needs_text_tools, needs_token_tools, needs_toml_tools,
-    needs_url_tools, needs_uuid_gen, needs_validate_tools, needs_xml_tools, needs_yaml_tools,
-    preferred_host_inspection_topic, preferred_maintainer_workflow, preferred_workspace_workflow,
-    DirectAnswerKind, QueryIntentClass,
+    needs_ascii_tools, needs_base_tools, needs_binary_tools, needs_changelog_tools,
+    needs_char_tools, needs_color_tools, needs_computation_sandbox, needs_crash_debug,
+    needs_cron_tools, needs_csp_tools, needs_csv_tools, needs_date_tools, needs_diff_tools,
+    needs_docker_compose_tools, needs_docker_ops, needs_dockerfile_tools, needs_dotenv_tools,
+    needs_duration_tools, needs_encode_tools, needs_env_schema_tools, needs_format,
+    needs_github_actions_tools, needs_github_ops, needs_gitignore_tools, needs_glob_tools,
+    needs_graphql_tools, needs_hash_tools, needs_hex_tools, needs_http_request,
+    needs_http_status_tools, needs_ini_tools, needs_ip_tools, needs_jwt_tools, needs_k8s_tools,
+    needs_keyval_tools, needs_license_tools, needs_line_tools, needs_lint_check,
+    needs_lock_file_tools, needs_log_parse_tools, needs_make_tools, needs_markdown_tools,
+    needs_mime_tools, needs_money_tools, needs_net_lookup_tools, needs_nginx_conf_tools,
+    needs_number_tools, needs_openapi_tools, needs_package_json_tools, needs_password_gen,
+    needs_path_tools, needs_pem_tools, needs_proto_tools, needs_regex_tools,
+    needs_robots_txt_tools, needs_rss_tools, needs_secret_scan, needs_semver_tools,
+    needs_sitemap_tools, needs_size_tools, needs_sql_migrate_tools, needs_sql_tools,
+    needs_sqlite_tools, needs_ssh_config_tools, needs_stat_tools, needs_systemd_tools,
+    needs_table_tools, needs_template_tools, needs_terraform_tools, needs_test_run,
+    needs_text_tools, needs_token_tools, needs_toml_tools, needs_url_tools, needs_uuid_gen,
+    needs_validate_tools, needs_xml_tools, needs_yaml_tools, preferred_host_inspection_topic,
+    preferred_maintainer_workflow, preferred_workspace_workflow, DirectAnswerKind,
+    QueryIntentClass,
 };
 use crate::agent::tool_registry::dispatch_builtin_tool;
 use crate::agent::truncation::safe_head;
@@ -6140,6 +6141,41 @@ impl ConversationManager {
                  duplicates (packages appearing at multiple versions — the root cause of bundle bloat). \
                  Example: lock_file_tools(action: 'info', file: 'Cargo.lock') or \
                  lock_file_tools(action: 'duplicates', file: 'package-lock.json')."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_binary_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "BINARY TOOLS NOTICE: Use the `binary_tools` tool for bit manipulation and bitfield analysis \
+                 without external utilities. Actions: info (default — decimal/hex/octal/binary, popcount, parity, \
+                 Gray code, leading/trailing zeros, IEEE 754 float view; pass 'value' as integer or 0x/0b/0o string, \
+                 optional 'width' in bits), \
+                 flags (show each bit position with SET/clear state; optional 'names' array for named flags), \
+                 pack (assemble fields into a packed integer; 'fields' array of {value, bits, name?} objects, \
+                 MSB first), \
+                 unpack (extract fields from a packed integer; 'value' + 'layout' array of {bits, name?} objects), \
+                 ops (compute AND/OR/XOR/NOT/NAND/NOR/XNOR, shifts, rotates, popcount, Gray code, mask/set/clear/toggle; \
+                 'value' for A, optional 'b' for B, optional 'shift' count). \
+                 Example: binary_tools(action: 'flags', value: '0xFF', names: ['bit7','bit6','bit5','bit4','bit3','bit2','bit1','bit0'])"
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_ascii_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "ASCII TOOLS NOTICE: Use the `ascii_tools` tool to generate ASCII art, boxes, bars, tables, \
+                 and trees without external utilities. Actions: \
+                 banner (default — block-letter ASCII art from text; pass 'text', max 30 chars), \
+                 box (draw a Unicode box around text lines; 'text', optional 'style': single/double/rounded/heavy/ascii, \
+                 optional 'padding'), \
+                 bar (render a progress/fill bar; 'value', optional 'max' default 100, 'width', \
+                 'style': block/hash/equals/shade/circle/dot, 'label'), \
+                 table (render a formatted table; 'headers' string array, 'rows' 2D array, \
+                 optional 'style': single/double/heavy/rounded), \
+                 tree (render a directory-style tree; pass 'root' + 'nodes' array of {label, children?} objects, \
+                 or 'text' as an indented outline with 'root' as root label). \
+                 Example: ascii_tools(action: 'box', text: 'Hello!\\nWorld', style: 'double')"
                     .to_string(),
             );
         }
