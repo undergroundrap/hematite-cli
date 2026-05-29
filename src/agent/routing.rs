@@ -7497,6 +7497,64 @@ pub fn needs_terraform_tools(user_input: &str) -> bool {
         || lower.ends_with(".tf")
 }
 
+pub fn needs_pem_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "pem file",
+            ".pem",
+            "tls cert",
+            "ssl cert",
+            "x.509",
+            "x509",
+            "certificate",
+            "certificates",
+            "cert chain",
+            "certificate chain",
+            "cert expire",
+            "cert expir",
+            "cert valid",
+            "inspect cert",
+            "validate cert",
+            "decode cert",
+            "parse cert",
+            "pem block",
+            "private key pem",
+            "public key pem",
+            "-----begin",
+            "san extension",
+            "subject alternative name",
+        ],
+    )
+}
+
+pub fn needs_env_schema_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            ".env.example",
+            "env example",
+            "env schema",
+            "env template",
+            "validate env",
+            "validate .env",
+            "missing env",
+            "missing keys in env",
+            "env against",
+            "compare env",
+            "env diff against",
+            "required env",
+            "env vars missing",
+            "env variables missing",
+            "env completeness",
+            "env compliance",
+            "check env",
+        ],
+    )
+}
+
 pub fn needs_package_json_tools(user_input: &str) -> bool {
     let lower = user_input.to_lowercase();
     contains_any(

@@ -31,20 +31,20 @@ use crate::agent::routing::{
     needs_changelog_tools, needs_char_tools, needs_color_tools, needs_computation_sandbox,
     needs_crash_debug, needs_cron_tools, needs_csp_tools, needs_csv_tools, needs_date_tools,
     needs_diff_tools, needs_docker_compose_tools, needs_docker_ops, needs_dockerfile_tools,
-    needs_dotenv_tools, needs_duration_tools, needs_encode_tools, needs_format,
-    needs_github_actions_tools, needs_github_ops, needs_gitignore_tools, needs_glob_tools,
-    needs_hash_tools, needs_hex_tools, needs_http_request, needs_http_status_tools,
-    needs_ini_tools, needs_ip_tools, needs_jwt_tools, needs_k8s_tools, needs_keyval_tools,
-    needs_license_tools, needs_line_tools, needs_lint_check, needs_log_parse_tools,
-    needs_make_tools, needs_markdown_tools, needs_mime_tools, needs_money_tools,
-    needs_net_lookup_tools, needs_nginx_conf_tools, needs_number_tools, needs_openapi_tools,
-    needs_package_json_tools, needs_password_gen, needs_path_tools, needs_proto_tools,
-    needs_regex_tools, needs_robots_txt_tools, needs_rss_tools, needs_secret_scan,
-    needs_semver_tools, needs_sitemap_tools, needs_size_tools, needs_sql_tools, needs_sqlite_tools,
-    needs_ssh_config_tools, needs_stat_tools, needs_systemd_tools, needs_table_tools,
-    needs_template_tools, needs_terraform_tools, needs_test_run, needs_text_tools,
-    needs_token_tools, needs_toml_tools, needs_url_tools, needs_uuid_gen, needs_validate_tools,
-    needs_xml_tools, needs_yaml_tools, preferred_host_inspection_topic,
+    needs_dotenv_tools, needs_duration_tools, needs_encode_tools, needs_env_schema_tools,
+    needs_format, needs_github_actions_tools, needs_github_ops, needs_gitignore_tools,
+    needs_glob_tools, needs_hash_tools, needs_hex_tools, needs_http_request,
+    needs_http_status_tools, needs_ini_tools, needs_ip_tools, needs_jwt_tools, needs_k8s_tools,
+    needs_keyval_tools, needs_license_tools, needs_line_tools, needs_lint_check,
+    needs_log_parse_tools, needs_make_tools, needs_markdown_tools, needs_mime_tools,
+    needs_money_tools, needs_net_lookup_tools, needs_nginx_conf_tools, needs_number_tools,
+    needs_openapi_tools, needs_package_json_tools, needs_password_gen, needs_path_tools,
+    needs_pem_tools, needs_proto_tools, needs_regex_tools, needs_robots_txt_tools, needs_rss_tools,
+    needs_secret_scan, needs_semver_tools, needs_sitemap_tools, needs_size_tools, needs_sql_tools,
+    needs_sqlite_tools, needs_ssh_config_tools, needs_stat_tools, needs_systemd_tools,
+    needs_table_tools, needs_template_tools, needs_terraform_tools, needs_test_run,
+    needs_text_tools, needs_token_tools, needs_toml_tools, needs_url_tools, needs_uuid_gen,
+    needs_validate_tools, needs_xml_tools, needs_yaml_tools, preferred_host_inspection_topic,
     preferred_maintainer_workflow, preferred_workspace_workflow, DirectAnswerKind,
     QueryIntentClass,
 };
@@ -6047,6 +6047,38 @@ impl ConversationManager {
                  proto_tools(action: 'messages', text: '...') or \
                  proto_tools(action: 'services', text: '...') or \
                  proto_tools(action: 'validate', text: '...')."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_pem_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "PEM CERTIFICATE NOTICE: Use the `pem_tools` tool to inspect, decode, and validate PEM-encoded \
+                 certificates, certificate chains, and private keys without external utilities. \
+                 Pass the PEM content as 'text' (also 'pem'/'content'/'input'). \
+                 Actions: info (default — per-block type, certificate subject/issuer/validity/SANs/key info and expiry countdown), \
+                 chain (ordered chain display with issuer→subject linkage verification and chain completeness check), \
+                 validate (check: expired certs, expiring within 30 days, self-signed leaf, SHA-1/MD5 signatures, \
+                 RSA < 2048 bits, missing SANs on leaf v3 cert, private key bundled with cert, chain out of order). \
+                 Example: pem_tools(action: 'info', text: '...') or \
+                 pem_tools(action: 'chain', text: '...') or \
+                 pem_tools(action: 'validate', text: '...')."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_env_schema_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "ENV SCHEMA NOTICE: Use the `env_schema_tools` tool to validate a .env file against a .env.example \
+                 schema — check for missing keys, extra keys, and empty required values. \
+                 Actions: validate (default — compare .env against .env.example, report VALID/INVALID with per-key findings), \
+                 diff (keys present in .env.example but absent from .env), \
+                 required (list which keys in .env.example are required vs optional with default placeholders), \
+                 info (overview of both files — key count, coverage percentage, optional vs required breakdown). \
+                 Pass 'example' (.env.example content) and 'env' (.env content); or 'example_file'/'env_file' for file paths. \
+                 Example: env_schema_tools(action: 'validate', example: '...', env: '...') or \
+                 env_schema_tools(action: 'diff', example: '...', env: '...') or \
+                 env_schema_tools(action: 'required', example: '...')."
                     .to_string(),
             );
         }

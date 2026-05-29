@@ -24519,3 +24519,262 @@ fn test_routing_detects_proto_tools() {
         "should not trigger for package.json"
     );
 }
+
+// ──────────────────────────────────────────────────────────────────────────────
+// pem_tools tests
+// ──────────────────────────────────────────────────────────────────────────────
+
+static PEM_SELF_SIGNED: &str = "\
+-----BEGIN CERTIFICATE-----
+MIICpDCCAYwCCQDU9pQ4pHPSpDANBgkqhkiG9w0BAQsFADAUMRIwEAYDVQQDDAls
+b2NhbGhvc3QwHhcNMjMwMTAxMDAwMDAwWhcNMjQwMTAxMDAwMDAwWjAUMRIwEAYD
+VQQDDWZ...(truncated for fixture)
+-----END CERTIFICATE-----";
+
+static PEM_PRIVATE_KEY: &str = "\
+-----BEGIN PRIVATE KEY-----
+MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQC7o4qne60TB3wo
+-----END PRIVATE KEY-----
+-----BEGIN CERTIFICATE-----
+MIICpDCCAYwCCQDU9pQ4pHPSpDANBgkqhkiG9w0BAQsFADAUMRIwEAYDVQQDDAls
+b2NhbGhvc3Qw
+-----END CERTIFICATE-----";
+
+#[tokio::test]
+async fn test_pem_tools_info() {
+    use hematite::tools::pem_tools;
+    let args = serde_json::json!({ "action": "info", "text": PEM_SELF_SIGNED });
+    let result = pem_tools::execute(&args).await.unwrap();
+    assert!(result.contains("CERTIFICATE"), "should show block type");
+}
+
+#[tokio::test]
+async fn test_pem_tools_chain() {
+    use hematite::tools::pem_tools;
+    let args = serde_json::json!({ "action": "chain", "text": PEM_SELF_SIGNED });
+    let result = pem_tools::execute(&args).await.unwrap();
+    assert!(
+        result.contains("chain") || result.contains("Chain"),
+        "should show chain output"
+    );
+}
+
+#[tokio::test]
+async fn test_pem_tools_validate() {
+    use hematite::tools::pem_tools;
+    let args = serde_json::json!({ "action": "validate", "text": PEM_SELF_SIGNED });
+    let result = pem_tools::execute(&args).await.unwrap();
+    assert!(
+        result.contains("Validation")
+            || result.contains("validation")
+            || result.contains("EXPIRED")
+            || result.contains("WARNING")
+            || result.contains("OK"),
+        "should show validation output"
+    );
+}
+
+#[tokio::test]
+async fn test_pem_tools_validate_flags_private_key_bundled() {
+    use hematite::tools::pem_tools;
+    let args = serde_json::json!({ "action": "validate", "text": PEM_PRIVATE_KEY });
+    let result = pem_tools::execute(&args).await.unwrap();
+    assert!(
+        result.contains("rivate key") || result.contains("PRIVATE"),
+        "should flag private key bundled with cert"
+    );
+}
+
+#[tokio::test]
+async fn test_pem_tools_default_action_is_info() {
+    use hematite::tools::pem_tools;
+    let args = serde_json::json!({ "text": PEM_SELF_SIGNED });
+    let result = pem_tools::execute(&args).await.unwrap();
+    assert!(
+        result.contains("CERTIFICATE"),
+        "default action should show info"
+    );
+}
+
+#[test]
+fn test_routing_detects_pem_tools() {
+    use hematite::agent::routing::needs_pem_tools;
+    assert!(
+        needs_pem_tools("inspect this .pem file"),
+        "should detect .pem"
+    );
+    assert!(
+        needs_pem_tools("is my TLS certificate expired"),
+        "should detect TLS cert"
+    );
+    assert!(
+        needs_pem_tools("validate my ssl certificate chain"),
+        "should detect ssl cert chain"
+    );
+    assert!(
+        needs_pem_tools("decode this x509 certificate"),
+        "should detect x509"
+    );
+    assert!(
+        !needs_pem_tools("parse this package.json"),
+        "should not trigger for package.json"
+    );
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// env_schema_tools tests
+// ──────────────────────────────────────────────────────────────────────────────
+
+static ENV_EXAMPLE: &str = "\
+# Database connection
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=myapp
+# Required — must be set
+DB_PASSWORD=
+# API keys
+API_KEY=<your-api-key>
+STRIPE_SECRET=CHANGE_ME
+# Optional with default
+LOG_LEVEL=info
+DEBUG=false
+";
+
+static ENV_GOOD: &str = "\
+DB_HOST=db.prod.example.com
+DB_PORT=5432
+DB_NAME=myapp_prod
+DB_PASSWORD=supersecret123
+API_KEY=sk-live-abc123
+STRIPE_SECRET=sk_live_xyz789
+LOG_LEVEL=warn
+DEBUG=false
+";
+
+static ENV_MISSING: &str = "\
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=myapp
+LOG_LEVEL=info
+DEBUG=false
+";
+
+#[tokio::test]
+async fn test_env_schema_tools_validate_good() {
+    use hematite::tools::env_schema_tools;
+    let args = serde_json::json!({
+        "action": "validate",
+        "example": ENV_EXAMPLE,
+        "env": ENV_GOOD
+    });
+    let result = env_schema_tools::execute(&args).await.unwrap();
+    assert!(result.contains("VALID"), "complete .env should be VALID");
+}
+
+#[tokio::test]
+async fn test_env_schema_tools_validate_missing() {
+    use hematite::tools::env_schema_tools;
+    let args = serde_json::json!({
+        "action": "validate",
+        "example": ENV_EXAMPLE,
+        "env": ENV_MISSING
+    });
+    let result = env_schema_tools::execute(&args).await.unwrap();
+    assert!(
+        result.contains("INVALID"),
+        "missing keys should produce INVALID"
+    );
+    assert!(
+        result.contains("DB_PASSWORD") || result.contains("API_KEY"),
+        "should name missing key"
+    );
+}
+
+#[tokio::test]
+async fn test_env_schema_tools_diff() {
+    use hematite::tools::env_schema_tools;
+    let args = serde_json::json!({
+        "action": "diff",
+        "example": ENV_EXAMPLE,
+        "env": ENV_MISSING
+    });
+    let result = env_schema_tools::execute(&args).await.unwrap();
+    assert!(
+        result.contains("DB_PASSWORD") || result.contains("API_KEY"),
+        "diff should list absent keys"
+    );
+}
+
+#[tokio::test]
+async fn test_env_schema_tools_required() {
+    use hematite::tools::env_schema_tools;
+    let args = serde_json::json!({
+        "action": "required",
+        "example": ENV_EXAMPLE
+    });
+    let result = env_schema_tools::execute(&args).await.unwrap();
+    assert!(
+        result.contains("required") || result.contains("Required"),
+        "should list required keys"
+    );
+    assert!(
+        result.contains("DB_PASSWORD") || result.contains("API_KEY"),
+        "should name a required key"
+    );
+}
+
+#[tokio::test]
+async fn test_env_schema_tools_info() {
+    use hematite::tools::env_schema_tools;
+    let args = serde_json::json!({
+        "action": "info",
+        "example": ENV_EXAMPLE,
+        "env": ENV_GOOD
+    });
+    let result = env_schema_tools::execute(&args).await.unwrap();
+    assert!(
+        result.contains("Coverage") || result.contains("coverage"),
+        "info should show coverage"
+    );
+}
+
+#[tokio::test]
+async fn test_env_schema_tools_extra_keys() {
+    use hematite::tools::env_schema_tools;
+    let extra_env = format!("{}\nEXTRA_KEY=surprise", ENV_GOOD);
+    let args = serde_json::json!({
+        "action": "validate",
+        "example": ENV_EXAMPLE,
+        "env": extra_env
+    });
+    let result = env_schema_tools::execute(&args).await.unwrap();
+    assert!(
+        result.contains("EXTRA") || result.contains("extra"),
+        "should flag extra keys"
+    );
+}
+
+#[test]
+fn test_routing_detects_env_schema_tools() {
+    use hematite::agent::routing::needs_env_schema_tools;
+    assert!(
+        needs_env_schema_tools("validate my .env against .env.example"),
+        "should detect validate .env"
+    );
+    assert!(
+        needs_env_schema_tools("what keys are missing from my .env.example"),
+        "should detect .env.example"
+    );
+    assert!(
+        needs_env_schema_tools("check env completeness"),
+        "should detect env completeness"
+    );
+    assert!(
+        needs_env_schema_tools("show required env vars"),
+        "should detect required env"
+    );
+    assert!(
+        !needs_env_schema_tools("parse this sql query"),
+        "should not trigger for sql"
+    );
+}

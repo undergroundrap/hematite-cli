@@ -4169,6 +4169,70 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         }),
     ));
     tools.push(make_tool(
+        "pem_tools",
+        "Inspect, decode, and validate PEM-encoded certificates, certificate chains, and private keys without external utilities. \
+         Pass the PEM content as 'text' (also 'pem'/'content'/'input'). \
+         Actions: info (default — per-block type label, certificate subject/issuer/validity window/SANs/key algorithm+bits/CA flag and expiry countdown), \
+         chain (ordered chain display with issuer→subject linkage verification, self-signed root detection, chain completeness check), \
+         validate (checks: expired certs, expiring within 30 days, self-signed leaf cert, weak SHA-1/MD5 signature algorithm, \
+         RSA key < 2048 bits, missing SANs on leaf v3 cert, private key bundled alongside cert, chain presented out of order). \
+         Example: pem_tools(action: 'info', text: '...') or \
+         pem_tools(action: 'chain', text: '...') or \
+         pem_tools(action: 'validate', text: '...').",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "info (default), chain, validate"
+                },
+                "text": {
+                    "type": "string",
+                    "description": "PEM file content. Also 'pem'/'content'/'input'."
+                }
+            },
+            "required": []
+        }),
+    ));
+    tools.push(make_tool(
+        "env_schema_tools",
+        "Validate a .env file against a .env.example schema — check for missing required keys, extra keys, and empty required values. \
+         Pass 'example' (.env.example content) and 'env' (.env content); or 'example_file'/'env_file' for file paths. \
+         Actions: validate (default — compare .env against .env.example schema, VALID/INVALID verdict with per-key findings), \
+         diff (keys present in .env.example but absent from .env), \
+         required (list which .env.example keys are required — no default placeholder — vs optional), \
+         info (overview of both files — key counts, coverage percentage, required vs optional breakdown). \
+         Example: env_schema_tools(action: 'validate', example: '...', env: '...') or \
+         env_schema_tools(action: 'diff', example: '...', env: '...') or \
+         env_schema_tools(action: 'required', example: '...').",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "validate (default), diff, required, info"
+                },
+                "example": {
+                    "type": "string",
+                    "description": ".env.example content. Also 'example_text'."
+                },
+                "env": {
+                    "type": "string",
+                    "description": ".env file content. Also 'env_text'."
+                },
+                "example_file": {
+                    "type": "string",
+                    "description": "Path to .env.example file."
+                },
+                "env_file": {
+                    "type": "string",
+                    "description": "Path to .env file."
+                }
+            },
+            "required": []
+        }),
+    ));
+    tools.push(make_tool(
         "csp_tools",
         "Parse, explain, validate, and build Content Security Policy (CSP) headers without external utilities. \
          Actions: parse (default — break CSP into directives with per-source descriptions and unsafe flags), \
@@ -4620,6 +4684,8 @@ pub async fn dispatch_builtin_tool(
         "package_json_tools" => crate::tools::package_json_tools::execute(args).await,
         "sql_tools" => crate::tools::sql_tools::execute(args).await,
         "proto_tools" => crate::tools::proto_tools::execute(args).await,
+        "pem_tools" => crate::tools::pem_tools::execute(args).await,
+        "env_schema_tools" => crate::tools::env_schema_tools::execute(args).await,
         "secret_scanner" => crate::tools::secret_scanner::execute(args).await,
         "code_metrics" => crate::tools::code_metrics::execute(args).await,
         "dependency_audit" => crate::tools::dependency_audit::execute(args).await,
