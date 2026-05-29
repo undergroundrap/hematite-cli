@@ -7497,6 +7497,61 @@ pub fn needs_terraform_tools(user_input: &str) -> bool {
         || lower.ends_with(".tf")
 }
 
+pub fn needs_graphql_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "graphql",
+            "gql",
+            ".graphql",
+            "graphql schema",
+            "graphql query",
+            "graphql mutation",
+            "graphql type",
+            "graphql fragment",
+            "graphql subscription",
+            "introspection",
+            "parse graphql",
+            "validate graphql",
+            "inspect graphql",
+            "review graphql",
+            "graphql operation",
+            "type Query",
+            "type Mutation",
+        ],
+    )
+}
+
+pub fn needs_sql_migrate_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "sql migration",
+            "sql migrate",
+            "migration file",
+            "migration script",
+            "db migration",
+            "database migration",
+            "analyze migration",
+            "review migration",
+            "validate migration",
+            "migration risk",
+            "risky migration",
+            "safe migration",
+            "migration ops",
+            "schema migration",
+            "alembic",
+            "flyway",
+            "liquibase",
+            "rails migration",
+            "django migration sql",
+            ".sql migration",
+        ],
+    )
+}
+
 pub fn needs_pem_tools(user_input: &str) -> bool {
     let lower = user_input.to_lowercase();
     contains_any(

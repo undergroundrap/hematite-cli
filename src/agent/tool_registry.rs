@@ -4233,6 +4233,67 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         }),
     ));
     tools.push(make_tool(
+        "graphql_tools",
+        "Parse, inspect, and validate GraphQL schemas and query documents without external utilities. \
+         Pass content as 'text' (also 'schema'/'query'/'graphql'/'content'/'input'). \
+         Actions: info (default — document kind: schema definition/query document/mixed, type/interface/input/enum/union/scalar/directive counts, operation counts, schema entry points, conventional root types), \
+         types (list all type definitions with fields, argument types+defaults, implements, descriptions, deprecated flags; optional 'filter' by name), \
+         queries (list all operations and fragments with top-level field names), \
+         validate (checks: missing Query root type, empty types/interfaces/enums/unions, input fields using output types, \
+         fields or args referencing undefined types, duplicate type names, operations selecting no fields). \
+         Example: graphql_tools(action: 'info', text: '...') or \
+         graphql_tools(action: 'types', text: '...', filter: 'User') or \
+         graphql_tools(action: 'queries', text: '...') or \
+         graphql_tools(action: 'validate', text: '...').",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "info (default), types, queries, validate"
+                },
+                "text": {
+                    "type": "string",
+                    "description": "GraphQL schema or query document content. Also 'schema'/'query'/'graphql'/'content'/'input'."
+                },
+                "filter": {
+                    "type": "string",
+                    "description": "For 'types' action: filter by type name substring."
+                }
+            },
+            "required": []
+        }),
+    ));
+    tools.push(make_tool(
+        "sql_migrate_tools",
+        "Analyze, risk-score, and validate SQL migration files without external utilities. \
+         Pass content as 'text' (also 'sql'/'migration'/'content'/'input'). \
+         Actions: analyze (default — per-statement risk rating SAFE/LOW/MEDIUM/HIGH/CRITICAL with actionable notes for \
+         DROP TABLE, DROP COLUMN, ALTER TABLE ADD COLUMN without DEFAULT, table renames, SET NOT NULL, UPDATE/DELETE without WHERE, \
+         TRUNCATE, CREATE INDEX without CONCURRENTLY), \
+         risk (show only medium/high/critical risk operations — quick safety scan), \
+         ops (operation type summary with risk breakdown — what kinds of statements the migration contains), \
+         validate (transaction wrapping check for destructive operations, BEGIN without COMMIT, \
+         CONCURRENTLY index creation inside a transaction, overall verdict VALID/WARNINGS/HIGH RISK/CRITICAL). \
+         Example: sql_migrate_tools(action: 'analyze', text: '...') or \
+         sql_migrate_tools(action: 'risk', text: '...') or \
+         sql_migrate_tools(action: 'validate', text: '...').",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "analyze (default), risk, ops, validate"
+                },
+                "text": {
+                    "type": "string",
+                    "description": "SQL migration file content. Also 'sql'/'migration'/'content'/'input'."
+                }
+            },
+            "required": []
+        }),
+    ));
+    tools.push(make_tool(
         "csp_tools",
         "Parse, explain, validate, and build Content Security Policy (CSP) headers without external utilities. \
          Actions: parse (default — break CSP into directives with per-source descriptions and unsafe flags), \
@@ -4686,6 +4747,8 @@ pub async fn dispatch_builtin_tool(
         "proto_tools" => crate::tools::proto_tools::execute(args).await,
         "pem_tools" => crate::tools::pem_tools::execute(args).await,
         "env_schema_tools" => crate::tools::env_schema_tools::execute(args).await,
+        "graphql_tools" => crate::tools::graphql_tools::execute(args).await,
+        "sql_migrate_tools" => crate::tools::sql_migrate_tools::execute(args).await,
         "secret_scanner" => crate::tools::secret_scanner::execute(args).await,
         "code_metrics" => crate::tools::code_metrics::execute(args).await,
         "dependency_audit" => crate::tools::dependency_audit::execute(args).await,

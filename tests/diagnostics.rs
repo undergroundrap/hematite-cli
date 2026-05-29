@@ -24778,3 +24778,313 @@ fn test_routing_detects_env_schema_tools() {
         "should not trigger for sql"
     );
 }
+
+// ── graphql_tools tests ───────────────────────────────────────────────────────
+
+const GQL_SCHEMA: &str = "
+type Query {
+  user(id: ID!): User
+  posts: [Post!]!
+}
+type User {
+  id: ID!
+  name: String!
+  email: String
+  role: Role!
+}
+type Post {
+  id: ID!
+  title: String!
+  author: User!
+}
+enum Role {
+  ADMIN
+  USER
+  GUEST
+}
+interface Node {
+  id: ID!
+}
+input CreateUserInput {
+  name: String!
+  email: String!
+}
+";
+
+const GQL_QUERY_DOC: &str = "
+query GetUser {
+  user(id: \"1\") {
+    id
+    name
+    email
+  }
+}
+mutation CreateUser {
+  createUser {
+    id
+    name
+  }
+}
+fragment UserFields on User {
+  id
+  name
+  email
+}
+";
+
+#[tokio::test]
+async fn test_graphql_tools_info_schema() {
+    use hematite::tools::graphql_tools;
+    let args = serde_json::json!({ "text": GQL_SCHEMA });
+    let result = graphql_tools::execute(&args).await.unwrap();
+    assert!(
+        result.contains("Schema definition") || result.contains("schema"),
+        "info should identify schema document: {}",
+        result
+    );
+    assert!(
+        result.contains("Types:") || result.contains("type"),
+        "info should report type count"
+    );
+}
+
+#[tokio::test]
+async fn test_graphql_tools_info_query_doc() {
+    use hematite::tools::graphql_tools;
+    let args = serde_json::json!({ "text": GQL_QUERY_DOC });
+    let result = graphql_tools::execute(&args).await.unwrap();
+    assert!(
+        result.contains("Query document") || result.contains("operation"),
+        "info should identify query document: {}",
+        result
+    );
+}
+
+#[tokio::test]
+async fn test_graphql_tools_types() {
+    use hematite::tools::graphql_tools;
+    let args = serde_json::json!({ "action": "types", "text": GQL_SCHEMA });
+    let result = graphql_tools::execute(&args).await.unwrap();
+    assert!(result.contains("User"), "types should list User type");
+    assert!(result.contains("Post"), "types should list Post type");
+    assert!(result.contains("Query"), "types should list Query type");
+}
+
+#[tokio::test]
+async fn test_graphql_tools_types_filter_enum() {
+    use hematite::tools::graphql_tools;
+    // filter matches by name substring, so "Rol" matches enum "Role"
+    let args = serde_json::json!({
+        "action": "types",
+        "text": GQL_SCHEMA,
+        "filter": "Rol"
+    });
+    let result = graphql_tools::execute(&args).await.unwrap();
+    assert!(
+        result.contains("Role"),
+        "filtered types should show enum Role: {}",
+        result
+    );
+}
+
+#[tokio::test]
+async fn test_graphql_tools_queries() {
+    use hematite::tools::graphql_tools;
+    let args = serde_json::json!({ "action": "queries", "text": GQL_QUERY_DOC });
+    let result = graphql_tools::execute(&args).await.unwrap();
+    assert!(
+        result.contains("query") || result.contains("Query"),
+        "queries should list query op"
+    );
+    assert!(
+        result.contains("mutation") || result.contains("Mutation"),
+        "queries should list mutation op"
+    );
+    assert!(
+        result.contains("fragment") || result.contains("Fragment"),
+        "queries should list fragment"
+    );
+}
+
+#[tokio::test]
+async fn test_graphql_tools_validate_clean() {
+    use hematite::tools::graphql_tools;
+    let args = serde_json::json!({ "action": "validate", "text": GQL_SCHEMA });
+    let result = graphql_tools::execute(&args).await.unwrap();
+    assert!(
+        result.contains("No issues") || result.contains("VALID") || result.contains("0 warning"),
+        "clean schema should validate without issues: {}",
+        result
+    );
+}
+
+#[tokio::test]
+async fn test_graphql_tools_validate_unknown_type() {
+    use hematite::tools::graphql_tools;
+    let schema = "type Query { thing: GhostType }";
+    let args = serde_json::json!({ "action": "validate", "text": schema });
+    let result = graphql_tools::execute(&args).await.unwrap();
+    assert!(
+        result.contains("GhostType") || result.contains("unknown"),
+        "validate should flag unknown type reference: {}",
+        result
+    );
+}
+
+#[test]
+fn test_routing_detects_graphql_tools() {
+    use hematite::agent::routing::needs_graphql_tools;
+    assert!(
+        needs_graphql_tools("parse this graphql schema"),
+        "should detect graphql schema"
+    );
+    assert!(
+        needs_graphql_tools("validate my .graphql file"),
+        "should detect .graphql extension"
+    );
+    assert!(
+        needs_graphql_tools("list types in this gql query"),
+        "should detect gql keyword"
+    );
+    assert!(
+        !needs_graphql_tools("run this sql query"),
+        "should not trigger for sql"
+    );
+}
+
+// ── sql_migrate_tools tests ───────────────────────────────────────────────────
+
+const SQL_MIGRATION_SAFE: &str = "
+BEGIN;
+CREATE TABLE users (
+  id SERIAL PRIMARY KEY,
+  email TEXT NOT NULL UNIQUE,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX idx_users_email ON users (email);
+INSERT INTO schema_migrations (version) VALUES ('20240101_create_users');
+COMMIT;
+";
+
+const SQL_MIGRATION_RISKY: &str = "
+DROP TABLE old_sessions;
+ALTER TABLE users DROP COLUMN legacy_field;
+DELETE FROM audit_log;
+TRUNCATE events;
+";
+
+#[tokio::test]
+async fn test_sql_migrate_tools_analyze_safe() {
+    use hematite::tools::sql_migrate_tools;
+    let args = serde_json::json!({ "text": SQL_MIGRATION_SAFE });
+    let result = sql_migrate_tools::execute(&args).await.unwrap();
+    assert!(
+        result.contains("analyze"),
+        "default action should be analyze"
+    );
+    assert!(
+        result.contains("SAFE") || result.contains("LOW"),
+        "safe migration should report low risk: {}",
+        result
+    );
+    assert!(
+        result.contains("CREATE TABLE"),
+        "should list CREATE TABLE op"
+    );
+}
+
+#[tokio::test]
+async fn test_sql_migrate_tools_analyze_risky() {
+    use hematite::tools::sql_migrate_tools;
+    let args = serde_json::json!({ "action": "analyze", "text": SQL_MIGRATION_RISKY });
+    let result = sql_migrate_tools::execute(&args).await.unwrap();
+    assert!(
+        result.contains("HIGH") || result.contains("CRITICAL") || result.contains("MEDIUM"),
+        "risky migration should report elevated risk: {}",
+        result
+    );
+    assert!(result.contains("DROP TABLE"), "should flag DROP TABLE");
+}
+
+#[tokio::test]
+async fn test_sql_migrate_tools_risk() {
+    use hematite::tools::sql_migrate_tools;
+    let args = serde_json::json!({ "action": "risk", "text": SQL_MIGRATION_RISKY });
+    let result = sql_migrate_tools::execute(&args).await.unwrap();
+    assert!(
+        result.contains("risk") || result.contains("Risk"),
+        "risk action should be present"
+    );
+    assert!(
+        result.contains("DROP") || result.contains("TRUNCATE") || result.contains("DELETE"),
+        "risk output should show dangerous ops"
+    );
+}
+
+#[tokio::test]
+async fn test_sql_migrate_tools_ops() {
+    use hematite::tools::sql_migrate_tools;
+    let args = serde_json::json!({ "action": "ops", "text": SQL_MIGRATION_SAFE });
+    let result = sql_migrate_tools::execute(&args).await.unwrap();
+    assert!(
+        result.contains("ops") || result.contains("Ops") || result.contains("Operations"),
+        "ops action header should be present"
+    );
+    assert!(
+        result.contains("CREATE") || result.contains("INSERT"),
+        "ops should list operation types"
+    );
+}
+
+#[tokio::test]
+async fn test_sql_migrate_tools_validate_wrapped() {
+    use hematite::tools::sql_migrate_tools;
+    let args = serde_json::json!({ "action": "validate", "text": SQL_MIGRATION_SAFE });
+    let result = sql_migrate_tools::execute(&args).await.unwrap();
+    assert!(
+        result.contains("validate"),
+        "validate action header should be present: {}",
+        result
+    );
+    assert!(
+        result.contains("statement") || result.contains("Status"),
+        "validate should show analysis results: {}",
+        result
+    );
+}
+
+#[tokio::test]
+async fn test_sql_migrate_tools_validate_unwrapped() {
+    use hematite::tools::sql_migrate_tools;
+    let args = serde_json::json!({ "action": "validate", "text": SQL_MIGRATION_RISKY });
+    let result = sql_migrate_tools::execute(&args).await.unwrap();
+    assert!(
+        result.contains("WARNING") || result.contains("warning") || result.contains("transaction"),
+        "unwrapped risky migration should warn"
+    );
+}
+
+#[test]
+fn test_routing_detects_sql_migrate_tools() {
+    use hematite::agent::routing::needs_sql_migrate_tools;
+    assert!(
+        needs_sql_migrate_tools("analyze this sql migration file"),
+        "should detect sql migration"
+    );
+    assert!(
+        needs_sql_migrate_tools("what is the risk of this flyway migration"),
+        "should detect flyway"
+    );
+    assert!(
+        needs_sql_migrate_tools("validate my liquibase changeset"),
+        "should detect liquibase"
+    );
+    assert!(
+        needs_sql_migrate_tools("migration risk score"),
+        "should detect migration risk"
+    );
+    assert!(
+        !needs_sql_migrate_tools("query the users table"),
+        "should not trigger for generic sql query"
+    );
+}

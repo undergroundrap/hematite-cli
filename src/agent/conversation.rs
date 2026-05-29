@@ -33,20 +33,20 @@ use crate::agent::routing::{
     needs_diff_tools, needs_docker_compose_tools, needs_docker_ops, needs_dockerfile_tools,
     needs_dotenv_tools, needs_duration_tools, needs_encode_tools, needs_env_schema_tools,
     needs_format, needs_github_actions_tools, needs_github_ops, needs_gitignore_tools,
-    needs_glob_tools, needs_hash_tools, needs_hex_tools, needs_http_request,
+    needs_glob_tools, needs_graphql_tools, needs_hash_tools, needs_hex_tools, needs_http_request,
     needs_http_status_tools, needs_ini_tools, needs_ip_tools, needs_jwt_tools, needs_k8s_tools,
     needs_keyval_tools, needs_license_tools, needs_line_tools, needs_lint_check,
     needs_log_parse_tools, needs_make_tools, needs_markdown_tools, needs_mime_tools,
     needs_money_tools, needs_net_lookup_tools, needs_nginx_conf_tools, needs_number_tools,
     needs_openapi_tools, needs_package_json_tools, needs_password_gen, needs_path_tools,
     needs_pem_tools, needs_proto_tools, needs_regex_tools, needs_robots_txt_tools, needs_rss_tools,
-    needs_secret_scan, needs_semver_tools, needs_sitemap_tools, needs_size_tools, needs_sql_tools,
-    needs_sqlite_tools, needs_ssh_config_tools, needs_stat_tools, needs_systemd_tools,
-    needs_table_tools, needs_template_tools, needs_terraform_tools, needs_test_run,
-    needs_text_tools, needs_token_tools, needs_toml_tools, needs_url_tools, needs_uuid_gen,
-    needs_validate_tools, needs_xml_tools, needs_yaml_tools, preferred_host_inspection_topic,
-    preferred_maintainer_workflow, preferred_workspace_workflow, DirectAnswerKind,
-    QueryIntentClass,
+    needs_secret_scan, needs_semver_tools, needs_sitemap_tools, needs_size_tools,
+    needs_sql_migrate_tools, needs_sql_tools, needs_sqlite_tools, needs_ssh_config_tools,
+    needs_stat_tools, needs_systemd_tools, needs_table_tools, needs_template_tools,
+    needs_terraform_tools, needs_test_run, needs_text_tools, needs_token_tools, needs_toml_tools,
+    needs_url_tools, needs_uuid_gen, needs_validate_tools, needs_xml_tools, needs_yaml_tools,
+    preferred_host_inspection_topic, preferred_maintainer_workflow, preferred_workspace_workflow,
+    DirectAnswerKind, QueryIntentClass,
 };
 use crate::agent::tool_registry::dispatch_builtin_tool;
 use crate::agent::truncation::safe_head;
@@ -6079,6 +6079,37 @@ impl ConversationManager {
                  Example: env_schema_tools(action: 'validate', example: '...', env: '...') or \
                  env_schema_tools(action: 'diff', example: '...', env: '...') or \
                  env_schema_tools(action: 'required', example: '...')."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_graphql_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "GRAPHQL NOTICE: Use the `graphql_tools` tool to parse, inspect, and validate GraphQL schemas and \
+                 query documents without external utilities. Pass content as 'text' (also 'schema'/'query'/'graphql'/'content'/'input'). \
+                 Actions: info (default — document kind, type/interface/input/enum/union/scalar counts, operations, schema entry points), \
+                 types (list all type definitions with fields and args; optional 'filter' by name), \
+                 queries (list all operations and fragments with top-level field names), \
+                 validate (checks: missing Query root, empty types/interfaces/enums/unions, input fields using output types, \
+                 fields referencing undefined types, duplicate type names, operations selecting no fields). \
+                 Example: graphql_tools(action: 'info', text: '...') or \
+                 graphql_tools(action: 'types', text: '...') or \
+                 graphql_tools(action: 'validate', text: '...')."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_sql_migrate_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "SQL MIGRATION NOTICE: Use the `sql_migrate_tools` tool to analyze, risk-score, and validate SQL \
+                 migration files without external utilities. Pass content as 'text' (also 'sql'/'migration'/'content'/'input'). \
+                 Actions: analyze (default — per-statement risk rating SAFE/LOW/MEDIUM/HIGH/CRITICAL with actionable notes), \
+                 risk (show only medium/high/critical risk operations), \
+                 ops (operation type summary — what kinds of statements the migration contains), \
+                 validate (transaction wrapping check, destructive operations summary, concurrent index in transaction detection). \
+                 Example: sql_migrate_tools(action: 'analyze', text: '...') or \
+                 sql_migrate_tools(action: 'risk', text: '...') or \
+                 sql_migrate_tools(action: 'validate', text: '...')."
                     .to_string(),
             );
         }
