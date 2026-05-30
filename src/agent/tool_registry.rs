@@ -4369,6 +4369,86 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         }),
     ));
     tools.push(make_tool(
+        "fraction_tools",
+        "Fraction arithmetic, simplification, conversion, comparison, and mathematical series without external utilities. \
+         Actions: simplify (default — reduce a fraction to lowest terms; shows GCD, mixed-number form, decimal, percent; \
+         pass 'fraction' string like \"6/9\" or 'numerator'/'denominator' integers), \
+         add/sub/mul/div (binary arithmetic on two fractions; 'a' and 'b' as fraction strings like \"1/4\"), \
+         convert ('fraction' string → decimal/percent/mixed-number; or 'decimal' number → nearest fraction via continued fractions; \
+         optional 'tolerance' for decimal-to-fraction precision), \
+         compare ('a' and 'b' fraction strings for two-way comparison showing relation and difference; \
+         or 'fractions' array for sorted ranking), \
+         series ('type': harmonic (partial sums 1 + 1/2 + 1/3 ... ; 'terms' N), \
+         egyptian (decompose a proper fraction into unit fractions; 'fraction'), \
+         farey (Farey sequence F_n; 'n')). \
+         Example: fraction_tools(action:'add', a:'1/3', b:'2/5') or \
+         fraction_tools(action:'simplify', fraction:'18/24') or \
+         fraction_tools(action:'convert', decimal:0.142857)",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "simplify (default), add, sub, mul, div, convert, compare, series"
+                },
+                "fraction": {
+                    "type": "string",
+                    "description": "Fraction string like \"3/4\" or \"7\" (for simplify/convert/compare)"
+                },
+                "numerator": { "type": "number", "description": "Numerator (alternative to 'fraction')" },
+                "denominator": { "type": "number", "description": "Denominator (alternative to 'fraction')" },
+                "a": { "type": "string", "description": "First fraction for binary operations or compare" },
+                "b": { "type": "string", "description": "Second fraction for binary operations or compare" },
+                "decimal": { "type": "number", "description": "Decimal number to convert to fraction" },
+                "tolerance": { "type": "number", "description": "Precision for decimal-to-fraction conversion (default 1e-6)" },
+                "fractions": { "type": "array", "description": "Array of fraction strings for compare" },
+                "type": { "type": "string", "description": "Series type: harmonic, egyptian, farey" },
+                "terms": { "type": "number", "description": "Number of terms for harmonic series (default 10, max 50)" },
+                "n": { "type": "number", "description": "Order N for Farey sequence (default 7, max 20)" }
+            },
+            "required": []
+        }),
+    ));
+    tools.push(make_tool(
+        "number_theory_tools",
+        "Pure number-theory calculations: prime factorization, primality testing, GCD/LCM with Bézout coefficients, \
+         Euler totient, modular arithmetic, Collatz sequences, Fibonacci numbers, and perfect number classification — \
+         all without external utilities. \
+         Actions: factor (default — prime factorization, all divisors, divisor sum, perfect/abundant/deficient classification; 'n'), \
+         primes ('limit' for sieve listing up to N; 'nth' for the Nth prime; 'test' for primality check of a single number), \
+         gcd/lcm ('a' and 'b' integers for pair; or 'numbers' array for multi-value reduction; \
+         gcd also shows Bézout coefficients and coprimality), \
+         totient (Euler phi function — count of integers < n coprime to n; 'n'), \
+         modpow (fast modular exponentiation; 'base', 'exp', 'modulus'), \
+         modinv (modular inverse via extended Euclidean; 'a', 'modulus'; reports if none exists), \
+         collatz (Collatz sequence from n to 1; 'n'; shows steps, max value, sequence), \
+         fibonacci (list first N Fibonacci numbers via 'n'; specific index via 'nth'; membership test via 'test'), \
+         perfect (classify n as perfect/abundant/deficient via 'n'; or scan a range via 'limit'). \
+         Example: number_theory_tools(action:'factor', n:360) or \
+         number_theory_tools(action:'primes', test:97) or \
+         number_theory_tools(action:'collatz', n:27)",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "factor (default), primes, gcd, lcm, totient, modpow, modinv, collatz, fibonacci, perfect"
+                },
+                "n": { "type": "number", "description": "Main integer argument for factor/primes/totient/collatz/fibonacci/perfect" },
+                "a": { "type": "number", "description": "First number for gcd/lcm/modinv" },
+                "b": { "type": "number", "description": "Second number for gcd/lcm" },
+                "numbers": { "type": "array", "description": "Array of integers for multi-value gcd/lcm" },
+                "limit": { "type": "number", "description": "Upper bound for primes sieve or perfect number scan" },
+                "nth": { "type": "number", "description": "Find the Nth prime or Nth Fibonacci number" },
+                "test": { "type": "number", "description": "Number to test for primality (primes action) or Fibonacci membership" },
+                "base": { "type": "number", "description": "Base for modpow" },
+                "exp": { "type": "number", "description": "Exponent for modpow" },
+                "modulus": { "type": "number", "description": "Modulus for modpow/modinv" }
+            },
+            "required": []
+        }),
+    ));
+    tools.push(make_tool(
         "binary_tools",
         "Bit manipulation, bitfield packing/unpacking, and binary analysis without external utilities. \
          Actions: info (default — show decimal/hex/octal/binary, popcount, parity, leading/trailing zeros, \
@@ -5163,6 +5243,8 @@ pub async fn dispatch_builtin_tool(
         "sql_migrate_tools" => crate::tools::sql_migrate_tools::execute(args).await,
         "base_tools" => crate::tools::base_tools::execute(args).await,
         "lock_file_tools" => crate::tools::lock_file_tools::execute(args).await,
+        "fraction_tools" => crate::tools::fraction_tools::execute(args).await,
+        "number_theory_tools" => crate::tools::number_theory_tools::execute(args).await,
         "binary_tools" => crate::tools::binary_tools::execute(args).await,
         "ascii_tools" => crate::tools::ascii_tools::execute(args).await,
         "time_zone_tools" => crate::tools::time_zone_tools::execute(args).await,

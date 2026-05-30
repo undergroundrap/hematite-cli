@@ -26155,3 +26155,206 @@ async fn test_calc_tools_routing() {
         "should not trigger for yaml"
     );
 }
+
+// ── fraction_tools tests ───────────────────────────────────────────────────────
+
+#[tokio::test]
+async fn test_fraction_simplify() {
+    use hematite::tools::fraction_tools;
+    let args = serde_json::json!({"fraction": "18/24"});
+    let result = fraction_tools::execute(&args).await.unwrap();
+    assert!(result.contains("3/4"), "18/24 should simplify to 3/4");
+    assert!(result.contains("GCD"), "should show GCD");
+}
+
+#[tokio::test]
+async fn test_fraction_add() {
+    use hematite::tools::fraction_tools;
+    let args = serde_json::json!({"action": "add", "a": "1/3", "b": "2/5"});
+    let result = fraction_tools::execute(&args).await.unwrap();
+    assert!(result.contains("11/15"), "1/3 + 2/5 = 11/15");
+}
+
+#[tokio::test]
+async fn test_fraction_mul() {
+    use hematite::tools::fraction_tools;
+    let args = serde_json::json!({"action": "mul", "a": "3/4", "b": "2/9"});
+    let result = fraction_tools::execute(&args).await.unwrap();
+    assert!(result.contains("1/6"), "3/4 × 2/9 = 1/6");
+}
+
+#[tokio::test]
+async fn test_fraction_convert_to_decimal() {
+    use hematite::tools::fraction_tools;
+    let args = serde_json::json!({"action": "convert", "fraction": "7/4"});
+    let result = fraction_tools::execute(&args).await.unwrap();
+    assert!(result.contains("1.75"), "7/4 = 1.75");
+    assert!(result.contains("175"), "should show 175% somewhere");
+}
+
+#[tokio::test]
+async fn test_fraction_convert_decimal_to_fraction() {
+    use hematite::tools::fraction_tools;
+    let args = serde_json::json!({"action": "convert", "decimal": 0.5});
+    let result = fraction_tools::execute(&args).await.unwrap();
+    assert!(result.contains("1/2"), "0.5 -> 1/2");
+}
+
+#[tokio::test]
+async fn test_fraction_compare_two() {
+    use hematite::tools::fraction_tools;
+    let args = serde_json::json!({"action": "compare", "a": "3/4", "b": "2/3"});
+    let result = fraction_tools::execute(&args).await.unwrap();
+    assert!(result.contains(">"), "3/4 > 2/3");
+}
+
+#[tokio::test]
+async fn test_fraction_series_harmonic() {
+    use hematite::tools::fraction_tools;
+    let args = serde_json::json!({"action": "series", "type": "harmonic", "terms": 5});
+    let result = fraction_tools::execute(&args).await.unwrap();
+    assert!(result.contains("1/2"), "should contain 1/2 term");
+    assert!(
+        result.contains("137/60"),
+        "partial sum after 5 harmonic terms"
+    );
+}
+
+#[tokio::test]
+async fn test_fraction_series_egyptian() {
+    use hematite::tools::fraction_tools;
+    let args = serde_json::json!({"action": "series", "type": "egyptian", "fraction": "3/7"});
+    let result = fraction_tools::execute(&args).await.unwrap();
+    assert!(result.contains("1/"), "should contain unit fractions");
+}
+
+#[test]
+fn test_routing_detects_fraction_tools() {
+    use hematite::agent::routing::needs_fraction_tools;
+    assert!(
+        needs_fraction_tools("simplify the fraction 6/9"),
+        "should detect simplify"
+    );
+    assert!(
+        needs_fraction_tools("add fractions 1/4 and 2/3"),
+        "should detect add"
+    );
+    assert!(
+        needs_fraction_tools("convert 0.333 to a fraction"),
+        "should detect decimal to fraction"
+    );
+    assert!(
+        needs_fraction_tools("harmonic series first 10 terms"),
+        "should detect harmonic"
+    );
+    assert!(
+        !needs_fraction_tools("what port does redis use"),
+        "should not trigger for port lookup"
+    );
+}
+
+// ── number_theory_tools tests ──────────────────────────────────────────────────
+
+#[tokio::test]
+async fn test_number_theory_factor() {
+    use hematite::tools::number_theory_tools;
+    let args = serde_json::json!({"action": "factor", "n": 360});
+    let result = number_theory_tools::execute(&args).await.unwrap();
+    assert!(result.contains("2^3"), "360 has 2^3 as factor");
+    assert!(result.contains("3^2"), "360 has 3^2 as factor");
+    assert!(result.contains("5"), "360 has 5 as factor");
+}
+
+#[tokio::test]
+async fn test_number_theory_primes_sieve() {
+    use hematite::tools::number_theory_tools;
+    let args = serde_json::json!({"action": "primes", "limit": 30});
+    let result = number_theory_tools::execute(&args).await.unwrap();
+    assert!(result.contains("2"), "should list 2");
+    assert!(result.contains("29"), "should list 29");
+    assert!(result.contains("10 found"), "10 primes up to 30");
+}
+
+#[tokio::test]
+async fn test_number_theory_primality_test() {
+    use hematite::tools::number_theory_tools;
+    let args = serde_json::json!({"action": "primes", "test": 97});
+    let result = number_theory_tools::execute(&args).await.unwrap();
+    assert!(result.contains("PRIME"), "97 is prime");
+
+    let args2 = serde_json::json!({"action": "primes", "test": 100});
+    let result2 = number_theory_tools::execute(&args2).await.unwrap();
+    assert!(result2.contains("COMPOSITE"), "100 is composite");
+}
+
+#[tokio::test]
+async fn test_number_theory_gcd() {
+    use hematite::tools::number_theory_tools;
+    let args = serde_json::json!({"action": "gcd", "a": 48, "b": 36});
+    let result = number_theory_tools::execute(&args).await.unwrap();
+    assert!(result.contains("12"), "GCD(48,36)=12");
+}
+
+#[tokio::test]
+async fn test_number_theory_totient() {
+    use hematite::tools::number_theory_tools;
+    let args = serde_json::json!({"action": "totient", "n": 12});
+    let result = number_theory_tools::execute(&args).await.unwrap();
+    assert!(result.contains("4"), "φ(12) = 4");
+}
+
+#[tokio::test]
+async fn test_number_theory_collatz() {
+    use hematite::tools::number_theory_tools;
+    let args = serde_json::json!({"action": "collatz", "n": 6});
+    let result = number_theory_tools::execute(&args).await.unwrap();
+    assert!(result.contains("8"), "collatz(6) passes through 8");
+    // 6 → 3 → 10 → 5 → 16 → 8 → 4 → 2 → 1
+    assert!(result.contains("Steps to 1"), "should show steps");
+}
+
+#[tokio::test]
+async fn test_number_theory_fibonacci() {
+    use hematite::tools::number_theory_tools;
+    let args = serde_json::json!({"action": "fibonacci", "n": 10});
+    let result = number_theory_tools::execute(&args).await.unwrap();
+    assert!(result.contains("21"), "F(9) = 21 in the first 10");
+    assert!(result.contains("34"), "F(10) = 34 in the first 10");
+}
+
+#[tokio::test]
+async fn test_number_theory_perfect() {
+    use hematite::tools::number_theory_tools;
+    let args = serde_json::json!({"action": "perfect", "n": 28});
+    let result = number_theory_tools::execute(&args).await.unwrap();
+    assert!(result.contains("PERFECT"), "28 is a perfect number");
+}
+
+#[test]
+fn test_routing_detects_number_theory_tools() {
+    use hematite::agent::routing::needs_number_theory_tools;
+    assert!(
+        needs_number_theory_tools("prime factorization of 360"),
+        "should detect factorization"
+    );
+    assert!(
+        needs_number_theory_tools("is 97 prime"),
+        "should detect primality"
+    );
+    assert!(
+        needs_number_theory_tools("euler totient of 12"),
+        "should detect totient"
+    );
+    assert!(
+        needs_number_theory_tools("collatz sequence starting at 27"),
+        "should detect collatz"
+    );
+    assert!(
+        needs_number_theory_tools("show the fibonacci sequence"),
+        "should detect fibonacci"
+    );
+    assert!(
+        !needs_number_theory_tools("parse this yaml file"),
+        "should not trigger for yaml"
+    );
+}

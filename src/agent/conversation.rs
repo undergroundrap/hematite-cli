@@ -33,22 +33,23 @@ use crate::agent::routing::{
     needs_crash_debug, needs_cron_tools, needs_csp_tools, needs_csv_tools, needs_date_tools,
     needs_diff_tools, needs_docker_compose_tools, needs_docker_ops, needs_dockerfile_tools,
     needs_dotenv_tools, needs_duration_tools, needs_encode_tools, needs_env_schema_tools,
-    needs_format, needs_github_actions_tools, needs_github_ops, needs_gitignore_tools,
-    needs_glob_tools, needs_graphql_tools, needs_hash_tools, needs_hex_tools, needs_http_request,
-    needs_http_status_tools, needs_ini_tools, needs_ip_tools, needs_jwt_tools, needs_k8s_tools,
-    needs_keyval_tools, needs_license_tools, needs_line_tools, needs_lint_check,
-    needs_lock_file_tools, needs_log_parse_tools, needs_make_tools, needs_markdown_tools,
-    needs_mime_tools, needs_money_tools, needs_net_lookup_tools, needs_nginx_conf_tools,
-    needs_number_tools, needs_openapi_tools, needs_package_json_tools, needs_password_gen,
-    needs_path_tools, needs_pem_tools, needs_proto_tools, needs_regex_tools,
-    needs_robots_txt_tools, needs_rss_tools, needs_secret_scan, needs_semver_tools,
-    needs_sitemap_tools, needs_size_tools, needs_sql_migrate_tools, needs_sql_tools,
-    needs_sqlite_tools, needs_ssh_config_tools, needs_stat_tools, needs_string_metric_tools,
-    needs_systemd_tools, needs_table_tools, needs_template_tools, needs_terraform_tools,
-    needs_test_run, needs_text_tools, needs_time_zone_tools, needs_token_tools, needs_toml_tools,
-    needs_url_tools, needs_uuid_gen, needs_validate_tools, needs_word_tools, needs_xml_tools,
-    needs_yaml_tools, preferred_host_inspection_topic, preferred_maintainer_workflow,
-    preferred_workspace_workflow, DirectAnswerKind, QueryIntentClass,
+    needs_format, needs_fraction_tools, needs_github_actions_tools, needs_github_ops,
+    needs_gitignore_tools, needs_glob_tools, needs_graphql_tools, needs_hash_tools,
+    needs_hex_tools, needs_http_request, needs_http_status_tools, needs_ini_tools, needs_ip_tools,
+    needs_jwt_tools, needs_k8s_tools, needs_keyval_tools, needs_license_tools, needs_line_tools,
+    needs_lint_check, needs_lock_file_tools, needs_log_parse_tools, needs_make_tools,
+    needs_markdown_tools, needs_mime_tools, needs_money_tools, needs_net_lookup_tools,
+    needs_nginx_conf_tools, needs_number_theory_tools, needs_number_tools, needs_openapi_tools,
+    needs_package_json_tools, needs_password_gen, needs_path_tools, needs_pem_tools,
+    needs_proto_tools, needs_regex_tools, needs_robots_txt_tools, needs_rss_tools,
+    needs_secret_scan, needs_semver_tools, needs_sitemap_tools, needs_size_tools,
+    needs_sql_migrate_tools, needs_sql_tools, needs_sqlite_tools, needs_ssh_config_tools,
+    needs_stat_tools, needs_string_metric_tools, needs_systemd_tools, needs_table_tools,
+    needs_template_tools, needs_terraform_tools, needs_test_run, needs_text_tools,
+    needs_time_zone_tools, needs_token_tools, needs_toml_tools, needs_url_tools, needs_uuid_gen,
+    needs_validate_tools, needs_word_tools, needs_xml_tools, needs_yaml_tools,
+    preferred_host_inspection_topic, preferred_maintainer_workflow, preferred_workspace_workflow,
+    DirectAnswerKind, QueryIntentClass,
 };
 use crate::agent::tool_registry::dispatch_builtin_tool;
 use crate::agent::truncation::safe_head;
@@ -6244,6 +6245,40 @@ impl ConversationManager {
                  sequence (generate N terms of a numeric sequence; 'expr' using 'n' as index; 'start'/'step'/'count'). \
                  Example: calc_tools(expr:'2^10 + factorial(5)') or \
                  calc_tools(action:'sequence', expr:'n^2 + 1', count:10)"
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_fraction_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "FRACTION TOOLS NOTICE: Use the `fraction_tools` tool for fraction arithmetic and conversions \
+                 without external utilities. Actions: \
+                 simplify (default — reduce fraction to lowest terms; 'fraction' e.g. \"6/9\" or 'numerator'/'denominator'), \
+                 add/sub/mul/div (arithmetic on two fractions; 'a' and 'b' fields e.g. \"1/4\"), \
+                 convert ('fraction' string → decimal/percent/mixed OR 'decimal' number → fraction via continued fractions), \
+                 compare ('a'/'b' or 'fractions' array — ordering and difference), \
+                 series ('type': harmonic/egyptian/farey; 'terms' for harmonic, 'fraction' for egyptian, 'n' for farey). \
+                 Example: fraction_tools(action:'add', a:'1/3', b:'2/5') or \
+                 fraction_tools(action:'convert', decimal:0.3333333)"
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_number_theory_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "NUMBER THEORY NOTICE: Use the `number_theory_tools` tool for pure number-theory calculations \
+                 without external utilities. Actions: \
+                 factor (default — prime factorization with all divisors and divisor sum; 'n'), \
+                 primes ('limit' for sieve up to N, 'nth' for Nth prime, 'test' for primality check), \
+                 gcd/lcm ('a'/'b' or 'numbers' array; gcd shows Bézout coefficients), \
+                 totient (Euler phi function; 'n'), \
+                 modpow (fast modular exponentiation; 'base', 'exp', 'modulus'), \
+                 modinv (modular inverse; 'a', 'modulus'), \
+                 collatz (Collatz sequence to 1; 'n'), \
+                 fibonacci (first N numbers via 'n'; 'nth' for specific index; 'test' for membership check), \
+                 perfect (classify as perfect/abundant/deficient; 'n' or 'limit' for range scan). \
+                 Example: number_theory_tools(action:'factor', n:360) or \
+                 number_theory_tools(action:'primes', limit:100)"
                     .to_string(),
             );
         }

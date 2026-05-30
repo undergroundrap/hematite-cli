@@ -7682,6 +7682,66 @@ pub fn needs_lock_file_tools(user_input: &str) -> bool {
     )
 }
 
+pub fn needs_fraction_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "fraction",
+            "numerator",
+            "denominator",
+            "simplify fraction",
+            "reduce fraction",
+            "add fractions",
+            "subtract fractions",
+            "multiply fractions",
+            "divide fractions",
+            "decimal to fraction",
+            "fraction to decimal",
+            "mixed number",
+            "harmonic series",
+            "egyptian fraction",
+            "farey sequence",
+            "rational number",
+            "lowest terms",
+        ],
+    )
+}
+
+pub fn needs_number_theory_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "prime factorization",
+            "prime factors",
+            "is prime",
+            "list primes",
+            "nth prime",
+            "sieve of eratosthenes",
+            "euler totient",
+            "euler's totient",
+            "phi(",
+            "modular inverse",
+            "modinv",
+            "modpow",
+            "modular exponentiation",
+            "collatz",
+            "fibonacci sequence",
+            "fibonacci number",
+            "perfect number",
+            "abundant number",
+            "deficient number",
+            "number theory",
+            "divisors of",
+            "divisor sum",
+            "bezout",
+            "bézout",
+            "coprime",
+        ],
+    )
+}
+
 pub fn needs_binary_tools(user_input: &str) -> bool {
     contains_any(
         user_input,
