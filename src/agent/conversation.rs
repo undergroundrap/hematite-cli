@@ -45,10 +45,10 @@ use crate::agent::routing::{
     needs_sitemap_tools, needs_size_tools, needs_sql_migrate_tools, needs_sql_tools,
     needs_sqlite_tools, needs_ssh_config_tools, needs_stat_tools, needs_systemd_tools,
     needs_table_tools, needs_template_tools, needs_terraform_tools, needs_test_run,
-    needs_text_tools, needs_token_tools, needs_toml_tools, needs_url_tools, needs_uuid_gen,
-    needs_validate_tools, needs_xml_tools, needs_yaml_tools, preferred_host_inspection_topic,
-    preferred_maintainer_workflow, preferred_workspace_workflow, DirectAnswerKind,
-    QueryIntentClass,
+    needs_text_tools, needs_time_zone_tools, needs_token_tools, needs_toml_tools, needs_url_tools,
+    needs_uuid_gen, needs_validate_tools, needs_word_tools, needs_xml_tools, needs_yaml_tools,
+    preferred_host_inspection_topic, preferred_maintainer_workflow, preferred_workspace_workflow,
+    DirectAnswerKind, QueryIntentClass,
 };
 use crate::agent::tool_registry::dispatch_builtin_tool;
 use crate::agent::truncation::safe_head;
@@ -6176,6 +6176,39 @@ impl ConversationManager {
                  tree (render a directory-style tree; pass 'root' + 'nodes' array of {label, children?} objects, \
                  or 'text' as an indented outline with 'root' as root label). \
                  Example: ascii_tools(action: 'box', text: 'Hello!\\nWorld', style: 'double')"
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_time_zone_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "TIME ZONE TOOLS NOTICE: Use the `time_zone_tools` tool for timezone conversions and world clock \
+                 queries without external utilities. Actions: \
+                 convert (default — convert a datetime from one timezone to another; 'datetime' as ISO 8601 or \
+                 'YYYY-MM-DD HH:MM:SS', 'from' source timezone, 'to' target timezone; e.g. \
+                 time_zone_tools(action:'convert', datetime:'2024-06-15 14:30:00', from:'EST', to:'JST')), \
+                 list (list all supported timezone names and their UTC offsets; optional 'filter' to search), \
+                 offset (get UTC offset for a timezone name; 'tz' field), \
+                 world_clock (show current time in multiple timezones; 'zones' array of timezone names). \
+                 Accepts named zones (UTC, EST, PST, GMT, IST, JST, etc.) and numeric offsets (+05:30, -07:00). \
+                 Example: time_zone_tools(action:'world_clock', zones:['UTC','EST','PST','IST','JST'])"
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_word_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "WORD TOOLS NOTICE: Use the `word_tools` tool for word frequency analysis, anagram detection, \
+                 phonetic matching, and syllable counting without external utilities. Actions: \
+                 frequency (default — word frequency table with percentages; 'text', optional 'top' N, \
+                 'stop_words' bool to filter common words), \
+                 anagram (check if two words/phrases are anagrams; 'a' and 'b' fields), \
+                 soundex (Soundex phonetic code for a word or list; 'word', 'words' array, or 'text'; \
+                 groups phonetically similar words), \
+                 palindrome (check if text is a palindrome; 'text', optional 'strict' bool; finds longest \
+                 palindromic substring), \
+                 syllables (syllable count per word with Flesch-Kincaid grade estimate; 'text'). \
+                 Example: word_tools(action:'anagram', a:'listen', b:'silent')"
                     .to_string(),
             );
         }

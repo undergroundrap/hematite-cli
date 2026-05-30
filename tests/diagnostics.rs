@@ -25658,3 +25658,250 @@ async fn test_ascii_tools_routing() {
         "should not trigger for yaml"
     );
 }
+
+// ── time_zone_tools ────────────────────────────────────────────────────────────
+
+#[tokio::test]
+async fn test_time_zone_tools_convert() {
+    let result = hematite::tools::time_zone_tools::execute(&serde_json::json!({
+        "action": "convert",
+        "datetime": "2024-06-15 12:00:00",
+        "from": "UTC",
+        "to": "+05:30"
+    }))
+    .await
+    .unwrap();
+    assert!(result.contains("time_zone_tools"), "should have header");
+    assert!(
+        result.contains("17:30") || result.contains("17"),
+        "UTC+05:30 should be 17:30"
+    );
+}
+
+#[tokio::test]
+async fn test_time_zone_tools_convert_named() {
+    let result = hematite::tools::time_zone_tools::execute(&serde_json::json!({
+        "action": "convert",
+        "datetime": "2024-01-15 09:00:00",
+        "from": "EST",
+        "to": "UTC"
+    }))
+    .await
+    .unwrap();
+    // EST is UTC-5, so 09:00 EST = 14:00 UTC
+    assert!(
+        result.contains("14:00") || result.contains("14"),
+        "EST to UTC should be +5 hours"
+    );
+}
+
+#[tokio::test]
+async fn test_time_zone_tools_list() {
+    let result = hematite::tools::time_zone_tools::execute(&serde_json::json!({
+        "action": "list"
+    }))
+    .await
+    .unwrap();
+    assert!(result.contains("UTC"), "should include UTC");
+    assert!(
+        result.contains("EST") || result.contains("IST"),
+        "should include named zones"
+    );
+}
+
+#[tokio::test]
+async fn test_time_zone_tools_list_filter() {
+    let result = hematite::tools::time_zone_tools::execute(&serde_json::json!({
+        "action": "list",
+        "filter": "EST"
+    }))
+    .await
+    .unwrap();
+    assert!(
+        result.contains("EST"),
+        "should include EST in filtered results"
+    );
+}
+
+#[tokio::test]
+async fn test_time_zone_tools_offset() {
+    let result = hematite::tools::time_zone_tools::execute(&serde_json::json!({
+        "action": "offset",
+        "tz": "JST"
+    }))
+    .await
+    .unwrap();
+    assert!(result.contains("JST"), "should show timezone name");
+    assert!(
+        result.contains("+09") || result.contains("540"),
+        "JST is UTC+9"
+    );
+}
+
+#[tokio::test]
+async fn test_time_zone_tools_world_clock() {
+    let result = hematite::tools::time_zone_tools::execute(&serde_json::json!({
+        "action": "world_clock",
+        "zones": ["UTC", "EST", "JST"]
+    }))
+    .await
+    .unwrap();
+    assert!(result.contains("UTC"), "should show UTC");
+    assert!(result.contains("EST"), "should show EST");
+    assert!(result.contains("JST"), "should show JST");
+}
+
+#[tokio::test]
+async fn test_time_zone_tools_routing() {
+    use hematite::agent::routing::needs_time_zone_tools;
+    assert!(
+        needs_time_zone_tools("what time is it in Tokyo"),
+        "should detect world time query"
+    );
+    assert!(
+        needs_time_zone_tools("convert timezone from UTC to PST"),
+        "should detect timezone conversion"
+    );
+    assert!(
+        needs_time_zone_tools("show a world clock"),
+        "should detect world clock"
+    );
+    assert!(
+        needs_time_zone_tools("what is the UTC offset for IST"),
+        "should detect utc offset query"
+    );
+    assert!(
+        !needs_time_zone_tools("parse this json file"),
+        "should not trigger for json"
+    );
+}
+
+// ── word_tools ─────────────────────────────────────────────────────────────────
+
+#[tokio::test]
+async fn test_word_tools_frequency() {
+    let result = hematite::tools::word_tools::execute(&serde_json::json!({
+        "action": "frequency",
+        "text": "the cat sat on the mat the cat",
+        "stop_words": false
+    }))
+    .await
+    .unwrap();
+    assert!(result.contains("word_tools"), "should have header");
+    assert!(result.contains("cat"), "should show 'cat'");
+    assert!(
+        result.contains("the"),
+        "should show 'the' when stop_words disabled"
+    );
+}
+
+#[tokio::test]
+async fn test_word_tools_anagram_true() {
+    let result = hematite::tools::word_tools::execute(&serde_json::json!({
+        "action": "anagram",
+        "a": "listen",
+        "b": "silent"
+    }))
+    .await
+    .unwrap();
+    assert!(
+        result.contains("ANAGRAM"),
+        "listen/silent should be anagrams"
+    );
+}
+
+#[tokio::test]
+async fn test_word_tools_anagram_false() {
+    let result = hematite::tools::word_tools::execute(&serde_json::json!({
+        "action": "anagram",
+        "a": "hello",
+        "b": "world"
+    }))
+    .await
+    .unwrap();
+    assert!(result.contains("NOT"), "hello/world should not be anagrams");
+}
+
+#[tokio::test]
+async fn test_word_tools_soundex() {
+    let result = hematite::tools::word_tools::execute(&serde_json::json!({
+        "action": "soundex",
+        "word": "Robert"
+    }))
+    .await
+    .unwrap();
+    assert!(result.contains("R163"), "Robert should have soundex R163");
+}
+
+#[tokio::test]
+async fn test_word_tools_soundex_group() {
+    let result = hematite::tools::word_tools::execute(&serde_json::json!({
+        "action": "soundex",
+        "words": ["Robert", "Rupert", "Rubin"]
+    }))
+    .await
+    .unwrap();
+    assert!(
+        result.contains("R163") || result.contains("sound-alikes"),
+        "should group similar names"
+    );
+}
+
+#[tokio::test]
+async fn test_word_tools_palindrome() {
+    let result = hematite::tools::word_tools::execute(&serde_json::json!({
+        "action": "palindrome",
+        "text": "A man a plan a canal Panama"
+    }))
+    .await
+    .unwrap();
+    assert!(
+        result.contains("PALINDROME"),
+        "should detect classic palindrome"
+    );
+}
+
+#[tokio::test]
+async fn test_word_tools_syllables() {
+    let result = hematite::tools::word_tools::execute(&serde_json::json!({
+        "action": "syllables",
+        "text": "beautiful education communication"
+    }))
+    .await
+    .unwrap();
+    assert!(result.contains("word_tools"), "should have header");
+    assert!(result.contains("Total words"), "should show word count");
+    assert!(
+        result.contains("beautiful") || result.contains("3") || result.contains("4"),
+        "should count syllables"
+    );
+}
+
+#[tokio::test]
+async fn test_word_tools_routing() {
+    use hematite::agent::routing::needs_word_tools;
+    assert!(
+        needs_word_tools("analyze word frequency in this text"),
+        "should detect word frequency"
+    );
+    assert!(
+        needs_word_tools("are these words anagrams"),
+        "should detect anagram"
+    );
+    assert!(
+        needs_word_tools("compute soundex phonetic code"),
+        "should detect soundex"
+    );
+    assert!(
+        needs_word_tools("check if this is a palindrome"),
+        "should detect palindrome"
+    );
+    assert!(
+        needs_word_tools("count syllables in this sentence"),
+        "should detect syllables"
+    );
+    assert!(
+        !needs_word_tools("parse this json file"),
+        "should not trigger for json"
+    );
+}

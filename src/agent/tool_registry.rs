@@ -4499,6 +4499,109 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         }),
     ));
     tools.push(make_tool(
+        "time_zone_tools",
+        "Convert times between timezones, list timezone offsets, and show a world clock without external utilities. \
+         Actions: convert (default — convert a datetime from one timezone to another; 'datetime' as ISO 8601 or \
+         'YYYY-MM-DD HH:MM:SS', 'from' source timezone abbreviation or numeric offset, 'to' target timezone), \
+         list (list all supported timezones with UTC offsets; optional 'filter' string to search by name), \
+         offset (get UTC offset for a timezone; 'tz' field), \
+         world_clock (show current UTC time converted to multiple zones; 'zones' array of timezone names). \
+         Accepts named zones (UTC, GMT, EST, PST, CST, MST, IST, JST, AEST, CET, etc.) and numeric offsets (+05:30, -07:00). \
+         Example: time_zone_tools(action: 'convert', datetime: '2024-06-15 14:30:00', from: 'EST', to: 'JST') or \
+         time_zone_tools(action: 'world_clock', zones: ['UTC','EST','PST','IST','JST']).",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "convert (default), list, offset, world_clock"
+                },
+                "datetime": {
+                    "type": "string",
+                    "description": "Datetime string to convert (ISO 8601 or 'YYYY-MM-DD HH:MM:SS'). Required for convert."
+                },
+                "from": {
+                    "type": "string",
+                    "description": "Source timezone (convert action). Name or numeric offset."
+                },
+                "to": {
+                    "type": "string",
+                    "description": "Target timezone (convert action). Name or numeric offset."
+                },
+                "tz": {
+                    "type": "string",
+                    "description": "Timezone name or offset for the offset action."
+                },
+                "zones": {
+                    "type": "array",
+                    "description": "Array of timezone names for world_clock action."
+                },
+                "filter": {
+                    "type": "string",
+                    "description": "Filter substring for list action."
+                }
+            },
+            "required": []
+        }),
+    ));
+    tools.push(make_tool(
+        "word_tools",
+        "Word frequency analysis, anagram detection, Soundex phonetic matching, palindrome checking, \
+         and syllable counting without external utilities. \
+         Actions: frequency (default — word frequency table with percentages; 'text', optional 'top' N (default 20), \
+         'stop_words' bool to filter common words (default true)), \
+         anagram (check if two strings are anagrams; 'a' and 'b' fields), \
+         soundex (Soundex phonetic code; 'word' for single, 'words' array, or 'text' for all words; \
+         groups phonetically similar words), \
+         palindrome (check if text is a palindrome; 'text', optional 'strict' bool; finds longest palindromic substring), \
+         syllables (syllable count per word, totals, and Flesch-Kincaid grade estimate; 'text'). \
+         Example: word_tools(action: 'anagram', a: 'listen', b: 'silent') or \
+         word_tools(action: 'frequency', text: '...', top: 10) or \
+         word_tools(action: 'soundex', words: ['Robert','Rupert','Rubin']).",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "frequency (default), anagram, soundex, palindrome, syllables"
+                },
+                "text": {
+                    "type": "string",
+                    "description": "Input text. Required for frequency, palindrome, syllables. Also 'input'."
+                },
+                "top": {
+                    "type": "number",
+                    "description": "Max words to show in frequency output (default 20)."
+                },
+                "stop_words": {
+                    "type": "boolean",
+                    "description": "Filter common stop words in frequency action (default true)."
+                },
+                "a": {
+                    "type": "string",
+                    "description": "First word/phrase for anagram comparison. Also 'word_a'."
+                },
+                "b": {
+                    "type": "string",
+                    "description": "Second word/phrase for anagram comparison. Also 'word_b'."
+                },
+                "word": {
+                    "type": "string",
+                    "description": "Single word for soundex action."
+                },
+                "words": {
+                    "type": "array",
+                    "description": "Array of words for soundex action."
+                },
+                "strict": {
+                    "type": "boolean",
+                    "description": "Strict palindrome check (no case/punctuation stripping) for palindrome action."
+                }
+            },
+            "required": []
+        }),
+    ));
+    tools.push(make_tool(
         "csp_tools",
         "Parse, explain, validate, and build Content Security Policy (CSP) headers without external utilities. \
          Actions: parse (default — break CSP into directives with per-source descriptions and unsafe flags), \
@@ -4958,6 +5061,8 @@ pub async fn dispatch_builtin_tool(
         "lock_file_tools" => crate::tools::lock_file_tools::execute(args).await,
         "binary_tools" => crate::tools::binary_tools::execute(args).await,
         "ascii_tools" => crate::tools::ascii_tools::execute(args).await,
+        "time_zone_tools" => crate::tools::time_zone_tools::execute(args).await,
+        "word_tools" => crate::tools::word_tools::execute(args).await,
         "secret_scanner" => crate::tools::secret_scanner::execute(args).await,
         "code_metrics" => crate::tools::code_metrics::execute(args).await,
         "dependency_audit" => crate::tools::dependency_audit::execute(args).await,

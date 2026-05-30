@@ -7743,6 +7743,64 @@ pub fn needs_ascii_tools(user_input: &str) -> bool {
     )
 }
 
+pub fn needs_time_zone_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "time zone",
+            "timezone",
+            "convert time",
+            "time in ",
+            "utc offset",
+            "utc to ",
+            "to utc",
+            "gmt offset",
+            "gmt to ",
+            "to gmt",
+            "what time is it in",
+            "world clock",
+            "local time",
+            "time difference",
+            "time conversion",
+            "pst to est",
+            "est to pst",
+            "cst to est",
+            "ist to utc",
+            "list timezones",
+            "list time zones",
+            "dst offset",
+            "daylight saving",
+        ],
+    )
+}
+
+pub fn needs_word_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "word frequency",
+            "word count frequency",
+            "most common words",
+            "frequent words",
+            "anagram",
+            "soundex",
+            "phonetic match",
+            "sounds like",
+            "palindrome",
+            "syllable",
+            "syllables",
+            "syllable count",
+            "flesch-kincaid",
+            "flesch kincaid",
+            "readability grade",
+            "word analysis",
+            "count syllables",
+        ],
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
