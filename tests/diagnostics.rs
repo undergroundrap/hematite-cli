@@ -26358,3 +26358,170 @@ fn test_routing_detects_number_theory_tools() {
         "should not trigger for yaml"
     );
 }
+
+// ── cipher_tools ─────────────────────────────────────────────────────────────
+
+#[tokio::test]
+async fn test_cipher_rot13() {
+    let args = serde_json::json!({"action": "rot13", "text": "Hello, World!"});
+    let result = hematite::tools::cipher_tools::execute(&args).await.unwrap();
+    assert!(
+        result.contains("Uryyb, Jbeyq!"),
+        "ROT13 should encode Hello correctly"
+    );
+}
+
+#[tokio::test]
+async fn test_cipher_caesar_encode() {
+    let args = serde_json::json!({"action": "caesar", "text": "ABC", "shift": 3});
+    let result = hematite::tools::cipher_tools::execute(&args).await.unwrap();
+    assert!(
+        result.contains("DEF"),
+        "Caesar shift 3 should encode ABC as DEF"
+    );
+}
+
+#[tokio::test]
+async fn test_cipher_caesar_decode() {
+    let args = serde_json::json!({"action": "caesar", "text": "DEF", "shift": 3, "decode": true});
+    let result = hematite::tools::cipher_tools::execute(&args).await.unwrap();
+    assert!(
+        result.contains("ABC"),
+        "Caesar decode shift 3 should recover ABC from DEF"
+    );
+}
+
+#[tokio::test]
+async fn test_cipher_vigenere() {
+    let args = serde_json::json!({"action": "vigenere", "text": "HELLO", "key": "KEY"});
+    let result = hematite::tools::cipher_tools::execute(&args).await.unwrap();
+    assert!(
+        result.contains("RIJVS"),
+        "Vigenere with KEY should encode HELLO as RIJVS"
+    );
+}
+
+#[tokio::test]
+async fn test_cipher_atbash() {
+    let args = serde_json::json!({"action": "atbash", "text": "ABC"});
+    let result = hematite::tools::cipher_tools::execute(&args).await.unwrap();
+    assert!(result.contains("ZYX"), "Atbash should map ABC to ZYX");
+}
+
+#[tokio::test]
+async fn test_cipher_rail_fence_encode() {
+    let args = serde_json::json!({"action": "rail_fence", "text": "WEAREDISCOVERED", "rails": 3});
+    let result = hematite::tools::cipher_tools::execute(&args).await.unwrap();
+    assert!(
+        result.contains("Output:"),
+        "Rail fence should produce output section"
+    );
+}
+
+#[tokio::test]
+async fn test_cipher_analyze() {
+    let args = serde_json::json!({"action": "analyze", "text": "The quick brown fox jumps over the lazy dog"});
+    let result = hematite::tools::cipher_tools::execute(&args).await.unwrap();
+    assert!(
+        result.to_lowercase().contains("frequency"),
+        "analyze should show letter frequency"
+    );
+    assert!(
+        result.contains("IC") || result.to_lowercase().contains("coincidence"),
+        "analyze should show IC"
+    );
+}
+
+#[test]
+fn test_routing_detects_cipher_tools() {
+    use hematite::agent::routing::needs_cipher_tools;
+    assert!(
+        needs_cipher_tools("rot13 this string"),
+        "should detect rot13"
+    );
+    assert!(
+        needs_cipher_tools("caesar cipher shift 13"),
+        "should detect caesar cipher"
+    );
+    assert!(
+        needs_cipher_tools("encode with vigenere"),
+        "should detect vigenere"
+    );
+    assert!(needs_cipher_tools("atbash encode"), "should detect atbash");
+    assert!(
+        needs_cipher_tools("rail fence cipher"),
+        "should detect rail fence"
+    );
+    assert!(
+        !needs_cipher_tools("list yaml keys"),
+        "should not trigger for yaml"
+    );
+}
+
+// ── nato_tools ────────────────────────────────────────────────────────────────
+
+#[tokio::test]
+async fn test_nato_encode() {
+    let args = serde_json::json!({"action": "nato", "text": "AB"});
+    let result = hematite::tools::nato_tools::execute(&args).await.unwrap();
+    assert!(result.contains("Alpha"), "nato should spell A as Alpha");
+    assert!(result.contains("Bravo"), "nato should spell B as Bravo");
+}
+
+#[tokio::test]
+async fn test_nato_from_nato() {
+    let args = serde_json::json!({"action": "from_nato", "text": "Alpha Bravo Charlie"});
+    let result = hematite::tools::nato_tools::execute(&args).await.unwrap();
+    assert!(
+        result.contains("ABC"),
+        "from_nato should decode Alpha Bravo Charlie to ABC"
+    );
+}
+
+#[tokio::test]
+async fn test_nato_morse_encode() {
+    let args = serde_json::json!({"action": "morse", "text": "SOS", "decode": false});
+    let result = hematite::tools::nato_tools::execute(&args).await.unwrap();
+    assert!(result.contains("..."), "SOS morse should contain ...");
+    assert!(result.contains("---"), "SOS morse should contain ---");
+}
+
+#[tokio::test]
+async fn test_nato_morse_decode() {
+    let args = serde_json::json!({"action": "morse", "text": "... --- ...", "decode": true});
+    let result = hematite::tools::nato_tools::execute(&args).await.unwrap();
+    assert!(result.contains("SOS"), "Morse decode should recover SOS");
+}
+
+#[tokio::test]
+async fn test_nato_spell() {
+    let args = serde_json::json!({"action": "spell", "text": "Hi"});
+    let result = hematite::tools::nato_tools::execute(&args).await.unwrap();
+    assert!(result.contains("Hotel"), "spell should include Hotel for H");
+    assert!(result.contains("India"), "spell should include India for I");
+}
+
+#[test]
+fn test_routing_detects_nato_tools() {
+    use hematite::agent::routing::needs_nato_tools;
+    assert!(
+        needs_nato_tools("spell this word in nato alphabet"),
+        "should detect nato alphabet"
+    );
+    assert!(
+        needs_nato_tools("what is the nato phonetic for z"),
+        "should detect nato phonetic"
+    );
+    assert!(
+        needs_nato_tools("encode this in morse code"),
+        "should detect morse code"
+    );
+    assert!(
+        needs_nato_tools("decode this morse"),
+        "should detect morse decode"
+    );
+    assert!(
+        !needs_nato_tools("parse this toml file"),
+        "should not trigger for toml"
+    );
+}

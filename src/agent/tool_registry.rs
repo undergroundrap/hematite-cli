@@ -4449,6 +4449,61 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         }),
     ));
     tools.push(make_tool(
+        "cipher_tools",
+        "Classical cipher encoding, decoding, and frequency analysis without external utilities. \
+         Actions: rot13 (default — ROT13 encode/decode; self-inverse; pass 'text'), \
+         caesar (shift cipher; 'text' + 'shift' N; optional 'decode: true'; shows all-shifts brute-force table for short texts), \
+         vigenere (polyalphabetic key cipher; 'text' + 'key'; optional 'decode: true'), \
+         atbash (A↔Z reversal; 'text'; self-inverse), \
+         rail_fence (transposition; 'text' + 'rails' N default 3; optional 'decode: true'; shows rail diagram for short texts), \
+         analyze (letter frequency histogram vs English, Index of Coincidence cipher-type hint, automatic Caesar break guess; 'text'). \
+         Example: cipher_tools(action:'caesar', text:'Hello World', shift:13) or \
+         cipher_tools(action:'vigenere', text:'HELLO', key:'KEY') or \
+         cipher_tools(action:'analyze', text:'KHOOR ZRUOG')",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "rot13 (default), caesar, vigenere, atbash, rail_fence, analyze"
+                },
+                "text": { "type": "string", "description": "Input text. Also 'input'/'message'." },
+                "shift": { "type": "number", "description": "Shift amount for Caesar cipher (default 3)" },
+                "key": { "type": "string", "description": "Keyword for Vigenère cipher (alphabetic only)" },
+                "rails": { "type": "number", "description": "Number of rails for rail fence cipher (default 3, min 2)" },
+                "decode": { "type": "boolean", "description": "Decode mode (default false = encode)" }
+            },
+            "required": []
+        }),
+    ));
+    tools.push(make_tool(
+        "nato_tools",
+        "NATO phonetic alphabet encoding/decoding and Morse code translation without external utilities. \
+         Actions: nato (default — convert text to NATO phonetic words; 'text'; e.g. SOS → Sierra Oscar Sierra), \
+         from_nato (convert NATO phonetic words back to text; 'text' containing words like 'Alpha Bravo Charlie'), \
+         morse (encode text to Morse dots/dashes OR decode Morse back to text; 'text'; \
+         auto-detects direction from content; 'decode: true' to force decode; \
+         letter separator is space, word separator is /), \
+         spell (spell out text letter-by-letter with NATO equivalents; 'text'; optional 'separator'). \
+         Covers all 26 letters, digits 0–9, and common punctuation in Morse mode. \
+         Example: nato_tools(text:'SOS') or \
+         nato_tools(action:'morse', text:'SOS') or \
+         nato_tools(action:'from_nato', text:'Sierra Oscar Sierra')",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "nato (default), from_nato, morse, spell"
+                },
+                "text": { "type": "string", "description": "Input text. Also 'input'/'message'." },
+                "decode": { "type": "boolean", "description": "Force decode mode for morse action" },
+                "separator": { "type": "string", "description": "Separator between spelled-out letters in spell action (default ', ')" }
+            },
+            "required": []
+        }),
+    ));
+    tools.push(make_tool(
         "binary_tools",
         "Bit manipulation, bitfield packing/unpacking, and binary analysis without external utilities. \
          Actions: info (default — show decimal/hex/octal/binary, popcount, parity, leading/trailing zeros, \
@@ -5245,6 +5300,8 @@ pub async fn dispatch_builtin_tool(
         "lock_file_tools" => crate::tools::lock_file_tools::execute(args).await,
         "fraction_tools" => crate::tools::fraction_tools::execute(args).await,
         "number_theory_tools" => crate::tools::number_theory_tools::execute(args).await,
+        "cipher_tools" => crate::tools::cipher_tools::execute(args).await,
+        "nato_tools" => crate::tools::nato_tools::execute(args).await,
         "binary_tools" => crate::tools::binary_tools::execute(args).await,
         "ascii_tools" => crate::tools::ascii_tools::execute(args).await,
         "time_zone_tools" => crate::tools::time_zone_tools::execute(args).await,

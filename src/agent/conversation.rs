@@ -29,16 +29,17 @@ use crate::agent::routing::{
     all_host_inspection_topics, classify_query_intent, is_capability_probe_tool,
     is_scaffold_request, looks_like_mutation_request, needs_ansi_tools, needs_archive_tools,
     needs_ascii_tools, needs_base_tools, needs_binary_tools, needs_calc_tools,
-    needs_changelog_tools, needs_char_tools, needs_color_tools, needs_computation_sandbox,
-    needs_crash_debug, needs_cron_tools, needs_csp_tools, needs_csv_tools, needs_date_tools,
-    needs_diff_tools, needs_docker_compose_tools, needs_docker_ops, needs_dockerfile_tools,
-    needs_dotenv_tools, needs_duration_tools, needs_encode_tools, needs_env_schema_tools,
-    needs_format, needs_fraction_tools, needs_github_actions_tools, needs_github_ops,
-    needs_gitignore_tools, needs_glob_tools, needs_graphql_tools, needs_hash_tools,
-    needs_hex_tools, needs_http_request, needs_http_status_tools, needs_ini_tools, needs_ip_tools,
-    needs_jwt_tools, needs_k8s_tools, needs_keyval_tools, needs_license_tools, needs_line_tools,
-    needs_lint_check, needs_lock_file_tools, needs_log_parse_tools, needs_make_tools,
-    needs_markdown_tools, needs_mime_tools, needs_money_tools, needs_net_lookup_tools,
+    needs_changelog_tools, needs_char_tools, needs_cipher_tools, needs_color_tools,
+    needs_computation_sandbox, needs_crash_debug, needs_cron_tools, needs_csp_tools,
+    needs_csv_tools, needs_date_tools, needs_diff_tools, needs_docker_compose_tools,
+    needs_docker_ops, needs_dockerfile_tools, needs_dotenv_tools, needs_duration_tools,
+    needs_encode_tools, needs_env_schema_tools, needs_format, needs_fraction_tools,
+    needs_github_actions_tools, needs_github_ops, needs_gitignore_tools, needs_glob_tools,
+    needs_graphql_tools, needs_hash_tools, needs_hex_tools, needs_http_request,
+    needs_http_status_tools, needs_ini_tools, needs_ip_tools, needs_jwt_tools, needs_k8s_tools,
+    needs_keyval_tools, needs_license_tools, needs_line_tools, needs_lint_check,
+    needs_lock_file_tools, needs_log_parse_tools, needs_make_tools, needs_markdown_tools,
+    needs_mime_tools, needs_money_tools, needs_nato_tools, needs_net_lookup_tools,
     needs_nginx_conf_tools, needs_number_theory_tools, needs_number_tools, needs_openapi_tools,
     needs_package_json_tools, needs_password_gen, needs_path_tools, needs_pem_tools,
     needs_proto_tools, needs_regex_tools, needs_robots_txt_tools, needs_rss_tools,
@@ -6245,6 +6246,37 @@ impl ConversationManager {
                  sequence (generate N terms of a numeric sequence; 'expr' using 'n' as index; 'start'/'step'/'count'). \
                  Example: calc_tools(expr:'2^10 + factorial(5)') or \
                  calc_tools(action:'sequence', expr:'n^2 + 1', count:10)"
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_cipher_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "CIPHER TOOLS NOTICE: Use the `cipher_tools` tool for classical cipher encoding, decoding, and \
+                 frequency analysis without external utilities. Actions: \
+                 rot13 (default — ROT13 encode/decode; 'text'), \
+                 caesar (shift cipher; 'text', 'shift' N, optional 'decode: true'; shows brute-force table for short texts), \
+                 vigenere (key-based polyalphabetic cipher; 'text', 'key', optional 'decode: true'), \
+                 atbash (A↔Z reversal; 'text'), \
+                 rail_fence (transposition cipher; 'text', 'rails' N (default 3), optional 'decode: true'; shows rail diagram), \
+                 analyze (letter frequency, Index of Coincidence, Caesar break attempt; 'text'). \
+                 Example: cipher_tools(action:'caesar', text:'HELLO', shift:13) or \
+                 cipher_tools(action:'analyze', text:'KHOOR ZRUOG')"
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_nato_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "NATO/MORSE TOOLS NOTICE: Use the `nato_tools` tool for NATO phonetic alphabet and Morse code \
+                 encoding/decoding without external utilities. Actions: \
+                 nato (default — text → NATO phonetic words; 'text'; e.g. \"H\" → \"Hotel\"), \
+                 from_nato (NATO words → text; 'text' containing NATO words like \"Alpha Bravo\"), \
+                 morse ('text' → Morse code using dots/dashes/slashes; auto-detects encode vs decode; \
+                 or pass 'decode: true' to force decode mode), \
+                 spell (spell out text with NATO and character labels; 'text', optional 'separator'). \
+                 Example: nato_tools(action:'nato', text:'SOS') or \
+                 nato_tools(action:'morse', text:'... --- ...')"
                     .to_string(),
             );
         }

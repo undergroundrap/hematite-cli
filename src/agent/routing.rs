@@ -7742,6 +7742,57 @@ pub fn needs_number_theory_tools(user_input: &str) -> bool {
     )
 }
 
+pub fn needs_cipher_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "caesar cipher",
+            "vigenere cipher",
+            "vigenere",
+            "vigenère cipher",
+            "vigenère",
+            "rot13",
+            "atbash",
+            "rail fence",
+            "classical cipher",
+            "encode cipher",
+            "decode cipher",
+            "encrypt caesar",
+            "decrypt caesar",
+            "cipher text",
+            "frequency analysis",
+            "index of coincidence",
+            "cipher break",
+            "monoalphabetic",
+            "polyalphabetic",
+            "encode with key",
+            "decrypt vigenere",
+        ],
+    )
+}
+
+pub fn needs_nato_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "nato alphabet",
+            "nato phonetic",
+            "phonetic alphabet",
+            "spell out letters",
+            "morse code",
+            "morse",
+            "encode morse",
+            "decode morse",
+            "dit dah",
+            "alpha bravo charlie",
+            "hotel india juliet",
+            "foxtrot golf",
+        ],
+    )
+}
+
 pub fn needs_binary_tools(user_input: &str) -> bool {
     contains_any(
         user_input,
