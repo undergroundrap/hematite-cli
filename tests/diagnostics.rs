@@ -25905,3 +25905,253 @@ async fn test_word_tools_routing() {
         "should not trigger for json"
     );
 }
+
+// ── string_metric_tools ───────────────────────────────────────────────────────
+
+#[tokio::test]
+async fn test_string_metric_tools_levenshtein() {
+    let result = hematite::tools::string_metric_tools::execute(&serde_json::json!({
+        "action": "levenshtein",
+        "a": "kitten",
+        "b": "sitting"
+    }))
+    .await
+    .unwrap();
+    assert!(result.contains("string_metric_tools"), "should have header");
+    assert!(
+        result.contains("3") || result.contains("Edit distance"),
+        "kitten→sitting is 3 edits"
+    );
+}
+
+#[tokio::test]
+async fn test_string_metric_tools_identical() {
+    let result = hematite::tools::string_metric_tools::execute(&serde_json::json!({
+        "a": "hello",
+        "b": "hello"
+    }))
+    .await
+    .unwrap();
+    assert!(
+        result.contains("Identical") || result.contains("100.0"),
+        "identical strings should show 0 distance"
+    );
+}
+
+#[tokio::test]
+async fn test_string_metric_tools_jaro_winkler() {
+    let result = hematite::tools::string_metric_tools::execute(&serde_json::json!({
+        "action": "jaro_winkler",
+        "a": "Robert",
+        "b": "Rupert"
+    }))
+    .await
+    .unwrap();
+    assert!(result.contains("Jaro-Winkler"), "should show Jaro-Winkler");
+    assert!(result.contains("Jaro"), "should show Jaro baseline");
+}
+
+#[tokio::test]
+async fn test_string_metric_tools_hamming() {
+    let result = hematite::tools::string_metric_tools::execute(&serde_json::json!({
+        "action": "hamming",
+        "a": "karolin",
+        "b": "kathrin"
+    }))
+    .await
+    .unwrap();
+    assert!(result.contains("Hamming"), "should show Hamming distance");
+    assert!(
+        result.contains("3"),
+        "karolin/kathrin Hamming distance is 3"
+    );
+}
+
+#[tokio::test]
+async fn test_string_metric_tools_lcs() {
+    let result = hematite::tools::string_metric_tools::execute(&serde_json::json!({
+        "action": "lcs",
+        "a": "ABCBDAB",
+        "b": "BDCAB"
+    }))
+    .await
+    .unwrap();
+    assert!(result.contains("LCS"), "should show LCS");
+    assert!(
+        result.contains("4") || result.contains("BCAB") || result.contains("BDAB"),
+        "LCS of ABCBDAB/BDCAB is length 4"
+    );
+}
+
+#[tokio::test]
+async fn test_string_metric_tools_similarity() {
+    let result = hematite::tools::string_metric_tools::execute(&serde_json::json!({
+        "action": "similarity",
+        "a": "test",
+        "b": "text"
+    }))
+    .await
+    .unwrap();
+    assert!(
+        result.contains("Levenshtein"),
+        "should show Levenshtein metric"
+    );
+    assert!(result.contains("Jaro"), "should show Jaro metric");
+    assert!(result.contains("Average"), "should show average");
+}
+
+#[tokio::test]
+async fn test_string_metric_tools_fuzzy() {
+    let result = hematite::tools::string_metric_tools::execute(&serde_json::json!({
+        "action": "fuzzy",
+        "query": "helo",
+        "candidates": ["hello", "world", "help", "hero"]
+    }))
+    .await
+    .unwrap();
+    assert!(
+        result.contains("hello") || result.contains("help"),
+        "should rank similar strings high"
+    );
+    assert!(result.contains("Score"), "should show score header");
+}
+
+#[tokio::test]
+async fn test_string_metric_tools_routing() {
+    use hematite::agent::routing::needs_string_metric_tools;
+    assert!(
+        needs_string_metric_tools("compute levenshtein distance"),
+        "should detect levenshtein"
+    );
+    assert!(
+        needs_string_metric_tools("what is the edit distance between these strings"),
+        "should detect edit distance"
+    );
+    assert!(
+        needs_string_metric_tools("jaro-winkler similarity for name matching"),
+        "should detect jaro-winkler"
+    );
+    assert!(
+        needs_string_metric_tools("fuzzy match these candidates"),
+        "should detect fuzzy match"
+    );
+    assert!(
+        !needs_string_metric_tools("parse this yaml file"),
+        "should not trigger for yaml"
+    );
+}
+
+// ── calc_tools ────────────────────────────────────────────────────────────────
+
+#[tokio::test]
+async fn test_calc_tools_eval_basic() {
+    let result = hematite::tools::calc_tools::execute(&serde_json::json!({
+        "expr": "2 + 3 * 4"
+    }))
+    .await
+    .unwrap();
+    assert!(result.contains("calc_tools"), "should have header");
+    assert!(result.contains("14"), "2 + 3*4 = 14");
+}
+
+#[tokio::test]
+async fn test_calc_tools_eval_pow() {
+    let result = hematite::tools::calc_tools::execute(&serde_json::json!({
+        "expr": "2^10"
+    }))
+    .await
+    .unwrap();
+    assert!(result.contains("1024"), "2^10 = 1024");
+}
+
+#[tokio::test]
+async fn test_calc_tools_eval_functions() {
+    let result = hematite::tools::calc_tools::execute(&serde_json::json!({
+        "expr": "factorial(5)"
+    }))
+    .await
+    .unwrap();
+    assert!(result.contains("120"), "factorial(5) = 120");
+}
+
+#[tokio::test]
+async fn test_calc_tools_eval_with_vars() {
+    let result = hematite::tools::calc_tools::execute(&serde_json::json!({
+        "expr": "x * x + y",
+        "vars": {"x": 3, "y": 1}
+    }))
+    .await
+    .unwrap();
+    assert!(result.contains("10"), "3*3+1 = 10");
+}
+
+#[tokio::test]
+async fn test_calc_tools_rpn() {
+    let result = hematite::tools::calc_tools::execute(&serde_json::json!({
+        "action": "rpn",
+        "expr": "3 4 + 2 *"
+    }))
+    .await
+    .unwrap();
+    assert!(result.contains("14"), "(3+4)*2 = 14");
+}
+
+#[tokio::test]
+async fn test_calc_tools_variables() {
+    let result = hematite::tools::calc_tools::execute(&serde_json::json!({
+        "action": "variables",
+        "statements": ["x = 5", "y = x * 2", "z = x + y"]
+    }))
+    .await
+    .unwrap();
+    assert!(result.contains("x = 5"), "should show x assignment");
+    assert!(
+        result.contains("10") || result.contains("y = 10"),
+        "y should be 10"
+    );
+    assert!(
+        result.contains("15") || result.contains("z = 15"),
+        "z should be 15"
+    );
+}
+
+#[tokio::test]
+async fn test_calc_tools_sequence() {
+    let result = hematite::tools::calc_tools::execute(&serde_json::json!({
+        "action": "sequence",
+        "expr": "n^2",
+        "count": 5
+    }))
+    .await
+    .unwrap();
+    assert!(result.contains("1"), "1^2 = 1");
+    assert!(result.contains("4"), "2^2 = 4");
+    assert!(result.contains("9"), "3^2 = 9");
+    assert!(result.contains("16"), "4^2 = 16");
+    assert!(result.contains("25"), "5^2 = 25");
+}
+
+#[tokio::test]
+async fn test_calc_tools_routing() {
+    use hematite::agent::routing::needs_calc_tools;
+    assert!(
+        needs_calc_tools("evaluate this math expression"),
+        "should detect expression eval"
+    );
+    assert!(
+        needs_calc_tools("rpn calculator 3 4 +"),
+        "should detect rpn"
+    );
+    assert!(
+        needs_calc_tools("compute expression with variables"),
+        "should detect variable expression"
+    );
+    assert!(
+        needs_calc_tools("generate a numeric sequence"),
+        "should detect sequence"
+    );
+    assert!(
+        !needs_calc_tools("parse this yaml file"),
+        "should not trigger for yaml"
+    );
+}

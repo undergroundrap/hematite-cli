@@ -28,13 +28,13 @@ use crate::agent::recovery_recipes::{
 use crate::agent::routing::{
     all_host_inspection_topics, classify_query_intent, is_capability_probe_tool,
     is_scaffold_request, looks_like_mutation_request, needs_ansi_tools, needs_archive_tools,
-    needs_ascii_tools, needs_base_tools, needs_binary_tools, needs_changelog_tools,
-    needs_char_tools, needs_color_tools, needs_computation_sandbox, needs_crash_debug,
-    needs_cron_tools, needs_csp_tools, needs_csv_tools, needs_date_tools, needs_diff_tools,
-    needs_docker_compose_tools, needs_docker_ops, needs_dockerfile_tools, needs_dotenv_tools,
-    needs_duration_tools, needs_encode_tools, needs_env_schema_tools, needs_format,
-    needs_github_actions_tools, needs_github_ops, needs_gitignore_tools, needs_glob_tools,
-    needs_graphql_tools, needs_hash_tools, needs_hex_tools, needs_http_request,
+    needs_ascii_tools, needs_base_tools, needs_binary_tools, needs_calc_tools,
+    needs_changelog_tools, needs_char_tools, needs_color_tools, needs_computation_sandbox,
+    needs_crash_debug, needs_cron_tools, needs_csp_tools, needs_csv_tools, needs_date_tools,
+    needs_diff_tools, needs_docker_compose_tools, needs_docker_ops, needs_dockerfile_tools,
+    needs_dotenv_tools, needs_duration_tools, needs_encode_tools, needs_env_schema_tools,
+    needs_format, needs_github_actions_tools, needs_github_ops, needs_gitignore_tools,
+    needs_glob_tools, needs_graphql_tools, needs_hash_tools, needs_hex_tools, needs_http_request,
     needs_http_status_tools, needs_ini_tools, needs_ip_tools, needs_jwt_tools, needs_k8s_tools,
     needs_keyval_tools, needs_license_tools, needs_line_tools, needs_lint_check,
     needs_lock_file_tools, needs_log_parse_tools, needs_make_tools, needs_markdown_tools,
@@ -43,12 +43,12 @@ use crate::agent::routing::{
     needs_path_tools, needs_pem_tools, needs_proto_tools, needs_regex_tools,
     needs_robots_txt_tools, needs_rss_tools, needs_secret_scan, needs_semver_tools,
     needs_sitemap_tools, needs_size_tools, needs_sql_migrate_tools, needs_sql_tools,
-    needs_sqlite_tools, needs_ssh_config_tools, needs_stat_tools, needs_systemd_tools,
-    needs_table_tools, needs_template_tools, needs_terraform_tools, needs_test_run,
-    needs_text_tools, needs_time_zone_tools, needs_token_tools, needs_toml_tools, needs_url_tools,
-    needs_uuid_gen, needs_validate_tools, needs_word_tools, needs_xml_tools, needs_yaml_tools,
-    preferred_host_inspection_topic, preferred_maintainer_workflow, preferred_workspace_workflow,
-    DirectAnswerKind, QueryIntentClass,
+    needs_sqlite_tools, needs_ssh_config_tools, needs_stat_tools, needs_string_metric_tools,
+    needs_systemd_tools, needs_table_tools, needs_template_tools, needs_terraform_tools,
+    needs_test_run, needs_text_tools, needs_time_zone_tools, needs_token_tools, needs_toml_tools,
+    needs_url_tools, needs_uuid_gen, needs_validate_tools, needs_word_tools, needs_xml_tools,
+    needs_yaml_tools, preferred_host_inspection_topic, preferred_maintainer_workflow,
+    preferred_workspace_workflow, DirectAnswerKind, QueryIntentClass,
 };
 use crate::agent::tool_registry::dispatch_builtin_tool;
 use crate::agent::truncation::safe_head;
@@ -6209,6 +6209,41 @@ impl ConversationManager {
                  palindromic substring), \
                  syllables (syllable count per word with Flesch-Kincaid grade estimate; 'text'). \
                  Example: word_tools(action:'anagram', a:'listen', b:'silent')"
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_string_metric_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "STRING METRIC TOOLS NOTICE: Use the `string_metric_tools` tool for string distance and similarity \
+                 calculations without external utilities. Actions: \
+                 levenshtein (default — edit distance between 'a' and 'b'; optional 'case_sensitive' bool), \
+                 damerau (Damerau-Levenshtein with transposition support; 'a' and 'b'), \
+                 jaro (Jaro similarity score; 'a' and 'b'), \
+                 jaro_winkler (Jaro-Winkler with prefix boost — good for name matching; 'a' and 'b'), \
+                 hamming (Hamming distance for equal-length strings; 'a' and 'b'), \
+                 lcs (Longest Common Subsequence length and string; 'a' and 'b'), \
+                 similarity (all metrics in one table with average; 'a' and 'b'), \
+                 fuzzy (rank 'candidates' list by similarity to 'query'; optional 'threshold' 0.0-1.0, 'top' N). \
+                 Example: string_metric_tools(action:'similarity', a:'Robert', b:'Rupert') or \
+                 string_metric_tools(action:'fuzzy', query:'helo', candidates:['hello','world','help'])"
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_calc_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "CALC TOOLS NOTICE: Use the `calc_tools` tool to evaluate mathematical expressions and generate \
+                 sequences without needing run_code. Actions: \
+                 eval (default — evaluate an infix expression; 'expr' field; supports +/-/*/÷/^/% operators, \
+                 parentheses, constants pi/e/tau/phi, and functions: sqrt, abs, sin, cos, tan, log, ln, exp, \
+                 floor, ceil, round, factorial, gcd, lcm, min, max, avg, sum, pow, clamp, choose; \
+                 optional 'vars' object for variable substitution), \
+                 rpn (Reverse Polish Notation calculator; 'expr' as space-separated tokens; supports +/-/*/^/%/sqrt/abs/neg/dup/swap/drop), \
+                 variables (multi-statement session with assignments; 'statements' array like ['x=5', 'y=x*2', 'z=x+y']), \
+                 sequence (generate N terms of a numeric sequence; 'expr' using 'n' as index; 'start'/'step'/'count'). \
+                 Example: calc_tools(expr:'2^10 + factorial(5)') or \
+                 calc_tools(action:'sequence', expr:'n^2 + 1', count:10)"
                     .to_string(),
             );
         }

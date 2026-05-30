@@ -7801,6 +7801,66 @@ pub fn needs_word_tools(user_input: &str) -> bool {
     )
 }
 
+pub fn needs_string_metric_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "levenshtein",
+            "edit distance",
+            "string distance",
+            "damerau",
+            "jaro winkler",
+            "jaro-winkler",
+            "jaro similarity",
+            "hamming distance",
+            "lcs ",
+            "longest common subsequence",
+            "string similarity",
+            "fuzzy match",
+            "fuzzy search",
+            "string metric",
+            "phonetic similarity",
+            "approximate match",
+            "string compare",
+            "how similar are",
+        ],
+    )
+}
+
+pub fn needs_calc_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    // Avoid triggering on generic "calculate X" when a more specific tool applies
+    // Focus on expression evaluation patterns
+    contains_any(
+        &lower,
+        &[
+            "evaluate expression",
+            "eval expression",
+            "calculate expression",
+            "rpn calculator",
+            "reverse polish",
+            "math expression",
+            "formula eval",
+            "evaluate formula",
+            "compute expression",
+            "expression evaluator",
+            "simple calculator",
+            "quick calculation",
+            "calc(",
+            "factorial(",
+            "sin(",
+            "cos(",
+            "tan(",
+            "sqrt(",
+            "log(",
+            "variable expression",
+            "sequence generator",
+            "numeric sequence",
+        ],
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

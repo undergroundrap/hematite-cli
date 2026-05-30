@@ -4602,6 +4602,110 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         }),
     ));
     tools.push(make_tool(
+        "string_metric_tools",
+        "String distance and similarity metrics — Levenshtein, Damerau-Levenshtein, Jaro, Jaro-Winkler, \
+         Hamming, LCS, multi-metric comparison, and fuzzy candidate ranking — without external utilities. \
+         Actions: levenshtein (default — edit distance and similarity% between 'a' and 'b'; optional 'case_sensitive' bool), \
+         damerau (Damerau-Levenshtein with transposition support; compares to plain Levenshtein), \
+         jaro (Jaro similarity 0.0–1.0; 'a' and 'b'), \
+         jaro_winkler (Jaro-Winkler with common-prefix boost — best for name matching), \
+         hamming (bit-position differences for equal-length strings with position map), \
+         lcs (Longest Common Subsequence string, length, and coverage %), \
+         similarity (all 4 metrics in one table with average and verdict; 'a' and 'b'), \
+         fuzzy (rank a 'candidates' array by composite JW+LCS score against 'query'; optional 'threshold' 0.0–1.0 and 'top' N). \
+         Example: string_metric_tools(action: 'similarity', a: 'Robert', b: 'Rupert') or \
+         string_metric_tools(action: 'fuzzy', query: 'helo', candidates: ['hello','world','help'])",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "levenshtein (default), damerau, jaro, jaro_winkler, hamming, lcs, similarity, fuzzy"
+                },
+                "a": {
+                    "type": "string",
+                    "description": "First string. Also 's1' or 'source'."
+                },
+                "b": {
+                    "type": "string",
+                    "description": "Second string. Also 's2' or 'target'."
+                },
+                "case_sensitive": {
+                    "type": "boolean",
+                    "description": "Case-sensitive comparison (levenshtein action, default true)."
+                },
+                "query": {
+                    "type": "string",
+                    "description": "Search query for fuzzy action. Also 'a'."
+                },
+                "candidates": {
+                    "type": ["array", "string"],
+                    "description": "Array of strings to rank, or newline-separated string (fuzzy action)."
+                },
+                "threshold": {
+                    "type": "number",
+                    "description": "Minimum similarity 0.0–1.0 to include in fuzzy results (default 0.0)."
+                },
+                "top": {
+                    "type": "number",
+                    "description": "Max results to show in fuzzy action (default 10)."
+                }
+            },
+            "required": []
+        }),
+    ));
+    tools.push(make_tool(
+        "calc_tools",
+        "Evaluate mathematical expressions, RPN calculations, multi-variable sessions, and numeric sequences \
+         without needing run_code or a Python sandbox. \
+         Actions: eval (default — infix expression evaluator; 'expr' field; supports +/-/*/÷/^/% operators, \
+         parentheses, constants pi/e/tau/phi, and 30+ functions: sqrt, abs, sin, cos, tan, asin, acos, atan, \
+         log, ln, log2, exp, floor, ceil, round, factorial, gcd, lcm, min, max, avg, sum, pow, hypot, clamp, \
+         choose/nCk, deg, rad; optional 'vars' object for variable substitution like {x: 5, y: 3.14}), \
+         rpn (Reverse Polish Notation; 'expr' as space-separated tokens: numbers, +/-/*/^/%/sqrt/abs/neg/dup/swap/drop), \
+         variables (sequential statements with assignments; 'statements' array like ['x=5','y=x*2','z=x+y']; \
+         each line evaluated in order with accumulated variable context), \
+         sequence (generate 'count' terms of an expression using 'n' as index variable; \
+         'start'/'step'/'count' control range). \
+         Example: calc_tools(expr: '2^10 + factorial(5)') or \
+         calc_tools(action: 'sequence', expr: 'n^2 + 1', count: 10) or \
+         calc_tools(action: 'rpn', expr: '3 4 + 2 *')",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "eval (default), rpn, variables, sequence"
+                },
+                "expr": {
+                    "type": "string",
+                    "description": "Mathematical expression to evaluate. Also 'expression'/'input'/'text'."
+                },
+                "vars": {
+                    "type": "object",
+                    "description": "Variable name→value map for eval action (e.g. {x: 5, r: 3.14})."
+                },
+                "statements": {
+                    "type": ["array", "string"],
+                    "description": "Array of assignment/expression statements for variables action."
+                },
+                "start": {
+                    "type": "number",
+                    "description": "Starting value of 'n' for sequence action (default 1)."
+                },
+                "step": {
+                    "type": "number",
+                    "description": "Step size between terms in sequence action (default 1)."
+                },
+                "count": {
+                    "type": "number",
+                    "description": "Number of terms to generate in sequence action (default 10)."
+                }
+            },
+            "required": []
+        }),
+    ));
+    tools.push(make_tool(
         "csp_tools",
         "Parse, explain, validate, and build Content Security Policy (CSP) headers without external utilities. \
          Actions: parse (default — break CSP into directives with per-source descriptions and unsafe flags), \
@@ -5063,6 +5167,8 @@ pub async fn dispatch_builtin_tool(
         "ascii_tools" => crate::tools::ascii_tools::execute(args).await,
         "time_zone_tools" => crate::tools::time_zone_tools::execute(args).await,
         "word_tools" => crate::tools::word_tools::execute(args).await,
+        "string_metric_tools" => crate::tools::string_metric_tools::execute(args).await,
+        "calc_tools" => crate::tools::calc_tools::execute(args).await,
         "secret_scanner" => crate::tools::secret_scanner::execute(args).await,
         "code_metrics" => crate::tools::code_metrics::execute(args).await,
         "dependency_audit" => crate::tools::dependency_audit::execute(args).await,
