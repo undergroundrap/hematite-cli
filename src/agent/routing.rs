@@ -7793,6 +7793,63 @@ pub fn needs_nato_tools(user_input: &str) -> bool {
     )
 }
 
+pub fn needs_geo_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "haversine",
+            "great circle",
+            "gps coordinates",
+            "latitude longitude",
+            "lat lng",
+            "lat lon",
+            "degrees minutes seconds",
+            "dms coordinates",
+            "decimal degrees",
+            "geographic distance",
+            "distance between coordinates",
+            "bearing between",
+            "compass bearing",
+            "geographic midpoint",
+            "bounding box coordinates",
+            "destination coordinate",
+            "navigation bearing",
+            "coordinate conversion",
+            "geo distance",
+        ],
+    )
+}
+
+pub fn needs_data_gen_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "lorem ipsum",
+            "generate lorem",
+            "fake names",
+            "random names",
+            "test data generation",
+            "generate test data",
+            "mock data",
+            "dummy data",
+            "sample names",
+            "random emails",
+            "fake email",
+            "generate email",
+            "sequential ids",
+            "generate ids",
+            "fake uuid",
+            "random dates",
+            "generate dates",
+            "test fixture",
+            "placeholder data",
+            "filler text",
+        ],
+    )
+}
+
 pub fn needs_binary_tools(user_input: &str) -> bool {
     contains_any(
         user_input,

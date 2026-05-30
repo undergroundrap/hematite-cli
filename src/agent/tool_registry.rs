@@ -4504,6 +4504,82 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         }),
     ));
     tools.push(make_tool(
+        "geo_tools",
+        "Geographic coordinate calculations without external utilities. \
+         Actions: distance (default — Haversine great-circle distance between two points; \
+         'lat1','lng1','lat2','lng2'; returns km, miles, nautical miles, and bearing), \
+         bearing ('lat1','lng1','lat2','lng2' — initial and back bearing in degrees with compass point), \
+         midpoint (geographic centroid of 2+ points; 'lat1'/'lng1'/'lat2'/'lng2' or 'points' array of [lat,lng]), \
+         dms (decimal degrees ↔ DMS conversion; decimal→DMS: 'lat'+'lng'; DMS→decimal: 'lat_d'/'lat_m'/'lat_s'/'lat_dir' + 'lng_d'/'lng_m'/'lng_s'/'lng_dir'), \
+         bbox (bounding box of a set of points; 'points' array → N/S/E/W bounds, center, dimensions in km), \
+         destination (destination point given origin, distance, and bearing; 'lat','lng','distance' km, 'bearing' degrees). \
+         Example: geo_tools(action:'distance', lat1:51.5074, lng1:-0.1278, lat2:48.8566, lng2:2.3522)",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "action": { "type": "string", "description": "distance (default), bearing, midpoint, dms, bbox, destination" },
+                "lat1": { "type": "number", "description": "Latitude of point 1 (decimal degrees, -90 to 90)" },
+                "lng1": { "type": "number", "description": "Longitude of point 1 (decimal degrees, -180 to 180)" },
+                "lat2": { "type": "number", "description": "Latitude of point 2" },
+                "lng2": { "type": "number", "description": "Longitude of point 2" },
+                "lat": { "type": "number", "description": "Latitude for dms/destination actions" },
+                "lng": { "type": "number", "description": "Longitude for dms/destination actions" },
+                "lat_d": { "type": "number", "description": "Degrees for DMS→decimal lat" },
+                "lat_m": { "type": "number", "description": "Minutes for DMS→decimal lat" },
+                "lat_s": { "type": "number", "description": "Seconds for DMS→decimal lat" },
+                "lat_dir": { "type": "string", "description": "N or S for DMS→decimal lat" },
+                "lng_d": { "type": "number", "description": "Degrees for DMS→decimal lng" },
+                "lng_m": { "type": "number", "description": "Minutes for DMS→decimal lng" },
+                "lng_s": { "type": "number", "description": "Seconds for DMS→decimal lng" },
+                "lng_dir": { "type": "string", "description": "E or W for DMS→decimal lng" },
+                "points": { "type": "array", "description": "Array of [lat, lng] pairs for midpoint/bbox actions" },
+                "distance": { "type": "number", "description": "Distance in km for destination action" },
+                "bearing": { "type": "number", "description": "Bearing in degrees (0=N, 90=E) for destination action" }
+            },
+            "required": []
+        }),
+    ));
+    tools.push(make_tool(
+        "data_gen_tools",
+        "Generate test/mock data without external utilities. \
+         Actions: lorem (default — Lorem ipsum text; 'count', 'unit': words/sentences/paragraphs, optional 'seed'), \
+         name (random person names; 'count', optional 'seed'), \
+         email (random email addresses; 'count', optional 'domain', optional 'seed'), \
+         numbers (random numbers in range; 'count', 'min', 'max'; 'float: true' for decimals with 'decimals' precision; \
+         optional 'separator'), \
+         dates (random dates in range; 'count', 'from' YYYY-MM-DD, 'to' YYYY-MM-DD; \
+         'format': iso (default)/us/eu/long), \
+         id (generate IDs; 'count', 'kind': seq/hex/uuid; \
+         seq: 'prefix', 'start', 'pad'; optional 'seed' for hex/uuid). \
+         All actions accept optional 'seed' for reproducible output. \
+         Example: data_gen_tools(action:'lorem', count:2, unit:'paragraphs') or \
+         data_gen_tools(action:'name', count:5) or \
+         data_gen_tools(action:'id', kind:'uuid', count:3)",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "action": { "type": "string", "description": "lorem (default), name, email, numbers, dates, id" },
+                "count": { "type": "integer", "description": "How many items to generate (default 5 or 50 for lorem)" },
+                "unit": { "type": "string", "description": "For lorem: words (default), sentences, paragraphs" },
+                "seed": { "type": "integer", "description": "Random seed for reproducible output (default 42)" },
+                "domain": { "type": "string", "description": "Fixed email domain override for email action" },
+                "min": { "type": "number", "description": "Minimum value for numbers action (default 1)" },
+                "max": { "type": "number", "description": "Maximum value for numbers action (default 100)" },
+                "float": { "type": "boolean", "description": "Generate floating-point numbers (default false)" },
+                "decimals": { "type": "integer", "description": "Decimal places for float numbers (default 2)" },
+                "separator": { "type": "string", "description": "Output separator for numbers action (default newline)" },
+                "from": { "type": "string", "description": "Start date YYYY-MM-DD for dates action (default 2000-01-01)" },
+                "to": { "type": "string", "description": "End date YYYY-MM-DD for dates action (default 2024-12-31)" },
+                "format": { "type": "string", "description": "Date format: iso (default), us (MM/DD/YYYY), eu (DD.MM.YYYY), long" },
+                "kind": { "type": "string", "description": "ID kind: seq (default), hex, uuid" },
+                "prefix": { "type": "string", "description": "ID prefix string for seq/hex/uuid kind" },
+                "start": { "type": "integer", "description": "Starting number for seq IDs (default 1)" },
+                "pad": { "type": "integer", "description": "Zero-pad width for seq IDs (default 0 = no padding)" }
+            },
+            "required": []
+        }),
+    ));
+    tools.push(make_tool(
         "binary_tools",
         "Bit manipulation, bitfield packing/unpacking, and binary analysis without external utilities. \
          Actions: info (default — show decimal/hex/octal/binary, popcount, parity, leading/trailing zeros, \
@@ -5302,6 +5378,8 @@ pub async fn dispatch_builtin_tool(
         "number_theory_tools" => crate::tools::number_theory_tools::execute(args).await,
         "cipher_tools" => crate::tools::cipher_tools::execute(args).await,
         "nato_tools" => crate::tools::nato_tools::execute(args).await,
+        "geo_tools" => crate::tools::geo_tools::execute(args).await,
+        "data_gen_tools" => crate::tools::data_gen_tools::execute(args).await,
         "binary_tools" => crate::tools::binary_tools::execute(args).await,
         "ascii_tools" => crate::tools::ascii_tools::execute(args).await,
         "time_zone_tools" => crate::tools::time_zone_tools::execute(args).await,

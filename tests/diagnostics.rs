@@ -26525,3 +26525,149 @@ fn test_routing_detects_nato_tools() {
         "should not trigger for toml"
     );
 }
+
+// ── geo_tools ─────────────────────────────────────────────────────────────────
+
+#[tokio::test]
+async fn test_geo_distance_london_paris() {
+    let args = serde_json::json!({"action": "distance", "lat1": 51.5074, "lng1": -0.1278, "lat2": 48.8566, "lng2": 2.3522});
+    let result = hematite::tools::geo_tools::execute(&args).await.unwrap();
+    assert!(result.contains("km"), "distance should show km");
+    assert!(result.contains("miles"), "distance should show miles");
+    // London to Paris is ~340-350 km by Haversine — just check a plausible range marker
+    assert!(
+        result.contains("34") || result.contains("33"),
+        "distance should be in hundreds of km: {}",
+        result
+    );
+}
+
+#[tokio::test]
+async fn test_geo_bearing() {
+    let args = serde_json::json!({"action": "bearing", "lat1": 0.0, "lng1": 0.0, "lat2": 0.0, "lng2": 10.0});
+    let result = hematite::tools::geo_tools::execute(&args).await.unwrap();
+    // Due east from equator should be 90 degrees
+    assert!(result.contains("90"), "east bearing should be 90 degrees");
+}
+
+#[tokio::test]
+async fn test_geo_midpoint() {
+    let args = serde_json::json!({"action": "midpoint", "lat1": 0.0, "lng1": 0.0, "lat2": 0.0, "lng2": 20.0});
+    let result = hematite::tools::geo_tools::execute(&args).await.unwrap();
+    assert!(result.contains("Midpoint:"), "midpoint action should show result");
+    assert!(result.contains("10.0") || result.contains("10,"), "midpoint of 0 and 20 lng should be ~10");
+}
+
+#[tokio::test]
+async fn test_geo_dms_decimal_to_dms() {
+    let args = serde_json::json!({"action": "dms", "lat": 51.5074, "lng": -0.1278});
+    let result = hematite::tools::geo_tools::execute(&args).await.unwrap();
+    assert!(result.contains("N"), "London is north");
+    assert!(result.contains("W"), "London is west");
+    assert!(result.contains("51"), "lat should show 51 degrees");
+}
+
+#[tokio::test]
+async fn test_geo_bbox() {
+    let args = serde_json::json!({"action": "bbox", "points": [[0.0, 0.0], [10.0, 20.0], [5.0, 10.0]]});
+    let result = hematite::tools::geo_tools::execute(&args).await.unwrap();
+    assert!(result.contains("North:"), "bbox should show North bound");
+    assert!(result.contains("South:"), "bbox should show South bound");
+    assert!(result.contains("10.000000"), "max lat should be 10.0");
+}
+
+#[test]
+fn test_routing_detects_geo_tools() {
+    use hematite::agent::routing::needs_geo_tools;
+    assert!(needs_geo_tools("haversine distance between two points"), "should detect haversine");
+    assert!(needs_geo_tools("distance between coordinates lat lng"), "should detect lat lng");
+    assert!(needs_geo_tools("convert degrees minutes seconds"), "should detect dms");
+    assert!(needs_geo_tools("geographic midpoint of these coordinates"), "should detect midpoint");
+    assert!(needs_geo_tools("bounding box coordinates"), "should detect bbox");
+    assert!(!needs_geo_tools("parse this yaml file"), "should not trigger for yaml");
+}
+
+// ── data_gen_tools ────────────────────────────────────────────────────────────
+
+#[tokio::test]
+async fn test_data_gen_lorem_words() {
+    let args = serde_json::json!({"action": "lorem", "count": 10, "unit": "words"});
+    let result = hematite::tools::data_gen_tools::execute(&args).await.unwrap();
+    assert!(result.contains("data_gen_tools"), "header should be present");
+    // Should have multiple lorem ipsum words
+    let word_count = result.split_whitespace().count();
+    assert!(word_count >= 10, "should generate at least 10 words");
+}
+
+#[tokio::test]
+async fn test_data_gen_lorem_paragraphs() {
+    let args = serde_json::json!({"action": "lorem", "count": 2, "unit": "paragraphs"});
+    let result = hematite::tools::data_gen_tools::execute(&args).await.unwrap();
+    assert!(result.contains("\n\n"), "paragraphs should be separated by blank lines");
+}
+
+#[tokio::test]
+async fn test_data_gen_names() {
+    let args = serde_json::json!({"action": "name", "count": 5, "seed": 99});
+    let result = hematite::tools::data_gen_tools::execute(&args).await.unwrap();
+    let lines: Vec<&str> = result.lines().filter(|l| !l.trim().is_empty() && !l.contains("data_gen_tools")).collect();
+    assert!(lines.len() >= 5, "should generate 5 names, got: {}", lines.len());
+}
+
+#[tokio::test]
+async fn test_data_gen_email() {
+    let args = serde_json::json!({"action": "email", "count": 3, "domain": "test.com"});
+    let result = hematite::tools::data_gen_tools::execute(&args).await.unwrap();
+    assert!(result.contains("@test.com"), "all emails should use fixed domain");
+    let at_count = result.matches('@').count();
+    assert!(at_count >= 3, "should have 3 @ symbols for 3 emails");
+}
+
+#[tokio::test]
+async fn test_data_gen_numbers() {
+    let args = serde_json::json!({"action": "numbers", "count": 5, "min": 10, "max": 20, "seed": 7});
+    let result = hematite::tools::data_gen_tools::execute(&args).await.unwrap();
+    assert!(result.contains("data_gen_tools"), "header should be present");
+    let nums: Vec<i64> = result.lines()
+        .filter_map(|l| l.trim().parse().ok())
+        .collect();
+    assert!(nums.len() >= 5, "should have 5 numbers");
+    for n in &nums {
+        assert!(*n >= 10 && *n <= 20, "number {} should be in range 10-20", n);
+    }
+}
+
+#[tokio::test]
+async fn test_data_gen_dates() {
+    let args = serde_json::json!({"action": "dates", "count": 3, "from": "2020-01-01", "to": "2020-12-31", "seed": 5});
+    let result = hematite::tools::data_gen_tools::execute(&args).await.unwrap();
+    assert!(result.contains("2020-"), "dates should be in 2020");
+}
+
+#[tokio::test]
+async fn test_data_gen_id_uuid() {
+    let args = serde_json::json!({"action": "id", "count": 3, "kind": "uuid"});
+    let result = hematite::tools::data_gen_tools::execute(&args).await.unwrap();
+    // UUID format: xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx
+    let uuid_count = result.lines().filter(|l| l.contains('-') && l.len() > 30).count();
+    assert!(uuid_count >= 3, "should generate 3 UUID-format IDs");
+}
+
+#[tokio::test]
+async fn test_data_gen_id_seq() {
+    let args = serde_json::json!({"action": "id", "count": 5, "kind": "seq", "prefix": "USER-", "start": 100, "pad": 4});
+    let result = hematite::tools::data_gen_tools::execute(&args).await.unwrap();
+    assert!(result.contains("USER-0100"), "should have padded sequential ID");
+    assert!(result.contains("USER-0104"), "should have ID for count 5 starting at 100");
+}
+
+#[test]
+fn test_routing_detects_data_gen_tools() {
+    use hematite::agent::routing::needs_data_gen_tools;
+    assert!(needs_data_gen_tools("generate lorem ipsum text"), "should detect lorem ipsum");
+    assert!(needs_data_gen_tools("generate fake names"), "should detect fake names");
+    assert!(needs_data_gen_tools("mock data for testing"), "should detect mock data");
+    assert!(needs_data_gen_tools("generate random emails"), "should detect random emails");
+    assert!(needs_data_gen_tools("test data generation"), "should detect test data generation");
+    assert!(!needs_data_gen_tools("parse this json file"), "should not trigger for json");
+}

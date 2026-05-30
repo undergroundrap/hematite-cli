@@ -31,18 +31,18 @@ use crate::agent::routing::{
     needs_ascii_tools, needs_base_tools, needs_binary_tools, needs_calc_tools,
     needs_changelog_tools, needs_char_tools, needs_cipher_tools, needs_color_tools,
     needs_computation_sandbox, needs_crash_debug, needs_cron_tools, needs_csp_tools,
-    needs_csv_tools, needs_date_tools, needs_diff_tools, needs_docker_compose_tools,
-    needs_docker_ops, needs_dockerfile_tools, needs_dotenv_tools, needs_duration_tools,
-    needs_encode_tools, needs_env_schema_tools, needs_format, needs_fraction_tools,
-    needs_github_actions_tools, needs_github_ops, needs_gitignore_tools, needs_glob_tools,
-    needs_graphql_tools, needs_hash_tools, needs_hex_tools, needs_http_request,
-    needs_http_status_tools, needs_ini_tools, needs_ip_tools, needs_jwt_tools, needs_k8s_tools,
-    needs_keyval_tools, needs_license_tools, needs_line_tools, needs_lint_check,
-    needs_lock_file_tools, needs_log_parse_tools, needs_make_tools, needs_markdown_tools,
-    needs_mime_tools, needs_money_tools, needs_nato_tools, needs_net_lookup_tools,
-    needs_nginx_conf_tools, needs_number_theory_tools, needs_number_tools, needs_openapi_tools,
-    needs_package_json_tools, needs_password_gen, needs_path_tools, needs_pem_tools,
-    needs_proto_tools, needs_regex_tools, needs_robots_txt_tools, needs_rss_tools,
+    needs_csv_tools, needs_data_gen_tools, needs_date_tools, needs_diff_tools,
+    needs_docker_compose_tools, needs_docker_ops, needs_dockerfile_tools, needs_dotenv_tools,
+    needs_duration_tools, needs_encode_tools, needs_env_schema_tools, needs_format,
+    needs_fraction_tools, needs_geo_tools, needs_github_actions_tools, needs_github_ops,
+    needs_gitignore_tools, needs_glob_tools, needs_graphql_tools, needs_hash_tools,
+    needs_hex_tools, needs_http_request, needs_http_status_tools, needs_ini_tools, needs_ip_tools,
+    needs_jwt_tools, needs_k8s_tools, needs_keyval_tools, needs_license_tools, needs_line_tools,
+    needs_lint_check, needs_lock_file_tools, needs_log_parse_tools, needs_make_tools,
+    needs_markdown_tools, needs_mime_tools, needs_money_tools, needs_nato_tools,
+    needs_net_lookup_tools, needs_nginx_conf_tools, needs_number_theory_tools, needs_number_tools,
+    needs_openapi_tools, needs_package_json_tools, needs_password_gen, needs_path_tools,
+    needs_pem_tools, needs_proto_tools, needs_regex_tools, needs_robots_txt_tools, needs_rss_tools,
     needs_secret_scan, needs_semver_tools, needs_sitemap_tools, needs_size_tools,
     needs_sql_migrate_tools, needs_sql_tools, needs_sqlite_tools, needs_ssh_config_tools,
     needs_stat_tools, needs_string_metric_tools, needs_systemd_tools, needs_table_tools,
@@ -6277,6 +6277,38 @@ impl ConversationManager {
                  spell (spell out text with NATO and character labels; 'text', optional 'separator'). \
                  Example: nato_tools(action:'nato', text:'SOS') or \
                  nato_tools(action:'morse', text:'... --- ...')"
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_geo_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "GEO TOOLS NOTICE: Use the `geo_tools` tool for geographic coordinate calculations \
+                 without external utilities. Actions: \
+                 distance (default — Haversine great-circle distance between two lat/lng points; \
+                 'lat1', 'lng1', 'lat2', 'lng2'; returns km/miles/nautical miles and bearing), \
+                 bearing ('lat1','lng1','lat2','lng2' — initial and back bearing in degrees + compass point), \
+                 midpoint (geographic centroid; 'lat1'/'lng1'/'lat2'/'lng2' or 'points' array of [lat,lng] pairs), \
+                 dms (decimal ↔ DMS conversion; decimal mode: 'lat'+'lng'; DMS mode: 'lat_d'/'lat_m'/'lat_s'/'lat_dir' + 'lng_d'/'lng_m'/'lng_s'/'lng_dir'), \
+                 bbox (bounding box for a set of points; 'points' array → N/S/E/W bounds, center, width/height km), \
+                 destination (project a point at distance+bearing; 'lat','lng','distance' km,'bearing' degrees). \
+                 Example: geo_tools(action:'distance', lat1:51.5074, lng1:-0.1278, lat2:48.8566, lng2:2.3522)"
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_data_gen_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "DATA GEN TOOLS NOTICE: Use the `data_gen_tools` tool to generate test/mock data \
+                 without external utilities. Actions: \
+                 lorem (default — Lorem ipsum text; 'count' and 'unit': words/sentences/paragraphs; optional 'seed'), \
+                 name (random person names; 'count'; optional 'seed'), \
+                 email (random emails; 'count'; optional 'domain' to fix the domain; optional 'seed'), \
+                 numbers (random numbers in range; 'count', 'min', 'max'; 'float: true' for decimals; optional 'separator'), \
+                 dates (random dates in range; 'count', 'from' YYYY-MM-DD, 'to' YYYY-MM-DD; 'format': iso/us/eu/long), \
+                 id (sequential or random IDs; 'count', 'kind': seq/hex/uuid; 'prefix', 'start', 'pad' for seq mode). \
+                 Example: data_gen_tools(action:'lorem', count:3, unit:'paragraphs') or \
+                 data_gen_tools(action:'name', count:10)"
                     .to_string(),
             );
         }
