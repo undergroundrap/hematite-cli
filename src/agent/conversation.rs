@@ -29,14 +29,14 @@ use crate::agent::routing::{
     all_host_inspection_topics, classify_query_intent, is_capability_probe_tool,
     is_scaffold_request, looks_like_mutation_request, needs_ansi_tools, needs_archive_tools,
     needs_ascii_tools, needs_base_tools, needs_binary_tools, needs_calc_tools,
-    needs_changelog_tools, needs_char_tools, needs_cipher_tools, needs_color_tools,
-    needs_computation_sandbox, needs_crash_debug, needs_cron_tools, needs_csp_tools,
-    needs_csv_tools, needs_data_gen_tools, needs_date_tools, needs_diff_tools,
+    needs_changelog_tools, needs_char_tools, needs_checksum_tools, needs_cipher_tools,
+    needs_color_tools, needs_computation_sandbox, needs_crash_debug, needs_cron_tools,
+    needs_csp_tools, needs_csv_tools, needs_data_gen_tools, needs_date_tools, needs_diff_tools,
     needs_docker_compose_tools, needs_docker_ops, needs_dockerfile_tools, needs_dotenv_tools,
     needs_duration_tools, needs_encode_tools, needs_env_schema_tools, needs_format,
     needs_fraction_tools, needs_geo_tools, needs_geometry_tools, needs_github_actions_tools,
     needs_github_ops, needs_gitignore_tools, needs_glob_tools, needs_graphql_tools,
-    needs_hash_tools, needs_hex_tools, needs_http_request, needs_http_status_tools,
+    needs_hash_tools, needs_hex_tools, needs_http_request, needs_http_status_tools, needs_id_tools,
     needs_ini_tools, needs_ip_tools, needs_jwt_tools, needs_k8s_tools, needs_keyval_tools,
     needs_license_tools, needs_line_tools, needs_lint_check, needs_lock_file_tools,
     needs_log_parse_tools, needs_make_tools, needs_markdown_tools, needs_mime_tools,
@@ -6349,6 +6349,40 @@ impl ConversationManager {
                  Examples: geometry_tools(action:'area', shape:'circle', radius:5) or \
                  geometry_tools(action:'triangle', a:3, b:4, c:5) or \
                  geometry_tools(action:'circle', diameter:10, angle:90)"
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_checksum_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "CHECKSUM TOOLS NOTICE: Use the `checksum_tools` tool for computing checksums without external utilities. \
+                 Actions: \
+                 all (default — compute all checksums in one call: CRC-8, CRC-16/MODBUS, CRC-32 IEEE, Adler-32, Fletcher-16), \
+                 crc8 (CRC-8 polynomial 0x07), crc16 (CRC-16/MODBUS 0xA001 reflected), \
+                 crc32 (CRC-32 IEEE 802.3 — same as zip/gzip), \
+                 adler32 (Adler-32: fast A+B rolling sum used in zlib), \
+                 fletcher16 (Fletcher-16 checksum). \
+                 Input: 'text' for a string, or 'hex' for raw bytes as a hex string. \
+                 Output includes decimal, hex, and binary representations. \
+                 Examples: checksum_tools(action:'all', text:'Hello') or \
+                 checksum_tools(action:'crc32', hex:'DEADBEEF')"
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_id_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "ID TOOLS NOTICE: Use the `id_tools` tool to generate and decode time-sortable IDs without external utilities. \
+                 Actions: \
+                 ulid (default — Universally Unique Lexicographically Sortable Identifier; 26-char Crockford base32; \
+                 'count' for bulk; optional 'seed' for reproducibility), \
+                 nanoid (URL-safe compact random ID; 'size' chars default 21; optional 'alphabet' for custom chars; 'count'), \
+                 snowflake (Twitter/Discord-style 64-bit numeric ID; 41-bit ms timestamp + 10-bit machine + 12-bit seq; \
+                 'machine_id' optional; 'count'), \
+                 decode (inspect a ULID or Snowflake — extracts embedded timestamp, machine ID, random part; pass 'id'). \
+                 Examples: id_tools(action:'ulid', count:5) or \
+                 id_tools(action:'nanoid', size:12, count:3) or \
+                 id_tools(action:'decode', id:'01ARZ3NDEKTSV4RRFFQ69G5FAV')"
                     .to_string(),
             );
         }

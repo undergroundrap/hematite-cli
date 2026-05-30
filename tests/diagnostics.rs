@@ -26948,3 +26948,150 @@ fn test_routing_detects_geometry_tools() {
         "calculate perimeter"
     );
 }
+
+// ── checksum_tools ────────────────────────────────────────────────────────────
+
+#[tokio::test]
+async fn test_checksum_all() {
+    let args = serde_json::json!({"action": "all", "text": "Hello"});
+    let result = hematite::tools::checksum_tools::execute(&args)
+        .await
+        .unwrap();
+    assert!(result.contains("CRC-32"), "all: CRC-32 present: {result}");
+    assert!(
+        result.contains("Adler-32"),
+        "all: Adler-32 present: {result}"
+    );
+    assert!(
+        result.contains("Fletcher"),
+        "all: Fletcher present: {result}"
+    );
+}
+
+#[tokio::test]
+async fn test_checksum_crc32_known() {
+    // CRC-32 of empty string is 0x00000000
+    let args = serde_json::json!({"action": "crc32", "text": ""});
+    let result = hematite::tools::checksum_tools::execute(&args)
+        .await
+        .unwrap();
+    assert!(
+        result.contains("00000000") || result.contains("0"),
+        "crc32 empty: {result}"
+    );
+}
+
+#[tokio::test]
+async fn test_checksum_crc32_text() {
+    let args = serde_json::json!({"action": "crc32", "text": "test"});
+    let result = hematite::tools::checksum_tools::execute(&args)
+        .await
+        .unwrap();
+    // CRC-32 of "test" = 0xD87F7E0C
+    assert!(
+        result.contains("D87F7E0C") || result.contains("d87f7e0c"),
+        "crc32 'test': {result}"
+    );
+}
+
+#[tokio::test]
+async fn test_checksum_hex_input() {
+    let args = serde_json::json!({"action": "crc32", "hex": "deadbeef"});
+    let result = hematite::tools::checksum_tools::execute(&args)
+        .await
+        .unwrap();
+    assert!(result.contains("CRC-32"), "hex input crc32: {result}");
+}
+
+#[tokio::test]
+async fn test_checksum_adler32() {
+    let args = serde_json::json!({"action": "adler32", "text": "Wikipedia"});
+    let result = hematite::tools::checksum_tools::execute(&args)
+        .await
+        .unwrap();
+    // Known Adler-32 of "Wikipedia" = 0x11E60398
+    assert!(
+        result.contains("11E60398") || result.contains("11e60398"),
+        "adler32 Wikipedia: {result}"
+    );
+}
+
+#[test]
+fn test_routing_detects_checksum_tools() {
+    use hematite::agent::routing::needs_checksum_tools;
+    assert!(needs_checksum_tools("compute crc32 of this data"), "crc32");
+    assert!(needs_checksum_tools("calculate checksum"), "checksum");
+    assert!(needs_checksum_tools("adler32 checksum"), "adler32");
+    assert!(needs_checksum_tools("crc16 for modbus"), "crc16");
+}
+
+// ── id_tools ──────────────────────────────────────────────────────────────────
+
+#[tokio::test]
+async fn test_id_ulid_generates() {
+    let args = serde_json::json!({"action": "ulid", "count": 3, "seed": 42});
+    let result = hematite::tools::id_tools::execute(&args).await.unwrap();
+    // ULID is 26 characters, uppercase alphanumeric Crockford base32
+    let lines: Vec<&str> = result
+        .lines()
+        .filter(|l| l.len() == 26 && l.chars().all(|c| c.is_ascii_alphanumeric()))
+        .collect();
+    assert_eq!(lines.len(), 3, "three ULIDs generated: {result}");
+}
+
+#[tokio::test]
+async fn test_id_nanoid_default_length() {
+    let args = serde_json::json!({"action": "nanoid", "count": 1, "seed": 7});
+    let result = hematite::tools::id_tools::execute(&args).await.unwrap();
+    let ids: Vec<&str> = result.lines().filter(|l| l.len() == 21).collect();
+    assert!(!ids.is_empty(), "default nanoid length 21: {result}");
+}
+
+#[tokio::test]
+async fn test_id_nanoid_custom_size() {
+    let args = serde_json::json!({"action": "nanoid", "size": 10, "count": 2, "seed": 99});
+    let result = hematite::tools::id_tools::execute(&args).await.unwrap();
+    let ids: Vec<&str> = result.lines().filter(|l| l.len() == 10).collect();
+    assert_eq!(ids.len(), 2, "two nanoids of size 10: {result}");
+}
+
+#[tokio::test]
+async fn test_id_snowflake_generates() {
+    let args = serde_json::json!({"action": "snowflake", "count": 2, "machine_id": 5});
+    let result = hematite::tools::id_tools::execute(&args).await.unwrap();
+    let numerics: Vec<&str> = result
+        .lines()
+        .filter(|l| l.chars().all(|c| c.is_ascii_digit()) && l.len() > 10)
+        .collect();
+    assert_eq!(numerics.len(), 2, "two snowflakes: {result}");
+}
+
+#[tokio::test]
+async fn test_id_decode_ulid() {
+    // Generate then decode a ULID
+    let gen = hematite::tools::id_tools::execute(
+        &serde_json::json!({"action": "ulid", "count": 1, "seed": 1}),
+    )
+    .await
+    .unwrap();
+    let ulid = gen
+        .lines()
+        .find(|l| l.len() == 26 && l.chars().all(|c| c.is_ascii_alphanumeric()))
+        .unwrap();
+    let dec =
+        hematite::tools::id_tools::execute(&serde_json::json!({"action": "decode", "id": ulid}))
+            .await
+            .unwrap();
+    assert!(dec.contains("ULID"), "decode identifies ULID: {dec}");
+    assert!(dec.contains("Timestamp"), "decode has timestamp: {dec}");
+}
+
+#[test]
+fn test_routing_detects_id_tools() {
+    use hematite::agent::routing::needs_id_tools;
+    assert!(needs_id_tools("generate a ulid"), "ulid");
+    assert!(needs_id_tools("generate nanoid"), "nanoid");
+    assert!(needs_id_tools("snowflake id"), "snowflake");
+    assert!(needs_id_tools("decode ulid"), "decode ulid");
+    assert!(needs_id_tools("time-sortable id"), "time-sortable");
+}

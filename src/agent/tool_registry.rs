@@ -4655,6 +4655,61 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         }),
     ));
     tools.push(make_tool(
+        "checksum_tools",
+        "Compute CRC and checksum values for data integrity verification without external utilities. \
+         Actions: all (default — compute all: CRC-8, CRC-16/MODBUS, CRC-32 IEEE, Adler-32, Fletcher-16 in one call), \
+         crc8 (CRC-8, polynomial 0x07), \
+         crc16 (CRC-16/MODBUS, 0xA001 reflected), \
+         crc32 (CRC-32 IEEE 802.3 — same algorithm used by zip and gzip), \
+         adler32 (Adler-32 rolling sum — used in zlib/PNG), \
+         fletcher16 (Fletcher-16 checksum). \
+         Input: 'text' for a UTF-8 string or 'hex' for raw bytes as a hex string. \
+         Output: hex, decimal, and binary representations. \
+         Examples: checksum_tools(action:'all', text:'Hello, World!') or \
+         checksum_tools(action:'crc32', text:'test') or \
+         checksum_tools(action:'crc16', hex:'DEADBEEF')",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "action": { "type": "string", "description": "all (default), crc8, crc16, crc32, adler32, fletcher16" },
+                "text": { "type": "string", "description": "Input as a UTF-8 string" },
+                "input": { "type": "string", "description": "Alias for text" },
+                "hex": { "type": "string", "description": "Input as hex-encoded bytes (e.g. 'DEADBEEF')" }
+            },
+            "required": []
+        }),
+    ));
+    tools.push(make_tool(
+        "id_tools",
+        "Generate and decode time-sortable and compact unique identifiers without external utilities. \
+         Actions: ulid (default — ULID: 26-char Crockford base32, time-sortable, lexicographically ordered; \
+         'count' up to 100, optional 'seed' for reproducible output), \
+         nanoid (compact URL-safe random ID; 'size' chars default 21, optional 'alphabet', 'count'), \
+         snowflake (Twitter/Discord-style 64-bit numeric ID; 41-bit timestamp + 10-bit machine ID + 12-bit sequence; \
+         optional 'machine_id' 0–1023; 'count'), \
+         decode (inspect any ULID or Snowflake — extracts timestamp, machine ID, random component; pass 'id'). \
+         ULID properties: monotonic within millisecond, case-insensitive, URL-safe, 128-bit. \
+         NanoID properties: smaller than UUID, URL-safe, configurable alphabet. \
+         Snowflake properties: 64-bit integer, embeds creation time, sortable. \
+         Examples: id_tools(action:'ulid', count:5) or id_tools(action:'nanoid', size:10) or \
+         id_tools(action:'decode', id:'01ARZ3NDEKTSV4RRFFQ69G5FAV')",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "action": { "type": "string", "description": "ulid (default), nanoid, snowflake, decode" },
+                "count": { "type": "integer", "description": "Number of IDs to generate (default 1, max 100)" },
+                "n": { "type": "integer", "description": "Alias for count" },
+                "seed": { "type": "integer", "description": "Random seed for reproducible output" },
+                "size": { "type": "integer", "description": "NanoID character length (default 21)" },
+                "alphabet": { "type": "string", "description": "Custom alphabet for NanoID (default: URL-safe 64-char set)" },
+                "machine_id": { "type": "integer", "description": "Snowflake machine ID 0–1023 (default 1)" },
+                "id": { "type": "string", "description": "ULID or Snowflake ID to decode" },
+                "input": { "type": "string", "description": "Alias for id" }
+            },
+            "required": []
+        }),
+    ));
+    tools.push(make_tool(
         "binary_tools",
         "Bit manipulation, bitfield packing/unpacking, and binary analysis without external utilities. \
          Actions: info (default — show decimal/hex/octal/binary, popcount, parity, leading/trailing zeros, \
@@ -5457,6 +5512,8 @@ pub async fn dispatch_builtin_tool(
         "data_gen_tools" => crate::tools::data_gen_tools::execute(args).await,
         "unit_tools" => crate::tools::unit_tools::execute(args).await,
         "geometry_tools" => crate::tools::geometry_tools::execute(args).await,
+        "checksum_tools" => crate::tools::checksum_tools::execute(args).await,
+        "id_tools" => crate::tools::id_tools::execute(args).await,
         "binary_tools" => crate::tools::binary_tools::execute(args).await,
         "ascii_tools" => crate::tools::ascii_tools::execute(args).await,
         "time_zone_tools" => crate::tools::time_zone_tools::execute(args).await,

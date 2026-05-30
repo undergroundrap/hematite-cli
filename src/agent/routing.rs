@@ -7943,6 +7943,53 @@ pub fn needs_geometry_tools(user_input: &str) -> bool {
     )
 }
 
+pub fn needs_checksum_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "crc32",
+            "crc-32",
+            "crc16",
+            "crc-16",
+            "crc8",
+            "crc-8",
+            "adler32",
+            "adler-32",
+            "fletcher",
+            "checksum",
+            "compute checksum",
+            "calculate checksum",
+            "cyclic redundancy",
+            "error detection code",
+            "data integrity check",
+        ],
+    )
+}
+
+pub fn needs_id_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "ulid",
+            "generate ulid",
+            "nanoid",
+            "generate nanoid",
+            "nano id",
+            "snowflake id",
+            "snowflake identifier",
+            "time-sortable id",
+            "sortable unique id",
+            "generate id",
+            "decode ulid",
+            "decode snowflake",
+            "twitter snowflake",
+            "discord id",
+        ],
+    )
+}
+
 pub fn needs_binary_tools(user_input: &str) -> bool {
     contains_any(
         user_input,
