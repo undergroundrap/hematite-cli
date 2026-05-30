@@ -26554,8 +26554,14 @@ async fn test_geo_bearing() {
 async fn test_geo_midpoint() {
     let args = serde_json::json!({"action": "midpoint", "lat1": 0.0, "lng1": 0.0, "lat2": 0.0, "lng2": 20.0});
     let result = hematite::tools::geo_tools::execute(&args).await.unwrap();
-    assert!(result.contains("Midpoint:"), "midpoint action should show result");
-    assert!(result.contains("10.0") || result.contains("10,"), "midpoint of 0 and 20 lng should be ~10");
+    assert!(
+        result.contains("Midpoint:"),
+        "midpoint action should show result"
+    );
+    assert!(
+        result.contains("10.0") || result.contains("10,"),
+        "midpoint of 0 and 20 lng should be ~10"
+    );
 }
 
 #[tokio::test]
@@ -26569,7 +26575,8 @@ async fn test_geo_dms_decimal_to_dms() {
 
 #[tokio::test]
 async fn test_geo_bbox() {
-    let args = serde_json::json!({"action": "bbox", "points": [[0.0, 0.0], [10.0, 20.0], [5.0, 10.0]]});
+    let args =
+        serde_json::json!({"action": "bbox", "points": [[0.0, 0.0], [10.0, 20.0], [5.0, 10.0]]});
     let result = hematite::tools::geo_tools::execute(&args).await.unwrap();
     assert!(result.contains("North:"), "bbox should show North bound");
     assert!(result.contains("South:"), "bbox should show South bound");
@@ -26579,12 +26586,30 @@ async fn test_geo_bbox() {
 #[test]
 fn test_routing_detects_geo_tools() {
     use hematite::agent::routing::needs_geo_tools;
-    assert!(needs_geo_tools("haversine distance between two points"), "should detect haversine");
-    assert!(needs_geo_tools("distance between coordinates lat lng"), "should detect lat lng");
-    assert!(needs_geo_tools("convert degrees minutes seconds"), "should detect dms");
-    assert!(needs_geo_tools("geographic midpoint of these coordinates"), "should detect midpoint");
-    assert!(needs_geo_tools("bounding box coordinates"), "should detect bbox");
-    assert!(!needs_geo_tools("parse this yaml file"), "should not trigger for yaml");
+    assert!(
+        needs_geo_tools("haversine distance between two points"),
+        "should detect haversine"
+    );
+    assert!(
+        needs_geo_tools("distance between coordinates lat lng"),
+        "should detect lat lng"
+    );
+    assert!(
+        needs_geo_tools("convert degrees minutes seconds"),
+        "should detect dms"
+    );
+    assert!(
+        needs_geo_tools("geographic midpoint of these coordinates"),
+        "should detect midpoint"
+    );
+    assert!(
+        needs_geo_tools("bounding box coordinates"),
+        "should detect bbox"
+    );
+    assert!(
+        !needs_geo_tools("parse this yaml file"),
+        "should not trigger for yaml"
+    );
 }
 
 // ── data_gen_tools ────────────────────────────────────────────────────────────
@@ -26592,8 +26617,13 @@ fn test_routing_detects_geo_tools() {
 #[tokio::test]
 async fn test_data_gen_lorem_words() {
     let args = serde_json::json!({"action": "lorem", "count": 10, "unit": "words"});
-    let result = hematite::tools::data_gen_tools::execute(&args).await.unwrap();
-    assert!(result.contains("data_gen_tools"), "header should be present");
+    let result = hematite::tools::data_gen_tools::execute(&args)
+        .await
+        .unwrap();
+    assert!(
+        result.contains("data_gen_tools"),
+        "header should be present"
+    );
     // Should have multiple lorem ipsum words
     let word_count = result.split_whitespace().count();
     assert!(word_count >= 10, "should generate at least 10 words");
@@ -26602,72 +26632,319 @@ async fn test_data_gen_lorem_words() {
 #[tokio::test]
 async fn test_data_gen_lorem_paragraphs() {
     let args = serde_json::json!({"action": "lorem", "count": 2, "unit": "paragraphs"});
-    let result = hematite::tools::data_gen_tools::execute(&args).await.unwrap();
-    assert!(result.contains("\n\n"), "paragraphs should be separated by blank lines");
+    let result = hematite::tools::data_gen_tools::execute(&args)
+        .await
+        .unwrap();
+    assert!(
+        result.contains("\n\n"),
+        "paragraphs should be separated by blank lines"
+    );
 }
 
 #[tokio::test]
 async fn test_data_gen_names() {
     let args = serde_json::json!({"action": "name", "count": 5, "seed": 99});
-    let result = hematite::tools::data_gen_tools::execute(&args).await.unwrap();
-    let lines: Vec<&str> = result.lines().filter(|l| !l.trim().is_empty() && !l.contains("data_gen_tools")).collect();
-    assert!(lines.len() >= 5, "should generate 5 names, got: {}", lines.len());
+    let result = hematite::tools::data_gen_tools::execute(&args)
+        .await
+        .unwrap();
+    let lines: Vec<&str> = result
+        .lines()
+        .filter(|l| !l.trim().is_empty() && !l.contains("data_gen_tools"))
+        .collect();
+    assert!(
+        lines.len() >= 5,
+        "should generate 5 names, got: {}",
+        lines.len()
+    );
 }
 
 #[tokio::test]
 async fn test_data_gen_email() {
     let args = serde_json::json!({"action": "email", "count": 3, "domain": "test.com"});
-    let result = hematite::tools::data_gen_tools::execute(&args).await.unwrap();
-    assert!(result.contains("@test.com"), "all emails should use fixed domain");
+    let result = hematite::tools::data_gen_tools::execute(&args)
+        .await
+        .unwrap();
+    assert!(
+        result.contains("@test.com"),
+        "all emails should use fixed domain"
+    );
     let at_count = result.matches('@').count();
     assert!(at_count >= 3, "should have 3 @ symbols for 3 emails");
 }
 
 #[tokio::test]
 async fn test_data_gen_numbers() {
-    let args = serde_json::json!({"action": "numbers", "count": 5, "min": 10, "max": 20, "seed": 7});
-    let result = hematite::tools::data_gen_tools::execute(&args).await.unwrap();
-    assert!(result.contains("data_gen_tools"), "header should be present");
-    let nums: Vec<i64> = result.lines()
+    let args =
+        serde_json::json!({"action": "numbers", "count": 5, "min": 10, "max": 20, "seed": 7});
+    let result = hematite::tools::data_gen_tools::execute(&args)
+        .await
+        .unwrap();
+    assert!(
+        result.contains("data_gen_tools"),
+        "header should be present"
+    );
+    let nums: Vec<i64> = result
+        .lines()
         .filter_map(|l| l.trim().parse().ok())
         .collect();
     assert!(nums.len() >= 5, "should have 5 numbers");
     for n in &nums {
-        assert!(*n >= 10 && *n <= 20, "number {} should be in range 10-20", n);
+        assert!(
+            *n >= 10 && *n <= 20,
+            "number {} should be in range 10-20",
+            n
+        );
     }
 }
 
 #[tokio::test]
 async fn test_data_gen_dates() {
     let args = serde_json::json!({"action": "dates", "count": 3, "from": "2020-01-01", "to": "2020-12-31", "seed": 5});
-    let result = hematite::tools::data_gen_tools::execute(&args).await.unwrap();
+    let result = hematite::tools::data_gen_tools::execute(&args)
+        .await
+        .unwrap();
     assert!(result.contains("2020-"), "dates should be in 2020");
 }
 
 #[tokio::test]
 async fn test_data_gen_id_uuid() {
     let args = serde_json::json!({"action": "id", "count": 3, "kind": "uuid"});
-    let result = hematite::tools::data_gen_tools::execute(&args).await.unwrap();
+    let result = hematite::tools::data_gen_tools::execute(&args)
+        .await
+        .unwrap();
     // UUID format: xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx
-    let uuid_count = result.lines().filter(|l| l.contains('-') && l.len() > 30).count();
+    let uuid_count = result
+        .lines()
+        .filter(|l| l.contains('-') && l.len() > 30)
+        .count();
     assert!(uuid_count >= 3, "should generate 3 UUID-format IDs");
 }
 
 #[tokio::test]
 async fn test_data_gen_id_seq() {
     let args = serde_json::json!({"action": "id", "count": 5, "kind": "seq", "prefix": "USER-", "start": 100, "pad": 4});
-    let result = hematite::tools::data_gen_tools::execute(&args).await.unwrap();
-    assert!(result.contains("USER-0100"), "should have padded sequential ID");
-    assert!(result.contains("USER-0104"), "should have ID for count 5 starting at 100");
+    let result = hematite::tools::data_gen_tools::execute(&args)
+        .await
+        .unwrap();
+    assert!(
+        result.contains("USER-0100"),
+        "should have padded sequential ID"
+    );
+    assert!(
+        result.contains("USER-0104"),
+        "should have ID for count 5 starting at 100"
+    );
 }
 
 #[test]
 fn test_routing_detects_data_gen_tools() {
     use hematite::agent::routing::needs_data_gen_tools;
-    assert!(needs_data_gen_tools("generate lorem ipsum text"), "should detect lorem ipsum");
-    assert!(needs_data_gen_tools("generate fake names"), "should detect fake names");
-    assert!(needs_data_gen_tools("mock data for testing"), "should detect mock data");
-    assert!(needs_data_gen_tools("generate random emails"), "should detect random emails");
-    assert!(needs_data_gen_tools("test data generation"), "should detect test data generation");
-    assert!(!needs_data_gen_tools("parse this json file"), "should not trigger for json");
+    assert!(
+        needs_data_gen_tools("generate lorem ipsum text"),
+        "should detect lorem ipsum"
+    );
+    assert!(
+        needs_data_gen_tools("generate fake names"),
+        "should detect fake names"
+    );
+    assert!(
+        needs_data_gen_tools("mock data for testing"),
+        "should detect mock data"
+    );
+    assert!(
+        needs_data_gen_tools("generate random emails"),
+        "should detect random emails"
+    );
+    assert!(
+        needs_data_gen_tools("test data generation"),
+        "should detect test data generation"
+    );
+    assert!(
+        !needs_data_gen_tools("parse this json file"),
+        "should not trigger for json"
+    );
+}
+
+// ── unit_tools ────────────────────────────────────────────────────────────────
+
+#[tokio::test]
+async fn test_unit_convert_km_to_miles() {
+    let args =
+        serde_json::json!({"action": "convert", "value": 100.0, "from": "km", "to": "miles"});
+    let result = hematite::tools::unit_tools::execute(&args).await.unwrap();
+    assert!(
+        result.contains("62.") || result.contains("mi"),
+        "km→miles: {result}"
+    );
+}
+
+#[tokio::test]
+async fn test_unit_convert_fahrenheit_to_celsius() {
+    let args = serde_json::json!({"action": "convert", "value": 212.0, "from": "fahrenheit", "to": "celsius"});
+    let result = hematite::tools::unit_tools::execute(&args).await.unwrap();
+    assert!(result.contains("100"), "212°F→100°C: {result}");
+}
+
+#[tokio::test]
+async fn test_unit_convert_kelvin_to_celsius() {
+    let args = serde_json::json!({"action": "convert", "value": 273.15, "from": "kelvin", "to": "celsius"});
+    let result = hematite::tools::unit_tools::execute(&args).await.unwrap();
+    assert!(result.contains("0"), "273.15K→0°C: {result}");
+}
+
+#[tokio::test]
+async fn test_unit_convert_all_in_category() {
+    let args = serde_json::json!({"action": "convert", "value": 1.0, "from": "horsepower"});
+    let result = hematite::tools::unit_tools::execute(&args).await.unwrap();
+    assert!(
+        result.contains("power") || result.contains("watt") || result.contains("W"),
+        "all power: {result}"
+    );
+}
+
+#[tokio::test]
+async fn test_unit_list() {
+    let args = serde_json::json!({"action": "list", "category": "length"});
+    let result = hematite::tools::unit_tools::execute(&args).await.unwrap();
+    assert!(
+        result.contains("metre") || result.contains("meter"),
+        "list length: {result}"
+    );
+    assert!(
+        result.contains("mile") || result.contains("km"),
+        "list length units: {result}"
+    );
+}
+
+#[tokio::test]
+async fn test_unit_categories() {
+    let args = serde_json::json!({"action": "categories"});
+    let result = hematite::tools::unit_tools::execute(&args).await.unwrap();
+    assert!(result.contains("temperature"), "categories: {result}");
+    assert!(result.contains("frequency"), "categories freq: {result}");
+}
+
+#[tokio::test]
+async fn test_unit_cross_category_error() {
+    let args = serde_json::json!({"action": "convert", "value": 1.0, "from": "km", "to": "kg"});
+    let result = hematite::tools::unit_tools::execute(&args).await;
+    assert!(result.is_err(), "cross-category conversion should fail");
+}
+
+#[test]
+fn test_routing_detects_unit_tools() {
+    use hematite::agent::routing::needs_unit_tools;
+    assert!(needs_unit_tools("convert 100 km to miles"), "km to miles");
+    assert!(
+        needs_unit_tools("convert celsius to fahrenheit"),
+        "celsius to fahrenheit"
+    );
+    assert!(needs_unit_tools("unit conversion tool"), "unit conversion");
+    assert!(needs_unit_tools("what units are available"), "what units");
+    assert!(
+        !needs_unit_tools("convert hex to binary"),
+        "hex conversion should not match"
+    );
+}
+
+// ── geometry_tools ────────────────────────────────────────────────────────────
+
+#[tokio::test]
+async fn test_geometry_area_circle() {
+    let args = serde_json::json!({"action": "area", "shape": "circle", "radius": 5.0});
+    let result = hematite::tools::geometry_tools::execute(&args)
+        .await
+        .unwrap();
+    // π×5²≈78.539
+    assert!(result.contains("78."), "circle area: {result}");
+}
+
+#[tokio::test]
+async fn test_geometry_area_rectangle() {
+    let args =
+        serde_json::json!({"action": "area", "shape": "rectangle", "width": 4.0, "height": 6.0});
+    let result = hematite::tools::geometry_tools::execute(&args)
+        .await
+        .unwrap();
+    assert!(result.contains("24"), "rectangle area: {result}");
+}
+
+#[tokio::test]
+async fn test_geometry_volume_sphere() {
+    let args = serde_json::json!({"action": "volume", "shape": "sphere", "radius": 3.0});
+    let result = hematite::tools::geometry_tools::execute(&args)
+        .await
+        .unwrap();
+    // (4/3)π×27≈113.097
+    assert!(result.contains("113."), "sphere volume: {result}");
+}
+
+#[tokio::test]
+async fn test_geometry_perimeter_circle() {
+    let args = serde_json::json!({"action": "perimeter", "shape": "circle", "radius": 1.0});
+    let result = hematite::tools::geometry_tools::execute(&args)
+        .await
+        .unwrap();
+    // 2π≈6.2831
+    assert!(result.contains("6.28"), "circle perimeter: {result}");
+}
+
+#[tokio::test]
+async fn test_geometry_triangle_345() {
+    let args = serde_json::json!({"action": "triangle", "a": 3.0, "b": 4.0, "c": 5.0});
+    let result = hematite::tools::geometry_tools::execute(&args)
+        .await
+        .unwrap();
+    assert!(result.contains("Right"), "3-4-5 right triangle: {result}");
+    assert!(result.contains("6"), "3-4-5 area=6: {result}");
+    assert!(result.contains("12"), "3-4-5 perimeter=12: {result}");
+}
+
+#[tokio::test]
+async fn test_geometry_circle_from_diameter() {
+    let args = serde_json::json!({"action": "circle", "diameter": 10.0});
+    let result = hematite::tools::geometry_tools::execute(&args)
+        .await
+        .unwrap();
+    assert!(result.contains("5"), "radius from diameter: {result}");
+    assert!(result.contains("31."), "circumference≈31.4: {result}");
+}
+
+#[tokio::test]
+async fn test_geometry_circle_with_angle() {
+    let args = serde_json::json!({"action": "circle", "radius": 10.0, "angle": 90.0});
+    let result = hematite::tools::geometry_tools::execute(&args)
+        .await
+        .unwrap();
+    assert!(result.contains("Arc"), "arc length: {result}");
+    assert!(result.contains("Sector"), "sector area: {result}");
+}
+
+#[tokio::test]
+async fn test_geometry_invalid_triangle() {
+    let args = serde_json::json!({"action": "triangle", "a": 1.0, "b": 2.0, "c": 10.0});
+    let result = hematite::tools::geometry_tools::execute(&args).await;
+    assert!(result.is_err(), "invalid triangle should return error");
+}
+
+#[test]
+fn test_routing_detects_geometry_tools() {
+    use hematite::agent::routing::needs_geometry_tools;
+    assert!(needs_geometry_tools("area of a circle"), "area of circle");
+    assert!(
+        needs_geometry_tools("volume of a sphere"),
+        "volume of sphere"
+    );
+    assert!(
+        needs_geometry_tools("solve triangle with sides 3 4 5"),
+        "solve triangle"
+    );
+    assert!(
+        needs_geometry_tools("circle circumference"),
+        "circle circumference"
+    );
+    assert!(
+        needs_geometry_tools("calculate perimeter of a rectangle"),
+        "calculate perimeter"
+    );
 }

@@ -34,23 +34,24 @@ use crate::agent::routing::{
     needs_csv_tools, needs_data_gen_tools, needs_date_tools, needs_diff_tools,
     needs_docker_compose_tools, needs_docker_ops, needs_dockerfile_tools, needs_dotenv_tools,
     needs_duration_tools, needs_encode_tools, needs_env_schema_tools, needs_format,
-    needs_fraction_tools, needs_geo_tools, needs_github_actions_tools, needs_github_ops,
-    needs_gitignore_tools, needs_glob_tools, needs_graphql_tools, needs_hash_tools,
-    needs_hex_tools, needs_http_request, needs_http_status_tools, needs_ini_tools, needs_ip_tools,
-    needs_jwt_tools, needs_k8s_tools, needs_keyval_tools, needs_license_tools, needs_line_tools,
-    needs_lint_check, needs_lock_file_tools, needs_log_parse_tools, needs_make_tools,
-    needs_markdown_tools, needs_mime_tools, needs_money_tools, needs_nato_tools,
-    needs_net_lookup_tools, needs_nginx_conf_tools, needs_number_theory_tools, needs_number_tools,
-    needs_openapi_tools, needs_package_json_tools, needs_password_gen, needs_path_tools,
-    needs_pem_tools, needs_proto_tools, needs_regex_tools, needs_robots_txt_tools, needs_rss_tools,
-    needs_secret_scan, needs_semver_tools, needs_sitemap_tools, needs_size_tools,
-    needs_sql_migrate_tools, needs_sql_tools, needs_sqlite_tools, needs_ssh_config_tools,
-    needs_stat_tools, needs_string_metric_tools, needs_systemd_tools, needs_table_tools,
-    needs_template_tools, needs_terraform_tools, needs_test_run, needs_text_tools,
-    needs_time_zone_tools, needs_token_tools, needs_toml_tools, needs_url_tools, needs_uuid_gen,
-    needs_validate_tools, needs_word_tools, needs_xml_tools, needs_yaml_tools,
-    preferred_host_inspection_topic, preferred_maintainer_workflow, preferred_workspace_workflow,
-    DirectAnswerKind, QueryIntentClass,
+    needs_fraction_tools, needs_geo_tools, needs_geometry_tools, needs_github_actions_tools,
+    needs_github_ops, needs_gitignore_tools, needs_glob_tools, needs_graphql_tools,
+    needs_hash_tools, needs_hex_tools, needs_http_request, needs_http_status_tools,
+    needs_ini_tools, needs_ip_tools, needs_jwt_tools, needs_k8s_tools, needs_keyval_tools,
+    needs_license_tools, needs_line_tools, needs_lint_check, needs_lock_file_tools,
+    needs_log_parse_tools, needs_make_tools, needs_markdown_tools, needs_mime_tools,
+    needs_money_tools, needs_nato_tools, needs_net_lookup_tools, needs_nginx_conf_tools,
+    needs_number_theory_tools, needs_number_tools, needs_openapi_tools, needs_package_json_tools,
+    needs_password_gen, needs_path_tools, needs_pem_tools, needs_proto_tools, needs_regex_tools,
+    needs_robots_txt_tools, needs_rss_tools, needs_secret_scan, needs_semver_tools,
+    needs_sitemap_tools, needs_size_tools, needs_sql_migrate_tools, needs_sql_tools,
+    needs_sqlite_tools, needs_ssh_config_tools, needs_stat_tools, needs_string_metric_tools,
+    needs_systemd_tools, needs_table_tools, needs_template_tools, needs_terraform_tools,
+    needs_test_run, needs_text_tools, needs_time_zone_tools, needs_token_tools, needs_toml_tools,
+    needs_unit_tools, needs_url_tools, needs_uuid_gen, needs_validate_tools, needs_word_tools,
+    needs_xml_tools, needs_yaml_tools, preferred_host_inspection_topic,
+    preferred_maintainer_workflow, preferred_workspace_workflow, DirectAnswerKind,
+    QueryIntentClass,
 };
 use crate::agent::tool_registry::dispatch_builtin_tool;
 use crate::agent::truncation::safe_head;
@@ -6309,6 +6310,45 @@ impl ConversationManager {
                  id (sequential or random IDs; 'count', 'kind': seq/hex/uuid; 'prefix', 'start', 'pad' for seq mode). \
                  Example: data_gen_tools(action:'lorem', count:3, unit:'paragraphs') or \
                  data_gen_tools(action:'name', count:10)"
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_unit_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "UNIT TOOLS NOTICE: Use the `unit_tools` tool for unit conversion without external utilities. \
+                 Actions: \
+                 convert (default — convert a value between units; 'value' (number), 'from' (unit name/symbol), \
+                 optional 'to' (target unit) — omit 'to' to show all conversions in the same category), \
+                 list (show all supported units; optional 'category' to filter), \
+                 categories (show all 13 categories with unit counts). \
+                 13 categories: length, mass, temperature, area, volume, speed, energy, power, pressure, \
+                 time, angle, fuel, frequency. Temperature conversion is affine (handles Fahrenheit/Kelvin/Rankine). \
+                 Examples: unit_tools(action:'convert', value:100, from:'km', to:'miles') or \
+                 unit_tools(action:'convert', value:98.6, from:'fahrenheit', to:'celsius') or \
+                 unit_tools(action:'list', category:'energy')"
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_geometry_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "GEOMETRY TOOLS NOTICE: Use the `geometry_tools` tool for geometric calculations without external utilities. \
+                 Actions: \
+                 area (default — 'shape' + dimensions → area; shapes: rectangle/width+height, square/side, \
+                 circle/radius, ellipse/a+b, triangle/base+height or a+b+c sides, trapezoid/a+b+height, \
+                 parallelogram/base+height, rhombus/d1+d2, regular_polygon/sides+side_length, sector/radius+angle), \
+                 volume ('shape' + dimensions → volume and surface area; shapes: cube/side, rectangular_prism/width+height+depth, \
+                 sphere/radius, hemisphere/radius, cylinder/radius+height, cone/radius+height, pyramid/base_area+height, \
+                 torus/major_radius+minor_radius), \
+                 perimeter (same shapes as area), \
+                 triangle (comprehensive triangle solver; 'a','b','c' for SSS or 'a','b','angle_c' for SAS — \
+                 returns all angles, area, perimeter, inradius, circumradius, type), \
+                 circle (comprehensive circle math; provide any one of: radius, diameter, circumference, area; \
+                 optional 'angle' in degrees for arc length, sector area, chord length). \
+                 Examples: geometry_tools(action:'area', shape:'circle', radius:5) or \
+                 geometry_tools(action:'triangle', a:3, b:4, c:5) or \
+                 geometry_tools(action:'circle', diameter:10, angle:90)"
                     .to_string(),
             );
         }

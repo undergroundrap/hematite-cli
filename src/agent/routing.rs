@@ -7850,6 +7850,99 @@ pub fn needs_data_gen_tools(user_input: &str) -> bool {
     )
 }
 
+pub fn needs_unit_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "convert meters",
+            "convert kilometres",
+            "convert miles",
+            "convert kg",
+            "convert pounds",
+            "convert celsius",
+            "convert fahrenheit",
+            "convert kelvin",
+            "unit conversion",
+            "convert units",
+            "metres to feet",
+            "feet to metres",
+            "km to miles",
+            "miles to km",
+            "kg to pounds",
+            "pounds to kg",
+            "fahrenheit to celsius",
+            "celsius to fahrenheit",
+            "temperature in celsius",
+            "temperature in fahrenheit",
+            "convert knots",
+            "convert mph",
+            "convert kph",
+            "litres to gallons",
+            "gallons to litres",
+            "convert joules",
+            "convert calories",
+            "convert watts",
+            "convert horsepower",
+            "convert psi",
+            "convert bar",
+            "convert hectares",
+            "convert acres",
+            "convert square",
+            "megahertz to gigahertz",
+            "hertz to",
+            "convert hertz",
+            "convert frequency",
+            "convert pressure",
+            "list units",
+            "what units",
+            "available units",
+        ],
+    )
+}
+
+pub fn needs_geometry_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "area of a circle",
+            "area of a rectangle",
+            "area of a triangle",
+            "area of a square",
+            "area of a trapezoid",
+            "area of an ellipse",
+            "area of a polygon",
+            "volume of a sphere",
+            "volume of a cylinder",
+            "volume of a cone",
+            "volume of a cube",
+            "surface area of",
+            "perimeter of a",
+            "circumference of",
+            "geometry calculation",
+            "geometric shape",
+            "triangle sides",
+            "solve triangle",
+            "triangle angles",
+            "right triangle",
+            "hypotenuse",
+            "inradius",
+            "circumradius",
+            "circle radius",
+            "circle area",
+            "circle circumference",
+            "arc length",
+            "sector area",
+            "chord length",
+            "bounding box",
+            "calculate area",
+            "calculate volume",
+            "calculate perimeter",
+        ],
+    )
+}
+
 pub fn needs_binary_tools(user_input: &str) -> bool {
     contains_any(
         user_input,

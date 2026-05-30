@@ -4580,6 +4580,81 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         }),
     ));
     tools.push(make_tool(
+        "unit_tools",
+        "Convert values between units of measurement across 13 categories without external utilities. \
+         Actions: convert (default — 'value' number, 'from' unit name/symbol, optional 'to' target unit; \
+         omit 'to' to see all conversions in the same category), \
+         list (all supported units; optional 'category' filter), \
+         categories (all 13 categories with unit counts). \
+         Categories: length (18 units), mass (13), temperature (4: Celsius/Fahrenheit/Kelvin/Rankine), \
+         area (10), volume (17), speed (6), energy (11), power (8), pressure (9), time (12), \
+         angle (6), fuel (4), frequency (5). \
+         Temperature uses affine conversion (F→C: (F-32)×5/9, K→C: K-273.15). \
+         Examples: unit_tools(action:'convert', value:100, from:'km', to:'miles') or \
+         unit_tools(action:'convert', value:98.6, from:'fahrenheit', to:'celsius') or \
+         unit_tools(action:'convert', value:1, from:'horsepower') — omit 'to' for all power units",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "action": { "type": "string", "description": "convert (default), list, categories" },
+                "value": { "type": "number", "description": "The numeric value to convert (required for convert)" },
+                "amount": { "type": "number", "description": "Alias for value" },
+                "from": { "type": "string", "description": "Source unit name, symbol, or alias (e.g. 'km', 'kilometre', 'fahrenheit')" },
+                "to": { "type": "string", "description": "Target unit name/symbol (optional — omit to show all conversions in the category)" },
+                "category": { "type": "string", "description": "Category filter for list action (e.g. 'temperature', 'energy')" }
+            },
+            "required": []
+        }),
+    ));
+    tools.push(make_tool(
+        "geometry_tools",
+        "Compute geometric properties (area, volume, perimeter, triangle solver, circle math) without external utilities. \
+         Actions: area (default — 'shape' + dimensions → area; shapes: rectangle/width+height, square/side, \
+         circle/radius, ellipse/a+b, triangle/base+height or a+b+c, trapezoid/a+b+height, \
+         parallelogram/base+height, rhombus/d1+d2, regular_polygon/sides+side_length, sector/radius+angle), \
+         volume ('shape' + dimensions → volume and surface area; shapes: cube/side, rectangular_prism/width+height+depth, \
+         sphere/radius, hemisphere/radius, cylinder/radius+height, cone/radius+height, pyramid/base_area+height, \
+         torus/major_radius+minor_radius), \
+         perimeter (same shapes as area), \
+         triangle (SSS solver: 'a','b','c' sides → angles, area, perimeter, inradius, circumradius, type; \
+         or SAS: 'a','b','angle_c' → third side then full solve), \
+         circle (comprehensive: provide any one of radius/diameter/circumference/area; \
+         optional 'angle' in degrees for arc length, sector area, chord length). \
+         Examples: geometry_tools(action:'area', shape:'circle', radius:5) or \
+         geometry_tools(action:'triangle', a:3, b:4, c:5) or \
+         geometry_tools(action:'circle', radius:10, angle:90)",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "action": { "type": "string", "description": "area (default), volume, perimeter, triangle, circle" },
+                "shape": { "type": "string", "description": "Shape name for area/volume/perimeter (e.g. 'circle', 'rectangle', 'sphere')" },
+                "radius": { "type": "number", "description": "Radius for circle/sphere/cylinder/cone/sector" },
+                "diameter": { "type": "number", "description": "Diameter (circle action)" },
+                "circumference": { "type": "number", "description": "Circumference (circle action)" },
+                "area": { "type": "number", "description": "Area (circle action — compute radius from area)" },
+                "width": { "type": "number", "description": "Width (rectangle, rectangular_prism)" },
+                "height": { "type": "number", "description": "Height (rectangle, trapezoid, cylinder, cone, pyramid)" },
+                "depth": { "type": "number", "description": "Depth (rectangular_prism)" },
+                "side": { "type": "number", "description": "Side length (square, cube)" },
+                "base": { "type": "number", "description": "Base (triangle, parallelogram)" },
+                "a": { "type": "number", "description": "Side a (triangle), semi-major axis (ellipse), or parallel side a (trapezoid)" },
+                "b": { "type": "number", "description": "Side b (triangle), semi-minor axis (ellipse), or parallel side b (trapezoid)" },
+                "c": { "type": "number", "description": "Side c (triangle, trapezoid perimeter)" },
+                "d": { "type": "number", "description": "Side d (trapezoid perimeter)" },
+                "d1": { "type": "number", "description": "Diagonal 1 (rhombus)" },
+                "d2": { "type": "number", "description": "Diagonal 2 (rhombus)" },
+                "sides": { "type": "integer", "description": "Number of sides (regular_polygon)" },
+                "side_length": { "type": "number", "description": "Side length (regular_polygon)" },
+                "angle": { "type": "number", "description": "Central angle in degrees (sector area, arc length; also for circle action)" },
+                "angle_c": { "type": "number", "description": "Included angle C in degrees (SAS triangle)" },
+                "base_area": { "type": "number", "description": "Base area (pyramid volume)" },
+                "major_radius": { "type": "number", "description": "Major radius R (torus)" },
+                "minor_radius": { "type": "number", "description": "Minor radius r (torus)" }
+            },
+            "required": []
+        }),
+    ));
+    tools.push(make_tool(
         "binary_tools",
         "Bit manipulation, bitfield packing/unpacking, and binary analysis without external utilities. \
          Actions: info (default — show decimal/hex/octal/binary, popcount, parity, leading/trailing zeros, \
@@ -5380,6 +5455,8 @@ pub async fn dispatch_builtin_tool(
         "nato_tools" => crate::tools::nato_tools::execute(args).await,
         "geo_tools" => crate::tools::geo_tools::execute(args).await,
         "data_gen_tools" => crate::tools::data_gen_tools::execute(args).await,
+        "unit_tools" => crate::tools::unit_tools::execute(args).await,
+        "geometry_tools" => crate::tools::geometry_tools::execute(args).await,
         "binary_tools" => crate::tools::binary_tools::execute(args).await,
         "ascii_tools" => crate::tools::ascii_tools::execute(args).await,
         "time_zone_tools" => crate::tools::time_zone_tools::execute(args).await,
