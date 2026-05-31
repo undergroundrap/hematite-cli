@@ -28017,7 +28017,11 @@ async fn test_plist_tools_parse() {
 </plist>"#;
     let args = serde_json::json!({"action": "parse", "text": plist});
     let result = plist_tools::execute(&args).await.unwrap();
-    assert!(result.contains("com.example.testapp") || result.contains("CFBundleIdentifier") || result.contains("2.5.1"));
+    assert!(
+        result.contains("com.example.testapp")
+            || result.contains("CFBundleIdentifier")
+            || result.contains("2.5.1")
+    );
 }
 
 #[tokio::test]
@@ -28055,7 +28059,12 @@ async fn test_plist_tools_validate() {
 </plist>"#;
     let args = serde_json::json!({"action": "validate", "text": plist});
     let result = plist_tools::execute(&args).await.unwrap();
-    assert!(result.contains("CFBundleIdentifier") || result.contains("missing") || result.contains("WARN") || result.contains("Missing"));
+    assert!(
+        result.contains("CFBundleIdentifier")
+            || result.contains("missing")
+            || result.contains("WARN")
+            || result.contains("Missing")
+    );
 }
 
 #[tokio::test]
@@ -28083,5 +28092,185 @@ async fn test_bencode_tools_decode_list() {
     // Note: bencode is "l4:spam4:eggse" but list needs 'e' end marker
     // Actual: l 4:spam 4:eggs e = 6c 34 3a 73 70 61 6d 34 3a 65 67 67 73 65
     let result = bencode_tools::execute(&args).await.unwrap();
-    assert!(result.contains("spam") || result.contains("eggs") || result.contains("list") || result.contains("List"));
+    assert!(
+        result.contains("spam")
+            || result.contains("eggs")
+            || result.contains("list")
+            || result.contains("List")
+    );
+}
+
+// ── Pair 18: printf_tools + ascii_chart_tools ────────────────────────────────
+
+#[test]
+fn test_routing_detects_printf_tools_format_specifier() {
+    use hematite::agent::routing::needs_printf_tools;
+    assert!(needs_printf_tools(
+        "explain this printf format string %d %s"
+    ));
+    assert!(needs_printf_tools(
+        "what does %-10s mean in a format specifier"
+    ));
+    assert!(needs_printf_tools(
+        "simulate printf with format %05.2f and args [3.14]"
+    ));
+    assert!(needs_printf_tools("convert printf to python f-string"));
+    assert!(!needs_printf_tools("print something to stdout"));
+}
+
+#[test]
+fn test_routing_detects_ascii_chart_tools() {
+    use hematite::agent::routing::needs_ascii_chart_tools;
+    assert!(needs_ascii_chart_tools(
+        "render an ascii bar chart from this data"
+    ));
+    assert!(needs_ascii_chart_tools(
+        "plot data as a line chart in the terminal"
+    ));
+    assert!(needs_ascii_chart_tools(
+        "show a sparkline for these numbers"
+    ));
+    assert!(needs_ascii_chart_tools(
+        "ascii scatter plot of x and y values"
+    ));
+    assert!(needs_ascii_chart_tools("terminal chart of daily values"));
+    assert!(!needs_ascii_chart_tools(
+        "describe the architecture of this code"
+    ));
+}
+
+#[tokio::test]
+async fn test_printf_tools_explain_basic() {
+    use hematite::tools::printf_tools::execute;
+    use serde_json::json;
+    let result = execute(&json!({ "action": "explain", "format": "%d %s %f" })).await;
+    assert!(result.is_ok(), "printf_tools explain failed: {:?}", result);
+    let out = result.unwrap();
+    assert!(
+        out.contains("%d") || out.contains("integer") || out.contains("decimal"),
+        "Expected specifier info, got: {out}"
+    );
+}
+
+#[tokio::test]
+async fn test_printf_tools_simulate() {
+    use hematite::tools::printf_tools::execute;
+    use serde_json::json;
+    let result = execute(&json!({
+        "action": "simulate",
+        "format": "Hello %s, count %d",
+        "args": ["world", 42]
+    }))
+    .await;
+    assert!(result.is_ok(), "printf_tools simulate failed: {:?}", result);
+    let out = result.unwrap();
+    assert!(
+        out.contains("Hello world, count 42") || out.contains("world") && out.contains("42"),
+        "Expected simulated output, got: {out}"
+    );
+}
+
+#[tokio::test]
+async fn test_printf_tools_validate_dangerous_n() {
+    use hematite::tools::printf_tools::execute;
+    use serde_json::json;
+    let result = execute(&json!({ "action": "validate", "format": "count: %d%n" })).await;
+    assert!(result.is_ok(), "printf_tools validate failed: {:?}", result);
+    let out = result.unwrap();
+    assert!(
+        out.to_lowercase().contains("%n")
+            || out.to_lowercase().contains("dangerous")
+            || out.to_lowercase().contains("security"),
+        "Expected %n warning, got: {out}"
+    );
+}
+
+#[tokio::test]
+async fn test_printf_tools_convert() {
+    use hematite::tools::printf_tools::execute;
+    use serde_json::json;
+    let result = execute(&json!({ "action": "convert", "format": "%s %d" })).await;
+    assert!(result.is_ok(), "printf_tools convert failed: {:?}", result);
+    let out = result.unwrap();
+    assert!(
+        out.contains("Python")
+            || out.contains("Rust")
+            || out.contains("{}")
+            || out.contains("format"),
+        "Expected language conversions, got: {out}"
+    );
+}
+
+#[tokio::test]
+async fn test_ascii_chart_bar_basic() {
+    use hematite::tools::ascii_chart_tools::execute;
+    use serde_json::json;
+    let result = execute(&json!({
+        "action": "bar",
+        "data": [10, 25, 15, 40, 30],
+        "labels": ["Mon", "Tue", "Wed", "Thu", "Fri"],
+        "title": "Daily"
+    }))
+    .await;
+    assert!(result.is_ok(), "ascii_chart bar failed: {:?}", result);
+    let out = result.unwrap();
+    assert!(
+        out.contains("█") || out.contains("Daily") || out.contains("Mon"),
+        "Expected bar chart output, got: {out}"
+    );
+}
+
+#[tokio::test]
+async fn test_ascii_chart_sparkline() {
+    use hematite::tools::ascii_chart_tools::execute;
+    use serde_json::json;
+    let result = execute(&json!({
+        "action": "sparkline",
+        "data": [1, 3, 2, 8, 4, 6, 5],
+        "title": "Trend"
+    }))
+    .await;
+    assert!(result.is_ok(), "ascii_chart sparkline failed: {:?}", result);
+    let out = result.unwrap();
+    // Should contain block elements
+    assert!(
+        out.contains('▁') || out.contains('▂') || out.contains('▃') || out.contains('█'),
+        "Expected sparkline chars, got: {out}"
+    );
+}
+
+#[tokio::test]
+async fn test_ascii_chart_line() {
+    use hematite::tools::ascii_chart_tools::execute;
+    use serde_json::json;
+    let result = execute(&json!({
+        "action": "line",
+        "data": [1, 4, 9, 16, 25],
+        "title": "Squares"
+    }))
+    .await;
+    assert!(result.is_ok(), "ascii_chart line failed: {:?}", result);
+    let out = result.unwrap();
+    assert!(
+        out.contains("│") || out.contains("Squares") || out.contains("─"),
+        "Expected line chart output, got: {out}"
+    );
+}
+
+#[tokio::test]
+async fn test_ascii_chart_scatter() {
+    use hematite::tools::ascii_chart_tools::execute;
+    use serde_json::json;
+    let result = execute(&json!({
+        "action": "scatter",
+        "x": [1.0, 2.0, 3.0, 4.0, 5.0],
+        "y": [2.0, 4.0, 1.0, 3.0, 5.0]
+    }))
+    .await;
+    assert!(result.is_ok(), "ascii_chart scatter failed: {:?}", result);
+    let out = result.unwrap();
+    assert!(
+        out.contains("│") || out.contains("*"),
+        "Expected scatter plot output, got: {out}"
+    );
 }

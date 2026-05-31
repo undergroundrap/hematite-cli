@@ -7961,7 +7961,8 @@ pub fn needs_number_theory_tools(user_input: &str) -> bool {
             "bézout",
             "coprime",
         ],
-    )
+    ) || (lower.contains("prime")
+        && (lower.contains("is ") || lower.contains("check") || lower.contains("test")))
 }
 
 pub fn needs_cipher_tools(user_input: &str) -> bool {
@@ -8752,6 +8753,77 @@ pub fn needs_bencode_tools(user_input: &str) -> bool {
             "inspect torrent",
         ],
     )
+}
+
+/// Returns true when the user wants to analyze or simulate a C-style printf format string — steer toward `printf_tools`.
+pub fn needs_printf_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "printf format",
+            "printf string",
+            "format specifier",
+            "format string",
+            "%d %s",
+            "%s %d",
+            "explain printf",
+            "simulate printf",
+            "validate printf",
+            "printf specifier",
+            "printf placeholder",
+            "printf syntax",
+            "c format string",
+            "sprintf format",
+            "fprintf format",
+            "printf conversion",
+            "convert printf",
+            "printf to python",
+            "printf to rust",
+            "printf to go",
+        ],
+    ) || (lower.contains("printf")
+        && (lower.contains("explain")
+            || lower.contains("simulate")
+            || lower.contains("validate")
+            || lower.contains("convert")))
+}
+
+/// Returns true when the user wants to render an ASCII/Unicode chart from data — steer toward `ascii_chart_tools`.
+pub fn needs_ascii_chart_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "ascii chart",
+            "ascii bar chart",
+            "ascii line chart",
+            "ascii scatter",
+            "ascii plot",
+            "text chart",
+            "text graph",
+            "terminal chart",
+            "terminal graph",
+            "terminal plot",
+            "sparkline",
+            "spark line",
+            "render chart",
+            "plot data",
+            "plot these numbers",
+            "bar chart from",
+            "line chart from",
+            "scatter plot",
+            "visualize data",
+            "chart these values",
+            "chart this data",
+            "graph these numbers",
+            "unicode chart",
+            "tui chart",
+        ],
+    ) || (lower.contains("chart")
+        && (lower.contains("bar") || lower.contains("line") || lower.contains("scatter")))
+        || (lower.contains("plot")
+            && (lower.contains("data") || lower.contains("numbers") || lower.contains("values")))
 }
 
 #[cfg(test)]

@@ -5962,6 +5962,54 @@ pub fn get_tools() -> Vec<ToolDefinition> {
             "required": []
         }),
     ));
+    tools.push(make_tool(
+        "printf_tools",
+        "Analyze, simulate, validate, and convert C-style printf format strings without external utilities. \
+         Actions: \
+         `explain` (default) — parse all format specifiers (%d, %s, %f, etc.) with type, width, precision, flags, and plain-English meaning; warns on dangerous %n; \
+         `simulate` — render the format string with a provided args array and return the formatted output; \
+         `validate` — check for %n usage, unknown specifiers, arg count mismatches, and null bytes; \
+         `convert` — translate to Python % formatting, Python f-string, Rust format!, Go fmt.Sprintf, and JavaScript template literal. \
+         Pass 'format' for the format string; 'args' as JSON array for simulate. \
+         Example: printf_tools(action: 'explain', format: '%-10s %5.2f') or \
+         printf_tools(action: 'simulate', format: 'Hello %s, count: %d', args: ['world', 42]) or \
+         printf_tools(action: 'convert', format: '%05.2f').",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "explain (default), simulate, validate, convert"
+                },
+                "format": {
+                    "type": "string",
+                    "description": "The printf format string to analyze (e.g. '%-10s %5.2f' or 'Error %d: %s\\n')."
+                },
+                "args": {
+                    "type": "array",
+                    "description": "Argument values for simulate action (JSON array matching the format specifiers)."
+                }
+            },
+            "required": []
+        }),
+    ));
+    tools.push(make_tool(
+        "ascii_chart_tools",
+        "Renders ASCII/Unicode charts (bar, line, scatter, sparkline) from numeric data arrays in the terminal without external utilities. \
+         Actions: \
+         `bar` (default) — vertical bar chart with per-bar labels, optional title, configurable width and fill style (block/hash/equals/dot/shade); handles negative values; \
+         `line` — time-series line chart with Y-axis scale labels and optional connected dots; \
+         `scatter` — XY scatter plot from separate x/y arrays or [[x,y]] pairs; \
+         `sparkline` — compact one-row Unicode sparkline (▁▂▃▄▅▆▇█) for inline trend visualization; \
+         `hbar` — alias for bar. \
+         Pass 'data' as a JSON number array or comma-separated string for bar/line/sparkline; \
+         'x' and 'y' arrays (or 'data' as [[x,y]] pairs) for scatter. \
+         Example: ascii_chart_tools(action: 'bar', data: [10,25,15,40,30], labels: ['Mon','Tue','Wed','Thu','Fri'], title: 'Daily Sales') or \
+         ascii_chart_tools(action: 'sparkline', data: [1,3,2,8,4,6,5]) or \
+         ascii_chart_tools(action: 'line', data: [1,4,9,16,25,36], title: 'Squares') or \
+         ascii_chart_tools(action: 'scatter', x: [1,2,3,4,5], y: [2.1,3.9,6.2,7.8,10.1]).",
+        crate::tools::ascii_chart_tools::ascii_chart_schema()["parameters"].clone(),
+    ));
     let lsp_defs = crate::tools::lsp_tools::get_lsp_definitions();
     tools.push(make_tool(
         "lsp_search_symbol",
@@ -6118,6 +6166,8 @@ pub async fn dispatch_builtin_tool(
         "mime_tools" => crate::tools::mime_tools::execute(args).await,
         "plist_tools" => crate::tools::plist_tools::execute(args).await,
         "bencode_tools" => crate::tools::bencode_tools::execute(args).await,
+        "printf_tools" => crate::tools::printf_tools::execute(args).await,
+        "ascii_chart_tools" => crate::tools::ascii_chart_tools::execute(args).await,
         "http_status_tools" => crate::tools::http_status_tools::execute(args).await,
         "http_parse_tools" => crate::tools::http_parse_tools::execute(args).await,
         "jq_tools" => crate::tools::jq_tools::execute(args).await,
