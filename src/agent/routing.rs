@@ -8169,6 +8169,70 @@ pub fn needs_calc_tools(user_input: &str) -> bool {
     )
 }
 
+pub fn needs_port_check(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "port check",
+            "check port",
+            "test port",
+            "is port open",
+            "port open",
+            "port reachable",
+            "can i connect to port",
+            "tcp port test",
+            "port 5432",
+            "port 6379",
+            "port 3306",
+            "port 443",
+            "port 80",
+            "port 22",
+            "port 3389",
+            "port connectivity",
+            "port accessible",
+            "port closed",
+            "port filtered",
+            "is postgres up",
+            "is redis up",
+            "is mysql up",
+            "service port",
+        ],
+    )
+}
+
+pub fn needs_scientific_compute(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "scientific compute",
+            "scientific calculation",
+            "physics calculation",
+            "chemistry calculation",
+            "physical constant",
+            "boltzmann",
+            "planck constant",
+            "avogadro",
+            "speed of light",
+            "electron mass",
+            "stefan-boltzmann",
+            "ideal gas law",
+            "kinetic energy formula",
+            "potential energy",
+            "wave equation",
+            "ohm's law",
+            "ohms law",
+            "coulomb's law",
+            "coulombs law",
+            "periodic table compute",
+            "atomic mass",
+            "molar mass",
+            "scientific notation compute",
+        ],
+    )
+}
+
 pub fn needs_template_gen(user_input: &str) -> bool {
     let lower = user_input.to_lowercase();
     contains_any(

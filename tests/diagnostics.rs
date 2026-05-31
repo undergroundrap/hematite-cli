@@ -27245,3 +27245,53 @@ fn test_routing_detects_changelog_gen() {
         "should not trigger on unrelated"
     );
 }
+
+#[test]
+fn test_routing_detects_port_check() {
+    use hematite::agent::routing::needs_port_check;
+    assert!(
+        needs_port_check("check port 5432 on localhost"),
+        "should detect check port"
+    );
+    assert!(
+        needs_port_check("is port open on this server"),
+        "should detect is port open"
+    );
+    assert!(
+        needs_port_check("test port connectivity"),
+        "should detect port connectivity"
+    );
+    assert!(
+        needs_port_check("is postgres up and listening"),
+        "should detect is postgres up"
+    );
+    assert!(
+        !needs_port_check("refactor the auth module"),
+        "should not trigger on unrelated"
+    );
+}
+
+#[test]
+fn test_routing_detects_scientific_compute() {
+    use hematite::agent::routing::needs_scientific_compute;
+    assert!(
+        needs_scientific_compute("scientific calculation for kinetic energy"),
+        "should detect scientific calculation"
+    );
+    assert!(
+        needs_scientific_compute("what is boltzmann constant"),
+        "should detect boltzmann"
+    );
+    assert!(
+        needs_scientific_compute("ohms law with 12v and 4 ohms"),
+        "should detect ohms law"
+    );
+    assert!(
+        needs_scientific_compute("calculate using ideal gas law"),
+        "should detect ideal gas law"
+    );
+    assert!(
+        !needs_scientific_compute("push my branch to remote"),
+        "should not trigger on unrelated"
+    );
+}

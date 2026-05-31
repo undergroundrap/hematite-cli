@@ -43,15 +43,16 @@ use crate::agent::routing::{
     needs_markdown_tools, needs_mime_tools, needs_money_tools, needs_nato_tools,
     needs_net_lookup_tools, needs_nginx_conf_tools, needs_number_theory_tools, needs_number_tools,
     needs_openapi_tools, needs_package_json_tools, needs_password_gen, needs_path_tools,
-    needs_pem_tools, needs_proto_tools, needs_regex_tools, needs_robots_txt_tools, needs_rss_tools,
-    needs_secret_scan, needs_semver_tools, needs_sitemap_tools, needs_size_tools,
-    needs_sql_migrate_tools, needs_sql_tools, needs_sqlite_tools, needs_ssh_config_tools,
-    needs_stat_tools, needs_string_metric_tools, needs_systemd_tools, needs_table_tools,
-    needs_template_gen, needs_template_tools, needs_terraform_tools, needs_test_run,
-    needs_text_tools, needs_time_zone_tools, needs_token_tools, needs_toml_tools, needs_unit_tools,
-    needs_url_tools, needs_uuid_gen, needs_validate_tools, needs_word_tools, needs_xml_tools,
-    needs_yaml_tools, preferred_host_inspection_topic, preferred_maintainer_workflow,
-    preferred_workspace_workflow, DirectAnswerKind, QueryIntentClass,
+    needs_pem_tools, needs_port_check, needs_proto_tools, needs_regex_tools,
+    needs_robots_txt_tools, needs_rss_tools, needs_scientific_compute, needs_secret_scan,
+    needs_semver_tools, needs_sitemap_tools, needs_size_tools, needs_sql_migrate_tools,
+    needs_sql_tools, needs_sqlite_tools, needs_ssh_config_tools, needs_stat_tools,
+    needs_string_metric_tools, needs_systemd_tools, needs_table_tools, needs_template_gen,
+    needs_template_tools, needs_terraform_tools, needs_test_run, needs_text_tools,
+    needs_time_zone_tools, needs_token_tools, needs_toml_tools, needs_unit_tools, needs_url_tools,
+    needs_uuid_gen, needs_validate_tools, needs_word_tools, needs_xml_tools, needs_yaml_tools,
+    preferred_host_inspection_topic, preferred_maintainer_workflow, preferred_workspace_workflow,
+    DirectAnswerKind, QueryIntentClass,
 };
 use crate::agent::tool_registry::dispatch_builtin_tool;
 use crate::agent::truncation::safe_head;
@@ -6471,6 +6472,34 @@ impl ConversationManager {
                  and up to 500 commits processed. Scopes rendered in bold, short hash appended per entry. \
                  Example: changelog_gen(from:'v0.11.0', title:'v0.12.0') or \
                  changelog_gen() to generate from all commits."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_port_check(&effective_user_input) {
+            loop_intervention = Some(
+                "PORT CHECK NOTICE: Use the `port_check` tool to test TCP port reachability with a configurable timeout. \
+                 Pass 'host' and 'port' (required). Optional 'timeout_ms' (default 3000ms). \
+                 Annotates 40+ well-known ports (PostgreSQL=5432, Redis=6379, MySQL=3306, SSH=22, HTTPS=443, \
+                 LM Studio=1234, Ollama=11434, Jupyter=8888, RDP=3389, etc.). \
+                 Returns OPEN or CLOSED/FILTERED with actionable hints for closed ports. \
+                 Example: port_check(host:'localhost', port:5432) or port_check(host:'192.168.1.1', port:22)"
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_scientific_compute(&effective_user_input) {
+            loop_intervention = Some(
+                "SCIENTIFIC COMPUTE NOTICE: Use the `scientific_compute` tool for physics and chemistry calculations \
+                 using fundamental constants and well-known formulas. No external libraries required. \
+                 Covers: physical constants (speed of light, Planck, Boltzmann, Avogadro, electron charge/mass, etc.), \
+                 mechanics (kinetic/potential energy, work, momentum, gravitational force), \
+                 electromagnetism (Ohm's law, Coulomb's law, capacitance, inductance), \
+                 thermodynamics (ideal gas law, heat, Stefan-Boltzmann radiation), \
+                 waves (frequency/wavelength/period, photon energy), \
+                 chemistry (molar mass, stoichiometry, pH). \
+                 Example: scientific_compute(formula:'kinetic_energy', mass:2.0, velocity:5.0) or \
+                 scientific_compute(formula:'ohms_law', voltage:12.0, resistance:4.0)"
                     .to_string(),
             );
         }
