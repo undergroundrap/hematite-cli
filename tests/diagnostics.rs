@@ -27562,22 +27562,55 @@ async fn test_har_tools_summary() {
 #[test]
 fn test_routing_detects_graphviz_tools() {
     use hematite::agent::routing::needs_graphviz_tools;
-    assert!(needs_graphviz_tools("generate dot language graph"), "should detect dot language");
-    assert!(needs_graphviz_tools("create a graphviz diagram"), "should detect graphviz");
-    assert!(needs_graphviz_tools("render with dot -Tpng"), "should detect render with dot");
-    assert!(needs_graphviz_tools("generate dot file for this structure"), "should detect dot file");
-    assert!(!needs_graphviz_tools("show me a line chart"), "should not match line chart");
+    assert!(
+        needs_graphviz_tools("generate dot language graph"),
+        "should detect dot language"
+    );
+    assert!(
+        needs_graphviz_tools("create a graphviz diagram"),
+        "should detect graphviz"
+    );
+    assert!(
+        needs_graphviz_tools("render with dot -Tpng"),
+        "should detect render with dot"
+    );
+    assert!(
+        needs_graphviz_tools("generate dot file for this structure"),
+        "should detect dot file"
+    );
+    assert!(
+        !needs_graphviz_tools("show me a line chart"),
+        "should not match line chart"
+    );
 }
 
 #[test]
 fn test_routing_detects_mermaid_tools() {
     use hematite::agent::routing::needs_mermaid_tools;
-    assert!(needs_mermaid_tools("generate a mermaid diagram"), "should detect mermaid diagram");
-    assert!(needs_mermaid_tools("create a sequence diagram"), "should detect sequence diagram");
-    assert!(needs_mermaid_tools("class diagram for this code"), "should detect class diagram");
-    assert!(needs_mermaid_tools("make a gantt chart"), "should detect gantt chart");
-    assert!(needs_mermaid_tools("er diagram for the database"), "should detect er diagram");
-    assert!(!needs_mermaid_tools("show bar chart data"), "should not match bar chart");
+    assert!(
+        needs_mermaid_tools("generate a mermaid diagram"),
+        "should detect mermaid diagram"
+    );
+    assert!(
+        needs_mermaid_tools("create a sequence diagram"),
+        "should detect sequence diagram"
+    );
+    assert!(
+        needs_mermaid_tools("class diagram for this code"),
+        "should detect class diagram"
+    );
+    assert!(
+        needs_mermaid_tools("make a gantt chart"),
+        "should detect gantt chart"
+    );
+    assert!(
+        needs_mermaid_tools("er diagram for the database"),
+        "should detect er diagram"
+    );
+    assert!(
+        !needs_mermaid_tools("show bar chart data"),
+        "should not match bar chart"
+    );
 }
 
 #[tokio::test]
@@ -27590,10 +27623,20 @@ async fn test_graphviz_tools_generate() {
         "edges": [{"from": "Build", "to": "Test"}, {"from": "Test", "to": "Deploy"}]
     });
     let result = execute(&args).await;
-    assert!(result.is_ok(), "graphviz generate should succeed: {:?}", result);
+    assert!(
+        result.is_ok(),
+        "graphviz generate should succeed: {:?}",
+        result
+    );
     let out = result.unwrap();
-    assert!(out.contains("digraph") || out.contains("DOT"), "should contain digraph or DOT");
-    assert!(out.contains("Build") || out.contains("build"), "should reference Build node");
+    assert!(
+        out.contains("digraph") || out.contains("DOT"),
+        "should contain digraph or DOT"
+    );
+    assert!(
+        out.contains("Build") || out.contains("build"),
+        "should reference Build node"
+    );
 }
 
 #[tokio::test]
@@ -27604,9 +27647,16 @@ async fn test_graphviz_tools_flowchart() {
         "steps": ["Input", "Validate", "Process", "Output"]
     });
     let result = execute(&args).await;
-    assert!(result.is_ok(), "graphviz flowchart should succeed: {:?}", result);
+    assert!(
+        result.is_ok(),
+        "graphviz flowchart should succeed: {:?}",
+        result
+    );
     let out = result.unwrap();
-    assert!(out.contains("digraph") || out.contains("step"), "should have digraph/steps");
+    assert!(
+        out.contains("digraph") || out.contains("step"),
+        "should have digraph/steps"
+    );
 }
 
 #[tokio::test]
@@ -27617,9 +27667,16 @@ async fn test_mermaid_tools_flowchart() {
         "steps": ["Start", "Process", "End"]
     });
     let result = execute(&args).await;
-    assert!(result.is_ok(), "mermaid flowchart should succeed: {:?}", result);
+    assert!(
+        result.is_ok(),
+        "mermaid flowchart should succeed: {:?}",
+        result
+    );
     let out = result.unwrap();
-    assert!(out.contains("flowchart") || out.contains("mermaid"), "should contain flowchart");
+    assert!(
+        out.contains("flowchart") || out.contains("mermaid"),
+        "should contain flowchart"
+    );
 }
 
 #[tokio::test]
@@ -27633,9 +27690,16 @@ async fn test_mermaid_tools_sequence() {
         ]
     });
     let result = execute(&args).await;
-    assert!(result.is_ok(), "mermaid sequence should succeed: {:?}", result);
+    assert!(
+        result.is_ok(),
+        "mermaid sequence should succeed: {:?}",
+        result
+    );
     let out = result.unwrap();
-    assert!(out.contains("sequenceDiagram") || out.contains("Client"), "should have sequence content");
+    assert!(
+        out.contains("sequenceDiagram") || out.contains("Client"),
+        "should have sequence content"
+    );
 }
 
 #[tokio::test]
@@ -27649,5 +27713,155 @@ async fn test_mermaid_tools_pie() {
     let result = execute(&args).await;
     assert!(result.is_ok(), "mermaid pie should succeed: {:?}", result);
     let out = result.unwrap();
-    assert!(out.contains("pie") || out.contains("Traffic"), "should have pie content");
+    assert!(
+        out.contains("pie") || out.contains("Traffic"),
+        "should have pie content"
+    );
+}
+
+// ── pair 15: dns_tools + css_tools ───────────────────────────────────────────
+
+#[test]
+fn test_routing_detects_dns_tools() {
+    use hematite::agent::routing::needs_dns_tools;
+    assert!(needs_dns_tools("parse this dns zone file"));
+    assert!(needs_dns_tools("validate my zone file for errors"));
+    assert!(needs_dns_tools("explain the MX records in this zone"));
+    assert!(needs_dns_tools("analyze SPF record"));
+    assert!(needs_dns_tools("parse DMARC policy"));
+    assert!(needs_dns_tools("show all TXT records from zone"));
+    assert!(!needs_dns_tools("show me the weather"));
+}
+
+#[test]
+fn test_routing_detects_css_tools() {
+    use hematite::agent::routing::needs_css_tools;
+    assert!(needs_css_tools("parse this css file"));
+    assert!(needs_css_tools("validate my stylesheet"));
+    assert!(needs_css_tools("list css variables"));
+    assert!(needs_css_tools("minify css"));
+    assert!(needs_css_tools("css stats for this file"));
+    assert!(needs_css_tools("find duplicate selectors in css"));
+    assert!(!needs_css_tools("list javascript functions"));
+}
+
+#[tokio::test]
+async fn test_dns_tools_parse() {
+    use hematite::tools::dns_tools;
+    let zone = r#"
+$ORIGIN example.com.
+$TTL 3600
+@   IN  SOA ns1.example.com. admin.example.com. 2024010101 3600 900 604800 300
+@   IN  NS  ns1.example.com.
+@   IN  NS  ns2.example.com.
+@   IN  A   93.184.216.34
+www IN  A   93.184.216.34
+mail IN MX 10 smtp.example.com.
+@   IN  TXT "v=spf1 include:_spf.google.com -all"
+"#;
+    let args = serde_json::json!({"action": "parse", "text": zone});
+    let result = dns_tools::execute(&args).await.unwrap();
+    assert!(result.contains("SOA") || result.contains("NS") || result.contains("example.com"));
+}
+
+#[tokio::test]
+async fn test_dns_tools_validate() {
+    use hematite::tools::dns_tools;
+    let zone = r#"
+$ORIGIN example.com.
+@   IN  NS  ns1.example.com.
+www IN  A   1.2.3.4
+"#;
+    let args = serde_json::json!({"action": "validate", "text": zone});
+    let result = dns_tools::execute(&args).await.unwrap();
+    // Missing SOA should be flagged
+    assert!(result.contains("SOA") || result.contains("WARN") || result.contains("missing") || result.contains("Missing"));
+}
+
+#[tokio::test]
+async fn test_dns_tools_explain() {
+    use hematite::tools::dns_tools;
+    let zone = r#"
+$ORIGIN example.com.
+@   IN  SOA ns1.example.com. admin.example.com. 2024010101 3600 900 604800 300
+@   IN  NS  ns1.example.com.
+@   IN  MX  10 mail.example.com.
+@   IN  TXT "v=spf1 -all"
+"#;
+    let args = serde_json::json!({"action": "explain", "text": zone});
+    let result = dns_tools::execute(&args).await.unwrap();
+    assert!(result.contains("SOA") || result.contains("NS") || result.contains("MX") || result.contains("mail"));
+}
+
+#[tokio::test]
+async fn test_css_tools_parse() {
+    use hematite::tools::css_tools;
+    let css = r#"
+/* Main styles */
+body {
+    margin: 0;
+    padding: 0;
+    font-family: sans-serif;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.btn {
+    display: inline-block;
+    padding: 8px 16px;
+    background: #007bff;
+    color: white;
+}
+"#;
+    let args = serde_json::json!({"action": "parse", "text": css});
+    let result = css_tools::execute(&args).await.unwrap();
+    assert!(result.contains("body") || result.contains("container") || result.contains("btn"));
+}
+
+#[tokio::test]
+async fn test_css_tools_vars() {
+    use hematite::tools::css_tools;
+    let css = r#"
+:root {
+    --primary: #007bff;
+    --secondary: #6c757d;
+    --spacing: 16px;
+}
+
+.btn {
+    background: var(--primary);
+    margin: var(--spacing);
+}
+
+.text {
+    color: var(--secondary);
+}
+"#;
+    let args = serde_json::json!({"action": "vars", "text": css});
+    let result = css_tools::execute(&args).await.unwrap();
+    assert!(result.contains("--primary") || result.contains("primary"));
+}
+
+#[tokio::test]
+async fn test_css_tools_minify() {
+    use hematite::tools::css_tools;
+    let css = r#"
+/* This comment should be removed */
+body {
+    margin: 0;
+    padding: 0;
+}
+
+.btn {
+    display: flex;
+}
+"#;
+    let args = serde_json::json!({"action": "minify", "text": css});
+    let result = css_tools::execute(&args).await.unwrap();
+    // Comment should be gone, output should be shorter
+    assert!(!result.contains("This comment should be removed"));
+    assert!(result.contains("margin") || result.contains("body"));
 }

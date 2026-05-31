@@ -8536,6 +8536,77 @@ pub fn needs_json_tools(user_input: &str) -> bool {
     )
 }
 
+/// Returns true when the user wants to parse or analyze a DNS zone file — steer toward `dns_tools`.
+pub fn needs_dns_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "zone file",
+            "dns zone",
+            "parse zone",
+            "bind zone",
+            "zone records",
+            "dns records",
+            "mx record",
+            "a record dns",
+            "aaaa record",
+            "cname record",
+            "txt record",
+            "soa record",
+            "ns record",
+            "ptr record",
+            "srv record",
+            "caa record",
+            "dkim record",
+            "dmarc record",
+            "spf record",
+            "dns_tools",
+            "validate zone",
+            "explain dns",
+            "named.conf",
+            "db.example",
+        ],
+    ) || (lower.contains("dns") && lower.contains("zone"))
+        || (lower.contains("spf") && lower.contains("txt"))
+        || (lower.contains("dmarc") && lower.contains("policy"))
+}
+
+/// Returns true when the user wants to parse, validate, or analyze CSS — steer toward `css_tools`.
+pub fn needs_css_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "parse css",
+            "css file",
+            "css selector",
+            "css variables",
+            "css custom properties",
+            "css stats",
+            "minify css",
+            "css validation",
+            "validate css",
+            "css rule",
+            "stylesheet",
+            "css specificity",
+            "css at-rule",
+            "css media query",
+            "css keyframes",
+            "css_tools",
+            "css duplicate",
+            "css !important",
+            "vendor prefix css",
+            "css var(",
+            ".css file",
+        ],
+    ) || (lower.contains("css") && lower.contains("minif"))
+        || (lower.contains("css") && lower.contains("variable"))
+        || (lower.contains("css") && lower.contains("parse"))
+        || (lower.contains("css") && lower.contains("duplicate"))
+        || (lower.contains("style") && lower.contains("css") && lower.contains("analyz"))
+}
+
 pub fn needs_code_metrics(user_input: &str) -> bool {
     let lower = user_input.to_lowercase();
     contains_any(

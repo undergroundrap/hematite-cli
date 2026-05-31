@@ -3638,6 +3638,82 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         }),
     ));
     tools.push(make_tool(
+        "dns_tools",
+        "Parse, filter, validate, and explain BIND-format DNS zone files without external utilities. \
+         Actions: \
+         `parse` (default) — list all resource records grouped by type with NAME/TTL/TYPE/DATA columns; \
+           shows $ORIGIN and $TTL directives; summary of record counts per type. \
+         `records` — filter by type; pass 'type' like 'MX', 'TXT', 'A', 'AAAA'. \
+         `validate` — check for common zone file issues: missing SOA/NS, CNAME at zone apex, \
+           MX pointing to CNAME, duplicate A/AAAA records, long TXT strings, multiple SPF records. \
+         `explain` — plain-English explanation for each record type found; \
+           SPF policy decoded token-by-token (include:/ip4:/ip6:/all/-all/~all), \
+           DMARC policy decoded (p=/rua=/pct=), DKIM keys noted, CAA policy explained, SOA fields labelled. \
+         Input: 'text'/'zone' for inline zone content, or 'file' for a file path. \
+         Example: dns_tools(text: '...zone content...') or dns_tools(action: 'records', text: '...', type: 'MX') or \
+         dns_tools(action: 'validate', file: '/etc/bind/db.example.com').",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "Operation: parse (default), records, validate, explain."
+                },
+                "text": {
+                    "type": "string",
+                    "description": "Inline zone file content. Also accepted as 'zone' or 'input'."
+                },
+                "file": {
+                    "type": "string",
+                    "description": "Path to a zone file on disk."
+                },
+                "type": {
+                    "type": "string",
+                    "description": "For 'records' action — record type to filter on, e.g. 'MX', 'TXT', 'A', 'AAAA'. Case-insensitive."
+                }
+            },
+            "required": []
+        }),
+    ));
+    tools.push(make_tool(
+        "css_tools",
+        "Parse, validate, extract variables, compute statistics, and minify CSS without external utilities. \
+         Actions: \
+         `parse` (default) — list all selectors with line number, property count, and key declarations; \
+           at-rule summary (@media/@keyframes/@supports/etc.) with nested rule counts. \
+         `validate` — check for common CSS issues: duplicate selectors, empty rule blocks, \
+           duplicate properties within a rule, !important overuse (>5), vendor prefix without standard counterpart, \
+           deep selector chains (>4 levels), invalid hex color lengths, z-index > 9999, unknown pseudo-elements. \
+         `vars` — extract CSS custom properties: defined variables (property starting with --) with their values and \
+           containing selector; usage count per variable (var(--name) references); variables used but not defined. \
+         `stats` — overview: total rules/declarations/unique selectors, at-rule breakdown, top-10 most-used properties, \
+           selector complexity (ID/class/element/deep), color values found, file size and gzip estimate, \
+           !important count, CSS variable usage count. \
+         `minify` — strip comments, collapse whitespace, remove trailing semicolons before closing braces; \
+           shows original vs minified size and percentage reduction. \
+         Input: 'text'/'css' for inline CSS content, or 'file' for a file path. \
+         Example: css_tools(text: '...') or css_tools(action: 'validate', file: 'styles.css') or \
+         css_tools(action: 'vars', css: '...') or css_tools(action: 'stats', file: 'app.css').",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "Operation: parse (default), validate, vars, stats, minify."
+                },
+                "text": {
+                    "type": "string",
+                    "description": "Inline CSS content. Also accepted as 'css' or 'input'."
+                },
+                "file": {
+                    "type": "string",
+                    "description": "Path to a CSS file on disk."
+                }
+            },
+            "required": []
+        }),
+    ));
+    tools.push(make_tool(
         "log_parse_tools",
         "Parse, detect, filter, and aggregate structured log lines without external utilities. \
          Supports JSON Lines, key=value, Apache Common/Combined, and Syslog formats — auto-detected from the first line. \
@@ -5869,6 +5945,8 @@ pub async fn dispatch_builtin_tool(
         "ical_tools" => crate::tools::ical_tools::execute(args).await,
         "graphviz_tools" => crate::tools::graphviz_tools::execute(args).await,
         "mermaid_tools" => crate::tools::mermaid_tools::execute(args).await,
+        "dns_tools" => crate::tools::dns_tools::execute(args).await,
+        "css_tools" => crate::tools::css_tools::execute(args).await,
         "log_parse_tools" => crate::tools::log_parse_tools::execute(args).await,
         "csp_tools" => crate::tools::csp_tools::execute(args).await,
         "robots_txt_tools" => crate::tools::robots_txt_tools::execute(args).await,
