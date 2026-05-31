@@ -8169,6 +8169,65 @@ pub fn needs_calc_tools(user_input: &str) -> bool {
     )
 }
 
+pub fn needs_template_gen(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "generate dockerfile",
+            "create dockerfile",
+            "dockerfile template",
+            "scaffold dockerfile",
+            "generate a makefile",
+            "create a makefile",
+            "makefile template",
+            "generate ci",
+            "generate github actions",
+            "ci pipeline template",
+            "github actions template",
+            "project scaffold",
+            "scaffold project",
+            "scaffold a new",
+            "new project template",
+            "project template",
+            "docker-compose template",
+            "generate docker-compose",
+            "generate .env.example",
+            "env example template",
+            "editorconfig template",
+            "pre-commit config",
+            "dependabot config",
+            "codeowners template",
+            "pr template",
+            "pull request template",
+            "issue template",
+        ],
+    )
+}
+
+pub fn needs_changelog_gen(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "generate changelog",
+            "generate a changelog",
+            "create changelog",
+            "write changelog",
+            "changelog from commits",
+            "changelog from git",
+            "changelog from git log",
+            "generate release notes from",
+            "create release notes from",
+            "write release notes from",
+            "commit history changelog",
+            "git log to changelog",
+            "auto-generate changelog",
+            "conventional commits changelog",
+        ],
+    )
+}
+
 pub fn needs_dependency_audit(user_input: &str) -> bool {
     let lower = user_input.to_lowercase();
     contains_any(

@@ -28,7 +28,7 @@ use crate::agent::recovery_recipes::{
 use crate::agent::routing::{
     all_host_inspection_topics, classify_query_intent, is_capability_probe_tool,
     is_scaffold_request, looks_like_mutation_request, needs_ansi_tools, needs_archive_tools,
-    needs_ascii_tools, needs_base_tools, needs_binary_tools, needs_calc_tools,
+    needs_ascii_tools, needs_base_tools, needs_binary_tools, needs_calc_tools, needs_changelog_gen,
     needs_changelog_tools, needs_char_tools, needs_checksum_tools, needs_cipher_tools,
     needs_code_metrics, needs_color_tools, needs_computation_sandbox, needs_crash_debug,
     needs_cron_tools, needs_csp_tools, needs_csv_tools, needs_data_gen_tools, needs_date_tools,
@@ -47,11 +47,11 @@ use crate::agent::routing::{
     needs_secret_scan, needs_semver_tools, needs_sitemap_tools, needs_size_tools,
     needs_sql_migrate_tools, needs_sql_tools, needs_sqlite_tools, needs_ssh_config_tools,
     needs_stat_tools, needs_string_metric_tools, needs_systemd_tools, needs_table_tools,
-    needs_template_tools, needs_terraform_tools, needs_test_run, needs_text_tools,
-    needs_time_zone_tools, needs_token_tools, needs_toml_tools, needs_unit_tools, needs_url_tools,
-    needs_uuid_gen, needs_validate_tools, needs_word_tools, needs_xml_tools, needs_yaml_tools,
-    preferred_host_inspection_topic, preferred_maintainer_workflow, preferred_workspace_workflow,
-    DirectAnswerKind, QueryIntentClass,
+    needs_template_gen, needs_template_tools, needs_terraform_tools, needs_test_run,
+    needs_text_tools, needs_time_zone_tools, needs_token_tools, needs_toml_tools, needs_unit_tools,
+    needs_url_tools, needs_uuid_gen, needs_validate_tools, needs_word_tools, needs_xml_tools,
+    needs_yaml_tools, preferred_host_inspection_topic, preferred_maintainer_workflow,
+    preferred_workspace_workflow, DirectAnswerKind, QueryIntentClass,
 };
 use crate::agent::tool_registry::dispatch_builtin_tool;
 use crate::agent::truncation::safe_head;
@@ -6443,6 +6443,34 @@ impl ConversationManager {
                  Pass 'file_a' and 'file_b' for two files, or 'file_a' alone to compare against the process env. \
                  With no arguments, auto-detects .env/.env.local pairs in the workspace root. \
                  Example: env_diff(file_a:'.env', file_b:'.env.production') or env_diff(file_a:'.env')"
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_template_gen(&effective_user_input) {
+            loop_intervention = Some(
+                "TEMPLATE GEN NOTICE: Use the `template_gen` tool to generate 23 built-in project scaffolding files \
+                 without external utilities. Pass 'template' to select one; pass template='list' to see all. \
+                 Templates: dockerfile-node, dockerfile-python, dockerfile-rust, dockerfile-go (multi-stage), \
+                 ci-github-node, ci-github-python, ci-github-rust, ci-github-go (Actions workflows), \
+                 gitignore-node, gitignore-python, gitignore-rust, gitignore-go, \
+                 docker-compose, makefile, env-example, pre-commit, editorconfig, \
+                 dependabot, codeowners, pr-template, issue-bug, issue-feature. \
+                 Supports variable substitution via 'project_name', 'port', and language version fields. \
+                 Example: template_gen(template:'dockerfile-rust', project_name:'my-api', port:'8080') or \
+                 template_gen(template:'ci-github-rust') to scaffold a full CI pipeline."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_changelog_gen(&effective_user_input) {
+            loop_intervention = Some(
+                "CHANGELOG GEN NOTICE: Use the `changelog_gen` tool to generate a Markdown changelog \
+                 from git commit history grouped by conventional commit type (feat/fix/perf/refactor/docs/test/chore). \
+                 Optional 'from'/'to' version tags to scope the range, 'title' for the version heading, \
+                 and up to 500 commits processed. Scopes rendered in bold, short hash appended per entry. \
+                 Example: changelog_gen(from:'v0.11.0', title:'v0.12.0') or \
+                 changelog_gen() to generate from all commits."
                     .to_string(),
             );
         }

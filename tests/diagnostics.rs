@@ -27195,3 +27195,53 @@ fn test_routing_detects_env_diff() {
         "should not trigger on unrelated"
     );
 }
+
+#[test]
+fn test_routing_detects_template_gen() {
+    use hematite::agent::routing::needs_template_gen;
+    assert!(
+        needs_template_gen("generate dockerfile for a rust project"),
+        "should detect generate dockerfile"
+    );
+    assert!(
+        needs_template_gen("scaffold a new project structure"),
+        "should detect scaffold project"
+    );
+    assert!(
+        needs_template_gen("generate ci pipeline template"),
+        "should detect ci pipeline template"
+    );
+    assert!(
+        needs_template_gen("create a makefile for this project"),
+        "should detect create a makefile"
+    );
+    assert!(
+        !needs_template_gen("check git status"),
+        "should not trigger on unrelated"
+    );
+}
+
+#[test]
+fn test_routing_detects_changelog_gen() {
+    use hematite::agent::routing::needs_changelog_gen;
+    assert!(
+        needs_changelog_gen("generate changelog from commits"),
+        "should detect changelog from commits"
+    );
+    assert!(
+        needs_changelog_gen("generate a changelog from git log"),
+        "should detect git log changelog"
+    );
+    assert!(
+        needs_changelog_gen("create changelog from git history"),
+        "should detect create changelog from git"
+    );
+    assert!(
+        needs_changelog_gen("write changelog based on conventional commits changelog"),
+        "should detect conventional commits"
+    );
+    assert!(
+        !needs_changelog_gen("show me the build errors"),
+        "should not trigger on unrelated"
+    );
+}
