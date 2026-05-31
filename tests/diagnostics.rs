@@ -27924,7 +27924,12 @@ async fn test_http_parse_tools_cookies() {
     let resp = "HTTP/1.1 200 OK\r\nSet-Cookie: session=abc123; HttpOnly; Secure; SameSite=Strict\r\nSet-Cookie: theme=dark; Path=/\r\n\r\n";
     let args = serde_json::json!({"action": "cookies", "text": resp});
     let result = http_parse_tools::execute(&args).await.unwrap();
-    assert!(result.contains("session") || result.contains("cookie") || result.contains("Cookie") || result.contains("HttpOnly"));
+    assert!(
+        result.contains("session")
+            || result.contains("cookie")
+            || result.contains("Cookie")
+            || result.contains("HttpOnly")
+    );
 }
 
 #[tokio::test]
@@ -27949,7 +27954,8 @@ async fn test_jq_tools_keys() {
 async fn test_jq_tools_filter() {
     use hematite::tools::jq_tools;
     let json = r#"[{"name":"Alice","role":"admin"},{"name":"Bob","role":"user"},{"name":"Charlie","role":"admin"}]"#;
-    let args = serde_json::json!({"action": "filter", "json": json, "field": "role", "value": "admin"});
+    let args =
+        serde_json::json!({"action": "filter", "json": json, "field": "role", "value": "admin"});
     let result = jq_tools::execute(&args).await.unwrap();
     assert!(result.contains("Alice") || result.contains("Charlie") || result.contains("admin"));
 }
@@ -27962,4 +27968,120 @@ async fn test_jq_tools_flatten() {
     let result = jq_tools::execute(&args).await.unwrap();
     // Result should contain 1,2,3,4,5,6 in some form
     assert!(result.contains('1') && result.contains('6'));
+}
+
+// ── pair 17: plist_tools + bencode_tools ─────────────────────────────────────
+
+#[test]
+fn test_routing_detects_plist_tools() {
+    use hematite::agent::routing::needs_plist_tools;
+    assert!(needs_plist_tools("parse this plist file"));
+    assert!(needs_plist_tools("read Info.plist keys"));
+    assert!(needs_plist_tools("validate Info.plist for bundle id"));
+    assert!(needs_plist_tools("convert plist to json"));
+    assert!(needs_plist_tools("plist xml apple"));
+    assert!(!needs_plist_tools("parse json configuration"));
+}
+
+#[test]
+fn test_routing_detects_bencode_tools() {
+    use hematite::agent::routing::needs_bencode_tools;
+    assert!(needs_bencode_tools("decode this bencode data"));
+    assert!(needs_bencode_tools("parse torrent file"));
+    assert!(needs_bencode_tools("list files in torrent"));
+    assert!(needs_bencode_tools("show torrent trackers"));
+    assert!(needs_bencode_tools("bittorrent bencode"));
+    assert!(!needs_bencode_tools("list csv columns"));
+}
+
+#[tokio::test]
+async fn test_plist_tools_parse() {
+    use hematite::tools::plist_tools;
+    let plist = r#"<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleIdentifier</key>
+    <string>com.example.testapp</string>
+    <key>CFBundleVersion</key>
+    <string>2.5.1</string>
+    <key>LSMinimumSystemVersion</key>
+    <string>12.0</string>
+    <key>NSCameraUsageDescription</key>
+    <string>We use your camera to scan QR codes</string>
+    <key>UIBackgroundModes</key>
+    <array>
+        <string>fetch</string>
+    </array>
+</dict>
+</plist>"#;
+    let args = serde_json::json!({"action": "parse", "text": plist});
+    let result = plist_tools::execute(&args).await.unwrap();
+    assert!(result.contains("com.example.testapp") || result.contains("CFBundleIdentifier") || result.contains("2.5.1"));
+}
+
+#[tokio::test]
+async fn test_plist_tools_to_json() {
+    use hematite::tools::plist_tools;
+    let plist = r#"<?xml version="1.0" encoding="UTF-8"?>
+<plist version="1.0">
+<dict>
+    <key>name</key>
+    <string>TestApp</string>
+    <key>version</key>
+    <string>1.0</string>
+    <key>enabled</key>
+    <true/>
+    <key>count</key>
+    <integer>42</integer>
+</dict>
+</plist>"#;
+    let args = serde_json::json!({"action": "to-json", "text": plist});
+    let result = plist_tools::execute(&args).await.unwrap();
+    // Should produce valid JSON-like output
+    assert!(result.contains("TestApp") || result.contains("name") || result.contains("42"));
+}
+
+#[tokio::test]
+async fn test_plist_tools_validate() {
+    use hematite::tools::plist_tools;
+    // Missing CFBundleIdentifier and CFBundleVersion
+    let plist = r#"<?xml version="1.0" encoding="UTF-8"?>
+<plist version="1.0">
+<dict>
+    <key>NSAllowsArbitraryLoads</key>
+    <true/>
+</dict>
+</plist>"#;
+    let args = serde_json::json!({"action": "validate", "text": plist});
+    let result = plist_tools::execute(&args).await.unwrap();
+    assert!(result.contains("CFBundleIdentifier") || result.contains("missing") || result.contains("WARN") || result.contains("Missing"));
+}
+
+#[tokio::test]
+async fn test_bencode_tools_decode() {
+    use hematite::tools::bencode_tools;
+    // Bencode: d4:name5:Alice3:agei30ee = {name: "Alice", age: 30}
+    // In hex: 64 34 3a 6e 61 6d 65 35 3a 41 6c 69 63 65 33 3a 61 67 65 69 33 30 65 65
+    let args = serde_json::json!({
+        "action": "decode",
+        "hex": "6434 3a6e 616d 6535 3a41 6c69 6365 333a 6167 6569 3330 6565"
+    });
+    let result = bencode_tools::execute(&args).await.unwrap();
+    assert!(result.contains("Alice") || result.contains("name") || result.contains("30"));
+}
+
+#[tokio::test]
+async fn test_bencode_tools_decode_list() {
+    use hematite::tools::bencode_tools;
+    // Bencode: l4:spam4:eggse = ["spam", "eggs"]
+    // In hex: 6c 34 3a 73 70 61 6d 34 3a 65 67 67 73 65
+    let args = serde_json::json!({
+        "action": "decode",
+        "hex": "6c343a7370616d343a656767736565"
+    });
+    // Note: bencode is "l4:spam4:eggse" but list needs 'e' end marker
+    // Actual: l 4:spam 4:eggs e = 6c 34 3a 73 70 61 6d 34 3a 65 67 67 73 65
+    let result = bencode_tools::execute(&args).await.unwrap();
+    assert!(result.contains("spam") || result.contains("eggs") || result.contains("list") || result.contains("List"));
 }

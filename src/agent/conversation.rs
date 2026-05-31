@@ -28,33 +28,34 @@ use crate::agent::recovery_recipes::{
 use crate::agent::routing::{
     all_host_inspection_topics, classify_query_intent, is_capability_probe_tool,
     is_scaffold_request, looks_like_mutation_request, needs_ansi_tools, needs_archive_tools,
-    needs_ascii_tools, needs_base_tools, needs_binary_tools, needs_calc_tools, needs_changelog_gen,
-    needs_changelog_tools, needs_char_tools, needs_checksum_tools, needs_cipher_tools,
-    needs_code_metrics, needs_color_tools, needs_computation_sandbox, needs_crash_debug,
-    needs_cron_tools, needs_csp_tools, needs_css_tools, needs_csv_tools, needs_data_gen_tools,
-    needs_date_tools, needs_dependency_audit, needs_diff_tools, needs_dns_tools,
-    needs_docker_compose_tools, needs_docker_ops, needs_dockerfile_tools, needs_dotenv_tools,
-    needs_duration_tools, needs_encode_tools, needs_env_diff, needs_env_schema_tools, needs_format,
-    needs_fraction_tools, needs_geo_tools, needs_geometry_tools, needs_github_actions_tools,
-    needs_github_ops, needs_gitignore_tools, needs_glob_tools, needs_graph_tools,
-    needs_graphql_tools, needs_graphviz_tools, needs_har_tools, needs_hash_tools, needs_hex_tools,
-    needs_http_parse_tools, needs_http_request, needs_http_status_tools, needs_ical_tools,
-    needs_id_tools, needs_ini_tools, needs_ip_tools, needs_jq_tools, needs_json_tools,
-    needs_jwt_tools, needs_k8s_tools, needs_keyval_tools, needs_license_tools, needs_line_tools,
-    needs_lint_check, needs_lock_file_tools, needs_log_parse_tools, needs_make_tools,
-    needs_markdown_tools, needs_matrix_tools, needs_mermaid_tools, needs_mime_tools,
-    needs_money_tools, needs_nato_tools, needs_net_lookup_tools, needs_nginx_conf_tools,
-    needs_number_theory_tools, needs_number_tools, needs_openapi_tools, needs_package_json_tools,
-    needs_password_gen, needs_path_tools, needs_pem_tools, needs_port_check, needs_proto_tools,
-    needs_regex_tools, needs_robots_txt_tools, needs_rss_tools, needs_scientific_compute,
-    needs_secret_scan, needs_semver_tools, needs_sitemap_tools, needs_size_tools,
-    needs_sql_migrate_tools, needs_sql_tools, needs_sqlite_tools, needs_ssh_config_tools,
-    needs_stat_tools, needs_string_metric_tools, needs_systemd_tools, needs_table_tools,
-    needs_template_gen, needs_template_tools, needs_terraform_tools, needs_test_run,
-    needs_text_tools, needs_time_zone_tools, needs_token_tools, needs_toml_tools, needs_unit_tools,
-    needs_url_tools, needs_uuid_gen, needs_validate_tools, needs_word_tools, needs_xml_tools,
-    needs_yaml_tools, preferred_host_inspection_topic, preferred_maintainer_workflow,
-    preferred_workspace_workflow, DirectAnswerKind, QueryIntentClass,
+    needs_ascii_tools, needs_base_tools, needs_bencode_tools, needs_binary_tools, needs_calc_tools,
+    needs_changelog_gen, needs_changelog_tools, needs_char_tools, needs_checksum_tools,
+    needs_cipher_tools, needs_code_metrics, needs_color_tools, needs_computation_sandbox,
+    needs_crash_debug, needs_cron_tools, needs_csp_tools, needs_css_tools, needs_csv_tools,
+    needs_data_gen_tools, needs_date_tools, needs_dependency_audit, needs_diff_tools,
+    needs_dns_tools, needs_docker_compose_tools, needs_docker_ops, needs_dockerfile_tools,
+    needs_dotenv_tools, needs_duration_tools, needs_encode_tools, needs_env_diff,
+    needs_env_schema_tools, needs_format, needs_fraction_tools, needs_geo_tools,
+    needs_geometry_tools, needs_github_actions_tools, needs_github_ops, needs_gitignore_tools,
+    needs_glob_tools, needs_graph_tools, needs_graphql_tools, needs_graphviz_tools,
+    needs_har_tools, needs_hash_tools, needs_hex_tools, needs_http_parse_tools, needs_http_request,
+    needs_http_status_tools, needs_ical_tools, needs_id_tools, needs_ini_tools, needs_ip_tools,
+    needs_jq_tools, needs_json_tools, needs_jwt_tools, needs_k8s_tools, needs_keyval_tools,
+    needs_license_tools, needs_line_tools, needs_lint_check, needs_lock_file_tools,
+    needs_log_parse_tools, needs_make_tools, needs_markdown_tools, needs_matrix_tools,
+    needs_mermaid_tools, needs_mime_tools, needs_money_tools, needs_nato_tools,
+    needs_net_lookup_tools, needs_nginx_conf_tools, needs_number_theory_tools, needs_number_tools,
+    needs_openapi_tools, needs_package_json_tools, needs_password_gen, needs_path_tools,
+    needs_pem_tools, needs_plist_tools, needs_port_check, needs_proto_tools, needs_regex_tools,
+    needs_robots_txt_tools, needs_rss_tools, needs_scientific_compute, needs_secret_scan,
+    needs_semver_tools, needs_sitemap_tools, needs_size_tools, needs_sql_migrate_tools,
+    needs_sql_tools, needs_sqlite_tools, needs_ssh_config_tools, needs_stat_tools,
+    needs_string_metric_tools, needs_systemd_tools, needs_table_tools, needs_template_gen,
+    needs_template_tools, needs_terraform_tools, needs_test_run, needs_text_tools,
+    needs_time_zone_tools, needs_token_tools, needs_toml_tools, needs_unit_tools, needs_url_tools,
+    needs_uuid_gen, needs_validate_tools, needs_word_tools, needs_xml_tools, needs_yaml_tools,
+    preferred_host_inspection_topic, preferred_maintainer_workflow, preferred_workspace_workflow,
+    DirectAnswerKind, QueryIntentClass,
 };
 use crate::agent::tool_registry::dispatch_builtin_tool;
 use crate::agent::truncation::safe_head;
@@ -6706,6 +6707,39 @@ impl ConversationManager {
                  Pass 'text'/'css' for inline CSS or 'file' for a path. \
                  Example: css_tools(text: '...') or css_tools(action: 'validate', file: 'styles.css') or \
                  css_tools(action: 'stats', file: 'app.css')."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_plist_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "PLIST NOTICE: Use the `plist_tools` tool to parse, inspect, validate, and convert \
+                 Apple Property List (plist) XML files without external utilities. \
+                 Actions: parse (default — human-readable indented tree; highlights bundle ID, version, ATS, permissions), \
+                 get (navigate to any value by dot-path like 'NSAppTransportSecurity.NSAllowsArbitraryLoads'), \
+                 keys (list top-level or nested keys with type and value preview), \
+                 validate (check for missing required keys, NSAllowsArbitraryLoads=true, missing UsageDescription), \
+                 to-json (convert plist to pretty-printed JSON). \
+                 Pass 'file' for a .plist path or 'text'/'plist'/'xml' for inline plist XML. \
+                 Example: plist_tools(action: 'parse', file: 'Info.plist') or \
+                 plist_tools(action: 'get', file: 'Info.plist', path: 'CFBundleVersion') or \
+                 plist_tools(action: 'validate', file: 'MyApp/Info.plist')."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_bencode_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "BENCODE NOTICE: Use the `bencode_tools` tool to decode and inspect BitTorrent bencode \
+                 format and .torrent files without external utilities. \
+                 Actions: decode (default — human-readable indented tree with type annotations), \
+                 info (torrent summary: name, file count, total size, piece size, tracker, creator, creation date), \
+                 files (list all files with path, size, and cumulative offset), \
+                 trackers (all tracker URLs grouped by tier with UDP/HTTP/HTTPS distinction). \
+                 Pass 'file' for a .torrent path, 'hex' for hex-encoded bencode bytes, or 'text' for raw bencode. \
+                 Example: bencode_tools(action: 'info', file: 'download.torrent') or \
+                 bencode_tools(action: 'files', file: 'archive.torrent') or \
+                 bencode_tools(action: 'trackers', file: 'movie.torrent')."
                     .to_string(),
             );
         }

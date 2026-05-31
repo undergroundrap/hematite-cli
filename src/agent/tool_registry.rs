@@ -5889,6 +5889,79 @@ pub fn get_tools() -> Vec<ToolDefinition> {
             }
         }),
     ));
+    tools.push(make_tool(
+        "plist_tools",
+        "Parse, inspect, query, validate, and convert Apple Property List (plist) XML files — Info.plist, preference files, iOS/macOS app metadata — without external utilities. \
+         Actions: \
+         `parse` (default) — display the plist as a human-readable indented tree; highlights Notable Keys for Info.plist files (bundle ID, version, min OS, ATS, permission strings); \
+         `get` — navigate to any value by dot-path (e.g. 'NSAppTransportSecurity.NSAllowsArbitraryLoads' or 'UIBackgroundModes[0]'); \
+         `keys` — list top-level keys (or keys at a nested path) with type and value preview; \
+         `validate` — check for common Info.plist issues: missing CFBundleIdentifier/CFBundleVersion, NSAllowsArbitraryLoads=true, permission booleans without UsageDescription; \
+         `to-json` — convert the plist to pretty-printed JSON. \
+         Accepts 'text'/'plist'/'xml' for inline plist XML or 'file' for a file path. \
+         Example: plist_tools(action: 'parse', file: 'MyApp/Info.plist') or \
+         plist_tools(action: 'get', file: 'Info.plist', path: 'CFBundleVersion') or \
+         plist_tools(action: 'validate', file: 'Info.plist') or \
+         plist_tools(action: 'to-json', text: '<plist version=\"1.0\">...</plist>').",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "parse (default), get, keys, validate, to-json"
+                },
+                "file": {
+                    "type": "string",
+                    "description": "Path to a plist XML file (e.g. 'Info.plist', 'MyApp/Info.plist')."
+                },
+                "text": {
+                    "type": "string",
+                    "description": "Inline plist XML string. Also accepted as 'plist' or 'xml'."
+                },
+                "path": {
+                    "type": "string",
+                    "description": "Dot-path for the 'get' and 'keys' actions (e.g. 'NSAppTransportSecurity' or 'UIBackgroundModes[0]')."
+                }
+            },
+            "required": []
+        }),
+    ));
+    tools.push(make_tool(
+        "bencode_tools",
+        "Parse, decode, and inspect BitTorrent bencode format — .torrent files, BitTorrent protocol messages — without external utilities. \
+         Actions: \
+         `decode` (default) — decode and display bencode in a human-readable indented tree; shows type annotations for integers and binary blobs; \
+         `info` — parse as a .torrent file and show a structured summary: name, file count, total size, piece size, piece count, tracker, creator, creation date, comment; \
+         `files` — list all files in a torrent: path, size, and cumulative offset (multi-file) or single-file name and size; \
+         `trackers` — list all tracker URLs from 'announce' and 'announce-list', grouped by tier, with UDP/HTTP/HTTPS distinction and unique domain count. \
+         Accepts 'file' (path to .torrent/.bencode file), 'hex' (hex-encoded bencode bytes), or 'text' (raw bencode string). \
+         Example: bencode_tools(action: 'info', file: 'download.torrent') or \
+         bencode_tools(action: 'files', file: 'archive.torrent') or \
+         bencode_tools(action: 'trackers', file: 'movie.torrent') or \
+         bencode_tools(action: 'decode', hex: '6934 3265').",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "decode (default), info, files, trackers"
+                },
+                "file": {
+                    "type": "string",
+                    "description": "Path to a .torrent or .bencode file."
+                },
+                "hex": {
+                    "type": "string",
+                    "description": "Hex-encoded bencode bytes (whitespace ignored)."
+                },
+                "text": {
+                    "type": "string",
+                    "description": "Raw bencode string (for ASCII-safe portions). Also accepted as 'input'."
+                }
+            },
+            "required": []
+        }),
+    ));
     let lsp_defs = crate::tools::lsp_tools::get_lsp_definitions();
     tools.push(make_tool(
         "lsp_search_symbol",
@@ -6043,6 +6116,8 @@ pub async fn dispatch_builtin_tool(
         "validate_tools" => crate::tools::validate_tools::execute(args).await,
         "token_tools" => crate::tools::token_tools::execute(args).await,
         "mime_tools" => crate::tools::mime_tools::execute(args).await,
+        "plist_tools" => crate::tools::plist_tools::execute(args).await,
+        "bencode_tools" => crate::tools::bencode_tools::execute(args).await,
         "http_status_tools" => crate::tools::http_status_tools::execute(args).await,
         "http_parse_tools" => crate::tools::http_parse_tools::execute(args).await,
         "jq_tools" => crate::tools::jq_tools::execute(args).await,

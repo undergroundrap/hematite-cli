@@ -8703,6 +8703,57 @@ pub fn needs_code_metrics(user_input: &str) -> bool {
     )
 }
 
+/// Returns true when the user wants to parse or inspect a plist file — steer toward `plist_tools`.
+pub fn needs_plist_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "plist",
+            "info.plist",
+            "cfbundle",
+            "apple property list",
+            "ios app metadata",
+            "macos plist",
+            "parse plist",
+            "validate plist",
+            "plist to json",
+            "nstransport",
+            "nsallowsarbitraryloads",
+            "nsapptransportsecurity",
+            "nsusagedescription",
+            "minimum os version",
+            "lsminimum",
+        ],
+    )
+}
+
+/// Returns true when the user wants to decode or inspect bencode or a .torrent file — steer toward `bencode_tools`.
+pub fn needs_bencode_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "bencode",
+            "bencoded",
+            ".torrent",
+            "torrent file",
+            "parse torrent",
+            "decode torrent",
+            "torrent info",
+            "torrent tracker",
+            "torrent files",
+            "files in torrent",
+            "piece length",
+            "announce list",
+            "bittorrent",
+            "magnet link metadata",
+            "torrent metadata",
+            "inspect torrent",
+        ],
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
