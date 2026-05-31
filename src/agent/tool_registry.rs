@@ -5317,6 +5317,131 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         }),
     ));
     tools.push(make_tool(
+        "graphviz_tools",
+        "Generate and parse DOT language graph descriptions without external utilities. \
+         Actions: generate (default — DOT output from 'nodes' + 'edges'; 'directed: true' for digraph; 'name', 'rankdir' TK/LR/RL/BT options), \
+         parse (extract nodes and edges from DOT source; pass 'dot' or 'text'), \
+         flowchart (sequential flowchart from 'steps' array with optional 'start'/'end' labels), \
+         tree (tree DOT from 'root' string + 'children' array of strings or {label, children?} objects). \
+         Nodes: strings or {id, label} objects. Edges: {from, to, label?} or [from, to, label?] arrays. \
+         Output includes DOT source and render commands (dot -Tpng, dot -Tsvg, dot -Tpdf). \
+         Example: graphviz_tools(action: 'generate', directed: true, nodes: ['A','B','C'], edges: [{from:'A',to:'B',label:'step1'},{from:'B',to:'C'}]) or \
+         graphviz_tools(action: 'flowchart', steps: ['Input','Validate','Process','Output']).",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "generate (default), parse, flowchart, tree"
+                },
+                "nodes": {
+                    "type": "array",
+                    "description": "Node list — strings or {id, label} objects."
+                },
+                "edges": {
+                    "type": "array",
+                    "description": "Edge list — {from, to, label?} objects or [from, to, label?] arrays."
+                },
+                "directed": {
+                    "type": "boolean",
+                    "description": "True for directed graph / digraph (default: false)."
+                },
+                "name": {
+                    "type": "string",
+                    "description": "Graph name (default: G)."
+                },
+                "rankdir": {
+                    "type": "string",
+                    "description": "Layout direction: TB (top-bottom, default), LR, RL, BT."
+                },
+                "dot": {
+                    "type": "string",
+                    "description": "DOT source to parse (for 'parse' action). Also 'text'."
+                },
+                "steps": {
+                    "type": "array",
+                    "description": "Sequential step labels for 'flowchart' action."
+                },
+                "root": {
+                    "type": "string",
+                    "description": "Root node label for 'tree' action."
+                },
+                "children": {
+                    "type": "array",
+                    "description": "Children array for 'tree' action — strings or {label, children?} objects."
+                }
+            },
+            "required": []
+        }),
+    ));
+    tools.push(make_tool(
+        "mermaid_tools",
+        "Generate Mermaid.js diagram syntax without external utilities. Output is a fenced mermaid code block. \
+         Actions: flowchart (default — from 'nodes'+'edges' or 'steps'; 'direction': TD/LR/RL/BT), \
+         sequence (from 'messages': [{from, to, text, type?}]; type: sync/async/lost), \
+         class (from 'classes': [{name, fields?, methods?, relationships?}]), \
+         gantt (from 'sections': [{name, tasks: [{name, start, duration, status?}]}]; 'title', 'date_format'), \
+         pie (from 'data': {label: value}; 'title'), \
+         er (from 'entities' + 'relationships': [{left, right, cardinality, label}]). \
+         Paste output into GitHub, GitLab, Notion, Obsidian, or mermaid.live. \
+         Example: mermaid_tools(action: 'sequence', messages: [{from:'Client',to:'API',text:'POST /login'},{from:'API',to:'Client',text:'200 OK',type:'async'}]) or \
+         mermaid_tools(action: 'pie', title: 'Traffic', data: {\"API\": 45, \"Web\": 35, \"Mobile\": 20}).",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "flowchart (default), sequence, class, gantt, pie, er"
+                },
+                "steps": {
+                    "type": "array",
+                    "description": "Sequential step labels for flowchart shorthand."
+                },
+                "nodes": {
+                    "type": "array",
+                    "description": "Node list for flowchart — strings or {id, label, shape?} objects."
+                },
+                "edges": {
+                    "type": "array",
+                    "description": "Edge list for flowchart — {from, to, label?, style?} or [from, to, label?] arrays."
+                },
+                "direction": {
+                    "type": "string",
+                    "description": "Flowchart direction: TD (default), LR, RL, BT."
+                },
+                "messages": {
+                    "type": "array",
+                    "description": "Sequence diagram messages — [{from, to, text, type?}]. type: sync/async/lost."
+                },
+                "classes": {
+                    "type": "array",
+                    "description": "Class diagram classes — [{name, fields?, methods?, relationships?}]."
+                },
+                "sections": {
+                    "type": "array",
+                    "description": "Gantt chart sections — [{name, tasks: [{name, start, duration, status?}]}]."
+                },
+                "entities": {
+                    "type": "array",
+                    "description": "ER diagram entities — [{name, attributes?}]."
+                },
+                "relationships": {
+                    "type": "array",
+                    "description": "ER relationships — [{left, right, cardinality, label}]."
+                },
+                "data": {
+                    "type": "object",
+                    "description": "Pie chart data — {label: value} object."
+                },
+                "title": {
+                    "type": "string",
+                    "description": "Chart/diagram title."
+                }
+            },
+            "required": []
+        }),
+    ));
+    tools.push(make_tool(
         "hex_tools",
         "Hex dump, binary analysis, and hex encoding/decoding without external utilities. \
          Actions: \
@@ -5742,6 +5867,8 @@ pub async fn dispatch_builtin_tool(
         "matrix_tools" => crate::tools::matrix_tools::execute(args).await,
         "har_tools" => crate::tools::har_tools::execute(args).await,
         "ical_tools" => crate::tools::ical_tools::execute(args).await,
+        "graphviz_tools" => crate::tools::graphviz_tools::execute(args).await,
+        "mermaid_tools" => crate::tools::mermaid_tools::execute(args).await,
         "log_parse_tools" => crate::tools::log_parse_tools::execute(args).await,
         "csp_tools" => crate::tools::csp_tools::execute(args).await,
         "robots_txt_tools" => crate::tools::robots_txt_tools::execute(args).await,

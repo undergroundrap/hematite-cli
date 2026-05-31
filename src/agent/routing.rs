@@ -7602,6 +7602,54 @@ pub fn needs_terraform_tools(user_input: &str) -> bool {
         || lower.ends_with(".tf")
 }
 
+pub fn needs_graphviz_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "dot language",
+            "graphviz",
+            "generate dot",
+            "dot graph",
+            "digraph",
+            "dot file",
+            ".dot file",
+            "generate flowchart dot",
+            "generate dot diagram",
+            "dot format",
+            "dot syntax",
+            "render with dot",
+            "graphviz flowchart",
+            "graphviz tree",
+        ],
+    )
+}
+
+pub fn needs_mermaid_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "mermaid diagram",
+            "mermaid chart",
+            "mermaid flowchart",
+            "mermaid sequence",
+            "mermaid class diagram",
+            "mermaid gantt",
+            "mermaid er",
+            "mermaid pie",
+            "mermaid.js",
+            "generate mermaid",
+            "sequence diagram",
+            "class diagram",
+            "er diagram",
+            "gantt chart",
+            "mermaid syntax",
+            "mermaid code",
+        ],
+    )
+}
+
 pub fn needs_graphql_tools(user_input: &str) -> bool {
     let lower = user_input.to_lowercase();
     contains_any(

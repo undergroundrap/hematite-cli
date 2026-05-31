@@ -36,22 +36,23 @@ use crate::agent::routing::{
     needs_dockerfile_tools, needs_dotenv_tools, needs_duration_tools, needs_encode_tools,
     needs_env_diff, needs_env_schema_tools, needs_format, needs_fraction_tools, needs_geo_tools,
     needs_geometry_tools, needs_github_actions_tools, needs_github_ops, needs_gitignore_tools,
-    needs_glob_tools, needs_graph_tools, needs_graphql_tools, needs_har_tools, needs_hash_tools,
-    needs_hex_tools, needs_http_request, needs_http_status_tools, needs_ical_tools, needs_id_tools,
-    needs_ini_tools, needs_ip_tools, needs_json_tools, needs_jwt_tools, needs_k8s_tools,
-    needs_keyval_tools, needs_license_tools, needs_line_tools, needs_lint_check,
-    needs_lock_file_tools, needs_log_parse_tools, needs_make_tools, needs_markdown_tools,
-    needs_matrix_tools, needs_mime_tools, needs_money_tools, needs_nato_tools,
-    needs_net_lookup_tools, needs_nginx_conf_tools, needs_number_theory_tools, needs_number_tools,
-    needs_openapi_tools, needs_package_json_tools, needs_password_gen, needs_path_tools,
-    needs_pem_tools, needs_port_check, needs_proto_tools, needs_regex_tools,
-    needs_robots_txt_tools, needs_rss_tools, needs_scientific_compute, needs_secret_scan,
-    needs_semver_tools, needs_sitemap_tools, needs_size_tools, needs_sql_migrate_tools,
-    needs_sql_tools, needs_sqlite_tools, needs_ssh_config_tools, needs_stat_tools,
-    needs_string_metric_tools, needs_systemd_tools, needs_table_tools, needs_template_gen,
-    needs_template_tools, needs_terraform_tools, needs_test_run, needs_text_tools,
-    needs_time_zone_tools, needs_token_tools, needs_toml_tools, needs_unit_tools, needs_url_tools,
-    needs_uuid_gen, needs_validate_tools, needs_word_tools, needs_xml_tools, needs_yaml_tools,
+    needs_glob_tools, needs_graph_tools, needs_graphql_tools, needs_graphviz_tools,
+    needs_har_tools, needs_hash_tools, needs_hex_tools, needs_http_request,
+    needs_http_status_tools, needs_ical_tools, needs_id_tools, needs_ini_tools, needs_ip_tools,
+    needs_json_tools, needs_jwt_tools, needs_k8s_tools, needs_keyval_tools, needs_license_tools,
+    needs_line_tools, needs_lint_check, needs_lock_file_tools, needs_log_parse_tools,
+    needs_make_tools, needs_markdown_tools, needs_matrix_tools, needs_mermaid_tools,
+    needs_mime_tools, needs_money_tools, needs_nato_tools, needs_net_lookup_tools,
+    needs_nginx_conf_tools, needs_number_theory_tools, needs_number_tools, needs_openapi_tools,
+    needs_package_json_tools, needs_password_gen, needs_path_tools, needs_pem_tools,
+    needs_port_check, needs_proto_tools, needs_regex_tools, needs_robots_txt_tools,
+    needs_rss_tools, needs_scientific_compute, needs_secret_scan, needs_semver_tools,
+    needs_sitemap_tools, needs_size_tools, needs_sql_migrate_tools, needs_sql_tools,
+    needs_sqlite_tools, needs_ssh_config_tools, needs_stat_tools, needs_string_metric_tools,
+    needs_systemd_tools, needs_table_tools, needs_template_gen, needs_template_tools,
+    needs_terraform_tools, needs_test_run, needs_text_tools, needs_time_zone_tools,
+    needs_token_tools, needs_toml_tools, needs_unit_tools, needs_url_tools, needs_uuid_gen,
+    needs_validate_tools, needs_word_tools, needs_xml_tools, needs_yaml_tools,
     preferred_host_inspection_topic, preferred_maintainer_workflow, preferred_workspace_workflow,
     DirectAnswerKind, QueryIntentClass,
 };
@@ -5864,6 +5865,39 @@ impl ConversationManager {
                  Example: ical_tools(action: 'parse', file: 'calendar.ics') or \
                  ical_tools(action: 'search', file: 'calendar.ics', query: 'sprint') or \
                  ical_tools(action: 'info', text: '...')."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_graphviz_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "GRAPHVIZ TOOLS NOTICE: Use the `graphviz_tools` tool to generate and parse DOT language graph descriptions without external utilities. \
+                 Actions: generate (default — generate DOT output from 'nodes' array and 'edges' array; pass 'directed: true' for digraph; 'name', 'rankdir' options), \
+                 parse (parse DOT source and extract node/edge lists; pass 'dot' or 'text' with the DOT source), \
+                 flowchart (generate a sequential flowchart from a 'steps' array with optional 'start'/'end' labels), \
+                 tree (generate a tree DOT from 'root' + 'children' array of {label, children?} objects or strings). \
+                 Nodes: array of strings or {id, label} objects. \
+                 Edges: array of {from, to, label?} objects or [from, to, label?] arrays. \
+                 Output includes the DOT source and render commands (dot -Tpng, dot -Tsvg). \
+                 Example: graphviz_tools(action: 'generate', directed: true, nodes: ['A','B','C'], edges: [{from:'A',to:'B'},{from:'B',to:'C'}]) or \
+                 graphviz_tools(action: 'flowchart', steps: ['Input','Validate','Process','Output'])."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_mermaid_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "MERMAID TOOLS NOTICE: Use the `mermaid_tools` tool to generate Mermaid.js diagram syntax without external utilities. \
+                 Actions: flowchart (default — flowchart from 'nodes'+'edges' or 'steps'; 'direction': TD/LR/RL/BT), \
+                 sequence (sequence diagram from 'messages': [{from, to, text, type?}]; types: sync/async/lost), \
+                 class (class diagram from 'classes': [{name, fields?, methods?, relationships?}]), \
+                 gantt (Gantt chart from 'sections': [{name, tasks: [{name, start, duration, status?}]}]; 'title', 'date_format'), \
+                 pie (pie chart from 'data': {\"label\": value} object; 'title'), \
+                 er (ER diagram from 'entities': [{name, attributes?}] and 'relationships': [{left, right, cardinality, label}]). \
+                 Output is a fenced ```mermaid code block ready to paste into GitHub, GitLab, Notion, Obsidian, or mermaid.live. \
+                 Example: mermaid_tools(action: 'flowchart', steps: ['Start','Process','End']) or \
+                 mermaid_tools(action: 'sequence', messages: [{from:'Client',to:'Server',text:'GET /api'},{from:'Server',to:'Client',text:'200 OK',type:'async'}]) or \
+                 mermaid_tools(action: 'pie', title: 'Traffic', data: {\"API\": 45, \"Web\": 35, \"Mobile\": 20})."
                     .to_string(),
             );
         }

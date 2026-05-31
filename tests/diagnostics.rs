@@ -27558,3 +27558,96 @@ async fn test_har_tools_summary() {
         "should show entry count"
     );
 }
+
+#[test]
+fn test_routing_detects_graphviz_tools() {
+    use hematite::agent::routing::needs_graphviz_tools;
+    assert!(needs_graphviz_tools("generate dot language graph"), "should detect dot language");
+    assert!(needs_graphviz_tools("create a graphviz diagram"), "should detect graphviz");
+    assert!(needs_graphviz_tools("render with dot -Tpng"), "should detect render with dot");
+    assert!(needs_graphviz_tools("generate dot file for this structure"), "should detect dot file");
+    assert!(!needs_graphviz_tools("show me a line chart"), "should not match line chart");
+}
+
+#[test]
+fn test_routing_detects_mermaid_tools() {
+    use hematite::agent::routing::needs_mermaid_tools;
+    assert!(needs_mermaid_tools("generate a mermaid diagram"), "should detect mermaid diagram");
+    assert!(needs_mermaid_tools("create a sequence diagram"), "should detect sequence diagram");
+    assert!(needs_mermaid_tools("class diagram for this code"), "should detect class diagram");
+    assert!(needs_mermaid_tools("make a gantt chart"), "should detect gantt chart");
+    assert!(needs_mermaid_tools("er diagram for the database"), "should detect er diagram");
+    assert!(!needs_mermaid_tools("show bar chart data"), "should not match bar chart");
+}
+
+#[tokio::test]
+async fn test_graphviz_tools_generate() {
+    use hematite::tools::graphviz_tools::execute;
+    let args = serde_json::json!({
+        "action": "generate",
+        "directed": true,
+        "nodes": ["Build", "Test", "Deploy"],
+        "edges": [{"from": "Build", "to": "Test"}, {"from": "Test", "to": "Deploy"}]
+    });
+    let result = execute(&args).await;
+    assert!(result.is_ok(), "graphviz generate should succeed: {:?}", result);
+    let out = result.unwrap();
+    assert!(out.contains("digraph") || out.contains("DOT"), "should contain digraph or DOT");
+    assert!(out.contains("Build") || out.contains("build"), "should reference Build node");
+}
+
+#[tokio::test]
+async fn test_graphviz_tools_flowchart() {
+    use hematite::tools::graphviz_tools::execute;
+    let args = serde_json::json!({
+        "action": "flowchart",
+        "steps": ["Input", "Validate", "Process", "Output"]
+    });
+    let result = execute(&args).await;
+    assert!(result.is_ok(), "graphviz flowchart should succeed: {:?}", result);
+    let out = result.unwrap();
+    assert!(out.contains("digraph") || out.contains("step"), "should have digraph/steps");
+}
+
+#[tokio::test]
+async fn test_mermaid_tools_flowchart() {
+    use hematite::tools::mermaid_tools::execute;
+    let args = serde_json::json!({
+        "action": "flowchart",
+        "steps": ["Start", "Process", "End"]
+    });
+    let result = execute(&args).await;
+    assert!(result.is_ok(), "mermaid flowchart should succeed: {:?}", result);
+    let out = result.unwrap();
+    assert!(out.contains("flowchart") || out.contains("mermaid"), "should contain flowchart");
+}
+
+#[tokio::test]
+async fn test_mermaid_tools_sequence() {
+    use hematite::tools::mermaid_tools::execute;
+    let args = serde_json::json!({
+        "action": "sequence",
+        "messages": [
+            {"from": "Client", "to": "Server", "text": "GET /api"},
+            {"from": "Server", "to": "Client", "text": "200 OK", "type": "async"}
+        ]
+    });
+    let result = execute(&args).await;
+    assert!(result.is_ok(), "mermaid sequence should succeed: {:?}", result);
+    let out = result.unwrap();
+    assert!(out.contains("sequenceDiagram") || out.contains("Client"), "should have sequence content");
+}
+
+#[tokio::test]
+async fn test_mermaid_tools_pie() {
+    use hematite::tools::mermaid_tools::execute;
+    let args = serde_json::json!({
+        "action": "pie",
+        "title": "Traffic Sources",
+        "data": {"API": 45.0, "Web": 35.0, "Mobile": 20.0}
+    });
+    let result = execute(&args).await;
+    assert!(result.is_ok(), "mermaid pie should succeed: {:?}", result);
+    let out = result.unwrap();
+    assert!(out.contains("pie") || out.contains("Traffic"), "should have pie content");
+}
