@@ -8169,6 +8169,63 @@ pub fn needs_calc_tools(user_input: &str) -> bool {
     )
 }
 
+pub fn needs_dependency_audit(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "dependency audit",
+            "audit dependencies",
+            "audit deps",
+            "check dependencies",
+            "outdated dependencies",
+            "outdated deps",
+            "pinned versions",
+            "wildcard version",
+            "unpinned dep",
+            "dependency versions",
+            "cargo dependencies",
+            "npm dependencies",
+            "python dependencies",
+            "requirements.txt",
+            "pyproject.toml dep",
+            "go.mod dep",
+            "missing lock file",
+            "lock file missing",
+            "deprecated package",
+            "scan dependencies",
+        ],
+    )
+}
+
+pub fn needs_env_diff(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "env diff",
+            "diff env",
+            "compare env",
+            ".env diff",
+            ".env compare",
+            "compare .env",
+            "env file diff",
+            "environment diff",
+            "diff environment",
+            "env variables diff",
+            "missing env vars",
+            "env mismatch",
+            "env changes",
+            "env vs production",
+            "env vs staging",
+            "dotenv diff",
+            "env added",
+            "env removed",
+            "env changed",
+        ],
+    )
+}
+
 pub fn needs_json_tools(user_input: &str) -> bool {
     let lower = user_input.to_lowercase();
     contains_any(

@@ -27145,3 +27145,53 @@ fn test_routing_detects_code_metrics() {
         "should not trigger on unrelated"
     );
 }
+
+#[test]
+fn test_routing_detects_dependency_audit() {
+    use hematite::agent::routing::needs_dependency_audit;
+    assert!(
+        needs_dependency_audit("audit dependencies for this project"),
+        "should detect audit deps"
+    );
+    assert!(
+        needs_dependency_audit("check outdated dependencies"),
+        "should detect outdated deps"
+    );
+    assert!(
+        needs_dependency_audit("wildcard version in cargo.toml"),
+        "should detect wildcard version"
+    );
+    assert!(
+        needs_dependency_audit("scan dependencies for issues"),
+        "should detect scan deps"
+    );
+    assert!(
+        !needs_dependency_audit("run the test suite"),
+        "should not trigger on unrelated"
+    );
+}
+
+#[test]
+fn test_routing_detects_env_diff() {
+    use hematite::agent::routing::needs_env_diff;
+    assert!(
+        needs_env_diff("env diff between local and production"),
+        "should detect env diff"
+    );
+    assert!(
+        needs_env_diff("compare env files"),
+        "should detect compare env"
+    );
+    assert!(
+        needs_env_diff("env mismatch between environments"),
+        "should detect env mismatch"
+    );
+    assert!(
+        needs_env_diff("show env changes between branches"),
+        "should detect env changes"
+    );
+    assert!(
+        !needs_env_diff("list all routes in the app"),
+        "should not trigger on unrelated"
+    );
+}

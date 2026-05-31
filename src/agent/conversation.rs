@@ -32,11 +32,11 @@ use crate::agent::routing::{
     needs_changelog_tools, needs_char_tools, needs_checksum_tools, needs_cipher_tools,
     needs_code_metrics, needs_color_tools, needs_computation_sandbox, needs_crash_debug,
     needs_cron_tools, needs_csp_tools, needs_csv_tools, needs_data_gen_tools, needs_date_tools,
-    needs_diff_tools, needs_docker_compose_tools, needs_docker_ops, needs_dockerfile_tools,
-    needs_dotenv_tools, needs_duration_tools, needs_encode_tools, needs_env_schema_tools,
-    needs_format, needs_fraction_tools, needs_geo_tools, needs_geometry_tools,
-    needs_github_actions_tools, needs_github_ops, needs_gitignore_tools, needs_glob_tools,
-    needs_graphql_tools, needs_hash_tools, needs_hex_tools, needs_http_request,
+    needs_dependency_audit, needs_diff_tools, needs_docker_compose_tools, needs_docker_ops,
+    needs_dockerfile_tools, needs_dotenv_tools, needs_duration_tools, needs_encode_tools,
+    needs_env_diff, needs_env_schema_tools, needs_format, needs_fraction_tools, needs_geo_tools,
+    needs_geometry_tools, needs_github_actions_tools, needs_github_ops, needs_gitignore_tools,
+    needs_glob_tools, needs_graphql_tools, needs_hash_tools, needs_hex_tools, needs_http_request,
     needs_http_status_tools, needs_id_tools, needs_ini_tools, needs_ip_tools, needs_json_tools,
     needs_jwt_tools, needs_k8s_tools, needs_keyval_tools, needs_license_tools, needs_line_tools,
     needs_lint_check, needs_lock_file_tools, needs_log_parse_tools, needs_make_tools,
@@ -6418,6 +6418,31 @@ impl ConversationManager {
                  TODO+FIXME count, top 10 largest files, language breakdown by extension, \
                  and test file ratio as a coverage proxy. \
                  Example: code_metrics() for the whole workspace, code_metrics(path:'src') for a subdirectory."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_dependency_audit(&effective_user_input) {
+            loop_intervention = Some(
+                "DEPENDENCY AUDIT NOTICE: Use the `dependency_audit` tool to audit Cargo.toml, package.json, \
+                 requirements.txt/pyproject.toml, and go.mod for pinning issues, wildcard versions, deprecated packages, \
+                 missing lock files, and outdated major versions. No network required. \
+                 Pass 'path' for the project root (defaults to workspace root). \
+                 Output: per-manifest findings (pinning warnings, wildcard versions, missing lock file) \
+                 and recommendations for cargo audit/npm audit/safety for CVE scanning. \
+                 Example: dependency_audit() for the workspace or dependency_audit(path:'my-project')"
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_env_diff(&effective_user_input) {
+            loop_intervention = Some(
+                "ENV DIFF NOTICE: Use the `env_diff` tool to compare two .env files or a .env file against \
+                 the live process environment. Findings: additions (+), removals (-), changed values (~) — \
+                 secret values are automatically redacted. \
+                 Pass 'file_a' and 'file_b' for two files, or 'file_a' alone to compare against the process env. \
+                 With no arguments, auto-detects .env/.env.local pairs in the workspace root. \
+                 Example: env_diff(file_a:'.env', file_b:'.env.production') or env_diff(file_a:'.env')"
                     .to_string(),
             );
         }
