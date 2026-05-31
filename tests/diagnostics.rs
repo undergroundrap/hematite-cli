@@ -27095,3 +27095,53 @@ fn test_routing_detects_id_tools() {
     assert!(needs_id_tools("decode ulid"), "decode ulid");
     assert!(needs_id_tools("time-sortable id"), "time-sortable");
 }
+
+#[test]
+fn test_routing_detects_json_tools() {
+    use hematite::agent::routing::needs_json_tools;
+    assert!(
+        needs_json_tools("pretty print json"),
+        "should detect pretty print json"
+    );
+    assert!(
+        needs_json_tools("query json with jq query"),
+        "should detect jq query"
+    );
+    assert!(
+        needs_json_tools("get a value from json path"),
+        "should detect json path"
+    );
+    assert!(
+        needs_json_tools("validate json document"),
+        "should detect validate json"
+    );
+    assert!(
+        !needs_json_tools("write a rust function"),
+        "should not trigger on unrelated"
+    );
+}
+
+#[test]
+fn test_routing_detects_code_metrics() {
+    use hematite::agent::routing::needs_code_metrics;
+    assert!(
+        needs_code_metrics("show me code metrics for this project"),
+        "should detect code metrics"
+    );
+    assert!(
+        needs_code_metrics("how many lines of code are in src"),
+        "should detect lines of code"
+    );
+    assert!(
+        needs_code_metrics("count lines of code"),
+        "should detect count loc"
+    );
+    assert!(
+        needs_code_metrics("show language breakdown"),
+        "should detect language breakdown"
+    );
+    assert!(
+        !needs_code_metrics("deploy to production"),
+        "should not trigger on unrelated"
+    );
+}

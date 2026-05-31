@@ -8169,6 +8169,67 @@ pub fn needs_calc_tools(user_input: &str) -> bool {
     )
 }
 
+pub fn needs_json_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "json query",
+            "jq query",
+            "query json",
+            "parse json",
+            "pretty print json",
+            "format json",
+            "json path",
+            "json filter",
+            "json get ",
+            "json keys",
+            "json sort",
+            "json diff",
+            "diff json",
+            "json merge",
+            "merge json",
+            "json to csv",
+            "json schema",
+            "json validate",
+            "validate json",
+            "json stats",
+            "json transform",
+            "flatten json",
+            "json pluck",
+            "count json",
+            "json unique",
+        ],
+    )
+}
+
+pub fn needs_code_metrics(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "code metrics",
+            "lines of code",
+            "line count",
+            "loc count",
+            "count lines of code",
+            "comment density",
+            "todo count",
+            "fixme count",
+            "code statistics",
+            "code stats",
+            "source code stats",
+            "codebase size",
+            "largest files",
+            "test ratio",
+            "code coverage proxy",
+            "language breakdown",
+            "file breakdown",
+            "code complexity",
+        ],
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

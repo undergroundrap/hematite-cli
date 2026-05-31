@@ -30,28 +30,28 @@ use crate::agent::routing::{
     is_scaffold_request, looks_like_mutation_request, needs_ansi_tools, needs_archive_tools,
     needs_ascii_tools, needs_base_tools, needs_binary_tools, needs_calc_tools,
     needs_changelog_tools, needs_char_tools, needs_checksum_tools, needs_cipher_tools,
-    needs_color_tools, needs_computation_sandbox, needs_crash_debug, needs_cron_tools,
-    needs_csp_tools, needs_csv_tools, needs_data_gen_tools, needs_date_tools, needs_diff_tools,
-    needs_docker_compose_tools, needs_docker_ops, needs_dockerfile_tools, needs_dotenv_tools,
-    needs_duration_tools, needs_encode_tools, needs_env_schema_tools, needs_format,
-    needs_fraction_tools, needs_geo_tools, needs_geometry_tools, needs_github_actions_tools,
-    needs_github_ops, needs_gitignore_tools, needs_glob_tools, needs_graphql_tools,
-    needs_hash_tools, needs_hex_tools, needs_http_request, needs_http_status_tools, needs_id_tools,
-    needs_ini_tools, needs_ip_tools, needs_jwt_tools, needs_k8s_tools, needs_keyval_tools,
-    needs_license_tools, needs_line_tools, needs_lint_check, needs_lock_file_tools,
-    needs_log_parse_tools, needs_make_tools, needs_markdown_tools, needs_mime_tools,
-    needs_money_tools, needs_nato_tools, needs_net_lookup_tools, needs_nginx_conf_tools,
-    needs_number_theory_tools, needs_number_tools, needs_openapi_tools, needs_package_json_tools,
-    needs_password_gen, needs_path_tools, needs_pem_tools, needs_proto_tools, needs_regex_tools,
-    needs_robots_txt_tools, needs_rss_tools, needs_secret_scan, needs_semver_tools,
-    needs_sitemap_tools, needs_size_tools, needs_sql_migrate_tools, needs_sql_tools,
-    needs_sqlite_tools, needs_ssh_config_tools, needs_stat_tools, needs_string_metric_tools,
-    needs_systemd_tools, needs_table_tools, needs_template_tools, needs_terraform_tools,
-    needs_test_run, needs_text_tools, needs_time_zone_tools, needs_token_tools, needs_toml_tools,
-    needs_unit_tools, needs_url_tools, needs_uuid_gen, needs_validate_tools, needs_word_tools,
-    needs_xml_tools, needs_yaml_tools, preferred_host_inspection_topic,
-    preferred_maintainer_workflow, preferred_workspace_workflow, DirectAnswerKind,
-    QueryIntentClass,
+    needs_code_metrics, needs_color_tools, needs_computation_sandbox, needs_crash_debug,
+    needs_cron_tools, needs_csp_tools, needs_csv_tools, needs_data_gen_tools, needs_date_tools,
+    needs_diff_tools, needs_docker_compose_tools, needs_docker_ops, needs_dockerfile_tools,
+    needs_dotenv_tools, needs_duration_tools, needs_encode_tools, needs_env_schema_tools,
+    needs_format, needs_fraction_tools, needs_geo_tools, needs_geometry_tools,
+    needs_github_actions_tools, needs_github_ops, needs_gitignore_tools, needs_glob_tools,
+    needs_graphql_tools, needs_hash_tools, needs_hex_tools, needs_http_request,
+    needs_http_status_tools, needs_id_tools, needs_ini_tools, needs_ip_tools, needs_json_tools,
+    needs_jwt_tools, needs_k8s_tools, needs_keyval_tools, needs_license_tools, needs_line_tools,
+    needs_lint_check, needs_lock_file_tools, needs_log_parse_tools, needs_make_tools,
+    needs_markdown_tools, needs_mime_tools, needs_money_tools, needs_nato_tools,
+    needs_net_lookup_tools, needs_nginx_conf_tools, needs_number_theory_tools, needs_number_tools,
+    needs_openapi_tools, needs_package_json_tools, needs_password_gen, needs_path_tools,
+    needs_pem_tools, needs_proto_tools, needs_regex_tools, needs_robots_txt_tools, needs_rss_tools,
+    needs_secret_scan, needs_semver_tools, needs_sitemap_tools, needs_size_tools,
+    needs_sql_migrate_tools, needs_sql_tools, needs_sqlite_tools, needs_ssh_config_tools,
+    needs_stat_tools, needs_string_metric_tools, needs_systemd_tools, needs_table_tools,
+    needs_template_tools, needs_terraform_tools, needs_test_run, needs_text_tools,
+    needs_time_zone_tools, needs_token_tools, needs_toml_tools, needs_unit_tools, needs_url_tools,
+    needs_uuid_gen, needs_validate_tools, needs_word_tools, needs_xml_tools, needs_yaml_tools,
+    preferred_host_inspection_topic, preferred_maintainer_workflow, preferred_workspace_workflow,
+    DirectAnswerKind, QueryIntentClass,
 };
 use crate::agent::tool_registry::dispatch_builtin_tool;
 use crate::agent::truncation::safe_head;
@@ -6383,6 +6383,41 @@ impl ConversationManager {
                  Examples: id_tools(action:'ulid', count:5) or \
                  id_tools(action:'nanoid', size:12, count:3) or \
                  id_tools(action:'decode', id:'01ARZ3NDEKTSV4RRFFQ69G5FAV')"
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_json_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "JSON TOOLS NOTICE: Use the `json_tools` tool to query, transform, and analyze JSON \
+                 without needing jq or external utilities. Actions: \
+                 pretty (default — pretty-print with indentation), \
+                 compact (minify), \
+                 keys (list top-level keys), \
+                 get (dot-path navigation e.g. 'user.address.city' or 'items[0].id'), \
+                 filter (field equality/comparison e.g. field:'status', op:'eq', value:'active'), \
+                 pluck (extract a field from every object in an array), \
+                 flatten (flatten nested objects one level), \
+                 count, sort, unique, merge, diff, validate, \
+                 schema (infer recursive type structure), \
+                 stats (min/max/mean/median/stddev for numeric fields), \
+                 to-csv (convert array of objects to CSV). \
+                 Pass 'json' for inline JSON or 'file' for a file path. \
+                 Example: json_tools(action:'get', json:'{...}', path:'user.name') or \
+                 json_tools(action:'filter', json:'[...]', field:'age', op:'gt', value:30)"
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_code_metrics(&effective_user_input) {
+            loop_intervention = Some(
+                "CODE METRICS NOTICE: Use the `code_metrics` tool to measure lines of code, comment density, \
+                 TODO/FIXME counts, language breakdown, and test coverage ratio without external tools. \
+                 Pass 'path' for a directory or file (defaults to workspace root). \
+                 Output includes: total lines / blank / comment / code counts, comment density %, \
+                 TODO+FIXME count, top 10 largest files, language breakdown by extension, \
+                 and test file ratio as a coverage proxy. \
+                 Example: code_metrics() for the whole workspace, code_metrics(path:'src') for a subdirectory."
                     .to_string(),
             );
         }
