@@ -143,8 +143,8 @@ fn parse_plist(src: &str) -> Result<PlistValue, String> {
                     "dict" => {
                         if let Some(StackFrame::Dict(entries, _)) = stack.pop() {
                             let val = PlistValue::Dict(entries);
-                            let at_root = stack.is_empty()
-                                || matches!(stack.last(), Some(StackFrame::Root));
+                            let at_root =
+                                stack.is_empty() || matches!(stack.last(), Some(StackFrame::Root));
                             if at_root {
                                 root_value = Some(val);
                             } else {
@@ -155,8 +155,8 @@ fn parse_plist(src: &str) -> Result<PlistValue, String> {
                     "array" => {
                         if let Some(StackFrame::Array(items)) = stack.pop() {
                             let val = PlistValue::Array(items);
-                            let at_root = stack.is_empty()
-                                || matches!(stack.last(), Some(StackFrame::Root));
+                            let at_root =
+                                stack.is_empty() || matches!(stack.last(), Some(StackFrame::Root));
                             if at_root {
                                 root_value = Some(val);
                             } else {
@@ -202,8 +202,8 @@ fn parse_plist(src: &str) -> Result<PlistValue, String> {
                             }
                             _ => continue, // ignore unknown closing tags
                         };
-                        let at_root = stack.is_empty()
-                            || matches!(stack.last(), Some(StackFrame::Root));
+                        let at_root =
+                            stack.is_empty() || matches!(stack.last(), Some(StackFrame::Root));
                         if at_root {
                             root_value = Some(val);
                         } else {
