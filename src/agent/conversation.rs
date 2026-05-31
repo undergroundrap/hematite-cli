@@ -35,10 +35,10 @@ use crate::agent::routing::{
     needs_csp_tools, needs_css_tools, needs_csv_tools, needs_data_gen_tools, needs_date_tools,
     needs_dependency_audit, needs_diff_tools, needs_dns_tools, needs_docker_compose_tools,
     needs_docker_ops, needs_dockerfile_tools, needs_dotenv_tools, needs_duration_tools,
-    needs_encode_tools, needs_env_diff, needs_env_schema_tools, needs_format, needs_fraction_tools,
-    needs_geo_tools, needs_geometry_tools, needs_github_actions_tools, needs_github_ops,
-    needs_gitignore_tools, needs_glob_tools, needs_graph_tools, needs_graphql_tools,
-    needs_graphviz_tools, needs_har_tools, needs_hash_tools, needs_hex_tools,
+    needs_email_tools, needs_encode_tools, needs_env_diff, needs_env_schema_tools, needs_format,
+    needs_fraction_tools, needs_geo_tools, needs_geometry_tools, needs_github_actions_tools,
+    needs_github_ops, needs_gitignore_tools, needs_glob_tools, needs_graph_tools,
+    needs_graphql_tools, needs_graphviz_tools, needs_har_tools, needs_hash_tools, needs_hex_tools,
     needs_http_parse_tools, needs_http_request, needs_http_status_tools, needs_ical_tools,
     needs_id_tools, needs_ini_tools, needs_ip_tools, needs_jq_tools, needs_json_tools,
     needs_jwt_tools, needs_k8s_tools, needs_keyval_tools, needs_license_tools, needs_line_tools,
@@ -51,12 +51,13 @@ use crate::agent::routing::{
     needs_rss_tools, needs_scientific_compute, needs_secret_scan, needs_semver_tools,
     needs_sitemap_tools, needs_size_tools, needs_sql_format_tools, needs_sql_migrate_tools,
     needs_sql_tools, needs_sqlite_tools, needs_ssh_config_tools, needs_stat_tools,
-    needs_string_metric_tools, needs_systemd_tools, needs_table_tools, needs_template_gen,
-    needs_template_tools, needs_terraform_tools, needs_test_run, needs_text_tools,
-    needs_time_zone_tools, needs_token_tools, needs_toml_tools, needs_totp_tools, needs_unit_tools,
-    needs_url_tools, needs_uuid_gen, needs_validate_tools, needs_word_tools, needs_xml_tools,
-    needs_yaml_tools, preferred_host_inspection_topic, preferred_maintainer_workflow,
-    preferred_workspace_workflow, DirectAnswerKind, QueryIntentClass,
+    needs_string_metric_tools, needs_systemd_tools, needs_table_tools, needs_tar_tools,
+    needs_template_gen, needs_template_tools, needs_terraform_tools, needs_test_run,
+    needs_text_tools, needs_time_zone_tools, needs_token_tools, needs_toml_tools, needs_totp_tools,
+    needs_unit_tools, needs_url_tools, needs_uuid_gen, needs_validate_tools, needs_word_tools,
+    needs_xml_tools, needs_yaml_tools, preferred_host_inspection_topic,
+    preferred_maintainer_workflow, preferred_workspace_workflow, DirectAnswerKind,
+    QueryIntentClass,
 };
 use crate::agent::tool_registry::dispatch_builtin_tool;
 use crate::agent::truncation::safe_head;
@@ -6806,6 +6807,38 @@ impl ConversationManager {
                  Example: totp_tools(secret: 'JBSWY3DPEHPK3PXP') or \
                  totp_tools(action: 'verify', secret: 'JBSWY3DPEHPK3PXP', code: '123456') or \
                  totp_tools(action: 'qr', secret: 'JBSWY3DPEHPK3PXP', issuer: 'MyApp', label: 'user@example.com')."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_tar_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "TAR NOTICE: Use the `tar_tools` tool to inspect uncompressed TAR archives without external utilities. \
+                 Actions: list (default — table of all entries with permissions/size/date/type), \
+                 info (archive statistics: file/dir/symlink counts, total content size, owner list, date range), \
+                 find (filter entries by name substring; pass 'query'), \
+                 extract (read a specific text entry; pass 'entry' with the entry name; limited to 512 KB). \
+                 Pass 'file' with the path to the .tar archive. \
+                 For .tar.gz / .tgz / .tar.bz2 / .tar.xz — tool reports the compression type and the correct shell command. \
+                 Example: tar_tools(file: 'archive.tar') or \
+                 tar_tools(action: 'find', file: 'archive.tar', query: '.rs') or \
+                 tar_tools(action: 'extract', file: 'archive.tar', entry: 'project/README.md')."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_email_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "EMAIL NOTICE: Use the `email_tools` tool to parse and analyze RFC 2822 email files (.eml) without external utilities. \
+                 Actions: parse (default — key headers summary + body preview; decodes RFC 2047 encoded words), \
+                 headers (all headers in a table; pass 'name' to retrieve a specific header; pass 'filter' to narrow), \
+                 structure (MIME part tree — content types, encodings, attachment listing), \
+                 trace (delivery chain from Received: headers — hop servers, IPs, timestamps). \
+                 Pass 'file' (path to .eml file) or 'text' (raw email string). \
+                 Example: email_tools(file: 'message.eml') or \
+                 email_tools(action: 'headers', file: 'message.eml', name: 'Subject') or \
+                 email_tools(action: 'trace', text: raw_email_string) or \
+                 email_tools(action: 'structure', file: 'message.eml')."
                     .to_string(),
             );
         }

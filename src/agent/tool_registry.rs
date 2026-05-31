@@ -6129,6 +6129,39 @@ pub fn get_tools() -> Vec<ToolDefinition> {
             "required": []
         }),
     ));
+    tools.push(make_tool(
+        "tar_tools",
+        "Inspect uncompressed TAR archives (.tar) without external utilities or shell commands. \
+         Detects and reports compressed variants (.tar.gz / .tar.bz2 / .tar.xz / .tar.zst) with the correct shell command to use. \
+         Actions: \
+         `list` (default) — tabular listing of all archive entries with permissions (drwxr-xr-x), size, modification date, type (file/dir/symlink/fifo), and symlink targets; 'max' caps output; \
+         `info` — archive statistics: total entries, file/dir/symlink counts, total content size vs archive size, owner list, oldest/newest entry dates; \
+         `find` — filter entries by name substring; pass 'query' (e.g. '.rs', 'README'); \
+         `extract` — read a specific text entry from the archive as a UTF-8 string; pass 'entry' with the exact path; limited to 512 KB. \
+         Pass 'file' with the path to the .tar archive (required). \
+         Example: tar_tools(file: 'project.tar') or \
+         tar_tools(action: 'info', file: 'backup.tar') or \
+         tar_tools(action: 'find', file: 'archive.tar', query: 'config') or \
+         tar_tools(action: 'extract', file: 'archive.tar', entry: 'project/src/main.rs').",
+        crate::tools::tar_tools::tar_tools_schema(),
+    ));
+    tools.push(make_tool(
+        "email_tools",
+        "Parse and analyze RFC 2822 email files (.eml) without external utilities. \
+         Decodes RFC 2047 encoded words (base64 and quoted-printable Subject/From/To lines), \
+         parses folded headers, detects MIME structure, and traces the delivery hop chain. \
+         Actions: \
+         `parse` (default) — summary of key headers (From/To/Subject/Date/Message-ID/DKIM/SPF) with decoded values + body preview; shows hop count; \
+         `headers` — full header table; pass 'name' to retrieve a specific header (e.g. 'Subject', 'From', 'Received'); pass 'filter' to narrow by substring; \
+         `structure` — MIME part tree showing content types, encodings, sizes, and attachment listing; \
+         `trace` — delivery chain from Received: headers in chronological order — from/by servers, timestamps, and additional routing metadata. \
+         Pass 'file' (path to .eml) or 'text' (raw email as a string). \
+         Example: email_tools(file: 'message.eml') or \
+         email_tools(action: 'headers', file: 'message.eml', name: 'Subject') or \
+         email_tools(action: 'trace', file: 'delivery.eml') or \
+         email_tools(action: 'structure', text: raw_email_string).",
+        crate::tools::email_tools::email_tools_schema(),
+    ));
     let lsp_defs = crate::tools::lsp_tools::get_lsp_definitions();
     tools.push(make_tool(
         "lsp_search_symbol",
@@ -6289,6 +6322,8 @@ pub async fn dispatch_builtin_tool(
         "ascii_chart_tools" => crate::tools::ascii_chart_tools::execute(args).await,
         "sql_format_tools" => crate::tools::sql_format_tools::execute(args).await,
         "totp_tools" => crate::tools::totp_tools::execute(args).await,
+        "tar_tools" => crate::tools::tar_tools::execute(args).await,
+        "email_tools" => crate::tools::email_tools::execute(args).await,
         "http_status_tools" => crate::tools::http_status_tools::execute(args).await,
         "http_parse_tools" => crate::tools::http_parse_tools::execute(args).await,
         "jq_tools" => crate::tools::jq_tools::execute(args).await,

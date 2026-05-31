@@ -8894,6 +8894,82 @@ pub fn needs_totp_tools(user_input: &str) -> bool {
     )
 }
 
+pub fn needs_tar_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "tar archive",
+            ".tar file",
+            "tar file",
+            "inspect tar",
+            "list tar",
+            "tar entries",
+            "tar contents",
+            "extract from tar",
+            "read tar",
+            "parse tar",
+            "tarball",
+            "tar ball",
+            "untar",
+            "tar listing",
+        ],
+    ) || (lower.contains(".tar")
+        && contains_any(
+            &lower,
+            &[
+                "list", "inspect", "extract", "find", "contents", "info", "what",
+            ],
+        ))
+}
+
+pub fn needs_email_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "parse email",
+            "parse eml",
+            ".eml file",
+            "eml file",
+            "inspect eml",
+            "eml headers",
+            "email headers",
+            "email header",
+            "email structure",
+            "mime structure",
+            "mime parts",
+            "mime boundary",
+            "delivery trace",
+            "email trace",
+            "received headers",
+            "email delivery",
+            "rfc 2822",
+            "rfc2822",
+            "raw email",
+            "decode email",
+            "analyze email",
+            "email attachments",
+            "email body",
+            "dkim header",
+            "spf result",
+            "authentication-results",
+        ],
+    ) || (lower.contains("email")
+        && contains_any(
+            &lower,
+            &[
+                "parse",
+                "inspect",
+                "trace",
+                "headers",
+                "structure",
+                "decode",
+                "analyze",
+            ],
+        ))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

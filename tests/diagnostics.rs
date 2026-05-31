@@ -28474,3 +28474,280 @@ async fn test_totp_tools_qr_uri() {
         "Expected otpauth URI, got: {out}"
     );
 }
+
+// ── tar_tools ────────────────────────────────────────────────────────────────
+
+#[test]
+fn test_routing_detects_tar_tools() {
+    use hematite::agent::routing::needs_tar_tools;
+    assert!(needs_tar_tools("list a tar archive"));
+    assert!(needs_tar_tools("inspect the .tar file"));
+    assert!(needs_tar_tools("show contents of project.tar"));
+    assert!(!needs_tar_tools("tar command history"));
+}
+
+#[test]
+fn test_tar_tools_detects_gzip() {
+    use hematite::tools::tar_tools;
+    use serde_json::json;
+    use std::io::Write;
+    let mut tmp = tempfile::NamedTempFile::new().unwrap();
+    tmp.write_all(&[0x1f, 0x8b, 0x08, 0x00]).unwrap();
+    tmp.flush().unwrap();
+    let path = tmp.path().to_str().unwrap().to_string();
+    let result = tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(tar_tools::execute(&json!({"file": path})));
+    assert!(result.is_err());
+    let msg = result.unwrap_err();
+    assert!(
+        msg.contains("gzip") || msg.contains("tar.gz"),
+        "Expected gzip error, got: {msg}"
+    );
+}
+
+fn make_minimal_tar(name: &[u8], content: &[u8]) -> Vec<u8> {
+    let mut header = [0u8; 512];
+    header[..name.len()].copy_from_slice(name);
+    header[100..108].copy_from_slice(b"0000644\0");
+    let size_oct = format!("{:011o}\0", content.len());
+    header[124..136].copy_from_slice(size_oct.as_bytes());
+    header[136..148].copy_from_slice(b"00000000000\0");
+    header[156] = b'0';
+    header[257..263].copy_from_slice(b"ustar\0");
+    let mut data: Vec<u8> = Vec::new();
+    data.extend_from_slice(&header);
+    let mut dblock = [0u8; 512];
+    let n = content.len().min(512);
+    dblock[..n].copy_from_slice(&content[..n]);
+    data.extend_from_slice(&dblock);
+    data.extend_from_slice(&[0u8; 1024]);
+    data
+}
+
+#[test]
+fn test_tar_tools_list_real_archive() {
+    use hematite::tools::tar_tools;
+    use serde_json::json;
+    use std::io::Write;
+
+    let data = make_minimal_tar(b"hello.txt", b"Hello, TAR!\n");
+    let mut tmp = tempfile::NamedTempFile::new().unwrap();
+    tmp.write_all(&data).unwrap();
+    tmp.flush().unwrap();
+    let path = tmp.path().to_str().unwrap().to_string();
+
+    let out = tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(tar_tools::execute(&json!({"action": "list", "file": path})))
+        .expect("list should succeed");
+    assert!(out.contains("hello.txt"), "Expected hello.txt, got: {out}");
+}
+
+#[test]
+fn test_tar_tools_find() {
+    use hematite::tools::tar_tools;
+    use serde_json::json;
+    use std::io::Write;
+
+    let data = make_minimal_tar(b"src/main.rs", b"fn main() {}");
+    let mut tmp = tempfile::NamedTempFile::new().unwrap();
+    tmp.write_all(&data).unwrap();
+    tmp.flush().unwrap();
+    let path = tmp.path().to_str().unwrap().to_string();
+
+    let out = tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(tar_tools::execute(
+            &json!({"action": "find", "file": path, "query": ".rs"}),
+        ))
+        .expect("find should succeed");
+    assert!(out.contains("main.rs"), "Expected main.rs, got: {out}");
+}
+
+#[test]
+fn test_tar_tools_info() {
+    use hematite::tools::tar_tools;
+    use serde_json::json;
+    use std::io::Write;
+
+    let data = make_minimal_tar(b"README.txt", b"readme content");
+    let mut tmp = tempfile::NamedTempFile::new().unwrap();
+    tmp.write_all(&data).unwrap();
+    tmp.flush().unwrap();
+    let path = tmp.path().to_str().unwrap().to_string();
+
+    let out = tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(tar_tools::execute(&json!({"action": "info", "file": path})))
+        .expect("info should succeed");
+    assert!(
+        out.contains("Files") || out.contains("entries") || out.contains("Archive"),
+        "Expected info output, got: {out}"
+    );
+}
+
+// ── email_tools ──────────────────────────────────────────────────────────────
+
+#[test]
+fn test_routing_detects_email_tools() {
+    use hematite::agent::routing::needs_email_tools;
+    assert!(needs_email_tools("parse this email"));
+    assert!(needs_email_tools("inspect eml file headers"));
+    assert!(needs_email_tools("email delivery trace"));
+    assert!(needs_email_tools("show mime structure"));
+    assert!(!needs_email_tools("send an email"));
+}
+
+#[test]
+fn test_email_tools_parse_basic() {
+    use hematite::tools::email_tools;
+    use serde_json::json;
+
+    let raw = concat!(
+        "From: Alice <alice@example.com>\r\n",
+        "To: Bob <bob@example.com>\r\n",
+        "Subject: Hello World\r\n",
+        "Date: Mon, 01 Jan 2024 12:00:00 +0000\r\n",
+        "\r\n",
+        "This is the email body.\r\n"
+    );
+
+    let out = tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(email_tools::execute(
+            &json!({"action": "parse", "text": raw}),
+        ))
+        .expect("parse should succeed");
+    assert!(
+        out.contains("Alice") || out.contains("alice@example.com"),
+        "Expected From header, got: {out}"
+    );
+    assert!(out.contains("Hello World"), "Expected Subject, got: {out}");
+}
+
+#[test]
+fn test_email_tools_headers_action() {
+    use hematite::tools::email_tools;
+    use serde_json::json;
+
+    let raw = concat!(
+        "From: sender@example.com\r\n",
+        "To: recipient@example.com\r\n",
+        "Subject: Test Subject\r\n",
+        "\r\n",
+        "Body text"
+    );
+
+    let out = tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(email_tools::execute(
+            &json!({"action": "headers", "text": raw}),
+        ))
+        .expect("headers should succeed");
+    assert!(
+        out.contains("From") && out.contains("Subject"),
+        "Expected header table, got: {out}"
+    );
+}
+
+#[test]
+fn test_email_tools_specific_header() {
+    use hematite::tools::email_tools;
+    use serde_json::json;
+
+    let raw = concat!(
+        "From: alice@example.com\r\n",
+        "Subject: My Subject\r\n",
+        "\r\n",
+        "Body"
+    );
+
+    let out = tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(email_tools::execute(
+            &json!({"action": "headers", "text": raw, "name": "Subject"}),
+        ))
+        .expect("header retrieval should succeed");
+    assert!(
+        out.contains("My Subject"),
+        "Expected subject value, got: {out}"
+    );
+}
+
+#[test]
+fn test_email_tools_rfc2047_decode() {
+    use hematite::tools::email_tools;
+    use serde_json::json;
+
+    // "Hello" base64-encoded in UTF-8: SGVsbG8=
+    let raw = concat!(
+        "From: test@example.com\r\n",
+        "Subject: =?UTF-8?B?SGVsbG8=?=\r\n",
+        "\r\n",
+        "Body"
+    );
+
+    let out = tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(email_tools::execute(
+            &json!({"action": "parse", "text": raw}),
+        ))
+        .expect("rfc2047 decode should succeed");
+    assert!(
+        out.contains("Hello"),
+        "Expected decoded subject, got: {out}"
+    );
+}
+
+#[test]
+fn test_email_tools_trace() {
+    use hematite::tools::email_tools;
+    use serde_json::json;
+
+    let raw = concat!(
+        "Received: from mail.sender.com (mail.sender.com [1.2.3.4])\r\n",
+        "  by mx.example.com (Postfix) with ESMTPS;\r\n",
+        "  Mon, 01 Jan 2024 12:00:00 +0000\r\n",
+        "From: sender@sender.com\r\n",
+        "To: me@example.com\r\n",
+        "Subject: Trace test\r\n",
+        "\r\n",
+        "Body"
+    );
+
+    let out = tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(email_tools::execute(
+            &json!({"action": "trace", "text": raw}),
+        ))
+        .expect("trace should succeed");
+    assert!(
+        out.contains("hop") || out.contains("Hop") || out.contains("Delivery"),
+        "Expected trace output, got: {out}"
+    );
+}
+
+#[test]
+fn test_email_tools_structure() {
+    use hematite::tools::email_tools;
+    use serde_json::json;
+
+    let raw = concat!(
+        "Content-Type: text/plain; charset=UTF-8\r\n",
+        "From: sender@example.com\r\n",
+        "\r\n",
+        "Plain text body"
+    );
+
+    let out = tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(email_tools::execute(
+            &json!({"action": "structure", "text": raw}),
+        ))
+        .expect("structure should succeed");
+    assert!(
+        out.contains("MIME") || out.contains("text/plain") || out.contains("plain"),
+        "Expected MIME structure info, got: {out}"
+    );
+}
