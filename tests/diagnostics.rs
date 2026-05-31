@@ -27440,3 +27440,121 @@ async fn test_matrix_tools_solve() {
         "should list solution variables"
     );
 }
+
+#[test]
+fn test_routing_detects_har_tools() {
+    use hematite::agent::routing::needs_har_tools;
+    assert!(
+        needs_har_tools("analyze this .har file"),
+        "should detect .har file"
+    );
+    assert!(
+        needs_har_tools("slowest requests from har file"),
+        "should detect slowest requests"
+    );
+    assert!(
+        needs_har_tools("parse har and show errors"),
+        "should detect parse har"
+    );
+    assert!(
+        needs_har_tools("browser network log analysis"),
+        "should detect browser network log"
+    );
+    assert!(
+        !needs_har_tools("show me the git log"),
+        "should not match git log"
+    );
+}
+
+#[test]
+fn test_routing_detects_ical_tools() {
+    use hematite::agent::routing::needs_ical_tools;
+    assert!(
+        needs_ical_tools("parse this .ics file"),
+        "should detect .ics file"
+    );
+    assert!(
+        needs_ical_tools("list calendar events from ical file"),
+        "should detect calendar events"
+    );
+    assert!(
+        needs_ical_tools("parse ics calendar"),
+        "should detect parse ics"
+    );
+    assert!(needs_ical_tools("show vtodo items"), "should detect vtodo");
+    assert!(
+        !needs_ical_tools("show me the calendar widget"),
+        "should not match generic calendar"
+    );
+}
+
+#[tokio::test]
+async fn test_ical_tools_parse() {
+    use hematite::tools::ical_tools::execute;
+    let ical = "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//Test//Test//EN\r\n\
+BEGIN:VEVENT\r\nSUMMARY:Team Standup\r\nDTSTART:20250530T090000Z\r\nDTEND:20250530T093000Z\r\n\
+LOCATION:Zoom\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n";
+    let args = serde_json::json!({"action": "parse", "text": ical});
+    let result = execute(&args).await;
+    assert!(
+        result.is_ok(),
+        "ical_tools parse should succeed: {:?}",
+        result
+    );
+    let out = result.unwrap();
+    assert!(
+        out.contains("Standup") || out.contains("standup") || out.contains("VEVENT"),
+        "should list the event"
+    );
+}
+
+#[tokio::test]
+async fn test_ical_tools_info() {
+    use hematite::tools::ical_tools::execute;
+    let ical = "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//Test//EN\r\nX-WR-CALNAME:My Cal\r\n\
+BEGIN:VEVENT\r\nSUMMARY:E1\r\nDTSTART:20250601T100000Z\r\nDTEND:20250601T110000Z\r\nEND:VEVENT\r\n\
+BEGIN:VTODO\r\nSUMMARY:Task1\r\nDUE:20250605\r\nEND:VTODO\r\nEND:VCALENDAR\r\n";
+    let args = serde_json::json!({"action": "info", "text": ical});
+    let result = execute(&args).await;
+    assert!(
+        result.is_ok(),
+        "ical_tools info should succeed: {:?}",
+        result
+    );
+    let out = result.unwrap();
+    assert!(
+        out.contains("Events") || out.contains("VEVENT"),
+        "should show event count"
+    );
+}
+
+#[tokio::test]
+async fn test_har_tools_summary() {
+    use hematite::tools::har_tools::execute;
+    let har = serde_json::json!({
+        "log": {
+            "version": "1.2",
+            "creator": {"name": "Test"},
+            "entries": [
+                {"request": {"url": "https://example.com/api", "method": "GET"},
+                 "response": {"status": 200, "content": {"mimeType": "application/json", "size": 512}},
+                 "time": 45.0},
+                {"request": {"url": "https://example.com/image.png", "method": "GET"},
+                 "response": {"status": 404, "content": {"mimeType": "text/html", "size": 128}},
+                 "time": 12.0}
+            ]
+        }
+    });
+    let args = serde_json::json!({"action": "summary", "har": har});
+    let result = execute(&args).await;
+    assert!(
+        result.is_ok(),
+        "har_tools summary should succeed: {:?}",
+        result
+    );
+    let out = result.unwrap();
+    assert!(
+        out.contains("2") || out.contains("entries") || out.contains("Total"),
+        "should show entry count"
+    );
+}

@@ -6135,6 +6135,53 @@ pub fn needs_encode_tools(user_input: &str) -> bool {
         || lower.contains("decode this")
 }
 
+pub fn needs_har_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            ".har file",
+            "har file",
+            "http archive",
+            "parse har",
+            "analyze har",
+            "har entries",
+            "slowest requests",
+            "web performance",
+            "network waterfall",
+            "request timing",
+            "har summary",
+            "response errors",
+            "http requests log",
+            "browser network log",
+            "chrome devtools export",
+        ],
+    )
+}
+
+pub fn needs_ical_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            ".ics file",
+            "ical file",
+            "icalendar",
+            "parse ical",
+            "parse ics",
+            "calendar events",
+            "vevent",
+            "vtodo",
+            "calendar file",
+            "ics calendar",
+            "recurring event",
+            "calendar entry",
+            "outlook calendar export",
+            "google calendar export",
+        ],
+    )
+}
+
 /// Returns true when the user wants to hash data — steer toward `hash_tools`.
 pub fn needs_hash_tools(user_input: &str) -> bool {
     let lower = user_input.to_lowercase();

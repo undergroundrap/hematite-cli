@@ -5234,6 +5234,89 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         }),
     ));
     tools.push(make_tool(
+        "har_tools",
+        "Parse and analyze HTTP Archive (.har) files for web performance analysis without external utilities. \
+         Actions: summary (default — entry count, unique domains, errors, total time/size, status distribution, MIME type breakdown), \
+         entries (tabular list of all requests: status/method/time/size/URL; 'limit' caps rows, default 25), \
+         slowest (top N slowest with per-phase timing: DNS/connect/SSL/send/wait/receive; 'n' default 10), \
+         errors (filter 4xx/5xx/network-error entries only with labels), \
+         domains (per-domain request count, cumulative time, and total bytes — sorted slowest first), \
+         search (filter entries by URL substring; pass 'query' or 'q'). \
+         Input: 'har' parsed object, 'json'/'text' JSON string, or 'file' path to a .har file. \
+         Example: har_tools(action: 'slowest', file: 'network.har') or \
+         har_tools(action: 'errors', file: 'network.har') or \
+         har_tools(action: 'domains', file: 'network.har').",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "summary (default), entries, slowest, errors, domains, search"
+                },
+                "file": {
+                    "type": "string",
+                    "description": "Path to a .har file."
+                },
+                "json": {
+                    "type": "string",
+                    "description": "HAR content as a JSON string. Also 'text'/'content'."
+                },
+                "har": {
+                    "type": "object",
+                    "description": "Pre-parsed HAR JSON object."
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "Max entries to show (for 'entries' action, default 25)."
+                },
+                "n": {
+                    "type": "integer",
+                    "description": "How many slowest entries to show (default 10)."
+                },
+                "query": {
+                    "type": "string",
+                    "description": "URL substring to filter by (for 'search' action). Also 'q'."
+                }
+            },
+            "required": []
+        }),
+    ));
+    tools.push(make_tool(
+        "ical_tools",
+        "Parse and inspect iCalendar (.ics) files without external utilities. \
+         Actions: parse (default — all VEVENT and VTODO components with title, start/end, location, status, organizer, description), \
+         events (same as parse, VEVENT only), \
+         todos (VTODO items with due date, status, and priority), \
+         info (calendar metadata: iCal version, producer, calendar name, timezone, component counts by type), \
+         search (filter events/todos by keyword in any field; pass 'query' or 'q'). \
+         Input: 'text'/'ical'/'ics' with iCalendar text, or 'file' with a path to a .ics file. \
+         Example: ical_tools(action: 'parse', file: 'calendar.ics') or \
+         ical_tools(action: 'todos', file: 'tasks.ics') or \
+         ical_tools(action: 'search', file: 'calendar.ics', query: 'standup').",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "parse (default), events, todos, info, search"
+                },
+                "file": {
+                    "type": "string",
+                    "description": "Path to a .ics iCalendar file."
+                },
+                "text": {
+                    "type": "string",
+                    "description": "iCalendar content as a string. Also 'ical'/'ics'/'content'."
+                },
+                "query": {
+                    "type": "string",
+                    "description": "Keyword to filter events/todos by (for 'search' action). Also 'q'."
+                }
+            },
+            "required": []
+        }),
+    ));
+    tools.push(make_tool(
         "hex_tools",
         "Hex dump, binary analysis, and hex encoding/decoding without external utilities. \
          Actions: \
@@ -5657,6 +5740,8 @@ pub async fn dispatch_builtin_tool(
         "glob_tools" => crate::tools::glob_tools::execute(args).await,
         "graph_tools" => crate::tools::graph_tools::execute(args).await,
         "matrix_tools" => crate::tools::matrix_tools::execute(args).await,
+        "har_tools" => crate::tools::har_tools::execute(args).await,
+        "ical_tools" => crate::tools::ical_tools::execute(args).await,
         "log_parse_tools" => crate::tools::log_parse_tools::execute(args).await,
         "csp_tools" => crate::tools::csp_tools::execute(args).await,
         "robots_txt_tools" => crate::tools::robots_txt_tools::execute(args).await,
