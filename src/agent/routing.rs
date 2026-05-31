@@ -8826,6 +8826,74 @@ pub fn needs_ascii_chart_tools(user_input: &str) -> bool {
             && (lower.contains("data") || lower.contains("numbers") || lower.contains("values")))
 }
 
+/// Returns true when the user wants to format, minify, split, or extract from SQL — steer toward `sql_format_tools`.
+pub fn needs_sql_format_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "format sql",
+            "format this sql",
+            "format the sql",
+            "beautify sql",
+            "pretty print sql",
+            "pretty-print sql",
+            "minify sql",
+            "sql formatter",
+            "sql format",
+            "sql beautifier",
+            "sql pretty",
+            "sql minify",
+            "split sql",
+            "split into statements",
+            "extract tables from sql",
+            "extract columns from sql",
+            "extract aliases from sql",
+            "sql extract",
+            "clean up sql",
+            "indent sql",
+            "normalize sql whitespace",
+        ],
+    ) || (lower.contains("sql")
+        && (lower.contains("format")
+            || lower.contains("beautif")
+            || lower.contains("indent")
+            || lower.contains("minif")))
+}
+
+/// Returns true when the user wants to generate or verify a TOTP/HOTP one-time password — steer toward `totp_tools`.
+pub fn needs_totp_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "totp",
+            "hotp",
+            "one-time password",
+            "one time password",
+            "otp code",
+            "authenticator code",
+            "google authenticator",
+            "2fa code",
+            "two-factor code",
+            "two factor code",
+            "mfa code",
+            "generate otp",
+            "verify otp",
+            "otpauth",
+            "otpauth://",
+            "rfc 6238",
+            "rfc 4226",
+            "time-based otp",
+            "time based otp",
+            "hmac-based otp",
+            "authenticator app secret",
+            "totp secret",
+            "verify 2fa",
+        ],
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

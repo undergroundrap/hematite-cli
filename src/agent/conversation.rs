@@ -49,14 +49,14 @@ use crate::agent::routing::{
     needs_password_gen, needs_path_tools, needs_pem_tools, needs_plist_tools, needs_port_check,
     needs_printf_tools, needs_proto_tools, needs_regex_tools, needs_robots_txt_tools,
     needs_rss_tools, needs_scientific_compute, needs_secret_scan, needs_semver_tools,
-    needs_sitemap_tools, needs_size_tools, needs_sql_migrate_tools, needs_sql_tools,
-    needs_sqlite_tools, needs_ssh_config_tools, needs_stat_tools, needs_string_metric_tools,
-    needs_systemd_tools, needs_table_tools, needs_template_gen, needs_template_tools,
-    needs_terraform_tools, needs_test_run, needs_text_tools, needs_time_zone_tools,
-    needs_token_tools, needs_toml_tools, needs_unit_tools, needs_url_tools, needs_uuid_gen,
-    needs_validate_tools, needs_word_tools, needs_xml_tools, needs_yaml_tools,
-    preferred_host_inspection_topic, preferred_maintainer_workflow, preferred_workspace_workflow,
-    DirectAnswerKind, QueryIntentClass,
+    needs_sitemap_tools, needs_size_tools, needs_sql_format_tools, needs_sql_migrate_tools,
+    needs_sql_tools, needs_sqlite_tools, needs_ssh_config_tools, needs_stat_tools,
+    needs_string_metric_tools, needs_systemd_tools, needs_table_tools, needs_template_gen,
+    needs_template_tools, needs_terraform_tools, needs_test_run, needs_text_tools,
+    needs_time_zone_tools, needs_token_tools, needs_toml_tools, needs_totp_tools, needs_unit_tools,
+    needs_url_tools, needs_uuid_gen, needs_validate_tools, needs_word_tools, needs_xml_tools,
+    needs_yaml_tools, preferred_host_inspection_topic, preferred_maintainer_workflow,
+    preferred_workspace_workflow, DirectAnswerKind, QueryIntentClass,
 };
 use crate::agent::tool_registry::dispatch_builtin_tool;
 use crate::agent::truncation::safe_head;
@@ -6772,6 +6772,40 @@ impl ConversationManager {
                  Example: ascii_chart_tools(action: 'bar', data: [10,25,15,40,30], labels: ['Mon','Tue','Wed','Thu','Fri'], title: 'Daily Sales') or \
                  ascii_chart_tools(action: 'sparkline', data: [1,3,2,8,4,6,5]) or \
                  ascii_chart_tools(action: 'scatter', x: [1,2,3,4], y: [1,4,9,16])."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_sql_format_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "SQL FORMAT NOTICE: Use the `sql_format_tools` tool to format, minify, split, or extract from SQL statements \
+                 without external utilities. \
+                 Actions: format (default — pretty-print with configurable indentation and keyword casing; 'indent' and 'uppercase' options), \
+                 minify (compact SQL — strip whitespace and comments; reports size reduction %), \
+                 split (split multi-statement SQL on semicolons into individual statement blocks), \
+                 extract (extract 'tables', 'columns', 'aliases', or 'comments' from the SQL; pass 'what' arg). \
+                 Pass 'sql' for inline SQL text or 'file' for a path to a .sql file. \
+                 Example: sql_format_tools(action: 'format', sql: 'select id,name from users where active=1') or \
+                 sql_format_tools(action: 'minify', sql: '  SELECT  *  FROM  users') or \
+                 sql_format_tools(action: 'extract', sql: '...', what: 'tables') or \
+                 sql_format_tools(action: 'split', file: 'migrations/001.sql')."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_totp_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "TOTP NOTICE: Use the `totp_tools` tool to generate, verify, and inspect TOTP/HOTP one-time passwords \
+                 without external utilities or cloud calls. \
+                 Actions: generate (default — current TOTP code from base32 secret; shows code, validity window, ±1 context codes), \
+                 verify (check a user-provided code against the secret; accepts ±1 window for clock drift), \
+                 hotp (generate HMAC-based OTP codes from a counter; 'count' to see multiple), \
+                 info (explain TOTP/HOTP parameters or parse an otpauth:// URI), \
+                 qr (generate the otpauth:// URI for QR code scanning in authenticator apps). \
+                 Pass 'secret' as the base32-encoded secret (from the app setup QR code). \
+                 Example: totp_tools(secret: 'JBSWY3DPEHPK3PXP') or \
+                 totp_tools(action: 'verify', secret: 'JBSWY3DPEHPK3PXP', code: '123456') or \
+                 totp_tools(action: 'qr', secret: 'JBSWY3DPEHPK3PXP', issuer: 'MyApp', label: 'user@example.com')."
                     .to_string(),
             );
         }

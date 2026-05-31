@@ -6010,6 +6010,125 @@ pub fn get_tools() -> Vec<ToolDefinition> {
          ascii_chart_tools(action: 'scatter', x: [1,2,3,4,5], y: [2.1,3.9,6.2,7.8,10.1]).",
         crate::tools::ascii_chart_tools::ascii_chart_schema()["parameters"].clone(),
     ));
+    tools.push(make_tool(
+        "sql_format_tools",
+        "Format, minify, split, and extract from SQL statements without external utilities. \
+         Actions: \
+         `format` (default) — pretty-print SQL with configurable indentation ('indent' default '  ') and uppercase keywords ('uppercase' default true); handles SELECT/FROM/WHERE/JOIN/GROUP BY/ORDER BY clause formatting, CASE/WHEN/THEN/END blocks, and subquery indentation; \
+         `minify` — compact SQL by stripping all whitespace and comments; reports original size, minified size, and % reduction; \
+         `split` — split a multi-statement SQL file on semicolons and number each statement block; \
+         `extract` — extract specific elements: 'tables' (all table names), 'columns' (SELECT columns), 'aliases' (AS aliases), 'comments' (-- and /* */ comments); pass 'what' arg. \
+         Pass 'sql' for inline SQL text or 'file' for a .sql file path. \
+         Example: sql_format_tools(action: 'format', sql: 'select id,name from users where active=1 order by name') or \
+         sql_format_tools(action: 'minify', sql: '  SELECT  *  FROM  users  WHERE  id = 1') or \
+         sql_format_tools(action: 'extract', sql: '...', what: 'tables') or \
+         sql_format_tools(action: 'split', file: 'migrations/001.sql').",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "format (default), minify, split, extract"
+                },
+                "sql": {
+                    "type": "string",
+                    "description": "Inline SQL text to process."
+                },
+                "file": {
+                    "type": "string",
+                    "description": "Path to a .sql file to read and process."
+                },
+                "indent": {
+                    "type": "string",
+                    "description": "Indentation string for format action (default: '  ' — two spaces)."
+                },
+                "uppercase": {
+                    "type": "boolean",
+                    "description": "Uppercase SQL keywords in format output (default: true)."
+                },
+                "what": {
+                    "type": "string",
+                    "description": "What to extract: tables, columns, aliases, comments (for extract action)."
+                }
+            },
+            "required": []
+        }),
+    ));
+    tools.push(make_tool(
+        "totp_tools",
+        "Generate, verify, and inspect TOTP/HOTP one-time passwords (RFC 6238 / RFC 4226) without external utilities or cloud calls. \
+         Uses HMAC-SHA1 (standard TOTP default), pure Rust implementation. \
+         Actions: \
+         `generate` (default) — generate the current TOTP code from a base32 secret; shows code, seconds remaining, previous/current/next codes for context; \
+         `verify` — check a user-supplied code against the secret with ±1 window tolerance for clock drift; returns VALID/INVALID with window offset; \
+         `hotp` — generate HMAC-based OTP from a monotonic counter; 'count' arg generates N consecutive codes (useful for pre-generating backup codes); \
+         `info` — explain TOTP/HOTP parameters or parse an otpauth:// URI to show all parameters; \
+         `qr` — build the otpauth:// URI for registering a secret in any authenticator app (Google Authenticator, Authy, 1Password, Bitwarden, etc.) + instructions for generating a QR code image. \
+         Pass 'secret' as the base32-encoded secret string (from app setup). \
+         Optional: 'digits' (default 6), 'period' (default 30s), 'algorithm' (default SHA1), 'time' (Unix timestamp override for testing). \
+         Example: totp_tools(secret: 'JBSWY3DPEHPK3PXP') or \
+         totp_tools(action: 'verify', secret: 'JBSWY3DPEHPK3PXP', code: '123456') or \
+         totp_tools(action: 'hotp', secret: 'JBSWY3DPEHPK3PXP', counter: 0, count: 10) or \
+         totp_tools(action: 'qr', secret: 'JBSWY3DPEHPK3PXP', issuer: 'MyApp', label: 'user@example.com').",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "generate (default), verify, hotp, info, qr"
+                },
+                "secret": {
+                    "type": "string",
+                    "description": "Base32-encoded TOTP/HOTP secret (from QR code or app setup)."
+                },
+                "code": {
+                    "type": ["string", "integer"],
+                    "description": "The OTP code to verify (for verify action)."
+                },
+                "counter": {
+                    "type": "integer",
+                    "description": "Starting counter value for HOTP (default: 0)."
+                },
+                "count": {
+                    "type": "integer",
+                    "description": "Number of codes to generate for HOTP (default: 1, max 20)."
+                },
+                "digits": {
+                    "type": "integer",
+                    "description": "Number of OTP digits (default: 6)."
+                },
+                "period": {
+                    "type": "integer",
+                    "description": "TOTP time step in seconds (default: 30)."
+                },
+                "algorithm": {
+                    "type": "string",
+                    "description": "HMAC algorithm: SHA1 (default, only supported)."
+                },
+                "time": {
+                    "type": "integer",
+                    "description": "Unix timestamp override for testing (default: current system time)."
+                },
+                "window": {
+                    "type": "integer",
+                    "description": "Verify window tolerance in periods (default: 1 = allow ±1 period)."
+                },
+                "issuer": {
+                    "type": "string",
+                    "description": "Service name for qr action (e.g. 'GitHub', 'MyApp')."
+                },
+                "label": {
+                    "type": "string",
+                    "description": "Account label for qr action (e.g. 'user@example.com')."
+                },
+                "uri": {
+                    "type": "string",
+                    "description": "otpauth:// URI to parse (for info action)."
+                }
+            },
+            "required": []
+        }),
+    ));
     let lsp_defs = crate::tools::lsp_tools::get_lsp_definitions();
     tools.push(make_tool(
         "lsp_search_symbol",
@@ -6168,6 +6287,8 @@ pub async fn dispatch_builtin_tool(
         "bencode_tools" => crate::tools::bencode_tools::execute(args).await,
         "printf_tools" => crate::tools::printf_tools::execute(args).await,
         "ascii_chart_tools" => crate::tools::ascii_chart_tools::execute(args).await,
+        "sql_format_tools" => crate::tools::sql_format_tools::execute(args).await,
+        "totp_tools" => crate::tools::totp_tools::execute(args).await,
         "http_status_tools" => crate::tools::http_status_tools::execute(args).await,
         "http_parse_tools" => crate::tools::http_parse_tools::execute(args).await,
         "jq_tools" => crate::tools::jq_tools::execute(args).await,

@@ -28274,3 +28274,203 @@ async fn test_ascii_chart_scatter() {
         "Expected scatter plot output, got: {out}"
     );
 }
+
+// ── Pair 19: sql_format_tools + totp_tools ────────────────────────────────
+
+#[test]
+fn test_routing_detects_sql_format_tools() {
+    use hematite::agent::routing::needs_sql_format_tools;
+    assert!(needs_sql_format_tools(
+        "format this sql query for readability"
+    ));
+    assert!(needs_sql_format_tools("beautify sql"));
+    assert!(needs_sql_format_tools("minify this sql statement"));
+    assert!(needs_sql_format_tools("sql formatter for complex joins"));
+    assert!(needs_sql_format_tools("indent sql query"));
+    assert!(!needs_sql_format_tools(
+        "run this sql query against the database"
+    ));
+}
+
+#[test]
+fn test_routing_detects_totp_tools() {
+    use hematite::agent::routing::needs_totp_tools;
+    assert!(needs_totp_tools("generate a totp code from this secret"));
+    assert!(needs_totp_tools("verify this 2fa code"));
+    assert!(needs_totp_tools(
+        "generate authenticator code for my otp secret"
+    ));
+    assert!(needs_totp_tools(
+        "create otpauth:// uri for google authenticator"
+    ));
+    assert!(needs_totp_tools("hotp counter-based one-time password"));
+    assert!(!needs_totp_tools("send an http request to the api"));
+}
+
+#[tokio::test]
+async fn test_sql_format_tools_format_basic() {
+    use hematite::tools::sql_format_tools::execute;
+    use serde_json::json;
+    let result = execute(&json!({
+        "action": "format",
+        "sql": "select id,name,email from users where active=1 order by name"
+    }))
+    .await;
+    assert!(result.is_ok(), "sql_format format failed: {:?}", result);
+    let out = result.unwrap();
+    assert!(
+        out.to_uppercase().contains("SELECT") || out.contains("id"),
+        "Expected formatted SQL, got: {out}"
+    );
+}
+
+#[tokio::test]
+async fn test_sql_format_tools_minify() {
+    use hematite::tools::sql_format_tools::execute;
+    use serde_json::json;
+    let result = execute(&json!({
+        "action": "minify",
+        "sql": "  SELECT   id ,   name  FROM  users  WHERE  active = 1  "
+    }))
+    .await;
+    assert!(result.is_ok(), "sql_format minify failed: {:?}", result);
+    let out = result.unwrap();
+    assert!(
+        out.contains("SELECT") || out.contains("reduction"),
+        "Expected minified SQL output, got: {out}"
+    );
+}
+
+#[tokio::test]
+async fn test_sql_format_tools_split() {
+    use hematite::tools::sql_format_tools::execute;
+    use serde_json::json;
+    let result = execute(&json!({
+        "action": "split",
+        "sql": "SELECT 1; SELECT 2; SELECT 3;"
+    }))
+    .await;
+    assert!(result.is_ok(), "sql_format split failed: {:?}", result);
+    let out = result.unwrap();
+    assert!(
+        out.contains("3 statement") || out.contains("Statement 3"),
+        "Expected 3 statements, got: {out}"
+    );
+}
+
+#[tokio::test]
+async fn test_sql_format_tools_extract_tables() {
+    use hematite::tools::sql_format_tools::execute;
+    use serde_json::json;
+    let result = execute(&json!({
+        "action": "extract",
+        "sql": "SELECT u.id FROM users u JOIN orders o ON u.id = o.user_id",
+        "what": "tables"
+    }))
+    .await;
+    assert!(
+        result.is_ok(),
+        "sql_format extract tables failed: {:?}",
+        result
+    );
+    let out = result.unwrap();
+    assert!(
+        out.contains("users") || out.contains("orders"),
+        "Expected table names, got: {out}"
+    );
+}
+
+#[tokio::test]
+async fn test_totp_tools_generate_known_secret() {
+    use hematite::tools::totp_tools::execute;
+    use serde_json::json;
+    // Use a fixed time to get a deterministic result
+    // RFC test vector: secret = "12345678901234567890" as bytes
+    // We'll use JBSWY3DPEHPK3PXP which decodes to "Hello!"
+    let result = execute(&json!({
+        "action": "generate",
+        "secret": "JBSWY3DPEHPK3PXP",
+        "time": 1234567890u64
+    }))
+    .await;
+    assert!(result.is_ok(), "totp generate failed: {:?}", result);
+    let out = result.unwrap();
+    assert!(
+        out.contains("Code:") || out.contains("TOTP"),
+        "Expected TOTP output, got: {out}"
+    );
+    // Code should be 6 digits
+    let code_line = out.lines().find(|l| l.contains("Current:")).unwrap_or("");
+    let digits: String = code_line.chars().filter(|c| c.is_ascii_digit()).collect();
+    assert!(digits.len() == 6, "Expected 6-digit code in '{code_line}'");
+}
+
+#[tokio::test]
+async fn test_totp_tools_verify_valid_code() {
+    use hematite::tools::totp_tools::execute;
+    use serde_json::json;
+    // Generate a code at t=1000 then verify it at t=1000
+    let gen = execute(&json!({
+        "action": "generate",
+        "secret": "JBSWY3DPEHPK3PXP",
+        "time": 1000u64
+    }))
+    .await
+    .unwrap();
+    // Extract the code from the "Current:" line
+    let code_str: String = gen
+        .lines()
+        .find(|l| l.contains("Current:"))
+        .map(|l| l.chars().filter(|c| c.is_ascii_digit()).collect())
+        .unwrap_or_default();
+    let code: u64 = code_str.parse().unwrap_or(0);
+
+    let result = execute(&json!({
+        "action": "verify",
+        "secret": "JBSWY3DPEHPK3PXP",
+        "code": code,
+        "time": 1000u64
+    }))
+    .await;
+    assert!(result.is_ok(), "totp verify failed: {:?}", result);
+    let out = result.unwrap();
+    assert!(out.contains("VALID"), "Expected VALID result, got: {out}");
+}
+
+#[tokio::test]
+async fn test_totp_tools_hotp_codes() {
+    use hematite::tools::totp_tools::execute;
+    use serde_json::json;
+    let result = execute(&json!({
+        "action": "hotp",
+        "secret": "JBSWY3DPEHPK3PXP",
+        "counter": 0,
+        "count": 3
+    }))
+    .await;
+    assert!(result.is_ok(), "totp hotp failed: {:?}", result);
+    let out = result.unwrap();
+    assert!(
+        out.contains("Counter") || out.contains("HOTP"),
+        "Expected HOTP output, got: {out}"
+    );
+}
+
+#[tokio::test]
+async fn test_totp_tools_qr_uri() {
+    use hematite::tools::totp_tools::execute;
+    use serde_json::json;
+    let result = execute(&json!({
+        "action": "qr",
+        "secret": "JBSWY3DPEHPK3PXP",
+        "issuer": "TestApp",
+        "label": "user@example.com"
+    }))
+    .await;
+    assert!(result.is_ok(), "totp qr failed: {:?}", result);
+    let out = result.unwrap();
+    assert!(
+        out.contains("otpauth://") || out.contains("TestApp"),
+        "Expected otpauth URI, got: {out}"
+    );
+}
