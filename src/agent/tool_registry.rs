@@ -5149,6 +5149,91 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         }),
     ));
     tools.push(make_tool(
+        "graph_tools",
+        "Graph algorithm operations without external utilities. \
+         Actions: info (default — node/edge counts, density, degree distribution; pass 'nodes' array and 'edges' array), \
+         bfs (breadth-first search; pass 'start'), \
+         dfs (depth-first search; pass 'start'), \
+         shortest (Dijkstra shortest path; pass 'start' and 'end'), \
+         topo (topological sort via Kahn's; detects cycles), \
+         cycles (cycle detection — DFS back-edge for directed, union-find for undirected), \
+         components (connected components for undirected; Kosaraju SCCs for directed). \
+         Pass 'directed: true' for directed graphs (default: undirected). \
+         Edges: array of {from, to, weight?} objects or [from, to, weight?] arrays. \
+         Example: graph_tools(action: 'shortest', nodes: ['A','B','C'], edges: [{from:'A',to:'B',weight:1},{from:'B',to:'C',weight:2}], start: 'A', end: 'C') or \
+         graph_tools(action: 'topo', nodes: ['a','b','c'], edges: [{from:'a',to:'b'},{from:'b',to:'c'}], directed: true).",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "info (default), bfs, dfs, shortest, topo, cycles, components"
+                },
+                "nodes": {
+                    "type": "array",
+                    "description": "Array of node names/IDs as strings. E.g. ['A','B','C']."
+                },
+                "edges": {
+                    "type": "array",
+                    "description": "Array of edges as {from, to, weight?} objects or [from, to, weight?] arrays."
+                },
+                "directed": {
+                    "type": "boolean",
+                    "description": "True for a directed graph (default: false / undirected)."
+                },
+                "start": {
+                    "type": "string",
+                    "description": "Start node for bfs, dfs, and shortest path."
+                },
+                "end": {
+                    "type": "string",
+                    "description": "End node for shortest path (Dijkstra)."
+                }
+            },
+            "required": []
+        }),
+    ));
+    tools.push(make_tool(
+        "matrix_tools",
+        "Linear algebra matrix operations without external utilities. \
+         Actions: info (default — shape, rank, trace, determinant, min/max/mean; pass 'matrix'), \
+         multiply (matrix multiply A×B; pass 'a' and 'b' as 2D arrays), \
+         transpose (flip rows/columns; pass 'matrix'), \
+         determinant (det(A); pass 'matrix' — must be square), \
+         inverse (A⁻¹ via LU; pass 'matrix' — square and invertible), \
+         solve (solve Ax=b via Gaussian elimination; pass 'matrix' for A and 'vector' for b), \
+         rank (matrix rank via row reduction; pass 'matrix'). \
+         Matrix format: JSON array of arrays e.g. [[1,2],[3,4]]. \
+         Example: matrix_tools(action: 'solve', matrix: [[2,1],[5,3]], vector: [1,2]) or \
+         matrix_tools(action: 'determinant', matrix: [[1,2,3],[4,5,6],[7,8,9]]).",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "info (default), multiply, transpose, determinant, inverse, solve, rank"
+                },
+                "matrix": {
+                    "type": "array",
+                    "description": "Matrix as a 2D JSON array of number arrays. E.g. [[1,2],[3,4]]."
+                },
+                "a": {
+                    "type": "array",
+                    "description": "First matrix for multiply action."
+                },
+                "b": {
+                    "type": "array",
+                    "description": "Second matrix for multiply action."
+                },
+                "vector": {
+                    "type": "array",
+                    "description": "RHS vector b for solve action. E.g. [8,-11,-3]."
+                }
+            },
+            "required": []
+        }),
+    ));
+    tools.push(make_tool(
         "hex_tools",
         "Hex dump, binary analysis, and hex encoding/decoding without external utilities. \
          Actions: \
@@ -5570,6 +5655,8 @@ pub async fn dispatch_builtin_tool(
         "mime_tools" => crate::tools::mime_tools::execute(args).await,
         "http_status_tools" => crate::tools::http_status_tools::execute(args).await,
         "glob_tools" => crate::tools::glob_tools::execute(args).await,
+        "graph_tools" => crate::tools::graph_tools::execute(args).await,
+        "matrix_tools" => crate::tools::matrix_tools::execute(args).await,
         "log_parse_tools" => crate::tools::log_parse_tools::execute(args).await,
         "csp_tools" => crate::tools::csp_tools::execute(args).await,
         "robots_txt_tools" => crate::tools::robots_txt_tools::execute(args).await,

@@ -36,23 +36,23 @@ use crate::agent::routing::{
     needs_dockerfile_tools, needs_dotenv_tools, needs_duration_tools, needs_encode_tools,
     needs_env_diff, needs_env_schema_tools, needs_format, needs_fraction_tools, needs_geo_tools,
     needs_geometry_tools, needs_github_actions_tools, needs_github_ops, needs_gitignore_tools,
-    needs_glob_tools, needs_graphql_tools, needs_hash_tools, needs_hex_tools, needs_http_request,
-    needs_http_status_tools, needs_id_tools, needs_ini_tools, needs_ip_tools, needs_json_tools,
-    needs_jwt_tools, needs_k8s_tools, needs_keyval_tools, needs_license_tools, needs_line_tools,
-    needs_lint_check, needs_lock_file_tools, needs_log_parse_tools, needs_make_tools,
-    needs_markdown_tools, needs_mime_tools, needs_money_tools, needs_nato_tools,
-    needs_net_lookup_tools, needs_nginx_conf_tools, needs_number_theory_tools, needs_number_tools,
-    needs_openapi_tools, needs_package_json_tools, needs_password_gen, needs_path_tools,
-    needs_pem_tools, needs_port_check, needs_proto_tools, needs_regex_tools,
-    needs_robots_txt_tools, needs_rss_tools, needs_scientific_compute, needs_secret_scan,
-    needs_semver_tools, needs_sitemap_tools, needs_size_tools, needs_sql_migrate_tools,
-    needs_sql_tools, needs_sqlite_tools, needs_ssh_config_tools, needs_stat_tools,
-    needs_string_metric_tools, needs_systemd_tools, needs_table_tools, needs_template_gen,
-    needs_template_tools, needs_terraform_tools, needs_test_run, needs_text_tools,
-    needs_time_zone_tools, needs_token_tools, needs_toml_tools, needs_unit_tools, needs_url_tools,
-    needs_uuid_gen, needs_validate_tools, needs_word_tools, needs_xml_tools, needs_yaml_tools,
-    preferred_host_inspection_topic, preferred_maintainer_workflow, preferred_workspace_workflow,
-    DirectAnswerKind, QueryIntentClass,
+    needs_glob_tools, needs_graph_tools, needs_graphql_tools, needs_hash_tools, needs_hex_tools,
+    needs_http_request, needs_http_status_tools, needs_id_tools, needs_ini_tools, needs_ip_tools,
+    needs_json_tools, needs_jwt_tools, needs_k8s_tools, needs_keyval_tools, needs_license_tools,
+    needs_line_tools, needs_lint_check, needs_lock_file_tools, needs_log_parse_tools,
+    needs_make_tools, needs_markdown_tools, needs_matrix_tools, needs_mime_tools,
+    needs_money_tools, needs_nato_tools, needs_net_lookup_tools, needs_nginx_conf_tools,
+    needs_number_theory_tools, needs_number_tools, needs_openapi_tools, needs_package_json_tools,
+    needs_password_gen, needs_path_tools, needs_pem_tools, needs_port_check, needs_proto_tools,
+    needs_regex_tools, needs_robots_txt_tools, needs_rss_tools, needs_scientific_compute,
+    needs_secret_scan, needs_semver_tools, needs_sitemap_tools, needs_size_tools,
+    needs_sql_migrate_tools, needs_sql_tools, needs_sqlite_tools, needs_ssh_config_tools,
+    needs_stat_tools, needs_string_metric_tools, needs_systemd_tools, needs_table_tools,
+    needs_template_gen, needs_template_tools, needs_terraform_tools, needs_test_run,
+    needs_text_tools, needs_time_zone_tools, needs_token_tools, needs_toml_tools, needs_unit_tools,
+    needs_url_tools, needs_uuid_gen, needs_validate_tools, needs_word_tools, needs_xml_tools,
+    needs_yaml_tools, preferred_host_inspection_topic, preferred_maintainer_workflow,
+    preferred_workspace_workflow, DirectAnswerKind, QueryIntentClass,
 };
 use crate::agent::tool_registry::dispatch_builtin_tool;
 use crate::agent::truncation::safe_head;
@@ -5795,6 +5795,41 @@ impl ConversationManager {
                  Glob syntax: ** matches any depth, * matches one segment, ? matches one char, [!abc] negates. \
                  Example: glob_tools(action: 'match', pattern: '**/*.rs', path: 'src/tools/mod.rs') or \
                  glob_tools(action: 'explain', pattern: 'src/**/*.{ts,tsx}')."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_graph_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "GRAPH TOOLS NOTICE: Use the `graph_tools` tool for graph algorithm operations without external utilities. \
+                 Actions: info (default — graph summary: node/edge counts, density, degree distribution; pass 'nodes' array and 'edges' array), \
+                 bfs (breadth-first search from a start node; pass 'start'), \
+                 dfs (depth-first search from a start node; pass 'start'), \
+                 shortest (Dijkstra's shortest path; pass 'start' and 'end'), \
+                 topo (topological sort via Kahn's algorithm; detects cycles), \
+                 cycles (detect cycles; works on directed and undirected graphs), \
+                 components (connected components for undirected; SCCs via Kosaraju's for directed). \
+                 Pass 'directed: true' for directed graphs (default: undirected). \
+                 Edges format: array of objects {from, to, weight?} or arrays [from, to, weight?]. \
+                 Example: graph_tools(action: 'shortest', nodes: ['A','B','C','D'], edges: [{from:'A',to:'B',weight:2},{from:'B',to:'D',weight:3},{from:'A',to:'C',weight:1},{from:'C',to:'D',weight:5}], start: 'A', end: 'D') or \
+                 graph_tools(action: 'topo', nodes: ['build','test','deploy'], edges: [{from:'build',to:'test'},{from:'test',to:'deploy'}], directed: true)."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_matrix_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "MATRIX TOOLS NOTICE: Use the `matrix_tools` tool for linear algebra operations without external utilities. \
+                 Actions: info (default — shape, rank, trace, determinant, min/max/mean; pass 'matrix'), \
+                 multiply (matrix multiplication; pass 'a' and 'b' as 2D arrays), \
+                 transpose (flip rows and columns; pass 'matrix'), \
+                 determinant (det(A); pass 'matrix' — must be square), \
+                 inverse (A⁻¹; pass 'matrix' — must be square and invertible), \
+                 solve (solve Ax=b via Gaussian elimination; pass 'matrix' for A and 'vector' for b), \
+                 rank (matrix rank via row reduction; pass 'matrix'). \
+                 Matrix format: JSON array of arrays e.g. [[1,2],[3,4]]. \
+                 Example: matrix_tools(action: 'solve', matrix: [[2,1,-1],[−3,−1,2],[−2,1,2]], vector: [8,-11,-3]) or \
+                 matrix_tools(action: 'determinant', matrix: [[1,2,3],[4,5,6],[7,8,9]])."
                     .to_string(),
             );
         }

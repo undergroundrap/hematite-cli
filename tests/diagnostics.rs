@@ -27295,3 +27295,148 @@ fn test_routing_detects_scientific_compute() {
         "should not trigger on unrelated"
     );
 }
+
+#[test]
+fn test_routing_detects_graph_tools() {
+    use hematite::agent::routing::needs_graph_tools;
+    assert!(
+        needs_graph_tools("bfs traversal of this graph"),
+        "should detect bfs traversal"
+    );
+    assert!(
+        needs_graph_tools("run dijkstra on weighted graph"),
+        "should detect dijkstra"
+    );
+    assert!(
+        needs_graph_tools("topological sort the dependencies"),
+        "should detect topo sort"
+    );
+    assert!(
+        needs_graph_tools("detect cycle in directed graph"),
+        "should detect cycle"
+    );
+    assert!(
+        needs_graph_tools("find connected components"),
+        "should detect connected components"
+    );
+    assert!(
+        !needs_graph_tools("show me the network topology"),
+        "should not match generic network"
+    );
+}
+
+#[test]
+fn test_routing_detects_matrix_tools() {
+    use hematite::agent::routing::needs_matrix_tools;
+    assert!(
+        needs_matrix_tools("matrix multiply these two matrices"),
+        "should detect matrix multiply"
+    );
+    assert!(
+        needs_matrix_tools("compute the determinant of this matrix"),
+        "should detect determinant"
+    );
+    assert!(
+        needs_matrix_tools("find the matrix inverse"),
+        "should detect inverse"
+    );
+    assert!(
+        needs_matrix_tools("solve linear system Ax=b"),
+        "should detect solve linear"
+    );
+    assert!(
+        needs_matrix_tools("what is the matrix rank"),
+        "should detect matrix rank"
+    );
+    assert!(
+        !needs_matrix_tools("show me a scatter plot"),
+        "should not match scatter plot"
+    );
+}
+
+#[tokio::test]
+async fn test_graph_tools_info() {
+    use hematite::tools::graph_tools::execute;
+    let args = serde_json::json!({
+        "action": "info",
+        "nodes": ["A", "B", "C", "D"],
+        "edges": [{"from": "A", "to": "B"}, {"from": "B", "to": "C"}, {"from": "A", "to": "D"}]
+    });
+    let result = execute(&args).await;
+    assert!(
+        result.is_ok(),
+        "graph_tools info should succeed: {:?}",
+        result
+    );
+    let out = result.unwrap();
+    assert!(
+        out.contains("4") || out.contains("nodes"),
+        "should mention node count"
+    );
+}
+
+#[tokio::test]
+async fn test_graph_tools_shortest() {
+    use hematite::tools::graph_tools::execute;
+    let args = serde_json::json!({
+        "action": "shortest",
+        "nodes": ["A", "B", "C"],
+        "edges": [{"from": "A", "to": "B", "weight": 2}, {"from": "B", "to": "C", "weight": 3}, {"from": "A", "to": "C", "weight": 10}],
+        "directed": true,
+        "start": "A",
+        "end": "C"
+    });
+    let result = execute(&args).await;
+    assert!(
+        result.is_ok(),
+        "graph_tools shortest should succeed: {:?}",
+        result
+    );
+    let out = result.unwrap();
+    assert!(
+        out.contains("5") || out.contains("path"),
+        "should find path with cost 5"
+    );
+}
+
+#[tokio::test]
+async fn test_matrix_tools_determinant() {
+    use hematite::tools::matrix_tools::execute;
+    let args = serde_json::json!({
+        "action": "determinant",
+        "matrix": [[1, 2], [3, 4]]
+    });
+    let result = execute(&args).await;
+    assert!(
+        result.is_ok(),
+        "matrix_tools determinant should succeed: {:?}",
+        result
+    );
+    let out = result.unwrap();
+    assert!(
+        out.contains("-2") || out.contains("−2"),
+        "det([[1,2],[3,4]]) = -2"
+    );
+}
+
+#[tokio::test]
+async fn test_matrix_tools_solve() {
+    use hematite::tools::matrix_tools::execute;
+    // 2x + y = 5, x + y = 3 => x=2, y=1
+    let args = serde_json::json!({
+        "action": "solve",
+        "matrix": [[2, 1], [1, 1]],
+        "vector": [5, 3]
+    });
+    let result = execute(&args).await;
+    assert!(
+        result.is_ok(),
+        "matrix_tools solve should succeed: {:?}",
+        result
+    );
+    let out = result.unwrap();
+    assert!(
+        out.contains("x[0]") || out.contains("x[1]"),
+        "should list solution variables"
+    );
+}

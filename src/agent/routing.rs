@@ -7417,6 +7417,64 @@ pub fn needs_glob_tools(user_input: &str) -> bool {
     )
 }
 
+pub fn needs_graph_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "graph algorithm",
+            "bfs traversal",
+            "breadth first search",
+            "dfs traversal",
+            "depth first search",
+            "shortest path",
+            "dijkstra",
+            "topological sort",
+            "topo sort",
+            "detect cycle",
+            "graph cycle",
+            "connected components",
+            "graph components",
+            "graph nodes",
+            "graph edges",
+            "strongly connected",
+            "scc algorithm",
+            "graph theory",
+            "traverse graph",
+            "path in graph",
+        ],
+    )
+}
+
+pub fn needs_matrix_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "matrix multiply",
+            "multiply matrices",
+            "matrix multiplication",
+            "matrix transpose",
+            "transpose matrix",
+            "matrix determinant",
+            "determinant of",
+            "matrix inverse",
+            "inverse matrix",
+            "invert matrix",
+            "solve linear",
+            "linear system",
+            "gaussian elimination",
+            "matrix rank",
+            "rank of matrix",
+            "matrix info",
+            "matrix stats",
+            "is matrix singular",
+            "matrix operations",
+            "linear algebra",
+        ],
+    )
+}
+
 pub fn needs_sql_tools(user_input: &str) -> bool {
     let lower = user_input.to_lowercase();
     contains_any(
