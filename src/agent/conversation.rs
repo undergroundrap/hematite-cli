@@ -41,23 +41,23 @@ use crate::agent::routing::{
     needs_graphql_tools, needs_graphviz_tools, needs_har_tools, needs_hash_tools, needs_hex_tools,
     needs_http_parse_tools, needs_http_request, needs_http_status_tools, needs_ical_tools,
     needs_id_tools, needs_ini_tools, needs_ip_tools, needs_jq_tools, needs_json_tools,
-    needs_jwt_tools, needs_k8s_tools, needs_keyval_tools, needs_license_tools, needs_line_tools,
-    needs_lint_check, needs_lock_file_tools, needs_log_parse_tools, needs_make_tools,
-    needs_markdown_tools, needs_matrix_tools, needs_mermaid_tools, needs_mime_tools,
-    needs_money_tools, needs_nato_tools, needs_net_lookup_tools, needs_nginx_conf_tools,
-    needs_number_theory_tools, needs_number_tools, needs_openapi_tools, needs_package_json_tools,
-    needs_password_gen, needs_path_tools, needs_pem_tools, needs_plist_tools, needs_port_check,
-    needs_printf_tools, needs_proto_tools, needs_regex_tools, needs_robots_txt_tools,
-    needs_rss_tools, needs_scientific_compute, needs_secret_scan, needs_semver_tools,
-    needs_sitemap_tools, needs_size_tools, needs_sql_format_tools, needs_sql_migrate_tools,
-    needs_sql_tools, needs_sqlite_tools, needs_ssh_config_tools, needs_stat_tools,
-    needs_string_metric_tools, needs_systemd_tools, needs_table_tools, needs_tar_tools,
-    needs_template_gen, needs_template_tools, needs_terraform_tools, needs_test_run,
-    needs_text_tools, needs_time_zone_tools, needs_token_tools, needs_toml_tools, needs_totp_tools,
-    needs_unit_tools, needs_url_tools, needs_uuid_gen, needs_validate_tools, needs_word_tools,
-    needs_xml_tools, needs_yaml_tools, preferred_host_inspection_topic,
-    preferred_maintainer_workflow, preferred_workspace_workflow, DirectAnswerKind,
-    QueryIntentClass,
+    needs_jsonschema_tools, needs_jwt_tools, needs_k8s_tools, needs_keyval_tools,
+    needs_license_tools, needs_line_tools, needs_lint_check, needs_lock_file_tools,
+    needs_log_parse_tools, needs_make_tools, needs_markdown_tools, needs_matrix_tools,
+    needs_mermaid_tools, needs_mime_tools, needs_money_tools, needs_nato_tools,
+    needs_net_lookup_tools, needs_nginx_conf_tools, needs_number_theory_tools, needs_number_tools,
+    needs_openapi_tools, needs_package_json_tools, needs_password_gen, needs_path_tools,
+    needs_pem_tools, needs_plist_tools, needs_port_check, needs_printf_tools, needs_proto_tools,
+    needs_regex_tools, needs_robots_txt_tools, needs_rss_tools, needs_scientific_compute,
+    needs_secret_scan, needs_semver_tools, needs_sitemap_tools, needs_size_tools,
+    needs_sql_format_tools, needs_sql_migrate_tools, needs_sql_tools, needs_sqlite_tools,
+    needs_ssh_config_tools, needs_stat_tools, needs_string_metric_tools, needs_systemd_tools,
+    needs_table_tools, needs_tar_tools, needs_template_gen, needs_template_tools,
+    needs_terraform_tools, needs_test_run, needs_text_tools, needs_time_zone_tools,
+    needs_token_tools, needs_toml_tools, needs_totp_tools, needs_unit_tools, needs_url_tools,
+    needs_uuid_gen, needs_validate_tools, needs_wasm_tools, needs_word_tools, needs_xml_tools,
+    needs_yaml_tools, preferred_host_inspection_topic, preferred_maintainer_workflow,
+    preferred_workspace_workflow, DirectAnswerKind, QueryIntentClass,
 };
 use crate::agent::tool_registry::dispatch_builtin_tool;
 use crate::agent::truncation::safe_head;
@@ -6839,6 +6839,36 @@ impl ConversationManager {
                  email_tools(action: 'headers', file: 'message.eml', name: 'Subject') or \
                  email_tools(action: 'trace', text: raw_email_string) or \
                  email_tools(action: 'structure', file: 'message.eml')."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_wasm_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "WASM NOTICE: Use the `wasm_tools` tool to inspect WebAssembly binary (.wasm) files without external utilities. \
+                 Actions: info (default — magic, version, section count, import/export summary), \
+                 sections (all sections with id, name, size, and offset), \
+                 imports (all imported functions, tables, memories, globals with module and name), \
+                 exports (all exported symbols with kind and index). \
+                 Pass 'file' (path to .wasm file) or 'hex' (hex-encoded WASM bytes). \
+                 Example: wasm_tools(file: 'module.wasm') or \
+                 wasm_tools(action: 'imports', file: 'module.wasm') or \
+                 wasm_tools(action: 'exports', file: 'module.wasm')."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_jsonschema_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "JSON SCHEMA NOTICE: Use the `jsonschema_tools` tool to inspect and validate JSON Schema documents. \
+                 Actions: info (default — schema metadata: $schema, title, type, required count, property count, combiners), \
+                 properties (list all properties with type, required flag, and description), \
+                 refs (list all $ref, $defs/definitions, and $id anchors), \
+                 validate (validate a JSON instance against the schema — reports errors with JSON Pointer paths). \
+                 Pass 'schema' (inline JSON or file path) or 'schema_file'. For validate also pass 'instance' or 'instance_file'. \
+                 Example: jsonschema_tools(schema_file: 'schema.json') or \
+                 jsonschema_tools(action: 'validate', schema_file: 'schema.json', instance_file: 'data.json') or \
+                 jsonschema_tools(action: 'properties', schema: '{\"type\":\"object\",...}')."
                     .to_string(),
             );
         }

@@ -8970,6 +8970,72 @@ pub fn needs_email_tools(user_input: &str) -> bool {
         ))
 }
 
+pub fn needs_wasm_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            ".wasm",
+            "wasm file",
+            "wasm binary",
+            "webassembly",
+            "web assembly",
+            "wasm sections",
+            "wasm imports",
+            "wasm exports",
+            "wasm module",
+            "wasm inspector",
+            "inspect wasm",
+            "parse wasm",
+            "analyze wasm",
+        ],
+    ) || (lower.contains("wasm")
+        && contains_any(
+            &lower,
+            &["list", "inspect", "info", "imports", "exports", "sections"],
+        ))
+}
+
+pub fn needs_jsonschema_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "json schema",
+            "jsonschema",
+            "json-schema",
+            "validate json",
+            "validate against schema",
+            "schema validation",
+            "json validation",
+            "$ref",
+            "$defs",
+            "draft-07",
+            "draft 7",
+            "openapi schema",
+            "json schema properties",
+            "schema properties",
+            "required fields in schema",
+            "schema refs",
+            "schema info",
+            "inspect schema",
+            "analyze schema",
+        ],
+    ) || (lower.contains("schema")
+        && contains_any(
+            &lower,
+            &[
+                "validate",
+                "inspect",
+                "properties",
+                "refs",
+                "analyze",
+                "parse",
+                "info",
+            ],
+        ))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -28751,3 +28751,285 @@ fn test_email_tools_structure() {
         "Expected MIME structure info, got: {out}"
     );
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// wasm_tools tests
+// ─────────────────────────────────────────────────────────────────────────────
+
+#[test]
+fn test_routing_detects_wasm_tools() {
+    use hematite::agent::routing::needs_wasm_tools;
+    assert!(needs_wasm_tools("inspect the wasm file"));
+    assert!(needs_wasm_tools("what imports does this .wasm have"));
+    assert!(needs_wasm_tools("list wasm exports"));
+    assert!(needs_wasm_tools("analyze webassembly binary"));
+    assert!(!needs_wasm_tools("fetch some data from the web"));
+}
+
+fn minimal_wasm_module() -> Vec<u8> {
+    // Minimal valid WASM: magic + version + empty type section
+    vec![
+        0x00, 0x61, 0x73, 0x6d, // magic: \0asm
+        0x01, 0x00, 0x00, 0x00, // version: 1
+        // Type section (id=1), length=1, count=0
+        0x01, 0x01, 0x00,
+    ]
+}
+
+fn minimal_wasm_with_import() -> Vec<u8> {
+    // WASM module with one function type and one import
+    // Type section: (func (param i32) (result i32))
+    // Import section: import "env" "add" func type 0
+    let type_section: Vec<u8> = vec![
+        0x01, // section id: type
+        0x06, // section size: 6 bytes (count + functype + 1p + i32 + 1r + i32)
+        0x01, // 1 type entry
+        0x60, // func type
+        0x01, 0x7f, // 1 param: i32
+        0x01, 0x7f, // 1 result: i32
+    ];
+    let import_section: Vec<u8> = vec![
+        0x02, // section id: import
+        0x0b, // section size: 11 bytes
+        0x01, // 1 import
+        0x03, b'e', b'n', b'v', // module name: "env"
+        0x03, b'a', b'd', b'd', // field name: "add"
+        0x00, // import kind: func
+        0x00, // type index: 0
+    ];
+    let mut bytes = vec![
+        0x00, 0x61, 0x73, 0x6d, // magic
+        0x01, 0x00, 0x00, 0x00, // version
+    ];
+    bytes.extend_from_slice(&type_section);
+    bytes.extend_from_slice(&import_section);
+    bytes
+}
+
+fn minimal_wasm_with_export() -> Vec<u8> {
+    // WASM module with export section
+    let export_section: Vec<u8> = vec![
+        0x07, // section id: export
+        0x08, // section size: 8 bytes
+        0x01, // 1 export
+        0x04, b'm', b'a', b'i', b'n', // name: "main"
+        0x00, // export kind: func
+        0x00, // function index: 0
+    ];
+    let mut bytes = vec![
+        0x00, 0x61, 0x73, 0x6d, // magic
+        0x01, 0x00, 0x00, 0x00, // version
+    ];
+    bytes.extend_from_slice(&export_section);
+    bytes
+}
+
+fn bytes_to_hex(bytes: &[u8]) -> String {
+    bytes.iter().map(|b| format!("{:02x}", b)).collect()
+}
+
+#[test]
+fn test_wasm_tools_info_minimal() {
+    use hematite::tools::wasm_tools;
+    let hex = bytes_to_hex(&minimal_wasm_module());
+    let out = tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(wasm_tools::execute(&serde_json::json!({"hex": hex})))
+        .expect("wasm info should succeed");
+    assert!(
+        out.contains("WebAssembly") || out.contains("wasm") || out.contains("WASM"),
+        "Expected WASM info, got: {out}"
+    );
+    assert!(
+        out.contains("1") || out.contains("version"),
+        "Expected version info, got: {out}"
+    );
+}
+
+#[test]
+fn test_wasm_tools_sections() {
+    use hematite::tools::wasm_tools;
+    let hex = bytes_to_hex(&minimal_wasm_module());
+    let out = tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(wasm_tools::execute(
+            &serde_json::json!({"action": "sections", "hex": hex}),
+        ))
+        .expect("sections should succeed");
+    assert!(
+        out.contains("type") || out.contains("Type") || out.contains("Section"),
+        "Expected section listing, got: {out}"
+    );
+}
+
+#[test]
+fn test_wasm_tools_imports() {
+    use hematite::tools::wasm_tools;
+    let hex = bytes_to_hex(&minimal_wasm_with_import());
+    let out = tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(wasm_tools::execute(
+            &serde_json::json!({"action": "imports", "hex": hex}),
+        ))
+        .expect("imports should succeed");
+    assert!(
+        out.contains("env") || out.contains("add") || out.contains("func"),
+        "Expected import info, got: {out}"
+    );
+}
+
+#[test]
+fn test_wasm_tools_exports() {
+    use hematite::tools::wasm_tools;
+    let hex = bytes_to_hex(&minimal_wasm_with_export());
+    let out = tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(wasm_tools::execute(
+            &serde_json::json!({"action": "exports", "hex": hex}),
+        ))
+        .expect("exports should succeed");
+    assert!(
+        out.contains("main") || out.contains("func") || out.contains("Export"),
+        "Expected export 'main', got: {out}"
+    );
+}
+
+#[test]
+fn test_wasm_tools_invalid_magic() {
+    use hematite::tools::wasm_tools;
+    // Not a valid WASM file
+    let hex = bytes_to_hex(b"not wasm data at all");
+    let result = tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(wasm_tools::execute(&serde_json::json!({"hex": hex})));
+    assert!(result.is_err(), "Should fail on invalid magic bytes");
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// jsonschema_tools tests
+// ─────────────────────────────────────────────────────────────────────────────
+
+#[test]
+fn test_routing_detects_jsonschema_tools() {
+    use hematite::agent::routing::needs_jsonschema_tools;
+    assert!(needs_jsonschema_tools("validate this json against the schema"));
+    assert!(needs_jsonschema_tools("json schema properties"));
+    assert!(needs_jsonschema_tools("list the $refs in this schema"));
+    assert!(needs_jsonschema_tools("draft-07 schema info"));
+    assert!(!needs_jsonschema_tools("fetch json from the api"));
+}
+
+const SIMPLE_SCHEMA: &str = r#"{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Person",
+  "type": "object",
+  "properties": {
+    "name": {"type": "string", "description": "Full name"},
+    "age": {"type": "integer", "minimum": 0}
+  },
+  "required": ["name"]
+}"#;
+
+#[test]
+fn test_jsonschema_tools_info() {
+    use hematite::tools::jsonschema_tools;
+    let out = tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(jsonschema_tools::execute(
+            &serde_json::json!({"schema": SIMPLE_SCHEMA}),
+        ))
+        .expect("info should succeed");
+    assert!(out.contains("Person"), "Expected title 'Person', got: {out}");
+    assert!(out.contains("object"), "Expected type 'object', got: {out}");
+    assert!(out.contains("required"), "Expected required fields, got: {out}");
+}
+
+#[test]
+fn test_jsonschema_tools_properties() {
+    use hematite::tools::jsonschema_tools;
+    let out = tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(jsonschema_tools::execute(
+            &serde_json::json!({"action": "properties", "schema": SIMPLE_SCHEMA}),
+        ))
+        .expect("properties should succeed");
+    assert!(out.contains("name"), "Expected 'name' property, got: {out}");
+    assert!(out.contains("age"), "Expected 'age' property, got: {out}");
+    assert!(out.contains("yes"), "Expected required 'yes' marker, got: {out}");
+}
+
+#[test]
+fn test_jsonschema_tools_validate_valid() {
+    use hematite::tools::jsonschema_tools;
+    let instance = r#"{"name": "Alice", "age": 30}"#;
+    let out = tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(jsonschema_tools::execute(&serde_json::json!({
+            "action": "validate",
+            "schema": SIMPLE_SCHEMA,
+            "instance": instance
+        })))
+        .expect("validate should succeed");
+    assert!(out.contains("VALID"), "Expected VALID result, got: {out}");
+}
+
+#[test]
+fn test_jsonschema_tools_validate_missing_required() {
+    use hematite::tools::jsonschema_tools;
+    // Missing required "name" field
+    let instance = r#"{"age": 25}"#;
+    let out = tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(jsonschema_tools::execute(&serde_json::json!({
+            "action": "validate",
+            "schema": SIMPLE_SCHEMA,
+            "instance": instance
+        })))
+        .expect("validate should not panic");
+    assert!(out.contains("INVALID"), "Expected INVALID result, got: {out}");
+    assert!(
+        out.contains("name") || out.contains("required"),
+        "Expected error about 'name', got: {out}"
+    );
+}
+
+#[test]
+fn test_jsonschema_tools_validate_type_error() {
+    use hematite::tools::jsonschema_tools;
+    // "age" should be integer but we pass a string
+    let instance = r#"{"name": "Bob", "age": "thirty"}"#;
+    let out = tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(jsonschema_tools::execute(&serde_json::json!({
+            "action": "validate",
+            "schema": SIMPLE_SCHEMA,
+            "instance": instance
+        })))
+        .expect("validate should not panic");
+    assert!(out.contains("INVALID"), "Expected INVALID result for type error, got: {out}");
+}
+
+#[test]
+fn test_jsonschema_tools_refs() {
+    use hematite::tools::jsonschema_tools;
+    let schema_with_refs = r##"{
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "$defs": {
+        "Address": {"type": "object", "properties": {"city": {"type": "string"}}}
+      },
+      "type": "object",
+      "properties": {
+        "home": {"$ref": "#/$defs/Address"}
+      }
+    }"##;
+    let out = tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(jsonschema_tools::execute(
+            &serde_json::json!({"action": "refs", "schema": schema_with_refs}),
+        ))
+        .expect("refs should succeed");
+    assert!(
+        out.contains("Address") || out.contains("$defs") || out.contains("$ref"),
+        "Expected ref info, got: {out}"
+    );
+}

@@ -6162,6 +6162,42 @@ pub fn get_tools() -> Vec<ToolDefinition> {
          email_tools(action: 'structure', text: raw_email_string).",
         crate::tools::email_tools::email_tools_schema(),
     ));
+    tools.push(make_tool(
+        "wasm_tools",
+        "Inspect WebAssembly binary (.wasm) modules without external tools. \
+         Parses WASM magic bytes, section headers, LEB128 indices, type signatures, \
+         import/export records, and debug name section. \
+         Actions: \
+         `info` (default) — magic, version, section count, total size, import/export count summary; \
+         `sections` — all sections with id, name, size in bytes, and byte offset; \
+         `imports` — all imported symbols with module name, item name, and kind (func/table/mem/global) plus type signature for functions; \
+         `exports` — all exported symbols with name, kind, and index. \
+         Pass 'file' (path to .wasm file) or 'hex' (hex-encoded WASM bytes). \
+         Example: wasm_tools(file: 'module.wasm') or \
+         wasm_tools(action: 'imports', file: 'module.wasm') or \
+         wasm_tools(action: 'sections', file: 'module.wasm') or \
+         wasm_tools(action: 'exports', hex: '0061736d...').",
+        crate::tools::wasm_tools::wasm_tools_schema(),
+    ));
+    tools.push(make_tool(
+        "jsonschema_tools",
+        "Inspect and validate JSON Schema documents (draft-07 and compatible) without external tools. \
+         Actions: \
+         `info` (default) — schema metadata: $schema dialect, $id, title, description, root type, required count, \
+         property count, additionalProperties, enum values, $defs count, numeric/string/array constraints, and combiner (allOf/anyOf/oneOf) count; \
+         `properties` — tabular list of all properties with type, required flag, and description; \
+         `refs` — enumerate all $ref usages, $defs/definitions entries, and $id anchors in the schema tree; \
+         `validate` — validate a JSON instance against the schema with JSON Pointer error paths \
+         (supports type, required, enum, const, properties, additionalProperties, items, minItems/maxItems, \
+         minLength/maxLength, pattern, minimum/maximum, multipleOf, allOf/anyOf/oneOf/not, $ref). \
+         Pass 'schema' (inline JSON or file path) or 'schema_file'. \
+         For 'validate' also pass 'instance' (inline JSON or file path) or 'instance_file'. \
+         Example: jsonschema_tools(schema_file: 'schema.json') or \
+         jsonschema_tools(action: 'validate', schema_file: 'schema.json', instance_file: 'data.json') or \
+         jsonschema_tools(action: 'properties', schema: '{...}') or \
+         jsonschema_tools(action: 'refs', schema_file: 'api.schema.json').",
+        crate::tools::jsonschema_tools::jsonschema_tools_schema(),
+    ));
     let lsp_defs = crate::tools::lsp_tools::get_lsp_definitions();
     tools.push(make_tool(
         "lsp_search_symbol",
@@ -6324,6 +6360,8 @@ pub async fn dispatch_builtin_tool(
         "totp_tools" => crate::tools::totp_tools::execute(args).await,
         "tar_tools" => crate::tools::tar_tools::execute(args).await,
         "email_tools" => crate::tools::email_tools::execute(args).await,
+        "wasm_tools" => crate::tools::wasm_tools::execute(args).await,
+        "jsonschema_tools" => crate::tools::jsonschema_tools::execute(args).await,
         "http_status_tools" => crate::tools::http_status_tools::execute(args).await,
         "http_parse_tools" => crate::tools::http_parse_tools::execute(args).await,
         "jq_tools" => crate::tools::jq_tools::execute(args).await,
