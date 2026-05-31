@@ -5190,6 +5190,112 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         }),
     ));
     tools.push(make_tool(
+        "http_parse_tools",
+        "Parse raw HTTP/1.1 request and response messages — no live requests, static text parsing only. \
+         Actions: parse/auto (default — auto-detect request vs response and show all fields), \
+         request (force-parse as HTTP request — method, path, query params, headers, body preview), \
+         response (force-parse as HTTP response — status code, reason, headers, content analysis, body preview), \
+         headers (show all headers with annotations and security header check for responses), \
+         cookies (parse Cookie: and Set-Cookie: headers with security flag analysis), \
+         auth (analyze Authorization:, WWW-Authenticate:, and API key headers — decodes Basic auth username, \
+               shows Bearer/JWT type, parses Digest realm/nonce). \
+         Input: 'text'/'http'/'message' for inline HTTP text, or 'file' for a path. \
+         Example: http_parse_tools(action: 'parse', text: 'GET / HTTP/1.1\\nHost: example.com') or \
+         http_parse_tools(action: 'cookies', text: '...') or \
+         http_parse_tools(action: 'auth', file: 'request.txt').",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "parse (default/auto-detect), request, response, headers, cookies, auth"
+                },
+                "text": {
+                    "type": "string",
+                    "description": "Raw HTTP message text. Also accepted as 'http' or 'message'."
+                },
+                "file": {
+                    "type": "string",
+                    "description": "Path to a file containing a raw HTTP message."
+                }
+            },
+            "required": []
+        }),
+    ));
+    tools.push(make_tool(
+        "jq_tools",
+        "jq-inspired JSON path query and filter tool — implements the most useful 80% of jq without the binary. \
+         Uses serde_json — no external utilities. \
+         Actions: query/get/select (default — evaluate a path expression; pass 'path' or 'q'), \
+         keys (list keys of an object or indices of an array at 'path'), \
+         values (list values of an object or elements of an array at 'path'), \
+         flatten (flatten a nested array; optional 'depth'; navigate with 'path'), \
+         map (extract a 'field' from each element of an array at 'path'), \
+         filter (keep array elements where 'field' matches 'value' (equality), 'contains' (substring), \
+                 'gt'/'lt' (numeric), or 'exists: true/false' (field presence)), \
+         count (count elements/keys/characters at 'path'), \
+         type (show JSON type and size of value at 'path'). \
+         Path syntax: '.' identity, '.field', '.field.nested', '.field[0]', '.field[-1]' (last), \
+         '.field[]' iterate array, '.[]' iterate root array, '.a, .b' multi-path. \
+         Builtins via pipe: '.field | keys', '.arr | sort', '.arr | unique', '.arr | reverse', \
+         '.arr | first', '.arr | last', '.arr | min', '.arr | max', '.arr | add', '.x | length', '.x | type'. \
+         Input: 'json' (inline JSON string or value) or 'file' (path to JSON file). \
+         Example: jq_tools(action: 'query', json: '[...]', path: '.[0].name') or \
+         jq_tools(action: 'filter', file: 'data.json', path: '.users', field: 'age', gt: 30) or \
+         jq_tools(action: 'map', file: 'data.json', field: 'name') or \
+         jq_tools(action: 'query', json: '...', path: '.items | sort').",
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "query (default), keys, values, flatten, map, filter, count, type"
+                },
+                "json": {
+                    "type": "string",
+                    "description": "Inline JSON string or already-parsed JSON value to query."
+                },
+                "file": {
+                    "type": "string",
+                    "description": "Path to a JSON file to query."
+                },
+                "path": {
+                    "type": "string",
+                    "description": "Path expression — e.g. '.field', '.a.b[0]', '.items[]', '.a, .b'. Also 'q'."
+                },
+                "field": {
+                    "type": "string",
+                    "description": "For filter/map: the field name to match or extract from each array element."
+                },
+                "value": {
+                    "type": ["string", "number", "boolean", "null"],
+                    "description": "For filter equality: the value to compare against 'field'."
+                },
+                "contains": {
+                    "type": "string",
+                    "description": "For filter: keep elements where 'field' contains this substring."
+                },
+                "gt": {
+                    "type": "number",
+                    "description": "For filter: keep elements where 'field' (numeric) is greater than this."
+                },
+                "lt": {
+                    "type": "number",
+                    "description": "For filter: keep elements where 'field' (numeric) is less than this."
+                },
+                "exists": {
+                    "type": "boolean",
+                    "description": "For filter: keep elements where 'field' is present (true) or absent (false)."
+                },
+                "depth": {
+                    "type": "integer",
+                    "description": "For flatten: maximum depth to flatten (default: fully flatten)."
+                }
+            },
+            "required": []
+        }),
+    ));
+    tools.push(make_tool(
         "glob_tools",
         "Test, filter, explain, and convert glob patterns without external utilities. \
          Actions: match (test if a single path matches; pass 'pattern' and 'path'), \
@@ -5938,6 +6044,8 @@ pub async fn dispatch_builtin_tool(
         "token_tools" => crate::tools::token_tools::execute(args).await,
         "mime_tools" => crate::tools::mime_tools::execute(args).await,
         "http_status_tools" => crate::tools::http_status_tools::execute(args).await,
+        "http_parse_tools" => crate::tools::http_parse_tools::execute(args).await,
+        "jq_tools" => crate::tools::jq_tools::execute(args).await,
         "glob_tools" => crate::tools::glob_tools::execute(args).await,
         "graph_tools" => crate::tools::graph_tools::execute(args).await,
         "matrix_tools" => crate::tools::matrix_tools::execute(args).await,

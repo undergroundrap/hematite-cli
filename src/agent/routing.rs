@@ -7442,6 +7442,75 @@ pub fn needs_http_status_tools(user_input: &str) -> bool {
     )
 }
 
+pub fn needs_http_parse_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "parse http",
+            "parse this http",
+            "parse this request",
+            "parse this response",
+            "parse http request",
+            "parse http response",
+            "parse raw http",
+            "http message",
+            "inspect http headers",
+            "analyze http headers",
+            "decode http",
+            "read http headers",
+            "http cookies",
+            "parse cookie header",
+            "set-cookie header",
+            "http auth header",
+            "authorization header",
+            "www-authenticate",
+            "basic auth header",
+            "bearer token header",
+            "http request headers",
+            "http response headers",
+            "raw http message",
+            "raw http request",
+            "raw http response",
+        ],
+    ) || (lower.contains("raw") && lower.contains("http"))
+}
+
+pub fn needs_jq_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "jq query",
+            "jq filter",
+            "jq expression",
+            "jq path",
+            "run jq",
+            "use jq",
+            "json path",
+            "json query",
+            "json filter",
+            "query json",
+            "filter json",
+            "navigate json",
+            "json field access",
+            "extract from json",
+            "extract json",
+            "json field",
+            "json array filter",
+            "flatten json",
+            "flatten nested json",
+            "json flatten",
+            "map json array",
+            "select from json",
+            "json keys at path",
+            "json values at",
+            "count json",
+            "json type check",
+        ],
+    )
+}
+
 pub fn needs_glob_tools(user_input: &str) -> bool {
     let lower = user_input.to_lowercase();
     contains_any(

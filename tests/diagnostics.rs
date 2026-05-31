@@ -27775,7 +27775,12 @@ www IN  A   1.2.3.4
     let args = serde_json::json!({"action": "validate", "text": zone});
     let result = dns_tools::execute(&args).await.unwrap();
     // Missing SOA should be flagged
-    assert!(result.contains("SOA") || result.contains("WARN") || result.contains("missing") || result.contains("Missing"));
+    assert!(
+        result.contains("SOA")
+            || result.contains("WARN")
+            || result.contains("missing")
+            || result.contains("Missing")
+    );
 }
 
 #[tokio::test]
@@ -27790,7 +27795,12 @@ $ORIGIN example.com.
 "#;
     let args = serde_json::json!({"action": "explain", "text": zone});
     let result = dns_tools::execute(&args).await.unwrap();
-    assert!(result.contains("SOA") || result.contains("NS") || result.contains("MX") || result.contains("mail"));
+    assert!(
+        result.contains("SOA")
+            || result.contains("NS")
+            || result.contains("MX")
+            || result.contains("mail")
+    );
 }
 
 #[tokio::test]
@@ -27864,4 +27874,92 @@ body {
     // Comment should be gone, output should be shorter
     assert!(!result.contains("This comment should be removed"));
     assert!(result.contains("margin") || result.contains("body"));
+}
+
+// ── pair 16: http_parse_tools + jq_tools ─────────────────────────────────────
+
+#[test]
+fn test_routing_detects_http_parse_tools() {
+    use hematite::agent::routing::needs_http_parse_tools;
+    assert!(needs_http_parse_tools("parse this raw http request"));
+    assert!(needs_http_parse_tools("parse http response headers"));
+    assert!(needs_http_parse_tools("decode http cookies"));
+    assert!(needs_http_parse_tools("analyze authorization header"));
+    assert!(needs_http_parse_tools("parse set-cookie header"));
+    assert!(!needs_http_parse_tools("list all files"));
+}
+
+#[test]
+fn test_routing_detects_jq_tools() {
+    use hematite::agent::routing::needs_jq_tools;
+    assert!(needs_jq_tools("query json with jq"));
+    assert!(needs_jq_tools("jq filter .name from json"));
+    assert!(needs_jq_tools("extract json field .user.email"));
+    assert!(needs_jq_tools("filter json array by field"));
+    assert!(needs_jq_tools("flatten nested json array"));
+    assert!(!needs_jq_tools("parse xml file"));
+}
+
+#[tokio::test]
+async fn test_http_parse_tools_request() {
+    use hematite::tools::http_parse_tools;
+    let req = "GET /api/users?page=1&limit=10 HTTP/1.1\r\nHost: example.com\r\nAccept: application/json\r\nAuthorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1c2VyIn0.abc\r\n\r\n";
+    let args = serde_json::json!({"action": "request", "text": req});
+    let result = http_parse_tools::execute(&args).await.unwrap();
+    assert!(result.contains("GET") || result.contains("Host") || result.contains("api"));
+}
+
+#[tokio::test]
+async fn test_http_parse_tools_response() {
+    use hematite::tools::http_parse_tools;
+    let resp = "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: 27\r\n\r\n{\"status\":\"ok\",\"user\":\"alice\"}";
+    let args = serde_json::json!({"action": "response", "text": resp});
+    let result = http_parse_tools::execute(&args).await.unwrap();
+    assert!(result.contains("200") || result.contains("OK") || result.contains("Content-Type"));
+}
+
+#[tokio::test]
+async fn test_http_parse_tools_cookies() {
+    use hematite::tools::http_parse_tools;
+    let resp = "HTTP/1.1 200 OK\r\nSet-Cookie: session=abc123; HttpOnly; Secure; SameSite=Strict\r\nSet-Cookie: theme=dark; Path=/\r\n\r\n";
+    let args = serde_json::json!({"action": "cookies", "text": resp});
+    let result = http_parse_tools::execute(&args).await.unwrap();
+    assert!(result.contains("session") || result.contains("cookie") || result.contains("Cookie") || result.contains("HttpOnly"));
+}
+
+#[tokio::test]
+async fn test_jq_tools_query() {
+    use hematite::tools::jq_tools;
+    let json = r#"{"name":"Alice","age":30,"address":{"city":"NYC","zip":"10001"}}"#;
+    let args = serde_json::json!({"action": "query", "json": json, "path": ".name"});
+    let result = jq_tools::execute(&args).await.unwrap();
+    assert!(result.contains("Alice"));
+}
+
+#[tokio::test]
+async fn test_jq_tools_keys() {
+    use hematite::tools::jq_tools;
+    let json = r#"{"name":"Alice","age":30,"city":"NYC"}"#;
+    let args = serde_json::json!({"action": "keys", "json": json});
+    let result = jq_tools::execute(&args).await.unwrap();
+    assert!(result.contains("name") || result.contains("age") || result.contains("city"));
+}
+
+#[tokio::test]
+async fn test_jq_tools_filter() {
+    use hematite::tools::jq_tools;
+    let json = r#"[{"name":"Alice","role":"admin"},{"name":"Bob","role":"user"},{"name":"Charlie","role":"admin"}]"#;
+    let args = serde_json::json!({"action": "filter", "json": json, "field": "role", "value": "admin"});
+    let result = jq_tools::execute(&args).await.unwrap();
+    assert!(result.contains("Alice") || result.contains("Charlie") || result.contains("admin"));
+}
+
+#[tokio::test]
+async fn test_jq_tools_flatten() {
+    use hematite::tools::jq_tools;
+    let json = r#"[[1,2],[3,[4,5]],6]"#;
+    let args = serde_json::json!({"action": "flatten", "json": json});
+    let result = jq_tools::execute(&args).await.unwrap();
+    // Result should contain 1,2,3,4,5,6 in some form
+    assert!(result.contains('1') && result.contains('6'));
 }

@@ -38,23 +38,23 @@ use crate::agent::routing::{
     needs_fraction_tools, needs_geo_tools, needs_geometry_tools, needs_github_actions_tools,
     needs_github_ops, needs_gitignore_tools, needs_glob_tools, needs_graph_tools,
     needs_graphql_tools, needs_graphviz_tools, needs_har_tools, needs_hash_tools, needs_hex_tools,
-    needs_http_request, needs_http_status_tools, needs_ical_tools, needs_id_tools, needs_ini_tools,
-    needs_ip_tools, needs_json_tools, needs_jwt_tools, needs_k8s_tools, needs_keyval_tools,
-    needs_license_tools, needs_line_tools, needs_lint_check, needs_lock_file_tools,
-    needs_log_parse_tools, needs_make_tools, needs_markdown_tools, needs_matrix_tools,
-    needs_mermaid_tools, needs_mime_tools, needs_money_tools, needs_nato_tools,
-    needs_net_lookup_tools, needs_nginx_conf_tools, needs_number_theory_tools, needs_number_tools,
-    needs_openapi_tools, needs_package_json_tools, needs_password_gen, needs_path_tools,
-    needs_pem_tools, needs_port_check, needs_proto_tools, needs_regex_tools,
-    needs_robots_txt_tools, needs_rss_tools, needs_scientific_compute, needs_secret_scan,
-    needs_semver_tools, needs_sitemap_tools, needs_size_tools, needs_sql_migrate_tools,
-    needs_sql_tools, needs_sqlite_tools, needs_ssh_config_tools, needs_stat_tools,
-    needs_string_metric_tools, needs_systemd_tools, needs_table_tools, needs_template_gen,
-    needs_template_tools, needs_terraform_tools, needs_test_run, needs_text_tools,
-    needs_time_zone_tools, needs_token_tools, needs_toml_tools, needs_unit_tools, needs_url_tools,
-    needs_uuid_gen, needs_validate_tools, needs_word_tools, needs_xml_tools, needs_yaml_tools,
-    preferred_host_inspection_topic, preferred_maintainer_workflow, preferred_workspace_workflow,
-    DirectAnswerKind, QueryIntentClass,
+    needs_http_parse_tools, needs_http_request, needs_http_status_tools, needs_ical_tools,
+    needs_id_tools, needs_ini_tools, needs_ip_tools, needs_jq_tools, needs_json_tools,
+    needs_jwt_tools, needs_k8s_tools, needs_keyval_tools, needs_license_tools, needs_line_tools,
+    needs_lint_check, needs_lock_file_tools, needs_log_parse_tools, needs_make_tools,
+    needs_markdown_tools, needs_matrix_tools, needs_mermaid_tools, needs_mime_tools,
+    needs_money_tools, needs_nato_tools, needs_net_lookup_tools, needs_nginx_conf_tools,
+    needs_number_theory_tools, needs_number_tools, needs_openapi_tools, needs_package_json_tools,
+    needs_password_gen, needs_path_tools, needs_pem_tools, needs_port_check, needs_proto_tools,
+    needs_regex_tools, needs_robots_txt_tools, needs_rss_tools, needs_scientific_compute,
+    needs_secret_scan, needs_semver_tools, needs_sitemap_tools, needs_size_tools,
+    needs_sql_migrate_tools, needs_sql_tools, needs_sqlite_tools, needs_ssh_config_tools,
+    needs_stat_tools, needs_string_metric_tools, needs_systemd_tools, needs_table_tools,
+    needs_template_gen, needs_template_tools, needs_terraform_tools, needs_test_run,
+    needs_text_tools, needs_time_zone_tools, needs_token_tools, needs_toml_tools, needs_unit_tools,
+    needs_url_tools, needs_uuid_gen, needs_validate_tools, needs_word_tools, needs_xml_tools,
+    needs_yaml_tools, preferred_host_inspection_topic, preferred_maintainer_workflow,
+    preferred_workspace_workflow, DirectAnswerKind, QueryIntentClass,
 };
 use crate::agent::tool_registry::dispatch_builtin_tool;
 use crate::agent::truncation::safe_head;
@@ -5783,6 +5783,42 @@ impl ConversationManager {
                  Example: http_status_tools(action: 'lookup', code: 429) or \
                  http_status_tools(action: 'category', category: '4xx') or \
                  http_status_tools(action: 'search', query: 'redirect')."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_http_parse_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "HTTP PARSE NOTICE: Use the `http_parse_tools` tool to parse raw HTTP/1.1 request and response messages without external utilities. \
+                 Actions: parse/auto (default — auto-detect and parse), \
+                 request (force-parse as HTTP request — method, path, query params, headers, body), \
+                 response (force-parse as HTTP response — status code, headers, content analysis), \
+                 headers (all headers with annotations and security header check), \
+                 cookies (parse Cookie: and Set-Cookie: with security flag analysis), \
+                 auth (analyze Authorization:, WWW-Authenticate:, and API key headers). \
+                 Input: 'text'/'http'/'message' for inline HTTP text, or 'file' for a file path. \
+                 Example: http_parse_tools(action: 'parse', text: 'GET / HTTP/1.1\\nHost: example.com') or \
+                 http_parse_tools(action: 'auth', text: 'Authorization: Bearer eyJ...')."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_jq_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "JQ TOOLS NOTICE: Use the `jq_tools` tool for jq-style JSON path queries and filters without external utilities. \
+                 Actions: query (default — evaluate a path expression; pass 'path' or 'q'), \
+                 keys (list object keys or array indices at 'path'), \
+                 values (list object values or array elements at 'path'), \
+                 flatten (flatten nested arrays; optional 'depth'), \
+                 map (extract a 'field' from each element of an array), \
+                 filter (keep array elements where 'field' equals 'value', 'contains', 'gt', 'lt', or 'exists'), \
+                 count (count elements/keys at 'path'), \
+                 type (show JSON type and size at 'path'). \
+                 Path syntax: '.' identity, '.field', '.a.b[0]', '.items[]' iterate, '.a, .b' multi-path, '.arr | sort' pipe builtins. \
+                 Input: 'json' (inline JSON) or 'file' (path to JSON file). \
+                 Example: jq_tools(action: 'query', json: '[...]', path: '.[0].name') or \
+                 jq_tools(action: 'filter', file: 'data.json', field: 'age', gt: 30) or \
+                 jq_tools(action: 'query', json: '...', path: '.items | sort')."
                     .to_string(),
             );
         }
