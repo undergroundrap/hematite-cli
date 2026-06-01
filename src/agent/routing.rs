@@ -9387,6 +9387,56 @@ pub fn needs_unicode_tools(user_input: &str) -> bool {
     )
 }
 
+pub fn needs_todo_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "todo",
+            "fixme",
+            "hack comment",
+            "code annotation",
+            "find todos",
+            "scan for todos",
+            "list todos",
+            "find fixme",
+            "scan fixme",
+            "annotated comment",
+            "code comment scan",
+            "deprecated comment",
+            "optimize comment",
+            "workaround comment",
+            "kludge",
+            "technical debt comment",
+        ],
+    )
+}
+
+pub fn needs_grep_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "grep for",
+            "grep files",
+            "search files for",
+            "search code for",
+            "search codebase for",
+            "find in files",
+            "find text in",
+            "search for pattern",
+            "regex search",
+            "find pattern in",
+            "search source for",
+            "look for pattern",
+            "find occurrences of",
+            "find all occurrences",
+            "rg ",
+            "ripgrep",
+        ],
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

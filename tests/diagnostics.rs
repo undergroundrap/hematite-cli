@@ -30232,7 +30232,8 @@ fn test_routing_detects_jsonl_tools() {
 #[test]
 fn test_jsonl_tools_parse() {
     use hematite::tools::jsonl_tools;
-    let jsonl_data = "{\"id\":1,\"name\":\"Alice\"}\n{\"id\":2,\"name\":\"Bob\"}\n{\"id\":3,\"name\":\"Carol\"}";
+    let jsonl_data =
+        "{\"id\":1,\"name\":\"Alice\"}\n{\"id\":2,\"name\":\"Bob\"}\n{\"id\":3,\"name\":\"Carol\"}";
     let out = tokio::runtime::Runtime::new()
         .unwrap()
         .block_on(jsonl_tools::execute(&serde_json::json!({
@@ -30264,7 +30265,9 @@ fn test_jsonl_tools_filter() {
         })))
         .expect("filter should succeed");
     assert!(
-        out.contains("2 / 4") || out.contains("2/4") || (out.contains("2") && out.contains("match")),
+        out.contains("2 / 4")
+            || out.contains("2/4")
+            || (out.contains("2") && out.contains("match")),
         "Expected 2 of 4 records match, got: {out}"
     );
 }
@@ -30306,5 +30309,223 @@ fn test_jsonl_tools_keys() {
     assert!(
         out.contains("score") || out.contains("50%"),
         "Expected 'score' field with partial coverage, got: {out}"
+    );
+}
+
+// ── pair 28: todo_tools + grep_tools ─────────────────────────────────────────
+
+#[test]
+fn test_routing_detects_todo_tools() {
+    use hematite::agent::routing::needs_todo_tools;
+    assert!(needs_todo_tools("find all todos in the codebase"));
+    assert!(needs_todo_tools("scan for fixme comments"));
+    assert!(needs_todo_tools("show me all todo annotations"));
+    assert!(!needs_todo_tools("parse json file"));
+}
+
+#[test]
+fn test_routing_detects_grep_tools() {
+    use hematite::agent::routing::needs_grep_tools;
+    assert!(needs_grep_tools("grep for error in src/"));
+    assert!(needs_grep_tools("search files for the pattern TODO"));
+    assert!(needs_grep_tools("find in files matching execute"));
+    assert!(!needs_grep_tools("parse yaml file"));
+}
+
+#[test]
+fn test_todo_tools_scan_inline_text() {
+    use hematite::tools::todo_tools;
+
+    let dir = tempfile::tempdir().expect("tempdir");
+    let path = dir.path().join("sample.rs");
+    std::fs::write(
+        &path,
+        b"fn foo() {\n    // TODO: fix this\n    // FIXME: broken\n    let x = 1;\n}\n",
+    )
+    .unwrap();
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(todo_tools::execute(&serde_json::json!({
+            "path": path.to_str().unwrap()
+        })))
+        .expect("scan should succeed");
+    assert!(
+        out.contains("TODO") || out.contains("FIXME"),
+        "Expected annotations in output, got: {out}"
+    );
+}
+
+#[test]
+fn test_todo_tools_stats() {
+    use hematite::tools::todo_tools;
+
+    let dir = tempfile::tempdir().expect("tempdir");
+    let path = dir.path().join("stats.rs");
+    std::fs::write(
+        &path,
+        b"// TODO: one\n// TODO: two\n// FIXME: three\n// HACK: four\n",
+    )
+    .unwrap();
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(todo_tools::execute(&serde_json::json!({
+            "action": "stats",
+            "path": path.to_str().unwrap()
+        })))
+        .expect("stats should succeed");
+    assert!(
+        out.contains("TODO") && out.contains("2") || out.contains("4"),
+        "Expected stats with counts, got: {out}"
+    );
+}
+
+#[test]
+fn test_todo_tools_filter() {
+    use hematite::tools::todo_tools;
+
+    let dir = tempfile::tempdir().expect("tempdir");
+    let path = dir.path().join("filter.rs");
+    std::fs::write(
+        &path,
+        b"// TODO: alpha\n// FIXME: beta\n// TODO: gamma\n",
+    )
+    .unwrap();
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(todo_tools::execute(&serde_json::json!({
+            "action": "filter",
+            "label": "TODO",
+            "path": path.to_str().unwrap()
+        })))
+        .expect("filter should succeed");
+    assert!(
+        out.contains("TODO") && out.contains("alpha"),
+        "Expected TODO entries with text, got: {out}"
+    );
+    assert!(
+        !out.contains("beta"),
+        "FIXME entry should not appear in TODO filter, got: {out}"
+    );
+}
+
+#[test]
+fn test_todo_tools_no_false_positive_todolist() {
+    use hematite::tools::todo_tools;
+
+    let dir = tempfile::tempdir().expect("tempdir");
+    let path = dir.path().join("clean.rs");
+    // "TODOLIST" should NOT match (not a word boundary)
+    std::fs::write(&path, b"let todolist = vec![1, 2, 3];\n").unwrap();
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(todo_tools::execute(&serde_json::json!({
+            "path": path.to_str().unwrap()
+        })))
+        .expect("scan should succeed");
+    assert!(
+        out.contains("No TODO") || out.contains("0 annotation") || out.contains("found in"),
+        "Expected no matches for 'todolist', got: {out}"
+    );
+}
+
+#[test]
+fn test_grep_tools_basic_search() {
+    use hematite::tools::grep_tools;
+
+    let dir = tempfile::tempdir().expect("tempdir");
+    let path = dir.path().join("search.rs");
+    std::fs::write(
+        &path,
+        b"fn execute() {\n    let x = 1;\n}\nfn helper() {}\n",
+    )
+    .unwrap();
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(grep_tools::execute(&serde_json::json!({
+            "pattern": "fn execute",
+            "path": path.to_str().unwrap()
+        })))
+        .expect("search should succeed");
+    assert!(
+        out.contains("execute"),
+        "Expected 'execute' in search output, got: {out}"
+    );
+    assert!(
+        out.contains("1") || out.contains("L1"),
+        "Expected line number in output, got: {out}"
+    );
+}
+
+#[test]
+fn test_grep_tools_case_insensitive() {
+    use hematite::tools::grep_tools;
+
+    let dir = tempfile::tempdir().expect("tempdir");
+    let path = dir.path().join("ci.txt");
+    std::fs::write(&path, b"ERROR: something failed\ninfo: ok\n").unwrap();
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(grep_tools::execute(&serde_json::json!({
+            "pattern": "error",
+            "path": path.to_str().unwrap(),
+            "case_insensitive": true
+        })))
+        .expect("ci search should succeed");
+    assert!(
+        out.contains("ERROR") || out.contains("error"),
+        "Expected case-insensitive match, got: {out}"
+    );
+}
+
+#[test]
+fn test_grep_tools_count_action() {
+    use hematite::tools::grep_tools;
+
+    let dir = tempfile::tempdir().expect("tempdir");
+    let path = dir.path().join("count.rs");
+    std::fs::write(
+        &path,
+        b"let x = 1;\nlet y = 2;\nconst z = 3;\nlet a = x + y;\n",
+    )
+    .unwrap();
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(grep_tools::execute(&serde_json::json!({
+            "pattern": "let",
+            "action": "count",
+            "path": path.to_str().unwrap()
+        })))
+        .expect("count should succeed");
+    assert!(
+        out.contains("3") || out.contains("let"),
+        "Expected count of 'let' matches, got: {out}"
+    );
+}
+
+#[test]
+fn test_grep_tools_no_match() {
+    use hematite::tools::grep_tools;
+
+    let dir = tempfile::tempdir().expect("tempdir");
+    let path = dir.path().join("empty.rs");
+    std::fs::write(&path, b"fn nothing() {}\n").unwrap();
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(grep_tools::execute(&serde_json::json!({
+            "pattern": "xyzzy_not_present",
+            "path": path.to_str().unwrap()
+        })))
+        .expect("no-match should return Ok");
+    assert!(
+        out.contains("No matches"),
+        "Expected 'No matches' message, got: {out}"
     );
 }

@@ -39,8 +39,8 @@ use crate::agent::routing::{
     needs_elf_tools, needs_email_tools, needs_encode_tools, needs_env_diff, needs_env_schema_tools,
     needs_format, needs_fraction_tools, needs_geo_tools, needs_geometry_tools,
     needs_github_actions_tools, needs_github_ops, needs_gitignore_tools, needs_glob_tools,
-    needs_graph_tools, needs_graphql_tools, needs_graphviz_tools, needs_har_tools,
-    needs_hash_tools, needs_hex_tools, needs_html_tools, needs_http_parse_tools,
+    needs_graph_tools, needs_graphql_tools, needs_graphviz_tools, needs_grep_tools,
+    needs_har_tools, needs_hash_tools, needs_hex_tools, needs_html_tools, needs_http_parse_tools,
     needs_http_request, needs_http_status_tools, needs_ical_tools, needs_id_tools, needs_ini_tools,
     needs_ip_tools, needs_jq_tools, needs_json_tools, needs_jsonl_tools, needs_jsonschema_tools,
     needs_jwt_tools, needs_k8s_tools, needs_keyval_tools, needs_leb128_tools, needs_license_tools,
@@ -56,11 +56,12 @@ use crate::agent::routing::{
     needs_sql_tools, needs_sqlite_tools, needs_ssh_config_tools, needs_stat_tools,
     needs_string_metric_tools, needs_systemd_tools, needs_table_tools, needs_tar_tools,
     needs_template_gen, needs_template_tools, needs_terraform_tools, needs_test_run,
-    needs_text_tools, needs_time_zone_tools, needs_tlv_tools, needs_token_tools, needs_toml_tools,
-    needs_totp_tools, needs_unicode_tools, needs_unit_tools, needs_url_tools, needs_uuid_gen,
-    needs_validate_tools, needs_vcf_tools, needs_wasm_tools, needs_word_tools, needs_xml_tools,
-    needs_yaml_tools, preferred_host_inspection_topic, preferred_maintainer_workflow,
-    preferred_workspace_workflow, DirectAnswerKind, QueryIntentClass,
+    needs_text_tools, needs_time_zone_tools, needs_tlv_tools, needs_todo_tools, needs_token_tools,
+    needs_toml_tools, needs_totp_tools, needs_unicode_tools, needs_unit_tools, needs_url_tools,
+    needs_uuid_gen, needs_validate_tools, needs_vcf_tools, needs_wasm_tools, needs_word_tools,
+    needs_xml_tools, needs_yaml_tools, preferred_host_inspection_topic,
+    preferred_maintainer_workflow, preferred_workspace_workflow, DirectAnswerKind,
+    QueryIntentClass,
 };
 use crate::agent::tool_registry::dispatch_builtin_tool;
 use crate::agent::truncation::safe_head;
@@ -7058,6 +7059,31 @@ impl ConversationManager {
                  Example: unicode_tools(action: 'bidi', text: '...') or \
                  unicode_tools(action: 'confusables', text: 'pаypal') or \
                  unicode_tools(text: 'Hello 世界')."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_todo_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "TODO SCAN NOTICE: Use the `todo_tools` tool to scan source files for annotated comments. \
+                 Actions: scan (default — find all TODO/FIXME/HACK/XXX/NOTE/DEPRECATED/BUG/OPTIMIZE/WORKAROUND/TEMP/KLUDGE/NB annotations grouped by label), \
+                 stats (count per label with bar chart), list (flat chronological list of all findings), \
+                 filter (show only a specific label; pass 'label'), files (top N files by annotation count). \
+                 Example: todo_tools() or todo_tools(action: 'filter', label: 'FIXME') or \
+                 todo_tools(action: 'stats', path: 'src/')."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_grep_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "GREP NOTICE: Use the `grep_tools` tool to search files for patterns without external utilities. \
+                 Actions: search (default — matching lines with file:line context), count (matches per file), \
+                 files (list files with any match), matches (flat list with capture groups). \
+                 Options: case_insensitive, fixed (literal string), whole_word, before/after (context lines), invert. \
+                 Example: grep_tools(pattern: 'fn execute', path: 'src/') or \
+                 grep_tools(pattern: 'TODO', action: 'count') or \
+                 grep_tools(pattern: 'error', case_insensitive: true, after: 2)."
                     .to_string(),
             );
         }

@@ -6411,6 +6411,34 @@ pub fn get_tools() -> Vec<ToolDefinition> {
          jsonl_tools(action: 'aggregate', file: 'access.jsonl', field: 'latency_ms', agg: 'avg').",
         crate::tools::jsonl_tools::jsonl_tools_schema(),
     ));
+    tools.push(make_tool(
+        "todo_tools",
+        "Scan source files for TODO, FIXME, HACK, XXX, NOTE, DEPRECATED, BUG, OPTIMIZE, \
+         WORKAROUND, TEMP, KLUDGE, and NB comments without external utilities. \
+         Actions: scan (default — find all annotated comments grouped by label with file:line context), \
+         stats (count summary per label with bar chart), \
+         list (flat list of all findings with file/line/label/text), \
+         filter (show only a specific label; pass 'label'), \
+         files (top N files by annotation count; pass 'top' for N, default 20). \
+         Options: path (directory/file to scan, default '.'), \
+         extensions (comma-separated file extensions), limit (max results, default 100). \
+         Example: todo_tools() or todo_tools(action: 'filter', label: 'FIXME') or \
+         todo_tools(action: 'stats', path: 'src/').",
+        crate::tools::todo_tools::todo_tools_schema(),
+    ));
+    tools.push(make_tool(
+        "grep_tools",
+        "Search files for patterns using regular expressions without external utilities. \
+         Actions: search (default — matching lines with file:line context and optional before/after context lines), \
+         count (match count per file), files (list files with at least one match), \
+         matches (flat list of every match with capture group extraction). \
+         Options: pattern (required), path, action, case_insensitive, fixed (literal string), \
+         whole_word, before, after (context lines), extensions, limit, invert. \
+         Example: grep_tools(pattern: 'fn execute', path: 'src/') or \
+         grep_tools(pattern: 'TODO', action: 'count') or \
+         grep_tools(pattern: r'error|warn', case_insensitive: true, after: 2).",
+        crate::tools::grep_tools::grep_tools_schema(),
+    ));
     let lsp_defs = crate::tools::lsp_tools::get_lsp_definitions();
     tools.push(make_tool(
         "lsp_search_symbol",
@@ -6587,6 +6615,8 @@ pub async fn dispatch_builtin_tool(
         "unicode_tools" => crate::tools::unicode_tools::execute(args).await,
         "asn1_tools" => crate::tools::asn1_tools::execute(args).await,
         "jsonl_tools" => crate::tools::jsonl_tools::execute(args).await,
+        "todo_tools" => crate::tools::todo_tools::execute(args).await,
+        "grep_tools" => crate::tools::grep_tools::execute(args).await,
         "http_status_tools" => crate::tools::http_status_tools::execute(args).await,
         "http_parse_tools" => crate::tools::http_parse_tools::execute(args).await,
         "jq_tools" => crate::tools::jq_tools::execute(args).await,
