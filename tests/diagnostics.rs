@@ -30387,11 +30387,7 @@ fn test_todo_tools_filter() {
 
     let dir = tempfile::tempdir().expect("tempdir");
     let path = dir.path().join("filter.rs");
-    std::fs::write(
-        &path,
-        b"// TODO: alpha\n// FIXME: beta\n// TODO: gamma\n",
-    )
-    .unwrap();
+    std::fs::write(&path, b"// TODO: alpha\n// FIXME: beta\n// TODO: gamma\n").unwrap();
 
     let rt = tokio::runtime::Runtime::new().unwrap();
     let out = rt
@@ -30522,6 +30518,195 @@ fn test_grep_tools_no_match() {
         .block_on(grep_tools::execute(&serde_json::json!({
             "pattern": "xyzzy_not_present",
             "path": path.to_str().unwrap()
+        })))
+        .expect("no-match should return Ok");
+    assert!(
+        out.contains("No matches"),
+        "Expected 'No matches' message, got: {out}"
+    );
+}
+
+// ── pair 29: file_tree_tools + find_tools ─────────────────────────────────────
+
+#[test]
+fn test_routing_detects_file_tree_tools() {
+    use hematite::agent::routing::needs_file_tree_tools;
+    assert!(needs_file_tree_tools("show directory tree"));
+    assert!(needs_file_tree_tools("generate file tree for this project"));
+    assert!(needs_file_tree_tools("show directory structure of src/"));
+    assert!(!needs_file_tree_tools("parse json file"));
+}
+
+#[test]
+fn test_routing_detects_find_tools() {
+    use hematite::agent::routing::needs_find_tools;
+    assert!(needs_find_tools("find files matching *.rs"));
+    assert!(needs_find_tools("find all files with extension json"));
+    assert!(needs_find_tools("find files modified recently"));
+    assert!(!needs_find_tools("parse yaml file"));
+}
+
+#[test]
+fn test_file_tree_tools_tree_action() {
+    use hematite::tools::file_tree_tools;
+
+    let dir = tempfile::tempdir().expect("tempdir");
+    let sub = dir.path().join("src");
+    std::fs::create_dir(&sub).unwrap();
+    std::fs::write(sub.join("main.rs"), b"fn main() {}").unwrap();
+    std::fs::write(dir.path().join("Cargo.toml"), b"[package]").unwrap();
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(file_tree_tools::execute(&serde_json::json!({
+            "path": dir.path().to_str().unwrap(),
+            "depth": 4
+        })))
+        .expect("tree should succeed");
+    assert!(
+        out.contains("src") || out.contains("Cargo.toml"),
+        "Expected directory tree output, got: {out}"
+    );
+    assert!(
+        out.contains("├──") || out.contains("└──"),
+        "Expected ASCII tree branches, got: {out}"
+    );
+}
+
+#[test]
+fn test_file_tree_tools_stats_action() {
+    use hematite::tools::file_tree_tools;
+
+    let dir = tempfile::tempdir().expect("tempdir");
+    std::fs::write(dir.path().join("a.rs"), b"fn foo() {}").unwrap();
+    std::fs::write(dir.path().join("b.rs"), b"fn bar() {}").unwrap();
+    std::fs::write(dir.path().join("config.toml"), b"[settings]").unwrap();
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(file_tree_tools::execute(&serde_json::json!({
+            "action": "stats",
+            "path": dir.path().to_str().unwrap()
+        })))
+        .expect("stats should succeed");
+    assert!(
+        out.contains("rs") || out.contains("toml"),
+        "Expected file extension stats, got: {out}"
+    );
+    assert!(
+        out.contains("files") || out.contains("2"),
+        "Expected file count in stats, got: {out}"
+    );
+}
+
+#[test]
+fn test_file_tree_tools_sizes_action() {
+    use hematite::tools::file_tree_tools;
+
+    let dir = tempfile::tempdir().expect("tempdir");
+    std::fs::write(dir.path().join("big.rs"), b"x".repeat(10000).as_slice()).unwrap();
+    std::fs::write(dir.path().join("small.rs"), b"x").unwrap();
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(file_tree_tools::execute(&serde_json::json!({
+            "action": "sizes",
+            "path": dir.path().to_str().unwrap()
+        })))
+        .expect("sizes should succeed");
+    assert!(
+        out.contains("big.rs"),
+        "Expected big.rs in sizes output, got: {out}"
+    );
+}
+
+#[test]
+fn test_find_tools_by_extension() {
+    use hematite::tools::find_tools;
+
+    let dir = tempfile::tempdir().expect("tempdir");
+    std::fs::write(dir.path().join("a.rs"), b"fn a() {}").unwrap();
+    std::fs::write(dir.path().join("b.rs"), b"fn b() {}").unwrap();
+    std::fs::write(dir.path().join("c.json"), b"{}").unwrap();
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(find_tools::execute(&serde_json::json!({
+            "path": dir.path().to_str().unwrap(),
+            "ext": "rs"
+        })))
+        .expect("find by ext should succeed");
+    assert!(
+        out.contains("a.rs") && out.contains("b.rs"),
+        "Expected .rs files in output, got: {out}"
+    );
+    assert!(
+        !out.contains("c.json"),
+        "JSON file should not appear in rs-only search, got: {out}"
+    );
+}
+
+#[test]
+fn test_find_tools_by_name_glob() {
+    use hematite::tools::find_tools;
+
+    let dir = tempfile::tempdir().expect("tempdir");
+    std::fs::write(dir.path().join("test_main.rs"), b"fn main() {}").unwrap();
+    std::fs::write(dir.path().join("test_helper.rs"), b"fn help() {}").unwrap();
+    std::fs::write(dir.path().join("unrelated.rs"), b"fn x() {}").unwrap();
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(find_tools::execute(&serde_json::json!({
+            "path": dir.path().to_str().unwrap(),
+            "name": "test_*"
+        })))
+        .expect("find by glob should succeed");
+    assert!(
+        out.contains("test_main.rs") || out.contains("test_helper.rs"),
+        "Expected test_* files in output, got: {out}"
+    );
+}
+
+#[test]
+fn test_find_tools_count_action() {
+    use hematite::tools::find_tools;
+
+    let dir = tempfile::tempdir().expect("tempdir");
+    for i in 0..5 {
+        std::fs::write(
+            dir.path().join(format!("file{i}.rs")),
+            b"fn x() {}",
+        )
+        .unwrap();
+    }
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(find_tools::execute(&serde_json::json!({
+            "path": dir.path().to_str().unwrap(),
+            "action": "count",
+            "ext": "rs"
+        })))
+        .expect("count should succeed");
+    assert!(
+        out.contains("5"),
+        "Expected count of 5 .rs files, got: {out}"
+    );
+}
+
+#[test]
+fn test_find_tools_no_match() {
+    use hematite::tools::find_tools;
+
+    let dir = tempfile::tempdir().expect("tempdir");
+    std::fs::write(dir.path().join("a.rs"), b"fn a() {}").unwrap();
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(find_tools::execute(&serde_json::json!({
+            "path": dir.path().to_str().unwrap(),
+            "ext": "py"
         })))
         .expect("no-match should return Ok");
     assert!(

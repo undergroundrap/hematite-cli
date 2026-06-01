@@ -46,6 +46,8 @@ pub mod env_diff;
 pub mod env_schema_tools;
 pub mod file_edit;
 pub mod file_ops;
+pub mod file_tree_tools;
+pub mod find_tools;
 pub mod formatter;
 pub mod fraction_tools;
 pub mod geo_tools;

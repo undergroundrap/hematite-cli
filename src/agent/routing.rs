@@ -9437,6 +9437,54 @@ pub fn needs_grep_tools(user_input: &str) -> bool {
     )
 }
 
+pub fn needs_file_tree_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "file tree",
+            "directory tree",
+            "folder tree",
+            "tree view",
+            "show directory structure",
+            "show folder structure",
+            "directory structure",
+            "dir structure",
+            "list directory tree",
+            "generate tree",
+            "ascii tree",
+            "project structure",
+            "tree command",
+            "visualize directory",
+            "visualize folder",
+        ],
+    )
+}
+
+pub fn needs_find_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "find files",
+            "find all files",
+            "find file named",
+            "find files named",
+            "find files matching",
+            "find files with extension",
+            "files larger than",
+            "files bigger than",
+            "files smaller than",
+            "recently modified files",
+            "recently changed files",
+            "find files modified",
+            "find command",
+            "list files matching",
+            "search for files",
+        ],
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -6439,6 +6439,33 @@ pub fn get_tools() -> Vec<ToolDefinition> {
          grep_tools(pattern: r'error|warn', case_insensitive: true, after: 2).",
         crate::tools::grep_tools::grep_tools_schema(),
     ));
+    tools.push(make_tool(
+        "file_tree_tools",
+        "Generate visual file tree representations and directory statistics without external utilities. \
+         No `tree` command needed. \
+         Actions: tree (default — ASCII directory tree with optional depth limit, file sizes), \
+         flat (sorted flat file listing with sizes), stats (file/dir/size breakdown grouped by extension), \
+         json (structured JSON tree for programmatic use), sizes (files sorted largest first with % bar). \
+         Options: path (default '.'), depth (default 4; 0=unlimited), show_hidden, extensions (filter), \
+         skip_dirs (extra dirs to exclude), limit, top (for sizes action). \
+         Example: file_tree_tools() or file_tree_tools(path: 'src/', depth: 3) or \
+         file_tree_tools(action: 'stats') or file_tree_tools(action: 'sizes', top: 20).",
+        crate::tools::file_tree_tools::file_tree_tools_schema(),
+    ));
+    tools.push(make_tool(
+        "find_tools",
+        "Find files and directories matching criteria without external utilities. \
+         No `find` command needed. \
+         Actions: list (default — matching paths with size and age), count (match count + total size), \
+         sizes (size summary sorted largest first), recent (sorted by modification time, newest first). \
+         Filters: name (glob: '*.rs', substring: 'main'), ext (extension without dot: 'json'), \
+         type (file/dir/all), min_size/max_size (bytes), newer_than/older_than (days), \
+         depth (recursion limit; 0=unlimited), show_hidden, limit. \
+         Skips target/.git/node_modules/vendor/build and other cache dirs by default. \
+         Example: find_tools(name: '*.rs') or find_tools(ext: 'json', newer_than: 7) or \
+         find_tools(action: 'recent', newer_than: 3) or find_tools(min_size: 1048576, action: 'sizes').",
+        crate::tools::find_tools::find_tools_schema(),
+    ));
     let lsp_defs = crate::tools::lsp_tools::get_lsp_definitions();
     tools.push(make_tool(
         "lsp_search_symbol",
@@ -6617,6 +6644,8 @@ pub async fn dispatch_builtin_tool(
         "jsonl_tools" => crate::tools::jsonl_tools::execute(args).await,
         "todo_tools" => crate::tools::todo_tools::execute(args).await,
         "grep_tools" => crate::tools::grep_tools::execute(args).await,
+        "file_tree_tools" => crate::tools::file_tree_tools::execute(args).await,
+        "find_tools" => crate::tools::find_tools::execute(args).await,
         "http_status_tools" => crate::tools::http_status_tools::execute(args).await,
         "http_parse_tools" => crate::tools::http_parse_tools::execute(args).await,
         "jq_tools" => crate::tools::jq_tools::execute(args).await,
