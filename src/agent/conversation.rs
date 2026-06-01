@@ -43,23 +43,24 @@ use crate::agent::routing::{
     needs_http_parse_tools, needs_http_request, needs_http_status_tools, needs_ical_tools,
     needs_id_tools, needs_ini_tools, needs_ip_tools, needs_jq_tools, needs_json_tools,
     needs_jsonschema_tools, needs_jwt_tools, needs_k8s_tools, needs_keyval_tools,
-    needs_license_tools, needs_line_tools, needs_lint_check, needs_lock_file_tools,
-    needs_log_parse_tools, needs_make_tools, needs_markdown_tools, needs_matrix_tools,
-    needs_mermaid_tools, needs_mime_tools, needs_money_tools, needs_msgpack_tools,
-    needs_nato_tools, needs_net_lookup_tools, needs_network_header_tools, needs_nginx_conf_tools,
-    needs_number_theory_tools, needs_number_tools, needs_openapi_tools, needs_package_json_tools,
-    needs_password_gen, needs_path_tools, needs_pem_tools, needs_plist_tools, needs_port_check,
-    needs_printf_tools, needs_proto_tools, needs_regex_tools, needs_robots_txt_tools,
-    needs_rss_tools, needs_scientific_compute, needs_secret_scan, needs_semver_tools,
-    needs_sitemap_tools, needs_size_tools, needs_sql_format_tools, needs_sql_migrate_tools,
-    needs_sql_tools, needs_sqlite_tools, needs_ssh_config_tools, needs_stat_tools,
-    needs_string_metric_tools, needs_systemd_tools, needs_table_tools, needs_tar_tools,
-    needs_template_gen, needs_template_tools, needs_terraform_tools, needs_test_run,
-    needs_text_tools, needs_time_zone_tools, needs_tlv_tools, needs_token_tools, needs_toml_tools,
-    needs_totp_tools, needs_unit_tools, needs_url_tools, needs_uuid_gen, needs_validate_tools,
-    needs_vcf_tools, needs_wasm_tools, needs_word_tools, needs_xml_tools, needs_yaml_tools,
-    preferred_host_inspection_topic, preferred_maintainer_workflow, preferred_workspace_workflow,
-    DirectAnswerKind, QueryIntentClass,
+    needs_leb128_tools, needs_license_tools, needs_line_tools, needs_lint_check,
+    needs_lock_file_tools, needs_log_parse_tools, needs_make_tools, needs_markdown_tools,
+    needs_matrix_tools, needs_mermaid_tools, needs_mime_tools, needs_money_tools,
+    needs_msgpack_tools, needs_nato_tools, needs_net_lookup_tools, needs_network_header_tools,
+    needs_nginx_conf_tools, needs_number_theory_tools, needs_number_tools, needs_openapi_tools,
+    needs_package_json_tools, needs_password_gen, needs_path_tools, needs_pem_tools,
+    needs_plist_tools, needs_port_check, needs_printf_tools, needs_proto_tools, needs_regex_tools,
+    needs_robots_txt_tools, needs_rss_tools, needs_scientific_compute, needs_secret_scan,
+    needs_semver_tools, needs_sitemap_tools, needs_size_tools, needs_sql_format_tools,
+    needs_sql_migrate_tools, needs_sql_tools, needs_sqlite_tools, needs_ssh_config_tools,
+    needs_stat_tools, needs_string_metric_tools, needs_systemd_tools, needs_table_tools,
+    needs_tar_tools, needs_template_gen, needs_template_tools, needs_terraform_tools,
+    needs_test_run, needs_text_tools, needs_time_zone_tools, needs_tlv_tools, needs_token_tools,
+    needs_toml_tools, needs_totp_tools, needs_unicode_tools, needs_unit_tools, needs_url_tools,
+    needs_uuid_gen, needs_validate_tools, needs_vcf_tools, needs_wasm_tools, needs_word_tools,
+    needs_xml_tools, needs_yaml_tools, preferred_host_inspection_topic,
+    preferred_maintainer_workflow, preferred_workspace_workflow, DirectAnswerKind,
+    QueryIntentClass,
 };
 use crate::agent::tool_registry::dispatch_builtin_tool;
 use crate::agent::truncation::safe_head;
@@ -6992,6 +6993,36 @@ impl ConversationManager {
                  dynamic (shared library dependencies, SONAME, RPATH, DT_NEEDED libraries). \
                  Pass 'file' with the path to the ELF binary or 'hex' with raw ELF bytes. \
                  Example: elf_tools(file: '/usr/bin/ls') or elf_tools(action: 'dynamic', file: 'libfoo.so')."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_leb128_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "LEB128 NOTICE: Use the `leb128_tools` tool to encode, decode, and analyze \
+                 LEB128 variable-length integers (ULEB128 unsigned and SLEB128 signed). \
+                 Actions: encode (integer → LEB128 bytes), decode (bytes → integer + byte count), \
+                 analyze (byte-by-byte bit-field breakdown), multi (batch encode array or decode stream), \
+                 explain (verbose bit-level walkthrough of each group). \
+                 Used in WASM, DWARF debug info, protobuf, and Android DEX. \
+                 Example: leb128_tools(action: 'encode', value: 624485) or \
+                 leb128_tools(action: 'decode', hex: 'e5 8e 26')."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_unicode_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "UNICODE NOTICE: Use the `unicode_tools` tool to analyze Unicode text. \
+                 Actions: analyze (per-character codepoint/category/script/UTF-8 bytes), \
+                 scripts (script distribution table), blocks (Unicode block distribution), \
+                 bidi (RTL detection + Trojan Source CVE-2021-42574 bidi control char risk), \
+                 confusables (homoglyph/lookalike detection — Cyrillic/Greek ASCII lookalikes), \
+                 encoding (UTF-8/UTF-16/UTF-32 byte sequences per character), \
+                 normalize (NFC/NFD normalization status — combining marks vs precomposed). \
+                 Example: unicode_tools(action: 'bidi', text: '...') or \
+                 unicode_tools(action: 'confusables', text: 'pаypal') or \
+                 unicode_tools(text: 'Hello 世界')."
                     .to_string(),
             );
         }

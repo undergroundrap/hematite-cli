@@ -29760,9 +29760,18 @@ fn test_bin_pack_tools_pack_and_unpack() {
             "values": [42, 1000]
         })))
         .expect("bin_pack pack should succeed");
-    assert!(packed.contains("Pack"), "Expected Pack header, got: {packed}");
-    assert!(packed.contains("00 2a"), "Expected 0x002a for 42, got: {packed}");
-    assert!(packed.contains("6 bytes total") || packed.contains("6 bytes"), "Expected 6 bytes, got: {packed}");
+    assert!(
+        packed.contains("Pack"),
+        "Expected Pack header, got: {packed}"
+    );
+    assert!(
+        packed.contains("00 2a"),
+        "Expected 0x002a for 42, got: {packed}"
+    );
+    assert!(
+        packed.contains("6 bytes total") || packed.contains("6 bytes"),
+        "Expected 6 bytes, got: {packed}"
+    );
 
     // Unpack the same bytes
     let unpacked = tokio::runtime::Runtime::new()
@@ -29773,8 +29782,14 @@ fn test_bin_pack_tools_pack_and_unpack() {
             "hex": "002a000003e8"
         })))
         .expect("bin_pack unpack should succeed");
-    assert!(unpacked.contains("42") || unpacked.contains("0x002a"), "Expected value 42, got: {unpacked}");
-    assert!(unpacked.contains("1000") || unpacked.contains("0x000003e8"), "Expected value 1000, got: {unpacked}");
+    assert!(
+        unpacked.contains("42") || unpacked.contains("0x002a"),
+        "Expected value 42, got: {unpacked}"
+    );
+    assert!(
+        unpacked.contains("1000") || unpacked.contains("0x000003e8"),
+        "Expected value 1000, got: {unpacked}"
+    );
 }
 
 #[test]
@@ -29787,9 +29802,18 @@ fn test_bin_pack_tools_describe_and_size() {
             "action": "describe"
         })))
         .expect("describe should succeed");
-    assert!(desc.contains("little-endian"), "Expected little-endian mention, got: {desc}");
-    assert!(desc.contains("uint8"), "Expected uint8 in description, got: {desc}");
-    assert!(desc.contains("uint16"), "Expected uint16 in description, got: {desc}");
+    assert!(
+        desc.contains("little-endian"),
+        "Expected little-endian mention, got: {desc}"
+    );
+    assert!(
+        desc.contains("uint8"),
+        "Expected uint8 in description, got: {desc}"
+    );
+    assert!(
+        desc.contains("uint16"),
+        "Expected uint16 in description, got: {desc}"
+    );
 
     let sz = tokio::runtime::Runtime::new()
         .unwrap()
@@ -29813,7 +29837,10 @@ fn test_bin_pack_tools_little_endian() {
             "values": [0x0102]
         })))
         .expect("pack little-endian should succeed");
-    assert!(out.contains("02 01"), "Expected LE bytes 02 01 for 0x0102, got: {out}");
+    assert!(
+        out.contains("02 01"),
+        "Expected LE bytes 02 01 for 0x0102, got: {out}"
+    );
 }
 
 // ── elf_tools ─────────────────────────────────────────────────────────────────
@@ -29870,10 +29897,22 @@ fn test_elf_tools_info() {
             "hex": MINIMAL_ELF64_HEX
         })))
         .expect("elf info should succeed");
-    assert!(out.contains("64-bit") || out.contains("64"), "Expected 64-bit class, got: {out}");
-    assert!(out.contains("Little-endian") || out.contains("LE"), "Expected LE endian, got: {out}");
-    assert!(out.contains("x86-64") || out.contains("AMD64"), "Expected x86-64 machine, got: {out}");
-    assert!(out.contains("0x400000") || out.contains("400000"), "Expected entry point 0x400000, got: {out}");
+    assert!(
+        out.contains("64-bit") || out.contains("64"),
+        "Expected 64-bit class, got: {out}"
+    );
+    assert!(
+        out.contains("Little-endian") || out.contains("LE"),
+        "Expected LE endian, got: {out}"
+    );
+    assert!(
+        out.contains("x86-64") || out.contains("AMD64"),
+        "Expected x86-64 machine, got: {out}"
+    );
+    assert!(
+        out.contains("0x400000") || out.contains("400000"),
+        "Expected entry point 0x400000, got: {out}"
+    );
 }
 
 #[test]
@@ -29887,8 +29926,10 @@ fn test_elf_tools_segments_empty() {
         })))
         .expect("elf segments should succeed");
     // phnum=0 so we get the "No program headers" message
-    assert!(out.contains("No program headers") || out.contains("0 entries") || out.contains("segments"),
-        "Expected no program headers message, got: {out}");
+    assert!(
+        out.contains("No program headers") || out.contains("0 entries") || out.contains("segments"),
+        "Expected no program headers message, got: {out}"
+    );
 }
 
 #[test]
@@ -29901,8 +29942,10 @@ fn test_elf_tools_sections_empty() {
             "hex": MINIMAL_ELF64_HEX
         })))
         .expect("elf sections should succeed");
-    assert!(out.contains("No section headers") || out.contains("stripped") || out.contains("sections"),
-        "Expected stripped/no sections message, got: {out}");
+    assert!(
+        out.contains("No section headers") || out.contains("stripped") || out.contains("sections"),
+        "Expected stripped/no sections message, got: {out}"
+    );
 }
 
 #[test]
@@ -29916,5 +29959,171 @@ fn test_elf_tools_bad_magic() {
         })));
     assert!(result.is_err(), "Should fail on bad ELF magic");
     let msg = result.unwrap_err();
-    assert!(msg.contains("ELF") || msg.contains("magic"), "Expected magic error, got: {msg}");
+    assert!(
+        msg.contains("ELF") || msg.contains("magic"),
+        "Expected magic error, got: {msg}"
+    );
+}
+
+// ── leb128_tools routing ──────────────────────────────────────────────────────
+
+#[test]
+fn test_routing_detects_leb128_tools() {
+    use hematite::agent::routing::needs_leb128_tools;
+    assert!(needs_leb128_tools("decode a leb128 value"));
+    assert!(needs_leb128_tools("encode uleb128 624485"));
+    assert!(needs_leb128_tools("what is sleb128 encoding"));
+    assert!(needs_leb128_tools("varint in protobuf format"));
+    assert!(needs_leb128_tools("little endian base 128 bytes"));
+    assert!(!needs_leb128_tools("base64 encode this string"));
+    assert!(!needs_leb128_tools("fibonacci sequence"));
+}
+
+// ── leb128_tools functional ───────────────────────────────────────────────────
+
+#[test]
+fn test_leb128_tools_encode_uleb128() {
+    use hematite::tools::leb128_tools;
+    let out = tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(leb128_tools::execute(&serde_json::json!({
+            "action": "encode",
+            "value": 624485
+        })))
+        .expect("encode should succeed");
+    // 624485 encodes to e5 8e 26 in ULEB128
+    assert!(
+        out.contains("e5") && out.contains("8e") && out.contains("26"),
+        "Expected e5 8e 26 for 624485, got: {out}"
+    );
+}
+
+#[test]
+fn test_leb128_tools_decode_uleb128() {
+    use hematite::tools::leb128_tools;
+    let out = tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(leb128_tools::execute(&serde_json::json!({
+            "action": "decode",
+            "hex": "e5 8e 26"
+        })))
+        .expect("decode should succeed");
+    assert!(
+        out.contains("624485"),
+        "Expected 624485 decoded from e5 8e 26, got: {out}"
+    );
+}
+
+#[test]
+fn test_leb128_tools_encode_sleb128_negative() {
+    use hematite::tools::leb128_tools;
+    let out = tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(leb128_tools::execute(&serde_json::json!({
+            "action": "encode",
+            "value": -123456,
+            "signed": true
+        })))
+        .expect("signed encode should succeed");
+    assert!(
+        out.contains("SLEB128") || out.contains("signed") || out.contains("c0"),
+        "Expected SLEB128 output for -123456, got: {out}"
+    );
+}
+
+#[test]
+fn test_leb128_tools_analyze() {
+    use hematite::tools::leb128_tools;
+    let out = tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(leb128_tools::execute(&serde_json::json!({
+            "action": "analyze",
+            "hex": "e5 8e 26"
+        })))
+        .expect("analyze should succeed");
+    assert!(
+        out.contains("Byte") || out.contains("bit") || out.contains("continuation"),
+        "Expected byte analysis output, got: {out}"
+    );
+}
+
+// ── unicode_tools routing ─────────────────────────────────────────────────────
+
+#[test]
+fn test_routing_detects_unicode_tools() {
+    use hematite::agent::routing::needs_unicode_tools;
+    assert!(needs_unicode_tools("check for bidi control characters"));
+    assert!(needs_unicode_tools("trojan source attack in code"));
+    assert!(needs_unicode_tools("homoglyph detection in this string"));
+    assert!(needs_unicode_tools("unicode confusable characters"));
+    assert!(needs_unicode_tools("analyze unicode text scripts"));
+    assert!(!needs_unicode_tools("base64 encode hello"));
+    assert!(!needs_unicode_tools("calculate fibonacci sequence"));
+}
+
+// ── unicode_tools functional ──────────────────────────────────────────────────
+
+#[test]
+fn test_unicode_tools_analyze_ascii() {
+    use hematite::tools::unicode_tools;
+    let out = tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(unicode_tools::execute(&serde_json::json!({
+            "text": "Hello"
+        })))
+        .expect("analyze should succeed");
+    assert!(
+        out.contains("U+0048") || out.contains("Latin") || out.contains("H"),
+        "Expected codepoint/Latin analysis for ASCII, got: {out}"
+    );
+}
+
+#[test]
+fn test_unicode_tools_bidi_clean() {
+    use hematite::tools::unicode_tools;
+    let out = tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(unicode_tools::execute(&serde_json::json!({
+            "action": "bidi",
+            "text": "Hello World"
+        })))
+        .expect("bidi action should succeed");
+    assert!(
+        out.contains("no bidi") || out.contains("safe") || out.contains("0") || out.contains("RTL"),
+        "Expected bidi safety analysis, got: {out}"
+    );
+}
+
+#[test]
+fn test_unicode_tools_confusables() {
+    use hematite::tools::unicode_tools;
+    // Cyrillic 'а' (U+0430) looks like ASCII 'a' (U+0061)
+    let out = tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(unicode_tools::execute(&serde_json::json!({
+            "action": "confusables",
+            "text": "p\u{0430}ypal"
+        })))
+        .expect("confusables action should succeed");
+    assert!(
+        out.contains("confusable") || out.contains("Cyrillic") || out.contains("homoglyph")
+            || out.contains("U+0430"),
+        "Expected confusable detection for Cyrillic а, got: {out}"
+    );
+}
+
+#[test]
+fn test_unicode_tools_scripts() {
+    use hematite::tools::unicode_tools;
+    let out = tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(unicode_tools::execute(&serde_json::json!({
+            "action": "scripts",
+            "text": "Hello 世界"
+        })))
+        .expect("scripts action should succeed");
+    assert!(
+        out.contains("Latin") || out.contains("CJK") || out.contains("Han"),
+        "Expected Latin and CJK script detection, got: {out}"
+    );
 }

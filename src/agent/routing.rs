@@ -9273,6 +9273,66 @@ pub fn needs_elf_tools(user_input: &str) -> bool {
     )
 }
 
+pub fn needs_leb128_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "leb128",
+            "uleb128",
+            "sleb128",
+            "leb encoding",
+            "variable length integer",
+            "variable-length integer",
+            "variable length encoding",
+            "varint",
+            "wasm encoding",
+            "dwarf encoding",
+            "protobuf encoding",
+            "encode leb",
+            "decode leb",
+            "leb decode",
+            "leb encode",
+            "little endian base 128",
+            "little-endian base-128",
+        ],
+    )
+}
+
+pub fn needs_unicode_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "unicode analysis",
+            "unicode script",
+            "unicode block",
+            "unicode bidi",
+            "bidi control",
+            "trojan source",
+            "homoglyph",
+            "confusable character",
+            "unicode confusable",
+            "unicode normalization",
+            "nfc normalization",
+            "nfd normalization",
+            "unicode encoding",
+            "utf-8 bytes",
+            "utf-16 bytes",
+            "utf-32 bytes",
+            "unicode codepoint analysis",
+            "rtl character",
+            "right-to-left override",
+            "unicode security",
+            "analyze unicode",
+            "unicode text analysis",
+            "unicode inspect",
+            "character scripts",
+            "codepoint distribution",
+        ],
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

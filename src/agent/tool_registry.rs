@@ -6343,6 +6343,38 @@ pub fn get_tools() -> Vec<ToolDefinition> {
          elf_tools(action: 'sections', hex: '7f454c46...').",
         crate::tools::elf_tools::elf_tools_schema(),
     ));
+    tools.push(make_tool(
+        "leb128_tools",
+        "Encodes, decodes, and analyzes LEB128 variable-length integers (ULEB128 unsigned and SLEB128 signed) \
+         without external utilities. Used in WASM, DWARF debug info, protobuf, and Android DEX. \
+         Actions: encode (integer → LEB128 bytes with hex dump), \
+         decode (hex/bytes → integer + bytes consumed + remaining stream), \
+         analyze (byte-by-byte bit-field breakdown showing continuation bits and data bits), \
+         multi (batch encode a JSON array or decode a stream of concatenated LEB128 values), \
+         explain (verbose bit-level walkthrough per group with value accumulation). \
+         Pass 'value' (integer) for encode, 'hex' or 'bytes' for decode/analyze/multi, \
+         'signed: true' for SLEB128 mode (default: unsigned ULEB128). \
+         Example: leb128_tools(action: 'encode', value: 624485) gives e5 8e 26. \
+         leb128_tools(action: 'decode', hex: 'e5 8e 26') gives 624485.",
+        crate::tools::leb128_tools::leb128_tools_schema(),
+    ));
+    tools.push(make_tool(
+        "unicode_tools",
+        "Analyzes Unicode text — script distribution, bidi safety, confusable/homoglyph detection, \
+         encoding sizes, and normalization status — without external utilities. \
+         Actions: analyze (default — per-character table with codepoint, category, script, UTF-8 bytes; \
+         max 200 chars), scripts (script distribution count table), \
+         blocks (Unicode block distribution), \
+         bidi (RTL character detection + Trojan Source CVE-2021-42574 invisible bidi control char risk), \
+         confusables (homoglyph/lookalike detection — Cyrillic/Greek chars that look like ASCII), \
+         encoding (UTF-8/UTF-16/UTF-32 byte sequences for each character), \
+         normalize (NFC vs NFD status — flags combining mark sequences vs precomposed forms). \
+         Pass 'text' with the string to analyze. \
+         Example: unicode_tools(action: 'bidi', text: 'hello') or \
+         unicode_tools(action: 'confusables', text: 'pаypal') (Cyrillic а vs ASCII a) or \
+         unicode_tools(text: 'Hello 世界').",
+        crate::tools::unicode_tools::unicode_tools_schema(),
+    ));
     let lsp_defs = crate::tools::lsp_tools::get_lsp_definitions();
     tools.push(make_tool(
         "lsp_search_symbol",
@@ -6515,6 +6547,8 @@ pub async fn dispatch_builtin_tool(
         "tlv_tools" => crate::tools::tlv_tools::execute(args).await,
         "bin_pack_tools" => crate::tools::bin_pack_tools::execute(args).await,
         "elf_tools" => crate::tools::elf_tools::execute(args).await,
+        "leb128_tools" => crate::tools::leb128_tools::execute(args).await,
+        "unicode_tools" => crate::tools::unicode_tools::execute(args).await,
         "http_status_tools" => crate::tools::http_status_tools::execute(args).await,
         "http_parse_tools" => crate::tools::http_parse_tools::execute(args).await,
         "jq_tools" => crate::tools::jq_tools::execute(args).await,
