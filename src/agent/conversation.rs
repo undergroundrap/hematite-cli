@@ -45,20 +45,20 @@ use crate::agent::routing::{
     needs_k8s_tools, needs_keyval_tools, needs_license_tools, needs_line_tools, needs_lint_check,
     needs_lock_file_tools, needs_log_parse_tools, needs_make_tools, needs_markdown_tools,
     needs_matrix_tools, needs_mermaid_tools, needs_mime_tools, needs_money_tools,
-    needs_msgpack_tools, needs_nato_tools, needs_net_lookup_tools, needs_nginx_conf_tools,
-    needs_number_theory_tools, needs_number_tools, needs_openapi_tools, needs_package_json_tools,
-    needs_password_gen, needs_path_tools, needs_pem_tools, needs_plist_tools, needs_port_check,
-    needs_printf_tools, needs_proto_tools, needs_regex_tools, needs_robots_txt_tools,
-    needs_rss_tools, needs_scientific_compute, needs_secret_scan, needs_semver_tools,
-    needs_sitemap_tools, needs_size_tools, needs_sql_format_tools, needs_sql_migrate_tools,
-    needs_sql_tools, needs_sqlite_tools, needs_ssh_config_tools, needs_stat_tools,
-    needs_string_metric_tools, needs_systemd_tools, needs_table_tools, needs_tar_tools,
-    needs_template_gen, needs_template_tools, needs_terraform_tools, needs_test_run,
-    needs_text_tools, needs_time_zone_tools, needs_token_tools, needs_toml_tools, needs_totp_tools,
-    needs_unit_tools, needs_url_tools, needs_uuid_gen, needs_validate_tools, needs_vcf_tools,
-    needs_wasm_tools, needs_word_tools, needs_xml_tools, needs_yaml_tools,
-    preferred_host_inspection_topic, preferred_maintainer_workflow, preferred_workspace_workflow,
-    DirectAnswerKind, QueryIntentClass,
+    needs_msgpack_tools, needs_nato_tools, needs_net_lookup_tools, needs_network_header_tools,
+    needs_nginx_conf_tools, needs_number_theory_tools, needs_number_tools, needs_openapi_tools,
+    needs_package_json_tools, needs_password_gen, needs_path_tools, needs_pem_tools,
+    needs_plist_tools, needs_port_check, needs_printf_tools, needs_proto_tools, needs_regex_tools,
+    needs_robots_txt_tools, needs_rss_tools, needs_scientific_compute, needs_secret_scan,
+    needs_semver_tools, needs_sitemap_tools, needs_size_tools, needs_sql_format_tools,
+    needs_sql_migrate_tools, needs_sql_tools, needs_sqlite_tools, needs_ssh_config_tools,
+    needs_stat_tools, needs_string_metric_tools, needs_systemd_tools, needs_table_tools,
+    needs_tar_tools, needs_template_gen, needs_template_tools, needs_terraform_tools,
+    needs_test_run, needs_text_tools, needs_time_zone_tools, needs_tlv_tools, needs_token_tools,
+    needs_toml_tools, needs_totp_tools, needs_unit_tools, needs_url_tools, needs_uuid_gen,
+    needs_validate_tools, needs_vcf_tools, needs_wasm_tools, needs_word_tools, needs_xml_tools,
+    needs_yaml_tools, preferred_host_inspection_topic, preferred_maintainer_workflow,
+    preferred_workspace_workflow, DirectAnswerKind, QueryIntentClass,
 };
 use crate::agent::tool_registry::dispatch_builtin_tool;
 use crate::agent::truncation::safe_head;
@@ -6932,6 +6932,35 @@ impl ConversationManager {
                  Pass 'vcf' (inline vCard content) or 'file' (path to .vcf file). \
                  Example: vcf_tools(file: 'contacts.vcf') or vcf_tools(action: 'to_csv', file: 'contacts.vcf') or \
                  vcf_tools(action: 'search', file: 'contacts.vcf', query: 'smith')."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_network_header_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "NETWORK HEADER NOTICE: Use the `network_header_tools` tool to parse and decode raw network protocol headers \
+                 from hex bytes without external tools. \
+                 Actions: parse (auto-detect protocol from bytes), ipv4 (decode IPv4 header with checksum verification), \
+                 ipv6 (decode IPv6 header with next-header chain), tcp (decode TCP header with flag breakdown), \
+                 udp (decode UDP header), icmp (decode ICMP/ICMPv6 type/code), ethernet (decode Ethernet II frame header). \
+                 Pass 'hex' with the raw header bytes (spaces and colons are ignored). \
+                 Example: network_header_tools(hex: '45 00 00 3c ...') or network_header_tools(action: 'tcp', hex: '...')."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_tlv_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "TLV NOTICE: Use the `tlv_tools` tool to parse, decode, and build Type-Length-Value encoded binary data \
+                 without external tools. \
+                 Actions: parse (generic TLV with configurable type_size/length_size/endian), \
+                 ber (ASN.1 BER/DER — variable-length tag and length, with type name decoding), \
+                 dhcp (DHCP options per RFC 2132 with known option names and value formatting), \
+                 wifi (802.11 information elements with SSID/rate/RSN decoding), \
+                 build (assemble TLV bytes from a JSON items spec). \
+                 Pass 'hex' with raw bytes. \
+                 Example: tlv_tools(hex: 'a2616101616202') or tlv_tools(action: 'ber', hex: '300a...') or \
+                 tlv_tools(action: 'dhcp', hex: '3501013604...')."
                     .to_string(),
             );
         }

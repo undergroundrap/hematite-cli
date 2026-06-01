@@ -6276,6 +6276,41 @@ pub fn get_tools() -> Vec<ToolDefinition> {
          vcf_tools(action: 'to_json', vcf: 'BEGIN:VCARD...').",
         crate::tools::vcf_tools::vcf_tools_schema(),
     ));
+    tools.push(make_tool(
+        "network_header_tools",
+        "Parse and decode raw network protocol headers (IPv4, IPv6, TCP, UDP, ICMP, Ethernet II) from hex bytes \
+         without external tools. Decodes all field names, flag bits, checksums, and well-known port annotations. \
+         Actions: `parse` (auto-detect protocol from header bytes — checks EtherType, IP version nibble), \
+         `ipv4` (header fields: version, IHL, DSCP, length, ID, flags, TTL, protocol, checksum verification, src/dst IP), \
+         `ipv6` (version, traffic class, flow label, payload length, next header, hop limit, src/dst address with compression), \
+         `tcp` (src/dst port, seq/ack numbers, data offset, flag bits FIN/SYN/RST/PSH/ACK/URG/ECE/CWR, window, checksum, options), \
+         `udp` (src/dst port, length, checksum), \
+         `icmp` (type, code, checksum, echo ID/seq for Echo/Reply), \
+         `ethernet` (dst MAC, src MAC, EtherType annotation). \
+         Pass 'hex' with raw header bytes (spaces and colons stripped automatically). \
+         Example: network_header_tools(hex: '45 00 00 3c 1c 46 40 00 40 06 ...') or \
+         network_header_tools(action: 'tcp', hex: '00 50 00 50 ...').",
+        crate::tools::network_header_tools::network_header_tools_schema(),
+    ));
+    tools.push(make_tool(
+        "tlv_tools",
+        "Parse, decode, and build Type-Length-Value (TLV) encoded binary data without external tools. \
+         Supports generic TLV with configurable field sizes, ASN.1 BER/DER, DHCP options (RFC 2132), \
+         and 802.11 Wi-Fi information elements. \
+         Actions: `parse` (generic TLV — configurable 'type_size' 1/2/4 bytes, 'length_size' 1/2/4 bytes, \
+         'endian' big/little; decodes each triplet with hex, ASCII, and integer representations), \
+         `ber` (ASN.1 BER/DER — variable-length tag and length, recursive SEQUENCE/SET expansion, \
+         INTEGER/BOOLEAN/NULL/OID/STRING value decoding), \
+         `dhcp` (DHCP options per RFC 2132 — known option names, IP address formatting, lease time, DHCP message type), \
+         `wifi` (802.11 information elements — SSID, Supported Rates, channel, ERP, RSN/WPA2, Vendor Specific OUI), \
+         `build` (assemble TLV bytes from 'items' JSON array of {type, value_hex?, value_string?, value_u8?} objects). \
+         Pass 'hex' with raw bytes (spaces/colons stripped). \
+         Example: tlv_tools(hex: '01 04 c0 a8 01 01') or \
+         tlv_tools(action: 'ber', hex: '300a020100020101060103') or \
+         tlv_tools(action: 'dhcp', hex: '3501013604c0a80001ff') or \
+         tlv_tools(action: 'build', items: [{type: 1, value_hex: 'c0a80101'}]).",
+        crate::tools::tlv_tools::tlv_tools_schema(),
+    ));
     let lsp_defs = crate::tools::lsp_tools::get_lsp_definitions();
     tools.push(make_tool(
         "lsp_search_symbol",
@@ -6444,6 +6479,8 @@ pub async fn dispatch_builtin_tool(
         "msgpack_tools" => crate::tools::msgpack_tools::execute(args).await,
         "html_tools" => crate::tools::html_tools::execute(args).await,
         "vcf_tools" => crate::tools::vcf_tools::execute(args).await,
+        "network_header_tools" => crate::tools::network_header_tools::execute(args).await,
+        "tlv_tools" => crate::tools::tlv_tools::execute(args).await,
         "http_status_tools" => crate::tools::http_status_tools::execute(args).await,
         "http_parse_tools" => crate::tools::http_parse_tools::execute(args).await,
         "jq_tools" => crate::tools::jq_tools::execute(args).await,

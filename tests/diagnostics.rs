@@ -29303,8 +29303,14 @@ fn test_html_tools_parse() {
         })))
         .expect("parse should succeed");
     assert!(out.contains("Test Page"), "Expected title, got: {out}");
-    assert!(out.contains("H1") || out.contains("h1"), "Expected H1 heading, got: {out}");
-    assert!(out.contains("A test page") || out.contains("description"), "Expected meta desc, got: {out}");
+    assert!(
+        out.contains("H1") || out.contains("h1"),
+        "Expected H1 heading, got: {out}"
+    );
+    assert!(
+        out.contains("A test page") || out.contains("description"),
+        "Expected meta desc, got: {out}"
+    );
 }
 
 #[test]
@@ -29317,9 +29323,15 @@ fn test_html_tools_links() {
             "html": SAMPLE_HTML
         })))
         .expect("links should succeed");
-    assert!(out.contains("example.com"), "Expected external link, got: {out}");
+    assert!(
+        out.contains("example.com"),
+        "Expected external link, got: {out}"
+    );
     assert!(out.contains("/about"), "Expected internal link, got: {out}");
-    assert!(out.contains("EXT") || out.contains("INT"), "Expected link type, got: {out}");
+    assert!(
+        out.contains("EXT") || out.contains("INT"),
+        "Expected link type, got: {out}"
+    );
 }
 
 #[test]
@@ -29333,7 +29345,10 @@ fn test_html_tools_images() {
         })))
         .expect("images should succeed");
     assert!(out.contains("logo.png"), "Expected logo.png, got: {out}");
-    assert!(out.contains("NO ALT") || out.contains("missing"), "Expected missing alt warning, got: {out}");
+    assert!(
+        out.contains("NO ALT") || out.contains("missing"),
+        "Expected missing alt warning, got: {out}"
+    );
 }
 
 #[test]
@@ -29348,7 +29363,10 @@ fn test_html_tools_validate() {
         .expect("validate should succeed");
     // has doctype, charset, title, lang — should be mostly valid
     // photo.jpg has no alt, so there's at least one issue
-    assert!(out.contains("image") || out.contains("VALID") || out.contains("alt"), "Got: {out}");
+    assert!(
+        out.contains("image") || out.contains("VALID") || out.contains("alt"),
+        "Got: {out}"
+    );
 }
 
 #[test]
@@ -29361,7 +29379,10 @@ fn test_html_tools_text() {
             "html": "<p>Hello <b>World</b></p>"
         })))
         .expect("text should succeed");
-    assert!(out.contains("Hello") && out.contains("World"), "Expected plain text, got: {out}");
+    assert!(
+        out.contains("Hello") && out.contains("World"),
+        "Expected plain text, got: {out}"
+    );
     assert!(!out.contains("<b>"), "Expected no HTML tags, got: {out}");
 }
 
@@ -29375,8 +29396,14 @@ fn test_html_tools_stats() {
             "html": SAMPLE_HTML
         })))
         .expect("stats should succeed");
-    assert!(out.contains("element") || out.contains("Elements"), "Expected element count, got: {out}");
-    assert!(out.contains("depth") || out.contains("Depth"), "Expected nesting depth, got: {out}");
+    assert!(
+        out.contains("element") || out.contains("Elements"),
+        "Expected element count, got: {out}"
+    );
+    assert!(
+        out.contains("depth") || out.contains("Depth"),
+        "Expected nesting depth, got: {out}"
+    );
 }
 
 // ── vcf_tools tests ───────────────────────────────────────────────────────────
@@ -29403,10 +29430,19 @@ fn test_vcf_tools_parse() {
             "vcf": SAMPLE_VCF
         })))
         .expect("parse should succeed");
-    assert!(out.contains("Alice Smith"), "Expected Alice Smith, got: {out}");
+    assert!(
+        out.contains("Alice Smith"),
+        "Expected Alice Smith, got: {out}"
+    );
     assert!(out.contains("Acme Corp"), "Expected org, got: {out}");
-    assert!(out.contains("alice@example.com"), "Expected email, got: {out}");
-    assert!(out.contains("Bob Jones"), "Expected second contact, got: {out}");
+    assert!(
+        out.contains("alice@example.com"),
+        "Expected email, got: {out}"
+    );
+    assert!(
+        out.contains("Bob Jones"),
+        "Expected second contact, got: {out}"
+    );
 }
 
 #[test]
@@ -29419,9 +29455,18 @@ fn test_vcf_tools_list() {
             "vcf": SAMPLE_VCF
         })))
         .expect("list should succeed");
-    assert!(out.contains("Alice Smith"), "Expected Alice in list, got: {out}");
-    assert!(out.contains("Bob Jones"), "Expected Bob in list, got: {out}");
-    assert!(out.contains("alice@example.com"), "Expected email, got: {out}");
+    assert!(
+        out.contains("Alice Smith"),
+        "Expected Alice in list, got: {out}"
+    );
+    assert!(
+        out.contains("Bob Jones"),
+        "Expected Bob in list, got: {out}"
+    );
+    assert!(
+        out.contains("alice@example.com"),
+        "Expected email, got: {out}"
+    );
 }
 
 #[test]
@@ -29435,8 +29480,14 @@ fn test_vcf_tools_search() {
             "query": "Acme"
         })))
         .expect("search should succeed");
-    assert!(out.contains("Alice Smith"), "Expected Alice in results, got: {out}");
-    assert!(!out.contains("Bob Jones"), "Bob should not be in Acme search results, got: {out}");
+    assert!(
+        out.contains("Alice Smith"),
+        "Expected Alice in results, got: {out}"
+    );
+    assert!(
+        !out.contains("Bob Jones"),
+        "Bob should not be in Acme search results, got: {out}"
+    );
 }
 
 #[test]
@@ -29465,7 +29516,194 @@ fn test_vcf_tools_to_csv() {
             "vcf": SAMPLE_VCF
         })))
         .expect("to_csv should succeed");
-    assert!(out.starts_with("Full Name"), "Expected CSV header, got: {out}");
-    assert!(out.contains("Alice Smith"), "Expected Alice in CSV, got: {out}");
-    assert!(out.contains("alice@example.com"), "Expected email in CSV, got: {out}");
+    assert!(
+        out.starts_with("Full Name"),
+        "Expected CSV header, got: {out}"
+    );
+    assert!(
+        out.contains("Alice Smith"),
+        "Expected Alice in CSV, got: {out}"
+    );
+    assert!(
+        out.contains("alice@example.com"),
+        "Expected email in CSV, got: {out}"
+    );
+}
+
+// ── network_header_tools ──────────────────────────────────────────────────────
+
+#[test]
+fn test_routing_detects_network_header_tools() {
+    use hematite::agent::routing::needs_network_header_tools;
+    assert!(needs_network_header_tools("decode ipv4 header from these hex bytes"));
+    assert!(needs_network_header_tools("decode tcp header bytes"));
+    assert!(needs_network_header_tools("decode ethernet frame"));
+    assert!(needs_network_header_tools("IPv4 checksum verification"));
+    assert!(needs_network_header_tools("analyze raw packet hex dump"));
+    assert!(needs_network_header_tools("parse header bytes from this wireshark capture"));
+    assert!(!needs_network_header_tools("show me dns cache"));
+    assert!(!needs_network_header_tools("what is my ip address"));
+}
+
+#[test]
+fn test_network_header_tools_ipv4() {
+    use hematite::tools::network_header_tools;
+    // Minimal IPv4 header: version=4, IHL=5, total_len=40, proto=6 (TCP), src=192.168.1.1, dst=10.0.0.1
+    let out = tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(network_header_tools::execute(&serde_json::json!({
+            "action": "ipv4",
+            "hex": "45 00 00 28 1c 46 40 00 40 06 b1 e6 c0 a8 01 01 0a 00 00 01"
+        })))
+        .expect("IPv4 decode should succeed");
+    assert!(out.contains("IPv4"), "Expected IPv4 label, got: {out}");
+    assert!(out.contains("192.168.1.1"), "Expected src IP, got: {out}");
+    assert!(out.contains("10.0.0.1"), "Expected dst IP, got: {out}");
+    assert!(out.contains("TCP"), "Expected TCP protocol, got: {out}");
+}
+
+#[test]
+fn test_network_header_tools_tcp() {
+    use hematite::tools::network_header_tools;
+    // TCP header: src=80, dst=12345, seq=1, ack=1, flags=0x18 (PSH+ACK)
+    let out = tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(network_header_tools::execute(&serde_json::json!({
+            "action": "tcp",
+            "hex": "00 50 30 39 00 00 00 01 00 00 00 01 50 18 ff ff ab cd 00 00"
+        })))
+        .expect("TCP decode should succeed");
+    assert!(out.contains("TCP"), "Expected TCP label, got: {out}");
+    assert!(out.contains("80"), "Expected port 80, got: {out}");
+    assert!(out.contains("PSH"), "Expected PSH flag, got: {out}");
+    assert!(out.contains("ACK"), "Expected ACK flag, got: {out}");
+}
+
+#[test]
+fn test_network_header_tools_udp() {
+    use hematite::tools::network_header_tools;
+    // UDP header: src=53, dst=1024, length=12, checksum=0xabcd
+    let out = tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(network_header_tools::execute(&serde_json::json!({
+            "action": "udp",
+            "hex": "00 35 04 00 00 0c ab cd"
+        })))
+        .expect("UDP decode should succeed");
+    assert!(out.contains("UDP"), "Expected UDP label, got: {out}");
+    assert!(out.contains("53"), "Expected port 53, got: {out}");
+    assert!(out.contains("DNS"), "Expected DNS annotation, got: {out}");
+}
+
+#[test]
+fn test_network_header_tools_ethernet() {
+    use hematite::tools::network_header_tools;
+    // Ethernet II: dst=ff:ff:ff:ff:ff:ff, src=aa:bb:cc:dd:ee:ff, EtherType=0x0800 (IPv4)
+    let out = tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(network_header_tools::execute(&serde_json::json!({
+            "action": "ethernet",
+            "hex": "ff ff ff ff ff ff aa bb cc dd ee ff 08 00"
+        })))
+        .expect("Ethernet decode should succeed");
+    assert!(out.contains("ETHERNET"), "Expected ETHERNET label, got: {out}");
+    assert!(out.contains("FF:FF:FF:FF:FF:FF"), "Expected broadcast MAC, got: {out}");
+    assert!(out.contains("IPv4"), "Expected IPv4 EtherType, got: {out}");
+}
+
+// ── tlv_tools ─────────────────────────────────────────────────────────────────
+
+#[test]
+fn test_routing_detects_tlv_tools() {
+    use hematite::agent::routing::needs_tlv_tools;
+    assert!(needs_tlv_tools("parse TLV data from these bytes"));
+    assert!(needs_tlv_tools("decode ASN.1 BER encoding"));
+    assert!(needs_tlv_tools("parse DHCP options bytes"));
+    assert!(needs_tlv_tools("decode 802.11 information elements"));
+    assert!(needs_tlv_tools("asn1 decode this hex"));
+    assert!(!needs_tlv_tools("show my wifi signal strength"));
+    assert!(!needs_tlv_tools("check dhcp lease on my adapter"));
+}
+
+#[test]
+fn test_tlv_tools_generic_parse() {
+    use hematite::tools::tlv_tools;
+    // Simple TLV: type=0x01, length=4, value=c0a80101 | type=0x02, length=1, value=ff
+    let out = tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(tlv_tools::execute(&serde_json::json!({
+            "hex": "01 04 c0 a8 01 01 02 01 ff"
+        })))
+        .expect("generic parse should succeed");
+    assert!(out.contains("TLV Parse"), "Expected TLV Parse header, got: {out}");
+    assert!(out.contains("Record #1"), "Expected record 1, got: {out}");
+    assert!(out.contains("Record #2"), "Expected record 2, got: {out}");
+    assert!(out.contains("0x01"), "Expected tag 0x01, got: {out}");
+}
+
+#[test]
+fn test_tlv_tools_ber() {
+    use hematite::tools::tlv_tools;
+    // ASN.1 SEQUENCE { INTEGER 0, INTEGER 1, OID 2.5 }
+    // 30=SEQUENCE, 09=len, 02 01 00=INT(0), 02 01 01=INT(1), 06 01 55=OID(2.5)
+    let out = tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(tlv_tools::execute(&serde_json::json!({
+            "action": "ber",
+            "hex": "30 09 02 01 00 02 01 01 06 01 55"
+        })))
+        .expect("BER decode should succeed");
+    assert!(out.contains("SEQUENCE"), "Expected SEQUENCE, got: {out}");
+    assert!(out.contains("INTEGER"), "Expected INTEGER, got: {out}");
+    assert!(out.contains("OBJECT IDENTIFIER"), "Expected OID, got: {out}");
+}
+
+#[test]
+fn test_tlv_tools_dhcp() {
+    use hematite::tools::tlv_tools;
+    // DHCP message type option (53, len=1, val=1 DISCOVER) + end (255)
+    let out = tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(tlv_tools::execute(&serde_json::json!({
+            "action": "dhcp",
+            "hex": "35 01 01 ff"
+        })))
+        .expect("DHCP parse should succeed");
+    assert!(out.contains("DHCP Message Type"), "Expected DHCP message type, got: {out}");
+    assert!(out.contains("DHCPDISCOVER"), "Expected DISCOVER, got: {out}");
+    assert!(out.contains("End"), "Expected End option, got: {out}");
+}
+
+#[test]
+fn test_tlv_tools_wifi() {
+    use hematite::tools::tlv_tools;
+    // SSID IE: type=0, len=8, value="TestNet!"
+    let out = tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(tlv_tools::execute(&serde_json::json!({
+            "action": "wifi",
+            "hex": "00 08 54 65 73 74 4e 65 74 21"
+        })))
+        .expect("WiFi IE parse should succeed");
+    assert!(out.contains("SSID"), "Expected SSID IE, got: {out}");
+    assert!(out.contains("TestNet!"), "Expected SSID value, got: {out}");
+}
+
+#[test]
+fn test_tlv_tools_build() {
+    use hematite::tools::tlv_tools;
+    let out = tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(tlv_tools::execute(&serde_json::json!({
+            "action": "build",
+            "items": [
+                {"type": 1, "value_hex": "c0a80101"},
+                {"type": 2, "value_string": "hello"}
+            ]
+        })))
+        .expect("TLV build should succeed");
+    assert!(out.contains("TLV Build"), "Expected TLV Build header, got: {out}");
+    assert!(out.contains("Item #1"), "Expected item 1, got: {out}");
+    assert!(out.contains("Item #2"), "Expected item 2, got: {out}");
+    assert!(out.contains("Compact hex"), "Expected compact hex output, got: {out}");
 }

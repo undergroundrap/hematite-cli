@@ -9139,6 +9139,73 @@ pub fn needs_vcf_tools(user_input: &str) -> bool {
     )
 }
 
+pub fn needs_network_header_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "network header",
+            "parse header bytes",
+            "decode ipv4 header",
+            "decode ipv6 header",
+            "decode tcp header",
+            "decode udp header",
+            "decode icmp",
+            "decode ethernet",
+            "raw packet",
+            "packet header",
+            "ethernet frame",
+            "ethernet header",
+            "ipv4 checksum",
+            "tcp flags",
+            "tcp segment",
+            "udp datagram",
+            "icmp packet",
+            "protocol header",
+            "hex packet",
+            "packet bytes",
+            "wireshark hex",
+            "hex dump packet",
+            "parse raw bytes",
+            "ip header",
+        ],
+    )
+}
+
+pub fn needs_tlv_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "tlv",
+            "type-length-value",
+            "type length value",
+            "ber encoding",
+            "der encoding",
+            "asn.1",
+            "asn1",
+            "dhcp options",
+            "dhcp option bytes",
+            "802.11 ie",
+            "wifi ie",
+            "information element",
+            "tlv parse",
+            "tlv decode",
+            "parse tlv",
+            "decode tlv",
+            "build tlv",
+            "tlv bytes",
+            "tlv structure",
+            "ber decode",
+            "der decode",
+            "parse ber",
+            "parse der",
+            "asn.1 decode",
+            "asn1 decode",
+        ],
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
