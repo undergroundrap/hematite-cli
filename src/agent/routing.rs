@@ -9548,6 +9548,61 @@ pub fn needs_interval_tools(user_input: &str) -> bool {
     )
 }
 
+pub fn needs_inflect_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "pluralize this",
+            "plural form of",
+            "plural of",
+            "make plural",
+            "singularize",
+            "singular form of",
+            "singular of",
+            "pluralize_with",
+            "verb conjugat",
+            "third person singular",
+            "present participle",
+            "past tense of",
+            "verb past tense",
+            "possessive form",
+            "noun possessive",
+            "inflect this word",
+            "word inflection",
+            "english inflection",
+        ],
+    )
+}
+
+pub fn needs_text_align_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "align text",
+            "text alignment",
+            "right align",
+            "center align",
+            "left align",
+            "justify text",
+            "justify the text",
+            "align columns",
+            "column layout",
+            "format columns",
+            "side by side columns",
+            "add indentation",
+            "remove indentation",
+            "indent the lines",
+            "normalize whitespace",
+            "normalize spacing",
+            "center this block",
+            "alignment ruler",
+            "character ruler",
+        ],
+    )
+}
+
 pub fn needs_number_sequence_tools(user_input: &str) -> bool {
     let lower = user_input.to_lowercase();
     contains_any(

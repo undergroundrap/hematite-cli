@@ -30935,9 +30935,13 @@ fn test_interval_union_merges() {
 #[test]
 fn test_routing_detects_number_sequence_tools() {
     use hematite::agent::routing::needs_number_sequence_tools;
-    assert!(needs_number_sequence_tools("detect sequence pattern in this list"));
+    assert!(needs_number_sequence_tools(
+        "detect sequence pattern in this list"
+    ));
     assert!(needs_number_sequence_tools("continue the sequence 1 2 4 8"));
-    assert!(needs_number_sequence_tools("what comes next in this series"));
+    assert!(needs_number_sequence_tools(
+        "what comes next in this series"
+    ));
     assert!(needs_number_sequence_tools("show the difference table"));
     assert!(!needs_number_sequence_tools("convert bytes to megabytes"));
 }
@@ -31008,8 +31012,14 @@ fn test_number_sequence_continue() {
         ))
         .expect("execute should succeed");
     // Next squares: 36, 49, 64
-    assert!(out.contains("36"), "Expected 36 in continuation, got: {out}");
-    assert!(out.contains("49"), "Expected 49 in continuation, got: {out}");
+    assert!(
+        out.contains("36"),
+        "Expected 36 in continuation, got: {out}"
+    );
+    assert!(
+        out.contains("49"),
+        "Expected 49 in continuation, got: {out}"
+    );
 }
 
 #[test]
@@ -31131,4 +31141,175 @@ fn test_number_words_roman_decode() {
         ))
         .expect("execute should succeed");
     assert!(out.contains("2024"), "Expected 2024, got: {out}");
+}
+
+// ── inflect_tools tests ───────────────────────────────────────────────────────
+
+#[test]
+fn test_routing_detects_inflect_tools() {
+    use hematite::agent::routing::needs_inflect_tools;
+    assert!(needs_inflect_tools("pluralize this word for me"));
+    assert!(needs_inflect_tools("what is the plural form of analysis"));
+    assert!(needs_inflect_tools("past tense of the verb write"));
+    assert!(needs_inflect_tools("present participle of run"));
+    assert!(!needs_inflect_tools("convert this number to hex"));
+}
+
+#[test]
+fn test_routing_detects_text_align_tools() {
+    use hematite::agent::routing::needs_text_align_tools;
+    assert!(needs_text_align_tools("right align this text to 80 chars"));
+    assert!(needs_text_align_tools("justify text in the block"));
+    assert!(needs_text_align_tools("center align the heading"));
+    assert!(needs_text_align_tools("add indentation to these lines"));
+    assert!(needs_text_align_tools("normalize whitespace in the file"));
+    assert!(!needs_text_align_tools("convert bytes to gigabytes"));
+}
+
+#[test]
+fn test_inflect_pluralize_regular() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::inflect_tools::execute(
+            &serde_json::json!({"word": "cat"}),
+        ))
+        .expect("execute should succeed");
+    assert!(out.contains("cats"), "Expected 'cats', got: {out}");
+}
+
+#[test]
+fn test_inflect_pluralize_irregular() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::inflect_tools::execute(
+            &serde_json::json!({"word": "analysis"}),
+        ))
+        .expect("execute should succeed");
+    assert!(out.contains("analyses"), "Expected 'analyses', got: {out}");
+}
+
+#[test]
+fn test_inflect_singularize() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::inflect_tools::execute(
+            &serde_json::json!({"action": "singularize", "word": "matrices"}),
+        ))
+        .expect("execute should succeed");
+    assert!(out.contains("matrix"), "Expected 'matrix', got: {out}");
+}
+
+#[test]
+fn test_inflect_pluralize_with() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::inflect_tools::execute(
+            &serde_json::json!({"action": "pluralize_with", "word": "item", "count": 3}),
+        ))
+        .expect("execute should succeed");
+    assert!(out.contains("3 items"), "Expected '3 items', got: {out}");
+}
+
+#[test]
+fn test_inflect_verb_past_irregular() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::inflect_tools::execute(
+            &serde_json::json!({"action": "verb_past", "word": "write"}),
+        ))
+        .expect("execute should succeed");
+    assert!(out.contains("wrote"), "Expected 'wrote', got: {out}");
+}
+
+#[test]
+fn test_inflect_verb_ing() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::inflect_tools::execute(
+            &serde_json::json!({"action": "verb_ing", "word": "run"}),
+        ))
+        .expect("execute should succeed");
+    assert!(out.contains("running"), "Expected 'running', got: {out}");
+}
+
+#[test]
+fn test_inflect_possessive() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::inflect_tools::execute(
+            &serde_json::json!({"action": "noun_possessive", "word": "dog"}),
+        ))
+        .expect("execute should succeed");
+    assert!(out.contains("dog's"), "Expected \"dog's\", got: {out}");
+}
+
+// ── text_align_tools tests ────────────────────────────────────────────────────
+
+#[test]
+fn test_text_align_right() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::text_align_tools::execute(
+            &serde_json::json!({"action": "align", "text": "hello", "alignment": "right", "width": 10}),
+        ))
+        .expect("execute should succeed");
+    // Should be 5 spaces + "hello"
+    assert!(
+        out.contains("     hello"),
+        "Expected right-aligned 'hello', got: {out}"
+    );
+}
+
+#[test]
+fn test_text_align_center() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::text_align_tools::execute(
+            &serde_json::json!({"action": "align", "text": "hi", "alignment": "center", "width": 10}),
+        ))
+        .expect("execute should succeed");
+    // "hi" centered in 10 = 4 spaces + "hi" + 4 spaces
+    assert!(out.contains("    hi"), "Expected centered 'hi', got: {out}");
+}
+
+#[test]
+fn test_text_align_indent() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::text_align_tools::execute(
+            &serde_json::json!({"action": "indent", "text": "line1\nline2", "indent_width": 2}),
+        ))
+        .expect("execute should succeed");
+    assert!(out.contains("  line1"), "Expected indented lines, got: {out}");
+    assert!(out.contains("  line2"), "Expected indented lines, got: {out}");
+}
+
+#[test]
+fn test_text_align_normalize() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::text_align_tools::execute(
+            &serde_json::json!({"action": "normalize", "text": "hello   world  "}),
+        ))
+        .expect("execute should succeed");
+    assert!(
+        out.contains("hello world"),
+        "Expected normalized spacing, got: {out}"
+    );
+}
+
+#[test]
+fn test_text_align_ruler() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::text_align_tools::execute(
+            &serde_json::json!({"action": "ruler", "width": 20}),
+        ))
+        .expect("execute should succeed");
+    assert!(
+        out.contains("Ruler"),
+        "Expected ruler header, got: {out}"
+    );
+    assert!(out.contains("10"), "Expected '10' tick mark, got: {out}");
+    assert!(out.contains("20"), "Expected '20' tick mark, got: {out}");
 }

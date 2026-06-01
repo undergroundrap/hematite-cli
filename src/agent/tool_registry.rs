@@ -6524,6 +6524,33 @@ pub fn get_tools() -> Vec<ToolDefinition> {
          number_words_tools(action: 'roman', text: 'XLII').",
         crate::tools::number_words_tools::number_words_tools_schema(),
     ));
+    tools.push(make_tool(
+        "inflect_tools",
+        "English word inflection without external utilities. \
+         Actions: pluralize (default — word → plural form), singularize (plural → singular), \
+         pluralize_with ('count' + 'word' → '1 item' or '3 items'), \
+         verb_third (verb → third-person singular present: 'run' → 'runs'), \
+         verb_ing (verb → present participle: 'run' → 'running'), \
+         verb_past (verb → simple past: 'jump' → 'jumped', 'run' → 'ran'), \
+         noun_possessive ('dog' → \"dog's\", 'dogs' → \"dogs'\"). \
+         ~500 irregular forms + rule-based fallbacks. \
+         Example: inflect_tools(word: 'analysis') or inflect_tools(action: 'pluralize_with', word: 'item', count: 3) or \
+         inflect_tools(action: 'verb_past', word: 'write').",
+        crate::tools::inflect_tools::inflect_tools_schema(),
+    ));
+    tools.push(make_tool(
+        "text_align_tools",
+        "Text alignment and column formatting without external utilities. \
+         Actions: align (default — left/right/center/justify each line to 'width'; 'fill' char), \
+         columns ('columns' array of {text, align?, width?} objects rendered side-by-side with 'separator'), \
+         indent ('indent_width' > 0 adds spaces, < 0 removes them; 'indent_char' space or tab), \
+         normalize (collapse internal whitespace runs, strip trailing spaces), \
+         center_block (pad entire block to center within 'width'), \
+         ruler (generate a tick ruler at 'width' for alignment reference). \
+         Example: text_align_tools(action: 'align', text: 'hello world', alignment: 'right', width: 30) or \
+         text_align_tools(action: 'columns', columns: [{text: 'Name\\nAlice', align: 'left', width: 20}, {text: 'Score\\n99', align: 'right', width: 10}]).",
+        crate::tools::text_align_tools::text_align_tools_schema(),
+    ));
     let lsp_defs = crate::tools::lsp_tools::get_lsp_definitions();
     tools.push(make_tool(
         "lsp_search_symbol",
@@ -6708,6 +6735,8 @@ pub async fn dispatch_builtin_tool(
         "interval_tools" => crate::tools::interval_tools::execute(args).await,
         "number_sequence_tools" => crate::tools::number_sequence_tools::execute(args).await,
         "number_words_tools" => crate::tools::number_words_tools::execute(args).await,
+        "inflect_tools" => crate::tools::inflect_tools::execute(args).await,
+        "text_align_tools" => crate::tools::text_align_tools::execute(args).await,
         "http_status_tools" => crate::tools::http_status_tools::execute(args).await,
         "http_parse_tools" => crate::tools::http_parse_tools::execute(args).await,
         "jq_tools" => crate::tools::jq_tools::execute(args).await,

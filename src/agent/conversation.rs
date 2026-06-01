@@ -42,9 +42,9 @@ use crate::agent::routing::{
     needs_glob_tools, needs_graph_tools, needs_graphql_tools, needs_graphviz_tools,
     needs_grep_tools, needs_har_tools, needs_hash_tools, needs_hex_tools, needs_html_tools,
     needs_http_parse_tools, needs_http_request, needs_http_status_tools, needs_ical_tools,
-    needs_id_tools, needs_ini_tools, needs_interval_tools, needs_ip_tools, needs_jq_tools,
-    needs_json_tools, needs_jsonl_tools, needs_jsonschema_tools, needs_jwt_tools, needs_k8s_tools,
-    needs_keyval_tools, needs_leb128_tools, needs_license_tools, needs_line_tools,
+    needs_id_tools, needs_inflect_tools, needs_ini_tools, needs_interval_tools, needs_ip_tools,
+    needs_jq_tools, needs_json_tools, needs_jsonl_tools, needs_jsonschema_tools, needs_jwt_tools,
+    needs_k8s_tools, needs_keyval_tools, needs_leb128_tools, needs_license_tools, needs_line_tools,
     needs_lint_check, needs_lock_file_tools, needs_log_parse_tools, needs_make_tools,
     needs_markdown_tools, needs_matrix_tools, needs_mermaid_tools, needs_mime_tools,
     needs_money_tools, needs_msgpack_tools, needs_nato_tools, needs_net_lookup_tools,
@@ -57,12 +57,12 @@ use crate::agent::routing::{
     needs_sql_migrate_tools, needs_sql_tools, needs_sqlite_tools, needs_ssh_config_tools,
     needs_stat_tools, needs_string_metric_tools, needs_systemd_tools, needs_table_tools,
     needs_tar_tools, needs_template_gen, needs_template_tools, needs_terraform_tools,
-    needs_test_run, needs_text_extract_tools, needs_text_tools, needs_time_zone_tools,
-    needs_tlv_tools, needs_todo_tools, needs_token_tools, needs_toml_tools, needs_totp_tools,
-    needs_unicode_tools, needs_unit_tools, needs_url_tools, needs_uuid_gen, needs_validate_tools,
-    needs_vcf_tools, needs_wasm_tools, needs_word_tools, needs_xml_tools, needs_yaml_tools,
-    preferred_host_inspection_topic, preferred_maintainer_workflow, preferred_workspace_workflow,
-    DirectAnswerKind, QueryIntentClass,
+    needs_test_run, needs_text_align_tools, needs_text_extract_tools, needs_text_tools,
+    needs_time_zone_tools, needs_tlv_tools, needs_todo_tools, needs_token_tools, needs_toml_tools,
+    needs_totp_tools, needs_unicode_tools, needs_unit_tools, needs_url_tools, needs_uuid_gen,
+    needs_validate_tools, needs_vcf_tools, needs_wasm_tools, needs_word_tools, needs_xml_tools,
+    needs_yaml_tools, preferred_host_inspection_topic, preferred_maintainer_workflow,
+    preferred_workspace_workflow, DirectAnswerKind, QueryIntentClass,
 };
 use crate::agent::tool_registry::dispatch_builtin_tool;
 use crate::agent::truncation::safe_head;
@@ -7167,6 +7167,36 @@ impl ConversationManager {
                  Example: number_words_tools(number: 1000000) or \
                  number_words_tools(action: 'to_ordinal', number: 21) or \
                  number_words_tools(action: 'from_words', text: 'three hundred and forty-five')."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_inflect_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "INFLECT NOTICE: Use the `inflect_tools` tool for English word inflection without external utilities. \
+                 Actions: pluralize (word → plural form), singularize (plural → singular), \
+                 pluralize_with ('count' + 'word' → '1 item' or '3 items'), \
+                 verb_third (verb → third-person singular present: 'run' → 'runs'), \
+                 verb_ing (verb → present participle: 'run' → 'running'), \
+                 verb_past (verb → simple past: 'jump' → 'jumped', 'run' → 'ran'), \
+                 noun_possessive (word → possessive: 'dog' → \"dog's\", 'dogs' → \"dogs'\"). \
+                 Example: inflect_tools(word: 'analysis') or inflect_tools(action: 'pluralize_with', word: 'item', count: 3) or \
+                 inflect_tools(action: 'verb_past', word: 'write')."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_text_align_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "TEXT ALIGN NOTICE: Use the `text_align_tools` tool for text alignment and column formatting without external utilities. \
+                 Actions: align (left/right/center/justify lines to a target width; 'text', 'alignment', 'width', 'fill'), \
+                 columns ('columns' array of {text, align?, width?} objects formatted side-by-side with 'separator'), \
+                 indent (add/remove indentation; 'indent_width' positive to add, negative to remove; 'indent_char' for space/tab), \
+                 normalize (collapse multiple spaces, strip trailing whitespace), \
+                 center_block (center an entire block as a unit within 'width'), \
+                 ruler (generate a tick ruler for alignment reference at 'width'). \
+                 Example: text_align_tools(action: 'align', text: 'hello', alignment: 'right', width: 20) or \
+                 text_align_tools(action: 'indent', text: 'line1\\nline2', indent_width: 4)."
                     .to_string(),
             );
         }
