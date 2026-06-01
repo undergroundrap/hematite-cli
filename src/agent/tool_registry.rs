@@ -6466,6 +6466,36 @@ pub fn get_tools() -> Vec<ToolDefinition> {
          find_tools(action: 'recent', newer_than: 3) or find_tools(min_size: 1048576, action: 'sizes').",
         crate::tools::find_tools::find_tools_schema(),
     ));
+    tools.push(make_tool(
+        "text_extract_tools",
+        "Extract structured entities from unstructured text without external utilities. \
+         No regex CLI needed. \
+         Actions: emails, urls, ips (IPv4 and IPv6), phones (US/international), \
+         dates (ISO/US/EU formats), uuids, hashes (MD5/SHA-1/SHA-256), \
+         all (default — every entity type at once), custom (user-supplied regex pattern). \
+         Each action returns a deduplicated list with occurrence counts. \
+         Options: unique (default true), limit (max matches per type), \
+         case_insensitive (for custom action only). \
+         Example: text_extract_tools(text: '...') or text_extract_tools(action: 'emails', text: '...') or \
+         text_extract_tools(action: 'custom', pattern: 'JIRA-[0-9]+', text: '...').",
+        crate::tools::text_extract_tools::text_extract_tools_schema(),
+    ));
+    tools.push(make_tool(
+        "interval_tools",
+        "Date interval operations without external utilities. \
+         Actions: overlap (do two intervals overlap — shows overlap range and duration), \
+         contains (is a date within an interval — shows distance from boundaries), \
+         union (merge overlapping intervals from a list), \
+         intersect (find the intersection of two intervals), \
+         duration (time between two dates — full breakdown in days/weeks/hours/minutes/seconds), \
+         schedule (generate N recurring dates from a start at a regular step). \
+         Step formats: '1d' (day), '2w' (weeks), '1m' (month), '1y' (year), '6h' (hours), '30min' (minutes). \
+         Accepts ISO 8601 dates (YYYY-MM-DD) and datetimes (YYYY-MM-DDTHH:MM:SS). \
+         Example: interval_tools(action: 'overlap', start: '2024-01-01', end: '2024-06-30', start2: '2024-04-01', end2: '2024-12-31') or \
+         interval_tools(action: 'schedule', start: '2024-01-01', step: '2w', count: 12) or \
+         interval_tools(action: 'duration', start: '2023-03-15', end: '2024-09-01').",
+        crate::tools::interval_tools::interval_tools_schema(),
+    ));
     let lsp_defs = crate::tools::lsp_tools::get_lsp_definitions();
     tools.push(make_tool(
         "lsp_search_symbol",
@@ -6646,6 +6676,8 @@ pub async fn dispatch_builtin_tool(
         "grep_tools" => crate::tools::grep_tools::execute(args).await,
         "file_tree_tools" => crate::tools::file_tree_tools::execute(args).await,
         "find_tools" => crate::tools::find_tools::execute(args).await,
+        "text_extract_tools" => crate::tools::text_extract_tools::execute(args).await,
+        "interval_tools" => crate::tools::interval_tools::execute(args).await,
         "http_status_tools" => crate::tools::http_status_tools::execute(args).await,
         "http_parse_tools" => crate::tools::http_parse_tools::execute(args).await,
         "jq_tools" => crate::tools::jq_tools::execute(args).await,

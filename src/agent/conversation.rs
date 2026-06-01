@@ -42,8 +42,8 @@ use crate::agent::routing::{
     needs_glob_tools, needs_graph_tools, needs_graphql_tools, needs_graphviz_tools,
     needs_grep_tools, needs_har_tools, needs_hash_tools, needs_hex_tools, needs_html_tools,
     needs_http_parse_tools, needs_http_request, needs_http_status_tools, needs_ical_tools,
-    needs_id_tools, needs_ini_tools, needs_ip_tools, needs_jq_tools, needs_json_tools,
-    needs_jsonl_tools, needs_jsonschema_tools, needs_jwt_tools, needs_k8s_tools,
+    needs_id_tools, needs_ini_tools, needs_interval_tools, needs_ip_tools, needs_jq_tools,
+    needs_json_tools, needs_jsonl_tools, needs_jsonschema_tools, needs_jwt_tools, needs_k8s_tools,
     needs_keyval_tools, needs_leb128_tools, needs_license_tools, needs_line_tools,
     needs_lint_check, needs_lock_file_tools, needs_log_parse_tools, needs_make_tools,
     needs_markdown_tools, needs_matrix_tools, needs_mermaid_tools, needs_mime_tools,
@@ -56,12 +56,13 @@ use crate::agent::routing::{
     needs_size_tools, needs_sql_format_tools, needs_sql_migrate_tools, needs_sql_tools,
     needs_sqlite_tools, needs_ssh_config_tools, needs_stat_tools, needs_string_metric_tools,
     needs_systemd_tools, needs_table_tools, needs_tar_tools, needs_template_gen,
-    needs_template_tools, needs_terraform_tools, needs_test_run, needs_text_tools,
-    needs_time_zone_tools, needs_tlv_tools, needs_todo_tools, needs_token_tools, needs_toml_tools,
-    needs_totp_tools, needs_unicode_tools, needs_unit_tools, needs_url_tools, needs_uuid_gen,
-    needs_validate_tools, needs_vcf_tools, needs_wasm_tools, needs_word_tools, needs_xml_tools,
-    needs_yaml_tools, preferred_host_inspection_topic, preferred_maintainer_workflow,
-    preferred_workspace_workflow, DirectAnswerKind, QueryIntentClass,
+    needs_template_tools, needs_terraform_tools, needs_test_run, needs_text_extract_tools,
+    needs_text_tools, needs_time_zone_tools, needs_tlv_tools, needs_todo_tools, needs_token_tools,
+    needs_toml_tools, needs_totp_tools, needs_unicode_tools, needs_unit_tools, needs_url_tools,
+    needs_uuid_gen, needs_validate_tools, needs_vcf_tools, needs_wasm_tools, needs_word_tools,
+    needs_xml_tools, needs_yaml_tools, preferred_host_inspection_topic,
+    preferred_maintainer_workflow, preferred_workspace_workflow, DirectAnswerKind,
+    QueryIntentClass,
 };
 use crate::agent::tool_registry::dispatch_builtin_tool;
 use crate::agent::truncation::safe_head;
@@ -7109,6 +7110,34 @@ impl ConversationManager {
                  min_size/max_size (bytes), newer_than/older_than (days), depth, show_hidden. \
                  Example: find_tools(name: '*.rs') or find_tools(ext: 'json', newer_than: 7) or \
                  find_tools(action: 'recent', newer_than: 3) or find_tools(min_size: 1048576, action: 'sizes')."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_text_extract_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "TEXT EXTRACT NOTICE: Use the `text_extract_tools` tool to extract structured entities from unstructured text. \
+                 Actions: emails, urls, ips (IPv4 and IPv6), phones (US/international), dates (ISO/US/EU), \
+                 uuids, hashes (MD5/SHA-1/SHA-256), all (default — every entity type at once), custom (user regex). \
+                 Each action returns deduplicated results with occurrence counts. \
+                 Options: unique (default true), limit (max per type), case_insensitive (for custom). \
+                 Example: text_extract_tools(text: '...') or text_extract_tools(action: 'emails', text: '...') or \
+                 text_extract_tools(action: 'custom', pattern: 'API_[A-Z0-9]+', text: '...')."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_interval_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "INTERVAL NOTICE: Use the `interval_tools` tool to work with date intervals and schedules without external utilities. \
+                 Actions: overlap (do two intervals overlap — shows overlap range and duration), \
+                 contains (is a date within an interval), union (merge overlapping intervals from a list), \
+                 intersect (find intersection of two intervals), duration (time between two dates in full breakdown), \
+                 schedule (generate N recurring dates from a start with a step like '1d', '2w', '1m', '6h', '30min'). \
+                 Accepts ISO 8601 dates (YYYY-MM-DD) and datetimes (YYYY-MM-DDTHH:MM:SS). \
+                 Example: interval_tools(action: 'overlap', start: '2024-01-01', end: '2024-06-30', start2: '2024-04-01', end2: '2024-12-31') or \
+                 interval_tools(action: 'schedule', start: '2024-01-01', step: '2w', count: 12) or \
+                 interval_tools(action: 'duration', start: '2023-03-15', end: '2024-09-01')."
                     .to_string(),
             );
         }

@@ -30674,11 +30674,7 @@ fn test_find_tools_count_action() {
 
     let dir = tempfile::tempdir().expect("tempdir");
     for i in 0..5 {
-        std::fs::write(
-            dir.path().join(format!("file{i}.rs")),
-            b"fn x() {}",
-        )
-        .unwrap();
+        std::fs::write(dir.path().join(format!("file{i}.rs")), b"fn x() {}").unwrap();
     }
 
     let rt = tokio::runtime::Runtime::new().unwrap();
@@ -30713,4 +30709,180 @@ fn test_find_tools_no_match() {
         out.contains("No matches"),
         "Expected 'No matches' message, got: {out}"
     );
+}
+
+// ── Routing: text_extract_tools and interval_tools ────────────────────────────
+
+#[test]
+fn test_routing_detects_text_extract_tools() {
+    use hematite::agent::routing::needs_text_extract_tools;
+    assert!(needs_text_extract_tools("extract emails from this text"));
+    assert!(needs_text_extract_tools("extract urls from the document"));
+    assert!(needs_text_extract_tools("find phone numbers in the log"));
+    assert!(!needs_text_extract_tools("write a function to parse CSV"));
+}
+
+#[test]
+fn test_routing_detects_interval_tools() {
+    use hematite::agent::routing::needs_interval_tools;
+    assert!(needs_interval_tools("check date range overlap for these events"));
+    assert!(needs_interval_tools("generate recurring dates every 2 weeks"));
+    assert!(needs_interval_tools("how many days between dates"));
+    assert!(!needs_interval_tools("what is the current date"));
+}
+
+// ── text_extract_tools ────────────────────────────────────────────────────────
+
+#[test]
+fn test_text_extract_emails() {
+    use hematite::tools::text_extract_tools;
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(text_extract_tools::execute(&serde_json::json!({
+            "action": "emails",
+            "text": "Contact us at support@example.com or sales@company.org for help."
+        })))
+        .expect("execute should succeed");
+    assert!(out.contains("support@example.com"), "Expected email, got: {out}");
+    assert!(out.contains("sales@company.org"), "Expected email, got: {out}");
+}
+
+#[test]
+fn test_text_extract_urls() {
+    use hematite::tools::text_extract_tools;
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(text_extract_tools::execute(&serde_json::json!({
+            "action": "urls",
+            "text": "Visit https://example.com/path and http://foo.io for details."
+        })))
+        .expect("execute should succeed");
+    assert!(out.contains("https://example.com/path"), "Expected URL, got: {out}");
+    assert!(out.contains("http://foo.io"), "Expected URL, got: {out}");
+}
+
+#[test]
+fn test_text_extract_hashes_no_substring_match() {
+    use hematite::tools::text_extract_tools;
+
+    // A SHA-256 hash should not also appear as a SHA-1 or MD5 match
+    let sha256 = "a".repeat(64);
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(text_extract_tools::execute(&serde_json::json!({
+            "action": "hashes",
+            "text": sha256
+        })))
+        .expect("execute should succeed");
+    assert!(out.contains("SHA-256"), "Expected SHA-256 section, got: {out}");
+    assert!(!out.contains("SHA-1"), "SHA-1 should not match inside SHA-256, got: {out}");
+    assert!(!out.contains("MD5"), "MD5 should not match inside SHA-256, got: {out}");
+}
+
+#[test]
+fn test_text_extract_custom_pattern() {
+    use hematite::tools::text_extract_tools;
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(text_extract_tools::execute(&serde_json::json!({
+            "action": "custom",
+            "pattern": r"JIRA-\d+",
+            "text": "Fixed in JIRA-1234 and JIRA-5678, see also JIRA-1234 again."
+        })))
+        .expect("execute should succeed");
+    assert!(out.contains("JIRA-1234"), "Expected JIRA ticket, got: {out}");
+    assert!(out.contains("JIRA-5678"), "Expected JIRA ticket, got: {out}");
+    // JIRA-1234 appears twice, check for ×2
+    assert!(out.contains("×2"), "Expected occurrence count, got: {out}");
+}
+
+// ── interval_tools ────────────────────────────────────────────────────────────
+
+#[test]
+fn test_interval_overlap_detected() {
+    use hematite::tools::interval_tools;
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(interval_tools::execute(&serde_json::json!({
+            "action": "overlap",
+            "start": "2024-01-01",
+            "end": "2024-06-30",
+            "start2": "2024-04-01",
+            "end2": "2024-12-31"
+        })))
+        .expect("execute should succeed");
+    assert!(out.contains("OVERLAPPING"), "Expected overlap, got: {out}");
+    assert!(out.contains("2024-04-01"), "Expected overlap start, got: {out}");
+}
+
+#[test]
+fn test_interval_no_overlap() {
+    use hematite::tools::interval_tools;
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(interval_tools::execute(&serde_json::json!({
+            "action": "overlap",
+            "start": "2024-01-01",
+            "end": "2024-03-31",
+            "start2": "2024-05-01",
+            "end2": "2024-12-31"
+        })))
+        .expect("execute should succeed");
+    assert!(out.contains("NO OVERLAP"), "Expected no overlap, got: {out}");
+}
+
+#[test]
+fn test_interval_duration() {
+    use hematite::tools::interval_tools;
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(interval_tools::execute(&serde_json::json!({
+            "action": "duration",
+            "start": "2024-01-01",
+            "end": "2024-01-08"
+        })))
+        .expect("execute should succeed");
+    assert!(out.contains("7d") || out.contains("Total days:     7"), "Expected 7 days, got: {out}");
+}
+
+#[test]
+fn test_interval_schedule() {
+    use hematite::tools::interval_tools;
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(interval_tools::execute(&serde_json::json!({
+            "action": "schedule",
+            "start": "2024-01-01",
+            "step": "1w",
+            "count": 4
+        })))
+        .expect("execute should succeed");
+    assert!(out.contains("2024-01-01"), "Expected start date, got: {out}");
+    assert!(out.contains("2024-01-08"), "Expected +1 week, got: {out}");
+    assert!(out.contains("2024-01-15"), "Expected +2 weeks, got: {out}");
+}
+
+#[test]
+fn test_interval_union_merges() {
+    use hematite::tools::interval_tools;
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(interval_tools::execute(&serde_json::json!({
+            "action": "union",
+            "intervals": [
+                {"start": "2024-01-01", "end": "2024-03-31"},
+                {"start": "2024-03-01", "end": "2024-06-30"},
+                {"start": "2024-09-01", "end": "2024-12-31"}
+            ]
+        })))
+        .expect("execute should succeed");
+    assert!(out.contains("Merged result:    2"), "Expected 2 merged intervals, got: {out}");
 }

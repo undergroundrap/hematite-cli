@@ -9485,6 +9485,69 @@ pub fn needs_find_tools(user_input: &str) -> bool {
     )
 }
 
+pub fn needs_text_extract_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "extract emails",
+            "extract email addresses",
+            "extract urls",
+            "extract links",
+            "extract ip addresses",
+            "extract ips",
+            "extract phone numbers",
+            "extract phones",
+            "extract dates",
+            "extract uuids",
+            "extract hashes",
+            "extract entities",
+            "find emails in",
+            "find urls in",
+            "find ip addresses in",
+            "find phone numbers in",
+            "pull emails from",
+            "pull urls from",
+            "regex extraction",
+            "custom pattern extract",
+            "extract all entities",
+            "scan for emails",
+            "scan for urls",
+        ],
+    )
+}
+
+pub fn needs_interval_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "date interval",
+            "interval overlap",
+            "do intervals overlap",
+            "dates overlap",
+            "date range overlap",
+            "overlapping dates",
+            "date range contains",
+            "is date within",
+            "date within range",
+            "merge intervals",
+            "merge date ranges",
+            "union of intervals",
+            "intersect intervals",
+            "intersection of dates",
+            "date schedule",
+            "generate schedule",
+            "recurring dates",
+            "date sequence",
+            "duration between dates",
+            "time between dates",
+            "days between dates",
+            "how many days between",
+        ],
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
