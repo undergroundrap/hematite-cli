@@ -6551,6 +6551,33 @@ pub fn get_tools() -> Vec<ToolDefinition> {
          text_align_tools(action: 'columns', columns: [{text: 'Name\\nAlice', align: 'left', width: 20}, {text: 'Score\\n99', align: 'right', width: 10}]).",
         crate::tools::text_align_tools::text_align_tools_schema(),
     ));
+    tools.push(make_tool(
+        "music_tools",
+        "Music theory calculations without external utilities. \
+         Actions: note (note name like 'A4' → frequency in Hz; or 'frequency' → nearest note name), \
+         chord ('root'+'quality' → list of notes; or 'notes' array → detect chord name), \
+         scale ('root'+'quality' → all scale notes; supports major/minor/pentatonic/blues/dorian/etc.), \
+         interval ('note'+'note2' → interval name in semitones), \
+         midi ('note' → MIDI number; or 'midi' number → note name; A4=69), \
+         tempo ('bpm' + optional 'duration' → note duration in ms). \
+         Example: music_tools(action: 'note', note: 'C4') or music_tools(action: 'scale', root: 'G', quality: 'minor').",
+        crate::tools::music_tools::music_tools_schema(),
+    ));
+    tools.push(make_tool(
+        "logic_tools",
+        "Propositional logic operations without external utilities. \
+         Actions: truth_table (default — full truth table for 'expression'; tautology/contradiction/contingency classification), \
+         evaluate ('expression' + 'variables' object {A: true, B: false} → T/F result), \
+         sat (find satisfying variable assignments), \
+         tautology (check if always true; counterexample on failure), \
+         contradiction (check if always false), \
+         simplify (show minterm DNF expansion), \
+         cnf (convert to Conjunctive Normal Form), \
+         dnf (convert to Disjunctive Normal Form). \
+         Operators: and/&&, or/||, not/!, xor/^, ->, <->. Variables: any identifier. Max 8 variables for truth_table. \
+         Example: logic_tools(expression: 'A and (B or not C)') or logic_tools(action: 'sat', expression: 'P -> Q').",
+        crate::tools::logic_tools::logic_tools_schema(),
+    ));
     let lsp_defs = crate::tools::lsp_tools::get_lsp_definitions();
     tools.push(make_tool(
         "lsp_search_symbol",
@@ -6737,6 +6764,8 @@ pub async fn dispatch_builtin_tool(
         "number_words_tools" => crate::tools::number_words_tools::execute(args).await,
         "inflect_tools" => crate::tools::inflect_tools::execute(args).await,
         "text_align_tools" => crate::tools::text_align_tools::execute(args).await,
+        "music_tools" => crate::tools::music_tools::execute(args).await,
+        "logic_tools" => crate::tools::logic_tools::execute(args).await,
         "http_status_tools" => crate::tools::http_status_tools::execute(args).await,
         "http_parse_tools" => crate::tools::http_parse_tools::execute(args).await,
         "jq_tools" => crate::tools::jq_tools::execute(args).await,

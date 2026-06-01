@@ -9660,6 +9660,108 @@ pub fn needs_number_words_tools(user_input: &str) -> bool {
     )
 }
 
+/// Returns true when the user wants music theory calculations — steer toward `music_tools`.
+pub fn needs_music_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "music note",
+            "note frequency",
+            "note to frequency",
+            "frequency to note",
+            "frequency of a",
+            "frequency of c",
+            "frequency of d",
+            "frequency of e",
+            "frequency of f",
+            "frequency of g",
+            "frequency of b",
+            "musical note",
+            "note name",
+            "a4 440",
+            "440 hz",
+            "midi note",
+            "midi number",
+            "note number",
+            "music chord",
+            "chord notes",
+            "chord quality",
+            "major chord",
+            "minor chord",
+            "diminished chord",
+            "augmented chord",
+            "dominant seventh",
+            "music scale",
+            "major scale",
+            "minor scale",
+            "pentatonic scale",
+            "blues scale",
+            "dorian scale",
+            "phrygian",
+            "lydian scale",
+            "mixolydian",
+            "chromatic scale",
+            "whole tone scale",
+            "music interval",
+            "perfect fifth",
+            "major third",
+            "minor third",
+            "semitone",
+            "bpm to ms",
+            "tempo calculation",
+            "note duration at",
+            "beats per minute",
+            "quarter note ms",
+            "detect chord",
+            "what chord is",
+            "identify chord",
+        ],
+    )
+}
+
+/// Returns true when the user wants propositional logic operations — steer toward `logic_tools`.
+pub fn needs_logic_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "truth table",
+            "propositional logic",
+            "boolean logic",
+            "boolean expression",
+            "logic expression",
+            "logic formula",
+            "satisfiable",
+            "satisfiability",
+            "tautology",
+            "contradiction",
+            "logical tautology",
+            "cnf form",
+            "dnf form",
+            "conjunctive normal form",
+            "disjunctive normal form",
+            "logical and",
+            "logical or",
+            "logical not",
+            "logical xor",
+            "implies expression",
+            "biconditional",
+            "iff expression",
+            "evaluate logic",
+            "logic gate",
+            "boolean satisf",
+            "sat problem",
+            "p implies q",
+            "p -> q",
+            "a and b or",
+            "not a and",
+            "simplify boolean",
+            "logical equivalence",
+        ],
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

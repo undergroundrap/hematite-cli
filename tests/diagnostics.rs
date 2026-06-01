@@ -31280,8 +31280,14 @@ fn test_text_align_indent() {
             &serde_json::json!({"action": "indent", "text": "line1\nline2", "indent_width": 2}),
         ))
         .expect("execute should succeed");
-    assert!(out.contains("  line1"), "Expected indented lines, got: {out}");
-    assert!(out.contains("  line2"), "Expected indented lines, got: {out}");
+    assert!(
+        out.contains("  line1"),
+        "Expected indented lines, got: {out}"
+    );
+    assert!(
+        out.contains("  line2"),
+        "Expected indented lines, got: {out}"
+    );
 }
 
 #[test]
@@ -31306,10 +31312,233 @@ fn test_text_align_ruler() {
             &serde_json::json!({"action": "ruler", "width": 20}),
         ))
         .expect("execute should succeed");
-    assert!(
-        out.contains("Ruler"),
-        "Expected ruler header, got: {out}"
-    );
+    assert!(out.contains("Ruler"), "Expected ruler header, got: {out}");
     assert!(out.contains("10"), "Expected '10' tick mark, got: {out}");
     assert!(out.contains("20"), "Expected '20' tick mark, got: {out}");
+}
+
+// ── music_tools ───────────────────────────────────────────────────────────────
+
+#[test]
+fn test_routing_detects_music_tools() {
+    assert!(hematite::agent::routing::needs_music_tools(
+        "what is the frequency of A4"
+    ));
+    assert!(hematite::agent::routing::needs_music_tools(
+        "notes in a C major chord"
+    ));
+    assert!(hematite::agent::routing::needs_music_tools(
+        "G minor scale notes"
+    ));
+    assert!(!hematite::agent::routing::needs_music_tools(
+        "write a music player in rust"
+    ));
+}
+
+#[test]
+fn test_music_note_a4() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::music_tools::execute(
+            &serde_json::json!({"action": "note", "note": "A4"}),
+        ))
+        .expect("execute should succeed");
+    assert!(out.contains("440"), "Expected 440 Hz for A4, got: {out}");
+    assert!(out.contains("69"), "Expected MIDI 69 for A4, got: {out}");
+}
+
+#[test]
+fn test_music_note_frequency_reverse() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::music_tools::execute(
+            &serde_json::json!({"action": "note", "frequency": 440.0}),
+        ))
+        .expect("execute should succeed");
+    assert!(out.contains("A4"), "Expected A4 for 440 Hz, got: {out}");
+}
+
+#[test]
+fn test_music_chord_c_major() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::music_tools::execute(
+            &serde_json::json!({"action": "chord", "root": "C", "quality": "major"}),
+        ))
+        .expect("execute should succeed");
+    assert!(out.contains("C"), "Expected C in chord, got: {out}");
+    assert!(out.contains("E"), "Expected E in chord, got: {out}");
+    assert!(out.contains("G"), "Expected G in chord, got: {out}");
+}
+
+#[test]
+fn test_music_scale_a_minor() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::music_tools::execute(
+            &serde_json::json!({"action": "scale", "root": "A", "quality": "minor"}),
+        ))
+        .expect("execute should succeed");
+    // A natural minor: A B C D E F G
+    assert!(out.contains("A"), "Expected A in scale, got: {out}");
+    assert!(
+        out.contains("minor"),
+        "Expected 'minor' in output, got: {out}"
+    );
+}
+
+#[test]
+fn test_music_interval_perfect_fifth() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::music_tools::execute(
+            &serde_json::json!({"action": "interval", "note": "C4", "note2": "G4"}),
+        ))
+        .expect("execute should succeed");
+    assert!(
+        out.contains("Perfect Fifth"),
+        "Expected Perfect Fifth (C→G), got: {out}"
+    );
+}
+
+#[test]
+fn test_music_midi_round_trip() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::music_tools::execute(
+            &serde_json::json!({"action": "midi", "midi": 60}),
+        ))
+        .expect("execute should succeed");
+    // MIDI 60 = C4 (middle C)
+    assert!(out.contains("C4"), "Expected C4 for MIDI 60, got: {out}");
+}
+
+#[test]
+fn test_music_tempo_bpm() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::music_tools::execute(
+            &serde_json::json!({"action": "tempo", "bpm": 120.0}),
+        ))
+        .expect("execute should succeed");
+    // At 120 BPM, quarter note = 500 ms
+    assert!(
+        out.contains("500"),
+        "Expected 500 ms for quarter at 120 BPM, got: {out}"
+    );
+}
+
+// ── logic_tools ───────────────────────────────────────────────────────────────
+
+#[test]
+fn test_routing_detects_logic_tools() {
+    assert!(hematite::agent::routing::needs_logic_tools(
+        "generate a truth table for A and B"
+    ));
+    assert!(hematite::agent::routing::needs_logic_tools(
+        "is this boolean expression a tautology"
+    ));
+    assert!(hematite::agent::routing::needs_logic_tools(
+        "simplify boolean A and (A or B)"
+    ));
+    assert!(!hematite::agent::routing::needs_logic_tools(
+        "fix the logic bug in this function"
+    ));
+}
+
+#[test]
+fn test_logic_truth_table_simple() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::logic_tools::execute(
+            &serde_json::json!({"action": "truth_table", "expression": "A and B"}),
+        ))
+        .expect("execute should succeed");
+    assert!(
+        out.contains("CONTINGENCY"),
+        "Expected contingency classification, got: {out}"
+    );
+    assert!(
+        out.contains("A"),
+        "Expected variable A in table, got: {out}"
+    );
+    assert!(
+        out.contains("B"),
+        "Expected variable B in table, got: {out}"
+    );
+}
+
+#[test]
+fn test_logic_tautology_detection() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::logic_tools::execute(
+            &serde_json::json!({"action": "tautology", "expression": "A or not A"}),
+        ))
+        .expect("execute should succeed");
+    assert!(
+        out.contains("TAUTOLOGY"),
+        "Expected TAUTOLOGY for 'A or not A', got: {out}"
+    );
+}
+
+#[test]
+fn test_logic_contradiction_detection() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::logic_tools::execute(
+            &serde_json::json!({"action": "contradiction", "expression": "A and not A"}),
+        ))
+        .expect("execute should succeed");
+    assert!(
+        out.contains("CONTRADICTION"),
+        "Expected CONTRADICTION for 'A and not A', got: {out}"
+    );
+}
+
+#[test]
+fn test_logic_evaluate() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::logic_tools::execute(&serde_json::json!({
+            "action": "evaluate",
+            "expression": "A and B",
+            "variables": {"A": true, "B": false}
+        })))
+        .expect("execute should succeed");
+    assert!(
+        out.contains("FALSE"),
+        "Expected FALSE for A=T,B=F in A and B, got: {out}"
+    );
+}
+
+#[test]
+fn test_logic_sat() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::logic_tools::execute(
+            &serde_json::json!({"action": "sat", "expression": "A and B"}),
+        ))
+        .expect("execute should succeed");
+    assert!(
+        out.contains("SATISFIABLE"),
+        "Expected SATISFIABLE for 'A and B', got: {out}"
+    );
+}
+
+#[test]
+fn test_logic_implies_truth_table() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::logic_tools::execute(
+            &serde_json::json!({"action": "truth_table", "expression": "P -> Q"}),
+        ))
+        .expect("execute should succeed");
+    // P → Q: false only when P=T and Q=F (3 true rows out of 4)
+    assert!(out.contains("P"), "Expected P in table, got: {out}");
+    assert!(out.contains("Q"), "Expected Q in table, got: {out}");
+    assert!(
+        out.contains("3 / 4"),
+        "Expected 3/4 true for P->Q, got: {out}"
+    );
 }
