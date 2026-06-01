@@ -51,19 +51,19 @@ use crate::agent::routing::{
     needs_net_lookup_tools, needs_network_header_tools, needs_nginx_conf_tools,
     needs_number_sequence_tools, needs_number_theory_tools, needs_number_tools,
     needs_number_words_tools, needs_openapi_tools, needs_package_json_tools, needs_password_gen,
-    needs_path_tools, needs_pem_tools, needs_plist_tools, needs_port_check, needs_printf_tools,
-    needs_proto_tools, needs_regex_tools, needs_robots_txt_tools, needs_rss_tools,
-    needs_scientific_compute, needs_secret_scan, needs_semver_tools, needs_sitemap_tools,
-    needs_size_tools, needs_sql_format_tools, needs_sql_migrate_tools, needs_sql_tools,
-    needs_sqlite_tools, needs_ssh_config_tools, needs_stat_tools, needs_string_metric_tools,
-    needs_systemd_tools, needs_table_tools, needs_tar_tools, needs_template_gen,
-    needs_template_tools, needs_terraform_tools, needs_test_run, needs_text_align_tools,
-    needs_text_extract_tools, needs_text_tools, needs_time_zone_tools, needs_tlv_tools,
-    needs_todo_tools, needs_token_tools, needs_toml_tools, needs_totp_tools, needs_unicode_tools,
-    needs_unit_tools, needs_url_tools, needs_uuid_gen, needs_validate_tools, needs_vcf_tools,
-    needs_wasm_tools, needs_word_tools, needs_xml_tools, needs_yaml_tools,
-    preferred_host_inspection_topic, preferred_maintainer_workflow, preferred_workspace_workflow,
-    DirectAnswerKind, QueryIntentClass,
+    needs_path_tools, needs_pem_tools, needs_periodic_tools, needs_plist_tools, needs_port_check,
+    needs_printf_tools, needs_proto_tools, needs_regex_tools, needs_robots_txt_tools,
+    needs_rss_tools, needs_scientific_compute, needs_secret_scan, needs_semver_tools,
+    needs_sitemap_tools, needs_size_tools, needs_sql_format_tools, needs_sql_migrate_tools,
+    needs_sql_tools, needs_sqlite_tools, needs_ssh_config_tools, needs_stat_tools,
+    needs_string_metric_tools, needs_systemd_tools, needs_table_tools, needs_tar_tools,
+    needs_template_gen, needs_template_tools, needs_terraform_tools, needs_test_run,
+    needs_text_align_tools, needs_text_extract_tools, needs_text_tools, needs_time_zone_tools,
+    needs_tlv_tools, needs_todo_tools, needs_token_tools, needs_toml_tools, needs_totp_tools,
+    needs_unicode_tools, needs_unit_tools, needs_url_tools, needs_uuid_gen, needs_validate_tools,
+    needs_vcf_tools, needs_vector_tools, needs_wasm_tools, needs_word_tools, needs_xml_tools,
+    needs_yaml_tools, preferred_host_inspection_topic, preferred_maintainer_workflow,
+    preferred_workspace_workflow, DirectAnswerKind, QueryIntentClass,
 };
 use crate::agent::tool_registry::dispatch_builtin_tool;
 use crate::agent::truncation::safe_head;
@@ -7229,6 +7229,35 @@ impl ConversationManager {
                  dnf (convert to Disjunctive Normal Form). \
                  Operators: and/&&, or/||, not/!, xor/^, ->, <->. Variables: any identifier. \
                  Example: logic_tools(expression: 'A and (B or not C)') or logic_tools(action: 'sat', expression: 'P -> Q')."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_periodic_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "PERIODIC TABLE NOTICE: Use the `periodic_tools` tool for element lookups and molar mass calculations. \
+                 Actions: element (default — full detail for one element by symbol/name/atomic number), \
+                 search (find elements by keyword across name/symbol/category/config), \
+                 list (all 118 elements tabulated; pass 'category' to filter), \
+                 compare (side-by-side property table for two elements; 'a' and 'b' fields), \
+                 mass (molar mass of a chemical formula like H2O, NaCl, C6H12O6 — shows per-element breakdown). \
+                 Example: periodic_tools(symbol: 'Au') or periodic_tools(action: 'mass', formula: 'H2O')."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_vector_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "VECTOR MATH NOTICE: Use the `vector_tools` tool for 2D/3D vector operations without external utilities. \
+                 Actions: info (default — magnitude, unit vector, angle from +x for 2D; pass 'v' as JSON array), \
+                 add (a + b), subtract (a - b), scale (v × scalar; pass 'scalar'), \
+                 dot (dot product + angle between; 'a' and 'b' arrays), \
+                 cross (3D cross product; 'a' and 'b' must be 3D), \
+                 magnitude (|v| and |v|²), normalize (unit vector), \
+                 angle (angle between two vectors in degrees and radians), \
+                 project (scalar + vector projection of a onto b; 'a' and 'b'), \
+                 reflect (reflect v over normal n; 'v' and 'n'). \
+                 Example: vector_tools(action: 'dot', a: [1,2,3], b: [4,5,6]) or vector_tools(v: [3,4])."
                     .to_string(),
             );
         }

@@ -9762,6 +9762,81 @@ pub fn needs_logic_tools(user_input: &str) -> bool {
     )
 }
 
+/// Returns true when the user wants periodic table lookups or molar mass — steer toward `periodic_tools`.
+pub fn needs_periodic_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "periodic table",
+            "element symbol",
+            "atomic number",
+            "atomic mass",
+            "atomic weight",
+            "molar mass",
+            "molecular weight",
+            "periodic element",
+            "chemical element",
+            "electronegativity",
+            "electron config",
+            "melting point of",
+            "boiling point of",
+            "element density",
+            "noble gas",
+            "alkali metal",
+            "alkaline earth",
+            "transition metal",
+            "halogen element",
+            "lanthanide",
+            "actinide",
+            "what element is",
+            "element group",
+            "element period",
+            "what is h2o",
+            "molar mass of",
+            "mass of h2",
+            "mass of co2",
+            "mass of nacl",
+            "formula mass",
+            "molecular formula mass",
+        ],
+    )
+}
+
+/// Returns true when the user wants 2D/3D vector math operations — steer toward `vector_tools`.
+pub fn needs_vector_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "dot product",
+            "cross product",
+            "vector magnitude",
+            "vector length",
+            "normalize vector",
+            "unit vector",
+            "vector addition",
+            "add vectors",
+            "subtract vectors",
+            "scale vector",
+            "angle between vectors",
+            "vector projection",
+            "project vector",
+            "reflect vector",
+            "vector math",
+            "2d vector",
+            "3d vector",
+            "orthogonal vectors",
+            "perpendicular vectors",
+            "parallel vectors",
+            "vector norm",
+            "euclidean norm",
+            "vector operations",
+            "scalar multiplication",
+        ],
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

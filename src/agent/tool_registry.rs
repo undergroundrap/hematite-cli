@@ -6578,6 +6578,31 @@ pub fn get_tools() -> Vec<ToolDefinition> {
          Example: logic_tools(expression: 'A and (B or not C)') or logic_tools(action: 'sat', expression: 'P -> Q').",
         crate::tools::logic_tools::logic_tools_schema(),
     ));
+    tools.push(make_tool(
+        "periodic_tools",
+        "Periodic table lookup and molar mass calculator without external utilities. \
+         Actions: element (default — full detail for one element by symbol/name/atomic number), \
+         search (find elements by keyword across name/symbol/category/config), \
+         list (all 118 elements tabulated; pass 'category' to filter by metal/gas/etc.), \
+         compare (side-by-side property table for two elements; 'a' and 'b' fields), \
+         mass (molar mass of a chemical formula like H2O, NaCl, C6H12O6 — shows per-element breakdown with % contribution). \
+         Example: periodic_tools(symbol: 'Au') or periodic_tools(action: 'mass', formula: 'H2O').",
+        crate::tools::periodic_tools::periodic_tools_schema(),
+    ));
+    tools.push(make_tool(
+        "vector_tools",
+        "2D/3D vector math without external utilities. \
+         Actions: info (default — magnitude, unit vector, angle from +x; pass 'v' as JSON array), \
+         add (a + b), subtract (a - b), scale (v × scalar; pass 'scalar'), \
+         dot (dot product + angle between; 'a' and 'b' arrays), \
+         cross (3D cross product; 'a' and 'b' must be 3D), \
+         magnitude (|v| and |v|²), normalize (unit vector), \
+         angle (angle in degrees and radians between 'a' and 'b'), \
+         project (scalar + vector projection of a onto b), \
+         reflect (reflect v over normal n; pass 'n'). \
+         Example: vector_tools(action: 'dot', a: [1,2,3], b: [4,5,6]) or vector_tools(v: [3,4]).",
+        crate::tools::vector_tools::vector_tools_schema(),
+    ));
     let lsp_defs = crate::tools::lsp_tools::get_lsp_definitions();
     tools.push(make_tool(
         "lsp_search_symbol",
@@ -6766,6 +6791,8 @@ pub async fn dispatch_builtin_tool(
         "text_align_tools" => crate::tools::text_align_tools::execute(args).await,
         "music_tools" => crate::tools::music_tools::execute(args).await,
         "logic_tools" => crate::tools::logic_tools::execute(args).await,
+        "periodic_tools" => crate::tools::periodic_tools::execute(args).await,
+        "vector_tools" => crate::tools::vector_tools::execute(args).await,
         "http_status_tools" => crate::tools::http_status_tools::execute(args).await,
         "http_parse_tools" => crate::tools::http_parse_tools::execute(args).await,
         "jq_tools" => crate::tools::jq_tools::execute(args).await,

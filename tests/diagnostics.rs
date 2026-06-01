@@ -31542,3 +31542,179 @@ fn test_logic_implies_truth_table() {
         "Expected 3/4 true for P->Q, got: {out}"
     );
 }
+
+// ── periodic_tools ────────────────────────────────────────────────────────────
+
+#[test]
+fn test_routing_detects_periodic_tools() {
+    assert!(
+        hematite::agent::routing::needs_periodic_tools("molar mass of H2O"),
+        "should route 'molar mass of H2O' to periodic_tools"
+    );
+    assert!(
+        hematite::agent::routing::needs_periodic_tools("what is the atomic number of gold"),
+        "should route atomic number query to periodic_tools"
+    );
+    assert!(
+        hematite::agent::routing::needs_periodic_tools("periodic table element carbon"),
+        "should route periodic table query to periodic_tools"
+    );
+}
+
+#[test]
+fn test_periodic_gold_lookup() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::periodic_tools::execute(
+            &serde_json::json!({"symbol": "Au"}),
+        ))
+        .expect("execute should succeed");
+    assert!(
+        out.contains("Gold") || out.contains("gold"),
+        "Expected Gold info, got: {out}"
+    );
+    assert!(
+        out.contains("79"),
+        "Expected atomic number 79 for Au, got: {out}"
+    );
+}
+
+#[test]
+fn test_periodic_mass_h2o() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::periodic_tools::execute(
+            &serde_json::json!({"action": "mass", "formula": "H2O"}),
+        ))
+        .expect("execute should succeed");
+    // Molar mass of H2O ≈ 18.015 g/mol
+    assert!(
+        out.contains("18.0") || out.contains("18.015"),
+        "Expected ~18 g/mol for H2O, got: {out}"
+    );
+}
+
+#[test]
+fn test_periodic_search() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::periodic_tools::execute(
+            &serde_json::json!({"action": "search", "category": "noble"}),
+        ))
+        .expect("execute should succeed");
+    // Noble gases include Helium, Neon, Argon, Krypton, Xenon, Radon
+    assert!(
+        out.contains("He") || out.contains("Ne") || out.contains("Ar"),
+        "Expected noble gas results, got: {out}"
+    );
+}
+
+#[test]
+fn test_periodic_compare() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::periodic_tools::execute(
+            &serde_json::json!({"action": "compare", "symbol": "Na", "element2": "K"}),
+        ))
+        .expect("execute should succeed");
+    assert!(
+        out.contains("Sodium") || out.contains("Na"),
+        "Expected Na in comparison, got: {out}"
+    );
+    assert!(
+        out.contains("Potassium") || out.contains("K"),
+        "Expected K in comparison, got: {out}"
+    );
+}
+
+// ── vector_tools ──────────────────────────────────────────────────────────────
+
+#[test]
+fn test_routing_detects_vector_tools() {
+    assert!(
+        hematite::agent::routing::needs_vector_tools(
+            "compute the dot product of [1,2,3] and [4,5,6]"
+        ),
+        "should route dot product query to vector_tools"
+    );
+    assert!(
+        hematite::agent::routing::needs_vector_tools("what is the cross product of two 3D vectors"),
+        "should route cross product query to vector_tools"
+    );
+    assert!(
+        hematite::agent::routing::needs_vector_tools("normalize a 2D vector"),
+        "should route normalize query to vector_tools"
+    );
+}
+
+#[test]
+fn test_vector_info_3_4() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::vector_tools::execute(
+            &serde_json::json!({"v": [3, 4]}),
+        ))
+        .expect("execute should succeed");
+    // |[3,4]| = 5
+    assert!(
+        out.contains('5'),
+        "Expected magnitude 5 for [3,4], got: {out}"
+    );
+}
+
+#[test]
+fn test_vector_dot_product() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::vector_tools::execute(
+            &serde_json::json!({"action": "dot", "a": [1, 2, 3], "b": [4, 5, 6]}),
+        ))
+        .expect("execute should succeed");
+    // 1*4 + 2*5 + 3*6 = 4+10+18 = 32
+    assert!(out.contains("32"), "Expected dot product 32, got: {out}");
+}
+
+#[test]
+fn test_vector_cross_product() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::vector_tools::execute(
+            &serde_json::json!({"action": "cross", "a": [1, 0, 0], "b": [0, 1, 0]}),
+        ))
+        .expect("execute should succeed");
+    // [1,0,0] × [0,1,0] = [0,0,1]
+    assert!(
+        out.contains("[0, 0, 1]") || out.contains("0, 0, 1"),
+        "Expected [0,0,1], got: {out}"
+    );
+}
+
+#[test]
+fn test_vector_normalize() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::vector_tools::execute(
+            &serde_json::json!({"action": "normalize", "v": [3, 0, 0]}),
+        ))
+        .expect("execute should succeed");
+    // unit vector of [3,0,0] is [1,0,0]
+    assert!(
+        out.contains('1'),
+        "Expected unit vector [1,0,0], got: {out}"
+    );
+}
+
+#[test]
+fn test_vector_angle_perpendicular() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::vector_tools::execute(
+            &serde_json::json!({"action": "angle", "a": [1, 0], "b": [0, 1]}),
+        ))
+        .expect("execute should succeed");
+    // angle between [1,0] and [0,1] is 90 degrees
+    assert!(
+        out.contains("90.000000°") || out.contains("perpendicular"),
+        "Expected 90 degree angle, got: {out}"
+    );
+}
