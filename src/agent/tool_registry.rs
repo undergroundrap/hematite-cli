@@ -6198,6 +6198,42 @@ pub fn get_tools() -> Vec<ToolDefinition> {
          jsonschema_tools(action: 'refs', schema_file: 'api.schema.json').",
         crate::tools::jsonschema_tools::jsonschema_tools_schema(),
     ));
+    tools.push(make_tool(
+        "cbor_tools",
+        "Decode and inspect CBOR (Concise Binary Object Representation) binary data without external utilities. \
+         Full RFC 7049 / RFC 8949 decoder: unsigned/negative integers, byte strings, text strings, arrays, maps, \
+         tagged values (datetime, epoch, bignum, UUID, self-described CBOR, WebAuthn tags, COSE), floats (half/single/double), \
+         simple values (bool/null/undefined), indefinite-length collections. \
+         Actions: \
+         `decode` (default) — human-readable decoded value with type labels, tag name annotations, and format hints \
+         for WebAuthn AttestationObject / COSE Key structures; \
+         `info` — root type, total bytes, array/map length, string key list, type distribution table; \
+         `annotate` — hex dump with per-byte CBOR major-type labels (uint/nint/bytes/text/array/map/tag/float/simple) and field info. \
+         Accepts 'hex' (hex-encoded bytes), 'base64' (standard or URL-safe), or 'file' (path to binary file). \
+         Example: cbor_tools(hex: 'a2616101616202') or \
+         cbor_tools(file: 'payload.cbor') or \
+         cbor_tools(action: 'info', hex: '...') or \
+         cbor_tools(action: 'annotate', base64: 'omFhAWFiAg==').",
+        crate::tools::cbor_tools::cbor_tools_schema(),
+    ));
+    tools.push(make_tool(
+        "msgpack_tools",
+        "Decode and inspect MessagePack binary data without external utilities. \
+         Full MessagePack spec decoder: nil, bool, positive/negative fixint, fixmap, fixarray, fixstr, \
+         uint8/16/32/64, int8/16/32/64, float32/float64, str8/16/32, bin8/16/32, array16/32, map16/32, \
+         fixext1/2/4/8/16, ext8/16/32 (with Timestamp ext -1 decoding). \
+         Actions: \
+         `decode` (default) — human-readable decoded value with nested indentation; \
+         `info` — root type, total bytes, array/map length, string key list, type distribution table; \
+         `annotate` — hex dump with per-byte MessagePack format-byte labels (fixint, fixmap, fixarray, fixstr, \
+         uint8..., int8..., float32/64, bin8..., ext types, nil/bool). \
+         Accepts 'hex' (hex-encoded bytes), 'base64' (standard or URL-safe), or 'file' (path to binary file). \
+         Example: msgpack_tools(hex: '82a3666f6f01a362617202') or \
+         msgpack_tools(file: 'data.msgpack') or \
+         msgpack_tools(action: 'info', hex: '...') or \
+         msgpack_tools(action: 'annotate', file: 'payload.msgpack').",
+        crate::tools::msgpack_tools::msgpack_tools_schema(),
+    ));
     let lsp_defs = crate::tools::lsp_tools::get_lsp_definitions();
     tools.push(make_tool(
         "lsp_search_symbol",
@@ -6362,6 +6398,8 @@ pub async fn dispatch_builtin_tool(
         "email_tools" => crate::tools::email_tools::execute(args).await,
         "wasm_tools" => crate::tools::wasm_tools::execute(args).await,
         "jsonschema_tools" => crate::tools::jsonschema_tools::execute(args).await,
+        "cbor_tools" => crate::tools::cbor_tools::execute(args).await,
+        "msgpack_tools" => crate::tools::msgpack_tools::execute(args).await,
         "http_status_tools" => crate::tools::http_status_tools::execute(args).await,
         "http_parse_tools" => crate::tools::http_parse_tools::execute(args).await,
         "jq_tools" => crate::tools::jq_tools::execute(args).await,

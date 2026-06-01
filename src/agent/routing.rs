@@ -8970,6 +8970,49 @@ pub fn needs_email_tools(user_input: &str) -> bool {
         ))
 }
 
+pub fn needs_cbor_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "cbor",
+            "concise binary object",
+            "webauthn attestation",
+            "webauthn cbor",
+            "fido2 cbor",
+            "passkey cbor",
+            "decode cbor",
+            "parse cbor",
+            "inspect cbor",
+            "cbor binary",
+            "cbor hex",
+            "cbor format",
+            "cbor data",
+            "coap",
+        ],
+    )
+}
+
+pub fn needs_msgpack_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "messagepack",
+            "message pack",
+            "msgpack",
+            "msg pack",
+            ".msgpack",
+            "decode msgpack",
+            "parse msgpack",
+            "inspect msgpack",
+            "msgpack binary",
+            "msgpack hex",
+            "msgpack format",
+        ],
+    )
+}
+
 pub fn needs_wasm_tools(user_input: &str) -> bool {
     let lower = user_input.to_lowercase();
     contains_any(

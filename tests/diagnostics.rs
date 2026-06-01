@@ -28912,7 +28912,9 @@ fn test_wasm_tools_invalid_magic() {
 #[test]
 fn test_routing_detects_jsonschema_tools() {
     use hematite::agent::routing::needs_jsonschema_tools;
-    assert!(needs_jsonschema_tools("validate this json against the schema"));
+    assert!(needs_jsonschema_tools(
+        "validate this json against the schema"
+    ));
     assert!(needs_jsonschema_tools("json schema properties"));
     assert!(needs_jsonschema_tools("list the $refs in this schema"));
     assert!(needs_jsonschema_tools("draft-07 schema info"));
@@ -28939,9 +28941,15 @@ fn test_jsonschema_tools_info() {
             &serde_json::json!({"schema": SIMPLE_SCHEMA}),
         ))
         .expect("info should succeed");
-    assert!(out.contains("Person"), "Expected title 'Person', got: {out}");
+    assert!(
+        out.contains("Person"),
+        "Expected title 'Person', got: {out}"
+    );
     assert!(out.contains("object"), "Expected type 'object', got: {out}");
-    assert!(out.contains("required"), "Expected required fields, got: {out}");
+    assert!(
+        out.contains("required"),
+        "Expected required fields, got: {out}"
+    );
 }
 
 #[test]
@@ -28955,7 +28963,10 @@ fn test_jsonschema_tools_properties() {
         .expect("properties should succeed");
     assert!(out.contains("name"), "Expected 'name' property, got: {out}");
     assert!(out.contains("age"), "Expected 'age' property, got: {out}");
-    assert!(out.contains("yes"), "Expected required 'yes' marker, got: {out}");
+    assert!(
+        out.contains("yes"),
+        "Expected required 'yes' marker, got: {out}"
+    );
 }
 
 #[test]
@@ -28986,7 +28997,10 @@ fn test_jsonschema_tools_validate_missing_required() {
             "instance": instance
         })))
         .expect("validate should not panic");
-    assert!(out.contains("INVALID"), "Expected INVALID result, got: {out}");
+    assert!(
+        out.contains("INVALID"),
+        "Expected INVALID result, got: {out}"
+    );
     assert!(
         out.contains("name") || out.contains("required"),
         "Expected error about 'name', got: {out}"
@@ -29006,7 +29020,10 @@ fn test_jsonschema_tools_validate_type_error() {
             "instance": instance
         })))
         .expect("validate should not panic");
-    assert!(out.contains("INVALID"), "Expected INVALID result for type error, got: {out}");
+    assert!(
+        out.contains("INVALID"),
+        "Expected INVALID result for type error, got: {out}"
+    );
 }
 
 #[test]
@@ -29031,5 +29048,207 @@ fn test_jsonschema_tools_refs() {
     assert!(
         out.contains("Address") || out.contains("$defs") || out.contains("$ref"),
         "Expected ref info, got: {out}"
+    );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// cbor_tools tests
+// ─────────────────────────────────────────────────────────────────────────────
+
+#[test]
+fn test_routing_detects_cbor_tools() {
+    use hematite::agent::routing::needs_cbor_tools;
+    assert!(needs_cbor_tools("decode this cbor payload"));
+    assert!(needs_cbor_tools("parse cbor binary data"));
+    assert!(needs_cbor_tools("inspect this webauthn cbor"));
+    assert!(needs_cbor_tools("concise binary object representation"));
+    assert!(!needs_cbor_tools("check the connection to the server"));
+}
+
+#[test]
+fn test_cbor_tools_decode_simple_map() {
+    use hematite::tools::cbor_tools;
+    // CBOR: {1: 2, 3: 4}
+    // a2 (map, 2 items) 01 (uint 1) 02 (uint 2) 03 (uint 3) 04 (uint 4)
+    let out = tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(cbor_tools::execute(&serde_json::json!({"hex": "a201020304"})))
+        .expect("decode should succeed");
+    assert!(
+        out.contains("1") && out.contains("2"),
+        "Expected key-value pairs, got: {out}"
+    );
+}
+
+#[test]
+fn test_cbor_tools_decode_text_string() {
+    use hematite::tools::cbor_tools;
+    // CBOR text string "hello" = 65 68 65 6c 6c 6f
+    let out = tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(cbor_tools::execute(&serde_json::json!({"hex": "6568656c6c6f"})))
+        .expect("decode text should succeed");
+    assert!(
+        out.contains("hello"),
+        "Expected decoded text 'hello', got: {out}"
+    );
+}
+
+#[test]
+fn test_cbor_tools_decode_array() {
+    use hematite::tools::cbor_tools;
+    // CBOR array [1, 2, 3] = 83 01 02 03
+    let out = tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(cbor_tools::execute(&serde_json::json!({"hex": "83010203"})))
+        .expect("decode array should succeed");
+    assert!(
+        out.contains("1") && out.contains("2") && out.contains("3"),
+        "Expected array [1,2,3], got: {out}"
+    );
+}
+
+#[test]
+fn test_cbor_tools_info() {
+    use hematite::tools::cbor_tools;
+    // CBOR map {1: 2}
+    let out = tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(cbor_tools::execute(
+            &serde_json::json!({"action": "info", "hex": "a10102"}),
+        ))
+        .expect("info should succeed");
+    assert!(
+        out.contains("map") || out.contains("Map"),
+        "Expected map type info, got: {out}"
+    );
+}
+
+#[test]
+fn test_cbor_tools_annotate() {
+    use hematite::tools::cbor_tools;
+    // CBOR uint 42 = 18 2a
+    let out = tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(cbor_tools::execute(
+            &serde_json::json!({"action": "annotate", "hex": "182a"}),
+        ))
+        .expect("annotate should succeed");
+    assert!(
+        out.contains("uint") || out.contains("Hex"),
+        "Expected annotated hex dump, got: {out}"
+    );
+}
+
+#[test]
+fn test_cbor_tools_invalid_input() {
+    use hematite::tools::cbor_tools;
+    // Only 1 hex char — not valid
+    let result = tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(cbor_tools::execute(&serde_json::json!({"hex": "f"})));
+    assert!(result.is_err(), "Should fail on odd-length hex");
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// msgpack_tools tests
+// ─────────────────────────────────────────────────────────────────────────────
+
+#[test]
+fn test_routing_detects_msgpack_tools() {
+    use hematite::agent::routing::needs_msgpack_tools;
+    assert!(needs_msgpack_tools("decode this msgpack payload"));
+    assert!(needs_msgpack_tools("parse messagepack binary"));
+    assert!(needs_msgpack_tools("inspect this .msgpack file"));
+    assert!(needs_msgpack_tools("message pack format"));
+    assert!(!needs_msgpack_tools("send a message to the server"));
+}
+
+#[test]
+fn test_msgpack_tools_decode_fixmap() {
+    use hematite::tools::msgpack_tools;
+    // fixmap with 2 entries: {"foo": 1, "bar": 2}
+    // 82 a3 66 6f 6f 01 a3 62 61 72 02
+    let out = tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(msgpack_tools::execute(
+            &serde_json::json!({"hex": "82a3666f6f01a362617202"}),
+        ))
+        .expect("decode fixmap should succeed");
+    assert!(
+        out.contains("foo") && out.contains("bar"),
+        "Expected keys 'foo' and 'bar', got: {out}"
+    );
+}
+
+#[test]
+fn test_msgpack_tools_decode_positive_fixint() {
+    use hematite::tools::msgpack_tools;
+    // positive fixint 42 = 2a
+    let out = tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(msgpack_tools::execute(&serde_json::json!({"hex": "2a"})))
+        .expect("decode fixint should succeed");
+    assert!(out.contains("42"), "Expected value 42, got: {out}");
+}
+
+#[test]
+fn test_msgpack_tools_decode_nil_and_bool() {
+    use hematite::tools::msgpack_tools;
+    // nil = c0, true = c3
+    let nil_out = tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(msgpack_tools::execute(&serde_json::json!({"hex": "c0"})))
+        .expect("decode nil should succeed");
+    assert!(
+        nil_out.contains("nil"),
+        "Expected nil, got: {nil_out}"
+    );
+
+    let true_out = tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(msgpack_tools::execute(&serde_json::json!({"hex": "c3"})))
+        .expect("decode true should succeed");
+    assert!(
+        true_out.contains("true"),
+        "Expected true, got: {true_out}"
+    );
+}
+
+#[test]
+fn test_msgpack_tools_info() {
+    use hematite::tools::msgpack_tools;
+    // fixmap with 2 entries
+    let out = tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(msgpack_tools::execute(&serde_json::json!({
+            "action": "info",
+            "hex": "82a3666f6f01a362617202"
+        })))
+        .expect("info should succeed");
+    assert!(
+        out.contains("map") || out.contains("Map"),
+        "Expected map type info, got: {out}"
+    );
+    assert!(
+        out.contains("foo") || out.contains("bar") || out.contains("2"),
+        "Expected key info, got: {out}"
+    );
+}
+
+#[test]
+fn test_msgpack_tools_annotate() {
+    use hematite::tools::msgpack_tools;
+    // fixmap byte = 82
+    let out = tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(msgpack_tools::execute(&serde_json::json!({
+            "action": "annotate",
+            "hex": "82a3666f6f01"
+        })))
+        .expect("annotate should succeed");
+    assert!(
+        out.contains("fixmap") || out.contains("map"),
+        "Expected map annotation, got: {out}"
     );
 }

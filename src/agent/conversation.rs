@@ -29,35 +29,36 @@ use crate::agent::routing::{
     all_host_inspection_topics, classify_query_intent, is_capability_probe_tool,
     is_scaffold_request, looks_like_mutation_request, needs_ansi_tools, needs_archive_tools,
     needs_ascii_chart_tools, needs_ascii_tools, needs_base_tools, needs_bencode_tools,
-    needs_binary_tools, needs_calc_tools, needs_changelog_gen, needs_changelog_tools,
-    needs_char_tools, needs_checksum_tools, needs_cipher_tools, needs_code_metrics,
-    needs_color_tools, needs_computation_sandbox, needs_crash_debug, needs_cron_tools,
-    needs_csp_tools, needs_css_tools, needs_csv_tools, needs_data_gen_tools, needs_date_tools,
-    needs_dependency_audit, needs_diff_tools, needs_dns_tools, needs_docker_compose_tools,
-    needs_docker_ops, needs_dockerfile_tools, needs_dotenv_tools, needs_duration_tools,
-    needs_email_tools, needs_encode_tools, needs_env_diff, needs_env_schema_tools, needs_format,
-    needs_fraction_tools, needs_geo_tools, needs_geometry_tools, needs_github_actions_tools,
-    needs_github_ops, needs_gitignore_tools, needs_glob_tools, needs_graph_tools,
-    needs_graphql_tools, needs_graphviz_tools, needs_har_tools, needs_hash_tools, needs_hex_tools,
-    needs_http_parse_tools, needs_http_request, needs_http_status_tools, needs_ical_tools,
-    needs_id_tools, needs_ini_tools, needs_ip_tools, needs_jq_tools, needs_json_tools,
-    needs_jsonschema_tools, needs_jwt_tools, needs_k8s_tools, needs_keyval_tools,
-    needs_license_tools, needs_line_tools, needs_lint_check, needs_lock_file_tools,
-    needs_log_parse_tools, needs_make_tools, needs_markdown_tools, needs_matrix_tools,
-    needs_mermaid_tools, needs_mime_tools, needs_money_tools, needs_nato_tools,
-    needs_net_lookup_tools, needs_nginx_conf_tools, needs_number_theory_tools, needs_number_tools,
-    needs_openapi_tools, needs_package_json_tools, needs_password_gen, needs_path_tools,
-    needs_pem_tools, needs_plist_tools, needs_port_check, needs_printf_tools, needs_proto_tools,
-    needs_regex_tools, needs_robots_txt_tools, needs_rss_tools, needs_scientific_compute,
-    needs_secret_scan, needs_semver_tools, needs_sitemap_tools, needs_size_tools,
-    needs_sql_format_tools, needs_sql_migrate_tools, needs_sql_tools, needs_sqlite_tools,
-    needs_ssh_config_tools, needs_stat_tools, needs_string_metric_tools, needs_systemd_tools,
-    needs_table_tools, needs_tar_tools, needs_template_gen, needs_template_tools,
-    needs_terraform_tools, needs_test_run, needs_text_tools, needs_time_zone_tools,
-    needs_token_tools, needs_toml_tools, needs_totp_tools, needs_unit_tools, needs_url_tools,
-    needs_uuid_gen, needs_validate_tools, needs_wasm_tools, needs_word_tools, needs_xml_tools,
-    needs_yaml_tools, preferred_host_inspection_topic, preferred_maintainer_workflow,
-    preferred_workspace_workflow, DirectAnswerKind, QueryIntentClass,
+    needs_binary_tools, needs_calc_tools, needs_cbor_tools, needs_changelog_gen,
+    needs_changelog_tools, needs_char_tools, needs_checksum_tools, needs_cipher_tools,
+    needs_code_metrics, needs_color_tools, needs_computation_sandbox, needs_crash_debug,
+    needs_cron_tools, needs_csp_tools, needs_css_tools, needs_csv_tools, needs_data_gen_tools,
+    needs_date_tools, needs_dependency_audit, needs_diff_tools, needs_dns_tools,
+    needs_docker_compose_tools, needs_docker_ops, needs_dockerfile_tools, needs_dotenv_tools,
+    needs_duration_tools, needs_email_tools, needs_encode_tools, needs_env_diff,
+    needs_env_schema_tools, needs_format, needs_fraction_tools, needs_geo_tools,
+    needs_geometry_tools, needs_github_actions_tools, needs_github_ops, needs_gitignore_tools,
+    needs_glob_tools, needs_graph_tools, needs_graphql_tools, needs_graphviz_tools,
+    needs_har_tools, needs_hash_tools, needs_hex_tools, needs_http_parse_tools, needs_http_request,
+    needs_http_status_tools, needs_ical_tools, needs_id_tools, needs_ini_tools, needs_ip_tools,
+    needs_jq_tools, needs_json_tools, needs_jsonschema_tools, needs_jwt_tools, needs_k8s_tools,
+    needs_keyval_tools, needs_license_tools, needs_line_tools, needs_lint_check,
+    needs_lock_file_tools, needs_log_parse_tools, needs_make_tools, needs_markdown_tools,
+    needs_matrix_tools, needs_mermaid_tools, needs_mime_tools, needs_money_tools,
+    needs_msgpack_tools, needs_nato_tools, needs_net_lookup_tools, needs_nginx_conf_tools,
+    needs_number_theory_tools, needs_number_tools, needs_openapi_tools, needs_package_json_tools,
+    needs_password_gen, needs_path_tools, needs_pem_tools, needs_plist_tools, needs_port_check,
+    needs_printf_tools, needs_proto_tools, needs_regex_tools, needs_robots_txt_tools,
+    needs_rss_tools, needs_scientific_compute, needs_secret_scan, needs_semver_tools,
+    needs_sitemap_tools, needs_size_tools, needs_sql_format_tools, needs_sql_migrate_tools,
+    needs_sql_tools, needs_sqlite_tools, needs_ssh_config_tools, needs_stat_tools,
+    needs_string_metric_tools, needs_systemd_tools, needs_table_tools, needs_tar_tools,
+    needs_template_gen, needs_template_tools, needs_terraform_tools, needs_test_run,
+    needs_text_tools, needs_time_zone_tools, needs_token_tools, needs_toml_tools, needs_totp_tools,
+    needs_unit_tools, needs_url_tools, needs_uuid_gen, needs_validate_tools, needs_wasm_tools,
+    needs_word_tools, needs_xml_tools, needs_yaml_tools, preferred_host_inspection_topic,
+    preferred_maintainer_workflow, preferred_workspace_workflow, DirectAnswerKind,
+    QueryIntentClass,
 };
 use crate::agent::tool_registry::dispatch_builtin_tool;
 use crate::agent::truncation::safe_head;
@@ -6839,6 +6840,33 @@ impl ConversationManager {
                  email_tools(action: 'headers', file: 'message.eml', name: 'Subject') or \
                  email_tools(action: 'trace', text: raw_email_string) or \
                  email_tools(action: 'structure', file: 'message.eml')."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_cbor_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "CBOR NOTICE: Use the `cbor_tools` tool to decode and inspect CBOR (Concise Binary Object Representation) data without external utilities. \
+                 Actions: decode (default — human-readable decoded value with type labels and tag annotations), \
+                 info (root type, total bytes, array/map length, key list, type distribution), \
+                 annotate (hex dump with per-byte CBOR major-type labels). \
+                 Accepts 'hex' (hex-encoded bytes), 'base64' (base64/base64url), or 'file' path. \
+                 Automatically annotates known tags (tag 0=datetime, tag 1=epoch, tag 37=uuid, tag 55799=self-described CBOR) \
+                 and emits hints for WebAuthn AttestationObject / COSE Key structures. \
+                 Example: cbor_tools(hex: 'a2616101616202') or cbor_tools(file: 'payload.cbor') or cbor_tools(action: 'annotate', hex: '...')."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_msgpack_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "MSGPACK NOTICE: Use the `msgpack_tools` tool to decode and inspect MessagePack binary data without external utilities. \
+                 Actions: decode (default — human-readable decoded value), \
+                 info (root type, total bytes, array/map length, string key list, type distribution), \
+                 annotate (hex dump with per-byte MessagePack format-byte labels: fixint, fixmap, fixarray, fixstr, uint8/16/32/64, int8..., float32/64, bin8..., ext types). \
+                 Accepts 'hex' (hex-encoded bytes), 'base64' (base64/base64url), or 'file' path. \
+                 Automatically decodes Timestamp ext type (-1) for 4-byte and 8-byte forms. \
+                 Example: msgpack_tools(hex: '82a3666f6f01a362617202') or msgpack_tools(file: 'data.msgpack') or msgpack_tools(action: 'annotate', hex: '...')."
                     .to_string(),
             );
         }
