@@ -9548,6 +9548,63 @@ pub fn needs_interval_tools(user_input: &str) -> bool {
     )
 }
 
+pub fn needs_number_sequence_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "number sequence",
+            "numeric sequence",
+            "sequence pattern",
+            "detect sequence",
+            "identify sequence",
+            "continue the sequence",
+            "extend the sequence",
+            "next terms",
+            "next numbers in",
+            "what comes next in",
+            "difference table",
+            "arithmetic sequence",
+            "geometric sequence",
+            "fibonacci sequence",
+            "triangular numbers",
+            "sequence stats",
+            "analyze this sequence",
+            "what is the pattern in",
+        ],
+    )
+}
+
+pub fn needs_number_words_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "number to words",
+            "number in words",
+            "spell out the number",
+            "spell the number",
+            "write the number in english",
+            "number as words",
+            "ordinal number",
+            "ordinal form",
+            "first second third",
+            "words to number",
+            "parse number words",
+            "number in english",
+            "english words for",
+            "currency words",
+            "amount in words",
+            "spell digits",
+            "say the digits",
+            "roman numeral",
+            "convert to roman",
+            "roman to integer",
+            "from roman numeral",
+        ],
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

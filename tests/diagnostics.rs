@@ -30725,8 +30725,12 @@ fn test_routing_detects_text_extract_tools() {
 #[test]
 fn test_routing_detects_interval_tools() {
     use hematite::agent::routing::needs_interval_tools;
-    assert!(needs_interval_tools("check date range overlap for these events"));
-    assert!(needs_interval_tools("generate recurring dates every 2 weeks"));
+    assert!(needs_interval_tools(
+        "check date range overlap for these events"
+    ));
+    assert!(needs_interval_tools(
+        "generate recurring dates every 2 weeks"
+    ));
     assert!(needs_interval_tools("how many days between dates"));
     assert!(!needs_interval_tools("what is the current date"));
 }
@@ -30744,8 +30748,14 @@ fn test_text_extract_emails() {
             "text": "Contact us at support@example.com or sales@company.org for help."
         })))
         .expect("execute should succeed");
-    assert!(out.contains("support@example.com"), "Expected email, got: {out}");
-    assert!(out.contains("sales@company.org"), "Expected email, got: {out}");
+    assert!(
+        out.contains("support@example.com"),
+        "Expected email, got: {out}"
+    );
+    assert!(
+        out.contains("sales@company.org"),
+        "Expected email, got: {out}"
+    );
 }
 
 #[test]
@@ -30759,7 +30769,10 @@ fn test_text_extract_urls() {
             "text": "Visit https://example.com/path and http://foo.io for details."
         })))
         .expect("execute should succeed");
-    assert!(out.contains("https://example.com/path"), "Expected URL, got: {out}");
+    assert!(
+        out.contains("https://example.com/path"),
+        "Expected URL, got: {out}"
+    );
     assert!(out.contains("http://foo.io"), "Expected URL, got: {out}");
 }
 
@@ -30776,9 +30789,18 @@ fn test_text_extract_hashes_no_substring_match() {
             "text": sha256
         })))
         .expect("execute should succeed");
-    assert!(out.contains("SHA-256"), "Expected SHA-256 section, got: {out}");
-    assert!(!out.contains("SHA-1"), "SHA-1 should not match inside SHA-256, got: {out}");
-    assert!(!out.contains("MD5"), "MD5 should not match inside SHA-256, got: {out}");
+    assert!(
+        out.contains("SHA-256"),
+        "Expected SHA-256 section, got: {out}"
+    );
+    assert!(
+        !out.contains("SHA-1"),
+        "SHA-1 should not match inside SHA-256, got: {out}"
+    );
+    assert!(
+        !out.contains("MD5"),
+        "MD5 should not match inside SHA-256, got: {out}"
+    );
 }
 
 #[test]
@@ -30793,8 +30815,14 @@ fn test_text_extract_custom_pattern() {
             "text": "Fixed in JIRA-1234 and JIRA-5678, see also JIRA-1234 again."
         })))
         .expect("execute should succeed");
-    assert!(out.contains("JIRA-1234"), "Expected JIRA ticket, got: {out}");
-    assert!(out.contains("JIRA-5678"), "Expected JIRA ticket, got: {out}");
+    assert!(
+        out.contains("JIRA-1234"),
+        "Expected JIRA ticket, got: {out}"
+    );
+    assert!(
+        out.contains("JIRA-5678"),
+        "Expected JIRA ticket, got: {out}"
+    );
     // JIRA-1234 appears twice, check for ×2
     assert!(out.contains("×2"), "Expected occurrence count, got: {out}");
 }
@@ -30816,7 +30844,10 @@ fn test_interval_overlap_detected() {
         })))
         .expect("execute should succeed");
     assert!(out.contains("OVERLAPPING"), "Expected overlap, got: {out}");
-    assert!(out.contains("2024-04-01"), "Expected overlap start, got: {out}");
+    assert!(
+        out.contains("2024-04-01"),
+        "Expected overlap start, got: {out}"
+    );
 }
 
 #[test]
@@ -30833,7 +30864,10 @@ fn test_interval_no_overlap() {
             "end2": "2024-12-31"
         })))
         .expect("execute should succeed");
-    assert!(out.contains("NO OVERLAP"), "Expected no overlap, got: {out}");
+    assert!(
+        out.contains("NO OVERLAP"),
+        "Expected no overlap, got: {out}"
+    );
 }
 
 #[test]
@@ -30848,7 +30882,10 @@ fn test_interval_duration() {
             "end": "2024-01-08"
         })))
         .expect("execute should succeed");
-    assert!(out.contains("7d") || out.contains("Total days:     7"), "Expected 7 days, got: {out}");
+    assert!(
+        out.contains("7d") || out.contains("Total days:     7"),
+        "Expected 7 days, got: {out}"
+    );
 }
 
 #[test]
@@ -30864,7 +30901,10 @@ fn test_interval_schedule() {
             "count": 4
         })))
         .expect("execute should succeed");
-    assert!(out.contains("2024-01-01"), "Expected start date, got: {out}");
+    assert!(
+        out.contains("2024-01-01"),
+        "Expected start date, got: {out}"
+    );
     assert!(out.contains("2024-01-08"), "Expected +1 week, got: {out}");
     assert!(out.contains("2024-01-15"), "Expected +2 weeks, got: {out}");
 }
@@ -30884,5 +30924,211 @@ fn test_interval_union_merges() {
             ]
         })))
         .expect("execute should succeed");
-    assert!(out.contains("Merged result:    2"), "Expected 2 merged intervals, got: {out}");
+    assert!(
+        out.contains("Merged result:    2"),
+        "Expected 2 merged intervals, got: {out}"
+    );
+}
+
+// ── number_sequence_tools tests ───────────────────────────────────────────────
+
+#[test]
+fn test_routing_detects_number_sequence_tools() {
+    use hematite::agent::routing::needs_number_sequence_tools;
+    assert!(needs_number_sequence_tools("detect sequence pattern in this list"));
+    assert!(needs_number_sequence_tools("continue the sequence 1 2 4 8"));
+    assert!(needs_number_sequence_tools("what comes next in this series"));
+    assert!(needs_number_sequence_tools("show the difference table"));
+    assert!(!needs_number_sequence_tools("convert bytes to megabytes"));
+}
+
+#[test]
+fn test_routing_detects_number_words_tools() {
+    use hematite::agent::routing::needs_number_words_tools;
+    assert!(needs_number_words_tools("spell out the number 1234"));
+    assert!(needs_number_words_tools("number to words please"));
+    assert!(needs_number_words_tools("ordinal number for 42"));
+    assert!(needs_number_words_tools("roman numeral for 99"));
+    assert!(needs_number_words_tools("amount in words for invoice"));
+    assert!(!needs_number_words_tools("convert celsius to fahrenheit"));
+}
+
+#[test]
+fn test_number_sequence_detect_arithmetic() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::number_sequence_tools::execute(
+            &serde_json::json!({"numbers": [3, 6, 9, 12, 15]}),
+        ))
+        .expect("execute should succeed");
+    assert!(
+        out.contains("Arithmetic"),
+        "Expected Arithmetic pattern, got: {out}"
+    );
+    assert!(
+        out.to_lowercase().contains("common difference"),
+        "Expected common difference, got: {out}"
+    );
+}
+
+#[test]
+fn test_number_sequence_detect_geometric() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::number_sequence_tools::execute(
+            &serde_json::json!({"numbers": [2, 6, 18, 54, 162]}),
+        ))
+        .expect("execute should succeed");
+    assert!(
+        out.contains("Geometric"),
+        "Expected Geometric pattern, got: {out}"
+    );
+}
+
+#[test]
+fn test_number_sequence_detect_fibonacci() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::number_sequence_tools::execute(
+            &serde_json::json!({"numbers": [1, 1, 2, 3, 5, 8, 13]}),
+        ))
+        .expect("execute should succeed");
+    assert!(
+        out.contains("Fibonacci"),
+        "Expected Fibonacci pattern, got: {out}"
+    );
+}
+
+#[test]
+fn test_number_sequence_continue() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::number_sequence_tools::execute(
+            &serde_json::json!({"action": "continue", "numbers": [1, 4, 9, 16, 25], "n": 3}),
+        ))
+        .expect("execute should succeed");
+    // Next squares: 36, 49, 64
+    assert!(out.contains("36"), "Expected 36 in continuation, got: {out}");
+    assert!(out.contains("49"), "Expected 49 in continuation, got: {out}");
+}
+
+#[test]
+fn test_number_sequence_diff_table() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::number_sequence_tools::execute(
+            &serde_json::json!({"action": "diff", "data": "1, 3, 6, 10, 15"}),
+        ))
+        .expect("execute should succeed");
+    assert!(
+        out.contains("constant"),
+        "Expected constant row in diff table, got: {out}"
+    );
+}
+
+#[test]
+fn test_number_sequence_stats() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::number_sequence_tools::execute(
+            &serde_json::json!({"action": "stats", "numbers": [10, 20, 30, 40, 50]}),
+        ))
+        .expect("execute should succeed");
+    assert!(out.contains("Mean"), "Expected Mean in stats, got: {out}");
+    assert!(out.contains("30"), "Expected mean=30, got: {out}");
+}
+
+// ── number_words_tools tests ──────────────────────────────────────────────────
+
+#[test]
+fn test_number_words_to_words_simple() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::number_words_tools::execute(
+            &serde_json::json!({"number": 42}),
+        ))
+        .expect("execute should succeed");
+    assert!(
+        out.contains("forty-two"),
+        "Expected 'forty-two', got: {out}"
+    );
+}
+
+#[test]
+fn test_number_words_to_words_large() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::number_words_tools::execute(
+            &serde_json::json!({"action": "to_words", "number": 1000000}),
+        ))
+        .expect("execute should succeed");
+    assert!(
+        out.contains("one million"),
+        "Expected 'one million', got: {out}"
+    );
+}
+
+#[test]
+fn test_number_words_ordinal() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::number_words_tools::execute(
+            &serde_json::json!({"action": "to_ordinal", "number": 21}),
+        ))
+        .expect("execute should succeed");
+    assert!(
+        out.contains("twenty-first"),
+        "Expected 'twenty-first', got: {out}"
+    );
+}
+
+#[test]
+fn test_number_words_from_words() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::number_words_tools::execute(
+            &serde_json::json!({"action": "from_words", "text": "three hundred forty-five"}),
+        ))
+        .expect("execute should succeed");
+    assert!(out.contains("345"), "Expected 345, got: {out}");
+}
+
+#[test]
+fn test_number_words_currency() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::number_words_tools::execute(
+            &serde_json::json!({"action": "currency", "number": 99.99}),
+        ))
+        .expect("execute should succeed");
+    assert!(
+        out.contains("ninety-nine dollars"),
+        "Expected 'ninety-nine dollars', got: {out}"
+    );
+    assert!(
+        out.contains("ninety-nine cents"),
+        "Expected 'ninety-nine cents', got: {out}"
+    );
+}
+
+#[test]
+fn test_number_words_roman_encode() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::number_words_tools::execute(
+            &serde_json::json!({"action": "roman", "number": 42}),
+        ))
+        .expect("execute should succeed");
+    assert!(out.contains("XLII"), "Expected 'XLII', got: {out}");
+}
+
+#[test]
+fn test_number_words_roman_decode() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::number_words_tools::execute(
+            &serde_json::json!({"action": "roman", "text": "MMXXIV"}),
+        ))
+        .expect("execute should succeed");
+    assert!(out.contains("2024"), "Expected 2024, got: {out}");
 }

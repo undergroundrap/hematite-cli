@@ -6496,6 +6496,34 @@ pub fn get_tools() -> Vec<ToolDefinition> {
          interval_tools(action: 'duration', start: '2023-03-15', end: '2024-09-01').",
         crate::tools::interval_tools::interval_tools_schema(),
     ));
+    tools.push(make_tool(
+        "number_sequence_tools",
+        "Analyze and extend numeric sequences without external utilities. \
+         Actions: detect (identify pattern — arithmetic, geometric, Fibonacci-like, polynomial, squares, cubes, triangular, power-of-2, primes, constant), \
+         continue (extend the sequence by N more terms), \
+         diff (show Newton's forward difference table to reveal polynomial patterns), \
+         stats (min/max/mean/sum/stddev/net change/growth%). \
+         Input: 'numbers' array or 'data' comma-separated string. \
+         Example: number_sequence_tools(numbers: [1, 4, 9, 16, 25]) or \
+         number_sequence_tools(action: 'continue', data: '2, 4, 8, 16, 32', n: 6).",
+        crate::tools::number_sequence_tools::number_sequence_tools_schema(),
+    ));
+    tools.push(make_tool(
+        "number_words_tools",
+        "Convert numbers to/from English words without external utilities. \
+         Actions: to_words (default — integer → English words like 'one thousand two hundred thirty-four'), \
+         to_ordinal (integer → ordinal word like 'forty-second'), \
+         from_words (English word text → integer), \
+         currency (amount → 'one hundred twenty-three dollars and forty-five cents'; currency_name: dollar/euro/pound), \
+         digits (spell each digit individually: 123 → 'one two three'), \
+         roman (integer → Roman numeral via 'number', or Roman numeral → integer via 'text'). \
+         Handles integers up to 999 quadrillion, negatives, and uppercase output via 'uppercase: true'. \
+         Example: number_words_tools(number: 1000000) or \
+         number_words_tools(action: 'to_ordinal', number: 21) or \
+         number_words_tools(action: 'from_words', text: 'three hundred and forty-five') or \
+         number_words_tools(action: 'roman', text: 'XLII').",
+        crate::tools::number_words_tools::number_words_tools_schema(),
+    ));
     let lsp_defs = crate::tools::lsp_tools::get_lsp_definitions();
     tools.push(make_tool(
         "lsp_search_symbol",
@@ -6678,6 +6706,8 @@ pub async fn dispatch_builtin_tool(
         "find_tools" => crate::tools::find_tools::execute(args).await,
         "text_extract_tools" => crate::tools::text_extract_tools::execute(args).await,
         "interval_tools" => crate::tools::interval_tools::execute(args).await,
+        "number_sequence_tools" => crate::tools::number_sequence_tools::execute(args).await,
+        "number_words_tools" => crate::tools::number_words_tools::execute(args).await,
         "http_status_tools" => crate::tools::http_status_tools::execute(args).await,
         "http_parse_tools" => crate::tools::http_parse_tools::execute(args).await,
         "jq_tools" => crate::tools::jq_tools::execute(args).await,

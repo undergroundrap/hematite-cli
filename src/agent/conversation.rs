@@ -48,21 +48,21 @@ use crate::agent::routing::{
     needs_lint_check, needs_lock_file_tools, needs_log_parse_tools, needs_make_tools,
     needs_markdown_tools, needs_matrix_tools, needs_mermaid_tools, needs_mime_tools,
     needs_money_tools, needs_msgpack_tools, needs_nato_tools, needs_net_lookup_tools,
-    needs_network_header_tools, needs_nginx_conf_tools, needs_number_theory_tools,
-    needs_number_tools, needs_openapi_tools, needs_package_json_tools, needs_password_gen,
-    needs_path_tools, needs_pem_tools, needs_plist_tools, needs_port_check, needs_printf_tools,
-    needs_proto_tools, needs_regex_tools, needs_robots_txt_tools, needs_rss_tools,
-    needs_scientific_compute, needs_secret_scan, needs_semver_tools, needs_sitemap_tools,
-    needs_size_tools, needs_sql_format_tools, needs_sql_migrate_tools, needs_sql_tools,
-    needs_sqlite_tools, needs_ssh_config_tools, needs_stat_tools, needs_string_metric_tools,
-    needs_systemd_tools, needs_table_tools, needs_tar_tools, needs_template_gen,
-    needs_template_tools, needs_terraform_tools, needs_test_run, needs_text_extract_tools,
-    needs_text_tools, needs_time_zone_tools, needs_tlv_tools, needs_todo_tools, needs_token_tools,
-    needs_toml_tools, needs_totp_tools, needs_unicode_tools, needs_unit_tools, needs_url_tools,
-    needs_uuid_gen, needs_validate_tools, needs_vcf_tools, needs_wasm_tools, needs_word_tools,
-    needs_xml_tools, needs_yaml_tools, preferred_host_inspection_topic,
-    preferred_maintainer_workflow, preferred_workspace_workflow, DirectAnswerKind,
-    QueryIntentClass,
+    needs_network_header_tools, needs_nginx_conf_tools, needs_number_sequence_tools,
+    needs_number_theory_tools, needs_number_tools, needs_number_words_tools, needs_openapi_tools,
+    needs_package_json_tools, needs_password_gen, needs_path_tools, needs_pem_tools,
+    needs_plist_tools, needs_port_check, needs_printf_tools, needs_proto_tools, needs_regex_tools,
+    needs_robots_txt_tools, needs_rss_tools, needs_scientific_compute, needs_secret_scan,
+    needs_semver_tools, needs_sitemap_tools, needs_size_tools, needs_sql_format_tools,
+    needs_sql_migrate_tools, needs_sql_tools, needs_sqlite_tools, needs_ssh_config_tools,
+    needs_stat_tools, needs_string_metric_tools, needs_systemd_tools, needs_table_tools,
+    needs_tar_tools, needs_template_gen, needs_template_tools, needs_terraform_tools,
+    needs_test_run, needs_text_extract_tools, needs_text_tools, needs_time_zone_tools,
+    needs_tlv_tools, needs_todo_tools, needs_token_tools, needs_toml_tools, needs_totp_tools,
+    needs_unicode_tools, needs_unit_tools, needs_url_tools, needs_uuid_gen, needs_validate_tools,
+    needs_vcf_tools, needs_wasm_tools, needs_word_tools, needs_xml_tools, needs_yaml_tools,
+    preferred_host_inspection_topic, preferred_maintainer_workflow, preferred_workspace_workflow,
+    DirectAnswerKind, QueryIntentClass,
 };
 use crate::agent::tool_registry::dispatch_builtin_tool;
 use crate::agent::truncation::safe_head;
@@ -7138,6 +7138,35 @@ impl ConversationManager {
                  Example: interval_tools(action: 'overlap', start: '2024-01-01', end: '2024-06-30', start2: '2024-04-01', end2: '2024-12-31') or \
                  interval_tools(action: 'schedule', start: '2024-01-01', step: '2w', count: 12) or \
                  interval_tools(action: 'duration', start: '2023-03-15', end: '2024-09-01')."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_number_sequence_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "NUMBER SEQUENCE NOTICE: Use the `number_sequence_tools` tool to analyze and extend numeric sequences without external utilities. \
+                 Actions: detect (identify pattern — arithmetic, geometric, Fibonacci-like, polynomial, squares, cubes, triangular, power-of-2, primes, constant), \
+                 continue (extend the sequence by N more terms), \
+                 diff (show Newton's forward difference table to reveal polynomial patterns), \
+                 stats (min/max/mean/sum/growth rate). \
+                 Example: number_sequence_tools(numbers: [1, 4, 9, 16, 25]) or \
+                 number_sequence_tools(action: 'continue', data: '2, 4, 8, 16, 32', n: 6)."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_number_words_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "NUMBER WORDS NOTICE: Use the `number_words_tools` tool to convert numbers to/from English words without external utilities. \
+                 Actions: to_words (1234 → 'one thousand two hundred thirty-four'), \
+                 to_ordinal (42 → 'forty-second'), \
+                 from_words ('one hundred twenty-three' → 123), \
+                 currency (123.45 → 'one hundred twenty-three dollars and forty-five cents'; supports dollar/euro/pound), \
+                 digits (spell each digit: 123 → 'one two three'), \
+                 roman (integer ↔ Roman numeral — pass 'number' to encode, 'text' to decode). \
+                 Example: number_words_tools(number: 1000000) or \
+                 number_words_tools(action: 'to_ordinal', number: 21) or \
+                 number_words_tools(action: 'from_words', text: 'three hundred and forty-five')."
                     .to_string(),
             );
         }
