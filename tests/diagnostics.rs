@@ -30106,7 +30106,9 @@ fn test_unicode_tools_confusables() {
         })))
         .expect("confusables action should succeed");
     assert!(
-        out.contains("confusable") || out.contains("Cyrillic") || out.contains("homoglyph")
+        out.contains("confusable")
+            || out.contains("Cyrillic")
+            || out.contains("homoglyph")
             || out.contains("U+0430"),
         "Expected confusable detection for Cyrillic а, got: {out}"
     );
@@ -30125,5 +30127,184 @@ fn test_unicode_tools_scripts() {
     assert!(
         out.contains("Latin") || out.contains("CJK") || out.contains("Han"),
         "Expected Latin and CJK script detection, got: {out}"
+    );
+}
+
+// ── asn1_tools routing ────────────────────────────────────────────────────────
+
+#[test]
+fn test_routing_detects_asn1_tools() {
+    use hematite::agent::routing::needs_asn1_tools;
+    assert!(needs_asn1_tools("parse this asn.1 der encoded binary"));
+    assert!(needs_asn1_tools("decode der format certificate"));
+    assert!(needs_asn1_tools("oid lookup for 2.5.4.3"));
+    assert!(needs_asn1_tools("x.509 der certificate structure"));
+    assert!(needs_asn1_tools("pkcs der binary"));
+    assert!(!needs_asn1_tools("base64 encode this"));
+    assert!(!needs_asn1_tools("json object parse"));
+}
+
+// ── asn1_tools functional ─────────────────────────────────────────────────────
+
+#[test]
+fn test_asn1_tools_oid_lookup() {
+    use hematite::tools::asn1_tools;
+    let out = tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(asn1_tools::execute(&serde_json::json!({
+            "action": "oid",
+            "oid": "2.5.4.3"
+        })))
+        .expect("OID lookup should succeed");
+    assert!(
+        out.contains("commonName") || out.contains("CN"),
+        "Expected commonName for OID 2.5.4.3, got: {out}"
+    );
+}
+
+#[test]
+fn test_asn1_tools_oid_algorithm() {
+    use hematite::tools::asn1_tools;
+    let out = tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(asn1_tools::execute(&serde_json::json!({
+            "action": "oid",
+            "oid": "1.2.840.113549.1.1.11"
+        })))
+        .expect("OID lookup should succeed");
+    assert!(
+        out.contains("sha256WithRSA") || out.contains("SHA256"),
+        "Expected sha256WithRSAEncryption, got: {out}"
+    );
+}
+
+#[test]
+fn test_asn1_tools_parse_sequence() {
+    use hematite::tools::asn1_tools;
+    // Simple DER: SEQUENCE { INTEGER 1, UTF8String "hi" }
+    // 30 0a 02 01 01 0c 02 68 69
+    let out = tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(asn1_tools::execute(&serde_json::json!({
+            "action": "parse",
+            "hex": "30 0a 02 01 01 0c 02 68 69"
+        })))
+        .expect("parse should succeed");
+    assert!(
+        out.contains("SEQUENCE") || out.contains("INTEGER") || out.contains("UTF8"),
+        "Expected SEQUENCE/INTEGER/UTF8String in parse output, got: {out}"
+    );
+}
+
+#[test]
+fn test_asn1_tools_info() {
+    use hematite::tools::asn1_tools;
+    // NULL tag: 05 00
+    let out = tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(asn1_tools::execute(&serde_json::json!({
+            "action": "info",
+            "hex": "0500"
+        })))
+        .expect("info should succeed");
+    assert!(
+        out.contains("NULL") || out.contains("Universal") || out.contains("bytes"),
+        "Expected NULL tag info, got: {out}"
+    );
+}
+
+// ── jsonl_tools routing ───────────────────────────────────────────────────────
+
+#[test]
+fn test_routing_detects_jsonl_tools() {
+    use hematite::agent::routing::needs_jsonl_tools;
+    assert!(needs_jsonl_tools("parse this jsonl file"));
+    assert!(needs_jsonl_tools("filter ndjson records by field"));
+    assert!(needs_jsonl_tools("aggregate json lines data"));
+    assert!(needs_jsonl_tools("load a .jsonl log file"));
+    assert!(needs_jsonl_tools("newline-delimited json processing"));
+    assert!(!needs_jsonl_tools("parse regular json object"));
+    assert!(!needs_jsonl_tools("base64 encode string"));
+}
+
+// ── jsonl_tools functional ────────────────────────────────────────────────────
+
+#[test]
+fn test_jsonl_tools_parse() {
+    use hematite::tools::jsonl_tools;
+    let jsonl_data = "{\"id\":1,\"name\":\"Alice\"}\n{\"id\":2,\"name\":\"Bob\"}\n{\"id\":3,\"name\":\"Carol\"}";
+    let out = tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(jsonl_tools::execute(&serde_json::json!({
+            "text": jsonl_data
+        })))
+        .expect("parse should succeed");
+    assert!(
+        out.contains("Alice") && out.contains("Bob"),
+        "Expected record names in parse output, got: {out}"
+    );
+    assert!(
+        out.contains("3 records") || out.contains("[2]"),
+        "Expected 3 records shown, got: {out}"
+    );
+}
+
+#[test]
+fn test_jsonl_tools_filter() {
+    use hematite::tools::jsonl_tools;
+    let jsonl_data =
+        "{\"status\":\"ok\"}\n{\"status\":\"error\"}\n{\"status\":\"ok\"}\n{\"status\":\"error\"}";
+    let out = tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(jsonl_tools::execute(&serde_json::json!({
+            "action": "filter",
+            "text": jsonl_data,
+            "field": "status",
+            "value": "error"
+        })))
+        .expect("filter should succeed");
+    assert!(
+        out.contains("2 / 4") || out.contains("2/4") || (out.contains("2") && out.contains("match")),
+        "Expected 2 of 4 records match, got: {out}"
+    );
+}
+
+#[test]
+fn test_jsonl_tools_aggregate_avg() {
+    use hematite::tools::jsonl_tools;
+    let jsonl_data = "{\"latency\":100}\n{\"latency\":200}\n{\"latency\":300}";
+    let out = tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(jsonl_tools::execute(&serde_json::json!({
+            "action": "aggregate",
+            "text": jsonl_data,
+            "field": "latency",
+            "agg": "avg"
+        })))
+        .expect("aggregate should succeed");
+    assert!(
+        out.contains("200") || out.contains("200.0"),
+        "Expected avg latency = 200, got: {out}"
+    );
+}
+
+#[test]
+fn test_jsonl_tools_keys() {
+    use hematite::tools::jsonl_tools;
+    let jsonl_data = "{\"id\":1,\"name\":\"Alice\",\"score\":95}\n{\"id\":2,\"name\":\"Bob\"}";
+    let out = tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(jsonl_tools::execute(&serde_json::json!({
+            "action": "keys",
+            "text": jsonl_data
+        })))
+        .expect("keys should succeed");
+    assert!(
+        out.contains("name") && out.contains("id"),
+        "Expected 'name' and 'id' in keys output, got: {out}"
+    );
+    assert!(
+        out.contains("score") || out.contains("50%"),
+        "Expected 'score' field with partial coverage, got: {out}"
     );
 }

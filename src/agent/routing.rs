@@ -9273,6 +9273,60 @@ pub fn needs_elf_tools(user_input: &str) -> bool {
     )
 }
 
+pub fn needs_asn1_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "asn.1",
+            "asn1",
+            "der encoded",
+            "ber encoded",
+            "der format",
+            "ber format",
+            "parse der",
+            "decode der",
+            "der certificate",
+            "asn.1 structure",
+            "asn.1 tag",
+            "tlv der",
+            "oid lookup",
+            "lookup oid",
+            "x.509 der",
+            "pkcs der",
+            "der binary",
+            "asn decode",
+        ],
+    )
+}
+
+pub fn needs_jsonl_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "jsonl",
+            "ndjson",
+            "json lines",
+            "json line",
+            "newline delimited json",
+            "newline-delimited json",
+            "parse jsonl",
+            "filter jsonl",
+            "aggregate jsonl",
+            "jsonl file",
+            ".jsonl",
+            ".ndjson",
+            "jsonl records",
+            "json stream",
+            "stream of json",
+            "log jsonl",
+            "jsonl stats",
+            "jsonl to csv",
+        ],
+    )
+}
+
 pub fn needs_leb128_tools(user_input: &str) -> bool {
     let lower = user_input.to_lowercase();
     contains_any(

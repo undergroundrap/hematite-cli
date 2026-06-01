@@ -6375,6 +6375,42 @@ pub fn get_tools() -> Vec<ToolDefinition> {
          unicode_tools(text: 'Hello 世界').",
         crate::tools::unicode_tools::unicode_tools_schema(),
     ));
+    tools.push(make_tool(
+        "asn1_tools",
+        "Parse and inspect ASN.1 DER/BER encoded binary data without external utilities. \
+         Used in X.509 certificates, PKCS#8/PKCS#12 keys, SNMP, and LDAP. \
+         Actions: parse (default — decode DER/BER structure as an indented tag/length/value tree with \
+         Universal tag names: SEQUENCE, INTEGER, BIT STRING, OCTET STRING, OID, UTCTime, etc.), \
+         oid (look up an OID number to its human-readable name; pass 'oid' field; 200+ well-known OIDs \
+         from X.509, PKCS, EC curves, signature algorithms, AES, and hash algorithms), \
+         decode_cert (X.509 certificate summary: scan for OIDs, DN fields, serial number, validity dates), \
+         info (tag class/number/constructed flag and byte structure at root level). \
+         Pass 'hex' (hex-encoded DER bytes, spaces allowed) or 'file' (path to .der/.cer/.crt/.p8 file). \
+         Optional 'max_depth' to limit tree depth (default 20). \
+         Example: asn1_tools(action: 'oid', oid: '2.5.4.3') gives 'commonName (CN)'. \
+         asn1_tools(action: 'parse', hex: '300d0609...').",
+        crate::tools::asn1_tools::asn1_tools_schema(),
+    ));
+    tools.push(make_tool(
+        "jsonl_tools",
+        "Process JSONL (JSON Lines / NDJSON) data without external utilities. \
+         Each newline-separated JSON object is one record. \
+         Actions: parse (default — display records with index and pretty-print; 'limit' caps rows, default 20), \
+         filter (keep records where a field matches; 'field' dot-path, 'value', \
+         'op': eq/ne/gt/lt/gte/lte/contains/exists/missing), \
+         map (extract one field from every record; 'field'), \
+         aggregate (count/sum/avg/min/max/distinct on a numeric field; 'field' + 'agg'), \
+         keys (union of all keys with type distribution and coverage %), \
+         stats (record count, key coverage %, null rate, type distribution per field), \
+         to_csv (convert records to CSV using all observed keys as headers), \
+         group (group by field value with count bar chart; 'field'), \
+         sort (sort records by a field; 'field'; 'order': asc/desc). \
+         Pass 'text'/'jsonl' for inline content or 'file' for a .jsonl/.ndjson path. \
+         Example: jsonl_tools(action: 'filter', text: '...', field: 'status', value: 'error') or \
+         jsonl_tools(action: 'stats', file: 'events.jsonl') or \
+         jsonl_tools(action: 'aggregate', file: 'access.jsonl', field: 'latency_ms', agg: 'avg').",
+        crate::tools::jsonl_tools::jsonl_tools_schema(),
+    ));
     let lsp_defs = crate::tools::lsp_tools::get_lsp_definitions();
     tools.push(make_tool(
         "lsp_search_symbol",
@@ -6549,6 +6585,8 @@ pub async fn dispatch_builtin_tool(
         "elf_tools" => crate::tools::elf_tools::execute(args).await,
         "leb128_tools" => crate::tools::leb128_tools::execute(args).await,
         "unicode_tools" => crate::tools::unicode_tools::execute(args).await,
+        "asn1_tools" => crate::tools::asn1_tools::execute(args).await,
+        "jsonl_tools" => crate::tools::jsonl_tools::execute(args).await,
         "http_status_tools" => crate::tools::http_status_tools::execute(args).await,
         "http_parse_tools" => crate::tools::http_parse_tools::execute(args).await,
         "jq_tools" => crate::tools::jq_tools::execute(args).await,
