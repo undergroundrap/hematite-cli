@@ -9079,6 +9079,66 @@ pub fn needs_jsonschema_tools(user_input: &str) -> bool {
         ))
 }
 
+pub fn needs_html_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "html file",
+            "parse html",
+            "analyze html",
+            "html links",
+            "html images",
+            "html forms",
+            "html tables",
+            "html scripts",
+            "validate html",
+            "html stats",
+            "strip html",
+            "html to text",
+            "extract links from html",
+            "extract images from html",
+            "html document",
+            "html structure",
+            "html accessibility",
+            "html seo",
+            ".html",
+            ".htm",
+        ],
+    ) || (lower.contains("html")
+        && contains_any(
+            &lower,
+            &[
+                "parse", "links", "images", "forms", "tables", "validate", "stats", "text",
+                "strip", "extract", "analyze", "inspect",
+            ],
+        ))
+}
+
+pub fn needs_vcf_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "vcard",
+            "vcf file",
+            ".vcf",
+            "contact file",
+            "parse vcard",
+            "parse vcf",
+            "vcard contacts",
+            "address book",
+            "contact import",
+            "contact export",
+            "vcard to json",
+            "vcf to csv",
+            "vcard 3.0",
+            "vcard 4.0",
+            "vcard 2.1",
+        ],
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -6234,6 +6234,48 @@ pub fn get_tools() -> Vec<ToolDefinition> {
          msgpack_tools(action: 'annotate', file: 'payload.msgpack').",
         crate::tools::msgpack_tools::msgpack_tools_schema(),
     ));
+    tools.push(make_tool(
+        "html_tools",
+        "Parse and analyze HTML documents without external utilities. \
+         Extracts links, images, forms, tables, scripts, and heading structure; \
+         validates accessibility and SEO; strips HTML to plain text. \
+         Actions: \
+         `parse` (default) — document overview: DOCTYPE, title, meta description, element counts, and heading hierarchy; \
+         `links` — all anchor elements with href, visible text, link type (ext/int/anchor/mailto), and nofollow flag; \
+         `images` — all img tags with src, alt text, and dimensions; flags missing alt attributes; \
+         `forms` — all form elements with method, action, enctype, and input field inventory; \
+         `tables` — table structure with row/column counts and first-5-row cell preview; \
+         `scripts` — external and inline script tags with src, type, and inline byte count; \
+         `validate` — accessibility and SEO checks: DOCTYPE, lang, charset, title, viewport, missing alt, h1 count; \
+         `text` — strip all HTML tags and return plain text (decodes common entities); \
+         `stats` — element counts, unique tag count, max nesting depth, comment count, text bytes. \
+         Pass 'html' (inline HTML string) or 'file' (path to .html/.htm file). \
+         Example: html_tools(file: 'index.html') or \
+         html_tools(action: 'links', file: 'page.html') or \
+         html_tools(action: 'validate', html: '<html lang=\"en\">...').",
+        crate::tools::html_tools::html_tools_schema(),
+    ));
+    tools.push(make_tool(
+        "vcf_tools",
+        "Parse and analyze vCard contact files (.vcf / .vcard) without external utilities. \
+         Supports vCard 2.1, 3.0, and 4.0 format. Handles RFC 6350 line unfolding, \
+         property parameters (TYPE=WORK,CELL), structured names (N property), \
+         and all standard contact fields. \
+         Actions: \
+         `parse` (default) — full detail per contact: full name, structured name, org, title, \
+         all emails/phones/addresses with type labels, URLs, birthday, categories, notes, UID; \
+         `list` — compact summary table: name, primary email, primary phone (one line per contact); \
+         `search` — filter contacts by keyword across all fields; pass 'query' or 'q'; \
+         `to_json` — structured JSON array with all contact fields; \
+         `to_csv` — CSV export with columns: Full Name, Given, Family, Organization, Title, \
+         Email, Phone, Address, Birthday, Categories, URL. \
+         Pass 'vcf'/'text' (inline vCard content) or 'file' (path to .vcf file). \
+         Example: vcf_tools(file: 'contacts.vcf') or \
+         vcf_tools(action: 'to_csv', file: 'contacts.vcf') or \
+         vcf_tools(action: 'search', file: 'contacts.vcf', query: 'smith') or \
+         vcf_tools(action: 'to_json', vcf: 'BEGIN:VCARD...').",
+        crate::tools::vcf_tools::vcf_tools_schema(),
+    ));
     let lsp_defs = crate::tools::lsp_tools::get_lsp_definitions();
     tools.push(make_tool(
         "lsp_search_symbol",
@@ -6400,6 +6442,8 @@ pub async fn dispatch_builtin_tool(
         "jsonschema_tools" => crate::tools::jsonschema_tools::execute(args).await,
         "cbor_tools" => crate::tools::cbor_tools::execute(args).await,
         "msgpack_tools" => crate::tools::msgpack_tools::execute(args).await,
+        "html_tools" => crate::tools::html_tools::execute(args).await,
+        "vcf_tools" => crate::tools::vcf_tools::execute(args).await,
         "http_status_tools" => crate::tools::http_status_tools::execute(args).await,
         "http_parse_tools" => crate::tools::http_parse_tools::execute(args).await,
         "jq_tools" => crate::tools::jq_tools::execute(args).await,

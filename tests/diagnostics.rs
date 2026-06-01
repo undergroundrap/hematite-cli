@@ -29072,7 +29072,9 @@ fn test_cbor_tools_decode_simple_map() {
     // a2 (map, 2 items) 01 (uint 1) 02 (uint 2) 03 (uint 3) 04 (uint 4)
     let out = tokio::runtime::Runtime::new()
         .unwrap()
-        .block_on(cbor_tools::execute(&serde_json::json!({"hex": "a201020304"})))
+        .block_on(cbor_tools::execute(
+            &serde_json::json!({"hex": "a201020304"}),
+        ))
         .expect("decode should succeed");
     assert!(
         out.contains("1") && out.contains("2"),
@@ -29086,7 +29088,9 @@ fn test_cbor_tools_decode_text_string() {
     // CBOR text string "hello" = 65 68 65 6c 6c 6f
     let out = tokio::runtime::Runtime::new()
         .unwrap()
-        .block_on(cbor_tools::execute(&serde_json::json!({"hex": "6568656c6c6f"})))
+        .block_on(cbor_tools::execute(
+            &serde_json::json!({"hex": "6568656c6c6f"}),
+        ))
         .expect("decode text should succeed");
     assert!(
         out.contains("hello"),
@@ -29200,19 +29204,13 @@ fn test_msgpack_tools_decode_nil_and_bool() {
         .unwrap()
         .block_on(msgpack_tools::execute(&serde_json::json!({"hex": "c0"})))
         .expect("decode nil should succeed");
-    assert!(
-        nil_out.contains("nil"),
-        "Expected nil, got: {nil_out}"
-    );
+    assert!(nil_out.contains("nil"), "Expected nil, got: {nil_out}");
 
     let true_out = tokio::runtime::Runtime::new()
         .unwrap()
         .block_on(msgpack_tools::execute(&serde_json::json!({"hex": "c3"})))
         .expect("decode true should succeed");
-    assert!(
-        true_out.contains("true"),
-        "Expected true, got: {true_out}"
-    );
+    assert!(true_out.contains("true"), "Expected true, got: {true_out}");
 }
 
 #[test]
@@ -29251,4 +29249,223 @@ fn test_msgpack_tools_annotate() {
         out.contains("fixmap") || out.contains("map"),
         "Expected map annotation, got: {out}"
     );
+}
+
+// ── html_tools tests ──────────────────────────────────────────────────────────
+
+const SAMPLE_HTML: &str = r#"<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width">
+  <meta name="description" content="A test page">
+  <title>Test Page</title>
+</head>
+<body>
+  <h1>Main Heading</h1>
+  <h2>Sub Heading</h2>
+  <p>Hello <a href="https://example.com">Example</a> and <a href="/about">About</a>.</p>
+  <img src="logo.png" alt="Logo" width="100" height="50">
+  <img src="photo.jpg">
+  <form method="post" action="/submit">
+    <input type="text" name="username" id="username" required placeholder="Your name">
+    <input type="email" name="email" id="email">
+    <button type="submit">Submit</button>
+  </form>
+  <table>
+    <tr><th>Name</th><th>Age</th></tr>
+    <tr><td>Alice</td><td>30</td></tr>
+  </table>
+  <script src="app.js"></script>
+  <script>console.log("inline");</script>
+</body>
+</html>"#;
+
+#[test]
+fn test_routing_detects_html_tools() {
+    use hematite::agent::routing::needs_html_tools;
+    assert!(needs_html_tools("parse this html file"));
+    assert!(needs_html_tools("extract links from html"));
+    assert!(needs_html_tools("validate html accessibility"));
+    assert!(needs_html_tools("strip html tags to text"));
+    assert!(needs_html_tools("analyze index.html"));
+    assert!(!needs_html_tools("format my json document"));
+}
+
+#[test]
+fn test_html_tools_parse() {
+    use hematite::tools::html_tools;
+    let out = tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(html_tools::execute(&serde_json::json!({
+            "action": "parse",
+            "html": SAMPLE_HTML
+        })))
+        .expect("parse should succeed");
+    assert!(out.contains("Test Page"), "Expected title, got: {out}");
+    assert!(out.contains("H1") || out.contains("h1"), "Expected H1 heading, got: {out}");
+    assert!(out.contains("A test page") || out.contains("description"), "Expected meta desc, got: {out}");
+}
+
+#[test]
+fn test_html_tools_links() {
+    use hematite::tools::html_tools;
+    let out = tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(html_tools::execute(&serde_json::json!({
+            "action": "links",
+            "html": SAMPLE_HTML
+        })))
+        .expect("links should succeed");
+    assert!(out.contains("example.com"), "Expected external link, got: {out}");
+    assert!(out.contains("/about"), "Expected internal link, got: {out}");
+    assert!(out.contains("EXT") || out.contains("INT"), "Expected link type, got: {out}");
+}
+
+#[test]
+fn test_html_tools_images() {
+    use hematite::tools::html_tools;
+    let out = tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(html_tools::execute(&serde_json::json!({
+            "action": "images",
+            "html": SAMPLE_HTML
+        })))
+        .expect("images should succeed");
+    assert!(out.contains("logo.png"), "Expected logo.png, got: {out}");
+    assert!(out.contains("NO ALT") || out.contains("missing"), "Expected missing alt warning, got: {out}");
+}
+
+#[test]
+fn test_html_tools_validate() {
+    use hematite::tools::html_tools;
+    let out = tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(html_tools::execute(&serde_json::json!({
+            "action": "validate",
+            "html": SAMPLE_HTML
+        })))
+        .expect("validate should succeed");
+    // has doctype, charset, title, lang — should be mostly valid
+    // photo.jpg has no alt, so there's at least one issue
+    assert!(out.contains("image") || out.contains("VALID") || out.contains("alt"), "Got: {out}");
+}
+
+#[test]
+fn test_html_tools_text() {
+    use hematite::tools::html_tools;
+    let out = tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(html_tools::execute(&serde_json::json!({
+            "action": "text",
+            "html": "<p>Hello <b>World</b></p>"
+        })))
+        .expect("text should succeed");
+    assert!(out.contains("Hello") && out.contains("World"), "Expected plain text, got: {out}");
+    assert!(!out.contains("<b>"), "Expected no HTML tags, got: {out}");
+}
+
+#[test]
+fn test_html_tools_stats() {
+    use hematite::tools::html_tools;
+    let out = tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(html_tools::execute(&serde_json::json!({
+            "action": "stats",
+            "html": SAMPLE_HTML
+        })))
+        .expect("stats should succeed");
+    assert!(out.contains("element") || out.contains("Elements"), "Expected element count, got: {out}");
+    assert!(out.contains("depth") || out.contains("Depth"), "Expected nesting depth, got: {out}");
+}
+
+// ── vcf_tools tests ───────────────────────────────────────────────────────────
+
+const SAMPLE_VCF: &str = "BEGIN:VCARD\r\nVERSION:3.0\r\nFN:Alice Smith\r\nN:Smith;Alice;M;Dr.;\r\nORG:Acme Corp\r\nTITLE:Engineer\r\nEMAIL;TYPE=WORK:alice@example.com\r\nEMAIL;TYPE=HOME:alice@home.net\r\nTEL;TYPE=CELL:+1-555-1234\r\nADR;TYPE=WORK:;;123 Main St;Springfield;IL;62701;USA\r\nURL:https://alice.example.com\r\nBDAY:1990-03-15\r\nUID:abc-123-def\r\nEND:VCARD\r\nBEGIN:VCARD\r\nVERSION:3.0\r\nFN:Bob Jones\r\nEMAIL:bob@example.org\r\nTEL:+1-555-5678\r\nEND:VCARD\r\n";
+
+#[test]
+fn test_routing_detects_vcf_tools() {
+    use hematite::agent::routing::needs_vcf_tools;
+    assert!(needs_vcf_tools("parse this vcf file"));
+    assert!(needs_vcf_tools("open contacts.vcf"));
+    assert!(needs_vcf_tools("convert vcard to json"));
+    assert!(needs_vcf_tools("import vcard 3.0 contacts"));
+    assert!(!needs_vcf_tools("open this video file"));
+}
+
+#[test]
+fn test_vcf_tools_parse() {
+    use hematite::tools::vcf_tools;
+    let out = tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(vcf_tools::execute(&serde_json::json!({
+            "action": "parse",
+            "vcf": SAMPLE_VCF
+        })))
+        .expect("parse should succeed");
+    assert!(out.contains("Alice Smith"), "Expected Alice Smith, got: {out}");
+    assert!(out.contains("Acme Corp"), "Expected org, got: {out}");
+    assert!(out.contains("alice@example.com"), "Expected email, got: {out}");
+    assert!(out.contains("Bob Jones"), "Expected second contact, got: {out}");
+}
+
+#[test]
+fn test_vcf_tools_list() {
+    use hematite::tools::vcf_tools;
+    let out = tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(vcf_tools::execute(&serde_json::json!({
+            "action": "list",
+            "vcf": SAMPLE_VCF
+        })))
+        .expect("list should succeed");
+    assert!(out.contains("Alice Smith"), "Expected Alice in list, got: {out}");
+    assert!(out.contains("Bob Jones"), "Expected Bob in list, got: {out}");
+    assert!(out.contains("alice@example.com"), "Expected email, got: {out}");
+}
+
+#[test]
+fn test_vcf_tools_search() {
+    use hematite::tools::vcf_tools;
+    let out = tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(vcf_tools::execute(&serde_json::json!({
+            "action": "search",
+            "vcf": SAMPLE_VCF,
+            "query": "Acme"
+        })))
+        .expect("search should succeed");
+    assert!(out.contains("Alice Smith"), "Expected Alice in results, got: {out}");
+    assert!(!out.contains("Bob Jones"), "Bob should not be in Acme search results, got: {out}");
+}
+
+#[test]
+fn test_vcf_tools_to_json() {
+    use hematite::tools::vcf_tools;
+    let out = tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(vcf_tools::execute(&serde_json::json!({
+            "action": "to_json",
+            "vcf": SAMPLE_VCF
+        })))
+        .expect("to_json should succeed");
+    let parsed: serde_json::Value = serde_json::from_str(&out).expect("Should be valid JSON");
+    assert!(parsed.is_array(), "Expected JSON array");
+    assert_eq!(parsed.as_array().unwrap().len(), 2, "Expected 2 contacts");
+    assert_eq!(parsed[0]["full_name"], "Alice Smith");
+}
+
+#[test]
+fn test_vcf_tools_to_csv() {
+    use hematite::tools::vcf_tools;
+    let out = tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(vcf_tools::execute(&serde_json::json!({
+            "action": "to_csv",
+            "vcf": SAMPLE_VCF
+        })))
+        .expect("to_csv should succeed");
+    assert!(out.starts_with("Full Name"), "Expected CSV header, got: {out}");
+    assert!(out.contains("Alice Smith"), "Expected Alice in CSV, got: {out}");
+    assert!(out.contains("alice@example.com"), "Expected email in CSV, got: {out}");
 }

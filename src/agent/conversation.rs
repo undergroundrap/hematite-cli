@@ -39,10 +39,10 @@ use crate::agent::routing::{
     needs_env_schema_tools, needs_format, needs_fraction_tools, needs_geo_tools,
     needs_geometry_tools, needs_github_actions_tools, needs_github_ops, needs_gitignore_tools,
     needs_glob_tools, needs_graph_tools, needs_graphql_tools, needs_graphviz_tools,
-    needs_har_tools, needs_hash_tools, needs_hex_tools, needs_http_parse_tools, needs_http_request,
-    needs_http_status_tools, needs_ical_tools, needs_id_tools, needs_ini_tools, needs_ip_tools,
-    needs_jq_tools, needs_json_tools, needs_jsonschema_tools, needs_jwt_tools, needs_k8s_tools,
-    needs_keyval_tools, needs_license_tools, needs_line_tools, needs_lint_check,
+    needs_har_tools, needs_hash_tools, needs_hex_tools, needs_html_tools, needs_http_parse_tools,
+    needs_http_request, needs_http_status_tools, needs_ical_tools, needs_id_tools, needs_ini_tools,
+    needs_ip_tools, needs_jq_tools, needs_json_tools, needs_jsonschema_tools, needs_jwt_tools,
+    needs_k8s_tools, needs_keyval_tools, needs_license_tools, needs_line_tools, needs_lint_check,
     needs_lock_file_tools, needs_log_parse_tools, needs_make_tools, needs_markdown_tools,
     needs_matrix_tools, needs_mermaid_tools, needs_mime_tools, needs_money_tools,
     needs_msgpack_tools, needs_nato_tools, needs_net_lookup_tools, needs_nginx_conf_tools,
@@ -55,10 +55,10 @@ use crate::agent::routing::{
     needs_string_metric_tools, needs_systemd_tools, needs_table_tools, needs_tar_tools,
     needs_template_gen, needs_template_tools, needs_terraform_tools, needs_test_run,
     needs_text_tools, needs_time_zone_tools, needs_token_tools, needs_toml_tools, needs_totp_tools,
-    needs_unit_tools, needs_url_tools, needs_uuid_gen, needs_validate_tools, needs_wasm_tools,
-    needs_word_tools, needs_xml_tools, needs_yaml_tools, preferred_host_inspection_topic,
-    preferred_maintainer_workflow, preferred_workspace_workflow, DirectAnswerKind,
-    QueryIntentClass,
+    needs_unit_tools, needs_url_tools, needs_uuid_gen, needs_validate_tools, needs_vcf_tools,
+    needs_wasm_tools, needs_word_tools, needs_xml_tools, needs_yaml_tools,
+    preferred_host_inspection_topic, preferred_maintainer_workflow, preferred_workspace_workflow,
+    DirectAnswerKind, QueryIntentClass,
 };
 use crate::agent::tool_registry::dispatch_builtin_tool;
 use crate::agent::truncation::safe_head;
@@ -6897,6 +6897,41 @@ impl ConversationManager {
                  Example: jsonschema_tools(schema_file: 'schema.json') or \
                  jsonschema_tools(action: 'validate', schema_file: 'schema.json', instance_file: 'data.json') or \
                  jsonschema_tools(action: 'properties', schema: '{\"type\":\"object\",...}')."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_html_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "HTML NOTICE: Use the `html_tools` tool to parse and analyze HTML documents without external utilities. \
+                 Actions: parse (default — overview: title, meta description, element counts, heading structure), \
+                 links (all hyperlinks with href, anchor text, and rel type), \
+                 images (all img tags with src, alt, and dimensions; flags missing alt), \
+                 forms (form elements with method, action, and input fields), \
+                 tables (table structure with row/column counts and cell preview), \
+                 scripts (external and inline script tags), \
+                 validate (accessibility and SEO checks: doctype, charset, lang, title, alt, viewport, h1), \
+                 text (strip all HTML tags to plain text), \
+                 stats (element counts, max nesting depth, top tags). \
+                 Pass 'html' (inline HTML) or 'file' (path to .html/.htm file). \
+                 Example: html_tools(file: 'index.html') or html_tools(action: 'links', file: 'page.html') or \
+                 html_tools(action: 'validate', html: '<html>...</html>')."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_vcf_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "VCF NOTICE: Use the `vcf_tools` tool to parse and analyze vCard contact files (.vcf) without external utilities. \
+                 Actions: parse (default — full contact detail: name, org, title, emails, phones, addresses, URLs, birthday, categories), \
+                 list (summary table — name, primary email, primary phone), \
+                 search (filter contacts by keyword across all fields; pass 'query'), \
+                 to_json (JSON array of all contacts with structured fields), \
+                 to_csv (CSV export with standard contact columns). \
+                 Supports vCard 2.1, 3.0, and 4.0. Handles line unfolding, property parameters (TYPE=WORK,CELL), and structured names. \
+                 Pass 'vcf' (inline vCard content) or 'file' (path to .vcf file). \
+                 Example: vcf_tools(file: 'contacts.vcf') or vcf_tools(action: 'to_csv', file: 'contacts.vcf') or \
+                 vcf_tools(action: 'search', file: 'contacts.vcf', query: 'smith')."
                     .to_string(),
             );
         }
