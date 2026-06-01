@@ -9206,6 +9206,73 @@ pub fn needs_tlv_tools(user_input: &str) -> bool {
     )
 }
 
+pub fn needs_bin_pack_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "pack binary",
+            "unpack binary",
+            "struct pack",
+            "struct unpack",
+            "binary struct",
+            "pack bytes",
+            "unpack bytes",
+            "pack format",
+            "binary format string",
+            "pack values into bytes",
+            "encode binary data",
+            "decode binary data",
+            "binary packing",
+            "binary unpacking",
+            "little-endian pack",
+            "big-endian pack",
+            "byte packing",
+            "byte unpacking",
+            "pack fields",
+            "binary serialization",
+        ],
+    )
+}
+
+pub fn needs_elf_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "elf binary",
+            "elf file",
+            "elf header",
+            ".elf",
+            "executable and linkable",
+            "elf sections",
+            "elf segments",
+            "elf symbols",
+            "elf dynamic",
+            "readelf",
+            "shared library info",
+            ".so file",
+            "linux binary",
+            "linux executable",
+            "program headers",
+            "section headers",
+            "elf entry point",
+            "elf machine type",
+            "elf class",
+            "inspect binary",
+            "analyze binary",
+            "binary header",
+            "object file",
+            ".o file",
+            "kernel module",
+            ".ko file",
+            "dynamic linking",
+            "needed libraries",
+            "elf symbol table",
+        ],
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

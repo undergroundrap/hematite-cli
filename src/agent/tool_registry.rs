@@ -6311,6 +6311,38 @@ pub fn get_tools() -> Vec<ToolDefinition> {
          tlv_tools(action: 'build', items: [{type: 1, value_hex: 'c0a80101'}]).",
         crate::tools::tlv_tools::tlv_tools_schema(),
     ));
+    tools.push(make_tool(
+        "bin_pack_tools",
+        "Pack and unpack binary data using struct-style format strings (similar to Python's struct module) \
+         without external utilities. \
+         Format string: optional endian prefix < (little-endian) or > (big-endian, default), then field specifiers: \
+         b/B (int8/uint8), h/H (int16/uint16), i/I (int32/uint32), q/Q (int64/uint64), \
+         f (float32), d (float64), s (length-prefixed UTF-8 string), x (pad byte). Repeat counts allowed: '4B' = four uint8. \
+         Actions: `pack` (values array → hex bytes, shows per-field offset and hex dump), \
+         `unpack` (hex bytes → typed field values with per-field breakdown), \
+         `describe` (explain each field in the format string with type, size, and endian), \
+         `size` (total fixed byte size of the format, or minimum size for variable string fields). \
+         Optional 'names' array maps positional field names. \
+         Example: bin_pack_tools(format: '<HI', action: 'pack', values: [42, 1000]) or \
+         bin_pack_tools(format: '>BHI', action: 'unpack', hex: '01 00 2a 00 00 03 e8').",
+        crate::tools::bin_pack_tools::bin_pack_tools_schema(),
+    ));
+    tools.push(make_tool(
+        "elf_tools",
+        "Inspect ELF (Executable and Linkable Format) binary files — Linux executables, shared libraries (.so), \
+         object files (.o), and kernel modules (.ko) — without readelf, objdump, or any external tools. \
+         Pass 'file' with the path to an ELF binary, or 'hex' with raw ELF bytes as a hex string. \
+         Actions: `info` (default — ELF class 32/64-bit, endian, OS/ABI, type ET_EXEC/ET_DYN/ET_REL, \
+         machine architecture, entry point address, program and section header counts, interpreter path), \
+         `segments` (program headers — type PT_LOAD/PT_DYNAMIC/PT_INTERP, flags R/W/X, virtual address, file offset, size), \
+         `sections` (section headers — name, type SHT_PROGBITS/SHT_SYMTAB/SHT_STRTAB, flags AXW, address, offset, size), \
+         `symbols` (symbol table entries — value, size, bind LOCAL/GLOBAL/WEAK, type FUNC/OBJECT/NOTYPE, section, name; \
+         tries .symtab first, falls back to .dynsym; up to 200 symbols), \
+         `dynamic` (dynamic linking info — DT_NEEDED shared library list, SONAME, RPATH, RUNPATH, all dynamic entries). \
+         Example: elf_tools(file: '/usr/bin/ls') or elf_tools(action: 'dynamic', file: 'libfoo.so') or \
+         elf_tools(action: 'sections', hex: '7f454c46...').",
+        crate::tools::elf_tools::elf_tools_schema(),
+    ));
     let lsp_defs = crate::tools::lsp_tools::get_lsp_definitions();
     tools.push(make_tool(
         "lsp_search_symbol",
@@ -6481,6 +6513,8 @@ pub async fn dispatch_builtin_tool(
         "vcf_tools" => crate::tools::vcf_tools::execute(args).await,
         "network_header_tools" => crate::tools::network_header_tools::execute(args).await,
         "tlv_tools" => crate::tools::tlv_tools::execute(args).await,
+        "bin_pack_tools" => crate::tools::bin_pack_tools::execute(args).await,
+        "elf_tools" => crate::tools::elf_tools::execute(args).await,
         "http_status_tools" => crate::tools::http_status_tools::execute(args).await,
         "http_parse_tools" => crate::tools::http_parse_tools::execute(args).await,
         "jq_tools" => crate::tools::jq_tools::execute(args).await,

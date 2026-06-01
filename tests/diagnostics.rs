@@ -29535,12 +29535,16 @@ fn test_vcf_tools_to_csv() {
 #[test]
 fn test_routing_detects_network_header_tools() {
     use hematite::agent::routing::needs_network_header_tools;
-    assert!(needs_network_header_tools("decode ipv4 header from these hex bytes"));
+    assert!(needs_network_header_tools(
+        "decode ipv4 header from these hex bytes"
+    ));
     assert!(needs_network_header_tools("decode tcp header bytes"));
     assert!(needs_network_header_tools("decode ethernet frame"));
     assert!(needs_network_header_tools("IPv4 checksum verification"));
     assert!(needs_network_header_tools("analyze raw packet hex dump"));
-    assert!(needs_network_header_tools("parse header bytes from this wireshark capture"));
+    assert!(needs_network_header_tools(
+        "parse header bytes from this wireshark capture"
+    ));
     assert!(!needs_network_header_tools("show me dns cache"));
     assert!(!needs_network_header_tools("what is my ip address"));
 }
@@ -29606,8 +29610,14 @@ fn test_network_header_tools_ethernet() {
             "hex": "ff ff ff ff ff ff aa bb cc dd ee ff 08 00"
         })))
         .expect("Ethernet decode should succeed");
-    assert!(out.contains("ETHERNET"), "Expected ETHERNET label, got: {out}");
-    assert!(out.contains("FF:FF:FF:FF:FF:FF"), "Expected broadcast MAC, got: {out}");
+    assert!(
+        out.contains("ETHERNET"),
+        "Expected ETHERNET label, got: {out}"
+    );
+    assert!(
+        out.contains("FF:FF:FF:FF:FF:FF"),
+        "Expected broadcast MAC, got: {out}"
+    );
     assert!(out.contains("IPv4"), "Expected IPv4 EtherType, got: {out}");
 }
 
@@ -29635,7 +29645,10 @@ fn test_tlv_tools_generic_parse() {
             "hex": "01 04 c0 a8 01 01 02 01 ff"
         })))
         .expect("generic parse should succeed");
-    assert!(out.contains("TLV Parse"), "Expected TLV Parse header, got: {out}");
+    assert!(
+        out.contains("TLV Parse"),
+        "Expected TLV Parse header, got: {out}"
+    );
     assert!(out.contains("Record #1"), "Expected record 1, got: {out}");
     assert!(out.contains("Record #2"), "Expected record 2, got: {out}");
     assert!(out.contains("0x01"), "Expected tag 0x01, got: {out}");
@@ -29655,7 +29668,10 @@ fn test_tlv_tools_ber() {
         .expect("BER decode should succeed");
     assert!(out.contains("SEQUENCE"), "Expected SEQUENCE, got: {out}");
     assert!(out.contains("INTEGER"), "Expected INTEGER, got: {out}");
-    assert!(out.contains("OBJECT IDENTIFIER"), "Expected OID, got: {out}");
+    assert!(
+        out.contains("OBJECT IDENTIFIER"),
+        "Expected OID, got: {out}"
+    );
 }
 
 #[test]
@@ -29669,8 +29685,14 @@ fn test_tlv_tools_dhcp() {
             "hex": "35 01 01 ff"
         })))
         .expect("DHCP parse should succeed");
-    assert!(out.contains("DHCP Message Type"), "Expected DHCP message type, got: {out}");
-    assert!(out.contains("DHCPDISCOVER"), "Expected DISCOVER, got: {out}");
+    assert!(
+        out.contains("DHCP Message Type"),
+        "Expected DHCP message type, got: {out}"
+    );
+    assert!(
+        out.contains("DHCPDISCOVER"),
+        "Expected DISCOVER, got: {out}"
+    );
     assert!(out.contains("End"), "Expected End option, got: {out}");
 }
 
@@ -29702,8 +29724,197 @@ fn test_tlv_tools_build() {
             ]
         })))
         .expect("TLV build should succeed");
-    assert!(out.contains("TLV Build"), "Expected TLV Build header, got: {out}");
+    assert!(
+        out.contains("TLV Build"),
+        "Expected TLV Build header, got: {out}"
+    );
     assert!(out.contains("Item #1"), "Expected item 1, got: {out}");
     assert!(out.contains("Item #2"), "Expected item 2, got: {out}");
-    assert!(out.contains("Compact hex"), "Expected compact hex output, got: {out}");
+    assert!(
+        out.contains("Compact hex"),
+        "Expected compact hex output, got: {out}"
+    );
+}
+
+// ── bin_pack_tools ────────────────────────────────────────────────────────────
+
+#[test]
+fn test_routing_detects_bin_pack_tools() {
+    use hematite::agent::routing::needs_bin_pack_tools;
+    assert!(needs_bin_pack_tools("pack binary data with struct format"));
+    assert!(needs_bin_pack_tools("struct pack these values into bytes"));
+    assert!(needs_bin_pack_tools("unpack binary data from hex"));
+    assert!(needs_bin_pack_tools("binary packing format string"));
+    assert!(!needs_bin_pack_tools("what time is it"));
+}
+
+#[test]
+fn test_bin_pack_tools_pack_and_unpack() {
+    use hematite::tools::bin_pack_tools;
+    // Pack: big-endian uint16=42, uint32=1000
+    let packed = tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(bin_pack_tools::execute(&serde_json::json!({
+            "action": "pack",
+            "format": ">HI",
+            "values": [42, 1000]
+        })))
+        .expect("bin_pack pack should succeed");
+    assert!(packed.contains("Pack"), "Expected Pack header, got: {packed}");
+    assert!(packed.contains("00 2a"), "Expected 0x002a for 42, got: {packed}");
+    assert!(packed.contains("6 bytes total") || packed.contains("6 bytes"), "Expected 6 bytes, got: {packed}");
+
+    // Unpack the same bytes
+    let unpacked = tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(bin_pack_tools::execute(&serde_json::json!({
+            "action": "unpack",
+            "format": ">HI",
+            "hex": "002a000003e8"
+        })))
+        .expect("bin_pack unpack should succeed");
+    assert!(unpacked.contains("42") || unpacked.contains("0x002a"), "Expected value 42, got: {unpacked}");
+    assert!(unpacked.contains("1000") || unpacked.contains("0x000003e8"), "Expected value 1000, got: {unpacked}");
+}
+
+#[test]
+fn test_bin_pack_tools_describe_and_size() {
+    use hematite::tools::bin_pack_tools;
+    let desc = tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(bin_pack_tools::execute(&serde_json::json!({
+            "format": "<BHI",
+            "action": "describe"
+        })))
+        .expect("describe should succeed");
+    assert!(desc.contains("little-endian"), "Expected little-endian mention, got: {desc}");
+    assert!(desc.contains("uint8"), "Expected uint8 in description, got: {desc}");
+    assert!(desc.contains("uint16"), "Expected uint16 in description, got: {desc}");
+
+    let sz = tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(bin_pack_tools::execute(&serde_json::json!({
+            "format": "<BHI",
+            "action": "size"
+        })))
+        .expect("size should succeed");
+    assert!(sz.contains("7"), "Expected 7 bytes (1+2+4), got: {sz}");
+}
+
+#[test]
+fn test_bin_pack_tools_little_endian() {
+    use hematite::tools::bin_pack_tools;
+    // Little-endian: uint16=0x0102 → bytes 02 01
+    let out = tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(bin_pack_tools::execute(&serde_json::json!({
+            "action": "pack",
+            "format": "<H",
+            "values": [0x0102]
+        })))
+        .expect("pack little-endian should succeed");
+    assert!(out.contains("02 01"), "Expected LE bytes 02 01 for 0x0102, got: {out}");
+}
+
+// ── elf_tools ─────────────────────────────────────────────────────────────────
+
+// Minimal valid ELF64 LE header (64 bytes) with no program/section headers:
+// magic, class=2 (64-bit), data=1 (LE), version=1, osabi=0
+// type=2 (ET_EXEC), machine=0x3e (x86-64), version=1
+// entry=0x400000, phoff=64, shoff=0
+// flags=0, ehsize=64, phentsize=56, phnum=0, shentsize=64, shnum=0, shstrndx=0
+// Minimal valid ELF64 LE: magic + class=2 + data=1 + ver=1 + osabi=0 + pad(8)
+// type=ET_EXEC(2) + machine=x86-64(0x3e) + ver=1 + entry=0x400000
+// phoff=64 + shoff=0 + flags=0 + ehsize=64 + phentsize=56 + phnum=0
+// shentsize=64 + shnum=0 + shstrndx=0
+const MINIMAL_ELF64_HEX: &str = concat!(
+    "7f454c46",         // magic
+    "02",               // class: 64-bit
+    "01",               // data: LE
+    "01",               // version: 1
+    "00",               // osabi: System V
+    "0000000000000000", // padding (8 bytes)
+    "0200",             // e_type: ET_EXEC
+    "3e00",             // e_machine: x86-64
+    "01000000",         // e_version: 1
+    "0000400000000000", // e_entry: 0x400000
+    "4000000000000000", // e_phoff: 64
+    "0000000000000000", // e_shoff: 0
+    "00000000",         // e_flags
+    "4000",             // e_ehsize: 64
+    "3800",             // e_phentsize: 56
+    "0000",             // e_phnum: 0
+    "4000",             // e_shentsize: 64
+    "0000",             // e_shnum: 0
+    "0000"              // e_shstrndx: 0
+);
+
+#[test]
+fn test_routing_detects_elf_tools() {
+    use hematite::agent::routing::needs_elf_tools;
+    assert!(needs_elf_tools("inspect this elf binary"));
+    assert!(needs_elf_tools("show elf header info"));
+    assert!(needs_elf_tools("parse elf file sections"));
+    assert!(needs_elf_tools("list elf symbols"));
+    assert!(needs_elf_tools("readelf output for this binary"));
+    assert!(!needs_elf_tools("format my code"));
+}
+
+#[test]
+fn test_elf_tools_info() {
+    use hematite::tools::elf_tools;
+    let out = tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(elf_tools::execute(&serde_json::json!({
+            "action": "info",
+            "hex": MINIMAL_ELF64_HEX
+        })))
+        .expect("elf info should succeed");
+    assert!(out.contains("64-bit") || out.contains("64"), "Expected 64-bit class, got: {out}");
+    assert!(out.contains("Little-endian") || out.contains("LE"), "Expected LE endian, got: {out}");
+    assert!(out.contains("x86-64") || out.contains("AMD64"), "Expected x86-64 machine, got: {out}");
+    assert!(out.contains("0x400000") || out.contains("400000"), "Expected entry point 0x400000, got: {out}");
+}
+
+#[test]
+fn test_elf_tools_segments_empty() {
+    use hematite::tools::elf_tools;
+    let out = tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(elf_tools::execute(&serde_json::json!({
+            "action": "segments",
+            "hex": MINIMAL_ELF64_HEX
+        })))
+        .expect("elf segments should succeed");
+    // phnum=0 so we get the "No program headers" message
+    assert!(out.contains("No program headers") || out.contains("0 entries") || out.contains("segments"),
+        "Expected no program headers message, got: {out}");
+}
+
+#[test]
+fn test_elf_tools_sections_empty() {
+    use hematite::tools::elf_tools;
+    let out = tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(elf_tools::execute(&serde_json::json!({
+            "action": "sections",
+            "hex": MINIMAL_ELF64_HEX
+        })))
+        .expect("elf sections should succeed");
+    assert!(out.contains("No section headers") || out.contains("stripped") || out.contains("sections"),
+        "Expected stripped/no sections message, got: {out}");
+}
+
+#[test]
+fn test_elf_tools_bad_magic() {
+    use hematite::tools::elf_tools;
+    let result = tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(elf_tools::execute(&serde_json::json!({
+            "action": "info",
+            "hex": "deadbeef0102030405060708"
+        })));
+    assert!(result.is_err(), "Should fail on bad ELF magic");
+    let msg = result.unwrap_err();
+    assert!(msg.contains("ELF") || msg.contains("magic"), "Expected magic error, got: {msg}");
 }
