@@ -31718,3 +31718,168 @@ fn test_vector_angle_perpendicular() {
         "Expected 90 degree angle, got: {out}"
     );
 }
+
+// ── trie_tools tests ─────────────────────────────────────────────────────────
+
+#[test]
+fn test_routing_detects_trie_tools() {
+    use hematite::agent::routing::needs_trie_tools;
+    assert!(needs_trie_tools("build a trie from these words"));
+    assert!(needs_trie_tools("autocomplete words with prefix ap"));
+    assert!(needs_trie_tools("prefix search in a trie"));
+    assert!(!needs_trie_tools("list all files in the project"));
+}
+
+#[test]
+fn test_trie_build_basic() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::trie_tools::execute(
+            &serde_json::json!({"action": "build", "words": ["apple", "app", "application"]}),
+        ))
+        .expect("execute should succeed");
+    assert!(out.contains("Words:"), "Expected word count, got: {out}");
+    assert!(out.contains('*'), "Expected end-of-word marker, got: {out}");
+}
+
+#[test]
+fn test_trie_search_found() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::trie_tools::execute(
+            &serde_json::json!({"action": "search", "words": ["hello", "world"], "query": "hello"}),
+        ))
+        .expect("execute should succeed");
+    assert!(out.contains("FOUND"), "Expected FOUND, got: {out}");
+}
+
+#[test]
+fn test_trie_autocomplete() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::trie_tools::execute(
+            &serde_json::json!({"action": "autocomplete", "words": ["apple", "app", "application", "banana"], "query": "app"}),
+        ))
+        .expect("execute should succeed");
+    assert!(
+        out.contains("apple"),
+        "Expected apple in completions, got: {out}"
+    );
+    assert!(
+        out.contains("application"),
+        "Expected application in completions, got: {out}"
+    );
+}
+
+#[test]
+fn test_trie_count() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::trie_tools::execute(
+            &serde_json::json!({"action": "count", "words": ["cat", "car", "card"]}),
+        ))
+        .expect("execute should succeed");
+    assert!(out.contains("Words: 3"), "Expected 3 words, got: {out}");
+}
+
+#[test]
+fn test_trie_suggest() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::trie_tools::execute(
+            &serde_json::json!({"action": "suggest", "words": ["hello", "help", "world"], "query": "helo"}),
+        ))
+        .expect("execute should succeed");
+    // "helo" is edit distance 1 from "hello"
+    assert!(
+        out.contains("hello") || out.contains("distance"),
+        "Expected suggestion for 'helo', got: {out}"
+    );
+}
+
+// ── stack_tools tests ─────────────────────────────────────────────────────────
+
+#[test]
+fn test_routing_detects_stack_tools() {
+    use hematite::agent::routing::needs_stack_tools;
+    assert!(needs_stack_tools("simulate a stack data structure"));
+    assert!(needs_stack_tools("evaluate rpn expression 3 4 +"));
+    assert!(needs_stack_tools("check bracket balance in code"));
+    assert!(!needs_stack_tools("what is the history of computing"));
+}
+
+#[test]
+fn test_stack_push_pop() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::stack_tools::execute(
+            &serde_json::json!({"action": "stack", "operations": ["push 10", "push 20", "pop"]}),
+        ))
+        .expect("execute should succeed");
+    assert!(out.contains("20"), "Expected popped value 20, got: {out}");
+}
+
+#[test]
+fn test_stack_evaluate_rpn() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::stack_tools::execute(
+            &serde_json::json!({"action": "evaluate", "expression": "3 4 + 2 *"}),
+        ))
+        .expect("execute should succeed");
+    // (3+4)*2 = 14
+    assert!(out.contains("14"), "Expected result 14, got: {out}");
+}
+
+#[test]
+fn test_stack_evaluate_infix() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::stack_tools::execute(
+            // parentheses force the infix detection path
+            &serde_json::json!({"action": "evaluate", "expression": "(2 + 3) * 4"}),
+        ))
+        .expect("execute should succeed");
+    // (2+3)*4 = 20
+    assert!(out.contains("20"), "Expected result 20, got: {out}");
+}
+
+#[test]
+fn test_stack_balance_valid() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::stack_tools::execute(
+            &serde_json::json!({"action": "balance", "expression": "({[]})"}),
+        ))
+        .expect("execute should succeed");
+    assert!(
+        out.to_lowercase().contains("balanced"),
+        "Expected balanced, got: {out}"
+    );
+}
+
+#[test]
+fn test_stack_balance_invalid() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::stack_tools::execute(
+            &serde_json::json!({"action": "balance", "expression": "([)]"}),
+        ))
+        .expect("execute should succeed");
+    assert!(
+        !out.to_lowercase().contains("✓ balanced"),
+        "Expected unbalanced result, got: {out}"
+    );
+}
+
+#[test]
+fn test_queue_enqueue_dequeue() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::stack_tools::execute(
+            &serde_json::json!({"action": "queue", "operations": ["enqueue a", "enqueue b", "dequeue"]}),
+        ))
+        .expect("execute should succeed");
+    // FIFO: first enqueued 'a' is dequeued first
+    assert!(out.contains('a'), "Expected dequeued value 'a', got: {out}");
+}

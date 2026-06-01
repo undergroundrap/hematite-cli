@@ -6603,6 +6603,31 @@ pub fn get_tools() -> Vec<ToolDefinition> {
          Example: vector_tools(action: 'dot', a: [1,2,3], b: [4,5,6]) or vector_tools(v: [3,4]).",
         crate::tools::vector_tools::vector_tools_schema(),
     ));
+    tools.push(make_tool(
+        "trie_tools",
+        "Trie (prefix tree) data structure operations without external utilities. \
+         Actions: build (default — insert words, render ASCII tree; * = end of word), \
+         search (exact match lookup; pass 'query'), \
+         prefix (all words with a given prefix; 'query', optional 'limit'), \
+         autocomplete (ranked completions for a prefix; 'query', optional 'limit'), \
+         count (node count, word count, max depth), \
+         suggest (typo-tolerant suggestions within edit distance 1–2; 'query'). \
+         Pass 'words' as a JSON array or space/comma-separated string. Optional: case_insensitive, limit. \
+         Example: trie_tools(action: 'autocomplete', words: ['apple','app','application'], query: 'app').",
+        crate::tools::trie_tools::trie_tools_schema(),
+    ));
+    tools.push(make_tool(
+        "stack_tools",
+        "Stack, queue, deque, and expression evaluation without external utilities. \
+         Actions: stack (default — LIFO with push/pop/peek/size/clear; pass 'ops' as string array), \
+         queue (FIFO with enqueue/dequeue/peek/size/clear), \
+         deque (double-ended queue with push_front/push_back/pop_front/pop_back/peek_front/peek_back), \
+         evaluate (infix or RPN expression evaluator with step trace; auto-detects format), \
+         balance (bracket/parenthesis balance check for (), [], {}; pass 'expression'). \
+         Pass 'initial' as a JSON array to pre-populate. \
+         Example: stack_tools(action: 'evaluate', expression: '3 4 + 2 *') or stack_tools(action: 'balance', expression: '({[]})').",
+        crate::tools::stack_tools::stack_tools_schema(),
+    ));
     let lsp_defs = crate::tools::lsp_tools::get_lsp_definitions();
     tools.push(make_tool(
         "lsp_search_symbol",
@@ -6793,6 +6818,8 @@ pub async fn dispatch_builtin_tool(
         "logic_tools" => crate::tools::logic_tools::execute(args).await,
         "periodic_tools" => crate::tools::periodic_tools::execute(args).await,
         "vector_tools" => crate::tools::vector_tools::execute(args).await,
+        "trie_tools" => crate::tools::trie_tools::execute(args).await,
+        "stack_tools" => crate::tools::stack_tools::execute(args).await,
         "http_status_tools" => crate::tools::http_status_tools::execute(args).await,
         "http_parse_tools" => crate::tools::http_parse_tools::execute(args).await,
         "jq_tools" => crate::tools::jq_tools::execute(args).await,

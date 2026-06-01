@@ -9837,6 +9837,61 @@ pub fn needs_vector_tools(user_input: &str) -> bool {
     )
 }
 
+pub fn needs_trie_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "trie",
+            "prefix tree",
+            "autocomplete words",
+            "word autocomplete",
+            "prefix search",
+            "words with prefix",
+            "build trie",
+            "trie search",
+            "trie autocomplete",
+            "trie structure",
+            "prefix lookup",
+            "typo suggestions",
+            "edit distance suggest",
+            "insert words trie",
+            "word prefix",
+        ],
+    )
+}
+
+pub fn needs_stack_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "stack data structure",
+            "lifo stack",
+            "push and pop",
+            "stack operations",
+            "simulate stack",
+            "queue data structure",
+            "fifo queue",
+            "enqueue dequeue",
+            "queue operations",
+            "deque data structure",
+            "double-ended queue",
+            "evaluate expression",
+            "rpn expression",
+            "reverse polish",
+            "infix expression",
+            "shunting yard",
+            "bracket balance",
+            "parenthesis balance",
+            "balanced brackets",
+            "check parentheses",
+            "expression evaluation",
+            "postfix expression",
+        ],
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

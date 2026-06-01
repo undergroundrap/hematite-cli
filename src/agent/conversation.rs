@@ -55,15 +55,16 @@ use crate::agent::routing::{
     needs_printf_tools, needs_proto_tools, needs_regex_tools, needs_robots_txt_tools,
     needs_rss_tools, needs_scientific_compute, needs_secret_scan, needs_semver_tools,
     needs_sitemap_tools, needs_size_tools, needs_sql_format_tools, needs_sql_migrate_tools,
-    needs_sql_tools, needs_sqlite_tools, needs_ssh_config_tools, needs_stat_tools,
-    needs_string_metric_tools, needs_systemd_tools, needs_table_tools, needs_tar_tools,
-    needs_template_gen, needs_template_tools, needs_terraform_tools, needs_test_run,
-    needs_text_align_tools, needs_text_extract_tools, needs_text_tools, needs_time_zone_tools,
-    needs_tlv_tools, needs_todo_tools, needs_token_tools, needs_toml_tools, needs_totp_tools,
-    needs_unicode_tools, needs_unit_tools, needs_url_tools, needs_uuid_gen, needs_validate_tools,
-    needs_vcf_tools, needs_vector_tools, needs_wasm_tools, needs_word_tools, needs_xml_tools,
-    needs_yaml_tools, preferred_host_inspection_topic, preferred_maintainer_workflow,
-    preferred_workspace_workflow, DirectAnswerKind, QueryIntentClass,
+    needs_sql_tools, needs_sqlite_tools, needs_ssh_config_tools, needs_stack_tools,
+    needs_stat_tools, needs_string_metric_tools, needs_systemd_tools, needs_table_tools,
+    needs_tar_tools, needs_template_gen, needs_template_tools, needs_terraform_tools,
+    needs_test_run, needs_text_align_tools, needs_text_extract_tools, needs_text_tools,
+    needs_time_zone_tools, needs_tlv_tools, needs_todo_tools, needs_token_tools, needs_toml_tools,
+    needs_totp_tools, needs_trie_tools, needs_unicode_tools, needs_unit_tools, needs_url_tools,
+    needs_uuid_gen, needs_validate_tools, needs_vcf_tools, needs_vector_tools, needs_wasm_tools,
+    needs_word_tools, needs_xml_tools, needs_yaml_tools, preferred_host_inspection_topic,
+    preferred_maintainer_workflow, preferred_workspace_workflow, DirectAnswerKind,
+    QueryIntentClass,
 };
 use crate::agent::tool_registry::dispatch_builtin_tool;
 use crate::agent::truncation::safe_head;
@@ -7258,6 +7259,36 @@ impl ConversationManager {
                  project (scalar + vector projection of a onto b; 'a' and 'b'), \
                  reflect (reflect v over normal n; 'v' and 'n'). \
                  Example: vector_tools(action: 'dot', a: [1,2,3], b: [4,5,6]) or vector_tools(v: [3,4])."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_trie_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "TRIE NOTICE: Use the `trie_tools` tool for prefix tree operations without external utilities. \
+                 Pass 'words' as a JSON array or space/comma-separated string. \
+                 Actions: build (default — insert words, show ASCII tree structure; * marks end of word), \
+                 search (exact match lookup; pass 'query'), \
+                 prefix (all words with a given prefix; pass 'query'), \
+                 autocomplete (ranked completions for a prefix; 'query', optional 'limit'), \
+                 count (node count, word count, max depth), \
+                 suggest (typo-tolerant suggestions within edit distance 1–2; 'query'). \
+                 Optional: case_insensitive: true, limit: N. \
+                 Example: trie_tools(action: 'autocomplete', words: ['apple','app','application'], query: 'app')."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_stack_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "STACK/QUEUE NOTICE: Use the `stack_tools` tool for stack, queue, deque, and expression evaluation without external utilities. \
+                 Actions: stack (default — LIFO stack with push/pop/peek/size/clear trace; pass 'ops' as string array), \
+                 queue (FIFO queue with enqueue/dequeue/peek/size/clear trace), \
+                 deque (double-ended queue with push_front/push_back/pop_front/pop_back/peek_front/peek_back), \
+                 evaluate (infix or RPN expression evaluator with step trace; auto-detects format; pass 'expression'), \
+                 balance (bracket/parenthesis balance check for (), [], {}; pass 'expression'). \
+                 Pass 'initial' as a JSON array to pre-populate the data structure. \
+                 Example: stack_tools(action: 'evaluate', expression: '3 4 + 2 *') or stack_tools(action: 'balance', expression: '({[]})')."
                     .to_string(),
             );
         }
