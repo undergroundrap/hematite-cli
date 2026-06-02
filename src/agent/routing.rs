@@ -9837,6 +9837,62 @@ pub fn needs_vector_tools(user_input: &str) -> bool {
     )
 }
 
+pub fn needs_sort_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "sort this list",
+            "sort these numbers",
+            "sort algorithm",
+            "sorting algorithm",
+            "bubble sort",
+            "merge sort",
+            "quick sort",
+            "heap sort",
+            "insertion sort",
+            "selection sort",
+            "shell sort",
+            "counting sort",
+            "radix sort",
+            "compare sort",
+            "sort and compare",
+            "sorting steps",
+            "binary search trace",
+            "sort step by step",
+            "sort visualization",
+            "best sorting algorithm",
+            "sort complexity",
+        ],
+    )
+}
+
+pub fn needs_compression_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "run-length encoding",
+            "rle encode",
+            "rle decode",
+            "lz77",
+            "lz compression",
+            "compress this text",
+            "text compression",
+            "huffman coding",
+            "huffman encoding",
+            "huffman tree",
+            "shannon entropy",
+            "compressibility",
+            "compression ratio",
+            "encode with rle",
+            "compress with lz",
+            "entropy of text",
+            "lossless compression",
+        ],
+    )
+}
+
 pub fn needs_trie_tools(user_input: &str) -> bool {
     let lower = user_input.to_lowercase();
     contains_any(

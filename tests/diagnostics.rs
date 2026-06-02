@@ -31883,3 +31883,184 @@ fn test_queue_enqueue_dequeue() {
     // FIFO: first enqueued 'a' is dequeued first
     assert!(out.contains('a'), "Expected dequeued value 'a', got: {out}");
 }
+
+// ── sort_tools tests ──────────────────────────────────────────────────────────
+
+#[test]
+fn test_routing_detects_sort_tools() {
+    use hematite::agent::routing::needs_sort_tools;
+    assert!(needs_sort_tools("sort this list with bubble sort"));
+    assert!(needs_sort_tools("compare sorting algorithms"));
+    assert!(needs_sort_tools("merge sort step by step"));
+    assert!(!needs_sort_tools("sort my email alphabetically"));
+}
+
+#[test]
+fn test_sort_bubble() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::sort_tools::execute(
+            &serde_json::json!({"action": "sort", "algorithm": "bubble", "items": [5, 3, 8, 1, 9, 2]}),
+        ))
+        .expect("execute should succeed");
+    assert!(
+        out.contains("[1, 2, 3, 5, 8, 9]"),
+        "Expected sorted output, got: {out}"
+    );
+    assert!(
+        out.contains("bubble"),
+        "Expected algorithm name, got: {out}"
+    );
+}
+
+#[test]
+fn test_sort_merge() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::sort_tools::execute(
+            &serde_json::json!({"action": "sort", "algorithm": "merge", "items": [4, 2, 7, 1]}),
+        ))
+        .expect("execute should succeed");
+    assert!(
+        out.contains("[1, 2, 4, 7]"),
+        "Expected sorted output, got: {out}"
+    );
+}
+
+#[test]
+fn test_sort_compare() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::sort_tools::execute(
+            &serde_json::json!({"action": "compare", "items": [5, 3, 8, 1]}),
+        ))
+        .expect("execute should succeed");
+    assert!(
+        out.contains("bubble"),
+        "Expected bubble in comparison, got: {out}"
+    );
+    assert!(
+        out.contains("merge"),
+        "Expected merge in comparison, got: {out}"
+    );
+    assert!(
+        out.contains("Comparisons"),
+        "Expected Comparisons header, got: {out}"
+    );
+}
+
+#[test]
+fn test_sort_analyze() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::sort_tools::execute(
+            &serde_json::json!({"action": "analyze", "items": [1, 2, 3, 4, 5]}),
+        ))
+        .expect("execute should succeed");
+    assert!(
+        out.contains("already sorted") || out.contains("sorted"),
+        "Expected sorted classification, got: {out}"
+    );
+}
+
+#[test]
+fn test_sort_binary_search_found() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::sort_tools::execute(
+            &serde_json::json!({"action": "search", "items": [1, 3, 5, 7, 9], "target": 7}),
+        ))
+        .expect("execute should succeed");
+    assert!(out.contains("Found 7"), "Expected Found 7, got: {out}");
+}
+
+// ── compression_tools tests ───────────────────────────────────────────────────
+
+#[test]
+fn test_routing_detects_compression_tools() {
+    use hematite::agent::routing::needs_compression_tools;
+    assert!(needs_compression_tools("rle encode this text"));
+    assert!(needs_compression_tools("huffman coding example"));
+    assert!(needs_compression_tools("shannon entropy of text"));
+    assert!(!needs_compression_tools("compress my video file"));
+}
+
+#[test]
+fn test_compression_analyze() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::compression_tools::execute(
+            &serde_json::json!({"action": "analyze", "text": "AAABBBCCCCDDDDDDDD"}),
+        ))
+        .expect("execute should succeed");
+    assert!(
+        out.contains("entropy") || out.contains("Entropy"),
+        "Expected entropy, got: {out}"
+    );
+    assert!(
+        out.contains("Compressibility") || out.contains("compressib"),
+        "Expected compressibility, got: {out}"
+    );
+}
+
+#[test]
+fn test_compression_rle_encode() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::compression_tools::execute(
+            &serde_json::json!({"action": "rle", "text": "AAABBBCC"}),
+        ))
+        .expect("execute should succeed");
+    assert!(
+        out.contains("3A") || out.contains("3B") || out.contains("2C"),
+        "Expected RLE output, got: {out}"
+    );
+}
+
+#[test]
+fn test_compression_rle_decode() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::compression_tools::execute(
+            &serde_json::json!({"action": "rle", "op": "decode", "encoded": "3A2B4C"}),
+        ))
+        .expect("execute should succeed");
+    // 3A = AAA, 2B = BB, 4C = CCCC → AAABBCCCC
+    assert!(
+        out.contains("AAABBCCCC"),
+        "Expected decoded string, got: {out}"
+    );
+}
+
+#[test]
+fn test_compression_huffman() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::compression_tools::execute(
+            &serde_json::json!({"action": "huffman", "text": "aabbbbcccccccc"}),
+        ))
+        .expect("execute should succeed");
+    assert!(
+        out.contains("Huffman"),
+        "Expected Huffman header, got: {out}"
+    );
+    assert!(
+        out.contains("bits") || out.contains("Bits"),
+        "Expected bit count, got: {out}"
+    );
+}
+
+#[test]
+fn test_compression_lz() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::compression_tools::execute(
+            &serde_json::json!({"action": "lz", "text": "abcabcabcabc"}),
+        ))
+        .expect("execute should succeed");
+    assert!(out.contains("LZ77"), "Expected LZ77 header, got: {out}");
+    assert!(
+        out.contains("REF") || out.contains("LIT"),
+        "Expected token stream, got: {out}"
+    );
+}

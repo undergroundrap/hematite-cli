@@ -6617,6 +6617,27 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         crate::tools::trie_tools::trie_tools_schema(),
     ));
     tools.push(make_tool(
+        "sort_tools",
+        "Sorting algorithm simulator and comparator without external utilities. \
+         Actions: sort (default — sort 'items' with 'algorithm': bubble/selection/insertion/merge/quick/heap/shell/counting/radix; step trace + complexity), \
+         compare (run multiple algorithms on the same list; pass 'algorithms' array), \
+         analyze (classify input as sorted/random/nearly-sorted and recommend best algorithm), \
+         search (binary search with step trace; pass 'target'). \
+         Optional: show_steps (default true), max_steps (default 20). \
+         Example: sort_tools(items: [5,3,8,1], algorithm: 'merge') or sort_tools(action: 'compare', items: [5,3,8,1]).",
+        crate::tools::sort_tools::sort_tools_schema(),
+    ));
+    tools.push(make_tool(
+        "compression_tools",
+        "Lossless text compression and analysis without external utilities. \
+         Actions: analyze (default — Shannon entropy, compressibility %, theoretical Huffman minimum, char frequency; pass 'text'), \
+         rle (Run-Length Encoding; 'op': encode/decode; 'text' or 'encoded'), \
+         lz (LZ77-inspired sliding-window compression with token stream; optional 'window'/'lookahead'; pass 'text'), \
+         huffman (Huffman coding — symbol frequency table, optimal code lengths, compressed size estimate; pass 'text'). \
+         Example: compression_tools(text: 'AAABBBCC') or compression_tools(action: 'huffman', text: 'hello world').",
+        crate::tools::compression_tools::compression_tools_schema(),
+    ));
+    tools.push(make_tool(
         "stack_tools",
         "Stack, queue, deque, and expression evaluation without external utilities. \
          Actions: stack (default — LIFO with push/pop/peek/size/clear; pass 'ops' as string array), \
@@ -6820,6 +6841,8 @@ pub async fn dispatch_builtin_tool(
         "vector_tools" => crate::tools::vector_tools::execute(args).await,
         "trie_tools" => crate::tools::trie_tools::execute(args).await,
         "stack_tools" => crate::tools::stack_tools::execute(args).await,
+        "sort_tools" => crate::tools::sort_tools::execute(args).await,
+        "compression_tools" => crate::tools::compression_tools::execute(args).await,
         "http_status_tools" => crate::tools::http_status_tools::execute(args).await,
         "http_parse_tools" => crate::tools::http_parse_tools::execute(args).await,
         "jq_tools" => crate::tools::jq_tools::execute(args).await,

@@ -32,8 +32,8 @@ use crate::agent::routing::{
     needs_bencode_tools, needs_bin_pack_tools, needs_binary_tools, needs_calc_tools,
     needs_cbor_tools, needs_changelog_gen, needs_changelog_tools, needs_char_tools,
     needs_checksum_tools, needs_cipher_tools, needs_code_metrics, needs_color_tools,
-    needs_computation_sandbox, needs_crash_debug, needs_cron_tools, needs_csp_tools,
-    needs_css_tools, needs_csv_tools, needs_data_gen_tools, needs_date_tools,
+    needs_compression_tools, needs_computation_sandbox, needs_crash_debug, needs_cron_tools,
+    needs_csp_tools, needs_css_tools, needs_csv_tools, needs_data_gen_tools, needs_date_tools,
     needs_dependency_audit, needs_diff_tools, needs_dns_tools, needs_docker_compose_tools,
     needs_docker_ops, needs_dockerfile_tools, needs_dotenv_tools, needs_duration_tools,
     needs_elf_tools, needs_email_tools, needs_encode_tools, needs_env_diff, needs_env_schema_tools,
@@ -54,17 +54,17 @@ use crate::agent::routing::{
     needs_path_tools, needs_pem_tools, needs_periodic_tools, needs_plist_tools, needs_port_check,
     needs_printf_tools, needs_proto_tools, needs_regex_tools, needs_robots_txt_tools,
     needs_rss_tools, needs_scientific_compute, needs_secret_scan, needs_semver_tools,
-    needs_sitemap_tools, needs_size_tools, needs_sql_format_tools, needs_sql_migrate_tools,
-    needs_sql_tools, needs_sqlite_tools, needs_ssh_config_tools, needs_stack_tools,
-    needs_stat_tools, needs_string_metric_tools, needs_systemd_tools, needs_table_tools,
-    needs_tar_tools, needs_template_gen, needs_template_tools, needs_terraform_tools,
-    needs_test_run, needs_text_align_tools, needs_text_extract_tools, needs_text_tools,
-    needs_time_zone_tools, needs_tlv_tools, needs_todo_tools, needs_token_tools, needs_toml_tools,
-    needs_totp_tools, needs_trie_tools, needs_unicode_tools, needs_unit_tools, needs_url_tools,
-    needs_uuid_gen, needs_validate_tools, needs_vcf_tools, needs_vector_tools, needs_wasm_tools,
-    needs_word_tools, needs_xml_tools, needs_yaml_tools, preferred_host_inspection_topic,
-    preferred_maintainer_workflow, preferred_workspace_workflow, DirectAnswerKind,
-    QueryIntentClass,
+    needs_sitemap_tools, needs_size_tools, needs_sort_tools, needs_sql_format_tools,
+    needs_sql_migrate_tools, needs_sql_tools, needs_sqlite_tools, needs_ssh_config_tools,
+    needs_stack_tools, needs_stat_tools, needs_string_metric_tools, needs_systemd_tools,
+    needs_table_tools, needs_tar_tools, needs_template_gen, needs_template_tools,
+    needs_terraform_tools, needs_test_run, needs_text_align_tools, needs_text_extract_tools,
+    needs_text_tools, needs_time_zone_tools, needs_tlv_tools, needs_todo_tools, needs_token_tools,
+    needs_toml_tools, needs_totp_tools, needs_trie_tools, needs_unicode_tools, needs_unit_tools,
+    needs_url_tools, needs_uuid_gen, needs_validate_tools, needs_vcf_tools, needs_vector_tools,
+    needs_wasm_tools, needs_word_tools, needs_xml_tools, needs_yaml_tools,
+    preferred_host_inspection_topic, preferred_maintainer_workflow, preferred_workspace_workflow,
+    DirectAnswerKind, QueryIntentClass,
 };
 use crate::agent::tool_registry::dispatch_builtin_tool;
 use crate::agent::truncation::safe_head;
@@ -7289,6 +7289,31 @@ impl ConversationManager {
                  balance (bracket/parenthesis balance check for (), [], {}; pass 'expression'). \
                  Pass 'initial' as a JSON array to pre-populate the data structure. \
                  Example: stack_tools(action: 'evaluate', expression: '3 4 + 2 *') or stack_tools(action: 'balance', expression: '({[]})')."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_sort_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "SORT NOTICE: Use the `sort_tools` tool for sorting algorithm simulation and comparison without external utilities. \
+                 Actions: sort (default — sort 'items' list with chosen 'algorithm'; shows step trace and complexity; algorithms: bubble/selection/insertion/merge/quick/heap/shell/counting/radix), \
+                 compare (run multiple algorithms on the same list; pass 'algorithms' array), \
+                 analyze (classify input and recommend best algorithm), \
+                 search (binary search with step trace; pass 'target'). \
+                 Optional: show_steps (default true), max_steps (default 20). \
+                 Example: sort_tools(items: [5,3,8,1], algorithm: 'merge') or sort_tools(action: 'compare', items: [5,3,8,1])."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_compression_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "COMPRESSION NOTICE: Use the `compression_tools` tool for lossless text compression and analysis without external utilities. \
+                 Actions: analyze (default — Shannon entropy, compressibility %, theoretical Huffman minimum, character frequency; pass 'text'), \
+                 rle (Run-Length Encoding; 'op': encode (default) or decode; pass 'text' or 'encoded'), \
+                 lz (LZ77-inspired sliding-window compression; 'op': encode; optional 'window' and 'lookahead'; pass 'text'), \
+                 huffman (Huffman coding — symbol frequency table, optimal code lengths, compressed size estimate; pass 'text'). \
+                 Example: compression_tools(text: 'AAABBBCC') or compression_tools(action: 'huffman', text: 'hello world')."
                     .to_string(),
             );
         }
