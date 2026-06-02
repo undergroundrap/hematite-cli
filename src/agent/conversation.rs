@@ -52,19 +52,19 @@ use crate::agent::routing::{
     needs_markdown_gen_tools, needs_markdown_tools, needs_matrix_tools, needs_mechanics_tools,
     needs_mermaid_tools, needs_mime_tools, needs_money_tools, needs_msgpack_tools,
     needs_music_tools, needs_nato_tools, needs_net_lookup_tools, needs_network_header_tools,
-    needs_nginx_conf_tools, needs_notebook_tools, needs_number_sequence_tools,
+    needs_nginx_conf_tools, needs_notebook_tools, needs_nuclear_tools, needs_number_sequence_tools,
     needs_number_theory_tools, needs_number_tools, needs_number_words_tools, needs_openapi_tools,
     needs_optics_tools, needs_package_json_tools, needs_password_gen, needs_path_tools,
     needs_pem_tools, needs_periodic_tools, needs_physics_tools, needs_plist_tools,
     needs_port_check, needs_printf_tools, needs_proto_tools, needs_quantum_tools,
-    needs_regex_tools, needs_robots_txt_tools, needs_rss_tools, needs_scientific_compute,
-    needs_secret_scan, needs_semver_tools, needs_signal_tools, needs_sitemap_tools,
-    needs_size_tools, needs_sort_tools, needs_sql_format_tools, needs_sql_migrate_tools,
-    needs_sql_tools, needs_sqlite_tools, needs_ssh_config_tools, needs_stack_tools,
-    needs_stat_tools, needs_string_metric_tools, needs_systemd_tools, needs_table_tools,
-    needs_tar_tools, needs_template_gen, needs_template_tools, needs_terraform_tools,
-    needs_test_run, needs_text_align_tools, needs_text_extract_tools, needs_text_tools,
-    needs_thermo_tools, needs_time_zone_tools, needs_tlv_tools, needs_todo_tools,
+    needs_regex_tools, needs_relativity_tools, needs_robots_txt_tools, needs_rss_tools,
+    needs_scientific_compute, needs_secret_scan, needs_semver_tools, needs_signal_tools,
+    needs_sitemap_tools, needs_size_tools, needs_sort_tools, needs_sql_format_tools,
+    needs_sql_migrate_tools, needs_sql_tools, needs_sqlite_tools, needs_ssh_config_tools,
+    needs_stack_tools, needs_stat_tools, needs_string_metric_tools, needs_systemd_tools,
+    needs_table_tools, needs_tar_tools, needs_template_gen, needs_template_tools,
+    needs_terraform_tools, needs_test_run, needs_text_align_tools, needs_text_extract_tools,
+    needs_text_tools, needs_thermo_tools, needs_time_zone_tools, needs_tlv_tools, needs_todo_tools,
     needs_token_tools, needs_toml_tools, needs_totp_tools, needs_trie_tools, needs_unicode_tools,
     needs_unit_tools, needs_url_tools, needs_uuid_gen, needs_validate_tools, needs_vcf_tools,
     needs_vector_tools, needs_wasm_tools, needs_web_manifest_tools, needs_word_tools,
@@ -7558,6 +7558,41 @@ impl ConversationManager {
                  poynting (Poynting vector and energy density — pass E_field and B_field). \
                  Example: em_tools(action: 'coulomb', q1: 1e-6, q2: -2e-6, r: 0.05) or \
                  em_tools(action: 'magnetic_field', geometry: 'solenoid', I: 2.0, N: 500, l: 0.3, A: 0.001)."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_relativity_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "SPECIAL RELATIVITY NOTICE: Use the `relativity_tools` tool for special relativity calculations without external utilities. \
+                 Actions: gamma (Lorentz factor — pass v in m/s or beta), \
+                 lorentz (time dilation and length contraction — pass v or beta; optionally t for time dilation, l for length, u for velocity addition), \
+                 energy (relativistic energy — pass v or beta + particle or m_mev), \
+                 momentum (relativistic momentum and E-p relation — pass v or beta + particle or m_mev), \
+                 transform (Lorentz transformation — pass v or beta + x + t_coord), \
+                 doppler (relativistic Doppler — pass v or beta; optionally freq and direction), \
+                 interval (spacetime interval — pass x and t_coord), \
+                 kinematics (full summary — pass v or beta; optionally particle). \
+                 Particles: electron, proton, neutron, muon, or e.g. '4u' for 4 AMU. \
+                 Example: relativity_tools(action: 'lorentz', beta: 0.9, t: 10.0) or \
+                 relativity_tools(action: 'energy', v: 2.7e8, particle: 'proton')."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_nuclear_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "NUCLEAR PHYSICS NOTICE: Use the `nuclear_tools` tool for nuclear physics calculations without external utilities. \
+                 Actions: decay (radioactive decay — pass n0 or a0 + t + lambda or t_half or tau), \
+                 halflife (T½/λ/τ conversions — pass any one of t_half, lambda, tau), \
+                 binding_energy (SEMF — pass z and a), \
+                 q_value (Q-value — pass reactants and products as arrays of masses in u), \
+                 activity (Bq/Ci/mCi/dps conversions — pass one of bq, ci, mci, dps), \
+                 dose (radiation dose — pass gy, sv, rad, or rem; optionally radiation type), \
+                 carbon_dating (C-14 — pass ratio for fraction remaining or t_years for age), \
+                 reactions (preset nuclear reactions — pass reaction name; use reaction='list' to see all). \
+                 Example: nuclear_tools(action: 'decay', n0: 1e10, t: 86400, t_half: 43200) or \
+                 nuclear_tools(action: 'binding_energy', z: 26, a: 56)."
                     .to_string(),
             );
         }

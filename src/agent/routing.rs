@@ -10462,6 +10462,74 @@ pub fn needs_em_tools(user_input: &str) -> bool {
     )
 }
 
+pub fn needs_relativity_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "special relativity",
+            "lorentz factor",
+            "lorentz boost",
+            "time dilation",
+            "length contraction",
+            "relativistic energy",
+            "relativistic momentum",
+            "lorentz transformation",
+            "relativistic doppler",
+            "spacetime interval",
+            "proper time",
+            "gamma factor relativity",
+            "velocity addition relativistic",
+            "relativistic kinematics",
+            "twin paradox",
+            "e=mc2",
+            "e=mc²",
+            "rest energy",
+            "relativistic mass",
+            "minkowski",
+            "four-momentum",
+            "4-momentum",
+        ],
+    )
+}
+
+pub fn needs_nuclear_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "radioactive decay",
+            "half-life",
+            "halflife",
+            "nuclear binding energy",
+            "binding energy nucleus",
+            "bethe-weizsacker",
+            "liquid drop model",
+            "q-value nuclear",
+            "nuclear reaction q",
+            "radiation dose",
+            "sievert dose",
+            "gray dose",
+            "rem dose",
+            "becquerel",
+            "curie activity",
+            "carbon dating",
+            "radiocarbon",
+            "c-14 dating",
+            "c14 dating",
+            "nuclear fission energy",
+            "nuclear fusion energy",
+            "alpha decay",
+            "beta decay",
+            "decay constant",
+            "mean lifetime radioactive",
+            "radioactivity",
+            "semi-empirical mass formula",
+            "semf",
+        ],
+    )
+}
+
 pub fn needs_cors_tools(user_input: &str) -> bool {
     let lower = user_input.to_lowercase();
     contains_any(

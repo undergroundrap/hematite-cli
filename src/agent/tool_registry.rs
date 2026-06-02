@@ -6261,6 +6261,39 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         crate::tools::em_tools::em_tools_schema(),
     ));
     tools.push(make_tool(
+        "relativity_tools",
+        "Special relativity calculations without external utilities. \
+         Actions: \
+         `gamma` (default) — Lorentz factor γ from v (m/s) or beta (v/c); time dilation and length contraction factors; ultra-relativistic and non-relativistic approximations; \
+         `lorentz` — time dilation Δt=γτ (pass 't' for proper time), length contraction L=L₀/γ (pass 'l'), relativistic velocity addition (pass 'u' for second velocity); \
+         `energy` — relativistic total energy E=γmc², kinetic energy KE=(γ−1)mc², rest energy E₀=mc²; comparison with classical ½mv²; \
+         `momentum` — relativistic momentum p=γmv, energy-momentum relation E²=(pc)²+(mc²)²; \
+         `transform` — Lorentz coordinate transformation x'=γ(x−vt), t'=γ(t−vx/c²); inverse check; spacetime interval; \
+         `doppler` — relativistic Doppler shift f_obs/f_src=√((1±β)/(1∓β)); pass 'direction' (approaching/receding) and optionally 'freq' for absolute values; \
+         `interval` — spacetime interval s²=(cΔt)²−(Δx)²; timelike/spacelike/lightlike classification; proper time or proper distance; \
+         `kinematics` — full kinematic summary (γ, v, total energy, KE, momentum) for a particle at given beta or v. \
+         Particles: electron, proton, neutron, muon, or 'Nu' for N atomic mass units. \
+         Example: relativity_tools(action: 'lorentz', beta: 0.9, t: 10.0) or \
+         relativity_tools(action: 'energy', v: 2.7e8, particle: 'proton').",
+        crate::tools::relativity_tools::schema(),
+    ));
+    tools.push(make_tool(
+        "nuclear_tools",
+        "Nuclear physics calculations without external utilities. \
+         Actions: \
+         `decay` (default) — radioactive decay N(t)=N₀e^(−λt); pass n0 (atoms) or a0 (activity in Bq) + t + one of lambda/t_half/tau; reports remaining amount, fraction, half-lives elapsed; \
+         `halflife` — convert between half-life T½, decay constant λ, and mean lifetime τ; pass any one and get the other two; \
+         `binding_energy` — semi-empirical mass formula (Bethe-Weizsäcker): volume, surface, Coulomb, asymmetry, pairing terms; pass z (atomic number) and a (mass number); \
+         `q_value` — Q-value from mass defect; pass 'reactants' and 'products' as arrays of masses in atomic mass units u; exothermic/endothermic verdict; \
+         `activity` — activity unit conversions: Bq ↔ Ci ↔ mCi ↔ μCi ↔ dps ↔ dpm; pass one of bq, ci, mci, dps; \
+         `dose` — radiation dose: absorbed dose Gy↔rad, equivalent dose Sv↔rem; radiation weighting factors (alpha=20, proton=5, neutron=5, gamma=1); pass gy, sv, rad, or rem; optionally 'radiation' type; \
+         `carbon_dating` — C-14 radiocarbon dating (T½=5730 yr); pass 'ratio' for fraction remaining → age, or 't_years' for age → fraction; \
+         `reactions` — preset nuclear reactions with Q-values and energy densities: fusion_dt/fusion_dd/fusion_pp/fission_u235/fission_pu239/alpha_decay/beta_decay; use reaction='list'. \
+         Example: nuclear_tools(action: 'decay', n0: 1e10, t: 86400, t_half: 43200) or \
+         nuclear_tools(action: 'binding_energy', z: 26, a: 56).",
+        crate::tools::nuclear_tools::schema(),
+    ));
+    tools.push(make_tool(
         "printf_tools",
         "Analyze, simulate, validate, and convert C-style printf format strings without external utilities. \
          Actions: \
@@ -7121,6 +7154,8 @@ pub async fn dispatch_builtin_tool(
         "circuit_tools" => crate::tools::circuit_tools::execute(args).await,
         "quantum_tools" => crate::tools::quantum_tools::execute(args).await,
         "em_tools" => crate::tools::em_tools::execute(args).await,
+        "relativity_tools" => crate::tools::relativity_tools::execute(args).await,
+        "nuclear_tools" => crate::tools::nuclear_tools::execute(args).await,
         "printf_tools" => crate::tools::printf_tools::execute(args).await,
         "ascii_chart_tools" => crate::tools::ascii_chart_tools::execute(args).await,
         "sql_format_tools" => crate::tools::sql_format_tools::execute(args).await,

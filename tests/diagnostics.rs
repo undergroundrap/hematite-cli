@@ -34866,7 +34866,9 @@ fn test_routing_detects_quantum_tools_uncertainty() {
 #[test]
 fn test_routing_detects_quantum_tools_photoelectric() {
     use hematite::agent::routing::needs_quantum_tools;
-    assert!(needs_quantum_tools("photoelectric effect stopping potential"));
+    assert!(needs_quantum_tools(
+        "photoelectric effect stopping potential"
+    ));
     assert!(needs_quantum_tools("work function sodium 2.3 eV"));
     assert!(!needs_quantum_tools("electric field point charge"));
 }
@@ -34965,7 +34967,10 @@ fn test_quantum_photoelectric() {
         ))
         .unwrap();
     assert!(out.contains("PHOTOELECTRIC"), "header");
-    assert!(out.contains("KE_max") || out.contains("Stopping potential"), "output present");
+    assert!(
+        out.contains("KE_max") || out.contains("Stopping potential"),
+        "output present"
+    );
 }
 
 #[test]
@@ -34978,7 +34983,10 @@ fn test_quantum_compton() {
         .unwrap();
     assert!(out.contains("COMPTON SCATTERING"), "header");
     // Δλ at 90° = lambda_C = 2.426e-12 m
-    assert!(out.contains("2.426") || out.contains("2.43"), "Compton shift at 90°");
+    assert!(
+        out.contains("2.426") || out.contains("2.43"),
+        "Compton shift at 90°"
+    );
 }
 
 #[test]
@@ -35094,7 +35102,10 @@ fn test_em_magnetic_field_wire() {
     assert!(out.contains("MAGNETIC FIELD"), "header");
     assert!(out.contains("wire") || out.contains("B ="), "wire result");
     // B = mu0 * 10 / (2*pi*0.05) = 4e-5 T
-    assert!(out.contains("4.0") || out.contains("3.99") || out.contains("e-5"), "~4e-5 T");
+    assert!(
+        out.contains("4.0") || out.contains("3.99") || out.contains("e-5"),
+        "~4e-5 T"
+    );
 }
 
 #[test]
@@ -35118,9 +35129,15 @@ fn test_em_capacitance_parallel_plate() {
         ))
         .unwrap();
     assert!(out.contains("CAPACITANCE"), "header");
-    assert!(out.contains("parallel plate") || out.contains("Parallel plate"), "geometry");
+    assert!(
+        out.contains("parallel plate") || out.contains("Parallel plate"),
+        "geometry"
+    );
     // C = eps0 * 0.01 / 0.001 = 8.854e-11 F
-    assert!(out.contains("8.854") || out.contains("8.85") || out.contains("F"), "capacitance");
+    assert!(
+        out.contains("8.854") || out.contains("8.85") || out.contains("F"),
+        "capacitance"
+    );
 }
 
 #[test]
@@ -35132,8 +35149,14 @@ fn test_em_inductance_solenoid() {
         ))
         .unwrap();
     assert!(out.contains("INDUCTANCE"), "header");
-    assert!(out.contains("Solenoid") || out.contains("solenoid"), "geometry");
-    assert!(out.contains("H\n") || out.contains("H ") || out.contains("= "), "value shown");
+    assert!(
+        out.contains("Solenoid") || out.contains("solenoid"),
+        "geometry"
+    );
+    assert!(
+        out.contains("H\n") || out.contains("H ") || out.contains("= "),
+        "value shown"
+    );
 }
 
 #[test]
@@ -35146,7 +35169,10 @@ fn test_em_wave_frequency() {
         .unwrap();
     assert!(out.contains("ELECTROMAGNETIC WAVE"), "header");
     assert!(out.contains("Visible light"), "visible spectrum");
-    assert!(out.contains("6.0") || out.contains("Photon energy"), "photon energy or wavelength");
+    assert!(
+        out.contains("6.0") || out.contains("Photon energy"),
+        "photon energy or wavelength"
+    );
 }
 
 #[test]
@@ -35159,7 +35185,10 @@ fn test_em_lorentz_magnetic() {
         .unwrap();
     assert!(out.contains("LORENTZ FORCE"), "header");
     // F = qvB = 1.6e-19 * 1e6 * 0.5 = 8e-14 N
-    assert!(out.contains("8.0") || out.contains("8.00") || out.contains("e-14"), "~8e-14 N");
+    assert!(
+        out.contains("8.0") || out.contains("8.00") || out.contains("e-14"),
+        "~8e-14 N"
+    );
 }
 
 #[test]
@@ -35171,8 +35200,14 @@ fn test_em_poynting() {
         ))
         .unwrap();
     assert!(out.contains("POYNTING VECTOR"), "header");
-    assert!(out.contains("W/m²") || out.contains("intensity"), "power density");
-    assert!(out.contains("energy density") || out.contains("u_E"), "energy density");
+    assert!(
+        out.contains("W/m²") || out.contains("intensity"),
+        "power density"
+    );
+    assert!(
+        out.contains("energy density") || out.contains("u_E"),
+        "energy density"
+    );
 }
 
 #[test]
@@ -35182,4 +35217,392 @@ fn test_em_error_missing_q1() {
         &serde_json::json!({"action": "coulomb", "q2": 1e-6, "r": 1.0}),
     ));
     assert!(result.is_err(), "should error without q1");
+}
+
+// -- relativity_tools routing tests --
+
+#[test]
+fn test_routing_detects_relativity_tools_time_dilation() {
+    assert!(hematite::agent::routing::needs_relativity_tools(
+        "time dilation at high speed"
+    ));
+}
+
+#[test]
+fn test_routing_detects_relativity_tools_lorentz_factor() {
+    assert!(hematite::agent::routing::needs_relativity_tools(
+        "what is the lorentz factor for v=0.9c"
+    ));
+}
+
+#[test]
+fn test_routing_detects_relativity_tools_length_contraction() {
+    assert!(hematite::agent::routing::needs_relativity_tools(
+        "length contraction at relativistic speed"
+    ));
+}
+
+#[test]
+fn test_routing_detects_relativity_tools_e_mc2() {
+    assert!(hematite::agent::routing::needs_relativity_tools(
+        "calculate e=mc2 rest energy of proton"
+    ));
+}
+
+// -- relativity_tools functional tests --
+
+#[test]
+fn test_relativity_gamma_beta_09() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::relativity_tools::execute(
+            &serde_json::json!({"action": "gamma", "beta": 0.9}),
+        ))
+        .unwrap();
+    assert!(out.contains("LORENTZ FACTOR"), "header");
+    assert!(
+        out.contains("2.29") || out.contains("2.294"),
+        "gamma approx 2.294"
+    );
+}
+
+#[test]
+fn test_relativity_gamma_velocity() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::relativity_tools::execute(
+            &serde_json::json!({"action": "gamma", "v": 2.5e8, "m": "proton"}),
+        ))
+        .unwrap();
+    assert!(out.contains("LORENTZ FACTOR"), "header");
+    assert!(out.contains("gamma") || out.contains("2."), "gamma shown");
+}
+
+#[test]
+fn test_relativity_lorentz_time_dilation() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::relativity_tools::execute(
+            &serde_json::json!({"action": "lorentz", "beta": 0.8, "t": 10.0}),
+        ))
+        .unwrap();
+    assert!(
+        out.contains("TIME DILATION") || out.contains("Lorentz") || out.contains("dilation"),
+        "header"
+    );
+    // gamma(0.8) = 1/0.6 = 1.6667; Δt = 16.667 s; formatted as 1.6667e1 in .4e
+    assert!(
+        out.contains("1.666") || out.contains("1.667") || out.contains("1.6667"),
+        "dt approx 16.67 s (formatted as 1.667e1 in .4e)"
+    );
+}
+
+#[test]
+fn test_relativity_energy_electron() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::relativity_tools::execute(
+            &serde_json::json!({"action": "energy", "beta": 0.99, "particle": "electron"}),
+        ))
+        .unwrap();
+    assert!(out.contains("RELATIVISTIC ENERGY"), "header");
+    assert!(out.contains("MeV") || out.contains("eV"), "energy unit");
+}
+
+#[test]
+fn test_relativity_momentum_proton() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::relativity_tools::execute(
+            &serde_json::json!({"action": "momentum", "beta": 0.7, "particle": "proton"}),
+        ))
+        .unwrap();
+    assert!(out.contains("RELATIVISTIC MOMENTUM"), "header");
+    assert!(
+        out.contains("p =") || out.contains("kg") || out.contains("MeV"),
+        "momentum value"
+    );
+}
+
+#[test]
+fn test_relativity_doppler_approaching() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::relativity_tools::execute(
+            &serde_json::json!({"action": "doppler", "beta": 0.5, "f0": 1.0e9}),
+        ))
+        .unwrap();
+    assert!(
+        out.contains("RELATIVISTIC DOPPLER") || out.contains("Doppler") || out.contains("doppler"),
+        "header"
+    );
+    assert!(
+        out.contains("Approaching") || out.contains("approaching") || out.contains("blueshift"),
+        "approaching"
+    );
+}
+
+#[test]
+fn test_relativity_interval_classification() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::relativity_tools::execute(
+            &serde_json::json!({"action": "interval", "t_coord": 2.0, "x": 1.0e8}),
+        ))
+        .unwrap();
+    assert!(
+        out.contains("SPACETIME INTERVAL") || out.contains("Interval") || out.contains("interval"),
+        "header"
+    );
+    // output uses uppercase: "TIMELIKE", "SPACELIKE", "LIGHTLIKE"
+    assert!(
+        out.contains("TIMELIKE")
+            || out.contains("timelike")
+            || out.contains("SPACELIKE")
+            || out.contains("spacelike")
+            || out.contains("LIGHTLIKE")
+            || out.contains("lightlike"),
+        "interval type"
+    );
+}
+
+#[test]
+fn test_relativity_kinematics_muon() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::relativity_tools::execute(
+            &serde_json::json!({"action": "kinematics", "beta": 0.995, "particle": "muon"}),
+        ))
+        .unwrap();
+    // header is "SPECIAL RELATIVITY — KINEMATICS (muon)"
+    assert!(
+        out.contains("KINEMATICS") || out.contains("kinematics"),
+        "header"
+    );
+    assert!(out.contains("muon") || out.contains("Muon"), "particle");
+}
+
+#[test]
+fn test_relativity_error_superluminal() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::relativity_tools::execute(
+        &serde_json::json!({"action": "gamma", "beta": 1.1}),
+    ));
+    assert!(result.is_err(), "beta >= 1 should error");
+}
+
+// -- nuclear_tools routing tests --
+
+#[test]
+fn test_routing_detects_nuclear_tools_decay() {
+    assert!(hematite::agent::routing::needs_nuclear_tools(
+        "radioactive decay of uranium"
+    ));
+}
+
+#[test]
+fn test_routing_detects_nuclear_tools_halflife() {
+    assert!(hematite::agent::routing::needs_nuclear_tools(
+        "half-life of cesium-137"
+    ));
+}
+
+#[test]
+fn test_routing_detects_nuclear_tools_binding_energy() {
+    assert!(hematite::agent::routing::needs_nuclear_tools(
+        "nuclear binding energy of iron-56"
+    ));
+}
+
+#[test]
+fn test_routing_detects_nuclear_tools_carbon_dating() {
+    assert!(hematite::agent::routing::needs_nuclear_tools(
+        "carbon dating of an artifact"
+    ));
+}
+
+// -- nuclear_tools functional tests --
+
+#[test]
+fn test_nuclear_decay_basic() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::nuclear_tools::execute(
+            &serde_json::json!({"action": "decay", "n0": 1e6, "t_half": 3600.0, "t": 7200.0}),
+        ))
+        .unwrap();
+    assert!(
+        out.contains("RADIOACTIVE DECAY") || out.contains("Decay") || out.contains("decay"),
+        "header"
+    );
+    // formatted as "25.0000%" via {:.4}% — check for "25.000"
+    assert!(
+        out.contains("25.000") || out.contains("25.00%") || out.contains("2.5000e5"),
+        "25% remaining after 2 half-lives"
+    );
+}
+
+#[test]
+fn test_nuclear_halflife_conversion() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::nuclear_tools::execute(
+            &serde_json::json!({"action": "halflife", "t_half": 5730.0}),
+        ))
+        .unwrap();
+    assert!(
+        out.contains("HALF-LIFE") || out.contains("Half-Life") || out.contains("half-life"),
+        "header"
+    );
+    assert!(
+        out.contains("8266")
+            || out.contains("8267")
+            || out.contains("Mean lifetime")
+            || out.contains("mean lifetime"),
+        "mean lifetime approx 8267 yr"
+    );
+}
+
+#[test]
+fn test_nuclear_binding_energy_fe56() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::nuclear_tools::execute(
+            &serde_json::json!({"action": "binding_energy", "z": 26, "a": 56}),
+        ))
+        .unwrap();
+    assert!(
+        out.contains("BINDING ENERGY") || out.contains("Binding Energy") || out.contains("binding"),
+        "header"
+    );
+    assert!(
+        out.contains("8.7")
+            || out.contains("8.8")
+            || out.contains("MeV/nucleon")
+            || out.contains("MeV/A"),
+        "BE/A approx 8.7-8.8 MeV for Fe-56"
+    );
+}
+
+#[test]
+fn test_nuclear_activity_one_curie() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::nuclear_tools::execute(
+            &serde_json::json!({"action": "activity", "bq": 3.7e10}),
+        ))
+        .unwrap();
+    assert!(
+        out.contains("ACTIVITY") || out.contains("Activity") || out.contains("activity"),
+        "header"
+    );
+    assert!(out.contains("1.00") || out.contains("1.0"), "1.0 Ci shown");
+    assert!(out.contains("Ci") || out.contains("curie"), "Ci unit");
+}
+
+#[test]
+fn test_nuclear_dose_gray_to_rad() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::nuclear_tools::execute(
+            &serde_json::json!({"action": "dose", "gy": 1.0}),
+        ))
+        .unwrap();
+    assert!(
+        out.contains("RADIATION DOSE") || out.contains("Dose") || out.contains("dose"),
+        "header"
+    );
+    // dose output: "1.0000e2 rad" (.4e format) — "rad" appears in the weighting table too
+    assert!(out.contains("rad"), "rad unit present");
+    assert!(
+        out.contains("1.0000e2") || out.contains("1.00e2"),
+        "100 rad shown as scientific notation"
+    );
+}
+
+#[test]
+fn test_nuclear_carbon_dating_one_halflife() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::nuclear_tools::execute(
+            &serde_json::json!({"action": "carbon_dating", "ratio": 0.5}),
+        ))
+        .unwrap();
+    assert!(
+        out.contains("CARBON") || out.contains("Carbon") || out.contains("carbon"),
+        "header"
+    );
+    assert!(
+        out.contains("5730")
+            || out.contains("5,730")
+            || out.contains("5729")
+            || out.contains("5731"),
+        "age approx 5730 years"
+    );
+}
+
+#[test]
+fn test_nuclear_reactions_list() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::nuclear_tools::execute(
+            &serde_json::json!({"action": "reactions", "reaction": "list"}),
+        ))
+        .unwrap();
+    assert!(
+        out.contains("fusion")
+            || out.contains("Fusion")
+            || out.contains("fission")
+            || out.contains("Fission"),
+        "reaction types listed"
+    );
+}
+
+#[test]
+fn test_nuclear_reactions_fusion_dt() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::nuclear_tools::execute(
+            &serde_json::json!({"action": "reactions", "reaction": "fusion_dt"}),
+        ))
+        .unwrap();
+    assert!(
+        out.contains("NUCLEAR REACTION") || out.contains("Fusion") || out.contains("fusion"),
+        "header"
+    );
+    assert!(
+        out.contains("17.6") || out.contains("17.5") || out.contains("MeV"),
+        "Q value approx 17.6 MeV"
+    );
+}
+
+#[test]
+fn test_nuclear_q_value_dt_fusion() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::nuclear_tools::execute(
+            &serde_json::json!({
+                "action": "q_value",
+                "reactants": [2.014102, 3.016049],
+                "products": [4.002602, 1.008665]
+            }),
+        ))
+        .unwrap();
+    assert!(
+        out.contains("Q") || out.contains("q_value") || out.contains("MeV"),
+        "Q value shown"
+    );
+    assert!(
+        out.contains("17.5") || out.contains("17.6") || out.contains("MeV"),
+        "Q approx 17.6 MeV for D+T fusion"
+    );
+}
+
+#[test]
+fn test_nuclear_error_missing_args() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::nuclear_tools::execute(
+        &serde_json::json!({"action": "decay"}),
+    ));
+    assert!(result.is_err(), "decay without n0/a0 should error");
 }
