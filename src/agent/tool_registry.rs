@@ -1612,6 +1612,30 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         }),
     ));
     tools.push(make_tool(
+        "cors_tools",
+        "Parse, validate, generate, and simulate CORS (Cross-Origin Resource Sharing) headers without external utilities. \
+         Actions: parse (default — decode all Access-Control-* headers with annotations; pass 'headers' object), \
+         validate (check for spec violations: wildcard+credentials conflict, bad methods, max-age overflow; pass 'headers'), \
+         generate (build response headers for 'origin' against 'allowed_origins'/'allowed_methods'/'allowed_headers'/'allow_credentials'/'max_age'), \
+         explain (plain-English meaning per Access-Control-* header; pass 'headers'), \
+         preflight (simulate OPTIONS preflight — PASS/FAIL per origin/method/header with full request/response output; pass 'origin', 'method', 'request_headers', and server config). \
+         Example: cors_tools(action: 'validate', headers: {\"Access-Control-Allow-Origin\":\"*\",\"Access-Control-Allow-Credentials\":\"true\"}) or \
+         cors_tools(action: 'preflight', origin: 'https://app.example.com', method: 'DELETE', allowed_origins: ['https://app.example.com']).",
+        crate::tools::cors_tools::cors_tools_schema(),
+    ));
+    tools.push(make_tool(
+        "web_manifest_tools",
+        "Parse, validate, and inspect PWA Web App Manifest (manifest.json / .webmanifest) files without external utilities. \
+         Actions: parse (default — full manifest field summary including icons/screenshots/shortcuts counts; pass 'manifest' as JSON object/string or 'file' path), \
+         validate (installability check — name, icons 192×512, maskable icon, display mode; VALID/INVALID/WARNINGS verdict), \
+         icons (tabular listing of all icons with src, sizes, type, and purpose columns), \
+         screenshots (list screenshots with sizes, form_factor, label, platform), \
+         info (concise install/display summary: display mode, orientation, scope, theme/background colors, advanced API declarations, shortcuts list). \
+         Example: web_manifest_tools(manifest: {\"name\":\"My App\",\"start_url\":\"/\",\"display\":\"standalone\",\"icons\":[{\"src\":\"/icon.png\",\"sizes\":\"192x192\"}]}) or \
+         web_manifest_tools(action: 'validate', file: 'public/manifest.json').",
+        crate::tools::web_manifest_tools::web_manifest_tools_schema(),
+    ));
+    tools.push(make_tool(
         "json_patch_tools",
         "Apply and generate JSON Patch (RFC 6902) and JSON Merge Patch (RFC 7396) documents without external utilities. \
          Actions: apply (default — apply a JSON Patch operation list to a 'document'; 'patch' array of {op, path, value?, from?}), \
@@ -6786,6 +6810,8 @@ pub async fn dispatch_builtin_tool(
         "port_check" => crate::tools::port_check::execute(args).await,
         "env_diff" => crate::tools::env_diff::execute(args).await,
         "template_gen" => crate::tools::template_gen::execute(args).await,
+        "cors_tools" => crate::tools::cors_tools::execute(args).await,
+        "web_manifest_tools" => crate::tools::web_manifest_tools::execute(args).await,
         "json_patch_tools" => crate::tools::json_patch_tools::execute(args).await,
         "markdown_gen_tools" => crate::tools::markdown_gen_tools::execute(args).await,
         "json_tools" => crate::tools::json_tools::execute(args).await,

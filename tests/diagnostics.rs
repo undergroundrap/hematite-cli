@@ -32358,3 +32358,308 @@ fn test_markdown_gen_doc() {
     );
     assert!(out.contains("```bash"), "Expected code block, got: {out}");
 }
+
+// ── cors_tools ────────────────────────────────────────────────────────────────
+
+#[test]
+fn test_routing_detects_cors_tools() {
+    use hematite::agent::routing::needs_cors_tools;
+    assert!(needs_cors_tools("parse these cors headers"));
+    assert!(needs_cors_tools("validate my CORS config"));
+    assert!(needs_cors_tools("Access-Control-Allow-Origin wildcard"));
+    assert!(needs_cors_tools("generate CORS response headers"));
+    assert!(needs_cors_tools("simulate preflight request"));
+    assert!(!needs_cors_tools("what is http caching"));
+}
+
+#[test]
+fn test_cors_tools_parse() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::cors_tools::execute(&serde_json::json!({
+            "action": "parse",
+            "headers": {
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+                "Access-Control-Allow-Headers": "Content-Type",
+                "Access-Control-Max-Age": "86400"
+            }
+        })))
+        .unwrap();
+    assert!(out.contains("Access-Control-Allow-Origin"), "got: {out}");
+    assert!(out.contains("Wildcard"), "got: {out}");
+    assert!(out.contains("86400"), "got: {out}");
+}
+
+#[test]
+fn test_cors_tools_validate_wildcard_credentials_error() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::cors_tools::execute(&serde_json::json!({
+            "action": "validate",
+            "headers": {
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Credentials": "true"
+            }
+        })))
+        .unwrap();
+    assert!(out.contains("INVALID"), "got: {out}");
+    assert!(out.to_lowercase().contains("credentials"), "got: {out}");
+}
+
+#[test]
+fn test_cors_tools_validate_clean() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::cors_tools::execute(&serde_json::json!({
+            "action": "validate",
+            "headers": {
+                "Access-Control-Allow-Origin": "https://app.example.com",
+                "Access-Control-Allow-Methods": "GET, POST",
+                "Access-Control-Allow-Headers": "Content-Type",
+                "Access-Control-Max-Age": "3600"
+            }
+        })))
+        .unwrap();
+    assert!(out.contains("VALID"), "got: {out}");
+}
+
+#[test]
+fn test_cors_tools_generate() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::cors_tools::execute(&serde_json::json!({
+            "action": "generate",
+            "origin": "https://app.example.com",
+            "allowed_origins": ["https://app.example.com"],
+            "allowed_methods": ["GET", "POST", "DELETE"],
+            "allow_credentials": true
+        })))
+        .unwrap();
+    assert!(out.contains("Access-Control-Allow-Origin"), "got: {out}");
+    assert!(
+        out.contains("Access-Control-Allow-Credentials: true"),
+        "got: {out}"
+    );
+    assert!(out.contains("Vary: Origin"), "got: {out}");
+}
+
+#[test]
+fn test_cors_tools_generate_wildcard() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::cors_tools::execute(&serde_json::json!({
+            "action": "generate",
+            "origin": "https://any.site.com",
+            "allowed_origins": "*"
+        })))
+        .unwrap();
+    assert!(out.contains("Access-Control-Allow-Origin: *"), "got: {out}");
+}
+
+#[test]
+fn test_cors_tools_explain() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::cors_tools::execute(&serde_json::json!({
+            "action": "explain",
+            "headers": {
+                "Access-Control-Allow-Credentials": "true",
+                "Vary": "Origin"
+            }
+        })))
+        .unwrap();
+    assert!(out.contains("Explanation"), "got: {out}");
+    assert!(out.contains("credentials"), "got: {out}");
+}
+
+#[test]
+fn test_cors_tools_preflight_pass() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::cors_tools::execute(&serde_json::json!({
+            "action": "preflight",
+            "origin": "https://app.example.com",
+            "method": "DELETE",
+            "request_headers": "Content-Type, Authorization",
+            "allowed_origins": ["https://app.example.com"],
+            "allowed_methods": ["GET", "POST", "DELETE", "OPTIONS"],
+            "allowed_headers": ["Content-Type", "Authorization"]
+        })))
+        .unwrap();
+    assert!(out.contains("PASS"), "got: {out}");
+    assert!(out.contains("204"), "got: {out}");
+}
+
+#[test]
+fn test_cors_tools_preflight_blocked_origin() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::cors_tools::execute(&serde_json::json!({
+            "action": "preflight",
+            "origin": "https://evil.com",
+            "method": "GET",
+            "allowed_origins": ["https://app.example.com"],
+            "allowed_methods": ["GET"]
+        })))
+        .unwrap();
+    assert!(
+        out.contains("FAIL") || out.contains("BLOCKED"),
+        "got: {out}"
+    );
+}
+
+// ── web_manifest_tools ────────────────────────────────────────────────────────
+
+#[test]
+fn test_routing_detects_web_manifest_tools() {
+    use hematite::agent::routing::needs_web_manifest_tools;
+    assert!(needs_web_manifest_tools("parse this web manifest"));
+    assert!(needs_web_manifest_tools("validate manifest.json"));
+    assert!(needs_web_manifest_tools(
+        "check pwa manifest for installability"
+    ));
+    assert!(needs_web_manifest_tools("list manifest icons"));
+    assert!(needs_web_manifest_tools("is my .webmanifest valid"));
+    assert!(!needs_web_manifest_tools("list all npm packages"));
+}
+
+#[test]
+fn test_web_manifest_parse() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::web_manifest_tools::execute(
+            &serde_json::json!({
+                "action": "parse",
+                "manifest": {
+                    "name": "My Awesome App",
+                    "short_name": "AwesomeApp",
+                    "start_url": "/",
+                    "display": "standalone",
+                    "theme_color": "#1a73e8",
+                    "background_color": "#ffffff",
+                    "icons": [
+                        {"src": "/icon-192.png", "sizes": "192x192", "type": "image/png"},
+                        {"src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}
+                    ]
+                }
+            }),
+        ))
+        .unwrap();
+    assert!(out.contains("My Awesome App"), "got: {out}");
+    assert!(out.contains("standalone"), "got: {out}");
+    assert!(out.contains("2 icon"), "got: {out}");
+}
+
+#[test]
+fn test_web_manifest_validate_invalid_missing_name() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::web_manifest_tools::execute(
+            &serde_json::json!({
+                "action": "validate",
+                "manifest": {
+                    "start_url": "/",
+                    "display": "standalone"
+                }
+            }),
+        ))
+        .unwrap();
+    assert!(out.contains("INVALID"), "got: {out}");
+    assert!(out.contains("name"), "got: {out}");
+}
+
+#[test]
+fn test_web_manifest_validate_warnings() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::web_manifest_tools::execute(
+            &serde_json::json!({
+                "action": "validate",
+                "manifest": {
+                    "name": "Test App",
+                    "start_url": "/",
+                    "display": "standalone",
+                    "icons": [
+                        {"src": "/icon.png", "sizes": "144x144"}
+                    ]
+                }
+            }),
+        ))
+        .unwrap();
+    assert!(out.contains("WARNING") || out.contains("192"), "got: {out}");
+}
+
+#[test]
+fn test_web_manifest_validate_clean() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::web_manifest_tools::execute(
+            &serde_json::json!({
+                "action": "validate",
+                "manifest": {
+                    "name": "Perfect App",
+                    "short_name": "PerfApp",
+                    "start_url": "/",
+                    "display": "standalone",
+                    "icons": [
+                        {"src": "/icon-192.png", "sizes": "192x192", "type": "image/png"},
+                        {"src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}
+                    ]
+                }
+            }),
+        ))
+        .unwrap();
+    assert!(out.contains("VALID"), "got: {out}");
+}
+
+#[test]
+fn test_web_manifest_icons() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::web_manifest_tools::execute(
+            &serde_json::json!({
+                "action": "icons",
+                "manifest": {
+                    "name": "App",
+                    "icons": [
+                        {"src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
+                        {"src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}
+                    ]
+                }
+            }),
+        ))
+        .unwrap();
+    assert!(out.contains("192x192"), "got: {out}");
+    assert!(out.contains("512x512"), "got: {out}");
+    assert!(out.contains("maskable"), "got: {out}");
+}
+
+#[test]
+fn test_web_manifest_info() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::web_manifest_tools::execute(
+            &serde_json::json!({
+                "action": "info",
+                "manifest": {
+                    "name": "My App",
+                    "display": "standalone",
+                    "orientation": "portrait",
+                    "theme_color": "#ff5722",
+                    "start_url": "/app",
+                    "scope": "/app/",
+                    "share_target": {"action": "/share", "method": "POST"}
+                }
+            }),
+        ))
+        .unwrap();
+    assert!(out.contains("standalone"), "got: {out}");
+    assert!(out.contains("portrait"), "got: {out}");
+    assert!(
+        out.contains("share_target")
+            || out.contains("Share target")
+            || out.contains("Web Share Target"),
+        "got: {out}"
+    );
+}

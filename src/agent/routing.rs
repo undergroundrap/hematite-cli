@@ -9837,6 +9837,64 @@ pub fn needs_vector_tools(user_input: &str) -> bool {
     )
 }
 
+pub fn needs_cors_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "cors header",
+            "cors policy",
+            "cors config",
+            "cors validation",
+            "access-control-allow-origin",
+            "access-control-allow-methods",
+            "access-control-allow-headers",
+            "access-control-expose-headers",
+            "access-control-allow-credentials",
+            "access-control-max-age",
+            "allow credentials cors",
+            "generate cors",
+            "preflight request",
+            "preflight cors",
+            "cors preflight",
+            "cors response headers",
+            "parse cors",
+            "explain cors",
+            "validate cors",
+            "same-origin policy",
+            "cross-origin resource sharing",
+        ],
+    )
+}
+
+pub fn needs_web_manifest_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "web manifest",
+            "manifest.json",
+            ".webmanifest",
+            "pwa manifest",
+            "web app manifest",
+            "parse manifest",
+            "validate manifest",
+            "manifest icons",
+            "manifest screenshots",
+            "manifest display",
+            "manifest orientation",
+            "manifest start_url",
+            "manifest theme_color",
+            "installable pwa",
+            "pwa installability",
+            "add to home screen",
+            "maskable icon",
+            "manifest shortcuts",
+            "manifest share_target",
+        ],
+    )
+}
+
 pub fn needs_json_patch_tools(user_input: &str) -> bool {
     let lower = user_input.to_lowercase();
     contains_any(
