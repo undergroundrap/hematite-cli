@@ -10750,6 +10750,88 @@ pub fn needs_stack_tools(user_input: &str) -> bool {
     )
 }
 
+pub fn needs_acoustics_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "sound wave",
+            "sound frequency",
+            "acoustic",
+            "acoustics",
+            "decibel",
+            "decibels",
+            "sound level",
+            "spl ",
+            "dbspl",
+            "sound pressure",
+            "doppler sound",
+            "doppler effect sound",
+            "resonance frequency",
+            "standing wave",
+            "acoustic resonance",
+            "fundamental frequency pipe",
+            "acoustic impedance",
+            "sound transmission",
+            "rt60",
+            "reverberation time",
+            "room acoustics",
+            "sabine formula",
+            "hearing range",
+            "audible frequency",
+            "threshold of hearing",
+            "beat frequency",
+            "beat note",
+            "overtone series",
+            "harmonic series sound",
+            "speed of sound",
+        ],
+    )
+}
+
+pub fn needs_materials_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "material properties",
+            "young's modulus",
+            "youngs modulus",
+            "elastic modulus",
+            "poisson's ratio",
+            "poisson ratio",
+            "yield strength",
+            "tensile strength",
+            "stress strain",
+            "thermal expansion",
+            "coefficient of expansion",
+            "linear expansion cte",
+            "beam bending",
+            "bending stress",
+            "bending moment",
+            "moment of inertia beam",
+            "section modulus",
+            "mohs hardness",
+            "material hardness",
+            "vickers hardness",
+            "brinell hardness",
+            "buoyancy force",
+            "buoyant force",
+            "archimedes principle",
+            "hydrostatic pressure",
+            "factor of safety",
+            "safety factor",
+            "crystal structure",
+            "fcc crystal",
+            "bcc crystal",
+            "hcp crystal",
+            "unit cell material",
+            "lattice parameter",
+            "atomic packing",
+        ],
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

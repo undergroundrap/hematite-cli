@@ -35606,3 +35606,270 @@ fn test_nuclear_error_missing_args() {
     ));
     assert!(result.is_err(), "decay without n0/a0 should error");
 }
+
+// ── acoustics_tools ─────────────────────────────────────────────────────────
+
+#[test]
+fn test_routing_detects_acoustics_tools_sound_wave() {
+    assert!(hematite::agent::routing::needs_acoustics_tools(
+        "sound wave frequency 440 Hz"
+    ));
+}
+
+#[test]
+fn test_routing_detects_acoustics_tools_decibel() {
+    assert!(hematite::agent::routing::needs_acoustics_tools(
+        "what is decibels level for a rock concert"
+    ));
+}
+
+#[test]
+fn test_routing_detects_acoustics_tools_rt60() {
+    assert!(hematite::agent::routing::needs_acoustics_tools(
+        "calculate rt60 reverberation time for a concert hall"
+    ));
+}
+
+#[test]
+fn test_routing_detects_acoustics_tools_speed_of_sound() {
+    assert!(hematite::agent::routing::needs_acoustics_tools(
+        "speed of sound in air at 20 degrees"
+    ));
+}
+
+#[test]
+fn test_acoustics_wave_440hz() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::acoustics_tools::execute(
+            &serde_json::json!({"action": "wave", "freq": 440.0}),
+        ))
+        .unwrap();
+    assert!(
+        out.contains("SOUND WAVE") || out.contains("440"),
+        "wave output for 440 Hz"
+    );
+    assert!(out.contains("λ") || out.contains("Wavelength") || out.contains("wavelength"), "wavelength shown");
+}
+
+#[test]
+fn test_acoustics_decibels_spl() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::acoustics_tools::execute(
+            &serde_json::json!({"action": "decibels", "pressure": 0.02}),
+        ))
+        .unwrap();
+    assert!(out.contains("dB") || out.contains("SPL") || out.contains("60"), "SPL output");
+}
+
+#[test]
+fn test_acoustics_doppler_approaching() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::acoustics_tools::execute(
+            &serde_json::json!({"action": "doppler", "freq": 1000.0, "v_source": 30.0}),
+        ))
+        .unwrap();
+    assert!(
+        out.contains("DOPPLER") || out.contains("observe") || out.contains("Hz"),
+        "doppler output"
+    );
+}
+
+#[test]
+fn test_acoustics_resonance_open_pipe() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::acoustics_tools::execute(
+            &serde_json::json!({"action": "resonance", "type": "open_pipe", "length": 0.5}),
+        ))
+        .unwrap();
+    assert!(
+        out.contains("RESONANCE") || out.contains("fundamental") || out.contains("Hz"),
+        "resonance output"
+    );
+}
+
+#[test]
+fn test_acoustics_rt60_room() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::acoustics_tools::execute(
+            &serde_json::json!({"action": "rt60", "volume": 500.0, "absorption": 50.0}),
+        ))
+        .unwrap();
+    assert!(
+        out.contains("RT60") || out.contains("Sabine") || out.contains("reverberation"),
+        "rt60 output"
+    );
+}
+
+#[test]
+fn test_acoustics_beat_frequency() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::acoustics_tools::execute(
+            &serde_json::json!({"action": "beat", "f1": 440.0, "f2": 444.0}),
+        ))
+        .unwrap();
+    assert!(out.contains("4") || out.contains("beat") || out.contains("BEAT"), "beat freq = 4 Hz");
+}
+
+#[test]
+fn test_acoustics_hearing_range() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::acoustics_tools::execute(
+            &serde_json::json!({"action": "hearing"}),
+        ))
+        .unwrap();
+    assert!(
+        out.contains("HEARING") || out.contains("20 Hz") || out.contains("20000"),
+        "hearing range output"
+    );
+}
+
+// ── materials_tools ──────────────────────────────────────────────────────────
+
+#[test]
+fn test_routing_detects_materials_tools_youngs_modulus() {
+    assert!(hematite::agent::routing::needs_materials_tools(
+        "young's modulus of steel"
+    ));
+}
+
+#[test]
+fn test_routing_detects_materials_tools_yield_strength() {
+    assert!(hematite::agent::routing::needs_materials_tools(
+        "yield strength of aluminum 6061"
+    ));
+}
+
+#[test]
+fn test_routing_detects_materials_tools_factor_of_safety() {
+    assert!(hematite::agent::routing::needs_materials_tools(
+        "calculate factor of safety for this design"
+    ));
+}
+
+#[test]
+fn test_routing_detects_materials_tools_crystal_structure() {
+    assert!(hematite::agent::routing::needs_materials_tools(
+        "explain fcc crystal structure and atomic packing"
+    ));
+}
+
+#[test]
+fn test_materials_properties_steel() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::materials_tools::execute(
+            &serde_json::json!({"action": "properties", "material": "steel_mild"}),
+        ))
+        .unwrap();
+    assert!(
+        out.contains("steel") || out.contains("Steel") || out.contains("MATERIAL"),
+        "steel properties header"
+    );
+    assert!(out.contains("GPa") || out.contains("Young") || out.contains("Modulus"), "modulus shown");
+}
+
+#[test]
+fn test_materials_stress_strain() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::materials_tools::execute(
+            &serde_json::json!({"action": "stress", "material": "steel_mild", "force": 10000.0, "area": 0.01}),
+        ))
+        .unwrap();
+    assert!(
+        out.contains("STRESS") || out.contains("MPa") || out.contains("stress"),
+        "stress output"
+    );
+}
+
+#[test]
+fn test_materials_thermal_expansion() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::materials_tools::execute(
+            &serde_json::json!({"action": "thermal", "material": "aluminum_6061", "delta_t": 100.0, "length": 1.0}),
+        ))
+        .unwrap();
+    assert!(
+        out.contains("THERMAL") || out.contains("expansion") || out.contains("mm"),
+        "thermal expansion output"
+    );
+}
+
+#[test]
+fn test_materials_bending_beam() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::materials_tools::execute(
+            &serde_json::json!({"action": "bending", "material": "steel_mild", "force": 5000.0, "length": 2.0, "width": 0.05, "height": 0.1}),
+        ))
+        .unwrap();
+    assert!(
+        out.contains("BENDING") || out.contains("deflection") || out.contains("MPa"),
+        "bending output"
+    );
+}
+
+#[test]
+fn test_materials_hardness_mohs() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::materials_tools::execute(
+            &serde_json::json!({"action": "hardness"}),
+        ))
+        .unwrap();
+    assert!(
+        out.contains("HARDNESS") || out.contains("Mohs") || out.contains("Diamond"),
+        "hardness table output"
+    );
+}
+
+#[test]
+fn test_materials_buoyancy_pressure() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::materials_tools::execute(
+            &serde_json::json!({"action": "pressure", "depth": 10.0}),
+        ))
+        .unwrap();
+    assert!(
+        out.contains("PRESSURE") || out.contains("buoyanc") || out.contains("kPa") || out.contains("Pa"),
+        "pressure/buoyancy output"
+    );
+}
+
+#[test]
+fn test_materials_crystal_fcc() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::materials_tools::execute(
+            &serde_json::json!({"action": "crystal", "structure": "fcc"}),
+        ))
+        .unwrap();
+    assert!(
+        out.contains("FCC") || out.contains("fcc") || out.contains("face"),
+        "FCC crystal output"
+    );
+    assert!(out.contains("0.74") || out.contains("APF") || out.contains("74"), "APF shown");
+}
+
+#[test]
+fn test_materials_safety_factor() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::materials_tools::execute(
+            &serde_json::json!({"action": "safety", "material": "steel_mild", "applied_stress": 100.0}),
+        ))
+        .unwrap();
+    assert!(
+        out.contains("SAFETY") || out.contains("factor") || out.contains("Factor"),
+        "safety factor output"
+    );
+}

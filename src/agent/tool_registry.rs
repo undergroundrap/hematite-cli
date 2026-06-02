@@ -6294,6 +6294,38 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         crate::tools::nuclear_tools::schema(),
     ));
     tools.push(make_tool(
+        "acoustics_tools",
+        "Acoustics and sound physics calculations without external utilities. \
+         Actions: \
+         `wave` (default) — sound wave properties from freq (Hz) or wavelength (m): λ=v/f, period, angular frequency, wavenumber; speed of sound vs temperature; \
+         `decibels` — SPL from intensity (W/m²), pressure (Pa), or dB; combine multiple levels logarithmically via 'levels' array; reference table; \
+         `doppler` — Doppler effect for sound: f_obs=f_src·(v+v_obs)/(v−v_src); pass freq + v_src (source speed m/s) and/or v_obs; Mach number; \
+         `resonance` — standing waves: pass length (m) and type (string/open_pipe/closed_pipe); all harmonics tabulated; optional tension+linear_density for string wave speed; \
+         `impedance` — acoustic impedance Z=ρ·c; normal-incidence reflection/transmission coefficients, transmission loss; pass rho1+c1 and rho2+c2 for interface analysis; \
+         `rt60` — room acoustics: Sabine formula RT60=0.161·V/A; pass volume (m³) + absorption (m² sabine) or length+width+height; Schroeder frequency; target absorption table; \
+         `hearing` — human hearing reference data: audible range, dynamic range, audiometric frequencies, OSHA noise exposure limits, SPL reference examples; \
+         `beat` — beat frequency |f₁−f₂|, beat period, musical interval identification, overtone series; pass f1 and f2 (Hz). \
+         Example: acoustics_tools(action: 'wave', freq: 440) or \
+         acoustics_tools(action: 'resonance', type: 'open_pipe', length: 0.5).",
+        crate::tools::acoustics_tools::schema(),
+    ));
+    tools.push(make_tool(
+        "materials_tools",
+        "Materials science calculations without external utilities. \
+         Actions: \
+         `properties` (default) — material properties lookup: density (kg/m³), Young's modulus E (GPa), Poisson's ratio ν, yield strength σ_y (MPa), thermal expansion α, conductivity k; pass 'material' name; \
+         `stress` — stress σ=F/A, strain ε=ΔL/L₀, Young's modulus E=σ/ε; solve for any missing quantity given the other two; \
+         `thermal` — thermal expansion ΔL=α·L₀·ΔT; thermal stress σ=E·α·|ΔT| for fully constrained members; pass alpha (µm/m·°C) or material name + delta_t; \
+         `bending` — beam bending: section moment of inertia I and centroid distance c for rectangular/circular/hollow_circular sections; max stress σ=M·c/I; safety factor vs yield strength; \
+         `hardness` — Mohs hardness scale (1–10) and engineering hardness (Vickers HV, Brinell HB) lookup; pass material name or view full table; \
+         `pressure` — hydrostatic pressure P=ρ·g·h and buoyancy F_b=ρ·g·V (Archimedes); pass rho + depth or volume; common fluid densities table; \
+         `safety` — factor of safety: FS=failure_load/working_load or FS=yield_strength/applied_stress; assessment and typical design guidelines; \
+         `crystal` — crystal structure: FCC/BCC/HCP/SC/Diamond — atoms per cell, coordination number, APF, r vs lattice_a relationship; pass lattice_a (nm) for radius and cell volume. \
+         Example: materials_tools(action: 'properties', material: 'steel_mild') or \
+         materials_tools(action: 'stress', force: 10000, area: 0.001).",
+        crate::tools::materials_tools::schema(),
+    ));
+    tools.push(make_tool(
         "printf_tools",
         "Analyze, simulate, validate, and convert C-style printf format strings without external utilities. \
          Actions: \
@@ -7156,6 +7188,8 @@ pub async fn dispatch_builtin_tool(
         "em_tools" => crate::tools::em_tools::execute(args).await,
         "relativity_tools" => crate::tools::relativity_tools::execute(args).await,
         "nuclear_tools" => crate::tools::nuclear_tools::execute(args).await,
+        "acoustics_tools" => crate::tools::acoustics_tools::execute(args).await,
+        "materials_tools" => crate::tools::materials_tools::execute(args).await,
         "printf_tools" => crate::tools::printf_tools::execute(args).await,
         "ascii_chart_tools" => crate::tools::ascii_chart_tools::execute(args).await,
         "sql_format_tools" => crate::tools::sql_format_tools::execute(args).await,

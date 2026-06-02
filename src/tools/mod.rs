@@ -1,5 +1,6 @@
 pub mod tool;
 pub use tool::RiskLevel;
+pub mod acoustics_tools;
 pub mod ansi_tools;
 pub mod archive_tools;
 pub mod ascii_chart_tools;
@@ -109,6 +110,7 @@ pub mod lsp_tools;
 pub mod make_tools;
 pub mod markdown_gen_tools;
 pub mod markdown_tools;
+pub mod materials_tools;
 pub mod math_util;
 pub mod matrix_tools;
 pub mod mechanics_tools;

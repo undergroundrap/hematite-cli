@@ -27,10 +27,10 @@ use crate::agent::recovery_recipes::{
 };
 use crate::agent::routing::{
     all_host_inspection_topics, classify_query_intent, is_capability_probe_tool,
-    is_scaffold_request, looks_like_mutation_request, needs_ansi_tools, needs_archive_tools,
-    needs_ascii_chart_tools, needs_ascii_tools, needs_asn1_tools, needs_astro_tools,
-    needs_base_tools, needs_bencode_tools, needs_bin_pack_tools, needs_binary_tools,
-    needs_bio_tools, needs_calc_tools, needs_cbor_tools, needs_changelog_gen,
+    is_scaffold_request, looks_like_mutation_request, needs_acoustics_tools, needs_ansi_tools,
+    needs_archive_tools, needs_ascii_chart_tools, needs_ascii_tools, needs_asn1_tools,
+    needs_astro_tools, needs_base_tools, needs_bencode_tools, needs_bin_pack_tools,
+    needs_binary_tools, needs_bio_tools, needs_calc_tools, needs_cbor_tools, needs_changelog_gen,
     needs_changelog_tools, needs_char_tools, needs_checksum_tools, needs_chemistry_tools,
     needs_cipher_tools, needs_circuit_tools, needs_cite_tools, needs_code_metrics,
     needs_color_tools, needs_compression_tools, needs_computation_sandbox, needs_conda_tools,
@@ -49,28 +49,28 @@ use crate::agent::routing::{
     needs_jsonschema_tools, needs_jwt_tools, needs_k8s_tools, needs_keyval_tools,
     needs_latex_tools, needs_leb128_tools, needs_license_tools, needs_line_tools, needs_lint_check,
     needs_lock_file_tools, needs_log_parse_tools, needs_logic_tools, needs_make_tools,
-    needs_markdown_gen_tools, needs_markdown_tools, needs_matrix_tools, needs_mechanics_tools,
-    needs_mermaid_tools, needs_mime_tools, needs_money_tools, needs_msgpack_tools,
-    needs_music_tools, needs_nato_tools, needs_net_lookup_tools, needs_network_header_tools,
-    needs_nginx_conf_tools, needs_notebook_tools, needs_nuclear_tools, needs_number_sequence_tools,
-    needs_number_theory_tools, needs_number_tools, needs_number_words_tools, needs_openapi_tools,
-    needs_optics_tools, needs_package_json_tools, needs_password_gen, needs_path_tools,
-    needs_pem_tools, needs_periodic_tools, needs_physics_tools, needs_plist_tools,
-    needs_port_check, needs_printf_tools, needs_proto_tools, needs_quantum_tools,
-    needs_regex_tools, needs_relativity_tools, needs_robots_txt_tools, needs_rss_tools,
-    needs_scientific_compute, needs_secret_scan, needs_semver_tools, needs_signal_tools,
-    needs_sitemap_tools, needs_size_tools, needs_sort_tools, needs_sql_format_tools,
-    needs_sql_migrate_tools, needs_sql_tools, needs_sqlite_tools, needs_ssh_config_tools,
-    needs_stack_tools, needs_stat_tools, needs_string_metric_tools, needs_systemd_tools,
-    needs_table_tools, needs_tar_tools, needs_template_gen, needs_template_tools,
-    needs_terraform_tools, needs_test_run, needs_text_align_tools, needs_text_extract_tools,
-    needs_text_tools, needs_thermo_tools, needs_time_zone_tools, needs_tlv_tools, needs_todo_tools,
-    needs_token_tools, needs_toml_tools, needs_totp_tools, needs_trie_tools, needs_unicode_tools,
-    needs_unit_tools, needs_url_tools, needs_uuid_gen, needs_validate_tools, needs_vcf_tools,
-    needs_vector_tools, needs_wasm_tools, needs_web_manifest_tools, needs_word_tools,
-    needs_xml_tools, needs_yaml_tools, preferred_host_inspection_topic,
-    preferred_maintainer_workflow, preferred_workspace_workflow, DirectAnswerKind,
-    QueryIntentClass,
+    needs_markdown_gen_tools, needs_markdown_tools, needs_materials_tools, needs_matrix_tools,
+    needs_mechanics_tools, needs_mermaid_tools, needs_mime_tools, needs_money_tools,
+    needs_msgpack_tools, needs_music_tools, needs_nato_tools, needs_net_lookup_tools,
+    needs_network_header_tools, needs_nginx_conf_tools, needs_notebook_tools, needs_nuclear_tools,
+    needs_number_sequence_tools, needs_number_theory_tools, needs_number_tools,
+    needs_number_words_tools, needs_openapi_tools, needs_optics_tools, needs_package_json_tools,
+    needs_password_gen, needs_path_tools, needs_pem_tools, needs_periodic_tools,
+    needs_physics_tools, needs_plist_tools, needs_port_check, needs_printf_tools,
+    needs_proto_tools, needs_quantum_tools, needs_regex_tools, needs_relativity_tools,
+    needs_robots_txt_tools, needs_rss_tools, needs_scientific_compute, needs_secret_scan,
+    needs_semver_tools, needs_signal_tools, needs_sitemap_tools, needs_size_tools,
+    needs_sort_tools, needs_sql_format_tools, needs_sql_migrate_tools, needs_sql_tools,
+    needs_sqlite_tools, needs_ssh_config_tools, needs_stack_tools, needs_stat_tools,
+    needs_string_metric_tools, needs_systemd_tools, needs_table_tools, needs_tar_tools,
+    needs_template_gen, needs_template_tools, needs_terraform_tools, needs_test_run,
+    needs_text_align_tools, needs_text_extract_tools, needs_text_tools, needs_thermo_tools,
+    needs_time_zone_tools, needs_tlv_tools, needs_todo_tools, needs_token_tools, needs_toml_tools,
+    needs_totp_tools, needs_trie_tools, needs_unicode_tools, needs_unit_tools, needs_url_tools,
+    needs_uuid_gen, needs_validate_tools, needs_vcf_tools, needs_vector_tools, needs_wasm_tools,
+    needs_web_manifest_tools, needs_word_tools, needs_xml_tools, needs_yaml_tools,
+    preferred_host_inspection_topic, preferred_maintainer_workflow, preferred_workspace_workflow,
+    DirectAnswerKind, QueryIntentClass,
 };
 use crate::agent::tool_registry::dispatch_builtin_tool;
 use crate::agent::truncation::safe_head;
@@ -7593,6 +7593,40 @@ impl ConversationManager {
                  reactions (preset nuclear reactions — pass reaction name; use reaction='list' to see all). \
                  Example: nuclear_tools(action: 'decay', n0: 1e10, t: 86400, t_half: 43200) or \
                  nuclear_tools(action: 'binding_energy', z: 26, a: 56)."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_acoustics_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "ACOUSTICS NOTICE: Use the `acoustics_tools` tool for sound and acoustics calculations without external utilities. \
+                 Actions: wave (default — sound wave properties from freq or wavelength; speed of sound vs temperature), \
+                 decibels (SPL conversion from intensity/pressure/dB; combine multiple levels logarithmically), \
+                 doppler (Doppler effect for sound — pass freq + v_src and/or v_obs in m/s), \
+                 resonance (standing waves for string/open_pipe/closed_pipe — pass length and type; optional tension+linear_density for strings), \
+                 impedance (acoustic impedance Z=ρ·c; reflection and transmission coefficients at interface — pass rho1+c1 and rho2+c2), \
+                 rt60 (Sabine RT60 room acoustics — pass volume and absorption in m² sabine; or length+width+height), \
+                 hearing (human hearing reference data: dynamic range, audiometric frequencies, OSHA noise limits), \
+                 beat (beat frequency between two notes — pass f1 and f2; shows musical interval and overtone series). \
+                 Example: acoustics_tools(action: 'wave', freq: 440) or \
+                 acoustics_tools(action: 'resonance', type: 'open_pipe', length: 0.5)."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_materials_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "MATERIALS SCIENCE NOTICE: Use the `materials_tools` tool for materials science calculations without external utilities. \
+                 Actions: properties (default — material properties lookup: density, E, ν, σ_y, α, k; pass material name), \
+                 stress (stress/strain/Young's modulus solver — pass any two of stress/force+area, strain/delta_l+l0, modulus), \
+                 thermal (thermal expansion ΔL=α·L₀·ΔT; thermal stress for constrained members — pass alpha or material + delta_t), \
+                 bending (beam bending σ=M·c/I; pass section (rectangular/circular/hollow_circular) + dimensions + moment), \
+                 hardness (Mohs hardness scale and engineering hardness HV/HB lookup — pass material), \
+                 pressure (hydrostatic pressure P=ρ·g·h and buoyancy F_b=ρ·g·V — pass rho + depth or volume), \
+                 safety (factor of safety = failure_load/working_load or yield_strength/applied_stress), \
+                 crystal (crystal structure properties: FCC/BCC/HCP/SC/diamond — APF, coordination number; pass crystal and lattice_a in nm). \
+                 Example: materials_tools(action: 'properties', material: 'steel_mild') or \
+                 materials_tools(action: 'stress', force: 10000, area: 0.001)."
                     .to_string(),
             );
         }
