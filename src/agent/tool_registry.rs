@@ -5476,6 +5476,24 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         crate::tools::gpu_tools::gpu_tools_schema(),
     ));
     tools.push(make_tool(
+        "signal_tools",
+        "Digital signal processing without external libraries: DFT/IDFT, FIR filter design, convolution, \
+         window functions, resampling, signal statistics, and autocorrelation. \
+         Actions: dft (default — Discrete Fourier Transform with magnitude/phase/bar per bin; pass 'samples' array or CSV string, optional 'sample_rate' Hz, 'max_bins'), \
+         idft (Inverse DFT from 'real' and 'imag' coefficient arrays), \
+         convolve (1D linear convolution of 'samples' with 'kernel'), \
+         fir (windowed-sinc FIR filter design; pass 'cutoff' 0–0.5, optional 'taps' odd int, 'filter_type': lowpass/highpass/bandpass/bandstop, 'cutoff2' for band filters, 'window_type': hamming/hanning/blackman/kaiser/bartlett/flat_top, 'sample_rate'), \
+         window (generate window function coefficients; pass 'window_type', 'length', optional 'beta' for Kaiser), \
+         stats (signal statistics — mean, RMS, variance, std dev, crest factor, zero crossings, Shannon entropy; pass 'samples'), \
+         resample (polyphase rational resampling; pass 'samples', 'up', 'down' integers 1–64), \
+         autocorr (autocorrelation function with dominant period detection; pass 'samples', optional 'sample_rate'). \
+         Example: signal_tools(action: 'dft', samples: [1,0,-1,0,1,0,-1,0], sample_rate: 8000) or \
+         signal_tools(action: 'fir', cutoff: 0.2, taps: 31, filter_type: 'lowpass') or \
+         signal_tools(action: 'stats', samples: [1.2,-0.5,0.8,-1.1]) or \
+         signal_tools(action: 'autocorr', samples: '1,0,-1,0,1,0,-1').",
+        crate::tools::signal_tools::signal_tools_schema(),
+    ));
+    tools.push(make_tool(
         "graph_tools",
         "Graph algorithm operations without external utilities. \
          Actions: info (default — node/edge counts, density, degree distribution; pass 'nodes' array and 'edges' array), \
@@ -6123,6 +6141,24 @@ pub fn get_tools() -> Vec<ToolDefinition> {
          bio_tools(action: 'parse_fasta', file: 'genome.fasta') or \
          bio_tools(action: 'orfs', sequence: 'ATGAAATGA...', min_length: 5).",
         crate::tools::bio_tools::bio_tools_schema(),
+    ));
+    tools.push(make_tool(
+        "astro_tools",
+        "Astronomy calculations: planetary positions, rise/set times, angular separation, magnitudes, \
+         distance conversions, constellation lookup, moon phase, and Julian Date conversion. No external API required. \
+         Actions: planet (default — heliocentric longitude, distance, magnitude for all planets; optional 'body' filter, 'date' YYYY-MM-DD), \
+         rise_set (rise/transit/set UT times for any RA/Dec; pass 'ra', 'dec', 'lat', 'lon', optional 'date'), \
+         separation (angular separation between two sky coordinates; pass 'ra'/'dec' and 'ra2'/'dec2'), \
+         magnitude (apparent magnitude scale reference or flux-ratio conversion; pass 'mag1'/'mag2' or 'flux'), \
+         distance (convert between AU/ly/pc/km/m; pass 'value', 'from_unit', 'to_unit'), \
+         constellation (search 88 IAU constellations by name, abbreviation, or meaning; pass 'query'), \
+         moon_phase (lunar phase name, illumination %, age in days; optional 'date'), \
+         julian (Julian Date ↔ calendar date; pass 'date' YYYY-MM-DD or 'jd' number). \
+         Example: astro_tools(action: 'planet', date: '2025-06-01') or \
+         astro_tools(action: 'moon_phase') or \
+         astro_tools(action: 'distance', value: 4.246, from_unit: 'ly', to_unit: 'pc') or \
+         astro_tools(action: 'constellation', query: 'orion').",
+        crate::tools::astro_tools::astro_tools_schema(),
     ));
     tools.push(make_tool(
         "printf_tools",
@@ -6978,6 +7014,7 @@ pub async fn dispatch_builtin_tool(
         "plist_tools" => crate::tools::plist_tools::execute(args).await,
         "bencode_tools" => crate::tools::bencode_tools::execute(args).await,
         "bio_tools" => crate::tools::bio_tools::execute(args).await,
+        "astro_tools" => crate::tools::astro_tools::execute(args).await,
         "printf_tools" => crate::tools::printf_tools::execute(args).await,
         "ascii_chart_tools" => crate::tools::ascii_chart_tools::execute(args).await,
         "sql_format_tools" => crate::tools::sql_format_tools::execute(args).await,
@@ -7021,6 +7058,7 @@ pub async fn dispatch_builtin_tool(
         "jq_tools" => crate::tools::jq_tools::execute(args).await,
         "glob_tools" => crate::tools::glob_tools::execute(args).await,
         "gpu_tools" => crate::tools::gpu_tools::execute(args).await,
+        "signal_tools" => crate::tools::signal_tools::execute(args).await,
         "graph_tools" => crate::tools::graph_tools::execute(args).await,
         "matrix_tools" => crate::tools::matrix_tools::execute(args).await,
         "har_tools" => crate::tools::har_tools::execute(args).await,

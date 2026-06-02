@@ -10126,6 +10126,87 @@ pub fn needs_latex_tools(user_input: &str) -> bool {
     )
 }
 
+pub fn needs_astro_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "planet position",
+            "planetary position",
+            "heliocentric",
+            "geocentric",
+            "planet longitude",
+            "rise and set",
+            "rise/set time",
+            "star rise",
+            "angular separation",
+            "sky separation",
+            "celestial separation",
+            "apparent magnitude",
+            "stellar magnitude",
+            "astronomical magnitude",
+            "astronomical unit",
+            "light year",
+            "parsec distance",
+            "constellation",
+            "iau constellation",
+            "moon phase",
+            "lunar phase",
+            "julian date",
+            "julian day",
+            "jd to date",
+            "date to jd",
+            "j2000",
+            "ephemeris",
+            "astronomy",
+            "celestial",
+            "right ascension",
+            "declination",
+            "hour angle",
+        ],
+    )
+}
+
+pub fn needs_signal_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "discrete fourier",
+            "dft of",
+            "idft",
+            "inverse dft",
+            "fft of",
+            "fir filter",
+            "fir design",
+            "lowpass filter",
+            "highpass filter",
+            "bandpass filter",
+            "bandstop filter",
+            "window function",
+            "hamming window",
+            "hanning window",
+            "blackman window",
+            "kaiser window",
+            "bartlett window",
+            "convolve signal",
+            "signal convolution",
+            "resample signal",
+            "upsample",
+            "downsample",
+            "autocorrelation",
+            "signal statistics",
+            "signal power",
+            "rms of signal",
+            "zero crossing",
+            "sinc filter",
+            "signal processing",
+            "digital filter",
+            "frequency response",
+        ],
+    )
+}
+
 pub fn needs_cors_tools(user_input: &str) -> bool {
     let lower = user_input.to_lowercase();
     contains_any(

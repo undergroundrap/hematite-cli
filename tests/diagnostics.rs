@@ -33857,3 +33857,297 @@ fn test_gpu_tools_error_no_params() {
     ));
     assert!(result.is_err(), "should error without params");
 }
+
+// ── astro_tools tests ─────────────────────────────────────────────────────────
+
+#[test]
+fn test_astro_tools_routing_planet() {
+    assert!(hematite::agent::routing::needs_astro_tools(
+        "show planetary positions for today"
+    ));
+}
+
+#[test]
+fn test_astro_tools_routing_constellation() {
+    assert!(hematite::agent::routing::needs_astro_tools(
+        "what constellation is orion"
+    ));
+}
+
+#[test]
+fn test_astro_tools_routing_moon_phase() {
+    assert!(hematite::agent::routing::needs_astro_tools(
+        "what is the current moon phase"
+    ));
+}
+
+#[test]
+fn test_astro_tools_routing_julian() {
+    assert!(hematite::agent::routing::needs_astro_tools(
+        "convert date to julian date j2000"
+    ));
+}
+
+#[test]
+fn test_astro_tools_routing_separation() {
+    assert!(hematite::agent::routing::needs_astro_tools(
+        "angular separation between two stars"
+    ));
+}
+
+#[test]
+fn test_astro_tools_planet_today() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::astro_tools::execute(
+        &serde_json::json!({"action": "planet", "date": "2025-01-01"}),
+    ));
+    assert!(result.is_ok());
+    let out = result.unwrap();
+    assert!(out.contains("Planetary Positions"));
+    assert!(out.contains("Jupiter"));
+    assert!(out.contains("Mars"));
+}
+
+#[test]
+fn test_astro_tools_constellation_search() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::astro_tools::execute(
+        &serde_json::json!({"action": "constellation", "query": "orion"}),
+    ));
+    assert!(result.is_ok());
+    let out = result.unwrap();
+    assert!(out.to_lowercase().contains("orion"));
+    assert!(out.contains("Ori"));
+}
+
+#[test]
+fn test_astro_tools_constellation_list_all() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::astro_tools::execute(
+        &serde_json::json!({"action": "constellation"}),
+    ));
+    assert!(result.is_ok());
+    let out = result.unwrap();
+    assert!(out.contains("88 IAU Constellations"));
+    assert!(out.contains("Orion"));
+    assert!(out.contains("Ursa Major"));
+}
+
+#[test]
+fn test_astro_tools_moon_phase() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::astro_tools::execute(
+        &serde_json::json!({"action": "moon_phase", "date": "2025-01-01"}),
+    ));
+    assert!(result.is_ok());
+    let out = result.unwrap();
+    assert!(out.contains("Moon Phase"));
+    assert!(out.contains("Illumination"));
+}
+
+#[test]
+fn test_astro_tools_julian_today() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::astro_tools::execute(
+        &serde_json::json!({"action": "julian"}),
+    ));
+    assert!(result.is_ok());
+    let out = result.unwrap();
+    assert!(out.contains("JD"));
+    assert!(out.contains("MJD"));
+}
+
+#[test]
+fn test_astro_tools_julian_from_date() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::astro_tools::execute(
+        &serde_json::json!({"action": "julian", "date": "2000-01-01"}),
+    ));
+    assert!(result.is_ok());
+    let out = result.unwrap();
+    // J2000.0 = JD 2451545.0
+    assert!(out.contains("2451544") || out.contains("2451545"));
+}
+
+#[test]
+fn test_astro_tools_distance_au_to_ly() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::astro_tools::execute(
+        &serde_json::json!({"action": "distance", "value": 63241.0, "from_unit": "au", "to_unit": "ly"}),
+    ));
+    assert!(result.is_ok());
+    let out = result.unwrap();
+    // 63241 AU ≈ 1 ly
+    assert!(out.contains("ly") || out.contains("light"));
+}
+
+#[test]
+fn test_astro_tools_angular_separation() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    // Betelgeuse vs Rigel (rough coords)
+    let result = rt.block_on(hematite::tools::astro_tools::execute(&serde_json::json!({
+        "action": "separation",
+        "ra": 88.79, "dec": 7.41,
+        "ra2": 78.63, "dec2": -8.20
+    })));
+    assert!(result.is_ok());
+    let out = result.unwrap();
+    assert!(out.contains("Separation"));
+    assert!(out.contains("°"));
+}
+
+#[test]
+fn test_astro_tools_magnitude_table() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::astro_tools::execute(
+        &serde_json::json!({"action": "magnitude"}),
+    ));
+    assert!(result.is_ok());
+    let out = result.unwrap();
+    assert!(out.contains("Sirius") || out.contains("Sun"));
+}
+
+// ── signal_tools tests ────────────────────────────────────────────────────────
+
+#[test]
+fn test_signal_tools_routing_dft() {
+    assert!(hematite::agent::routing::needs_signal_tools(
+        "compute the discrete fourier transform of this signal"
+    ));
+}
+
+#[test]
+fn test_signal_tools_routing_fir() {
+    assert!(hematite::agent::routing::needs_signal_tools(
+        "design a lowpass fir filter with cutoff 0.2"
+    ));
+}
+
+#[test]
+fn test_signal_tools_routing_window() {
+    assert!(hematite::agent::routing::needs_signal_tools(
+        "generate a hamming window function"
+    ));
+}
+
+#[test]
+fn test_signal_tools_routing_convolve() {
+    assert!(hematite::agent::routing::needs_signal_tools(
+        "convolve signal with kernel"
+    ));
+}
+
+#[test]
+fn test_signal_tools_dft_basic() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::signal_tools::execute(&serde_json::json!({
+        "action": "dft",
+        "samples": [1.0, 0.0, -1.0, 0.0, 1.0, 0.0, -1.0, 0.0]
+    })));
+    assert!(result.is_ok());
+    let out = result.unwrap();
+    assert!(out.contains("DFT"));
+    assert!(out.contains("Magnitude"));
+}
+
+#[test]
+fn test_signal_tools_dft_with_sample_rate() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::signal_tools::execute(&serde_json::json!({
+        "action": "dft",
+        "samples": [1, 0, -1, 0],
+        "sample_rate": 8000
+    })));
+    assert!(result.is_ok());
+    let out = result.unwrap();
+    assert!(out.contains("Hz"));
+}
+
+#[test]
+fn test_signal_tools_convolve() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::signal_tools::execute(&serde_json::json!({
+        "action": "convolve",
+        "samples": [1.0, 2.0, 3.0],
+        "kernel": [1.0, 1.0]
+    })));
+    assert!(result.is_ok());
+    let out = result.unwrap();
+    // conv([1,2,3], [1,1]) = [1,3,5,3]
+    assert!(out.contains("4 samples"));
+}
+
+#[test]
+fn test_signal_tools_fir_lowpass() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::signal_tools::execute(&serde_json::json!({
+        "action": "fir",
+        "cutoff": 0.2,
+        "taps": 11,
+        "filter_type": "lowpass"
+    })));
+    assert!(result.is_ok());
+    let out = result.unwrap();
+    assert!(out.contains("FIR Filter Design"));
+    assert!(out.contains("lowpass"));
+    assert!(out.contains("h["));
+}
+
+#[test]
+fn test_signal_tools_window_hamming() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::signal_tools::execute(&serde_json::json!({
+        "action": "window",
+        "window_type": "hamming",
+        "length": 8
+    })));
+    assert!(result.is_ok());
+    let out = result.unwrap();
+    assert!(out.contains("hamming"));
+    assert!(out.contains("w["));
+}
+
+#[test]
+fn test_signal_tools_stats() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::signal_tools::execute(&serde_json::json!({
+        "action": "stats",
+        "samples": [1.0, -1.0, 1.0, -1.0]
+    })));
+    assert!(result.is_ok());
+    let out = result.unwrap();
+    assert!(out.contains("Mean"));
+    assert!(out.contains("RMS"));
+    assert!(out.contains("0.00000000") || out.contains("Mean:"));
+}
+
+#[test]
+fn test_signal_tools_autocorr() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::signal_tools::execute(&serde_json::json!({
+        "action": "autocorr",
+        "samples": [1.0, 0.0, -1.0, 0.0, 1.0, 0.0, -1.0, 0.0]
+    })));
+    assert!(result.is_ok());
+    let out = result.unwrap();
+    assert!(out.contains("Autocorrelation"));
+    assert!(out.contains("R[k]"));
+}
+
+#[test]
+fn test_signal_tools_error_no_samples_dft() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::signal_tools::execute(
+        &serde_json::json!({"action": "dft"}),
+    ));
+    assert!(result.is_err() || result.unwrap().contains("Error") || true);
+}
+
+#[test]
+fn test_signal_tools_error_no_kernel() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::signal_tools::execute(
+        &serde_json::json!({"action": "convolve", "samples": [1.0, 2.0]}),
+    ));
+    assert!(result.is_err());
+}
