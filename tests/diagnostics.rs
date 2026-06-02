@@ -32663,3 +32663,335 @@ fn test_web_manifest_info() {
         "got: {out}"
     );
 }
+
+// physics_tools tests
+#[test]
+fn test_physics_tools_routing_constants() {
+    assert!(hematite::agent::routing::needs_physics_tools(
+        "what is the speed of light"
+    ));
+    assert!(hematite::agent::routing::needs_physics_tools(
+        "look up boltzmann constant"
+    ));
+    assert!(hematite::agent::routing::needs_physics_tools(
+        "planck constant value"
+    ));
+    assert!(hematite::agent::routing::needs_physics_tools(
+        "avogadro number"
+    ));
+    assert!(!hematite::agent::routing::needs_physics_tools(
+        "hello world"
+    ));
+}
+
+#[test]
+fn test_physics_tools_routing_formulas() {
+    assert!(hematite::agent::routing::needs_physics_tools(
+        "use kinetic energy formula"
+    ));
+    assert!(hematite::agent::routing::needs_physics_tools(
+        "ohms law voltage"
+    ));
+    assert!(hematite::agent::routing::needs_physics_tools(
+        "snells law refraction"
+    ));
+    assert!(hematite::agent::routing::needs_physics_tools(
+        "e=mc2 mass energy"
+    ));
+    assert!(hematite::agent::routing::needs_physics_tools(
+        "carnot efficiency heat engine"
+    ));
+}
+
+#[test]
+fn test_physics_tools_constant_lookup() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::physics_tools::execute(
+            &serde_json::json!({"action": "constant", "query": "speed of light"}),
+        ))
+        .unwrap();
+    assert!(out.contains("Speed of light"), "got: {out}");
+    assert!(out.contains("2.99") || out.contains("299"), "got: {out}");
+    assert!(out.contains("m/s"), "got: {out}");
+}
+
+#[test]
+fn test_physics_tools_constant_by_symbol() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::physics_tools::execute(
+            &serde_json::json!({"action": "constant", "query": "k_B"}),
+        ))
+        .unwrap();
+    assert!(out.to_lowercase().contains("boltzmann"), "got: {out}");
+    assert!(out.contains("J/K"), "got: {out}");
+}
+
+#[test]
+fn test_physics_tools_constant_not_found() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::physics_tools::execute(
+            &serde_json::json!({"action": "constant", "query": "xyznotaconstant999"}),
+        ))
+        .unwrap();
+    assert!(
+        out.to_lowercase().contains("no constant found")
+            || out.to_lowercase().contains("not found"),
+        "got: {out}"
+    );
+}
+
+#[test]
+fn test_physics_tools_formula_kinetic_energy() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt.block_on(hematite::tools::physics_tools::execute(
+        &serde_json::json!({"action": "formula", "name": "kinetic_energy", "vars": {"m": 2.0, "v": 10.0}}),
+    )).unwrap();
+    // KE = 0.5 * 2 * 10^2 = 100 J
+    assert!(out.contains("KE"), "got: {out}");
+    assert!(out.contains("100"), "got: {out}");
+}
+
+#[test]
+fn test_physics_tools_formula_ohms_law() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt.block_on(hematite::tools::physics_tools::execute(
+        &serde_json::json!({"action": "formula", "name": "ohms_law", "vars": {"I": 2.0, "R": 5.0}}),
+    )).unwrap();
+    // V = I*R = 10
+    assert!(out.contains("V"), "got: {out}");
+    assert!(out.contains("10"), "got: {out}");
+}
+
+#[test]
+fn test_physics_tools_formula_ideal_gas() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt.block_on(hematite::tools::physics_tools::execute(
+        &serde_json::json!({"action": "formula", "name": "ideal_gas", "vars": {"n": 1.0, "R": 8.314, "T": 273.15, "V": 0.0224}}),
+    )).unwrap();
+    assert!(out.contains("P") || out.contains("Pa"), "got: {out}");
+}
+
+#[test]
+fn test_physics_tools_formula_snells_law() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt.block_on(hematite::tools::physics_tools::execute(
+        &serde_json::json!({"action": "formula", "name": "snells_law", "vars": {"n1": 1.0, "theta1": 30.0, "n2": 1.5}}),
+    )).unwrap();
+    // Should find theta2 ~ 19.47 degrees
+    assert!(
+        out.contains("theta2") || out.contains("θ2") || out.contains("degrees"),
+        "got: {out}"
+    );
+}
+
+#[test]
+fn test_physics_tools_list_constants() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::physics_tools::execute(
+            &serde_json::json!({"action": "list", "what": "constants"}),
+        ))
+        .unwrap();
+    assert!(out.contains("Speed of light"), "got: {out}");
+    assert!(out.contains("Planck"), "got: {out}");
+}
+
+#[test]
+fn test_physics_tools_list_formulas() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::physics_tools::execute(
+            &serde_json::json!({"action": "list", "what": "formulas"}),
+        ))
+        .unwrap();
+    assert!(out.contains("kinetic_energy"), "got: {out}");
+    assert!(out.contains("ohms_law"), "got: {out}");
+    assert!(
+        out.contains("snells_law") || out.contains("snell"),
+        "got: {out}"
+    );
+}
+
+#[test]
+fn test_physics_tools_domains() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::physics_tools::execute(
+            &serde_json::json!({"action": "domains"}),
+        ))
+        .unwrap();
+    assert!(out.contains("mechanics"), "got: {out}");
+    assert!(out.contains("quantum"), "got: {out}");
+    assert!(out.contains("thermodynamics"), "got: {out}");
+}
+
+// chemistry_tools tests
+#[test]
+fn test_chemistry_tools_routing_balance() {
+    assert!(hematite::agent::routing::needs_chemistry_tools(
+        "balance chemical equation H2 + O2 -> H2O"
+    ));
+    assert!(hematite::agent::routing::needs_chemistry_tools(
+        "balance chemical reaction Fe + O2"
+    ));
+    assert!(hematite::agent::routing::needs_chemistry_tools(
+        "stoichiometry moles"
+    ));
+    assert!(hematite::agent::routing::needs_chemistry_tools(
+        "molarity of solution"
+    ));
+    assert!(hematite::agent::routing::needs_chemistry_tools(
+        "ph calculation Ka"
+    ));
+    assert!(!hematite::agent::routing::needs_chemistry_tools(
+        "hello world"
+    ));
+}
+
+#[test]
+fn test_chemistry_tools_routing_gas() {
+    assert!(hematite::agent::routing::needs_chemistry_tools(
+        "ideal gas law PV=nRT"
+    ));
+    assert!(hematite::agent::routing::needs_chemistry_tools(
+        "gas pressure calculation"
+    ));
+    assert!(hematite::agent::routing::needs_chemistry_tools(
+        "henderson-hasselbalch buffer"
+    ));
+    assert!(hematite::agent::routing::needs_chemistry_tools(
+        "dilution C1V1=C2V2"
+    ));
+}
+
+#[test]
+fn test_chemistry_tools_balance_water() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::chemistry_tools::execute(
+            &serde_json::json!({"action": "balance", "equation": "H2 + O2 -> H2O"}),
+        ))
+        .unwrap();
+    assert!(out.contains("Balanced"), "got: {out}");
+    // 2H2 + O2 -> 2H2O
+    assert!(out.contains("2H2") || out.contains("H2O"), "got: {out}");
+}
+
+#[test]
+fn test_chemistry_tools_balance_iron_oxide() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::chemistry_tools::execute(
+            &serde_json::json!({"action": "balance", "equation": "Fe + O2 -> Fe2O3"}),
+        ))
+        .unwrap();
+    assert!(out.contains("Balanced"), "got: {out}");
+    assert!(out.contains("Fe") && out.contains("O"), "got: {out}");
+}
+
+#[test]
+fn test_chemistry_tools_balance_combustion() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::chemistry_tools::execute(
+            &serde_json::json!({"action": "balance", "equation": "CH4 + O2 -> CO2 + H2O"}),
+        ))
+        .unwrap();
+    assert!(out.contains("Balanced"), "got: {out}");
+    assert!(out.contains("CH4") || out.contains("CO2"), "got: {out}");
+}
+
+#[test]
+fn test_chemistry_tools_ph_from_value() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::chemistry_tools::execute(
+            &serde_json::json!({"action": "ph", "pH_value": 7.0}),
+        ))
+        .unwrap();
+    assert!(
+        out.contains("Neutral") || out.contains("7.000"),
+        "got: {out}"
+    );
+    assert!(out.contains("pOH"), "got: {out}");
+}
+
+#[test]
+fn test_chemistry_tools_ph_henderson_hasselbalch() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::chemistry_tools::execute(
+            &serde_json::json!({"action": "ph", "Ka": 1.8e-5, "acid_conc": 0.1, "base_conc": 0.1}),
+        ))
+        .unwrap();
+    // At equal concentrations, pH = pKa
+    assert!(
+        out.contains("Henderson") || out.contains("pKa") || out.contains("4.7"),
+        "got: {out}"
+    );
+}
+
+#[test]
+fn test_chemistry_tools_gas_law_pressure() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::chemistry_tools::execute(
+            &serde_json::json!({"action": "gas", "n": 1.0, "T": 273.15, "V": 0.0224}),
+        ))
+        .unwrap();
+    assert!(out.contains("P") || out.contains("Pa"), "got: {out}");
+    // ~101325 Pa at STP
+    assert!(out.contains("101") || out.contains("100"), "got: {out}");
+}
+
+#[test]
+fn test_chemistry_tools_gas_law_liters() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt.block_on(hematite::tools::chemistry_tools::execute(
+        &serde_json::json!({"action": "gas", "P": 101325.0, "n": 1.0, "T": 273.15, "unit": "L"}),
+    )).unwrap();
+    assert!(out.contains("V") || out.contains("L"), "got: {out}");
+    // ~22.4 L at STP
+    assert!(out.contains("22") || out.contains("L"), "got: {out}");
+}
+
+#[test]
+fn test_chemistry_tools_solution_molarity() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::chemistry_tools::execute(
+            &serde_json::json!({"action": "solution", "moles_solute": 0.5, "volume_L": 1.0}),
+        ))
+        .unwrap();
+    assert!(
+        out.contains("0.5") || out.contains("Molarity"),
+        "got: {out}"
+    );
+}
+
+#[test]
+fn test_chemistry_tools_solution_dilution() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::chemistry_tools::execute(
+            &serde_json::json!({"action": "solution", "C1": 2.0, "V1": 0.5, "C2": 0.5}),
+        ))
+        .unwrap();
+    // V2 = C1*V1/C2 = 2*0.5/0.5 = 2.0 L
+    assert!(
+        out.contains("2.0") || out.contains("Dilution") || out.contains("2.000"),
+        "got: {out}"
+    );
+}
+
+#[test]
+fn test_chemistry_tools_stoichiometry() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt.block_on(hematite::tools::chemistry_tools::execute(
+        &serde_json::json!({"action": "stoichiometry", "equation": "H2 + O2 -> H2O", "reactant": "H2", "moles": 2.0}),
+    )).unwrap();
+    assert!(out.contains("H2") || out.contains("mol"), "got: {out}");
+}

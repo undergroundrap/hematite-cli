@@ -9837,6 +9837,94 @@ pub fn needs_vector_tools(user_input: &str) -> bool {
     )
 }
 
+pub fn needs_physics_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "physics constant",
+            "physical constant",
+            "speed of light",
+            "planck constant",
+            "boltzmann constant",
+            "avogadro",
+            "gravitational constant",
+            "elementary charge",
+            "vacuum permittivity",
+            "coulombs constant",
+            "faraday constant",
+            "stefan-boltzmann",
+            "bohr radius",
+            "fine structure constant",
+            "rydberg constant",
+            "physics formula",
+            "kinetic energy formula",
+            "ohms law",
+            "ideal gas formula",
+            "coulombs law",
+            "snells law",
+            "de broglie",
+            "carnot efficiency",
+            "thin lens",
+            "wave speed formula",
+            "photon energy",
+            "centripetal force",
+            "gravitational force formula",
+            "heat capacity formula",
+            "momentum formula",
+            "mass energy",
+            "e=mc",
+            "f=ma",
+            "pv=nrt physics",
+            "kinematics formula",
+            "physics domains",
+            "list physics",
+        ],
+    )
+}
+
+pub fn needs_chemistry_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "balance chemical",
+            "balance equation",
+            "balance reaction",
+            "chemical equation",
+            "stoichiometry",
+            "mole ratio",
+            "molar mass of",
+            "molarity",
+            "dilution formula",
+            "c1v1",
+            "c1v1=c2v2",
+            "henderson-hasselbalch",
+            "henderson hasselbalch",
+            "buffer ph",
+            "ph of buffer",
+            "ph calculation",
+            "poh calculation",
+            "acid dissociation",
+            "ka to ph",
+            "kb to pkb",
+            "ideal gas law chemistry",
+            "pv=nrt chemistry",
+            "gas law",
+            "gas pressure",
+            "gas volume",
+            "gas moles",
+            "chemical formula mass",
+            "atomic mass",
+            "formula weight",
+            "limiting reagent",
+            "percent yield",
+            "solution concentration",
+            "moles of solute",
+        ],
+    )
+}
+
 pub fn needs_cors_tools(user_input: &str) -> bool {
     let lower = user_input.to_lowercase();
     contains_any(

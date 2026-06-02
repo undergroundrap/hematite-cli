@@ -1612,6 +1612,33 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         }),
     ));
     tools.push(make_tool(
+        "physics_tools",
+        "Look up physical constants and evaluate physics formulas without external utilities. \
+         Actions: constant (default — search NIST constants by name/symbol/keyword; e.g. 'c', 'planck', 'boltzmann'), \
+         formula (evaluate a named formula solving for the missing variable; pass 'name' and 'vars' object — omit the unknown variable), \
+         list (browse constants or formulas; pass what='constants' or what='formulas'; optional 'domain' filter), \
+         domains (show all physics domains with constant/formula counts). \
+         ~29 NIST constants (mechanics, electromagnetism, quantum, thermodynamics, atomic, gravity, waves, Planck units) and \
+         ~20 formulas (kinematics, Newton's 2nd law, kinetic energy, GPE, E=mc², momentum, work, centripetal force, gravitation, \
+         Ohm's law, electric power, Coulomb's law, wave speed, photon energy, ideal gas, heat capacity, Carnot efficiency, thin lens, Snell's law, de Broglie). \
+         Example: physics_tools(action: 'constant', query: 'boltzmann') or \
+         physics_tools(action: 'formula', name: 'kinetic_energy', vars: {m: 2, v: 10}).",
+        crate::tools::physics_tools::physics_tools_schema(),
+    ));
+    tools.push(make_tool(
+        "chemistry_tools",
+        "Balance chemical equations, calculate stoichiometry, molarity, pH, and gas laws without external utilities. \
+         Actions: balance (default — balance a chemical equation via Gaussian elimination on rational arithmetic; pass 'equation' like 'H2 + O2 -> H2O'), \
+         stoichiometry (mole/mass yield from a balanced equation; pass 'equation', 'reactant', 'product', and 'moles' or 'grams'), \
+         solution (molarity M=n/V and dilution C₁V₁=C₂V₂; pass moles_solute+volume_L for molarity, or three of C1/V1/C2/V2 for dilution), \
+         ph (pH/pOH/[H+]/[OH-] from pH_value; or Ka+acid_conc+base_conc for Henderson-Hasselbalch buffer pH; or Kb for pKb/pKa/Ka), \
+         gas (ideal gas law PV=nRT; pass three of P (Pa)/V/n (mol)/T (K); set unit='L' for volume in liters). \
+         Full 118-element atomic mass table. Stack-based formula parser handles Ca(OH)2, Al2(SO4)3, nested parens. \
+         Example: chemistry_tools(action: 'balance', equation: 'Al + O2 -> Al2O3') or \
+         chemistry_tools(action: 'gas', P: 101325, n: 1, T: 273.15, unit: 'L').",
+        crate::tools::chemistry_tools::chemistry_tools_schema(),
+    ));
+    tools.push(make_tool(
         "cors_tools",
         "Parse, validate, generate, and simulate CORS (Cross-Origin Resource Sharing) headers without external utilities. \
          Actions: parse (default — decode all Access-Control-* headers with annotations; pass 'headers' object), \
@@ -6810,6 +6837,8 @@ pub async fn dispatch_builtin_tool(
         "port_check" => crate::tools::port_check::execute(args).await,
         "env_diff" => crate::tools::env_diff::execute(args).await,
         "template_gen" => crate::tools::template_gen::execute(args).await,
+        "physics_tools" => crate::tools::physics_tools::execute(args).await,
+        "chemistry_tools" => crate::tools::chemistry_tools::execute(args).await,
         "cors_tools" => crate::tools::cors_tools::execute(args).await,
         "web_manifest_tools" => crate::tools::web_manifest_tools::execute(args).await,
         "json_patch_tools" => crate::tools::json_patch_tools::execute(args).await,
