@@ -8166,6 +8166,85 @@ pub fn needs_geometry_tools(user_input: &str) -> bool {
     )
 }
 
+pub fn needs_bio_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "dna sequence",
+            "rna sequence",
+            "nucleotide sequence",
+            "protein sequence",
+            "reverse complement",
+            "dna complement",
+            "transcribe dna",
+            "translate dna",
+            "translate mrna",
+            "translate rna",
+            "gc content",
+            "open reading frame",
+            "find orfs",
+            "codon usage",
+            "codon table",
+            "parse fasta",
+            "fasta file",
+            "fasta sequence",
+            "amino acid sequence",
+            "atgc",
+            "nucleotides",
+            "bioinformatics",
+            "genetic sequence",
+            "gene sequence",
+            "mrna sequence",
+            "dna to rna",
+            "rna to protein",
+        ],
+    )
+}
+
+pub fn needs_gpu_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "vram estimate",
+            "model vram",
+            "vram for model",
+            "how much vram",
+            "vram needed",
+            "vram requirement",
+            "gpu vram",
+            "gpu memory",
+            "llm vram",
+            "model memory",
+            "quantization vram",
+            "batch size vram",
+            "fit in vram",
+            "fit in gpu",
+            "gpu specs",
+            "gpu specification",
+            "rtx 4070 specs",
+            "rtx 4090 specs",
+            "rtx 3090 specs",
+            "nvidia gpu spec",
+            "parse nvidia-smi",
+            "nvidia-smi output",
+            "vram budget",
+            "gpu budget",
+            "llm quantization",
+            "q4 model size",
+            "q8 model size",
+            "fp16 model size",
+            "gguf size",
+            "gguf vram",
+            "parameter count vram",
+            "7b vram",
+            "13b vram",
+            "70b vram",
+        ],
+    )
+}
+
 pub fn needs_checksum_tools(user_input: &str) -> bool {
     let lower = user_input.to_lowercase();
     contains_any(

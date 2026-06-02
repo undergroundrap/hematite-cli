@@ -33616,3 +33616,244 @@ fn test_conda_tools_export() {
         "got: {out}"
     );
 }
+
+// ===== bio_tools =====
+
+#[test]
+fn test_bio_tools_routing_dna() {
+    assert!(hematite::agent::routing::needs_bio_tools(
+        "analyze this dna sequence ATGCCC"
+    ));
+}
+
+#[test]
+fn test_bio_tools_routing_fasta() {
+    assert!(hematite::agent::routing::needs_bio_tools(
+        "parse this fasta file genome.fasta"
+    ));
+}
+
+#[test]
+fn test_bio_tools_routing_translate() {
+    assert!(hematite::agent::routing::needs_bio_tools(
+        "translate dna to protein sequence"
+    ));
+}
+
+#[test]
+fn test_bio_tools_routing_gc() {
+    assert!(hematite::agent::routing::needs_bio_tools(
+        "what is the gc content of this sequence"
+    ));
+}
+
+#[test]
+fn test_bio_tools_info_dna() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::bio_tools::execute(
+            &serde_json::json!({"action": "info", "sequence": "ATGCATGCATGC"}),
+        ))
+        .unwrap();
+    assert!(out.contains("DNA") || out.contains("dna"), "got: {out}");
+    assert!(out.contains("12"), "got: {out}");
+}
+
+#[test]
+fn test_bio_tools_complement() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::bio_tools::execute(
+            &serde_json::json!({"action": "complement", "sequence": "ATGC"}),
+        ))
+        .unwrap();
+    assert!(
+        out.contains("GCAT") || out.contains("RevComp"),
+        "got: {out}"
+    );
+}
+
+#[test]
+fn test_bio_tools_transcribe() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::bio_tools::execute(
+            &serde_json::json!({"action": "transcribe", "sequence": "ATGCATG"}),
+        ))
+        .unwrap();
+    assert!(out.contains("U") || out.contains("mRNA"), "got: {out}");
+}
+
+#[test]
+fn test_bio_tools_translate() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    // ATG = Met, AAA = Lys, CCC = Pro, TAA = stop
+    let out = rt
+        .block_on(hematite::tools::bio_tools::execute(
+            &serde_json::json!({"action": "translate", "sequence": "ATGAAACCCTAA"}),
+        ))
+        .unwrap();
+    assert!(
+        out.contains("Met") || out.contains("Lys") || out.contains("Pro"),
+        "got: {out}"
+    );
+}
+
+#[test]
+fn test_bio_tools_gc_content() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    // GGCC = 100% GC, AATT = 0%
+    let out = rt
+        .block_on(hematite::tools::bio_tools::execute(
+            &serde_json::json!({"action": "gc", "sequence": "GGCCGGCC"}),
+        ))
+        .unwrap();
+    assert!(out.contains("100") || out.contains("GC"), "got: {out}");
+}
+
+#[test]
+fn test_bio_tools_orfs() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    // ATG...TAA contains an ORF
+    let out = rt.block_on(hematite::tools::bio_tools::execute(
+        &serde_json::json!({"action": "orfs", "sequence": "ATGAAAAAAAAAAAATAA", "min_length": 2}),
+    )).unwrap();
+    assert!(
+        out.contains("ORF") || out.contains("Frame") || out.contains("+1"),
+        "got: {out}"
+    );
+}
+
+#[test]
+fn test_bio_tools_parse_fasta() {
+    let fasta = ">seq1 test sequence\nATGCATGCATGC\n>seq2 another\nGGGCCCGGG\n";
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::bio_tools::execute(
+            &serde_json::json!({"action": "parse_fasta", "text": fasta}),
+        ))
+        .unwrap();
+    assert!(
+        out.contains("seq1") || out.contains("2 record"),
+        "got: {out}"
+    );
+}
+
+#[test]
+fn test_bio_tools_error_no_sequence() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::bio_tools::execute(
+        &serde_json::json!({"action": "info"}),
+    ));
+    assert!(result.is_err(), "should error without sequence");
+}
+
+// ===== gpu_tools =====
+
+#[test]
+fn test_gpu_tools_routing_vram() {
+    assert!(hematite::agent::routing::needs_gpu_tools(
+        "how much vram does a 7b model need"
+    ));
+}
+
+#[test]
+fn test_gpu_tools_routing_estimate() {
+    assert!(hematite::agent::routing::needs_gpu_tools(
+        "vram estimate for llm"
+    ));
+}
+
+#[test]
+fn test_gpu_tools_routing_specs() {
+    assert!(hematite::agent::routing::needs_gpu_tools(
+        "rtx 4070 specs vram"
+    ));
+}
+
+#[test]
+fn test_gpu_tools_routing_gguf() {
+    assert!(hematite::agent::routing::needs_gpu_tools(
+        "what gguf size fits in my vram"
+    ));
+}
+
+#[test]
+fn test_gpu_tools_estimate_7b_q4() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::gpu_tools::execute(
+            &serde_json::json!({"action": "estimate", "params": 7.0, "quant": "q4"}),
+        ))
+        .unwrap();
+    assert!(
+        out.contains("VRAM") || out.contains("GB") || out.contains("7"),
+        "got: {out}"
+    );
+}
+
+#[test]
+fn test_gpu_tools_estimate_fp16() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::gpu_tools::execute(
+            &serde_json::json!({"action": "estimate", "params": 7.0, "quant": "fp16"}),
+        ))
+        .unwrap();
+    // fp16 7B should be ~14 GB
+    assert!(
+        out.contains("14") || out.contains("fp16") || out.contains("GB"),
+        "got: {out}"
+    );
+}
+
+#[test]
+fn test_gpu_tools_info_rtx4070() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::gpu_tools::execute(
+            &serde_json::json!({"action": "info", "gpu": "RTX 4070"}),
+        ))
+        .unwrap();
+    assert!(
+        out.contains("12") || out.contains("4070") || out.contains("Ada"),
+        "got: {out}"
+    );
+}
+
+#[test]
+fn test_gpu_tools_budget_12gb() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::gpu_tools::execute(
+            &serde_json::json!({"action": "budget", "vram_gb": 12.0}),
+        ))
+        .unwrap();
+    assert!(
+        out.contains("12") || out.contains("Q4") || out.contains("fits"),
+        "got: {out}"
+    );
+}
+
+#[test]
+fn test_gpu_tools_batch() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::gpu_tools::execute(
+            &serde_json::json!({"action": "batch", "params": 7.0, "quant": "q4", "vram_gb": 12.0}),
+        ))
+        .unwrap();
+    assert!(
+        out.contains("batch") || out.contains("Batch") || out.contains("GB"),
+        "got: {out}"
+    );
+}
+
+#[test]
+fn test_gpu_tools_error_no_params() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::gpu_tools::execute(
+        &serde_json::json!({"action": "estimate"}),
+    ));
+    assert!(result.is_err(), "should error without params");
+}

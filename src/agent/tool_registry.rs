@@ -5461,6 +5461,21 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         }),
     ));
     tools.push(make_tool(
+        "gpu_tools",
+        "Estimate LLM VRAM requirements, look up GPU specifications, and plan VRAM budgets without external utilities. \
+         Actions: estimate (default — VRAM needed for a model; pass 'params' in billions and 'quant': fp32/fp16/bf16/q8/q6/q5/q4/q3/q2/q1 or 'q4_k_m' etc.; optional 'context' tokens, 'kv_cache', layer/head config), \
+         batch (max batch size for a model in a given VRAM budget; pass 'params', 'quant', 'vram_gb'; optional 'overhead_gb'), \
+         info (GPU specs by model name — VRAM, CUDA cores, tensor cores, bandwidth, FP16 TFLOPs, architecture; pass 'gpu' like 'RTX 4070'), \
+         parse (parse pasted nvidia-smi plain-text output; pass 'text' with the full nvidia-smi output), \
+         budget (VRAM budget planner — shows which model sizes fit at each quantization level; pass 'vram_gb'). \
+         Covers RTX 4xxx/3xxx, A100, H100, RTX 20xx series. \
+         Example: gpu_tools(action: 'estimate', params: 7.0, quant: 'q4_k_m', context: 4096) or \
+         gpu_tools(action: 'info', gpu: 'RTX 4070') or \
+         gpu_tools(action: 'budget', vram_gb: 12.0) or \
+         gpu_tools(action: 'batch', params: 7.0, quant: 'q4', vram_gb: 12.0).",
+        crate::tools::gpu_tools::gpu_tools_schema(),
+    ));
+    tools.push(make_tool(
         "graph_tools",
         "Graph algorithm operations without external utilities. \
          Actions: info (default — node/edge counts, density, degree distribution; pass 'nodes' array and 'edges' array), \
@@ -6091,6 +6106,23 @@ pub fn get_tools() -> Vec<ToolDefinition> {
             },
             "required": []
         }),
+    ));
+    tools.push(make_tool(
+        "bio_tools",
+        "Analyze biological sequences — DNA, RNA, and protein — without external utilities. \
+         Actions: info (default — sequence type detection, length, nucleotide base counts, GC%, MW estimate; pass 'sequence'), \
+         complement (DNA reverse complement; pass 'sequence'), \
+         transcribe (DNA → mRNA or mRNA → DNA template; pass 'sequence'), \
+         translate (mRNA/DNA → amino acid sequence; 'frame': 1/2/3/-1/-2/-3, or 'all_frames: true' for all 6 reading frames), \
+         gc (GC content with sliding window min/max analysis), \
+         orfs (find open reading frames in all 6 frames; 'min_length' in amino acids, default 10), \
+         codons (codon usage frequency table grouped by amino acid), \
+         parse_fasta (parse multi-record FASTA files; pass 'text' inline or 'file' path — shows type, length, GC%, and sequence preview per record). \
+         Auto-detects sequence type (DNA/RNA/protein) from alphabet. Pass 'type' to override. \
+         Example: bio_tools(action: 'translate', sequence: 'ATGAAACCCGGG') or \
+         bio_tools(action: 'parse_fasta', file: 'genome.fasta') or \
+         bio_tools(action: 'orfs', sequence: 'ATGAAATGA...', min_length: 5).",
+        crate::tools::bio_tools::bio_tools_schema(),
     ));
     tools.push(make_tool(
         "printf_tools",
@@ -6945,6 +6977,7 @@ pub async fn dispatch_builtin_tool(
         "mime_tools" => crate::tools::mime_tools::execute(args).await,
         "plist_tools" => crate::tools::plist_tools::execute(args).await,
         "bencode_tools" => crate::tools::bencode_tools::execute(args).await,
+        "bio_tools" => crate::tools::bio_tools::execute(args).await,
         "printf_tools" => crate::tools::printf_tools::execute(args).await,
         "ascii_chart_tools" => crate::tools::ascii_chart_tools::execute(args).await,
         "sql_format_tools" => crate::tools::sql_format_tools::execute(args).await,
@@ -6987,6 +7020,7 @@ pub async fn dispatch_builtin_tool(
         "http_parse_tools" => crate::tools::http_parse_tools::execute(args).await,
         "jq_tools" => crate::tools::jq_tools::execute(args).await,
         "glob_tools" => crate::tools::glob_tools::execute(args).await,
+        "gpu_tools" => crate::tools::gpu_tools::execute(args).await,
         "graph_tools" => crate::tools::graph_tools::execute(args).await,
         "matrix_tools" => crate::tools::matrix_tools::execute(args).await,
         "har_tools" => crate::tools::har_tools::execute(args).await,
