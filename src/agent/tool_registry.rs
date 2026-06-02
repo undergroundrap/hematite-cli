@@ -1666,6 +1666,33 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         crate::tools::latex_tools::latex_tools_schema(),
     ));
     tools.push(make_tool(
+        "notebook_tools",
+        "Parse and analyze Jupyter Notebook (.ipynb) files without external utilities. \
+         Actions: info (default — nbformat version, kernel, language, cell counts, source lines, output count; pass 'file' path or 'json' inline), \
+         cells (tabular list of all cells with type/line count/output count/execution count; optional 'type' filter: code/markdown/raw; optional 'limit'), \
+         source (extract and concatenate all source code from cells; 'type' defaults to 'code'; each cell delimited with a comment), \
+         outputs (list all cell outputs with type and content preview; shows error name+message for error outputs), \
+         stats (summary statistics: cell type breakdown, source lines, total outputs, cells with errors, code cells with no output). \
+         Supports nbformat 3 and 4. \
+         Example: notebook_tools(action: 'info', file: 'analysis.ipynb') or \
+         notebook_tools(action: 'source', file: 'report.ipynb') or \
+         notebook_tools(action: 'cells', file: 'report.ipynb', type: 'code').",
+        crate::tools::notebook_tools::notebook_tools_schema(),
+    ));
+    tools.push(make_tool(
+        "conda_tools",
+        "Parse, inspect, compare, validate, and export conda environment.yml files without external utilities. \
+         Actions: info (default — environment name, channels, python version, conda/pip dependency counts; pass 'file' or 'yaml'), \
+         list (tabular package list with version constraints and type; optional 'type': conda/pip; optional 'query' substring filter), \
+         compare (diff two environments — packages only in A, only in B, common; pass 'file_a'/'file_b' or 'yaml_a'/'yaml_b'), \
+         validate (check for missing name, empty channels, no defaults/conda-forge channel, duplicate packages; VALID/INVALID verdict with issue list), \
+         export (convert to pip requirements.txt format — strips conda channel prefixes, normalizes version operators). \
+         Example: conda_tools(action: 'info', file: 'environment.yml') or \
+         conda_tools(action: 'list', file: 'environment.yml', type: 'pip') or \
+         conda_tools(action: 'compare', file_a: 'env_dev.yml', file_b: 'env_prod.yml').",
+        crate::tools::conda_tools::conda_tools_schema(),
+    ));
+    tools.push(make_tool(
         "cors_tools",
         "Parse, validate, generate, and simulate CORS (Cross-Origin Resource Sharing) headers without external utilities. \
          Actions: parse (default — decode all Access-Control-* headers with annotations; pass 'headers' object), \
@@ -6868,6 +6895,8 @@ pub async fn dispatch_builtin_tool(
         "chemistry_tools" => crate::tools::chemistry_tools::execute(args).await,
         "cite_tools" => crate::tools::cite_tools::execute(args).await,
         "latex_tools" => crate::tools::latex_tools::execute(args).await,
+        "notebook_tools" => crate::tools::notebook_tools::execute(args).await,
+        "conda_tools" => crate::tools::conda_tools::execute(args).await,
         "cors_tools" => crate::tools::cors_tools::execute(args).await,
         "web_manifest_tools" => crate::tools::web_manifest_tools::execute(args).await,
         "json_patch_tools" => crate::tools::json_patch_tools::execute(args).await,

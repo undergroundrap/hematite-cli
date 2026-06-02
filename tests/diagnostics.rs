@@ -33300,3 +33300,319 @@ fn test_latex_tools_convert_markdown() {
         "got: {out}"
     );
 }
+
+// ===== notebook_tools =====
+
+#[test]
+fn test_notebook_tools_routing_file() {
+    assert!(hematite::agent::routing::needs_notebook_tools(
+        "parse this jupyter notebook .ipynb file"
+    ));
+}
+
+#[test]
+fn test_notebook_tools_routing_cells() {
+    assert!(hematite::agent::routing::needs_notebook_tools(
+        "list all code cells in my jupyter notebook"
+    ));
+}
+
+#[test]
+fn test_notebook_tools_routing_outputs() {
+    assert!(hematite::agent::routing::needs_notebook_tools(
+        "show notebook outputs from this ipynb"
+    ));
+}
+
+#[test]
+fn test_notebook_tools_routing_kernel() {
+    assert!(hematite::agent::routing::needs_notebook_tools(
+        "what is the jupyter kernel for this notebook"
+    ));
+}
+
+#[test]
+fn test_notebook_tools_info_basic() {
+    let nb = serde_json::json!({
+        "nbformat": 4,
+        "nbformat_minor": 5,
+        "metadata": {
+            "kernelspec": {
+                "display_name": "Python 3",
+                "language": "python",
+                "name": "python3"
+            }
+        },
+        "cells": [
+            {"cell_type": "markdown", "source": ["# Hello\n"], "metadata": {}},
+            {"cell_type": "code", "source": ["x = 1\nprint(x)\n"], "execution_count": 1, "outputs": [], "metadata": {}}
+        ]
+    });
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::notebook_tools::execute(
+            &serde_json::json!({"action": "info", "json": nb.to_string()}),
+        ))
+        .unwrap();
+    assert!(
+        out.contains("Python 3") || out.contains("python"),
+        "got: {out}"
+    );
+    assert!(out.contains("2") || out.contains("Code"), "got: {out}");
+}
+
+#[test]
+fn test_notebook_tools_cells_list() {
+    let nb = serde_json::json!({
+        "nbformat": 4,
+        "nbformat_minor": 5,
+        "metadata": {"kernelspec": {"display_name": "Python 3", "language": "python", "name": "python3"}},
+        "cells": [
+            {"cell_type": "code", "source": ["x = 1\n"], "execution_count": 1, "outputs": [], "metadata": {}},
+            {"cell_type": "markdown", "source": ["# Title\n"], "metadata": {}}
+        ]
+    });
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::notebook_tools::execute(
+            &serde_json::json!({"action": "cells", "json": nb.to_string()}),
+        ))
+        .unwrap();
+    assert!(
+        out.contains("code") && out.contains("markdown"),
+        "got: {out}"
+    );
+}
+
+#[test]
+fn test_notebook_tools_source_extraction() {
+    let nb = serde_json::json!({
+        "nbformat": 4,
+        "nbformat_minor": 5,
+        "metadata": {"kernelspec": {"display_name": "Python 3", "language": "python", "name": "python3"}},
+        "cells": [
+            {"cell_type": "code", "source": ["import numpy as np\n", "x = np.array([1,2,3])\n"], "execution_count": 1, "outputs": [], "metadata": {}},
+            {"cell_type": "markdown", "source": ["## Notes\n"], "metadata": {}}
+        ]
+    });
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::notebook_tools::execute(
+            &serde_json::json!({"action": "source", "json": nb.to_string()}),
+        ))
+        .unwrap();
+    assert!(
+        out.contains("numpy") || out.contains("import"),
+        "got: {out}"
+    );
+}
+
+#[test]
+fn test_notebook_tools_stats() {
+    let nb = serde_json::json!({
+        "nbformat": 4,
+        "nbformat_minor": 5,
+        "metadata": {"kernelspec": {"display_name": "Python 3", "language": "python", "name": "python3"}},
+        "cells": [
+            {"cell_type": "code", "source": ["x = 1\n"], "execution_count": 1, "outputs": [{"output_type": "stream", "name": "stdout", "text": "1\n"}], "metadata": {}},
+            {"cell_type": "markdown", "source": ["# Title\n"], "metadata": {}},
+            {"cell_type": "code", "source": ["raise ValueError('oops')\n"], "execution_count": 2, "outputs": [{"output_type": "error", "ename": "ValueError", "evalue": "oops", "traceback": []}], "metadata": {}}
+        ]
+    });
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::notebook_tools::execute(
+            &serde_json::json!({"action": "stats", "json": nb.to_string()}),
+        ))
+        .unwrap();
+    assert!(out.contains("2") || out.contains("code"), "got: {out}");
+    assert!(out.contains("error") || out.contains("Error"), "got: {out}");
+}
+
+#[test]
+fn test_notebook_tools_outputs() {
+    let nb = serde_json::json!({
+        "nbformat": 4,
+        "nbformat_minor": 5,
+        "metadata": {"kernelspec": {"display_name": "Python 3", "language": "python", "name": "python3"}},
+        "cells": [
+            {"cell_type": "code", "source": ["print('hello')\n"], "execution_count": 1, "outputs": [
+                {"output_type": "stream", "name": "stdout", "text": ["hello\n"]}
+            ], "metadata": {}}
+        ]
+    });
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::notebook_tools::execute(
+            &serde_json::json!({"action": "outputs", "json": nb.to_string()}),
+        ))
+        .unwrap();
+    assert!(
+        out.contains("stream") || out.contains("hello"),
+        "got: {out}"
+    );
+}
+
+#[test]
+fn test_notebook_tools_cells_type_filter() {
+    let nb = serde_json::json!({
+        "nbformat": 4,
+        "nbformat_minor": 5,
+        "metadata": {"kernelspec": {"display_name": "Python 3", "language": "python", "name": "python3"}},
+        "cells": [
+            {"cell_type": "code", "source": ["x = 1\n"], "execution_count": 1, "outputs": [], "metadata": {}},
+            {"cell_type": "markdown", "source": ["# Title\n"], "metadata": {}}
+        ]
+    });
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::notebook_tools::execute(
+            &serde_json::json!({"action": "cells", "json": nb.to_string(), "type": "code"}),
+        ))
+        .unwrap();
+    assert!(out.contains("code"), "got: {out}");
+    assert!(
+        !out.contains("markdown"),
+        "should not contain markdown: {out}"
+    );
+}
+
+#[test]
+fn test_notebook_tools_error_no_input() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::notebook_tools::execute(
+        &serde_json::json!({"action": "info"}),
+    ));
+    assert!(result.is_err(), "should error without file or json");
+}
+
+// ===== conda_tools =====
+
+#[test]
+fn test_conda_tools_routing_env_yml() {
+    assert!(hematite::agent::routing::needs_conda_tools(
+        "parse my conda environment.yml file"
+    ));
+}
+
+#[test]
+fn test_conda_tools_routing_packages() {
+    assert!(hematite::agent::routing::needs_conda_tools(
+        "list conda packages in environment"
+    ));
+}
+
+#[test]
+fn test_conda_tools_routing_compare() {
+    assert!(hematite::agent::routing::needs_conda_tools(
+        "compare conda environments dev vs prod"
+    ));
+}
+
+#[test]
+fn test_conda_tools_routing_export() {
+    assert!(hematite::agent::routing::needs_conda_tools(
+        "export conda env to pip requirements"
+    ));
+}
+
+const SAMPLE_ENV_YAML: &str = r#"
+name: myenv
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.10
+  - numpy>=1.24
+  - pandas=1.5.0
+  - pip:
+    - requests==2.31.0
+    - flask>=2.0
+"#;
+
+#[test]
+fn test_conda_tools_info() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::conda_tools::execute(
+            &serde_json::json!({"action": "info", "yaml": SAMPLE_ENV_YAML}),
+        ))
+        .unwrap();
+    assert!(out.contains("myenv"), "got: {out}");
+    assert!(
+        out.contains("conda-forge") || out.contains("Channels"),
+        "got: {out}"
+    );
+}
+
+#[test]
+fn test_conda_tools_list_all() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::conda_tools::execute(
+            &serde_json::json!({"action": "list", "yaml": SAMPLE_ENV_YAML}),
+        ))
+        .unwrap();
+    assert!(
+        out.contains("numpy") || out.contains("pandas"),
+        "got: {out}"
+    );
+}
+
+#[test]
+fn test_conda_tools_list_pip() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::conda_tools::execute(
+            &serde_json::json!({"action": "list", "yaml": SAMPLE_ENV_YAML, "type": "pip"}),
+        ))
+        .unwrap();
+    assert!(
+        out.contains("requests") || out.contains("flask"),
+        "got: {out}"
+    );
+}
+
+#[test]
+fn test_conda_tools_validate_valid() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::conda_tools::execute(
+            &serde_json::json!({"action": "validate", "yaml": SAMPLE_ENV_YAML}),
+        ))
+        .unwrap();
+    assert!(out.contains("VALID") || out.contains("valid"), "got: {out}");
+}
+
+#[test]
+fn test_conda_tools_validate_missing_name() {
+    let yaml = "channels:\n  - defaults\ndependencies:\n  - numpy\n";
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::conda_tools::execute(
+            &serde_json::json!({"action": "validate", "yaml": yaml}),
+        ))
+        .unwrap();
+    assert!(
+        out.contains("INVALID") || out.contains("name"),
+        "got: {out}"
+    );
+}
+
+#[test]
+fn test_conda_tools_export() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::conda_tools::execute(
+            &serde_json::json!({"action": "export", "yaml": SAMPLE_ENV_YAML}),
+        ))
+        .unwrap();
+    assert!(
+        out.contains("numpy") && out.contains("requests"),
+        "got: {out}"
+    );
+    assert!(
+        out.contains("requirements") || out.contains("pip"),
+        "got: {out}"
+    );
+}

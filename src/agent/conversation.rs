@@ -33,11 +33,11 @@ use crate::agent::routing::{
     needs_cbor_tools, needs_changelog_gen, needs_changelog_tools, needs_char_tools,
     needs_checksum_tools, needs_chemistry_tools, needs_cipher_tools, needs_cite_tools,
     needs_code_metrics, needs_color_tools, needs_compression_tools, needs_computation_sandbox,
-    needs_cors_tools, needs_crash_debug, needs_cron_tools, needs_csp_tools, needs_css_tools,
-    needs_csv_tools, needs_data_gen_tools, needs_date_tools, needs_dependency_audit,
-    needs_diff_tools, needs_dns_tools, needs_docker_compose_tools, needs_docker_ops,
-    needs_dockerfile_tools, needs_dotenv_tools, needs_duration_tools, needs_elf_tools,
-    needs_email_tools, needs_encode_tools, needs_env_diff, needs_env_schema_tools,
+    needs_conda_tools, needs_cors_tools, needs_crash_debug, needs_cron_tools, needs_csp_tools,
+    needs_css_tools, needs_csv_tools, needs_data_gen_tools, needs_date_tools,
+    needs_dependency_audit, needs_diff_tools, needs_dns_tools, needs_docker_compose_tools,
+    needs_docker_ops, needs_dockerfile_tools, needs_dotenv_tools, needs_duration_tools,
+    needs_elf_tools, needs_email_tools, needs_encode_tools, needs_env_diff, needs_env_schema_tools,
     needs_file_tree_tools, needs_find_tools, needs_format, needs_fraction_tools, needs_geo_tools,
     needs_geometry_tools, needs_github_actions_tools, needs_github_ops, needs_gitignore_tools,
     needs_glob_tools, needs_graph_tools, needs_graphql_tools, needs_graphviz_tools,
@@ -51,23 +51,23 @@ use crate::agent::routing::{
     needs_markdown_gen_tools, needs_markdown_tools, needs_matrix_tools, needs_mermaid_tools,
     needs_mime_tools, needs_money_tools, needs_msgpack_tools, needs_music_tools, needs_nato_tools,
     needs_net_lookup_tools, needs_network_header_tools, needs_nginx_conf_tools,
-    needs_number_sequence_tools, needs_number_theory_tools, needs_number_tools,
-    needs_number_words_tools, needs_openapi_tools, needs_package_json_tools, needs_password_gen,
-    needs_path_tools, needs_pem_tools, needs_periodic_tools, needs_physics_tools,
-    needs_plist_tools, needs_port_check, needs_printf_tools, needs_proto_tools, needs_regex_tools,
-    needs_robots_txt_tools, needs_rss_tools, needs_scientific_compute, needs_secret_scan,
-    needs_semver_tools, needs_sitemap_tools, needs_size_tools, needs_sort_tools,
-    needs_sql_format_tools, needs_sql_migrate_tools, needs_sql_tools, needs_sqlite_tools,
-    needs_ssh_config_tools, needs_stack_tools, needs_stat_tools, needs_string_metric_tools,
-    needs_systemd_tools, needs_table_tools, needs_tar_tools, needs_template_gen,
-    needs_template_tools, needs_terraform_tools, needs_test_run, needs_text_align_tools,
-    needs_text_extract_tools, needs_text_tools, needs_time_zone_tools, needs_tlv_tools,
-    needs_todo_tools, needs_token_tools, needs_toml_tools, needs_totp_tools, needs_trie_tools,
-    needs_unicode_tools, needs_unit_tools, needs_url_tools, needs_uuid_gen, needs_validate_tools,
-    needs_vcf_tools, needs_vector_tools, needs_wasm_tools, needs_web_manifest_tools,
-    needs_word_tools, needs_xml_tools, needs_yaml_tools, preferred_host_inspection_topic,
-    preferred_maintainer_workflow, preferred_workspace_workflow, DirectAnswerKind,
-    QueryIntentClass,
+    needs_notebook_tools, needs_number_sequence_tools, needs_number_theory_tools,
+    needs_number_tools, needs_number_words_tools, needs_openapi_tools, needs_package_json_tools,
+    needs_password_gen, needs_path_tools, needs_pem_tools, needs_periodic_tools,
+    needs_physics_tools, needs_plist_tools, needs_port_check, needs_printf_tools,
+    needs_proto_tools, needs_regex_tools, needs_robots_txt_tools, needs_rss_tools,
+    needs_scientific_compute, needs_secret_scan, needs_semver_tools, needs_sitemap_tools,
+    needs_size_tools, needs_sort_tools, needs_sql_format_tools, needs_sql_migrate_tools,
+    needs_sql_tools, needs_sqlite_tools, needs_ssh_config_tools, needs_stack_tools,
+    needs_stat_tools, needs_string_metric_tools, needs_systemd_tools, needs_table_tools,
+    needs_tar_tools, needs_template_gen, needs_template_tools, needs_terraform_tools,
+    needs_test_run, needs_text_align_tools, needs_text_extract_tools, needs_text_tools,
+    needs_time_zone_tools, needs_tlv_tools, needs_todo_tools, needs_token_tools, needs_toml_tools,
+    needs_totp_tools, needs_trie_tools, needs_unicode_tools, needs_unit_tools, needs_url_tools,
+    needs_uuid_gen, needs_validate_tools, needs_vcf_tools, needs_vector_tools, needs_wasm_tools,
+    needs_web_manifest_tools, needs_word_tools, needs_xml_tools, needs_yaml_tools,
+    preferred_host_inspection_topic, preferred_maintainer_workflow, preferred_workspace_workflow,
+    DirectAnswerKind, QueryIntentClass,
 };
 use crate::agent::tool_registry::dispatch_builtin_tool;
 use crate::agent::truncation::safe_head;
@@ -7354,6 +7354,36 @@ impl ConversationManager {
                  Example: latex_tools(action: 'equation', expression: 'E = mc^2', env: 'equation', numbered: true) or \
                  latex_tools(action: 'table', headers: ['Name', 'Value'], rows: [['pi', '3.14'], ['e', '2.72']], caption: 'Constants') or \
                  latex_tools(action: 'symbols', query: 'greek')."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_notebook_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "NOTEBOOK NOTICE: Use the `notebook_tools` tool to parse and analyze Jupyter Notebook (.ipynb) files without external utilities. \
+                 Actions: info (default — kernel, language, cell counts, source lines, output count; pass 'file' path or 'json' inline), \
+                 cells (tabular list of all cells with type/lines/outputs/execution count; optional 'type' filter), \
+                 source (extract and concatenate source code from cells; 'type' defaults to 'code'), \
+                 outputs (list all cell outputs with type and preview; shows error ename+evalue for error cells), \
+                 stats (summary: total cells by type, source lines, output count, error cells, code cells without output). \
+                 Example: notebook_tools(action: 'info', file: 'analysis.ipynb') or \
+                 notebook_tools(action: 'source', file: 'analysis.ipynb', type: 'code') or \
+                 notebook_tools(action: 'cells', file: 'analysis.ipynb', type: 'code')."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_conda_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "CONDA NOTICE: Use the `conda_tools` tool to parse and analyze conda environment.yml files without external utilities. \
+                 Actions: info (default — name, channels, python version, conda/pip dependency counts; pass 'file' or 'yaml'), \
+                 list (tabular dependency list with version constraints and type; optional 'type': conda/pip, 'query' filter), \
+                 compare (diff two environments side by side; pass 'file_a'/'file_b' or 'yaml_a'/'yaml_b'), \
+                 validate (check for missing name, empty channels, duplicate packages; VALID/INVALID verdict), \
+                 export (convert environment to pip requirements.txt format). \
+                 Example: conda_tools(action: 'info', file: 'environment.yml') or \
+                 conda_tools(action: 'list', file: 'environment.yml', type: 'pip') or \
+                 conda_tools(action: 'compare', file_a: 'env_dev.yml', file_b: 'env_prod.yml')."
                     .to_string(),
             );
         }

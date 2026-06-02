@@ -9925,6 +9925,56 @@ pub fn needs_chemistry_tools(user_input: &str) -> bool {
     )
 }
 
+pub fn needs_notebook_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "jupyter notebook",
+            "jupyter file",
+            ".ipynb",
+            "ipynb file",
+            "parse notebook",
+            "notebook cells",
+            "notebook outputs",
+            "notebook source",
+            "notebook stats",
+            "extract notebook",
+            "analyze notebook",
+            "inspect notebook",
+            "list cells",
+            "code cells",
+            "notebook metadata",
+            "jupyter kernel",
+        ],
+    )
+}
+
+pub fn needs_conda_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "conda environment",
+            "environment.yml",
+            "conda env",
+            "parse conda",
+            "conda dependencies",
+            "conda packages",
+            "conda channels",
+            "compare conda",
+            "validate conda",
+            "export conda",
+            "conda to pip",
+            "conda requirements",
+            "conda yml",
+            "conda yaml",
+            "anaconda environment",
+            "miniconda env",
+        ],
+    )
+}
+
 pub fn needs_cite_tools(user_input: &str) -> bool {
     let lower = user_input.to_lowercase();
     contains_any(
