@@ -68,7 +68,7 @@ use crate::agent::routing::{
     needs_time_zone_tools, needs_tlv_tools, needs_todo_tools, needs_token_tools, needs_toml_tools,
     needs_totp_tools, needs_trie_tools, needs_unicode_tools, needs_unit_tools, needs_url_tools,
     needs_uuid_gen, needs_validate_tools, needs_vcf_tools, needs_vector_tools, needs_wasm_tools,
-    needs_web_manifest_tools, needs_word_tools, needs_xml_tools, needs_yaml_tools,
+    needs_web_manifest_tools, needs_word_tools, needs_xml_tools, needs_yaml_tools, needs_pe_tools,
     preferred_host_inspection_topic, preferred_maintainer_workflow, preferred_workspace_workflow,
     DirectAnswerKind, QueryIntentClass,
 };
@@ -7627,6 +7627,23 @@ impl ConversationManager {
                  crystal (crystal structure properties: FCC/BCC/HCP/SC/diamond — APF, coordination number; pass crystal and lattice_a in nm). \
                  Example: materials_tools(action: 'properties', material: 'steel_mild') or \
                  materials_tools(action: 'stress', force: 10000, area: 0.001)."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_pe_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "PE BINARY NOTICE: Use the `pe_tools` tool to inspect Windows PE (EXE/DLL/SYS/OCX) binaries without external tools — no dumpbin or readpe required. \
+                 Actions: \
+                 info (default — machine type, file type EXE/DLL/Object, architecture PE32/PE32+, subsystem, timestamp, image base, entry point, ASLR/DEP/CFG security flags, import DLL count, export count), \
+                 sections (section table: name, virtual address, virtual size, raw size, raw offset, flags EXEC/READ/WRITE/CODE), \
+                 imports (all imported DLLs with their function names or ordinals; up to 50 functions shown per DLL), \
+                 exports (exported function names with ordinals; primarily for DLL inspection), \
+                 headers (full DOS/COFF/Optional header field dump with data directory RVAs). \
+                 Pass 'file' with the path to a .exe/.dll/.sys/.ocx file, or 'hex' for raw PE bytes as a hex string. \
+                 Example: pe_tools(file: 'C:/Windows/System32/ntdll.dll') or \
+                 pe_tools(action: 'imports', file: 'myapp.exe') or \
+                 pe_tools(action: 'sections', file: 'driver.sys')."
                     .to_string(),
             );
         }

@@ -134,6 +134,7 @@ pub mod optics_tools;
 pub mod package_json_tools;
 pub mod password_gen;
 pub mod path_tools;
+pub mod pe_tools;
 pub mod pem_tools;
 pub mod periodic_tools;
 pub mod physics_tools;

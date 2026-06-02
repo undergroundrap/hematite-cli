@@ -10832,6 +10832,48 @@ pub fn needs_materials_tools(user_input: &str) -> bool {
     )
 }
 
+pub fn needs_pe_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "pe binary",
+            "pe file",
+            "pe header",
+            "pe format",
+            ".exe binary",
+            ".dll binary",
+            ".dll imports",
+            ".dll exports",
+            ".sys file",
+            ".ocx file",
+            "windows executable",
+            "windows binary",
+            "windows pe",
+            "pe sections",
+            "pe imports",
+            "pe exports",
+            "pe32+",
+            "dumpbin",
+            "readpe",
+            "inspect exe",
+            "inspect dll",
+            "analyze exe",
+            "analyze dll",
+            "aslr enabled",
+            "dep enabled",
+            "guard cf",
+            "nx_compat",
+            "dynamic_base",
+            "dll characteristics",
+            "image base",
+            "entry point rva",
+            "coff header",
+            "optional header pe",
+        ],
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

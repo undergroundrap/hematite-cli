@@ -6326,6 +6326,25 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         crate::tools::materials_tools::schema(),
     ));
     tools.push(make_tool(
+        "pe_tools",
+        "Inspect Windows PE (EXE/DLL/SYS/OCX) binaries without external tools — no dumpbin or readpe required. \
+         Actions: \
+         `info` (default) — machine type, file type (EXE/DLL/Object/Driver), architecture (PE32/PE32+), subsystem, COFF timestamp, \
+           image base, entry point RVA, image size, ASLR (DYNAMIC_BASE), DEP (NX_COMPAT), CFG (GUARD_CF), High Entropy VA, Force Integrity flags, \
+           import DLL count, export function count; \
+         `sections` — section table: name, virtual address, virtual size, raw size, raw offset, flags (EXEC/READ/WRITE/CODE/INIT_DATA/UNINIT_DATA/DISCARDABLE); \
+         `imports` — all imported DLLs with their function names or ordinals (up to 50 shown per DLL; '... and N more' truncation); \
+         `exports` — exported function names with ordinals (for DLL inspection; up to 300 shown); \
+         `headers` — full DOS header (e_lfanew), COFF header (machine/sections/timestamp/characteristics), \
+           Optional header (magic/entry point/image base/subsystem/DllCharacteristics), and Data Directory RVAs \
+           (Export, Import, Resource, TLS, Load Config/CFG). \
+         Pass 'file' with the path to a .exe/.dll/.sys/.ocx file, or 'hex' for raw PE bytes as a hex string (spaces/colons stripped). \
+         Example: pe_tools(file: 'C:/Windows/System32/ntdll.dll') or \
+         pe_tools(action: 'imports', file: 'myapp.exe') or \
+         pe_tools(action: 'sections', file: 'driver.sys').",
+        crate::tools::pe_tools::schema(),
+    ));
+    tools.push(make_tool(
         "printf_tools",
         "Analyze, simulate, validate, and convert C-style printf format strings without external utilities. \
          Actions: \
@@ -7190,6 +7209,7 @@ pub async fn dispatch_builtin_tool(
         "nuclear_tools" => crate::tools::nuclear_tools::execute(args).await,
         "acoustics_tools" => crate::tools::acoustics_tools::execute(args).await,
         "materials_tools" => crate::tools::materials_tools::execute(args).await,
+        "pe_tools" => crate::tools::pe_tools::execute(args).await,
         "printf_tools" => crate::tools::printf_tools::execute(args).await,
         "ascii_chart_tools" => crate::tools::ascii_chart_tools::execute(args).await,
         "sql_format_tools" => crate::tools::sql_format_tools::execute(args).await,

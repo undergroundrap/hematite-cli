@@ -35873,3 +35873,101 @@ fn test_materials_safety_factor() {
         "safety factor output"
     );
 }
+
+// ── pe_tools routing ──────────────────────────────────────────────────────────
+
+#[test]
+fn test_routing_detects_pe_tools_windows_binary() {
+    assert!(hematite::agent::routing::needs_pe_tools("inspect this windows binary"));
+}
+
+#[test]
+fn test_routing_detects_pe_tools_dll_imports() {
+    assert!(hematite::agent::routing::needs_pe_tools("what does this .dll imports show"));
+}
+
+#[test]
+fn test_routing_detects_pe_tools_aslr() {
+    assert!(hematite::agent::routing::needs_pe_tools("is ASLR enabled in this exe"));
+}
+
+#[test]
+fn test_routing_detects_pe_tools_coff_header() {
+    assert!(hematite::agent::routing::needs_pe_tools("dump the coff header of this file"));
+}
+
+#[test]
+fn test_routing_detects_pe_tools_negative() {
+    assert!(!hematite::agent::routing::needs_pe_tools("build my rust project"));
+}
+
+// ── pe_tools functional ───────────────────────────────────────────────────────
+
+// Minimal PE32 stub: DOS header (0x40 bytes) + PE signature + COFF + Optional header
+// This is the smallest valid PE that parse_hdr() will accept.
+const MINIMAL_PE_HEX: &str = concat!(
+    // DOS header (64 bytes) — e_magic=MZ, e_lfanew=0x40 at offset 0x3C
+    "4D5A000000000000000000000000000000000000000000000000000000000000",
+    "0000000000000000000000000000000000000000000000000000000040000000",
+    // PE signature at 0x40
+    "50450000",
+    // COFF header: machine=x86-64 (8664), sections=0, timestamp=0,
+    // SymTabPtr=0, NumSymbols=0, OptHdrSize=224 (E000), characteristics=0x0022 (exe+relocs stripped)
+    "6486000000000000000000000000E0002200",
+    // Optional header (224 bytes, magic=0x10B PE32): major/minor linker=0/0,
+    // SizeOfCode=0, SizeOfInit=0, SizeOfUninit=0, AddressOfEntryPoint=0x1000,
+    // BaseOfCode=0x1000, BaseOfData=0x2000,
+    // ImageBase=0x00400000, SectionAlignment=0x1000, FileAlignment=0x200,
+    // OS/subsystem version fields (all zeros here for simplicity),
+    // SizeOfImage=0x3000, SizeOfHeaders=0x200, Checksum=0,
+    // Subsystem=3 (Console), DllCharacteristics=0x8140 (DEP+ASLR+TS-aware)
+    "0B010000000000000000000000001000001000000020004000000010000002000000000000000000000003000000000200000000000000000030003200000000000000000000000008400000001000001000001000001000100010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+);
+
+#[test]
+fn test_pe_tools_info_from_hex() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::pe_tools::execute(
+            &serde_json::json!({"action": "info", "hex": MINIMAL_PE_HEX}),
+        ))
+        .unwrap();
+    assert!(out.contains("PE BINARY INFO"), "info header present");
+    assert!(
+        out.contains("EXE") || out.contains("Object") || out.contains("Driver"),
+        "file type shown"
+    );
+    assert!(out.contains("Architecture") || out.contains("PE32"), "arch shown");
+}
+
+#[test]
+fn test_pe_tools_sections_from_hex() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::pe_tools::execute(
+            &serde_json::json!({"action": "sections", "hex": MINIMAL_PE_HEX}),
+        ))
+        .unwrap();
+    // Minimal PE has 0 sections — table still renders
+    assert!(out.contains("PE SECTIONS"), "sections header present");
+}
+
+#[test]
+fn test_pe_tools_invalid_magic_returns_error() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::pe_tools::execute(
+        &serde_json::json!({"action": "info", "hex": "DEADBEEF"}),
+    ));
+    assert!(result.is_err(), "non-PE bytes should fail");
+    let err = result.unwrap_err();
+    assert!(err.contains("MZ") || err.contains("PE") || err.contains("small"), "meaningful error");
+}
+
+#[test]
+fn test_pe_tools_no_input_returns_error() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::pe_tools::execute(
+        &serde_json::json!({"action": "info"}),
+    ));
+    assert!(result.is_err(), "missing input should fail");
+}
