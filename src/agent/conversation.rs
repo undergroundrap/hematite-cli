@@ -53,22 +53,23 @@ use crate::agent::routing::{
     needs_mime_tools, needs_money_tools, needs_msgpack_tools, needs_music_tools, needs_nato_tools,
     needs_net_lookup_tools, needs_network_header_tools, needs_nginx_conf_tools,
     needs_notebook_tools, needs_number_sequence_tools, needs_number_theory_tools,
-    needs_number_tools, needs_number_words_tools, needs_openapi_tools, needs_package_json_tools,
-    needs_password_gen, needs_path_tools, needs_pem_tools, needs_periodic_tools,
-    needs_physics_tools, needs_plist_tools, needs_port_check, needs_printf_tools,
-    needs_proto_tools, needs_regex_tools, needs_robots_txt_tools, needs_rss_tools,
-    needs_scientific_compute, needs_secret_scan, needs_semver_tools, needs_signal_tools,
-    needs_sitemap_tools, needs_size_tools, needs_sort_tools, needs_sql_format_tools,
-    needs_sql_migrate_tools, needs_sql_tools, needs_sqlite_tools, needs_ssh_config_tools,
-    needs_stack_tools, needs_stat_tools, needs_string_metric_tools, needs_systemd_tools,
-    needs_table_tools, needs_tar_tools, needs_template_gen, needs_template_tools,
-    needs_terraform_tools, needs_test_run, needs_text_align_tools, needs_text_extract_tools,
-    needs_text_tools, needs_time_zone_tools, needs_tlv_tools, needs_todo_tools, needs_token_tools,
-    needs_toml_tools, needs_totp_tools, needs_trie_tools, needs_unicode_tools, needs_unit_tools,
-    needs_url_tools, needs_uuid_gen, needs_validate_tools, needs_vcf_tools, needs_vector_tools,
-    needs_wasm_tools, needs_web_manifest_tools, needs_word_tools, needs_xml_tools,
-    needs_yaml_tools, preferred_host_inspection_topic, preferred_maintainer_workflow,
-    preferred_workspace_workflow, DirectAnswerKind, QueryIntentClass,
+    needs_number_tools, needs_number_words_tools, needs_openapi_tools, needs_optics_tools,
+    needs_package_json_tools, needs_password_gen, needs_path_tools, needs_pem_tools,
+    needs_periodic_tools, needs_physics_tools, needs_plist_tools, needs_port_check,
+    needs_printf_tools, needs_proto_tools, needs_regex_tools, needs_robots_txt_tools,
+    needs_rss_tools, needs_scientific_compute, needs_secret_scan, needs_semver_tools,
+    needs_signal_tools, needs_sitemap_tools, needs_size_tools, needs_sort_tools,
+    needs_sql_format_tools, needs_sql_migrate_tools, needs_sql_tools, needs_sqlite_tools,
+    needs_ssh_config_tools, needs_stack_tools, needs_stat_tools, needs_string_metric_tools,
+    needs_systemd_tools, needs_table_tools, needs_tar_tools, needs_template_gen,
+    needs_template_tools, needs_terraform_tools, needs_test_run, needs_text_align_tools,
+    needs_text_extract_tools, needs_text_tools, needs_thermo_tools, needs_time_zone_tools,
+    needs_tlv_tools, needs_todo_tools, needs_token_tools, needs_toml_tools, needs_totp_tools,
+    needs_trie_tools, needs_unicode_tools, needs_unit_tools, needs_url_tools, needs_uuid_gen,
+    needs_validate_tools, needs_vcf_tools, needs_vector_tools, needs_wasm_tools,
+    needs_web_manifest_tools, needs_word_tools, needs_xml_tools, needs_yaml_tools,
+    preferred_host_inspection_topic, preferred_maintainer_workflow, preferred_workspace_workflow,
+    DirectAnswerKind, QueryIntentClass,
 };
 use crate::agent::tool_registry::dispatch_builtin_tool;
 use crate::agent::truncation::safe_head;
@@ -7454,6 +7455,40 @@ impl ConversationManager {
                  Example: signal_tools(action: 'dft', samples: [1,0,-1,0,1,0,-1,0], sample_rate: 8000) or \
                  signal_tools(action: 'fir', cutoff: 0.2, taps: 31, filter_type: 'lowpass') or \
                  signal_tools(action: 'stats', samples: [1.2, -0.5, 0.8, -1.1])."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_thermo_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "THERMODYNAMICS NOTICE: Use the `thermo_tools` tool for thermodynamics and fluid mechanics calculations without external utilities. \
+                 Actions: ideal_gas (PV=nRT solver — pass solve_for: 'P'/'V'/'n'/'T' plus the other 3 variables), \
+                 work (thermodynamic work for process: isothermal/isobaric/isochoric/adiabatic), \
+                 entropy (entropy change for process: isothermal/isobaric/isochoric/mixing), \
+                 heat (heat transfer — mode: conduction/convection/radiation), \
+                 cycles (efficiency — cycle: carnot/otto/diesel/brayton), \
+                 fluid (fluid mechanics — mode: reynolds/bernoulli/poiseuille/continuity), \
+                 properties (gas/fluid property lookup — substance: air/nitrogen/oxygen/co2/hydrogen/helium/argon/methane/steam), \
+                 psychro (psychrometrics — provide T_dry + T_wet or T_dry + RH). \
+                 Example: thermo_tools(action: 'ideal_gas', solve_for: 'P', n: 1, V: 0.025, T: 300) or \
+                 thermo_tools(action: 'cycles', cycle: 'carnot', Th: 800, Tc: 300)."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_optics_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "OPTICS NOTICE: Use the `optics_tools` tool for optics and photonics calculations without external utilities. \
+                 Actions: refraction (Snell's law — pass n1, n2, theta1 or theta2; also shows critical angle and TIR), \
+                 lens (thin lens equation — pass 2 of f/do/di; or lensmaker's equation with R1/R2/n_lens), \
+                 mirror (mirror equation — pass f or R, plus one of do/di), \
+                 diffraction (single-slit or grating — pass lambda, a for slit width or d for grating spacing), \
+                 interference (double-slit: pass lambda/a/L; thin film: pass lambda/n_film/t), \
+                 polarization (Malus's law: pass I0+theta; Brewster's angle: pass n1+n2), \
+                 fiber (optical fiber NA — pass n_core, n_clad; optionally lambda+D for V-number), \
+                 blackbody (Wien/Planck/Stefan-Boltzmann — pass T in K; optionally wavelength_nm). \
+                 Example: optics_tools(action: 'refraction', n1: 1.0, n2: 1.5, theta1: 45) or \
+                 optics_tools(action: 'blackbody', T: 5778, wavelength_nm: 500)."
                     .to_string(),
             );
         }

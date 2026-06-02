@@ -34151,3 +34151,400 @@ fn test_signal_tools_error_no_kernel() {
     ));
     assert!(result.is_err());
 }
+
+// ── thermo_tools ──────────────────────────────────────────────────────────────
+
+#[test]
+fn test_thermo_tools_routing_ideal_gas() {
+    assert!(hematite::agent::routing::needs_thermo_tools(
+        "solve ideal gas law for pressure"
+    ));
+}
+
+#[test]
+fn test_thermo_tools_routing_carnot() {
+    assert!(hematite::agent::routing::needs_thermo_tools(
+        "what is the carnot efficiency"
+    ));
+}
+
+#[test]
+fn test_thermo_tools_routing_reynolds() {
+    assert!(hematite::agent::routing::needs_thermo_tools(
+        "calculate the reynolds number for water flow"
+    ));
+}
+
+#[test]
+fn test_thermo_tools_routing_bernoulli() {
+    assert!(hematite::agent::routing::needs_thermo_tools(
+        "apply bernoulli's equation to find pressure"
+    ));
+}
+
+#[test]
+fn test_thermo_tools_routing_humidity() {
+    assert!(hematite::agent::routing::needs_thermo_tools(
+        "calculate relative humidity and dew point"
+    ));
+}
+
+#[test]
+fn test_thermo_ideal_gas_solve_p() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::thermo_tools::execute(&serde_json::json!({
+            "action": "ideal_gas",
+            "solve_for": "P",
+            "n": 1.0,
+            "V": 0.0224,
+            "T": 273.15
+        })))
+        .unwrap();
+    assert!(out.contains("Pa"), "should contain pressure: {out}");
+    assert!(out.contains("nRT"), "should show formula: {out}");
+}
+
+#[test]
+fn test_thermo_ideal_gas_solve_t() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::thermo_tools::execute(&serde_json::json!({
+            "action": "ideal_gas",
+            "solve_for": "T",
+            "P": 101325.0,
+            "V": 0.0224,
+            "n": 1.0
+        })))
+        .unwrap();
+    assert!(out.contains("K"), "should contain kelvin: {out}");
+}
+
+#[test]
+fn test_thermo_carnot_cycle() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::thermo_tools::execute(&serde_json::json!({
+            "action": "cycles",
+            "cycle": "carnot",
+            "Th": 800.0,
+            "Tc": 300.0
+        })))
+        .unwrap();
+    assert!(out.contains("Carnot"), "should mention Carnot: {out}");
+    assert!(
+        out.contains("0.625") || out.contains("62.5"),
+        "should show 62.5% efficiency: {out}"
+    );
+}
+
+#[test]
+fn test_thermo_otto_cycle() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::thermo_tools::execute(
+            &serde_json::json!({"action": "cycles", "cycle": "otto", "r": 8.0}),
+        ))
+        .unwrap();
+    assert!(out.contains("Otto"), "should mention Otto: {out}");
+    assert!(out.contains("%"), "should show efficiency: {out}");
+}
+
+#[test]
+fn test_thermo_heat_conduction() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::thermo_tools::execute(&serde_json::json!({
+            "action": "heat",
+            "mode": "conduction",
+            "k": 237.0,
+            "A": 0.01,
+            "dT": 100.0,
+            "L": 0.005
+        })))
+        .unwrap();
+    assert!(out.contains("W"), "should contain watts: {out}");
+    assert!(out.contains("Fourier"), "should mention Fourier: {out}");
+}
+
+#[test]
+fn test_thermo_reynolds_laminar() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::thermo_tools::execute(&serde_json::json!({
+            "action": "fluid",
+            "mode": "reynolds",
+            "rho": 1000.0,
+            "v": 0.1,
+            "D": 0.05,
+            "mu": 0.001
+        })))
+        .unwrap();
+    assert!(
+        out.contains("5000") || out.contains("LAMINAR") || out.contains("Reynolds"),
+        "should show Re: {out}"
+    );
+}
+
+#[test]
+fn test_thermo_properties_air() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::thermo_tools::execute(
+            &serde_json::json!({"action": "properties", "substance": "air"}),
+        ))
+        .unwrap();
+    assert!(out.contains("Air"), "should mention Air: {out}");
+    assert!(
+        out.contains("1.4") || out.contains("gamma"),
+        "should show gamma: {out}"
+    );
+}
+
+#[test]
+fn test_thermo_isothermal_work() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::thermo_tools::execute(&serde_json::json!({
+            "action": "work",
+            "process": "isothermal",
+            "n": 1.0,
+            "T": 300.0,
+            "V1": 0.01,
+            "V2": 0.02
+        })))
+        .unwrap();
+    assert!(out.contains("J"), "should contain joules: {out}");
+    assert!(out.contains("ln"), "should show ln formula: {out}");
+}
+
+#[test]
+fn test_thermo_psychro_rh() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::thermo_tools::execute(&serde_json::json!({
+            "action": "psychro",
+            "T_dry": 25.0,
+            "RH": 60.0
+        })))
+        .unwrap();
+    assert!(
+        out.contains("Dew point") || out.contains("dew"),
+        "should show dew point: {out}"
+    );
+    assert!(
+        out.contains("humidity") || out.contains("Humidity"),
+        "should mention humidity: {out}"
+    );
+}
+
+#[test]
+fn test_thermo_error_missing_arg() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::thermo_tools::execute(
+        &serde_json::json!({"action": "ideal_gas", "solve_for": "P", "n": 1.0}),
+    ));
+    assert!(result.is_err(), "should error without V and T");
+}
+
+// ── optics_tools ──────────────────────────────────────────────────────────────
+
+#[test]
+fn test_optics_tools_routing_snells() {
+    assert!(hematite::agent::routing::needs_optics_tools(
+        "apply snell's law to find the refraction angle"
+    ));
+}
+
+#[test]
+fn test_optics_tools_routing_lens() {
+    assert!(hematite::agent::routing::needs_optics_tools(
+        "thin lens equation focal length"
+    ));
+}
+
+#[test]
+fn test_optics_tools_routing_diffraction() {
+    assert!(hematite::agent::routing::needs_optics_tools(
+        "single slit diffraction pattern"
+    ));
+}
+
+#[test]
+fn test_optics_tools_routing_blackbody() {
+    assert!(hematite::agent::routing::needs_optics_tools(
+        "blackbody radiation wien's law"
+    ));
+}
+
+#[test]
+fn test_optics_refraction_snells() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::optics_tools::execute(&serde_json::json!({
+            "action": "refraction",
+            "n1": 1.0,
+            "n2": 1.5,
+            "theta1": 45.0
+        })))
+        .unwrap();
+    assert!(out.contains("Snell"), "should mention Snell: {out}");
+    assert!(
+        out.contains("28.") || out.contains("θ2"),
+        "should show refraction angle: {out}"
+    );
+}
+
+#[test]
+fn test_optics_refraction_tir() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::optics_tools::execute(&serde_json::json!({
+            "action": "refraction",
+            "n1": 1.5,
+            "n2": 1.0,
+            "theta1": 50.0
+        })))
+        .unwrap();
+    assert!(
+        out.contains("TOTAL INTERNAL REFLECTION") || out.contains("critical"),
+        "should detect TIR: {out}"
+    );
+}
+
+#[test]
+fn test_optics_lens_thin_lens() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::optics_tools::execute(&serde_json::json!({
+            "action": "lens",
+            "f": 0.1,
+            "do": 0.3
+        })))
+        .unwrap();
+    assert!(
+        out.contains("di") || out.contains("image"),
+        "should show image distance: {out}"
+    );
+    assert!(
+        out.contains("magnification") || out.contains("m ="),
+        "should show magnification: {out}"
+    );
+}
+
+#[test]
+fn test_optics_mirror_equation() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::optics_tools::execute(&serde_json::json!({
+            "action": "mirror",
+            "f": 0.2,
+            "do": 0.6
+        })))
+        .unwrap();
+    assert!(out.contains("Mirror"), "should mention mirror: {out}");
+    assert!(
+        out.contains("di") || out.contains("image"),
+        "should show image: {out}"
+    );
+}
+
+#[test]
+fn test_optics_diffraction_single_slit() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::optics_tools::execute(&serde_json::json!({
+            "action": "diffraction",
+            "lambda": 500e-9,
+            "a": 1e-4
+        })))
+        .unwrap();
+    assert!(
+        out.contains("Single-Slit"),
+        "should mention single-slit: {out}"
+    );
+    assert!(out.contains("Minimum"), "should show minima: {out}");
+}
+
+#[test]
+fn test_optics_blackbody_wiens() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::optics_tools::execute(
+            &serde_json::json!({"action": "blackbody", "T": 5778.0}),
+        ))
+        .unwrap();
+    assert!(out.contains("Wien"), "should mention Wien: {out}");
+    assert!(out.contains("nm"), "should show wavelength in nm: {out}");
+    assert!(
+        out.contains("Stefan"),
+        "should mention Stefan-Boltzmann: {out}"
+    );
+}
+
+#[test]
+fn test_optics_fiber_na() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::optics_tools::execute(&serde_json::json!({
+            "action": "fiber",
+            "n_core": 1.46,
+            "n_clad": 1.44
+        })))
+        .unwrap();
+    assert!(
+        out.contains("Numerical Aperture") || out.contains("NA"),
+        "should show NA: {out}"
+    );
+    assert!(
+        out.contains("acceptance") || out.contains("Acceptance"),
+        "should show acceptance angle: {out}"
+    );
+}
+
+#[test]
+fn test_optics_malus_law() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::optics_tools::execute(&serde_json::json!({
+            "action": "polarization",
+            "I0": 100.0,
+            "theta": 45.0
+        })))
+        .unwrap();
+    assert!(out.contains("Malus"), "should mention Malus: {out}");
+    assert!(
+        out.contains("50.") || out.contains("50 "),
+        "should show 50% transmission: {out}"
+    );
+}
+
+#[test]
+fn test_optics_double_slit_interference() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::optics_tools::execute(&serde_json::json!({
+            "action": "interference",
+            "lambda": 600e-9,
+            "a": 0.001,
+            "L": 2.0
+        })))
+        .unwrap();
+    assert!(
+        out.contains("Double-Slit") || out.contains("Young"),
+        "should mention double-slit: {out}"
+    );
+    assert!(
+        out.contains("Fringe") || out.contains("fringe"),
+        "should mention fringe: {out}"
+    );
+}
+
+#[test]
+fn test_optics_error_missing_n2() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::optics_tools::execute(
+        &serde_json::json!({"action": "refraction", "n1": 1.0, "theta1": 30.0}),
+    ));
+    assert!(result.is_err(), "should error without n2");
+}

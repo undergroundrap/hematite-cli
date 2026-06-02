@@ -6161,6 +6161,40 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         crate::tools::astro_tools::astro_tools_schema(),
     ));
     tools.push(make_tool(
+        "thermo_tools",
+        "Thermodynamics and fluid mechanics calculations without external utilities. \
+         Actions: \
+         `ideal_gas` (default) — solve PV=nRT for any variable; pass solve_for: 'P'/'V'/'n'/'T' plus the other 3 variables; \
+         `work` — thermodynamic work for a named process (process: isothermal/isobaric/isochoric/adiabatic); \
+         `entropy` — entropy change (process: isothermal/isobaric/isochoric/mixing); \
+         `heat` — heat transfer calculation (mode: conduction/convection/radiation); \
+         `cycles` — cycle efficiency (cycle: carnot/otto/diesel/brayton); \
+         `fluid` — fluid mechanics (mode: reynolds/bernoulli/poiseuille/continuity); \
+         `properties` — gas/fluid property lookup (substance: air/nitrogen/oxygen/co2/hydrogen/helium/argon/methane/steam); \
+         `psychro` — psychrometrics: relative humidity, dew point, humidity ratio (T_dry+T_wet or T_dry+RH). \
+         Example: thermo_tools(action: 'ideal_gas', solve_for: 'P', n: 1, V: 0.025, T: 300) or \
+         thermo_tools(action: 'cycles', cycle: 'carnot', Th: 800, Tc: 300) or \
+         thermo_tools(action: 'fluid', mode: 'reynolds', rho: 1000, v: 2, D: 0.05, mu: 0.001).",
+        crate::tools::thermo_tools::thermo_tools_schema(),
+    ));
+    tools.push(make_tool(
+        "optics_tools",
+        "Optics and photonics calculations without external utilities. \
+         Actions: \
+         `refraction` (default) — Snell's law, critical angle, TIR (pass n1, n2, theta1 or theta2); \
+         `lens` — thin lens equation (2 of f/do/di) or lensmaker's equation (R1, R2, n_lens); \
+         `mirror` — mirror equation (f or R, plus do or di); \
+         `diffraction` — single-slit (pass lambda, a) or diffraction grating (pass lambda, d, m); \
+         `interference` — double-slit (lambda, a, L) or thin film (lambda, n_film, t); \
+         `polarization` — Malus's law (I0, theta) or Brewster's angle (n1, n2); \
+         `fiber` — optical fiber NA, acceptance angle (n_core, n_clad; optionally lambda+D for V-number); \
+         `blackbody` — Wien's law, Planck's law, Stefan-Boltzmann (T in K; optionally wavelength_nm for spectral radiance). \
+         Example: optics_tools(action: 'refraction', n1: 1.0, n2: 1.5, theta1: 45) or \
+         optics_tools(action: 'lens', f: 0.1, do: 0.3) or \
+         optics_tools(action: 'blackbody', T: 5778, wavelength_nm: 500).",
+        crate::tools::optics_tools::optics_tools_schema(),
+    ));
+    tools.push(make_tool(
         "printf_tools",
         "Analyze, simulate, validate, and convert C-style printf format strings without external utilities. \
          Actions: \
@@ -7015,6 +7049,8 @@ pub async fn dispatch_builtin_tool(
         "bencode_tools" => crate::tools::bencode_tools::execute(args).await,
         "bio_tools" => crate::tools::bio_tools::execute(args).await,
         "astro_tools" => crate::tools::astro_tools::execute(args).await,
+        "thermo_tools" => crate::tools::thermo_tools::execute(args).await,
+        "optics_tools" => crate::tools::optics_tools::execute(args).await,
         "printf_tools" => crate::tools::printf_tools::execute(args).await,
         "ascii_chart_tools" => crate::tools::ascii_chart_tools::execute(args).await,
         "sql_format_tools" => crate::tools::sql_format_tools::execute(args).await,

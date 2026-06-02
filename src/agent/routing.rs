@@ -10207,6 +10207,105 @@ pub fn needs_signal_tools(user_input: &str) -> bool {
     )
 }
 
+pub fn needs_thermo_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "ideal gas",
+            "pv=nrt",
+            "pv = nrt",
+            "gas law",
+            "isothermal",
+            "isobaric",
+            "isochoric",
+            "adiabatic process",
+            "thermodynamic work",
+            "entropy change",
+            "heat conduction",
+            "fourier's law",
+            "thermal conductivity",
+            "heat convection",
+            "heat radiation",
+            "stefan-boltzmann",
+            "carnot cycle",
+            "carnot efficiency",
+            "otto cycle",
+            "diesel cycle",
+            "brayton cycle",
+            "thermodynamic cycle",
+            "reynolds number",
+            "bernoulli equation",
+            "bernoulli's",
+            "poiseuille",
+            "fluid flow",
+            "flow velocity",
+            "laminar flow",
+            "turbulent flow",
+            "psychrometrics",
+            "relative humidity",
+            "dew point",
+            "wet bulb",
+            "specific heat",
+            "heat capacity ratio",
+            "cp/cv",
+            "thermodynamics",
+            "thermo calculation",
+        ],
+    )
+}
+
+pub fn needs_optics_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "snell's law",
+            "snells law",
+            "refraction",
+            "refractive index",
+            "critical angle",
+            "total internal reflection",
+            "thin lens",
+            "focal length",
+            "lensmaker",
+            "lens equation",
+            "lens maker",
+            "mirror equation",
+            "concave mirror",
+            "convex mirror",
+            "image distance",
+            "object distance",
+            "magnification optics",
+            "single slit diffraction",
+            "single-slit diffraction",
+            "diffraction grating",
+            "diffraction pattern",
+            "double slit",
+            "young's experiment",
+            "interference pattern",
+            "fringe spacing",
+            "thin film interference",
+            "malus's law",
+            "brewster angle",
+            "polarized light",
+            "optical fiber",
+            "numerical aperture",
+            "fiber optic",
+            "fibre optic",
+            "acceptance angle",
+            "blackbody radiation",
+            "planck's law",
+            "wien's law",
+            "wien displacement",
+            "spectral radiance",
+            "color temperature",
+            "optics calculation",
+            "photon energy optics",
+        ],
+    )
+}
+
 pub fn needs_cors_tools(user_input: &str) -> bool {
     let lower = user_input.to_lowercase();
     contains_any(
