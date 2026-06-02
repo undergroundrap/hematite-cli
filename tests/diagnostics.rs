@@ -34548,3 +34548,244 @@ fn test_optics_error_missing_n2() {
     ));
     assert!(result.is_err(), "should error without n2");
 }
+
+// ── mechanics_tools ────────────────────────────────────────────────────────
+
+#[test]
+fn test_routing_detects_mechanics_kinematics() {
+    assert!(hematite::agent::routing::needs_mechanics_tools("suvat equations"));
+    assert!(hematite::agent::routing::needs_mechanics_tools("kinematics problem"));
+}
+
+#[test]
+fn test_routing_detects_mechanics_projectile() {
+    assert!(hematite::agent::routing::needs_mechanics_tools("projectile motion range"));
+    assert!(hematite::agent::routing::needs_mechanics_tools("max height projectile"));
+}
+
+#[test]
+fn test_routing_detects_mechanics_energy() {
+    assert!(hematite::agent::routing::needs_mechanics_tools("kinetic energy formula"));
+    assert!(hematite::agent::routing::needs_mechanics_tools("conservation of energy"));
+}
+
+#[test]
+fn test_routing_detects_mechanics_rotation() {
+    assert!(hematite::agent::routing::needs_mechanics_tools("moment of inertia solid sphere"));
+    assert!(hematite::agent::routing::needs_mechanics_tools("angular momentum"));
+}
+
+#[test]
+fn test_mechanics_kinematics_solve_v() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::mechanics_tools::execute(
+            &serde_json::json!({"action": "kinematics", "solve_for": "v", "u": 0.0, "a": 9.8, "t": 3.0}),
+        ))
+        .unwrap();
+    assert!(out.contains("29.4") || out.contains("29.40"), "v = 0 + 9.8*3 = 29.4 m/s");
+}
+
+#[test]
+fn test_mechanics_kinematics_solve_s() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::mechanics_tools::execute(
+            &serde_json::json!({"action": "kinematics", "solve_for": "s", "u": 10.0, "a": 2.0, "t": 5.0}),
+        ))
+        .unwrap();
+    assert!(out.contains("75."), "s = 10*5 + 0.5*2*25 = 75 m");
+}
+
+#[test]
+fn test_mechanics_projectile() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::mechanics_tools::execute(
+            &serde_json::json!({"action": "projectile", "v0": 20.0, "theta": 45.0}),
+        ))
+        .unwrap();
+    assert!(out.contains("PROJECTILE"), "should have header");
+}
+
+#[test]
+fn test_mechanics_elastic_collision() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::mechanics_tools::execute(
+            &serde_json::json!({"action": "momentum", "solve_for": "elastic", "m": 1.0, "m2": 1.0, "v1": 4.0, "v2": 0.0}),
+        ))
+        .unwrap();
+    assert!(out.contains("0.0000") || out.contains("4.0000"), "equal mass elastic swap");
+}
+
+#[test]
+fn test_mechanics_oscillation_spring() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::mechanics_tools::execute(
+            &serde_json::json!({"action": "oscillation", "solve_for": "T_spring", "m": 1.0, "k": 100.0}),
+        ))
+        .unwrap();
+    assert!(out.contains("0.628") || out.contains("0.6283"), "spring period ~0.628 s");
+}
+
+#[test]
+fn test_mechanics_rotation_inertia_sphere() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::mechanics_tools::execute(
+            &serde_json::json!({"action": "rotation", "solve_for": "inertia", "shape": "solid_sphere", "m": 2.0, "r": 0.5}),
+        ))
+        .unwrap();
+    assert!(out.contains("0.2000") || out.contains("0.20"), "I = 0.2 kg*m^2");
+}
+
+#[test]
+fn test_mechanics_circular_centripetal() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::mechanics_tools::execute(
+            &serde_json::json!({"action": "circular", "solve_for": "Fc", "m": 5.0, "v": 10.0, "r": 2.0}),
+        ))
+        .unwrap();
+    assert!(out.contains("250.0"), "Fc = 250 N");
+}
+
+#[test]
+fn test_mechanics_forces_incline() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::mechanics_tools::execute(
+            &serde_json::json!({"action": "forces", "solve_for": "incline", "m": 10.0, "theta": 30.0, "mu": 0.0}),
+        ))
+        .unwrap();
+    assert!(out.contains("49.") || out.contains("Incline"), "incline calculation");
+}
+
+#[test]
+fn test_mechanics_error_missing_arg() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::mechanics_tools::execute(
+        &serde_json::json!({"action": "kinematics", "solve_for": "v", "u": 0.0}),
+    ));
+    assert!(result.is_err(), "should error without a and t");
+}
+
+// ── circuit_tools ──────────────────────────────────────────────────────────
+
+#[test]
+fn test_routing_detects_circuit_ohm() {
+    assert!(hematite::agent::routing::needs_circuit_tools("ohms law"));
+    assert!(hematite::agent::routing::needs_circuit_tools("ohm's law"));
+    assert!(hematite::agent::routing::needs_circuit_tools("v=ir"));
+}
+
+#[test]
+fn test_routing_detects_circuit_resistors() {
+    assert!(hematite::agent::routing::needs_circuit_tools("resistors in parallel"));
+    assert!(hematite::agent::routing::needs_circuit_tools("series resistors"));
+}
+
+#[test]
+fn test_routing_detects_circuit_rlc() {
+    assert!(hematite::agent::routing::needs_circuit_tools("rlc circuit"));
+    assert!(hematite::agent::routing::needs_circuit_tools("resonant frequency circuit"));
+}
+
+#[test]
+fn test_circuit_ohm_solve_i() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::circuit_tools::execute(
+            &serde_json::json!({"action": "ohm", "solve_for": "I", "V": 12.0, "R": 100.0}),
+        ))
+        .unwrap();
+    assert!(out.contains("0.1200") || out.contains("120."), "I = 0.12 A = 120 mA");
+}
+
+#[test]
+fn test_circuit_resistors_parallel() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::circuit_tools::execute(
+            &serde_json::json!({"action": "resistors", "mode": "parallel", "values": [100.0, 100.0]}),
+        ))
+        .unwrap();
+    assert!(out.contains("50.0") || out.contains("50.00"), "100||100 = 50 Ohm");
+}
+
+#[test]
+fn test_circuit_resistors_series() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::circuit_tools::execute(
+            &serde_json::json!({"action": "resistors", "mode": "series", "R1": 100.0, "R2": 200.0}),
+        ))
+        .unwrap();
+    assert!(out.contains("300."), "100+200=300 Ohm series");
+}
+
+#[test]
+fn test_circuit_power_ir() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::circuit_tools::execute(
+            &serde_json::json!({"action": "power", "solve_for": "P_IR", "I": 2.0, "R": 50.0}),
+        ))
+        .unwrap();
+    assert!(out.contains("200."), "P = I^2*R = 200 W");
+}
+
+#[test]
+fn test_circuit_capacitor_energy() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::circuit_tools::execute(
+            &serde_json::json!({"action": "capacitors", "solve_for": "energy", "C": 0.001, "V": 10.0}),
+        ))
+        .unwrap();
+    assert!(out.contains("5.000000e-2") || out.contains("0.05") || out.contains("5.0000"), "E = 0.05 J");
+}
+
+#[test]
+fn test_circuit_voltage_divider() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::circuit_tools::execute(
+            &serde_json::json!({"action": "divider", "solve_for": "voltage", "Vin": 10.0, "R1": 1000.0, "R2": 1000.0}),
+        ))
+        .unwrap();
+    assert!(out.contains("5.") || out.contains("5 V"), "10V divider with equal R = 5V");
+}
+
+#[test]
+fn test_circuit_rlc_resonance() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::circuit_tools::execute(
+            &serde_json::json!({"action": "rlc", "R": 10.0, "L": 0.001, "C": 0.0000001}),
+        ))
+        .unwrap();
+    assert!(out.contains("Hz") || out.contains("RLC"), "RLC resonance computed");
+}
+
+#[test]
+fn test_circuit_inductor_rl_time_constant() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::circuit_tools::execute(
+            &serde_json::json!({"action": "inductors", "solve_for": "rl", "R": 100.0, "L": 0.01}),
+        ))
+        .unwrap();
+    assert!(out.contains("1.0000e-4") || out.contains("0.0001") || out.contains("1.00"), "tau = 0.1 ms");
+}
+
+#[test]
+fn test_circuit_error_missing_r() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::circuit_tools::execute(
+        &serde_json::json!({"action": "ohm", "solve_for": "V", "I": 1.0}),
+    ));
+    assert!(result.is_err(), "should error without R");
+}

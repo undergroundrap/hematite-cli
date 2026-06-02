@@ -6178,6 +6178,40 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         crate::tools::thermo_tools::thermo_tools_schema(),
     ));
     tools.push(make_tool(
+        "mechanics_tools",
+        "Classical mechanics calculations without external utilities. \
+         Actions: \
+         `kinematics` (default) — SUVAT equations; pass solve_for: 'v'/'s'/'a'/'t'/'u' and the known variables u/v/a/s/t; \
+         `forces` — Newton's laws; solve_for: 'F'/'a'/'friction'/'incline'; pass m, a/F, mu, theta as needed; \
+         `energy` — solve_for: 'KE'/'GPE'/'spring'/'conservation'/'power'/'work'; \
+         `momentum` — solve_for: 'p'/'impulse'/'elastic'/'inelastic'; elastic/inelastic need m, m2, v1, v2; \
+         `rotation` — solve_for: 'torque'/'inertia'/'alpha'/'ke_rot'/'L'; inertia needs shape (solid_sphere/hollow_sphere/solid_cylinder/ring/rod_center/rod_end/disk); \
+         `oscillation` — solve_for: 'T_spring'/'T_pendulum'/'k'/'shm'; \
+         `projectile` — pass v0 (initial speed m/s), theta (degrees); optionally t for position at time t; \
+         `circular` — solve_for: 'Fc' (centripetal) or 'orbital' (circular orbit around mass M). \
+         Example: mechanics_tools(action: 'kinematics', solve_for: 'v', u: 0, a: 9.8, t: 3) or \
+         mechanics_tools(action: 'projectile', v0: 20, theta: 45) or \
+         mechanics_tools(action: 'oscillation', solve_for: 'T_spring', m: 2, k: 50).",
+        crate::tools::mechanics_tools::mechanics_tools_schema(),
+    ));
+    tools.push(make_tool(
+        "circuit_tools",
+        "Electrical circuit calculations without external utilities. \
+         Actions: \
+         `ohm` (default) — Ohm's law V=IR; solve_for: 'V'/'I'/'R'; \
+         `resistors` — series or parallel combinations; pass mode:'series'/'parallel' + values array or R1/R2; \
+         `power` — electrical power; solve_for: 'P_VI'/'P_IR'/'P_VR'/'efficiency'; optionally t for energy (J/Wh); \
+         `capacitors` — solve_for: 'series'/'parallel'/'energy'/'rc'; rc time constant needs R+C, optionally V+t; \
+         `inductors` — solve_for: 'series'/'parallel'/'energy'/'rl'/'voltage'; rl time constant needs R+L, optionally V+t; \
+         `divider` — voltage or current divider; solve_for: 'voltage'/'current'; pass Vin/I + R1+R2; \
+         `rlc` — series RLC resonance: resonant frequency, Q-factor, bandwidth, damping; pass R+L+C; optionally f for impedance; \
+         `ac` — AC impedance, phase angle, power factor; pass R+L+C+f; optionally V for real/reactive/apparent power. \
+         Example: circuit_tools(action: 'ohm', solve_for: 'I', V: 12, R: 100) or \
+         circuit_tools(action: 'rlc', R: 10, L: 0.001, C: 0.0001) or \
+         circuit_tools(action: 'resistors', mode: 'parallel', values: [100, 200, 300]).",
+        crate::tools::circuit_tools::circuit_tools_schema(),
+    ));
+    tools.push(make_tool(
         "optics_tools",
         "Optics and photonics calculations without external utilities. \
          Actions: \
@@ -7051,6 +7085,8 @@ pub async fn dispatch_builtin_tool(
         "astro_tools" => crate::tools::astro_tools::execute(args).await,
         "thermo_tools" => crate::tools::thermo_tools::execute(args).await,
         "optics_tools" => crate::tools::optics_tools::execute(args).await,
+        "mechanics_tools" => crate::tools::mechanics_tools::execute(args).await,
+        "circuit_tools" => crate::tools::circuit_tools::execute(args).await,
         "printf_tools" => crate::tools::printf_tools::execute(args).await,
         "ascii_chart_tools" => crate::tools::ascii_chart_tools::execute(args).await,
         "sql_format_tools" => crate::tools::sql_format_tools::execute(args).await,

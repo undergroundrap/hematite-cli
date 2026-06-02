@@ -32,41 +32,41 @@ use crate::agent::routing::{
     needs_base_tools, needs_bencode_tools, needs_bin_pack_tools, needs_binary_tools,
     needs_bio_tools, needs_calc_tools, needs_cbor_tools, needs_changelog_gen,
     needs_changelog_tools, needs_char_tools, needs_checksum_tools, needs_chemistry_tools,
-    needs_cipher_tools, needs_cite_tools, needs_code_metrics, needs_color_tools,
-    needs_compression_tools, needs_computation_sandbox, needs_conda_tools, needs_cors_tools,
-    needs_crash_debug, needs_cron_tools, needs_csp_tools, needs_css_tools, needs_csv_tools,
-    needs_data_gen_tools, needs_date_tools, needs_dependency_audit, needs_diff_tools,
-    needs_dns_tools, needs_docker_compose_tools, needs_docker_ops, needs_dockerfile_tools,
-    needs_dotenv_tools, needs_duration_tools, needs_elf_tools, needs_email_tools,
-    needs_encode_tools, needs_env_diff, needs_env_schema_tools, needs_file_tree_tools,
-    needs_find_tools, needs_format, needs_fraction_tools, needs_geo_tools, needs_geometry_tools,
-    needs_github_actions_tools, needs_github_ops, needs_gitignore_tools, needs_glob_tools,
-    needs_gpu_tools, needs_graph_tools, needs_graphql_tools, needs_graphviz_tools,
-    needs_grep_tools, needs_har_tools, needs_hash_tools, needs_hex_tools, needs_html_tools,
-    needs_http_parse_tools, needs_http_request, needs_http_status_tools, needs_ical_tools,
-    needs_id_tools, needs_inflect_tools, needs_ini_tools, needs_interval_tools, needs_ip_tools,
-    needs_jq_tools, needs_json_patch_tools, needs_json_tools, needs_jsonl_tools,
+    needs_cipher_tools, needs_circuit_tools, needs_cite_tools, needs_code_metrics,
+    needs_color_tools, needs_compression_tools, needs_computation_sandbox, needs_conda_tools,
+    needs_cors_tools, needs_crash_debug, needs_cron_tools, needs_csp_tools, needs_css_tools,
+    needs_csv_tools, needs_data_gen_tools, needs_date_tools, needs_dependency_audit,
+    needs_diff_tools, needs_dns_tools, needs_docker_compose_tools, needs_docker_ops,
+    needs_dockerfile_tools, needs_dotenv_tools, needs_duration_tools, needs_elf_tools,
+    needs_email_tools, needs_encode_tools, needs_env_diff, needs_env_schema_tools,
+    needs_file_tree_tools, needs_find_tools, needs_format, needs_fraction_tools, needs_geo_tools,
+    needs_geometry_tools, needs_github_actions_tools, needs_github_ops, needs_gitignore_tools,
+    needs_glob_tools, needs_gpu_tools, needs_graph_tools, needs_graphql_tools,
+    needs_graphviz_tools, needs_grep_tools, needs_har_tools, needs_hash_tools, needs_hex_tools,
+    needs_html_tools, needs_http_parse_tools, needs_http_request, needs_http_status_tools,
+    needs_ical_tools, needs_id_tools, needs_inflect_tools, needs_ini_tools, needs_interval_tools,
+    needs_ip_tools, needs_jq_tools, needs_json_patch_tools, needs_json_tools, needs_jsonl_tools,
     needs_jsonschema_tools, needs_jwt_tools, needs_k8s_tools, needs_keyval_tools,
     needs_latex_tools, needs_leb128_tools, needs_license_tools, needs_line_tools, needs_lint_check,
     needs_lock_file_tools, needs_log_parse_tools, needs_logic_tools, needs_make_tools,
-    needs_markdown_gen_tools, needs_markdown_tools, needs_matrix_tools, needs_mermaid_tools,
-    needs_mime_tools, needs_money_tools, needs_msgpack_tools, needs_music_tools, needs_nato_tools,
-    needs_net_lookup_tools, needs_network_header_tools, needs_nginx_conf_tools,
-    needs_notebook_tools, needs_number_sequence_tools, needs_number_theory_tools,
-    needs_number_tools, needs_number_words_tools, needs_openapi_tools, needs_optics_tools,
-    needs_package_json_tools, needs_password_gen, needs_path_tools, needs_pem_tools,
-    needs_periodic_tools, needs_physics_tools, needs_plist_tools, needs_port_check,
-    needs_printf_tools, needs_proto_tools, needs_regex_tools, needs_robots_txt_tools,
-    needs_rss_tools, needs_scientific_compute, needs_secret_scan, needs_semver_tools,
-    needs_signal_tools, needs_sitemap_tools, needs_size_tools, needs_sort_tools,
-    needs_sql_format_tools, needs_sql_migrate_tools, needs_sql_tools, needs_sqlite_tools,
-    needs_ssh_config_tools, needs_stack_tools, needs_stat_tools, needs_string_metric_tools,
-    needs_systemd_tools, needs_table_tools, needs_tar_tools, needs_template_gen,
-    needs_template_tools, needs_terraform_tools, needs_test_run, needs_text_align_tools,
-    needs_text_extract_tools, needs_text_tools, needs_thermo_tools, needs_time_zone_tools,
-    needs_tlv_tools, needs_todo_tools, needs_token_tools, needs_toml_tools, needs_totp_tools,
-    needs_trie_tools, needs_unicode_tools, needs_unit_tools, needs_url_tools, needs_uuid_gen,
-    needs_validate_tools, needs_vcf_tools, needs_vector_tools, needs_wasm_tools,
+    needs_markdown_gen_tools, needs_markdown_tools, needs_matrix_tools, needs_mechanics_tools,
+    needs_mermaid_tools, needs_mime_tools, needs_money_tools, needs_msgpack_tools,
+    needs_music_tools, needs_nato_tools, needs_net_lookup_tools, needs_network_header_tools,
+    needs_nginx_conf_tools, needs_notebook_tools, needs_number_sequence_tools,
+    needs_number_theory_tools, needs_number_tools, needs_number_words_tools, needs_openapi_tools,
+    needs_optics_tools, needs_package_json_tools, needs_password_gen, needs_path_tools,
+    needs_pem_tools, needs_periodic_tools, needs_physics_tools, needs_plist_tools,
+    needs_port_check, needs_printf_tools, needs_proto_tools, needs_regex_tools,
+    needs_robots_txt_tools, needs_rss_tools, needs_scientific_compute, needs_secret_scan,
+    needs_semver_tools, needs_signal_tools, needs_sitemap_tools, needs_size_tools,
+    needs_sort_tools, needs_sql_format_tools, needs_sql_migrate_tools, needs_sql_tools,
+    needs_sqlite_tools, needs_ssh_config_tools, needs_stack_tools, needs_stat_tools,
+    needs_string_metric_tools, needs_systemd_tools, needs_table_tools, needs_tar_tools,
+    needs_template_gen, needs_template_tools, needs_terraform_tools, needs_test_run,
+    needs_text_align_tools, needs_text_extract_tools, needs_text_tools, needs_thermo_tools,
+    needs_time_zone_tools, needs_tlv_tools, needs_todo_tools, needs_token_tools, needs_toml_tools,
+    needs_totp_tools, needs_trie_tools, needs_unicode_tools, needs_unit_tools, needs_url_tools,
+    needs_uuid_gen, needs_validate_tools, needs_vcf_tools, needs_vector_tools, needs_wasm_tools,
     needs_web_manifest_tools, needs_word_tools, needs_xml_tools, needs_yaml_tools,
     preferred_host_inspection_topic, preferred_maintainer_workflow, preferred_workspace_workflow,
     DirectAnswerKind, QueryIntentClass,
@@ -7455,6 +7455,40 @@ impl ConversationManager {
                  Example: signal_tools(action: 'dft', samples: [1,0,-1,0,1,0,-1,0], sample_rate: 8000) or \
                  signal_tools(action: 'fir', cutoff: 0.2, taps: 31, filter_type: 'lowpass') or \
                  signal_tools(action: 'stats', samples: [1.2, -0.5, 0.8, -1.1])."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_mechanics_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "MECHANICS NOTICE: Use the `mechanics_tools` tool for classical mechanics calculations without external utilities. \
+                 Actions: kinematics (SUVAT equations — pass solve_for: 'v'/'s'/'a'/'t'/'u' plus known variables), \
+                 forces (Newton's 2nd law — solve_for: 'F'/'a'/'friction'/'incline'), \
+                 energy (solve_for: 'KE'/'GPE'/'spring'/'conservation'/'power'/'work'), \
+                 momentum (solve_for: 'p'/'impulse'/'elastic'/'inelastic'), \
+                 rotation (solve_for: 'torque'/'inertia'/'alpha'/'ke_rot'/'L'; pass shape for I), \
+                 oscillation (solve_for: 'T_spring'/'T_pendulum'/'k'/'shm'), \
+                 projectile (pass v0 and theta in degrees; optionally t for position at time), \
+                 circular (solve_for: 'Fc' centripetal or 'orbital'). \
+                 Example: mechanics_tools(action: 'kinematics', solve_for: 'v', u: 0, a: 9.8, t: 3) or \
+                 mechanics_tools(action: 'projectile', v0: 20, theta: 45)."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_circuit_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "CIRCUIT NOTICE: Use the `circuit_tools` tool for electrical circuit calculations without external utilities. \
+                 Actions: ohm (V=IR — solve_for: 'V'/'I'/'R'), \
+                 resistors (series/parallel combinations — pass mode:'series'/'parallel' + values array or R1/R2), \
+                 power (solve_for: 'P_VI'/'P_IR'/'P_VR'/'efficiency'; optionally t for energy), \
+                 capacitors (solve_for: 'series'/'parallel'/'energy'/'rc'; rc needs R+C, optionally V+t), \
+                 inductors (solve_for: 'series'/'parallel'/'energy'/'rl'/'voltage'; rl needs R+L, optionally V+t), \
+                 divider (voltage divider or current divider — solve_for: 'voltage'/'current'; pass Vin/I + R1+R2), \
+                 rlc (resonance, Q-factor, bandwidth — pass R+L+C; optionally f for impedance at frequency), \
+                 ac (AC impedance — pass R+L+C+f; optionally V for power calculation). \
+                 Example: circuit_tools(action: 'ohm', solve_for: 'I', V: 12, R: 100) or \
+                 circuit_tools(action: 'rlc', R: 10, L: 0.001, C: 0.0001)."
                     .to_string(),
             );
         }

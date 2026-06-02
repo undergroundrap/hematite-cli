@@ -10306,6 +10306,98 @@ pub fn needs_optics_tools(user_input: &str) -> bool {
     )
 }
 
+pub fn needs_mechanics_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "kinematics",
+            "suvat",
+            "projectile motion",
+            "projectile range",
+            "max height projectile",
+            "time of flight",
+            "centripetal force",
+            "centripetal acceleration",
+            "circular motion",
+            "moment of inertia",
+            "torque calculation",
+            "angular acceleration",
+            "rotational kinetic energy",
+            "angular momentum",
+            "simple harmonic motion",
+            "shm period",
+            "spring period",
+            "pendulum period",
+            "spring constant",
+            "oscillation frequency",
+            "elastic collision",
+            "inelastic collision",
+            "conservation of momentum",
+            "conservation of energy",
+            "kinetic energy formula",
+            "gravitational potential energy",
+            "work done by force",
+            "power mechanics",
+            "newton's second law",
+            "newtons second law",
+            "friction force",
+            "normal force incline",
+            "inclined plane",
+            "orbital speed",
+            "orbital period",
+            "classical mechanics",
+        ],
+    )
+}
+
+pub fn needs_circuit_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "ohm's law",
+            "ohms law",
+            "v=ir",
+            "resistance series",
+            "resistance parallel",
+            "resistors in series",
+            "resistors in parallel",
+            "series resistors",
+            "parallel resistors",
+            "electrical power",
+            "i squared r",
+            "p=iv",
+            "p=i2r",
+            "rc circuit",
+            "rl circuit",
+            "rlc circuit",
+            "resonant frequency circuit",
+            "q-factor circuit",
+            "impedance",
+            "voltage divider",
+            "current divider",
+            "capacitor energy",
+            "capacitor series",
+            "capacitor parallel",
+            "inductor energy",
+            "inductor series",
+            "inductor parallel",
+            "rc time constant",
+            "rl time constant",
+            "power factor",
+            "ac impedance",
+            "reactive power",
+            "apparent power",
+            "xl impedance",
+            "xc impedance",
+            "circuit analysis",
+            "capacitance calculation",
+            "inductance calculation",
+        ],
+    )
+}
+
 pub fn needs_cors_tools(user_input: &str) -> bool {
     let lower = user_input.to_lowercase();
     contains_any(
