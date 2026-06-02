@@ -34553,26 +34553,42 @@ fn test_optics_error_missing_n2() {
 
 #[test]
 fn test_routing_detects_mechanics_kinematics() {
-    assert!(hematite::agent::routing::needs_mechanics_tools("suvat equations"));
-    assert!(hematite::agent::routing::needs_mechanics_tools("kinematics problem"));
+    assert!(hematite::agent::routing::needs_mechanics_tools(
+        "suvat equations"
+    ));
+    assert!(hematite::agent::routing::needs_mechanics_tools(
+        "kinematics problem"
+    ));
 }
 
 #[test]
 fn test_routing_detects_mechanics_projectile() {
-    assert!(hematite::agent::routing::needs_mechanics_tools("projectile motion range"));
-    assert!(hematite::agent::routing::needs_mechanics_tools("max height projectile"));
+    assert!(hematite::agent::routing::needs_mechanics_tools(
+        "projectile motion range"
+    ));
+    assert!(hematite::agent::routing::needs_mechanics_tools(
+        "max height projectile"
+    ));
 }
 
 #[test]
 fn test_routing_detects_mechanics_energy() {
-    assert!(hematite::agent::routing::needs_mechanics_tools("kinetic energy formula"));
-    assert!(hematite::agent::routing::needs_mechanics_tools("conservation of energy"));
+    assert!(hematite::agent::routing::needs_mechanics_tools(
+        "kinetic energy formula"
+    ));
+    assert!(hematite::agent::routing::needs_mechanics_tools(
+        "conservation of energy"
+    ));
 }
 
 #[test]
 fn test_routing_detects_mechanics_rotation() {
-    assert!(hematite::agent::routing::needs_mechanics_tools("moment of inertia solid sphere"));
-    assert!(hematite::agent::routing::needs_mechanics_tools("angular momentum"));
+    assert!(hematite::agent::routing::needs_mechanics_tools(
+        "moment of inertia solid sphere"
+    ));
+    assert!(hematite::agent::routing::needs_mechanics_tools(
+        "angular momentum"
+    ));
 }
 
 #[test]
@@ -34583,7 +34599,10 @@ fn test_mechanics_kinematics_solve_v() {
             &serde_json::json!({"action": "kinematics", "solve_for": "v", "u": 0.0, "a": 9.8, "t": 3.0}),
         ))
         .unwrap();
-    assert!(out.contains("29.4") || out.contains("29.40"), "v = 0 + 9.8*3 = 29.4 m/s");
+    assert!(
+        out.contains("29.4") || out.contains("29.40"),
+        "v = 0 + 9.8*3 = 29.4 m/s"
+    );
 }
 
 #[test]
@@ -34616,7 +34635,10 @@ fn test_mechanics_elastic_collision() {
             &serde_json::json!({"action": "momentum", "solve_for": "elastic", "m": 1.0, "m2": 1.0, "v1": 4.0, "v2": 0.0}),
         ))
         .unwrap();
-    assert!(out.contains("0.0000") || out.contains("4.0000"), "equal mass elastic swap");
+    assert!(
+        out.contains("0.0000") || out.contains("4.0000"),
+        "equal mass elastic swap"
+    );
 }
 
 #[test]
@@ -34627,7 +34649,10 @@ fn test_mechanics_oscillation_spring() {
             &serde_json::json!({"action": "oscillation", "solve_for": "T_spring", "m": 1.0, "k": 100.0}),
         ))
         .unwrap();
-    assert!(out.contains("0.628") || out.contains("0.6283"), "spring period ~0.628 s");
+    assert!(
+        out.contains("0.628") || out.contains("0.6283"),
+        "spring period ~0.628 s"
+    );
 }
 
 #[test]
@@ -34638,7 +34663,10 @@ fn test_mechanics_rotation_inertia_sphere() {
             &serde_json::json!({"action": "rotation", "solve_for": "inertia", "shape": "solid_sphere", "m": 2.0, "r": 0.5}),
         ))
         .unwrap();
-    assert!(out.contains("0.2000") || out.contains("0.20"), "I = 0.2 kg*m^2");
+    assert!(
+        out.contains("0.2000") || out.contains("0.20"),
+        "I = 0.2 kg*m^2"
+    );
 }
 
 #[test]
@@ -34660,7 +34688,10 @@ fn test_mechanics_forces_incline() {
             &serde_json::json!({"action": "forces", "solve_for": "incline", "m": 10.0, "theta": 30.0, "mu": 0.0}),
         ))
         .unwrap();
-    assert!(out.contains("49.") || out.contains("Incline"), "incline calculation");
+    assert!(
+        out.contains("49.") || out.contains("Incline"),
+        "incline calculation"
+    );
 }
 
 #[test]
@@ -34683,14 +34714,20 @@ fn test_routing_detects_circuit_ohm() {
 
 #[test]
 fn test_routing_detects_circuit_resistors() {
-    assert!(hematite::agent::routing::needs_circuit_tools("resistors in parallel"));
-    assert!(hematite::agent::routing::needs_circuit_tools("series resistors"));
+    assert!(hematite::agent::routing::needs_circuit_tools(
+        "resistors in parallel"
+    ));
+    assert!(hematite::agent::routing::needs_circuit_tools(
+        "series resistors"
+    ));
 }
 
 #[test]
 fn test_routing_detects_circuit_rlc() {
     assert!(hematite::agent::routing::needs_circuit_tools("rlc circuit"));
-    assert!(hematite::agent::routing::needs_circuit_tools("resonant frequency circuit"));
+    assert!(hematite::agent::routing::needs_circuit_tools(
+        "resonant frequency circuit"
+    ));
 }
 
 #[test]
@@ -34701,7 +34738,10 @@ fn test_circuit_ohm_solve_i() {
             &serde_json::json!({"action": "ohm", "solve_for": "I", "V": 12.0, "R": 100.0}),
         ))
         .unwrap();
-    assert!(out.contains("0.1200") || out.contains("120."), "I = 0.12 A = 120 mA");
+    assert!(
+        out.contains("0.1200") || out.contains("120."),
+        "I = 0.12 A = 120 mA"
+    );
 }
 
 #[test]
@@ -34712,7 +34752,10 @@ fn test_circuit_resistors_parallel() {
             &serde_json::json!({"action": "resistors", "mode": "parallel", "values": [100.0, 100.0]}),
         ))
         .unwrap();
-    assert!(out.contains("50.0") || out.contains("50.00"), "100||100 = 50 Ohm");
+    assert!(
+        out.contains("50.0") || out.contains("50.00"),
+        "100||100 = 50 Ohm"
+    );
 }
 
 #[test]
@@ -34745,7 +34788,10 @@ fn test_circuit_capacitor_energy() {
             &serde_json::json!({"action": "capacitors", "solve_for": "energy", "C": 0.001, "V": 10.0}),
         ))
         .unwrap();
-    assert!(out.contains("5.000000e-2") || out.contains("0.05") || out.contains("5.0000"), "E = 0.05 J");
+    assert!(
+        out.contains("5.000000e-2") || out.contains("0.05") || out.contains("5.0000"),
+        "E = 0.05 J"
+    );
 }
 
 #[test]
@@ -34756,7 +34802,10 @@ fn test_circuit_voltage_divider() {
             &serde_json::json!({"action": "divider", "solve_for": "voltage", "Vin": 10.0, "R1": 1000.0, "R2": 1000.0}),
         ))
         .unwrap();
-    assert!(out.contains("5.") || out.contains("5 V"), "10V divider with equal R = 5V");
+    assert!(
+        out.contains("5.") || out.contains("5 V"),
+        "10V divider with equal R = 5V"
+    );
 }
 
 #[test]
@@ -34767,7 +34816,10 @@ fn test_circuit_rlc_resonance() {
             &serde_json::json!({"action": "rlc", "R": 10.0, "L": 0.001, "C": 0.0000001}),
         ))
         .unwrap();
-    assert!(out.contains("Hz") || out.contains("RLC"), "RLC resonance computed");
+    assert!(
+        out.contains("Hz") || out.contains("RLC"),
+        "RLC resonance computed"
+    );
 }
 
 #[test]
@@ -34778,7 +34830,10 @@ fn test_circuit_inductor_rl_time_constant() {
             &serde_json::json!({"action": "inductors", "solve_for": "rl", "R": 100.0, "L": 0.01}),
         ))
         .unwrap();
-    assert!(out.contains("1.0000e-4") || out.contains("0.0001") || out.contains("1.00"), "tau = 0.1 ms");
+    assert!(
+        out.contains("1.0000e-4") || out.contains("0.0001") || out.contains("1.00"),
+        "tau = 0.1 ms"
+    );
 }
 
 #[test]
@@ -34788,4 +34843,343 @@ fn test_circuit_error_missing_r() {
         &serde_json::json!({"action": "ohm", "solve_for": "V", "I": 1.0}),
     ));
     assert!(result.is_err(), "should error without R");
+}
+
+// ─── quantum_tools routing ──────────────────────────────────────────────────
+
+#[test]
+fn test_routing_detects_quantum_tools_particle_box() {
+    use hematite::agent::routing::needs_quantum_tools;
+    assert!(needs_quantum_tools("particle in a box energy levels"));
+    assert!(needs_quantum_tools("infinite square well n=3"));
+    assert!(!needs_quantum_tools("classical pendulum period"));
+}
+
+#[test]
+fn test_routing_detects_quantum_tools_uncertainty() {
+    use hematite::agent::routing::needs_quantum_tools;
+    assert!(needs_quantum_tools("heisenberg uncertainty principle"));
+    assert!(needs_quantum_tools("uncertainty principle delta_x"));
+    assert!(!needs_quantum_tools("measure the voltage"));
+}
+
+#[test]
+fn test_routing_detects_quantum_tools_photoelectric() {
+    use hematite::agent::routing::needs_quantum_tools;
+    assert!(needs_quantum_tools("photoelectric effect stopping potential"));
+    assert!(needs_quantum_tools("work function sodium 2.3 eV"));
+    assert!(!needs_quantum_tools("electric field point charge"));
+}
+
+#[test]
+fn test_routing_detects_quantum_tools_tunneling() {
+    use hematite::agent::routing::needs_quantum_tools;
+    assert!(needs_quantum_tools("quantum tunneling through barrier"));
+    assert!(needs_quantum_tools("quantum tunneling electron barrier"));
+    assert!(!needs_quantum_tools("tunnel network configuration"));
+}
+
+// ─── quantum_tools functional ───────────────────────────────────────────────
+
+#[test]
+fn test_quantum_particle_box() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::quantum_tools::execute(
+            &serde_json::json!({"action": "particle_box", "L": 1e-9, "n": 3}),
+        ))
+        .unwrap();
+    assert!(
+        out.contains("PARTICLE IN A 1D INFINITE SQUARE WELL"),
+        "header present"
+    );
+    assert!(out.contains("n=1"), "ground state shown");
+    assert!(out.contains("n=3"), "n=3 shown");
+    assert!(out.contains("eV"), "energies in eV");
+}
+
+#[test]
+fn test_quantum_hydrogen_levels() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::quantum_tools::execute(
+            &serde_json::json!({"action": "hydrogen", "n": 4}),
+        ))
+        .unwrap();
+    assert!(out.contains("HYDROGEN ATOM"), "header");
+    assert!(out.contains("-13.6"), "ground state energy");
+    assert!(out.contains("n=4"), "n=4 shown");
+}
+
+#[test]
+fn test_quantum_hydrogen_transition() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::quantum_tools::execute(
+            &serde_json::json!({"action": "hydrogen", "n1": 2.0, "n2": 4.0}),
+        ))
+        .unwrap();
+    assert!(out.contains("Balmer"), "Balmer series for n1=2");
+    // Hα line ~486 nm
+    assert!(
+        out.contains("486") || out.contains("487") || out.contains("485"),
+        "~486 nm wavelength"
+    );
+}
+
+#[test]
+fn test_quantum_uncertainty_delta_p() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::quantum_tools::execute(
+            &serde_json::json!({"action": "uncertainty", "solve_for": "delta_p", "delta_x": 1e-10}),
+        ))
+        .unwrap();
+    assert!(out.contains("HEISENBERG"), "header");
+    assert!(out.contains("Δp_min"), "min momentum shown");
+}
+
+#[test]
+fn test_quantum_de_broglie_velocity() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::quantum_tools::execute(
+            &serde_json::json!({"action": "de_broglie", "v": 1e6}),
+        ))
+        .unwrap();
+    assert!(out.contains("DE BROGLIE"), "header");
+    assert!(out.contains("λ ="), "wavelength shown");
+    // electron at 1e6 m/s: lambda = h/(m_e*v) ~ 0.727 nm
+    assert!(
+        out.contains("7.2") || out.contains("7.3"),
+        "~0.727 nm wavelength"
+    );
+}
+
+#[test]
+fn test_quantum_photoelectric() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::quantum_tools::execute(
+            &serde_json::json!({"action": "photoelectric", "phi": 2.3, "lambda": 300.0}),
+        ))
+        .unwrap();
+    assert!(out.contains("PHOTOELECTRIC"), "header");
+    assert!(out.contains("KE_max") || out.contains("Stopping potential"), "output present");
+}
+
+#[test]
+fn test_quantum_compton() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::quantum_tools::execute(
+            &serde_json::json!({"action": "compton", "theta": 90.0, "lambda": 0.071}),
+        ))
+        .unwrap();
+    assert!(out.contains("COMPTON SCATTERING"), "header");
+    // Δλ at 90° = lambda_C = 2.426e-12 m
+    assert!(out.contains("2.426") || out.contains("2.43"), "Compton shift at 90°");
+}
+
+#[test]
+fn test_quantum_tunneling() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::quantum_tools::execute(
+            &serde_json::json!({"action": "tunneling", "E": 1.0, "V0": 2.0, "L": 0.5}),
+        ))
+        .unwrap();
+    assert!(out.contains("QUANTUM TUNNELING"), "header");
+    assert!(out.contains("Transmission"), "transmission probability");
+    assert!(out.contains("κ"), "decay constant");
+}
+
+#[test]
+fn test_quantum_harmonic() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::quantum_tools::execute(
+            &serde_json::json!({"action": "harmonic", "omega": 1e14, "n": 2}),
+        ))
+        .unwrap();
+    assert!(out.contains("QUANTUM HARMONIC OSCILLATOR"), "header");
+    assert!(out.contains("zero-point energy"), "zero-point energy noted");
+    assert!(out.contains("n=0"), "ground state shown");
+    assert!(out.contains("n=2"), "n=2 shown");
+}
+
+#[test]
+fn test_quantum_error_missing_l() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::quantum_tools::execute(
+        &serde_json::json!({"action": "particle_box"}),
+    ));
+    assert!(result.is_err(), "should error without L");
+}
+
+// ─── em_tools routing ───────────────────────────────────────────────────────
+
+#[test]
+fn test_routing_detects_em_tools_coulomb() {
+    use hematite::agent::routing::needs_em_tools;
+    assert!(needs_em_tools("coulomb's law two charges"));
+    assert!(needs_em_tools("coulombs law force between charges"));
+    assert!(!needs_em_tools("kirchhoff's voltage law"));
+}
+
+#[test]
+fn test_routing_detects_em_tools_magnetic() {
+    use hematite::agent::routing::needs_em_tools;
+    assert!(needs_em_tools("magnetic field solenoid with 500 turns"));
+    assert!(needs_em_tools("magnetic field wire current 5A"));
+    assert!(!needs_em_tools("magnetic stripe credit card reader"));
+}
+
+#[test]
+fn test_routing_detects_em_tools_em_wave() {
+    use hematite::agent::routing::needs_em_tools;
+    assert!(needs_em_tools("electromagnetic wave 500 MHz"));
+    assert!(needs_em_tools("em wave frequency wavelength"));
+    assert!(!needs_em_tools("sound wave frequency"));
+}
+
+#[test]
+fn test_routing_detects_em_tools_lorentz() {
+    use hematite::agent::routing::needs_em_tools;
+    assert!(needs_em_tools("lorentz force on moving charge"));
+    assert!(needs_em_tools("lorentz law magnetic"));
+    assert!(!needs_em_tools("load balancing algorithm"));
+}
+
+// ─── em_tools functional ────────────────────────────────────────────────────
+
+#[test]
+fn test_em_coulomb() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::em_tools::execute(
+            &serde_json::json!({"action": "coulomb", "q1": 1e-6, "q2": 1e-6, "r": 1.0}),
+        ))
+        .unwrap();
+    assert!(out.contains("COULOMB'S LAW"), "header");
+    // F = 9e9 * 1e-6 * 1e-6 / 1 = 8.9875e-3 N
+    assert!(
+        out.contains("8.987") || out.contains("8.988") || out.contains("repulsive"),
+        "force value or repulsive label"
+    );
+}
+
+#[test]
+fn test_em_electric_field() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::em_tools::execute(
+            &serde_json::json!({"action": "electric_field", "q": 1e-9, "r": 0.1}),
+        ))
+        .unwrap();
+    assert!(out.contains("ELECTRIC FIELD"), "header");
+    assert!(out.contains("outward"), "positive charge outward");
+    // E = 9e9 * 1e-9 / 0.01 = 899.75 V/m
+    assert!(out.contains("8.98") || out.contains("V/m"), "field shown");
+}
+
+#[test]
+fn test_em_magnetic_field_wire() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::em_tools::execute(
+            &serde_json::json!({"action": "magnetic_field", "geometry": "wire", "I": 10.0, "r": 0.05}),
+        ))
+        .unwrap();
+    assert!(out.contains("MAGNETIC FIELD"), "header");
+    assert!(out.contains("wire") || out.contains("B ="), "wire result");
+    // B = mu0 * 10 / (2*pi*0.05) = 4e-5 T
+    assert!(out.contains("4.0") || out.contains("3.99") || out.contains("e-5"), "~4e-5 T");
+}
+
+#[test]
+fn test_em_magnetic_field_solenoid() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::em_tools::execute(
+            &serde_json::json!({"action": "magnetic_field", "geometry": "solenoid", "I": 2.0, "N": 500.0, "l": 0.25}),
+        ))
+        .unwrap();
+    assert!(out.contains("Solenoid"), "solenoid label");
+    assert!(out.contains("B ="), "field shown");
+}
+
+#[test]
+fn test_em_capacitance_parallel_plate() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::em_tools::execute(
+            &serde_json::json!({"action": "capacitance", "geometry": "parallel_plate", "A": 0.01, "d": 0.001}),
+        ))
+        .unwrap();
+    assert!(out.contains("CAPACITANCE"), "header");
+    assert!(out.contains("parallel plate") || out.contains("Parallel plate"), "geometry");
+    // C = eps0 * 0.01 / 0.001 = 8.854e-11 F
+    assert!(out.contains("8.854") || out.contains("8.85") || out.contains("F"), "capacitance");
+}
+
+#[test]
+fn test_em_inductance_solenoid() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::em_tools::execute(
+            &serde_json::json!({"action": "inductance", "geometry": "solenoid", "N": 200.0, "l": 0.1, "A": 0.001}),
+        ))
+        .unwrap();
+    assert!(out.contains("INDUCTANCE"), "header");
+    assert!(out.contains("Solenoid") || out.contains("solenoid"), "geometry");
+    assert!(out.contains("H\n") || out.contains("H ") || out.contains("= "), "value shown");
+}
+
+#[test]
+fn test_em_wave_frequency() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::em_tools::execute(
+            &serde_json::json!({"action": "em_wave", "f": 5e14}),
+        ))
+        .unwrap();
+    assert!(out.contains("ELECTROMAGNETIC WAVE"), "header");
+    assert!(out.contains("Visible light"), "visible spectrum");
+    assert!(out.contains("6.0") || out.contains("Photon energy"), "photon energy or wavelength");
+}
+
+#[test]
+fn test_em_lorentz_magnetic() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::em_tools::execute(
+            &serde_json::json!({"action": "lorentz", "q": 1.6e-19, "B_field": 0.5, "v": 1e6, "theta": 90.0}),
+        ))
+        .unwrap();
+    assert!(out.contains("LORENTZ FORCE"), "header");
+    // F = qvB = 1.6e-19 * 1e6 * 0.5 = 8e-14 N
+    assert!(out.contains("8.0") || out.contains("8.00") || out.contains("e-14"), "~8e-14 N");
+}
+
+#[test]
+fn test_em_poynting() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::em_tools::execute(
+            &serde_json::json!({"action": "poynting", "E_field": 1000.0, "B_field": 3.33e-6}),
+        ))
+        .unwrap();
+    assert!(out.contains("POYNTING VECTOR"), "header");
+    assert!(out.contains("W/m²") || out.contains("intensity"), "power density");
+    assert!(out.contains("energy density") || out.contains("u_E"), "energy density");
+}
+
+#[test]
+fn test_em_error_missing_q1() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::em_tools::execute(
+        &serde_json::json!({"action": "coulomb", "q2": 1e-6, "r": 1.0}),
+    ));
+    assert!(result.is_err(), "should error without q1");
 }

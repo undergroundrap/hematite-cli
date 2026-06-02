@@ -10398,6 +10398,70 @@ pub fn needs_circuit_tools(user_input: &str) -> bool {
     )
 }
 
+pub fn needs_quantum_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "quantum",
+            "particle in a box",
+            "infinite square well",
+            "hydrogen energy level",
+            "rydberg",
+            "heisenberg uncertainty",
+            "uncertainty principle",
+            "de broglie",
+            "de broglie wavelength",
+            "wave-particle",
+            "photoelectric effect",
+            "work function",
+            "compton scattering",
+            "compton wavelength",
+            "quantum tunneling",
+            "quantum harmonic oscillator",
+            "zero-point energy",
+            "energy quantization",
+            "photon energy hf",
+            "planck's equation",
+        ],
+    )
+}
+
+pub fn needs_em_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "coulomb's law",
+            "coulombs law",
+            "electric force",
+            "electric field point charge",
+            "electric potential energy",
+            "magnetic field wire",
+            "magnetic field solenoid",
+            "magnetic field loop",
+            "parallel plate capacitance",
+            "cylindrical capacitance",
+            "spherical capacitance",
+            "solenoid inductance",
+            "toroid inductance",
+            "coaxial inductance",
+            "electromagnetic wave",
+            "em wave",
+            "lorentz force",
+            "lorentz law",
+            "poynting vector",
+            "radiation pressure",
+            "em energy density",
+            "electromagnetism",
+            "maxwell's equations",
+            "gauss's law",
+            "faraday's law",
+            "ampere's law",
+        ],
+    )
+}
+
 pub fn needs_cors_tools(user_input: &str) -> bool {
     let lower = user_input.to_lowercase();
     contains_any(

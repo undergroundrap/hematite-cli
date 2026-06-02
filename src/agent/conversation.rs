@@ -38,7 +38,7 @@ use crate::agent::routing::{
     needs_csv_tools, needs_data_gen_tools, needs_date_tools, needs_dependency_audit,
     needs_diff_tools, needs_dns_tools, needs_docker_compose_tools, needs_docker_ops,
     needs_dockerfile_tools, needs_dotenv_tools, needs_duration_tools, needs_elf_tools,
-    needs_email_tools, needs_encode_tools, needs_env_diff, needs_env_schema_tools,
+    needs_em_tools, needs_email_tools, needs_encode_tools, needs_env_diff, needs_env_schema_tools,
     needs_file_tree_tools, needs_find_tools, needs_format, needs_fraction_tools, needs_geo_tools,
     needs_geometry_tools, needs_github_actions_tools, needs_github_ops, needs_gitignore_tools,
     needs_glob_tools, needs_gpu_tools, needs_graph_tools, needs_graphql_tools,
@@ -56,20 +56,21 @@ use crate::agent::routing::{
     needs_number_theory_tools, needs_number_tools, needs_number_words_tools, needs_openapi_tools,
     needs_optics_tools, needs_package_json_tools, needs_password_gen, needs_path_tools,
     needs_pem_tools, needs_periodic_tools, needs_physics_tools, needs_plist_tools,
-    needs_port_check, needs_printf_tools, needs_proto_tools, needs_regex_tools,
-    needs_robots_txt_tools, needs_rss_tools, needs_scientific_compute, needs_secret_scan,
-    needs_semver_tools, needs_signal_tools, needs_sitemap_tools, needs_size_tools,
-    needs_sort_tools, needs_sql_format_tools, needs_sql_migrate_tools, needs_sql_tools,
-    needs_sqlite_tools, needs_ssh_config_tools, needs_stack_tools, needs_stat_tools,
-    needs_string_metric_tools, needs_systemd_tools, needs_table_tools, needs_tar_tools,
-    needs_template_gen, needs_template_tools, needs_terraform_tools, needs_test_run,
-    needs_text_align_tools, needs_text_extract_tools, needs_text_tools, needs_thermo_tools,
-    needs_time_zone_tools, needs_tlv_tools, needs_todo_tools, needs_token_tools, needs_toml_tools,
-    needs_totp_tools, needs_trie_tools, needs_unicode_tools, needs_unit_tools, needs_url_tools,
-    needs_uuid_gen, needs_validate_tools, needs_vcf_tools, needs_vector_tools, needs_wasm_tools,
-    needs_web_manifest_tools, needs_word_tools, needs_xml_tools, needs_yaml_tools,
-    preferred_host_inspection_topic, preferred_maintainer_workflow, preferred_workspace_workflow,
-    DirectAnswerKind, QueryIntentClass,
+    needs_port_check, needs_printf_tools, needs_proto_tools, needs_quantum_tools,
+    needs_regex_tools, needs_robots_txt_tools, needs_rss_tools, needs_scientific_compute,
+    needs_secret_scan, needs_semver_tools, needs_signal_tools, needs_sitemap_tools,
+    needs_size_tools, needs_sort_tools, needs_sql_format_tools, needs_sql_migrate_tools,
+    needs_sql_tools, needs_sqlite_tools, needs_ssh_config_tools, needs_stack_tools,
+    needs_stat_tools, needs_string_metric_tools, needs_systemd_tools, needs_table_tools,
+    needs_tar_tools, needs_template_gen, needs_template_tools, needs_terraform_tools,
+    needs_test_run, needs_text_align_tools, needs_text_extract_tools, needs_text_tools,
+    needs_thermo_tools, needs_time_zone_tools, needs_tlv_tools, needs_todo_tools,
+    needs_token_tools, needs_toml_tools, needs_totp_tools, needs_trie_tools, needs_unicode_tools,
+    needs_unit_tools, needs_url_tools, needs_uuid_gen, needs_validate_tools, needs_vcf_tools,
+    needs_vector_tools, needs_wasm_tools, needs_web_manifest_tools, needs_word_tools,
+    needs_xml_tools, needs_yaml_tools, preferred_host_inspection_topic,
+    preferred_maintainer_workflow, preferred_workspace_workflow, DirectAnswerKind,
+    QueryIntentClass,
 };
 use crate::agent::tool_registry::dispatch_builtin_tool;
 use crate::agent::truncation::safe_head;
@@ -7523,6 +7524,40 @@ impl ConversationManager {
                  blackbody (Wien/Planck/Stefan-Boltzmann — pass T in K; optionally wavelength_nm). \
                  Example: optics_tools(action: 'refraction', n1: 1.0, n2: 1.5, theta1: 45) or \
                  optics_tools(action: 'blackbody', T: 5778, wavelength_nm: 500)."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_quantum_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "QUANTUM NOTICE: Use the `quantum_tools` tool for quantum mechanics calculations without external utilities. \
+                 Actions: particle_box (infinite square well energy levels — pass L in m, optionally n and m), \
+                 hydrogen (hydrogen atom energy levels or Rydberg transition — pass n or n1+n2 for transition), \
+                 uncertainty (Heisenberg uncertainty — pass solve_for: 'delta_p'/'delta_x'/'delta_E'/'delta_t' + known variable), \
+                 de_broglie (de Broglie wavelength — pass v (m/s), p (kg·m/s), or E (kinetic energy in eV); optionally m), \
+                 photoelectric (photoelectric effect — pass phi (work function eV) + f (Hz) or lambda (nm)), \
+                 compton (Compton scattering — pass theta (degrees) + lambda (nm or m)), \
+                 tunneling (quantum tunneling — pass E (eV), V0 (barrier eV), L (nm); optionally m), \
+                 harmonic (quantum harmonic oscillator — pass omega (rad/s) or k (N/m); optionally n and m). \
+                 Example: quantum_tools(action: 'hydrogen', n1: 2, n2: 4) or \
+                 quantum_tools(action: 'tunneling', E: 1.0, V0: 2.0, L: 0.5)."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_em_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "ELECTROMAGNETISM NOTICE: Use the `em_tools` tool for electromagnetism calculations without external utilities. \
+                 Actions: coulomb (Coulomb's law — pass q1, q2, r), \
+                 electric_field (point charge field and potential — pass q, r), \
+                 magnetic_field (pass I + geometry: 'wire'/'loop'/'solenoid'/'toroid' + geometry dimensions), \
+                 capacitance (pass geometry: 'parallel_plate'/'cylindrical'/'spherical' + dimensions; optionally epsilon_r and v), \
+                 inductance (pass geometry: 'solenoid'/'toroid'/'coaxial' + dimensions; optionally I), \
+                 em_wave (EM wave analysis — pass f (Hz) or lambda (m/nm); optionally E_field or B_field for intensity), \
+                 lorentz (Lorentz force — pass q + E_field and/or B_field + v; optionally theta), \
+                 poynting (Poynting vector and energy density — pass E_field and B_field). \
+                 Example: em_tools(action: 'coulomb', q1: 1e-6, q2: -2e-6, r: 0.05) or \
+                 em_tools(action: 'magnetic_field', geometry: 'solenoid', I: 2.0, N: 500, l: 0.3, A: 0.001)."
                     .to_string(),
             );
         }

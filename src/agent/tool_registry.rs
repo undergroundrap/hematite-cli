@@ -6229,6 +6229,38 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         crate::tools::optics_tools::optics_tools_schema(),
     ));
     tools.push(make_tool(
+        "quantum_tools",
+        "Quantum mechanics calculations without external utilities. All constants are CODATA 2018 values. \
+         Actions: \
+         `particle_box` (default) — particle in a 1D infinite square well: energy levels En=n²π²ħ²/(2mL²), de Broglie wavelength, momentum (pass L in m; optionally n, m); \
+         `hydrogen` — hydrogen atom energy levels En=-13.6/n² eV, or Rydberg transition wavelength (pass n, or n1+n2 for transition); \
+         `uncertainty` — Heisenberg uncertainty ΔxΔp≥ħ/2, ΔEΔt≥ħ/2 (pass solve_for: 'delta_p'/'delta_x'/'delta_E'/'delta_t' + known variable); \
+         `de_broglie` — de Broglie wavelength λ=h/p (pass v in m/s, p in kg·m/s, or E in eV as KE; optionally m for non-electron); \
+         `photoelectric` — photoelectric effect KE_max=hf-φ, stopping potential, threshold (pass phi in eV + f in Hz or lambda in nm); \
+         `compton` — Compton scattering Δλ=λ_C(1-cosθ), scattered wavelength, electron recoil KE (pass theta in degrees + lambda in nm); \
+         `tunneling` — quantum tunneling T≈e^(-2κL), penetration depth (pass E in eV, V0 in eV, L in nm; optionally m); \
+         `harmonic` — quantum harmonic oscillator En=(n+½)ħω, zero-point energy, level spacing (pass omega in rad/s or k in N/m; optionally n, m). \
+         Example: quantum_tools(action: 'hydrogen', n1: 2, n2: 4) or \
+         quantum_tools(action: 'tunneling', E: 1.0, V0: 2.0, L: 0.5).",
+        crate::tools::quantum_tools::quantum_tools_schema(),
+    ));
+    tools.push(make_tool(
+        "em_tools",
+        "Electromagnetism calculations without external utilities. All constants are CODATA 2018 values. \
+         Actions: \
+         `coulomb` (default) — Coulomb's law F=ke·q1q2/r², field, potential, potential energy (pass q1, q2, r); \
+         `electric_field` — point charge electric field and potential, Gauss flux (pass q, r); \
+         `magnetic_field` — magnetic field for geometry: 'wire' (μ₀I/2πr), 'loop' (μ₀NI/2r), 'solenoid' (μ₀nI), 'toroid' (μ₀NI/2πr) (pass I + geometry + dimensions); \
+         `capacitance` — capacitance for geometry: 'parallel_plate' (εA/d), 'cylindrical' (2πεL/ln(b/r)), 'spherical' (4πεrb/(b-r)) (pass geometry + dimensions; optionally epsilon_r, v); \
+         `inductance` — inductance for geometry: 'solenoid' (μ₀N²A/l), 'toroid' (μ₀N²A/2πr), 'coaxial' (μ₀l/2π·ln(b/r)) (pass geometry + dimensions; optionally I); \
+         `em_wave` — EM wave: frequency, wavelength, photon energy, spectrum region (pass f or lambda; optionally E_field or B_field for intensity); \
+         `lorentz` — Lorentz force F=q(E+v×B), circular orbit radius (pass q + E_field and/or B_field + v; optionally theta); \
+         `poynting` — Poynting vector S=E×B/μ₀, energy density, radiation pressure (pass E_field and B_field). \
+         Example: em_tools(action: 'coulomb', q1: 1e-6, q2: -2e-6, r: 0.05) or \
+         em_tools(action: 'magnetic_field', geometry: 'solenoid', I: 2.0, N: 500, l: 0.3, A: 0.001).",
+        crate::tools::em_tools::em_tools_schema(),
+    ));
+    tools.push(make_tool(
         "printf_tools",
         "Analyze, simulate, validate, and convert C-style printf format strings without external utilities. \
          Actions: \
@@ -7087,6 +7119,8 @@ pub async fn dispatch_builtin_tool(
         "optics_tools" => crate::tools::optics_tools::execute(args).await,
         "mechanics_tools" => crate::tools::mechanics_tools::execute(args).await,
         "circuit_tools" => crate::tools::circuit_tools::execute(args).await,
+        "quantum_tools" => crate::tools::quantum_tools::execute(args).await,
+        "em_tools" => crate::tools::em_tools::execute(args).await,
         "printf_tools" => crate::tools::printf_tools::execute(args).await,
         "ascii_chart_tools" => crate::tools::ascii_chart_tools::execute(args).await,
         "sql_format_tools" => crate::tools::sql_format_tools::execute(args).await,
