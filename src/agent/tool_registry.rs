@@ -1612,6 +1612,31 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         }),
     ));
     tools.push(make_tool(
+        "json_patch_tools",
+        "Apply and generate JSON Patch (RFC 6902) and JSON Merge Patch (RFC 7396) documents without external utilities. \
+         Actions: apply (default — apply a JSON Patch operation list to a 'document'; 'patch' array of {op, path, value?, from?}), \
+         generate (generate a JSON Patch from 'original' and 'modified' JSON documents), \
+         merge_apply (apply a JSON Merge Patch object to a 'document'; null values remove keys), \
+         merge_generate (create a JSON Merge Patch from 'original' and 'modified'), \
+         test (run 'test' operations in a patch and report PASS/FAIL per path). \
+         Example: json_patch_tools(document: {\"a\":1}, patch: [{\"op\":\"add\",\"path\":\"/b\",\"value\":2}]) or \
+         json_patch_tools(action: 'generate', original: {\"a\":1}, modified: {\"a\":2,\"b\":3}).",
+        crate::tools::json_patch_tools::json_patch_tools_schema(),
+    ));
+    tools.push(make_tool(
+        "markdown_gen_tools",
+        "Generate Markdown constructs programmatically without external utilities — the complement to markdown_tools which reads/parses Markdown. \
+         Actions: table (default — GitHub-flavored Markdown table; 'headers' string array, 'rows' 2D array, optional 'align' per column: left/right/center), \
+         badge (shields.io-style Markdown badge; 'label', 'message', 'color'; optional 'url' for click-through), \
+         toc (table of contents; 'headings' array of heading strings — plain text or '# Heading' format), \
+         admonition (GitHub >[!KIND] callout block; 'kind': NOTE/TIP/IMPORTANT/WARNING/CAUTION; 'label' for body text), \
+         link (Markdown link; 'text'+'url'; 'style': inline/reference/image/image_link; optional 'title'), \
+         doc (full Markdown document; 'title' + 'sections' array of {heading, body, level?, code?, lang?}). \
+         Example: markdown_gen_tools(headers: ['Name','Version'], rows: [['rust','1.78']]) or \
+         markdown_gen_tools(action: 'admonition', kind: 'WARNING', label: 'Do not delete this file').",
+        crate::tools::markdown_gen_tools::markdown_gen_tools_schema(),
+    ));
+    tools.push(make_tool(
         "json_tools",
         "Query, transform, and analyze JSON data without needing jq or external tools. \
          Provide JSON inline ('json' arg) or from a file ('file' arg). \
@@ -6761,6 +6786,8 @@ pub async fn dispatch_builtin_tool(
         "port_check" => crate::tools::port_check::execute(args).await,
         "env_diff" => crate::tools::env_diff::execute(args).await,
         "template_gen" => crate::tools::template_gen::execute(args).await,
+        "json_patch_tools" => crate::tools::json_patch_tools::execute(args).await,
+        "markdown_gen_tools" => crate::tools::markdown_gen_tools::execute(args).await,
         "json_tools" => crate::tools::json_tools::execute(args).await,
         "regex_tools" => crate::tools::regex_tools::execute(args).await,
         "diff_tools" => crate::tools::diff_tools::execute(args).await,

@@ -9837,6 +9837,57 @@ pub fn needs_vector_tools(user_input: &str) -> bool {
     )
 }
 
+pub fn needs_json_patch_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "json patch",
+            "rfc 6902",
+            "apply patch",
+            "json diff",
+            "json pointer",
+            "json pointer path",
+            "merge patch",
+            "rfc 7396",
+            "json merge",
+            "patch document",
+            "json operations",
+            "add remove replace",
+            "json operation",
+        ],
+    )
+}
+
+pub fn needs_markdown_gen_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "generate markdown",
+            "markdown table",
+            "create markdown table",
+            "markdown badge",
+            "shields.io badge",
+            "generate badge",
+            "markdown toc",
+            "table of contents markdown",
+            "markdown admonition",
+            "github admonition",
+            "note warning tip",
+            "[!note]",
+            "[!warning]",
+            "[!tip]",
+            "markdown link",
+            "image link markdown",
+            "generate markdown doc",
+            "markdown document",
+            "markdown section",
+            "build markdown",
+        ],
+    )
+}
+
 pub fn needs_sort_tools(user_input: &str) -> bool {
     let lower = user_input.to_lowercase();
     contains_any(

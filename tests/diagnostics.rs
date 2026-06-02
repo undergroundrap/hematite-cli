@@ -32064,3 +32064,297 @@ fn test_compression_lz() {
         "Expected token stream, got: {out}"
     );
 }
+
+// ── Routing: json_patch_tools and markdown_gen_tools ─────────────────────────
+
+#[test]
+fn test_routing_detects_json_patch_tools() {
+    use hematite::agent::routing::needs_json_patch_tools;
+    assert!(needs_json_patch_tools("apply this json patch document"));
+    assert!(needs_json_patch_tools(
+        "generate a json patch from two documents"
+    ));
+    assert!(needs_json_patch_tools("apply json merge patch rfc 7396"));
+    assert!(!needs_json_patch_tools("parse this json file"));
+}
+
+#[test]
+fn test_routing_detects_markdown_gen_tools() {
+    use hematite::agent::routing::needs_markdown_gen_tools;
+    assert!(needs_markdown_gen_tools("generate a markdown table for me"));
+    assert!(needs_markdown_gen_tools("create a shields.io badge"));
+    assert!(needs_markdown_gen_tools(
+        "generate markdown toc from headings"
+    ));
+    assert!(!needs_markdown_gen_tools("parse this markdown file"));
+}
+
+// ── json_patch_tools ──────────────────────────────────────────────────────────
+
+#[test]
+fn test_json_patch_apply_add() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::json_patch_tools::execute(
+            &serde_json::json!({
+                "action": "apply",
+                "document": {"a": 1},
+                "patch": [{"op": "add", "path": "/b", "value": 2}]
+            }),
+        ))
+        .expect("apply should succeed");
+    assert!(out.contains("\"b\": 2"), "Expected added key, got: {out}");
+    assert!(
+        out.contains("Operations applied"),
+        "Expected operation count, got: {out}"
+    );
+}
+
+#[test]
+fn test_json_patch_apply_remove() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::json_patch_tools::execute(
+            &serde_json::json!({
+                "action": "apply",
+                "document": {"a": 1, "b": 2},
+                "patch": [{"op": "remove", "path": "/b"}]
+            }),
+        ))
+        .expect("remove should succeed");
+    assert!(
+        !out.contains("\"b\":"),
+        "Key 'b' should be removed, got: {out}"
+    );
+}
+
+#[test]
+fn test_json_patch_apply_replace() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::json_patch_tools::execute(
+            &serde_json::json!({
+                "action": "apply",
+                "document": {"x": "old"},
+                "patch": [{"op": "replace", "path": "/x", "value": "new"}]
+            }),
+        ))
+        .expect("replace should succeed");
+    assert!(
+        out.contains("\"new\""),
+        "Expected replaced value, got: {out}"
+    );
+}
+
+#[test]
+fn test_json_patch_generate() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::json_patch_tools::execute(
+            &serde_json::json!({
+                "action": "generate",
+                "original": {"a": 1},
+                "modified": {"a": 2, "b": 3}
+            }),
+        ))
+        .expect("generate should succeed");
+    assert!(
+        out.contains("Generated"),
+        "Expected generated operations, got: {out}"
+    );
+    assert!(
+        out.contains("replace") || out.contains("add"),
+        "Expected patch ops, got: {out}"
+    );
+}
+
+#[test]
+fn test_json_patch_merge_apply() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::json_patch_tools::execute(
+            &serde_json::json!({
+                "action": "merge_apply",
+                "document": {"a": 1, "b": 2},
+                "patch": {"b": null, "c": 3}
+            }),
+        ))
+        .expect("merge_apply should succeed");
+    assert!(out.contains("\"c\": 3"), "Expected added key c, got: {out}");
+    assert!(
+        !out.contains("\"b\":"),
+        "Key b should be removed, got: {out}"
+    );
+}
+
+#[test]
+fn test_json_patch_merge_generate() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::json_patch_tools::execute(
+            &serde_json::json!({
+                "action": "merge_generate",
+                "original": {"a": 1, "b": 2},
+                "modified": {"a": 1, "c": 3}
+            }),
+        ))
+        .expect("merge_generate should succeed");
+    assert!(
+        out.contains("Merge Patch"),
+        "Expected merge patch header, got: {out}"
+    );
+}
+
+#[test]
+fn test_json_patch_test_pass() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::json_patch_tools::execute(
+            &serde_json::json!({
+                "action": "test",
+                "document": {"a": 1},
+                "patch": [{"op": "test", "path": "/a", "value": 1}]
+            }),
+        ))
+        .expect("test should succeed");
+    assert!(out.contains("PASS"), "Expected PASS result, got: {out}");
+    assert!(
+        out.contains("ALL PASS"),
+        "Expected ALL PASS verdict, got: {out}"
+    );
+}
+
+// ── markdown_gen_tools ────────────────────────────────────────────────────────
+
+#[test]
+fn test_markdown_gen_table() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::markdown_gen_tools::execute(
+            &serde_json::json!({
+                "action": "table",
+                "headers": ["Name", "Version", "License"],
+                "rows": [["serde", "1.0", "MIT"], ["tokio", "1.38", "MIT"]]
+            }),
+        ))
+        .expect("table should succeed");
+    assert!(out.contains("| Name"), "Expected header row, got: {out}");
+    assert!(out.contains("serde"), "Expected data row, got: {out}");
+    assert!(out.contains("---"), "Expected separator row, got: {out}");
+}
+
+#[test]
+fn test_markdown_gen_badge() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::markdown_gen_tools::execute(
+            &serde_json::json!({
+                "action": "badge",
+                "label": "build",
+                "message": "passing",
+                "color": "brightgreen"
+            }),
+        ))
+        .expect("badge should succeed");
+    assert!(
+        out.contains("shields.io"),
+        "Expected shields.io URL, got: {out}"
+    );
+    assert!(
+        out.contains("passing"),
+        "Expected message in badge, got: {out}"
+    );
+    assert!(out.contains("!["), "Expected image markdown, got: {out}");
+}
+
+#[test]
+fn test_markdown_gen_toc() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::markdown_gen_tools::execute(
+            &serde_json::json!({
+                "action": "toc",
+                "headings": ["# Introduction", "## Installation", "## Usage", "# License"]
+            }),
+        ))
+        .expect("toc should succeed");
+    assert!(
+        out.contains("Table of Contents"),
+        "Expected TOC heading, got: {out}"
+    );
+    assert!(
+        out.contains("Introduction"),
+        "Expected heading link, got: {out}"
+    );
+    assert!(out.contains("- ["), "Expected list item, got: {out}");
+}
+
+#[test]
+fn test_markdown_gen_admonition() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::markdown_gen_tools::execute(
+            &serde_json::json!({
+                "action": "admonition",
+                "kind": "WARNING",
+                "label": "Do not delete this file."
+            }),
+        ))
+        .expect("admonition should succeed");
+    assert!(
+        out.contains("[!WARNING]"),
+        "Expected WARNING tag, got: {out}"
+    );
+    assert!(
+        out.contains("Do not delete"),
+        "Expected body text, got: {out}"
+    );
+}
+
+#[test]
+fn test_markdown_gen_link_inline() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::markdown_gen_tools::execute(
+            &serde_json::json!({
+                "action": "link",
+                "text": "Rust docs",
+                "url": "https://doc.rust-lang.org"
+            }),
+        ))
+        .expect("link should succeed");
+    assert!(
+        out.contains("[Rust docs]"),
+        "Expected link text, got: {out}"
+    );
+    assert!(
+        out.contains("doc.rust-lang.org"),
+        "Expected link url, got: {out}"
+    );
+}
+
+#[test]
+fn test_markdown_gen_doc() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::markdown_gen_tools::execute(
+            &serde_json::json!({
+                "action": "doc",
+                "title": "My Project",
+                "sections": [
+                    {"heading": "Overview", "body": "This project does X."},
+                    {"heading": "Usage", "body": "Run cargo run.", "code": "cargo run", "lang": "bash"}
+                ]
+            }),
+        ))
+        .expect("doc should succeed");
+    assert!(
+        out.contains("# My Project"),
+        "Expected doc title, got: {out}"
+    );
+    assert!(
+        out.contains("## Overview"),
+        "Expected section heading, got: {out}"
+    );
+    assert!(out.contains("```bash"), "Expected code block, got: {out}");
+}

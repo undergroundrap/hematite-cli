@@ -43,10 +43,11 @@ use crate::agent::routing::{
     needs_grep_tools, needs_har_tools, needs_hash_tools, needs_hex_tools, needs_html_tools,
     needs_http_parse_tools, needs_http_request, needs_http_status_tools, needs_ical_tools,
     needs_id_tools, needs_inflect_tools, needs_ini_tools, needs_interval_tools, needs_ip_tools,
-    needs_jq_tools, needs_json_tools, needs_jsonl_tools, needs_jsonschema_tools, needs_jwt_tools,
-    needs_k8s_tools, needs_keyval_tools, needs_leb128_tools, needs_license_tools, needs_line_tools,
-    needs_lint_check, needs_lock_file_tools, needs_log_parse_tools, needs_logic_tools,
-    needs_make_tools, needs_markdown_tools, needs_matrix_tools, needs_mermaid_tools,
+    needs_jq_tools, needs_json_patch_tools, needs_json_tools, needs_jsonl_tools,
+    needs_jsonschema_tools, needs_jwt_tools, needs_k8s_tools, needs_keyval_tools,
+    needs_leb128_tools, needs_license_tools, needs_line_tools, needs_lint_check,
+    needs_lock_file_tools, needs_log_parse_tools, needs_logic_tools, needs_make_tools,
+    needs_markdown_gen_tools, needs_markdown_tools, needs_matrix_tools, needs_mermaid_tools,
     needs_mime_tools, needs_money_tools, needs_msgpack_tools, needs_music_tools, needs_nato_tools,
     needs_net_lookup_tools, needs_network_header_tools, needs_nginx_conf_tools,
     needs_number_sequence_tools, needs_number_theory_tools, needs_number_tools,
@@ -7289,6 +7290,35 @@ impl ConversationManager {
                  balance (bracket/parenthesis balance check for (), [], {}; pass 'expression'). \
                  Pass 'initial' as a JSON array to pre-populate the data structure. \
                  Example: stack_tools(action: 'evaluate', expression: '3 4 + 2 *') or stack_tools(action: 'balance', expression: '({[]})')."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_json_patch_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "JSON PATCH NOTICE: Use the `json_patch_tools` tool for RFC 6902 JSON Patch and RFC 7396 JSON Merge Patch operations without external utilities. \
+                 Actions: apply (default — apply a JSON Patch operation array to a 'document'; pass 'patch' as [{op, path, value?, from?}] array), \
+                 generate (generate a JSON Patch from 'original' and 'modified' JSON documents), \
+                 merge_apply (apply a JSON Merge Patch object to a 'document'; pass 'patch' as merge object), \
+                 merge_generate (generate a JSON Merge Patch from 'original' and 'modified'), \
+                 test (run 'test' operations from a patch against a document and report PASS/FAIL). \
+                 Example: json_patch_tools(document: {\"a\":1}, patch: [{\"op\":\"add\",\"path\":\"/b\",\"value\":2}]) or \
+                 json_patch_tools(action: 'generate', original: {\"a\":1}, modified: {\"a\":2,\"b\":3})."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_markdown_gen_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "MARKDOWN GEN NOTICE: Use the `markdown_gen_tools` tool to generate Markdown constructs programmatically without external utilities. \
+                 Actions: table (default — generate a GitHub-flavored Markdown table; pass 'headers' string array and 'rows' 2D array; optional 'align' per column: left/right/center), \
+                 badge (shields.io-style Markdown badge; pass 'label', 'message', 'color'; optional 'url' to wrap badge in a link), \
+                 toc (table of contents from 'headings' array; accepts '# Heading' or plain text), \
+                 admonition (GitHub >[!KIND] callout; 'kind': NOTE/TIP/IMPORTANT/WARNING/CAUTION; 'label' for body text), \
+                 link (Markdown link; 'text'+'url'; 'style': inline/reference/image/image_link; optional 'title'), \
+                 doc (full Markdown document; 'title' + 'sections' array of {heading, body, level?, code?, lang?}). \
+                 Example: markdown_gen_tools(headers: ['Name','Version'], rows: [['rust','1.78']]) or \
+                 markdown_gen_tools(action: 'badge', label: 'build', message: 'passing', color: 'brightgreen')."
                     .to_string(),
             );
         }
