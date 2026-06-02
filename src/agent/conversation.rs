@@ -31,42 +31,43 @@ use crate::agent::routing::{
     needs_ascii_chart_tools, needs_ascii_tools, needs_asn1_tools, needs_base_tools,
     needs_bencode_tools, needs_bin_pack_tools, needs_binary_tools, needs_calc_tools,
     needs_cbor_tools, needs_changelog_gen, needs_changelog_tools, needs_char_tools,
-    needs_checksum_tools, needs_chemistry_tools, needs_cipher_tools, needs_code_metrics,
-    needs_color_tools, needs_compression_tools, needs_computation_sandbox, needs_cors_tools,
-    needs_crash_debug, needs_cron_tools, needs_csp_tools, needs_css_tools, needs_csv_tools,
-    needs_data_gen_tools, needs_date_tools, needs_dependency_audit, needs_diff_tools,
-    needs_dns_tools, needs_docker_compose_tools, needs_docker_ops, needs_dockerfile_tools,
-    needs_dotenv_tools, needs_duration_tools, needs_elf_tools, needs_email_tools,
-    needs_encode_tools, needs_env_diff, needs_env_schema_tools, needs_file_tree_tools,
-    needs_find_tools, needs_format, needs_fraction_tools, needs_geo_tools, needs_geometry_tools,
-    needs_github_actions_tools, needs_github_ops, needs_gitignore_tools, needs_glob_tools,
-    needs_graph_tools, needs_graphql_tools, needs_graphviz_tools, needs_grep_tools,
-    needs_har_tools, needs_hash_tools, needs_hex_tools, needs_html_tools, needs_http_parse_tools,
-    needs_http_request, needs_http_status_tools, needs_ical_tools, needs_id_tools,
-    needs_inflect_tools, needs_ini_tools, needs_interval_tools, needs_ip_tools, needs_jq_tools,
-    needs_json_patch_tools, needs_json_tools, needs_jsonl_tools, needs_jsonschema_tools,
-    needs_jwt_tools, needs_k8s_tools, needs_keyval_tools, needs_leb128_tools, needs_license_tools,
-    needs_line_tools, needs_lint_check, needs_lock_file_tools, needs_log_parse_tools,
-    needs_logic_tools, needs_make_tools, needs_markdown_gen_tools, needs_markdown_tools,
-    needs_matrix_tools, needs_mermaid_tools, needs_mime_tools, needs_money_tools,
-    needs_msgpack_tools, needs_music_tools, needs_nato_tools, needs_net_lookup_tools,
-    needs_network_header_tools, needs_nginx_conf_tools, needs_number_sequence_tools,
-    needs_number_theory_tools, needs_number_tools, needs_number_words_tools, needs_openapi_tools,
-    needs_package_json_tools, needs_password_gen, needs_path_tools, needs_pem_tools,
-    needs_periodic_tools, needs_physics_tools, needs_plist_tools, needs_port_check,
-    needs_printf_tools, needs_proto_tools, needs_regex_tools, needs_robots_txt_tools,
-    needs_rss_tools, needs_scientific_compute, needs_secret_scan, needs_semver_tools,
-    needs_sitemap_tools, needs_size_tools, needs_sort_tools, needs_sql_format_tools,
-    needs_sql_migrate_tools, needs_sql_tools, needs_sqlite_tools, needs_ssh_config_tools,
-    needs_stack_tools, needs_stat_tools, needs_string_metric_tools, needs_systemd_tools,
-    needs_table_tools, needs_tar_tools, needs_template_gen, needs_template_tools,
-    needs_terraform_tools, needs_test_run, needs_text_align_tools, needs_text_extract_tools,
-    needs_text_tools, needs_time_zone_tools, needs_tlv_tools, needs_todo_tools, needs_token_tools,
-    needs_toml_tools, needs_totp_tools, needs_trie_tools, needs_unicode_tools, needs_unit_tools,
-    needs_url_tools, needs_uuid_gen, needs_validate_tools, needs_vcf_tools, needs_vector_tools,
-    needs_wasm_tools, needs_web_manifest_tools, needs_word_tools, needs_xml_tools,
-    needs_yaml_tools, preferred_host_inspection_topic, preferred_maintainer_workflow,
-    preferred_workspace_workflow, DirectAnswerKind, QueryIntentClass,
+    needs_checksum_tools, needs_chemistry_tools, needs_cipher_tools, needs_cite_tools,
+    needs_code_metrics, needs_color_tools, needs_compression_tools, needs_computation_sandbox,
+    needs_cors_tools, needs_crash_debug, needs_cron_tools, needs_csp_tools, needs_css_tools,
+    needs_csv_tools, needs_data_gen_tools, needs_date_tools, needs_dependency_audit,
+    needs_diff_tools, needs_dns_tools, needs_docker_compose_tools, needs_docker_ops,
+    needs_dockerfile_tools, needs_dotenv_tools, needs_duration_tools, needs_elf_tools,
+    needs_email_tools, needs_encode_tools, needs_env_diff, needs_env_schema_tools,
+    needs_file_tree_tools, needs_find_tools, needs_format, needs_fraction_tools, needs_geo_tools,
+    needs_geometry_tools, needs_github_actions_tools, needs_github_ops, needs_gitignore_tools,
+    needs_glob_tools, needs_graph_tools, needs_graphql_tools, needs_graphviz_tools,
+    needs_grep_tools, needs_har_tools, needs_hash_tools, needs_hex_tools, needs_html_tools,
+    needs_http_parse_tools, needs_http_request, needs_http_status_tools, needs_ical_tools,
+    needs_id_tools, needs_inflect_tools, needs_ini_tools, needs_interval_tools, needs_ip_tools,
+    needs_jq_tools, needs_json_patch_tools, needs_json_tools, needs_jsonl_tools,
+    needs_jsonschema_tools, needs_jwt_tools, needs_k8s_tools, needs_keyval_tools,
+    needs_latex_tools, needs_leb128_tools, needs_license_tools, needs_line_tools, needs_lint_check,
+    needs_lock_file_tools, needs_log_parse_tools, needs_logic_tools, needs_make_tools,
+    needs_markdown_gen_tools, needs_markdown_tools, needs_matrix_tools, needs_mermaid_tools,
+    needs_mime_tools, needs_money_tools, needs_msgpack_tools, needs_music_tools, needs_nato_tools,
+    needs_net_lookup_tools, needs_network_header_tools, needs_nginx_conf_tools,
+    needs_number_sequence_tools, needs_number_theory_tools, needs_number_tools,
+    needs_number_words_tools, needs_openapi_tools, needs_package_json_tools, needs_password_gen,
+    needs_path_tools, needs_pem_tools, needs_periodic_tools, needs_physics_tools,
+    needs_plist_tools, needs_port_check, needs_printf_tools, needs_proto_tools, needs_regex_tools,
+    needs_robots_txt_tools, needs_rss_tools, needs_scientific_compute, needs_secret_scan,
+    needs_semver_tools, needs_sitemap_tools, needs_size_tools, needs_sort_tools,
+    needs_sql_format_tools, needs_sql_migrate_tools, needs_sql_tools, needs_sqlite_tools,
+    needs_ssh_config_tools, needs_stack_tools, needs_stat_tools, needs_string_metric_tools,
+    needs_systemd_tools, needs_table_tools, needs_tar_tools, needs_template_gen,
+    needs_template_tools, needs_terraform_tools, needs_test_run, needs_text_align_tools,
+    needs_text_extract_tools, needs_text_tools, needs_time_zone_tools, needs_tlv_tools,
+    needs_todo_tools, needs_token_tools, needs_toml_tools, needs_totp_tools, needs_trie_tools,
+    needs_unicode_tools, needs_unit_tools, needs_url_tools, needs_uuid_gen, needs_validate_tools,
+    needs_vcf_tools, needs_vector_tools, needs_wasm_tools, needs_web_manifest_tools,
+    needs_word_tools, needs_xml_tools, needs_yaml_tools, preferred_host_inspection_topic,
+    preferred_maintainer_workflow, preferred_workspace_workflow, DirectAnswerKind,
+    QueryIntentClass,
 };
 use crate::agent::tool_registry::dispatch_builtin_tool;
 use crate::agent::truncation::safe_head;
@@ -7321,6 +7322,38 @@ impl ConversationManager {
                  Supports all 118 elements. \
                  Example: chemistry_tools(action: 'balance', equation: 'Fe + O2 -> Fe2O3') or \
                  chemistry_tools(action: 'ph', Ka: 1.8e-5, acid_conc: 0.1, base_conc: 0.05)."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_cite_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "CITATION NOTICE: Use the `cite_tools` tool to format, generate, and validate academic citations without external utilities. \
+                 Actions: format (default — format a citation in a given 'style': apa/mla/chicago/ieee/harvard; pass citation fields like authors/title/journal/year/pages/doi), \
+                 bibtex (generate a BibTeX entry; same fields as format plus optional 'key'), \
+                 parse_doi (parse a 'doi' string into citation fields), \
+                 parse_isbn (validate and decode an 'isbn' number), \
+                 validate (check citation fields for completeness and common errors; pass citation fields). \
+                 Supported source types: article/book/chapter/website/conference/thesis/report. \
+                 Example: cite_tools(action: 'format', style: 'apa', authors: 'Smith, John', title: 'My Paper', journal: 'Nature', year: '2024', volume: '12', pages: '1-10', doi: '10.1234/nature.2024') or \
+                 cite_tools(action: 'bibtex', authors: 'Smith, John and Doe, Jane', title: 'Deep Learning', publisher: 'MIT Press', year: '2023', type: 'book')."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_latex_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "LATEX NOTICE: Use the `latex_tools` tool to generate, escape, and convert LaTeX without external utilities. \
+                 Actions: escape (default — escape special LaTeX characters in 'text': & % $ # _ { } ~ ^ \\ < >), \
+                 table (generate a LaTeX table from 'headers' array and 'rows' 2D array; 'caption', 'label', 'border': full/outer/none), \
+                 equation (wrap 'expression' in a math environment; 'env': equation/align/gather/multline; 'numbered': true/false), \
+                 template (full LaTeX document scaffold; 'type': article/report/book/beamer/letter; 'title', 'author', 'packages'), \
+                 strip (remove LaTeX markup from 'text', keeping content), \
+                 symbols (look up LaTeX symbols; pass 'query' like 'alpha' or 'integral'), \
+                 convert (convert Markdown 'text' to LaTeX — headings/bold/italic/code/lists). \
+                 Example: latex_tools(action: 'equation', expression: 'E = mc^2', env: 'equation', numbered: true) or \
+                 latex_tools(action: 'table', headers: ['Name', 'Value'], rows: [['pi', '3.14'], ['e', '2.72']], caption: 'Constants') or \
+                 latex_tools(action: 'symbols', query: 'greek')."
                     .to_string(),
             );
         }

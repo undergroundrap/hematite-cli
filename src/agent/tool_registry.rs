@@ -1639,6 +1639,33 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         crate::tools::chemistry_tools::chemistry_tools_schema(),
     ));
     tools.push(make_tool(
+        "cite_tools",
+        "Format, generate, and validate academic citations in APA, MLA, Chicago, IEEE, and Harvard styles without external utilities. \
+         Actions: format (default — format a citation in the given 'style'; pass citation fields: authors/title/journal/book/publisher/year/volume/issue/pages/doi/url/accessed/city/edition/editors/institution/degree; 'type' for source type: article/book/chapter/website/conference/thesis/report), \
+         bibtex (generate a BibTeX entry from citation fields; optional 'key' for the cite key), \
+         parse_doi (parse a 'doi' string into citation metadata), \
+         parse_isbn (validate and decode an 'isbn' number as ISBN-10 or ISBN-13), \
+         validate (check citation fields for completeness and formatting issues). \
+         Example: cite_tools(action: 'format', style: 'apa', authors: 'Smith, John', title: 'My Study', journal: 'Nature', year: '2024', volume: '12', pages: '1-10') or \
+         cite_tools(action: 'bibtex', authors: 'Smith, J. and Doe, J.', title: 'Deep Learning', publisher: 'MIT Press', year: '2023', type: 'book').",
+        crate::tools::cite_tools::cite_tools_schema(),
+    ));
+    tools.push(make_tool(
+        "latex_tools",
+        "Generate, escape, and convert LaTeX without external utilities. \
+         Actions: escape (default — escape LaTeX special characters in 'text': & % $ # _ { } ~ ^ \\ < >), \
+         table (generate a LaTeX table from 'headers' and 'rows' 2D array; 'caption', 'label', 'border': full/outer/none), \
+         equation (wrap 'expression' in a math environment; 'env': equation/align/gather/multline; 'numbered': true/false), \
+         template (full LaTeX document scaffold; 'type': article/report/book/beamer/letter; 'title', 'author', 'packages' array), \
+         strip (remove all LaTeX markup from 'text', keeping text content), \
+         symbols (look up LaTeX symbol commands; pass 'query' for a name or category like 'alpha', 'greek', 'arrow', 'logic'), \
+         convert (convert Markdown 'text' to LaTeX — headings/bold/italic/inline-code/lists). \
+         Example: latex_tools(action: 'equation', expression: 'E = mc^2') or \
+         latex_tools(action: 'table', headers: ['Name', 'Value'], rows: [['pi', '3.14159']]) or \
+         latex_tools(action: 'symbols', query: 'greek').",
+        crate::tools::latex_tools::latex_tools_schema(),
+    ));
+    tools.push(make_tool(
         "cors_tools",
         "Parse, validate, generate, and simulate CORS (Cross-Origin Resource Sharing) headers without external utilities. \
          Actions: parse (default — decode all Access-Control-* headers with annotations; pass 'headers' object), \
@@ -6839,6 +6866,8 @@ pub async fn dispatch_builtin_tool(
         "template_gen" => crate::tools::template_gen::execute(args).await,
         "physics_tools" => crate::tools::physics_tools::execute(args).await,
         "chemistry_tools" => crate::tools::chemistry_tools::execute(args).await,
+        "cite_tools" => crate::tools::cite_tools::execute(args).await,
+        "latex_tools" => crate::tools::latex_tools::execute(args).await,
         "cors_tools" => crate::tools::cors_tools::execute(args).await,
         "web_manifest_tools" => crate::tools::web_manifest_tools::execute(args).await,
         "json_patch_tools" => crate::tools::json_patch_tools::execute(args).await,

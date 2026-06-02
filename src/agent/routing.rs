@@ -9925,6 +9925,78 @@ pub fn needs_chemistry_tools(user_input: &str) -> bool {
     )
 }
 
+pub fn needs_cite_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "cite this",
+            "citation for",
+            "format citation",
+            "apa citation",
+            "mla citation",
+            "chicago citation",
+            "ieee citation",
+            "harvard citation",
+            "generate bibtex",
+            "bibtex entry",
+            "format reference",
+            "academic citation",
+            "reference list",
+            "bibliography entry",
+            "in-text citation",
+            "cite source",
+            "doi citation",
+            "isbn citation",
+            "validate citation",
+            "citation style",
+            "format a reference",
+            "journal citation",
+            "book citation",
+            "website citation",
+            "conference citation",
+            "thesis citation",
+            "parse doi",
+            "validate isbn",
+            "doi to citation",
+        ],
+    )
+}
+
+pub fn needs_latex_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "latex",
+            "latex table",
+            "latex equation",
+            "latex template",
+            "escape latex",
+            "latex symbol",
+            "latex math",
+            "latex document",
+            "latex code",
+            "latex formula",
+            "latex syntax",
+            "latex beamer",
+            "latex article",
+            "latex report",
+            "convert to latex",
+            "markdown to latex",
+            "strip latex",
+            "remove latex",
+            "latex align",
+            "latex equation environment",
+            "\\begin{",
+            "\\documentclass",
+            "\\usepackage",
+            "latex special characters",
+            "latex escape",
+        ],
+    )
+}
+
 pub fn needs_cors_tools(user_input: &str) -> bool {
     let lower = user_input.to_lowercase();
     contains_any(

@@ -32995,3 +32995,308 @@ fn test_chemistry_tools_stoichiometry() {
     )).unwrap();
     assert!(out.contains("H2") || out.contains("mol"), "got: {out}");
 }
+
+// ===== cite_tools =====
+
+#[test]
+fn test_cite_tools_routing_format() {
+    assert!(hematite::agent::routing::needs_cite_tools(
+        "apa citation for this article"
+    ));
+}
+
+#[test]
+fn test_cite_tools_routing_bibtex() {
+    assert!(hematite::agent::routing::needs_cite_tools(
+        "generate bibtex entry for my paper"
+    ));
+}
+
+#[test]
+fn test_cite_tools_routing_style() {
+    assert!(hematite::agent::routing::needs_cite_tools(
+        "mla citation style"
+    ));
+}
+
+#[test]
+fn test_cite_tools_routing_doi() {
+    assert!(hematite::agent::routing::needs_cite_tools(
+        "parse doi 10.1038/nature09210"
+    ));
+}
+
+#[test]
+fn test_cite_tools_format_apa_article() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::cite_tools::execute(&serde_json::json!({
+            "action": "format",
+            "style": "apa",
+            "authors": "Smith, John",
+            "title": "A Study of Testing",
+            "journal": "Journal of Science",
+            "year": "2024",
+            "volume": "12",
+            "pages": "1-10"
+        })))
+        .unwrap();
+    assert!(out.contains("Smith") && out.contains("2024"), "got: {out}");
+}
+
+#[test]
+fn test_cite_tools_format_mla() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::cite_tools::execute(&serde_json::json!({
+            "action": "format",
+            "style": "mla",
+            "authors": "Doe, Jane",
+            "title": "Research Methods",
+            "journal": "Nature",
+            "year": "2023",
+            "volume": "5",
+            "pages": "22-30"
+        })))
+        .unwrap();
+    assert!(out.contains("Doe") && out.contains("Nature"), "got: {out}");
+}
+
+#[test]
+fn test_cite_tools_format_ieee() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::cite_tools::execute(&serde_json::json!({
+            "action": "format",
+            "style": "ieee",
+            "authors": "Lee, Alice",
+            "title": "Deep Networks",
+            "journal": "IEEE Trans.",
+            "year": "2022"
+        })))
+        .unwrap();
+    assert!(out.contains("Lee") || out.contains("Deep"), "got: {out}");
+}
+
+#[test]
+fn test_cite_tools_bibtex() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::cite_tools::execute(&serde_json::json!({
+            "action": "bibtex",
+            "authors": "Smith, John",
+            "title": "Testing Everything",
+            "journal": "Science",
+            "year": "2024",
+            "type": "article"
+        })))
+        .unwrap();
+    assert!(
+        out.contains("@article") || out.contains("@Article"),
+        "got: {out}"
+    );
+    assert!(out.contains("2024"), "got: {out}");
+}
+
+#[test]
+fn test_cite_tools_validate_doi_valid() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::cite_tools::execute(
+            &serde_json::json!({"action": "parse_doi", "doi": "10.1038/nature09210"}),
+        ))
+        .unwrap();
+    assert!(
+        out.contains("10.1038") || out.contains("valid") || out.contains("DOI"),
+        "got: {out}"
+    );
+}
+
+#[test]
+fn test_cite_tools_validate_isbn_13() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::cite_tools::execute(
+            &serde_json::json!({"action": "parse_isbn", "isbn": "9780306406157"}),
+        ))
+        .unwrap();
+    assert!(
+        out.contains("978") || out.contains("ISBN") || out.contains("valid"),
+        "got: {out}"
+    );
+}
+
+#[test]
+fn test_cite_tools_validate_fields() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::cite_tools::execute(&serde_json::json!({
+            "action": "validate",
+            "authors": "Smith, John",
+            "title": "My Work"
+        })))
+        .unwrap();
+    assert!(!out.is_empty(), "got: {out}");
+}
+
+#[test]
+fn test_cite_tools_format_chicago_book() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::cite_tools::execute(&serde_json::json!({
+            "action": "format",
+            "style": "chicago",
+            "type": "book",
+            "authors": "Jones, Bob",
+            "title": "The Big Book",
+            "publisher": "Academic Press",
+            "city": "New York",
+            "year": "2020"
+        })))
+        .unwrap();
+    assert!(out.contains("Jones") && out.contains("2020"), "got: {out}");
+}
+
+// ===== latex_tools =====
+
+#[test]
+fn test_latex_tools_routing_escape() {
+    assert!(hematite::agent::routing::needs_latex_tools(
+        "escape latex special characters"
+    ));
+}
+
+#[test]
+fn test_latex_tools_routing_table() {
+    assert!(hematite::agent::routing::needs_latex_tools(
+        "generate a latex table for this data"
+    ));
+}
+
+#[test]
+fn test_latex_tools_routing_equation() {
+    assert!(hematite::agent::routing::needs_latex_tools(
+        "latex equation for E=mc2"
+    ));
+}
+
+#[test]
+fn test_latex_tools_routing_convert() {
+    assert!(hematite::agent::routing::needs_latex_tools(
+        "convert this markdown to latex"
+    ));
+}
+
+#[test]
+fn test_latex_tools_escape_specials() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::latex_tools::execute(
+            &serde_json::json!({"action": "escape", "text": "100% cost & value in $USD"}),
+        ))
+        .unwrap();
+    assert!(
+        out.contains("\\%") || out.contains("\\&") || out.contains("\\$"),
+        "got: {out}"
+    );
+}
+
+#[test]
+fn test_latex_tools_equation_default() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::latex_tools::execute(
+            &serde_json::json!({"action": "equation", "expression": "E = mc^2"}),
+        ))
+        .unwrap();
+    assert!(
+        out.contains("\\begin{equation}") || out.contains("equation"),
+        "got: {out}"
+    );
+    assert!(out.contains("E = mc^2"), "got: {out}");
+}
+
+#[test]
+fn test_latex_tools_equation_align() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::latex_tools::execute(
+            &serde_json::json!({"action": "equation", "expression": "a + b = c", "env": "align"}),
+        ))
+        .unwrap();
+    assert!(out.contains("align"), "got: {out}");
+}
+
+#[test]
+fn test_latex_tools_table() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::latex_tools::execute(&serde_json::json!({
+            "action": "table",
+            "headers": ["Name", "Value"],
+            "rows": [["pi", "3.14159"], ["e", "2.71828"]],
+            "caption": "Math constants"
+        })))
+        .unwrap();
+    assert!(
+        out.contains("tabular") && out.contains("Name"),
+        "got: {out}"
+    );
+    assert!(out.contains("pi") || out.contains("3.14"), "got: {out}");
+}
+
+#[test]
+fn test_latex_tools_template_article() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::latex_tools::execute(&serde_json::json!({
+            "action": "template",
+            "type": "article",
+            "title": "My Paper",
+            "author": "John Smith"
+        })))
+        .unwrap();
+    assert!(out.contains("\\documentclass"), "got: {out}");
+    assert!(out.contains("My Paper"), "got: {out}");
+}
+
+#[test]
+fn test_latex_tools_strip() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::latex_tools::execute(
+            &serde_json::json!({"action": "strip", "text": "\\textbf{Hello} and \\emph{world}"}),
+        ))
+        .unwrap();
+    assert!(out.contains("Hello") && out.contains("world"), "got: {out}");
+}
+
+#[test]
+fn test_latex_tools_symbols_greek() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::latex_tools::execute(
+            &serde_json::json!({"action": "symbols", "query": "alpha"}),
+        ))
+        .unwrap();
+    assert!(
+        out.contains("\\alpha") || out.contains("alpha"),
+        "got: {out}"
+    );
+}
+
+#[test]
+fn test_latex_tools_convert_markdown() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt.block_on(hematite::tools::latex_tools::execute(
+        &serde_json::json!({"action": "convert", "text": "# Introduction\n\n**Bold text** and *italic*."}),
+    )).unwrap();
+    assert!(
+        out.contains("\\section") || out.contains("section"),
+        "got: {out}"
+    );
+    assert!(
+        out.contains("textbf") || out.contains("bold") || out.contains("Bold"),
+        "got: {out}"
+    );
+}
