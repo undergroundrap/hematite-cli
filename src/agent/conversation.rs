@@ -74,7 +74,8 @@ use crate::agent::routing::{
     needs_totp_tools, needs_trie_tools, needs_unicode_tools, needs_unit_tools, needs_url_tools,
     needs_uuid_gen, needs_validate_tools, needs_vcf_tools, needs_vector_tools, needs_wasm_tools,
     needs_web_manifest_tools, needs_webhook_tools, needs_wireguard_tools, needs_word_tools,
-    needs_xml_tools, needs_yaml_tools, preferred_host_inspection_topic,
+    needs_xml_tools, needs_yaml_tools, needs_spdx_tools, needs_aws_tools, needs_curl_tools,
+    needs_oauth_tools, needs_saml_tools, preferred_host_inspection_topic,
     preferred_maintainer_workflow, preferred_workspace_workflow, DirectAnswerKind,
     QueryIntentClass,
 };
@@ -8069,6 +8070,71 @@ impl ConversationManager {
                  Input: 'iptables'/'text' (inline iptables-save output) or 'file' (path to saved rules). \
                  Optional: 'table' (filter/nat/mangle/raw), 'chain', 'target', 'query'. \
                  Example: iptables_tools(action: 'ports', file: '/etc/iptables/rules.v4')."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_spdx_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "SPDX NOTICE: Use the `spdx_tools` tool to parse, validate, and analyze SPDX license expressions without external utilities. \
+                 Actions: info (default — look up a license by SPDX ID or name; flags, category, OSI/FSF approval), \
+                 parse (parse a full SPDX expression like 'MIT OR Apache-2.0' into an AST with compatibility analysis), \
+                 validate (VALID/INVALID verdict for an expression), \
+                 list (browse all 52 SPDX licenses; optional 'category': permissive/copyleft/weak-copyleft/public-domain/other), \
+                 check (check if a license expression is compatible with a target license). \
+                 Pass 'expression' or 'license'. \
+                 Example: spdx_tools(action: 'parse', expression: 'MIT AND Apache-2.0')."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_aws_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "AWS NOTICE: Use the `aws_tools` tool to parse and analyze AWS ARNs and S3 URLs without external utilities. \
+                 Actions: arn (default — decode an ARN: partition/service/region/account/resource breakdown with category and resource type hint), \
+                 s3 (parse an S3 URI or URL: bucket name, key, region, URL style), \
+                 region (look up an AWS region by code or name; omit for all regions), \
+                 service (look up an AWS service by code or name; omit for all services). \
+                 Pass 'arn' for ARN strings, 'uri'/'url' for S3 URIs, 'region' or 'service' for lookups. \
+                 Example: aws_tools(action: 'arn', arn: 'arn:aws:s3:::my-bucket/file.txt')."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_curl_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "CURL NOTICE: Use the `curl_tools` tool to parse, build, and convert curl commands without external utilities. \
+                 Actions: parse (default — decode a curl command into method, URL, headers, body, auth, and options), \
+                 build (generate a curl command from 'url', 'method', 'headers', 'body', 'auth_user'/'auth_pass'), \
+                 convert (translate a curl command to Python requests, Go net/http, or JavaScript fetch; pass 'language': python/go/javascript). \
+                 Pass 'command' for the curl command string. \
+                 Example: curl_tools(action: 'convert', command: 'curl -X POST https://api.example.com/data -H \"Content-Type: application/json\" -d \\'{}\\' ', language: 'python')."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_oauth_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "OAUTH NOTICE: Use the `oauth_tools` tool to work with OAuth 2.0 flows, PKCE, and tokens without external utilities. \
+                 Actions: pkce (default — generate a PKCE code_verifier + code_challenge pair per RFC 7636; optional 'verifier' override and 'method': S256/plain), \
+                 grant (explain an OAuth 2.0 grant type with flow steps and security notes; 'grant_type': authorization_code/client_credentials/device_code/implicit/password/refresh_token), \
+                 url (build an authorization URL from 'client_id', 'redirect_uri', 'scope', 'state'; auto-generates PKCE), \
+                 token (decode a JWT access token without signature verification — header/claims/expiry), \
+                 explain (plain-English OAuth 2.0 concept explanation). \
+                 Example: oauth_tools(action: 'pkce') or oauth_tools(action: 'url', client_id: 'myapp', redirect_uri: 'https://localhost/callback', scope: 'openid profile')."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_saml_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "SAML NOTICE: Use the `saml_tools` tool to parse and inspect SAML 2.0 assertions and responses without external utilities. \
+                 Actions: parse (default — full SAML document summary: issuer, subject, conditions, attributes, status), \
+                 attributes (extract all SAML attribute name/value pairs), \
+                 validate (check NotBefore/NotOnOrAfter validity window against current time; flag signature presence), \
+                 explain (plain-English breakdown of SAML fields). \
+                 Input: 'xml' for raw SAML XML, 'base64' for base64-encoded SAMLResponse (POST binding), 'file' for a file path. \
+                 Example: saml_tools(action: 'parse', base64: 'PHNhbWxwOlJlc3BvbnNlIC4uLj4=')."
                     .to_string(),
             );
         }

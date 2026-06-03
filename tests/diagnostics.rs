@@ -38267,3 +38267,222 @@ fn test_iptables_tools_summary() {
         out
     );
 }
+
+// ── spdx_tools ───────────────────────────────────────────────────────────────
+
+#[test]
+fn test_routing_detects_spdx_tools() {
+    use hematite::agent::routing::needs_spdx_tools;
+    assert!(needs_spdx_tools("what is the MIT spdx identifier"));
+    assert!(needs_spdx_tools("parse this spdx license expression: MIT OR Apache-2.0"));
+    assert!(needs_spdx_tools("list all osi approved spdx licenses"));
+    assert!(!needs_spdx_tools("what is the weather today"));
+}
+
+#[test]
+fn test_spdx_tools_info() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::spdx_tools::execute(
+        &serde_json::json!({"action": "info", "license": "MIT"}),
+    ));
+    assert!(result.is_ok(), "spdx info should succeed: {:?}", result);
+    let out = result.unwrap();
+    assert!(
+        out.contains("MIT") && (out.contains("OSI") || out.contains("Permissive")),
+        "should show MIT license info: {}",
+        out
+    );
+}
+
+#[test]
+fn test_spdx_tools_parse_expression() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::spdx_tools::execute(
+        &serde_json::json!({"action": "parse", "expression": "MIT OR Apache-2.0"}),
+    ));
+    assert!(result.is_ok(), "spdx parse should succeed: {:?}", result);
+    let out = result.unwrap();
+    assert!(
+        out.contains("MIT") && out.contains("Apache"),
+        "should parse OR expression: {}",
+        out
+    );
+}
+
+// ── aws_tools ────────────────────────────────────────────────────────────────
+
+#[test]
+fn test_routing_detects_aws_tools() {
+    use hematite::agent::routing::needs_aws_tools;
+    assert!(needs_aws_tools("parse this arn: arn:aws:s3:::my-bucket"));
+    assert!(needs_aws_tools("decode the aws arn for this lambda function"));
+    assert!(needs_aws_tools("what region is us-east-1"));
+    assert!(!needs_aws_tools("what is the speed of light"));
+}
+
+#[test]
+fn test_aws_tools_arn() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::aws_tools::execute(
+        &serde_json::json!({"action": "arn", "arn": "arn:aws:iam::123456789012:user/johndoe"}),
+    ));
+    assert!(result.is_ok(), "aws arn should succeed: {:?}", result);
+    let out = result.unwrap();
+    assert!(
+        out.contains("iam") && out.contains("123456789012"),
+        "should decode IAM ARN: {}",
+        out
+    );
+}
+
+#[test]
+fn test_aws_tools_s3() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::aws_tools::execute(
+        &serde_json::json!({"action": "s3", "uri": "s3://my-bucket/path/to/file.txt"}),
+    ));
+    assert!(result.is_ok(), "aws s3 should succeed: {:?}", result);
+    let out = result.unwrap();
+    assert!(
+        out.contains("my-bucket") && out.contains("path/to/file.txt"),
+        "should decode S3 URI: {}",
+        out
+    );
+}
+
+// ── curl_tools ───────────────────────────────────────────────────────────────
+
+#[test]
+fn test_routing_detects_curl_tools() {
+    use hematite::agent::routing::needs_curl_tools;
+    assert!(needs_curl_tools("parse this curl command for me"));
+    assert!(needs_curl_tools("convert curl to python"));
+    assert!(needs_curl_tools("translate this curl request to go"));
+    assert!(!needs_curl_tools("what is a REST API"));
+}
+
+#[test]
+fn test_curl_tools_parse() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::curl_tools::execute(
+        &serde_json::json!({
+            "action": "parse",
+            "command": "curl -X POST https://api.example.com/v1/users -H 'Content-Type: application/json' -d '{\"name\":\"Alice\"}'"
+        }),
+    ));
+    assert!(result.is_ok(), "curl parse should succeed: {:?}", result);
+    let out = result.unwrap();
+    assert!(
+        out.contains("POST") && out.contains("api.example.com"),
+        "should parse curl command: {}",
+        out
+    );
+}
+
+#[test]
+fn test_curl_tools_convert_python() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::curl_tools::execute(
+        &serde_json::json!({
+            "action": "convert",
+            "command": "curl https://httpbin.org/get -H 'Accept: application/json'",
+            "language": "python"
+        }),
+    ));
+    assert!(result.is_ok(), "curl convert python should succeed: {:?}", result);
+    let out = result.unwrap();
+    assert!(
+        out.contains("requests") || out.contains("import"),
+        "should generate Python code: {}",
+        out
+    );
+}
+
+// ── oauth_tools ──────────────────────────────────────────────────────────────
+
+#[test]
+fn test_routing_detects_oauth_tools() {
+    use hematite::agent::routing::needs_oauth_tools;
+    assert!(needs_oauth_tools("generate a pkce code verifier and challenge"));
+    assert!(needs_oauth_tools("explain the oauth2 authorization code flow"));
+    assert!(needs_oauth_tools("build an oauth authorization url"));
+    assert!(!needs_oauth_tools("what is machine learning"));
+}
+
+#[test]
+fn test_oauth_tools_pkce() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::oauth_tools::execute(
+        &serde_json::json!({"action": "pkce"}),
+    ));
+    assert!(result.is_ok(), "oauth pkce should succeed: {:?}", result);
+    let out = result.unwrap();
+    assert!(
+        out.contains("code_verifier") && out.contains("code_challenge"),
+        "should generate PKCE pair: {}",
+        out
+    );
+}
+
+#[test]
+fn test_oauth_tools_grant_explain() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::oauth_tools::execute(
+        &serde_json::json!({"action": "grant", "grant_type": "authorization_code"}),
+    ));
+    assert!(result.is_ok(), "oauth grant should succeed: {:?}", result);
+    let out = result.unwrap();
+    assert!(
+        out.contains("authorization") || out.contains("code"),
+        "should explain authorization_code grant: {}",
+        out
+    );
+}
+
+// ── saml_tools ───────────────────────────────────────────────────────────────
+
+#[test]
+fn test_routing_detects_saml_tools() {
+    use hematite::agent::routing::needs_saml_tools;
+    assert!(needs_saml_tools("parse this saml response"));
+    assert!(needs_saml_tools("decode the saml assertion from the IdP"));
+    assert!(needs_saml_tools("validate saml conditions and expiry"));
+    assert!(!needs_saml_tools("what is the OSI model"));
+}
+
+#[test]
+fn test_saml_tools_parse() {
+    let saml_xml = r#"<?xml version="1.0" encoding="UTF-8"?>
+<samlp:Response xmlns:samlp="urn:oasis:names:tc:SAML:2.0:protocol"
+                xmlns:saml="urn:oasis:names:tc:SAML:2.0:assertion"
+                ID="_response1" Version="2.0"
+                IssueInstant="2024-01-15T10:00:00Z"
+                InResponseTo="_req1">
+  <saml:Issuer>https://idp.example.com</saml:Issuer>
+  <samlp:Status>
+    <samlp:StatusCode Value="urn:oasis:names:tc:SAML:2.0:status:Success"/>
+  </samlp:Status>
+  <saml:Assertion ID="_assertion1" Version="2.0" IssueInstant="2024-01-15T10:00:00Z">
+    <saml:Issuer>https://idp.example.com</saml:Issuer>
+    <saml:Subject>
+      <saml:NameID Format="urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress">user@example.com</saml:NameID>
+    </saml:Subject>
+    <saml:Conditions NotBefore="2024-01-15T09:55:00Z" NotOnOrAfter="2025-01-15T10:05:00Z">
+      <saml:AudienceRestriction>
+        <saml:Audience>https://sp.example.com</saml:Audience>
+      </saml:AudienceRestriction>
+    </saml:Conditions>
+  </saml:Assertion>
+</samlp:Response>"#;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::saml_tools::execute(
+        &serde_json::json!({"action": "parse", "xml": saml_xml}),
+    ));
+    assert!(result.is_ok(), "saml parse should succeed: {:?}", result);
+    let out = result.unwrap();
+    assert!(
+        out.contains("idp.example.com") || out.contains("user@example.com"),
+        "should parse SAML issuer/subject: {}",
+        out
+    );
+}

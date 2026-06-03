@@ -6631,6 +6631,68 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         crate::tools::iptables_tools::make_schema(),
     ));
     tools.push(make_tool(
+        "spdx_tools",
+        "Parse, validate, and look up SPDX license identifiers and expressions without external utilities. \
+         Actions: \
+         `info` — full detail for a single SPDX license ID (MIT, Apache-2.0, GPL-3.0, etc.): name, OSI approved, FSF free, copyleft tier, deprecated flag; \
+         `parse` — parse and display an SPDX expression tree (MIT AND Apache-2.0, GPL-2.0-only OR MIT, etc.) with per-leaf license summaries; \
+         `validate` — VALID/VALID(warnings)/INVALID verdict for an expression — checks for unknown or deprecated IDs; \
+         `list` — tabular listing of all 52 known licenses; optional 'category' filter: permissive/weak-copyleft/strong-copyleft/network-copyleft/public-domain; \
+         `check` — analyze a full expression for OSI/FSF compatibility and copyleft tier across all leaf licenses. \
+         Parameters: 'license' (single SPDX ID), 'expression' (full SPDX expression), 'category' (for list). \
+         Example: spdx_tools(license: 'Apache-2.0') or spdx_tools(action: 'validate', expression: 'MIT AND GPL-2.0-only').",
+        crate::tools::spdx_tools::make_schema(),
+    ));
+    tools.push(make_tool(
+        "aws_tools",
+        "Parse and look up AWS ARNs, S3 URIs, regions, and service codes without external utilities. \
+         Actions: \
+         `arn` (default) — parse an ARN (arn:partition:service:region:account:resource): partition label, service name + category, region name, account ID, resource type hint; \
+         `s3` — parse an S3 URI (s3://bucket/key) or HTTPS URL and show bucket, key, depth, and all equivalent format forms (S3 URI, virtual-host, path-style, ARN, console URL); \
+         `region` — look up a region code (us-east-1) for name and geography, or search/list all 33 regions; \
+         `service` — look up a service code (ec2, lambda, rds, etc.) for full name and category, or search/list all 42 services. \
+         Auto-detects action from input shape: ARNs → arn, s3:// → s3. \
+         Example: aws_tools(input: 'arn:aws:iam::123456789012:role/my-role') or aws_tools(action: 'region', query: 'tokyo') or aws_tools(action: 's3', input: 's3://my-bucket/logs/2024/').",
+        crate::tools::aws_tools::make_schema(),
+    ));
+    tools.push(make_tool(
+        "curl_tools",
+        "Parse, build, and convert curl commands without external utilities. \
+         Actions: \
+         `parse` (default) — break down a curl command: method, URL, headers (Authorization redacted), body preview, PKCE/auth, flags (insecure/follow-redirects/timeout/output/proxy/cookie); \
+         `build` — generate a curl command from parts: 'url', 'method', 'headers' object, 'data', 'form' object, 'params' object, 'auth' (user:pass), 'insecure', 'follow_redirects', 'timeout', 'output'; \
+         `convert` — translate a curl command to Python (requests), Go (net/http), or JavaScript (fetch); use 'language' param: python/go/javascript. \
+         Input: 'command' with the full curl command string. Shell quoting (single/double quotes, backslash) is handled correctly. \
+         Example: curl_tools(command: 'curl -X POST -H \"Content-Type: application/json\" -d \\'{}\\' https://api.example.com/v1') or curl_tools(action: 'convert', command: '...', language: 'python').",
+        crate::tools::curl_tools::make_schema(),
+    ));
+    tools.push(make_tool(
+        "oauth_tools",
+        "OAuth 2.0 and OpenID Connect utilities: PKCE generation, grant type explainer, auth URL builder, token inspection, and flow documentation. \
+         Actions: \
+         `pkce` — generate a PKCE code_verifier + code_challenge pair (RFC 7636, S256 by default); optionally pass 'code_verifier' to derive challenge from existing verifier; \
+         `grant` — explain an OAuth 2.0 grant type (authorization_code, client_credentials, device_code, refresh_token, implicit, password) with flow steps and security notes; \
+         `url` — build an authorization URL: requires 'authorization_endpoint', 'client_id', 'redirect_uri'; optional 'scope', 'state', 'code_challenge_method'; auto-generates PKCE pair; \
+         `token` — inspect an access token or JWT: if JWT, decode header/payload, show key claims (sub/iss/aud/exp/iat), check expiry; opaque tokens show length and prefix; \
+         `explain` — explain OAuth concepts; 'topic': pkce/tokens/scopes/security/flows. \
+         Uses sha2 and rand from Cargo.toml — no new dependencies. \
+         Example: oauth_tools(action: 'pkce') or oauth_tools(action: 'url', authorization_endpoint: 'https://...', client_id: 'myapp', redirect_uri: 'http://localhost:8080/callback') or oauth_tools(action: 'grant', grant_type: 'client_credentials').",
+        crate::tools::oauth_tools::make_schema(),
+    ));
+    tools.push(make_tool(
+        "saml_tools",
+        "Parse, inspect, and validate SAML 2.0 XML assertions and responses without external utilities. \
+         Actions: \
+         `parse` (default) — full document breakdown: type (Response/Assertion), version, issuer, destination, status, subject NameID + format, validity window, session index, AuthnContext, and attribute table; \
+         `attributes` — extract all AttributeStatement attributes with names and values; shows common attribute mapping hints (email, UPN, groups, Azure object ID); \
+         `validate` — structural validation checklist: status code, signature presence, issuer, NameID, conditions window, Destination, InResponseTo, EncryptedAssertion; plus manual security checklist; \
+         `explain` — explain SAML concepts; 'topic': sso/bindings/assertions/idp/sp/security. \
+         Input: 'xml' (raw SAML XML), 'base64' (base64-encoded SAMLResponse from POST binding), or 'file' (path to XML or base64 file). \
+         Uses quick-xml from Cargo.toml — no new dependencies. \
+         Example: saml_tools(base64: 'PD94bWwg...') or saml_tools(action: 'attributes', file: 'response.xml') or saml_tools(action: 'explain', topic: 'security').",
+        crate::tools::saml_tools::make_schema(),
+    ));
+    tools.push(make_tool(
         "macho_tools",
         "Inspect macOS Mach-O binaries (executables, dylibs, frameworks, bundles, fat/universal binaries) without external tools — no otool or nm required. \
          Actions: \
@@ -7569,6 +7631,11 @@ pub async fn dispatch_builtin_tool(
         "postman_tools" => crate::tools::postman_tools::execute(args).await,
         "ldif_tools" => crate::tools::ldif_tools::execute(args).await,
         "iptables_tools" => crate::tools::iptables_tools::execute(args).await,
+        "spdx_tools" => crate::tools::spdx_tools::execute(args).await,
+        "aws_tools" => crate::tools::aws_tools::execute(args).await,
+        "curl_tools" => crate::tools::curl_tools::execute(args).await,
+        "oauth_tools" => crate::tools::oauth_tools::execute(args).await,
+        "saml_tools" => crate::tools::saml_tools::execute(args).await,
         "macho_tools" => crate::tools::macho_tools::execute(args).await,
         "pcap_tools" => crate::tools::pcap_tools::execute(args).await,
         "pe_tools" => crate::tools::pe_tools::execute(args).await,

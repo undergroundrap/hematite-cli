@@ -11471,6 +11471,128 @@ pub fn needs_iptables_tools(user_input: &str) -> bool {
     )
 }
 
+pub fn needs_spdx_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "spdx",
+            "spdx license",
+            "spdx expression",
+            "spdx identifier",
+            "license expression",
+            "license compatibility",
+            "parse license expression",
+            "validate license expression",
+            "license identifier",
+            "osi approved",
+            "fsf approved",
+            "copyleft license",
+            "permissive license list",
+            "open source license list",
+        ],
+    )
+}
+
+pub fn needs_aws_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "arn:",
+            "aws arn",
+            "parse arn",
+            "decode arn",
+            "aws resource name",
+            "amazon resource name",
+            "s3://",
+            "s3 uri",
+            "s3 url",
+            "aws region",
+            "aws service",
+            "list aws regions",
+            "aws partition",
+            "arn partition",
+            "s3 bucket url",
+            "s3.amazonaws.com",
+        ],
+    )
+}
+
+pub fn needs_curl_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "parse curl",
+            "convert curl",
+            "curl command",
+            "curl to python",
+            "curl to go",
+            "curl to javascript",
+            "curl to js",
+            "build curl",
+            "generate curl",
+            "curl -x",
+            "curl --header",
+            "curl request",
+            "explain curl",
+            "curl syntax",
+        ],
+    )
+}
+
+pub fn needs_oauth_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "pkce",
+            "code verifier",
+            "code challenge",
+            "oauth",
+            "oauth2",
+            "oauth 2.0",
+            "oauth grant",
+            "authorization code flow",
+            "client credentials flow",
+            "authorization url",
+            "oauth url",
+            "oauth token",
+            "decode oauth",
+            "oauth flow",
+            "implicit grant",
+            "rfc 7636",
+            "openid connect",
+        ],
+    )
+}
+
+pub fn needs_saml_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "saml",
+            "saml response",
+            "saml assertion",
+            "parse saml",
+            "decode saml",
+            "saml token",
+            "saml attributes",
+            "saml validate",
+            "samlresponse",
+            "saml2",
+            "saml 2.0",
+            "identity provider saml",
+            "sso saml",
+            "saml sso",
+            "saml conditions",
+            "saml nameidentifier",
+        ],
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
