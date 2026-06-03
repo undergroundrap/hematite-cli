@@ -36676,3 +36676,200 @@ fn test_protobuf_wire_tools_strings_action() {
         out
     );
 }
+
+// ─── ssh_key_tools routing tests ─────────────────────────────────────────────
+
+#[test]
+fn test_routing_detects_ssh_key_tools_fingerprint() {
+    use hematite::agent::routing::needs_ssh_key_tools;
+    assert!(needs_ssh_key_tools("show me the ssh key fingerprint"));
+    assert!(needs_ssh_key_tools("what is the fingerprint of this ssh public key"));
+}
+
+#[test]
+fn test_routing_detects_ssh_key_tools_authorized_keys() {
+    use hematite::agent::routing::needs_ssh_key_tools;
+    assert!(needs_ssh_key_tools("parse my authorized_keys file"));
+    assert!(needs_ssh_key_tools("list all keys in authorized keys"));
+}
+
+#[test]
+fn test_routing_detects_ssh_key_tools_type() {
+    use hematite::agent::routing::needs_ssh_key_tools;
+    assert!(needs_ssh_key_tools("is this ssh-ed25519 key valid"));
+    assert!(needs_ssh_key_tools("inspect this ssh public key"));
+}
+
+#[test]
+fn test_routing_ssh_key_tools_negative() {
+    use hematite::agent::routing::needs_ssh_key_tools;
+    assert!(!needs_ssh_key_tools("check tls certificate"));
+    assert!(!needs_ssh_key_tools("connect to ssh server"));
+}
+
+// ─── ssh_key_tools functional tests ──────────────────────────────────────────
+
+#[test]
+fn test_ssh_key_tools_no_input_returns_error() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::ssh_key_tools::execute(
+        &serde_json::json!({}),
+    ));
+    assert!(result.is_err(), "missing input should return error");
+    let err = result.unwrap_err();
+    assert!(
+        err.contains("key") || err.contains("file") || err.contains("text"),
+        "meaningful error: {}",
+        err
+    );
+}
+
+#[test]
+fn test_ssh_key_tools_ed25519_info() {
+    // Real-looking Ed25519 public key (correct base64 format)
+    // ssh-ed25519 + 32-byte key = fixed wire format
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    // This is a well-formed Ed25519 key: wire = [len=11 "ssh-ed25519"][len=32 key_bytes]
+    // Total: 4+11+4+32 = 51 bytes base64-encoded
+    let result = rt.block_on(hematite::tools::ssh_key_tools::execute(
+        &serde_json::json!({
+            "key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl test@example.com"
+        }),
+    ));
+    assert!(result.is_ok(), "should parse ed25519 key: {:?}", result);
+    let out = result.unwrap();
+    assert!(
+        out.contains("ed25519") || out.contains("Ed25519") || out.contains("255"),
+        "should show key type or bits: {}",
+        out
+    );
+}
+
+#[test]
+fn test_ssh_key_tools_fingerprint_action() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::ssh_key_tools::execute(
+        &serde_json::json!({
+            "action": "fingerprint",
+            "key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl user@host"
+        }),
+    ));
+    assert!(result.is_ok(), "fingerprint action should work: {:?}", result);
+    let out = result.unwrap();
+    assert!(
+        out.contains("SHA256:") || out.contains("sha256"),
+        "should show SHA-256 fingerprint: {}",
+        out
+    );
+}
+
+#[test]
+fn test_ssh_key_tools_validate_invalid() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::ssh_key_tools::execute(
+        &serde_json::json!({
+            "action": "validate",
+            "key": "ssh-rsa notvalidbase64!!!"
+        }),
+    ));
+    // Should either succeed with INVALID verdict, or err on truly malformed input
+    match result {
+        Ok(out) => {
+            assert!(
+                out.contains("INVALID") || out.contains("error") || out.contains("invalid"),
+                "should flag invalid key: {}",
+                out
+            );
+        }
+        Err(_) => {} // acceptable — malformed key can return Err
+    }
+}
+
+// ─── wireguard_tools routing tests ───────────────────────────────────────────
+
+#[test]
+fn test_routing_detects_wireguard_tools_config() {
+    use hematite::agent::routing::needs_wireguard_tools;
+    assert!(needs_wireguard_tools("parse my wireguard config"));
+    assert!(needs_wireguard_tools("validate wireguard conf file"));
+}
+
+#[test]
+fn test_routing_detects_wireguard_tools_peers() {
+    use hematite::agent::routing::needs_wireguard_tools;
+    assert!(needs_wireguard_tools("list wireguard peers"));
+    assert!(needs_wireguard_tools("wg-quick config inspect"));
+}
+
+#[test]
+fn test_routing_detects_wireguard_tools_keys() {
+    use hematite::agent::routing::needs_wireguard_tools;
+    assert!(needs_wireguard_tools("check wireguard key validity"));
+    assert!(needs_wireguard_tools("wireguard vpn setup check"));
+}
+
+#[test]
+fn test_routing_wireguard_tools_negative() {
+    use hematite::agent::routing::needs_wireguard_tools;
+    assert!(!needs_wireguard_tools("check openvpn config"));
+    assert!(!needs_wireguard_tools("parse ssh config"));
+}
+
+// ─── wireguard_tools functional tests ────────────────────────────────────────
+
+#[test]
+fn test_wireguard_tools_no_input_returns_error() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::wireguard_tools::execute(
+        &serde_json::json!({}),
+    ));
+    assert!(result.is_err(), "missing input should return error");
+}
+
+#[test]
+fn test_wireguard_tools_info_parses_config() {
+    let config = "[Interface]\nPrivateKey = cFmHPM3IFCmExaHPt3GGlf0V8ybCRqjZ29VkHl1B5kM=\nAddress = 10.0.0.1/24\nListenPort = 51820\n\n[Peer]\nPublicKey = hiGrY0XADF5bFyPRPtYXq1hXqJakY3mQXBdkv7EGDBE=\nAllowedIPs = 10.0.0.2/32\nEndpoint = peer.example.com:51820\n";
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::wireguard_tools::execute(
+        &serde_json::json!({"config": config}),
+    ));
+    assert!(result.is_ok(), "should parse wg config: {:?}", result);
+    let out = result.unwrap();
+    assert!(
+        out.contains("10.0.0.1") || out.contains("Interface") || out.contains("Peer"),
+        "should show config info: {}",
+        out
+    );
+}
+
+#[test]
+fn test_wireguard_tools_validate_valid_config() {
+    let config = "[Interface]\nPrivateKey = cFmHPM3IFCmExaHPt3GGlf0V8ybCRqjZ29VkHl1B5kM=\nAddress = 10.0.0.1/24\nListenPort = 51820\n\n[Peer]\nPublicKey = hiGrY0XADF5bFyPRPtYXq1hXqJakY3mQXBdkv7EGDBE=\nAllowedIPs = 10.0.0.2/32\nEndpoint = peer.example.com:51820\n";
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::wireguard_tools::execute(
+        &serde_json::json!({"action": "validate", "config": config}),
+    ));
+    assert!(result.is_ok(), "validate should work: {:?}", result);
+    let out = result.unwrap();
+    assert!(
+        out.contains("VALID") || out.contains("valid"),
+        "should validate: {}",
+        out
+    );
+}
+
+#[test]
+fn test_wireguard_tools_validate_missing_fields() {
+    let config = "[Interface]\nAddress = 10.0.0.1/24\n\n[Peer]\nAllowedIPs = 10.0.0.2/32\n";
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::wireguard_tools::execute(
+        &serde_json::json!({"action": "validate", "config": config}),
+    ));
+    assert!(result.is_ok(), "validate should return output even for invalid: {:?}", result);
+    let out = result.unwrap();
+    assert!(
+        out.contains("INVALID") || out.contains("missing") || out.contains("Missing"),
+        "should flag missing required fields: {}",
+        out
+    );
+}

@@ -70,7 +70,8 @@ use crate::agent::routing::{
     needs_totp_tools, needs_trie_tools, needs_protobuf_wire_tools, needs_unicode_tools,
     needs_unit_tools, needs_url_tools, needs_uuid_gen,
     needs_validate_tools, needs_vcf_tools, needs_vector_tools, needs_wasm_tools,
-    needs_web_manifest_tools, needs_word_tools, needs_xml_tools, needs_yaml_tools,
+    needs_web_manifest_tools, needs_wireguard_tools, needs_word_tools, needs_xml_tools,
+    needs_yaml_tools, needs_ssh_key_tools,
     preferred_host_inspection_topic, preferred_maintainer_workflow, preferred_workspace_workflow,
     DirectAnswerKind, QueryIntentClass,
 };
@@ -7749,6 +7750,34 @@ impl ConversationManager {
                  Pass 'hex' for hex-encoded bytes or 'file' for a binary file. \
                  Example: protobuf_wire_tools(hex: '0a 07 74 65 73 74 69 6e 67') or \
                  protobuf_wire_tools(action: 'strings', file: 'message.bin')"
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_ssh_key_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "SSH KEY NOTICE: Use the `ssh_key_tools` tool to parse and inspect SSH public keys. \
+                 Actions: info (default — key type, bits, SHA-256 + MD5 fingerprints, security rating, comment), \
+                 fingerprint (SHA-256 and MD5 fingerprints only), \
+                 validate (VALID/INVALID verdict per key with weak-key warnings), \
+                 authorized_keys (parse a multi-key file and display a summary table). \
+                 Input: 'key' for a single authorized_keys line ('ssh-ed25519 AAAA... comment'), \
+                 'text' for multi-key content, or 'file' for a .pub or authorized_keys file path. \
+                 Supports: ssh-rsa (shows bit count), ecdsa-sha2-nistp256/384/521, ssh-ed25519, ssh-dss. \
+                 Example: ssh_key_tools(key: 'ssh-ed25519 AAAAC3NzaC1...')"
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_wireguard_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "WIREGUARD NOTICE: Use the `wireguard_tools` tool to parse and validate WireGuard VPN config files. \
+                 Actions: info (default — [Interface] summary and peer table with PublicKey prefix, Endpoint, AllowedIPs), \
+                 peers (detailed per-peer breakdown with key validity, CIDR check, keepalive), \
+                 validate (check required fields, key format — 32-byte Curve25519 = 44 base64 chars, CIDR validity, port range; VALID/INVALID verdict), \
+                 keys (list all keys with validity status — PrivateKey value is always redacted). \
+                 Input: 'config' or 'text' for config content, or 'file' for a .conf path. \
+                 Example: wireguard_tools(action: 'validate', file: '/etc/wireguard/wg0.conf')"
                     .to_string(),
             );
         }

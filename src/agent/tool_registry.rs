@@ -6392,6 +6392,39 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         crate::tools::protobuf_wire_tools::make_schema(),
     ));
     tools.push(make_tool(
+        "ssh_key_tools",
+        "Parse and inspect SSH public keys from authorized_keys or .pub files. \
+         Detects key type (RSA/ECDSA/Ed25519/DSA), computes SHA-256 and MD5 fingerprints, \
+         extracts key size in bits, and validates format. \
+         Distinct from pem_tools which handles X.509 certificates — SSH public keys use a different wire format. \
+         Actions: \
+         `info` (default) — key type, bit count, security rating (STRONG/GOOD/WEAK), SHA-256 and MD5 fingerprints, comment; \
+         `fingerprint` — SHA-256 and MD5 fingerprints only; \
+         `validate` — VALID/INVALID verdict per key with weak-key warnings (DSA, RSA < 2048 bits); \
+         `authorized_keys` — parse a multi-key authorized_keys file and display a tabular summary. \
+         Input: 'key' for a single public key line, 'text' for file content, or 'file' for a .pub or authorized_keys file path. \
+         Supports: ssh-rsa (shows modulus bit count), ecdsa-sha2-nistp256/384/521, ssh-ed25519, ssh-ed448, ssh-dss. \
+         Example: ssh_key_tools(key: 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5...'  ) or \
+         ssh_key_tools(action: 'authorized_keys', file: '~/.ssh/authorized_keys') or \
+         ssh_key_tools(action: 'validate', file: 'id_rsa.pub').",
+        crate::tools::ssh_key_tools::make_schema(),
+    ));
+    tools.push(make_tool(
+        "wireguard_tools",
+        "Parse and validate WireGuard VPN configuration files (.conf). \
+         Shows [Interface] settings and a [Peer] summary table, validates Curve25519 keys, \
+         AllowedIPs CIDRs, and endpoint host:port format. Works offline — no network calls. \
+         Actions: \
+         `info` (default) — interface config (PrivateKey presence, Address, DNS, ListenPort, MTU, hooks) plus peer table with PublicKey prefix, Endpoint, and AllowedIPs; \
+         `peers` — detailed per-peer listing with key validity check, CIDR validation, endpoint format, and keepalive; \
+         `validate` — check required fields, key validity (32-byte Curve25519 = 44 base64 chars), CIDR notation, port range; VALID/INVALID verdict with per-issue list; \
+         `keys` — show all keys with validity status — PrivateKey and PresharedKey values are always redacted. \
+         Input: 'config' or 'text' for config content, or 'file' for a .conf file path. \
+         Example: wireguard_tools(action: 'validate', file: '/etc/wireguard/wg0.conf') or \
+         wireguard_tools(action: 'peers', text: '[Interface]\\nPrivateKey = ...\\n[Peer]\\nPublicKey = ...').",
+        crate::tools::wireguard_tools::make_schema(),
+    ));
+    tools.push(make_tool(
         "macho_tools",
         "Inspect macOS Mach-O binaries (executables, dylibs, frameworks, bundles, fat/universal binaries) without external tools — no otool or nm required. \
          Actions: \
@@ -7313,6 +7346,8 @@ pub async fn dispatch_builtin_tool(
         "dex_tools" => crate::tools::dex_tools::execute(args).await,
         "tls_tools" => crate::tools::tls_tools::execute(args).await,
         "protobuf_wire_tools" => crate::tools::protobuf_wire_tools::execute(args).await,
+        "ssh_key_tools" => crate::tools::ssh_key_tools::execute(args).await,
+        "wireguard_tools" => crate::tools::wireguard_tools::execute(args).await,
         "macho_tools" => crate::tools::macho_tools::execute(args).await,
         "pcap_tools" => crate::tools::pcap_tools::execute(args).await,
         "pe_tools" => crate::tools::pe_tools::execute(args).await,

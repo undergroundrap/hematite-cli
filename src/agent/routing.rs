@@ -11070,6 +11070,55 @@ pub fn needs_protobuf_wire_tools(user_input: &str) -> bool {
     )
 }
 
+pub fn needs_ssh_key_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "ssh public key",
+            "ssh key fingerprint",
+            "authorized_keys",
+            "authorized keys",
+            ".pub file",
+            "ssh-rsa",
+            "ssh-ed25519",
+            "ecdsa-sha2-nistp",
+            "ssh key type",
+            "ssh key bits",
+            "parse ssh key",
+            "inspect ssh key",
+            "validate ssh key",
+            "ssh key info",
+            "ed25519 key",
+            "ssh fingerprint",
+            "key fingerprint sha",
+        ],
+    )
+}
+
+pub fn needs_wireguard_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "wireguard",
+            "wg-quick",
+            "wg0.conf",
+            "wireguard config",
+            "wireguard conf",
+            "allowedips",
+            "persistentkeepalive",
+            "presharedkey",
+            "wireguard peer",
+            "wireguard key",
+            "wireguard tunnel",
+            "wireguard vpn",
+            "wg peer",
+            "wg tunnel",
+        ],
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
