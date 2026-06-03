@@ -30,13 +30,15 @@ fn r32(d: &[u8], off: usize) -> Option<u32> {
         .map(|b| u32::from_le_bytes([b[0], b[1], b[2], b[3]]))
 }
 fn r64(d: &[u8], off: usize) -> Option<u64> {
-    d.get(off..off + 8).map(|b| {
-        u64::from_le_bytes([b[0], b[1], b[2], b[3], b[4], b[5], b[6], b[7]])
-    })
+    d.get(off..off + 8)
+        .map(|b| u64::from_le_bytes([b[0], b[1], b[2], b[3], b[4], b[5], b[6], b[7]]))
 }
 
 fn read_cstr(d: &[u8], off: usize) -> String {
-    let end = d[off..].iter().position(|&b| b == 0).unwrap_or(256.min(d.len().saturating_sub(off)));
+    let end = d[off..]
+        .iter()
+        .position(|&b| b == 0)
+        .unwrap_or(256.min(d.len().saturating_sub(off)));
     String::from_utf8_lossy(&d[off..off + end]).to_string()
 }
 
@@ -79,42 +81,104 @@ fn subsystem_name(s: u16) -> &'static str {
 
 fn sec_flags(c: u32) -> String {
     let mut f = Vec::new();
-    if c & 0x0000_0020 != 0 { f.push("CODE"); }
-    if c & 0x0000_0040 != 0 { f.push("INIT_DATA"); }
-    if c & 0x0000_0080 != 0 { f.push("UNINIT_DATA"); }
-    if c & 0x0200_0000 != 0 { f.push("DISCARDABLE"); }
-    if c & 0x2000_0000 != 0 { f.push("EXEC"); }
-    if c & 0x4000_0000 != 0 { f.push("READ"); }
-    if c & 0x8000_0000 != 0 { f.push("WRITE"); }
-    if f.is_empty() { "─".to_string() } else { f.join("|") }
+    if c & 0x0000_0020 != 0 {
+        f.push("CODE");
+    }
+    if c & 0x0000_0040 != 0 {
+        f.push("INIT_DATA");
+    }
+    if c & 0x0000_0080 != 0 {
+        f.push("UNINIT_DATA");
+    }
+    if c & 0x0200_0000 != 0 {
+        f.push("DISCARDABLE");
+    }
+    if c & 0x2000_0000 != 0 {
+        f.push("EXEC");
+    }
+    if c & 0x4000_0000 != 0 {
+        f.push("READ");
+    }
+    if c & 0x8000_0000 != 0 {
+        f.push("WRITE");
+    }
+    if f.is_empty() {
+        "─".to_string()
+    } else {
+        f.join("|")
+    }
 }
 
 fn char_flags(c: u16) -> String {
     let mut f = Vec::new();
-    if c & 0x0002 != 0 { f.push("EXECUTABLE"); }
-    if c & 0x2000 != 0 { f.push("DLL"); }
-    if c & 0x0100 != 0 { f.push("32BIT_MACHINE"); }
-    if c & 0x0020 != 0 { f.push("LARGE_ADDR"); }
-    if c & 0x0001 != 0 { f.push("RELOCS_STRIPPED"); }
-    if c & 0x1000 != 0 { f.push("SYSTEM"); }
-    if c & 0x0200 != 0 { f.push("DEBUG_STRIPPED"); }
-    if f.is_empty() { "0".to_string() } else { f.join(" | ") }
+    if c & 0x0002 != 0 {
+        f.push("EXECUTABLE");
+    }
+    if c & 0x2000 != 0 {
+        f.push("DLL");
+    }
+    if c & 0x0100 != 0 {
+        f.push("32BIT_MACHINE");
+    }
+    if c & 0x0020 != 0 {
+        f.push("LARGE_ADDR");
+    }
+    if c & 0x0001 != 0 {
+        f.push("RELOCS_STRIPPED");
+    }
+    if c & 0x1000 != 0 {
+        f.push("SYSTEM");
+    }
+    if c & 0x0200 != 0 {
+        f.push("DEBUG_STRIPPED");
+    }
+    if f.is_empty() {
+        "0".to_string()
+    } else {
+        f.join(" | ")
+    }
 }
 
 fn dll_flags(c: u16) -> String {
     let mut f = Vec::new();
-    if c & 0x0020 != 0 { f.push("HIGH_ENTROPY_VA"); }
-    if c & 0x0040 != 0 { f.push("DYNAMIC_BASE(ASLR)"); }
-    if c & 0x0080 != 0 { f.push("FORCE_INTEGRITY"); }
-    if c & 0x0100 != 0 { f.push("NX_COMPAT(DEP)"); }
-    if c & 0x0200 != 0 { f.push("NO_ISOLATION"); }
-    if c & 0x0400 != 0 { f.push("NO_SEH"); }
-    if c & 0x0800 != 0 { f.push("NO_BIND"); }
-    if c & 0x1000 != 0 { f.push("APPCONTAINER"); }
-    if c & 0x2000 != 0 { f.push("WDM_DRIVER"); }
-    if c & 0x4000 != 0 { f.push("GUARD_CF"); }
-    if c & 0x8000 != 0 { f.push("TERMINAL_SERVER_AWARE"); }
-    if f.is_empty() { "none".to_string() } else { f.join(" | ") }
+    if c & 0x0020 != 0 {
+        f.push("HIGH_ENTROPY_VA");
+    }
+    if c & 0x0040 != 0 {
+        f.push("DYNAMIC_BASE(ASLR)");
+    }
+    if c & 0x0080 != 0 {
+        f.push("FORCE_INTEGRITY");
+    }
+    if c & 0x0100 != 0 {
+        f.push("NX_COMPAT(DEP)");
+    }
+    if c & 0x0200 != 0 {
+        f.push("NO_ISOLATION");
+    }
+    if c & 0x0400 != 0 {
+        f.push("NO_SEH");
+    }
+    if c & 0x0800 != 0 {
+        f.push("NO_BIND");
+    }
+    if c & 0x1000 != 0 {
+        f.push("APPCONTAINER");
+    }
+    if c & 0x2000 != 0 {
+        f.push("WDM_DRIVER");
+    }
+    if c & 0x4000 != 0 {
+        f.push("GUARD_CF");
+    }
+    if c & 0x8000 != 0 {
+        f.push("TERMINAL_SERVER_AWARE");
+    }
+    if f.is_empty() {
+        "none".to_string()
+    } else {
+        f.join(" | ")
+    }
 }
 
 fn fmt_ts(ts: u32) -> String {
@@ -141,7 +205,7 @@ struct PeHdr {
     timestamp: u32,
     opt_hdr_size: u16,
     characteristics: u16,
-    is_plus: bool,        // PE32+ (64-bit)
+    is_plus: bool, // PE32+ (64-bit)
     entry_point: u32,
     image_base: u64,
     size_of_image: u32,
@@ -302,7 +366,11 @@ fn parse_imports(d: &[u8], hdr: &PeHdr, secs: &[Sec]) -> Vec<(String, Vec<String
                         break;
                     }
                     ilt += entry_size;
-                    let ord_flag = if hdr.is_plus { entry >> 63 } else { entry >> 31 };
+                    let ord_flag = if hdr.is_plus {
+                        entry >> 63
+                    } else {
+                        entry >> 31
+                    };
                     if ord_flag != 0 {
                         funcs.push(format!("Ordinal #{}", entry & 0xFFFF));
                     } else {
@@ -375,7 +443,9 @@ fn read_bytes(args: &Value) -> Result<Vec<u8>, String> {
         }
         (0..clean.len())
             .step_by(2)
-            .map(|i| u8::from_str_radix(&clean[i..i + 2], 16).map_err(|_| format!("Bad hex at {}", i)))
+            .map(|i| {
+                u8::from_str_radix(&clean[i..i + 2], 16).map_err(|_| format!("Bad hex at {}", i))
+            })
             .collect()
     } else {
         Err("Provide 'file' (path to PE) or 'hex' (raw bytes as hex string)".into())
@@ -399,55 +469,103 @@ pub async fn execute(args: &Value) -> Result<String, String> {
             } else {
                 "Object/Driver"
             };
-            let arch = if hdr.is_plus { "PE32+ (64-bit)" } else { "PE32 (32-bit)" };
+            let arch = if hdr.is_plus {
+                "PE32+ (64-bit)"
+            } else {
+                "PE32 (32-bit)"
+            };
             let imports = parse_imports(&d, &hdr, &secs);
             let (exp_name, exports) = parse_exports(&d, &hdr, &secs);
 
             let mut out = String::from("═══ PE BINARY INFO ═══\n\n");
             out.push_str(&format!("  File Type     : {}\n", file_type));
             out.push_str(&format!("  Architecture  : {}\n", arch));
-            out.push_str(&format!("  Machine       : {} (0x{:04X})\n", machine_name(hdr.machine), hdr.machine));
-            out.push_str(&format!("  Subsystem     : {} ({})\n", subsystem_name(hdr.subsystem), hdr.subsystem));
-            out.push_str(&format!("  Timestamp     : 0x{:08X} ({})\n", hdr.timestamp, fmt_ts(hdr.timestamp)));
+            out.push_str(&format!(
+                "  Machine       : {} (0x{:04X})\n",
+                machine_name(hdr.machine),
+                hdr.machine
+            ));
+            out.push_str(&format!(
+                "  Subsystem     : {} ({})\n",
+                subsystem_name(hdr.subsystem),
+                hdr.subsystem
+            ));
+            out.push_str(&format!(
+                "  Timestamp     : 0x{:08X} ({})\n",
+                hdr.timestamp,
+                fmt_ts(hdr.timestamp)
+            ));
             out.push_str(&format!("  Image Base    : 0x{:016X}\n", hdr.image_base));
-            out.push_str(&format!("  Entry Point   : 0x{:08X} (RVA)\n", hdr.entry_point));
+            out.push_str(&format!(
+                "  Entry Point   : 0x{:08X} (RVA)\n",
+                hdr.entry_point
+            ));
             out.push_str(&format!(
                 "  Image Size    : {} bytes ({:.1} MB)\n",
                 hdr.size_of_image,
                 hdr.size_of_image as f64 / 1_048_576.0
             ));
             out.push_str(&format!("  Sections      : {}\n", hdr.num_sections));
-            out.push_str(&format!("  Characteristics: {}\n", char_flags(hdr.characteristics)));
+            out.push_str(&format!(
+                "  Characteristics: {}\n",
+                char_flags(hdr.characteristics)
+            ));
             out.push('\n');
             out.push_str("  ── Security Features ──\n");
             out.push_str(&format!(
                 "  ASLR          : {}\n",
-                if hdr.dll_char & 0x0040 != 0 { "YES (DYNAMIC_BASE)" } else { "NO" }
+                if hdr.dll_char & 0x0040 != 0 {
+                    "YES (DYNAMIC_BASE)"
+                } else {
+                    "NO"
+                }
             ));
             out.push_str(&format!(
                 "  DEP (NX)      : {}\n",
-                if hdr.dll_char & 0x0100 != 0 { "YES (NX_COMPAT)" } else { "NO" }
+                if hdr.dll_char & 0x0100 != 0 {
+                    "YES (NX_COMPAT)"
+                } else {
+                    "NO"
+                }
             ));
             out.push_str(&format!(
                 "  CFG Guard     : {}\n",
-                if hdr.dll_char & 0x4000 != 0 { "YES (GUARD_CF)" } else { "NO" }
+                if hdr.dll_char & 0x4000 != 0 {
+                    "YES (GUARD_CF)"
+                } else {
+                    "NO"
+                }
             ));
             out.push_str(&format!(
                 "  High Entropy  : {}\n",
-                if hdr.dll_char & 0x0020 != 0 { "YES" } else { "NO" }
+                if hdr.dll_char & 0x0020 != 0 {
+                    "YES"
+                } else {
+                    "NO"
+                }
             ));
             out.push_str(&format!(
                 "  Force Integrity: {}\n",
-                if hdr.dll_char & 0x0080 != 0 { "YES" } else { "NO" }
+                if hdr.dll_char & 0x0080 != 0 {
+                    "YES"
+                } else {
+                    "NO"
+                }
             ));
             out.push('\n');
             out.push_str(&format!("  Import DLLs   : {}\n", imports.len()));
             if !exp_name.is_empty() {
-                out.push_str(&format!("  Exports from  : {} ({} functions)\n", exp_name, exports.len()));
+                out.push_str(&format!(
+                    "  Exports from  : {} ({} functions)\n",
+                    exp_name,
+                    exports.len()
+                ));
             } else {
                 out.push_str("  Exports       : none\n");
             }
-            out.push_str("\n  Use action='sections', 'imports', 'exports', or 'headers' for details.\n");
+            out.push_str(
+                "\n  Use action='sections', 'imports', 'exports', or 'headers' for details.\n",
+            );
             Ok(out)
         }
 
@@ -461,7 +579,12 @@ pub async fn execute(args: &Value) -> Result<String, String> {
             for s in &secs {
                 out.push_str(&format!(
                     "  {:<12}  0x{:08X}  {:>10}  {:>10}  {:>10}  {}\n",
-                    s.name, s.vaddr, s.vsize, s.raw_size, s.raw_off, sec_flags(s.chars)
+                    s.name,
+                    s.vaddr,
+                    s.vsize,
+                    s.raw_size,
+                    s.raw_off,
+                    sec_flags(s.chars)
                 ));
             }
             Ok(out)
@@ -470,10 +593,16 @@ pub async fn execute(args: &Value) -> Result<String, String> {
         "imports" => {
             let imports = parse_imports(&d, &hdr, &secs);
             if imports.is_empty() {
-                return Ok("No imports found (or import table not readable at this offset).\n".to_string());
+                return Ok(
+                    "No imports found (or import table not readable at this offset).\n".to_string(),
+                );
             }
             let total: usize = imports.iter().map(|(_, f)| f.len()).sum();
-            let mut out = format!("═══ PE IMPORTS — {} DLLs, {} functions ═══\n\n", imports.len(), total);
+            let mut out = format!(
+                "═══ PE IMPORTS — {} DLLs, {} functions ═══\n\n",
+                imports.len(),
+                total
+            );
             for (dll, funcs) in &imports {
                 out.push_str(&format!("  {} ({} imports)\n", dll, funcs.len()));
                 let show = funcs.len().min(50);
@@ -521,10 +650,21 @@ pub async fn execute(args: &Value) -> Result<String, String> {
             out.push_str(&format!("  e_lfanew  : 0x{:08X}\n\n", hdr.e_lfanew));
 
             out.push_str("── COFF Header ─────────────────\n");
-            out.push_str(&format!("  Machine            : 0x{:04X}  ({})\n", hdr.machine, machine_name(hdr.machine)));
+            out.push_str(&format!(
+                "  Machine            : 0x{:04X}  ({})\n",
+                hdr.machine,
+                machine_name(hdr.machine)
+            ));
             out.push_str(&format!("  NumberOfSections   : {}\n", hdr.num_sections));
-            out.push_str(&format!("  TimeDateStamp      : 0x{:08X}  ({})\n", hdr.timestamp, fmt_ts(hdr.timestamp)));
-            out.push_str(&format!("  SizeOfOptionalHdr  : {} bytes\n", hdr.opt_hdr_size));
+            out.push_str(&format!(
+                "  TimeDateStamp      : 0x{:08X}  ({})\n",
+                hdr.timestamp,
+                fmt_ts(hdr.timestamp)
+            ));
+            out.push_str(&format!(
+                "  SizeOfOptionalHdr  : {} bytes\n",
+                hdr.opt_hdr_size
+            ));
             out.push_str(&format!(
                 "  Characteristics    : 0x{:04X}  ({})\n\n",
                 hdr.characteristics,
@@ -532,11 +672,28 @@ pub async fn execute(args: &Value) -> Result<String, String> {
             ));
 
             out.push_str("── Optional Header ─────────────\n");
-            out.push_str(&format!("  Magic              : 0x{:04X}  ({})\n", magic, if hdr.is_plus { "PE32+" } else { "PE32" }));
-            out.push_str(&format!("  AddressOfEntryPoint: 0x{:08X}\n", hdr.entry_point));
-            out.push_str(&format!("  ImageBase          : 0x{:016X}\n", hdr.image_base));
-            out.push_str(&format!("  SizeOfImage        : 0x{:08X}  ({} bytes)\n", hdr.size_of_image, hdr.size_of_image));
-            out.push_str(&format!("  Subsystem          : {}  ({})\n", hdr.subsystem, subsystem_name(hdr.subsystem)));
+            out.push_str(&format!(
+                "  Magic              : 0x{:04X}  ({})\n",
+                magic,
+                if hdr.is_plus { "PE32+" } else { "PE32" }
+            ));
+            out.push_str(&format!(
+                "  AddressOfEntryPoint: 0x{:08X}\n",
+                hdr.entry_point
+            ));
+            out.push_str(&format!(
+                "  ImageBase          : 0x{:016X}\n",
+                hdr.image_base
+            ));
+            out.push_str(&format!(
+                "  SizeOfImage        : 0x{:08X}  ({} bytes)\n",
+                hdr.size_of_image, hdr.size_of_image
+            ));
+            out.push_str(&format!(
+                "  Subsystem          : {}  ({})\n",
+                hdr.subsystem,
+                subsystem_name(hdr.subsystem)
+            ));
             out.push_str(&format!(
                 "  DllCharacteristics : 0x{:04X}  ({})\n\n",
                 hdr.dll_char,
@@ -558,7 +715,10 @@ pub async fn execute(args: &Value) -> Result<String, String> {
             let cfg_rva = r32(&d, dd + 80).unwrap_or(0);
             out.push_str(&format!("  [2] Resource Table : RVA=0x{:08X}\n", res_rva));
             out.push_str(&format!("  [9] TLS Table      : RVA=0x{:08X}\n", tls_rva));
-            out.push_str(&format!("  [10] Load Config   : RVA=0x{:08X}  (CFG)\n", cfg_rva));
+            out.push_str(&format!(
+                "  [10] Load Config   : RVA=0x{:08X}  (CFG)\n",
+                cfg_rva
+            ));
             Ok(out)
         }
 

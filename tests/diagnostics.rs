@@ -35649,7 +35649,10 @@ fn test_acoustics_wave_440hz() {
         out.contains("SOUND WAVE") || out.contains("440"),
         "wave output for 440 Hz"
     );
-    assert!(out.contains("λ") || out.contains("Wavelength") || out.contains("wavelength"), "wavelength shown");
+    assert!(
+        out.contains("λ") || out.contains("Wavelength") || out.contains("wavelength"),
+        "wavelength shown"
+    );
 }
 
 #[test]
@@ -35660,7 +35663,10 @@ fn test_acoustics_decibels_spl() {
             &serde_json::json!({"action": "decibels", "pressure": 0.02}),
         ))
         .unwrap();
-    assert!(out.contains("dB") || out.contains("SPL") || out.contains("60"), "SPL output");
+    assert!(
+        out.contains("dB") || out.contains("SPL") || out.contains("60"),
+        "SPL output"
+    );
 }
 
 #[test]
@@ -35713,7 +35719,10 @@ fn test_acoustics_beat_frequency() {
             &serde_json::json!({"action": "beat", "f1": 440.0, "f2": 444.0}),
         ))
         .unwrap();
-    assert!(out.contains("4") || out.contains("beat") || out.contains("BEAT"), "beat freq = 4 Hz");
+    assert!(
+        out.contains("4") || out.contains("beat") || out.contains("BEAT"),
+        "beat freq = 4 Hz"
+    );
 }
 
 #[test]
@@ -35772,7 +35781,10 @@ fn test_materials_properties_steel() {
         out.contains("steel") || out.contains("Steel") || out.contains("MATERIAL"),
         "steel properties header"
     );
-    assert!(out.contains("GPa") || out.contains("Young") || out.contains("Modulus"), "modulus shown");
+    assert!(
+        out.contains("GPa") || out.contains("Young") || out.contains("Modulus"),
+        "modulus shown"
+    );
 }
 
 #[test]
@@ -35840,7 +35852,10 @@ fn test_materials_buoyancy_pressure() {
         ))
         .unwrap();
     assert!(
-        out.contains("PRESSURE") || out.contains("buoyanc") || out.contains("kPa") || out.contains("Pa"),
+        out.contains("PRESSURE")
+            || out.contains("buoyanc")
+            || out.contains("kPa")
+            || out.contains("Pa"),
         "pressure/buoyancy output"
     );
 }
@@ -35857,7 +35872,10 @@ fn test_materials_crystal_fcc() {
         out.contains("FCC") || out.contains("fcc") || out.contains("face"),
         "FCC crystal output"
     );
-    assert!(out.contains("0.74") || out.contains("APF") || out.contains("74"), "APF shown");
+    assert!(
+        out.contains("0.74") || out.contains("APF") || out.contains("74"),
+        "APF shown"
+    );
 }
 
 #[test]
@@ -35878,27 +35896,37 @@ fn test_materials_safety_factor() {
 
 #[test]
 fn test_routing_detects_pe_tools_windows_binary() {
-    assert!(hematite::agent::routing::needs_pe_tools("inspect this windows binary"));
+    assert!(hematite::agent::routing::needs_pe_tools(
+        "inspect this windows binary"
+    ));
 }
 
 #[test]
 fn test_routing_detects_pe_tools_dll_imports() {
-    assert!(hematite::agent::routing::needs_pe_tools("what does this .dll imports show"));
+    assert!(hematite::agent::routing::needs_pe_tools(
+        "what does this .dll imports show"
+    ));
 }
 
 #[test]
 fn test_routing_detects_pe_tools_aslr() {
-    assert!(hematite::agent::routing::needs_pe_tools("is ASLR enabled in this exe"));
+    assert!(hematite::agent::routing::needs_pe_tools(
+        "is ASLR enabled in this exe"
+    ));
 }
 
 #[test]
 fn test_routing_detects_pe_tools_coff_header() {
-    assert!(hematite::agent::routing::needs_pe_tools("dump the coff header of this file"));
+    assert!(hematite::agent::routing::needs_pe_tools(
+        "dump the coff header of this file"
+    ));
 }
 
 #[test]
 fn test_routing_detects_pe_tools_negative() {
-    assert!(!hematite::agent::routing::needs_pe_tools("build my rust project"));
+    assert!(!hematite::agent::routing::needs_pe_tools(
+        "build my rust project"
+    ));
 }
 
 // ── pe_tools functional ───────────────────────────────────────────────────────
@@ -35937,7 +35965,10 @@ fn test_pe_tools_info_from_hex() {
         out.contains("EXE") || out.contains("Object") || out.contains("Driver"),
         "file type shown"
     );
-    assert!(out.contains("Architecture") || out.contains("PE32"), "arch shown");
+    assert!(
+        out.contains("Architecture") || out.contains("PE32"),
+        "arch shown"
+    );
 }
 
 #[test]
@@ -35960,7 +35991,10 @@ fn test_pe_tools_invalid_magic_returns_error() {
     ));
     assert!(result.is_err(), "non-PE bytes should fail");
     let err = result.unwrap_err();
-    assert!(err.contains("MZ") || err.contains("PE") || err.contains("small"), "meaningful error");
+    assert!(
+        err.contains("MZ") || err.contains("PE") || err.contains("small"),
+        "meaningful error"
+    );
 }
 
 #[test]
@@ -35970,4 +36004,222 @@ fn test_pe_tools_no_input_returns_error() {
         &serde_json::json!({"action": "info"}),
     ));
     assert!(result.is_err(), "missing input should fail");
+}
+
+// ── macho_tools routing tests ─────────────────────────────────────────────────
+
+#[test]
+fn test_routing_detects_macho_tools_dylib() {
+    assert!(hematite::agent::routing::needs_macho_tools(
+        "inspect this .dylib binary"
+    ));
+    assert!(hematite::agent::routing::needs_macho_tools(
+        "show dylib imports for this file"
+    ));
+}
+
+#[test]
+fn test_routing_detects_macho_tools_macho() {
+    assert!(hematite::agent::routing::needs_macho_tools(
+        "what is the mach-o file type"
+    ));
+    assert!(hematite::agent::routing::needs_macho_tools(
+        "show mach-o segments"
+    ));
+}
+
+#[test]
+fn test_routing_detects_macho_tools_fat() {
+    assert!(hematite::agent::routing::needs_macho_tools(
+        "this is a fat binary with multiple archs"
+    ));
+    assert!(hematite::agent::routing::needs_macho_tools(
+        "how do I inspect a universal binary"
+    ));
+}
+
+#[test]
+fn test_routing_detects_macho_tools_otool() {
+    assert!(hematite::agent::routing::needs_macho_tools(
+        "can you do what otool does"
+    ));
+    assert!(hematite::agent::routing::needs_macho_tools(
+        "list arm64 binary sections"
+    ));
+}
+
+#[test]
+fn test_routing_detects_macho_tools_negative() {
+    assert!(!hematite::agent::routing::needs_macho_tools(
+        "show me the ELF sections"
+    ));
+    assert!(!hematite::agent::routing::needs_macho_tools(
+        "inspect this windows PE file"
+    ));
+}
+
+// Minimal Mach-O 64-bit LE header (32 bytes: magic + cputype + cpusubtype + filetype + ncmds + sizeofcmds + flags + reserved)
+const MINIMAL_MACHO_HEX: &str = concat!(
+    "CFFAEDFE", // MH_MAGIC_64 LE
+    "0C000001", // cputype = ARM64 (0x0100000C as LE = 0C 00 00 01)
+    "00000000", // cpusubtype
+    "02000000", // filetype = MH_EXECUTE
+    "00000000", // ncmds = 0
+    "00000000", // sizeofcmds = 0
+    "00200000", // flags = MH_PIE (0x200000)
+    "00000000", // reserved
+);
+
+#[test]
+fn test_macho_tools_info_from_hex() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::macho_tools::execute(
+            &serde_json::json!({"action": "info", "hex": MINIMAL_MACHO_HEX}),
+        ))
+        .unwrap();
+    assert!(
+        out.contains("MACH-O INFO") || out.contains("Mach-O"),
+        "info header present"
+    );
+    assert!(
+        out.contains("ARM64")
+            || out.contains("arm64")
+            || out.contains("EXECUTE")
+            || out.contains("Execute"),
+        "arch or type present"
+    );
+}
+
+#[test]
+fn test_macho_tools_segments_from_hex() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let out = rt
+        .block_on(hematite::tools::macho_tools::execute(
+            &serde_json::json!({"action": "segments", "hex": MINIMAL_MACHO_HEX}),
+        ))
+        .unwrap();
+    assert!(
+        out.contains("SEGMENTS") || out.contains("segment"),
+        "segments section present"
+    );
+}
+
+#[test]
+fn test_macho_tools_invalid_magic_returns_error() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::macho_tools::execute(
+        &serde_json::json!({"action": "info", "hex": "DEADBEEF"}),
+    ));
+    assert!(result.is_err(), "non-Mach-O bytes should fail");
+    let err = result.unwrap_err();
+    assert!(
+        err.contains("magic")
+            || err.contains("Mach")
+            || err.contains("small")
+            || err.contains("Not"),
+        "meaningful error: {}",
+        err
+    );
+}
+
+#[test]
+fn test_macho_tools_no_input_returns_error() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::macho_tools::execute(
+        &serde_json::json!({"action": "info"}),
+    ));
+    assert!(result.is_err(), "missing file/hex should fail");
+}
+
+// ── pcap_tools routing tests ──────────────────────────────────────────────────
+
+#[test]
+fn test_routing_detects_pcap_tools_pcap_file() {
+    assert!(hematite::agent::routing::needs_pcap_tools(
+        "analyze this .pcap file"
+    ));
+    assert!(hematite::agent::routing::needs_pcap_tools(
+        "parse the packet capture"
+    ));
+}
+
+#[test]
+fn test_routing_detects_pcap_tools_wireshark() {
+    assert!(hematite::agent::routing::needs_pcap_tools(
+        "can you do what wireshark does"
+    ));
+    assert!(hematite::agent::routing::needs_pcap_tools(
+        "open this pcapng network capture"
+    ));
+}
+
+#[test]
+fn test_routing_detects_pcap_tools_tcpdump() {
+    assert!(hematite::agent::routing::needs_pcap_tools(
+        "inspect pcap packets from tcpdump"
+    ));
+    assert!(hematite::agent::routing::needs_pcap_tools(
+        "show me the pcap dns queries"
+    ));
+}
+
+#[test]
+fn test_routing_detects_pcap_tools_negative() {
+    assert!(!hematite::agent::routing::needs_pcap_tools(
+        "show me running processes"
+    ));
+    assert!(!hematite::agent::routing::needs_pcap_tools(
+        "inspect this mach-o binary"
+    ));
+}
+
+#[test]
+fn test_pcap_tools_no_file_returns_error() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::pcap_tools::execute(
+        &serde_json::json!({"action": "info"}),
+    ));
+    assert!(result.is_err(), "missing file should fail");
+    let err = result.unwrap_err();
+    assert!(
+        err.contains("file") || err.contains("Required"),
+        "meaningful error: {}",
+        err
+    );
+}
+
+#[test]
+fn test_pcap_tools_missing_file_path_returns_error() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::pcap_tools::execute(
+        &serde_json::json!({"action": "info", "file": "/nonexistent/capture.pcap"}),
+    ));
+    assert!(result.is_err(), "nonexistent file should fail");
+    let err = result.unwrap_err();
+    assert!(
+        err.contains("Cannot read") || err.contains("No such") || err.contains("nonexistent"),
+        "meaningful IO error: {}",
+        err
+    );
+}
+
+#[test]
+fn test_pcap_tools_invalid_magic_returns_error() {
+    use std::io::Write;
+    // Write a temp file with garbage bytes
+    let mut tmp = tempfile::NamedTempFile::new().unwrap();
+    tmp.write_all(b"\x00\x01\x02\x03\x04\x05\x06\x07").unwrap();
+    let path = tmp.path().to_str().unwrap().to_string();
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::pcap_tools::execute(
+        &serde_json::json!({"action": "info", "file": path}),
+    ));
+    assert!(result.is_err(), "non-PCAP bytes should fail");
+    let err = result.unwrap_err();
+    assert!(
+        err.contains("Not a PCAP") || err.contains("magic") || err.contains("pcapng"),
+        "meaningful error: {}",
+        err
+    );
 }

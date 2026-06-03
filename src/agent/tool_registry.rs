@@ -6326,6 +6326,40 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         crate::tools::materials_tools::schema(),
     ));
     tools.push(make_tool(
+        "macho_tools",
+        "Inspect macOS Mach-O binaries (executables, dylibs, frameworks, bundles, fat/universal binaries) without external tools — no otool or nm required. \
+         Actions: \
+         `info` (default) — magic, file type (MH_EXECUTE/MH_DYLIB/MH_BUNDLE/MH_OBJECT/MH_CORE), architecture (x86-64/ARM64/ARM/x86/PPC), \
+           CPU subtype, flags (PIE/DYLDLINK/TWOLEVEL), UUID, entry point, install name for dylibs, source version, \
+           build platform, min OS version, SDK version, code signature presence, load command count; \
+         `segments` — all LC_SEGMENT_64/LC_SEGMENT load commands with virtual address, file offset, size, flags, and embedded section names; \
+         `sections` — all sections across all segments with section name, segment name, type, flags, virtual address, and size; \
+         `imports` — all imported dylibs from LC_LOAD_DYLIB, LC_LOAD_WEAK_DYLIB, LC_REEXPORT_DYLIB with install name, \
+           compatibility version, and current version; \
+         `fat` — architecture table for fat/universal binaries with cputype, cpusubtype, offset, and size. \
+         Pass 'file' with the path to a .dylib/.macho/.o/framework binary, or 'hex' for raw Mach-O bytes as a hex string. \
+         Example: macho_tools(file: '/usr/lib/libc.dylib') or \
+         macho_tools(action: 'imports', file: '/Applications/MyApp.app/Contents/MacOS/MyApp') or \
+         macho_tools(action: 'fat', file: 'universal.dylib').",
+        crate::tools::macho_tools::schema(),
+    ));
+    tools.push(make_tool(
+        "pcap_tools",
+        "Parse and analyze PCAP/PCAPNG packet capture files without external tools — no Wireshark or tcpdump required. \
+         Actions: \
+         `info` (default) — file format (PCAP/PCAPNG/nanosecond variant), byte order, link type, packet count, capture duration, bytes-per-second, average packet length; \
+         `packets` — tabular listing with packet number, relative timestamp, wire length, detected protocol, source and destination addresses; 'limit' to cap rows; \
+         `protocols` — protocol distribution table with counts and percentage bar chart (Ethernet, IPv4, IPv6, TCP, UDP, ICMP, DNS, HTTP, ARP, TLS, SMB, NTP, etc.); \
+         `conversations` — top host pairs ranked by packet count with total byte volume; \
+         `dns` — all DNS queries and responses extracted from UDP port 53 with name, record type, and resolved answer addresses; \
+         `http` — HTTP request/response pairs from TCP port 80/8080/8000 with method, URL path, host header, and response status codes. \
+         Pass 'file' with the path to a .pcap or .pcapng file. \
+         Example: pcap_tools(file: 'capture.pcap') or \
+         pcap_tools(action: 'dns', file: 'traffic.pcapng') or \
+         pcap_tools(action: 'conversations', file: 'network.pcap').",
+        crate::tools::pcap_tools::schema(),
+    ));
+    tools.push(make_tool(
         "pe_tools",
         "Inspect Windows PE (EXE/DLL/SYS/OCX) binaries without external tools — no dumpbin or readpe required. \
          Actions: \
@@ -7209,6 +7243,8 @@ pub async fn dispatch_builtin_tool(
         "nuclear_tools" => crate::tools::nuclear_tools::execute(args).await,
         "acoustics_tools" => crate::tools::acoustics_tools::execute(args).await,
         "materials_tools" => crate::tools::materials_tools::execute(args).await,
+        "macho_tools" => crate::tools::macho_tools::execute(args).await,
+        "pcap_tools" => crate::tools::pcap_tools::execute(args).await,
         "pe_tools" => crate::tools::pe_tools::execute(args).await,
         "printf_tools" => crate::tools::printf_tools::execute(args).await,
         "ascii_chart_tools" => crate::tools::ascii_chart_tools::execute(args).await,

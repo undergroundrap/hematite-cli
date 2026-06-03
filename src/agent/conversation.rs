@@ -48,27 +48,28 @@ use crate::agent::routing::{
     needs_ip_tools, needs_jq_tools, needs_json_patch_tools, needs_json_tools, needs_jsonl_tools,
     needs_jsonschema_tools, needs_jwt_tools, needs_k8s_tools, needs_keyval_tools,
     needs_latex_tools, needs_leb128_tools, needs_license_tools, needs_line_tools, needs_lint_check,
-    needs_lock_file_tools, needs_log_parse_tools, needs_logic_tools, needs_make_tools,
-    needs_markdown_gen_tools, needs_markdown_tools, needs_materials_tools, needs_matrix_tools,
-    needs_mechanics_tools, needs_mermaid_tools, needs_mime_tools, needs_money_tools,
-    needs_msgpack_tools, needs_music_tools, needs_nato_tools, needs_net_lookup_tools,
-    needs_network_header_tools, needs_nginx_conf_tools, needs_notebook_tools, needs_nuclear_tools,
-    needs_number_sequence_tools, needs_number_theory_tools, needs_number_tools,
-    needs_number_words_tools, needs_openapi_tools, needs_optics_tools, needs_package_json_tools,
-    needs_password_gen, needs_path_tools, needs_pem_tools, needs_periodic_tools,
-    needs_physics_tools, needs_plist_tools, needs_port_check, needs_printf_tools,
-    needs_proto_tools, needs_quantum_tools, needs_regex_tools, needs_relativity_tools,
-    needs_robots_txt_tools, needs_rss_tools, needs_scientific_compute, needs_secret_scan,
-    needs_semver_tools, needs_signal_tools, needs_sitemap_tools, needs_size_tools,
-    needs_sort_tools, needs_sql_format_tools, needs_sql_migrate_tools, needs_sql_tools,
-    needs_sqlite_tools, needs_ssh_config_tools, needs_stack_tools, needs_stat_tools,
-    needs_string_metric_tools, needs_systemd_tools, needs_table_tools, needs_tar_tools,
-    needs_template_gen, needs_template_tools, needs_terraform_tools, needs_test_run,
-    needs_text_align_tools, needs_text_extract_tools, needs_text_tools, needs_thermo_tools,
-    needs_time_zone_tools, needs_tlv_tools, needs_todo_tools, needs_token_tools, needs_toml_tools,
-    needs_totp_tools, needs_trie_tools, needs_unicode_tools, needs_unit_tools, needs_url_tools,
-    needs_uuid_gen, needs_validate_tools, needs_vcf_tools, needs_vector_tools, needs_wasm_tools,
-    needs_web_manifest_tools, needs_word_tools, needs_xml_tools, needs_yaml_tools, needs_pe_tools,
+    needs_lock_file_tools, needs_log_parse_tools, needs_logic_tools, needs_macho_tools,
+    needs_make_tools, needs_markdown_gen_tools, needs_markdown_tools, needs_materials_tools,
+    needs_matrix_tools, needs_mechanics_tools, needs_mermaid_tools, needs_mime_tools,
+    needs_money_tools, needs_msgpack_tools, needs_music_tools, needs_nato_tools,
+    needs_net_lookup_tools, needs_network_header_tools, needs_nginx_conf_tools,
+    needs_notebook_tools, needs_nuclear_tools, needs_number_sequence_tools,
+    needs_number_theory_tools, needs_number_tools, needs_number_words_tools, needs_openapi_tools,
+    needs_optics_tools, needs_package_json_tools, needs_password_gen, needs_path_tools,
+    needs_pcap_tools, needs_pe_tools, needs_pem_tools, needs_periodic_tools, needs_physics_tools,
+    needs_plist_tools, needs_port_check, needs_printf_tools, needs_proto_tools,
+    needs_quantum_tools, needs_regex_tools, needs_relativity_tools, needs_robots_txt_tools,
+    needs_rss_tools, needs_scientific_compute, needs_secret_scan, needs_semver_tools,
+    needs_signal_tools, needs_sitemap_tools, needs_size_tools, needs_sort_tools,
+    needs_sql_format_tools, needs_sql_migrate_tools, needs_sql_tools, needs_sqlite_tools,
+    needs_ssh_config_tools, needs_stack_tools, needs_stat_tools, needs_string_metric_tools,
+    needs_systemd_tools, needs_table_tools, needs_tar_tools, needs_template_gen,
+    needs_template_tools, needs_terraform_tools, needs_test_run, needs_text_align_tools,
+    needs_text_extract_tools, needs_text_tools, needs_thermo_tools, needs_time_zone_tools,
+    needs_tlv_tools, needs_todo_tools, needs_token_tools, needs_toml_tools, needs_totp_tools,
+    needs_trie_tools, needs_unicode_tools, needs_unit_tools, needs_url_tools, needs_uuid_gen,
+    needs_validate_tools, needs_vcf_tools, needs_vector_tools, needs_wasm_tools,
+    needs_web_manifest_tools, needs_word_tools, needs_xml_tools, needs_yaml_tools,
     preferred_host_inspection_topic, preferred_maintainer_workflow, preferred_workspace_workflow,
     DirectAnswerKind, QueryIntentClass,
 };
@@ -7644,6 +7645,41 @@ impl ConversationManager {
                  Example: pe_tools(file: 'C:/Windows/System32/ntdll.dll') or \
                  pe_tools(action: 'imports', file: 'myapp.exe') or \
                  pe_tools(action: 'sections', file: 'driver.sys')."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_macho_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "MACH-O BINARY NOTICE: Use the `macho_tools` tool to inspect macOS Mach-O binaries (executables, dylibs, frameworks, bundles, fat/universal binaries) without external tools — no otool or nm required. \
+                 Actions: \
+                 info (default — magic, file type EXE/DYLIB/BUNDLE/OBJECT, architecture x86-64/ARM64/ARM/x86/PPC, UUID, entry point, install name for dylibs, source version, build platform, min OS/SDK, PIE/code-sig/encryption flags, load command count), \
+                 segments (all LC_SEGMENT_64/LC_SEGMENT with virtual address, file offset, size, and embedded section names), \
+                 sections (all sections across all segments with type/flags/address/size), \
+                 imports (all imported dylibs from LC_LOAD_DYLIB/LC_LOAD_WEAK_DYLIB with compatibility and current version), \
+                 fat (architecture table for fat/universal binaries with cputype, offset, and size). \
+                 Pass 'file' with the path to a .dylib/.macho/framework binary, or 'hex' for raw Mach-O bytes as a hex string. \
+                 Example: macho_tools(file: '/usr/lib/libc.dylib') or \
+                 macho_tools(action: 'imports', file: '/Applications/MyApp.app/Contents/MacOS/MyApp') or \
+                 macho_tools(action: 'fat', file: 'universal.dylib')."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_pcap_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "PCAP NOTICE: Use the `pcap_tools` tool to parse and analyze PCAP/PCAPNG packet capture files without external tools — no Wireshark or tcpdump required. \
+                 Actions: \
+                 info (default — file format, byte order, link type, packet count, capture duration, byte stats), \
+                 packets (tabular listing with number/timestamp/length/protocol/source/destination; 'limit' to cap), \
+                 protocols (protocol distribution table with counts and percentages), \
+                 conversations (top host pairs by packet count and byte volume), \
+                 dns (all DNS queries and responses with name/type/answer), \
+                 http (HTTP request/response pairs with method/status/host/path). \
+                 Pass 'file' with the path to a .pcap or .pcapng file. \
+                 Example: pcap_tools(file: 'capture.pcap') or \
+                 pcap_tools(action: 'dns', file: 'traffic.pcapng') or \
+                 pcap_tools(action: 'conversations', file: 'network.pcap')."
                     .to_string(),
             );
         }

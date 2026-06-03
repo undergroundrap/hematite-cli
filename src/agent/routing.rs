@@ -10874,6 +10874,70 @@ pub fn needs_pe_tools(user_input: &str) -> bool {
     )
 }
 
+pub fn needs_macho_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "mach-o",
+            "macho",
+            "mach o binary",
+            ".dylib",
+            ".dylib binary",
+            "dylib imports",
+            "dylib info",
+            "macos binary",
+            "macos executable",
+            "apple binary",
+            "fat binary",
+            "universal binary",
+            "otool",
+            "inspect dylib",
+            "analyze dylib",
+            "inspect macho",
+            "analyze macho",
+            "mach-o segments",
+            "mach-o sections",
+            "mach-o imports",
+            "mach-o fat",
+            "lc_load_dylib",
+            "lc_segment",
+            "feedface",
+            "feedfacf",
+            "cafebabe fat",
+            "arm64 binary",
+            "x86-64 macos",
+        ],
+    )
+}
+
+pub fn needs_pcap_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "pcap",
+            "pcapng",
+            "packet capture",
+            "packet capture file",
+            "wireshark",
+            "tcpdump",
+            "network capture",
+            "analyze pcap",
+            "parse pcap",
+            "inspect pcap",
+            ".pcap file",
+            ".pcapng file",
+            "pcap packets",
+            "pcap dns",
+            "pcap http",
+            "pcap protocol",
+            "network traffic analysis",
+            "capture file",
+        ],
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
