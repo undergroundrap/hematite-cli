@@ -37826,3 +37826,444 @@ fn test_helm_tools_validate_missing_fields() {
         out
     );
 }
+
+// ── cvss_tools ──────────────────────────────────────────────────────────────
+
+#[test]
+fn test_routing_detects_cvss_tools_vector() {
+    use hematite::agent::routing::needs_cvss_tools;
+    assert!(needs_cvss_tools("decode this CVSS vector for me"));
+    assert!(needs_cvss_tools(
+        "what is the cvss score for this vulnerability"
+    ));
+    assert!(needs_cvss_tools(
+        "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H"
+    ));
+    assert!(!needs_cvss_tools("what is the weather today"));
+}
+
+#[test]
+fn test_cvss_tools_decode() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::cvss_tools::execute(
+        &serde_json::json!({"action": "decode", "vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H"}),
+    ));
+    assert!(
+        result.is_ok(),
+        "cvss_tools decode should succeed: {:?}",
+        result
+    );
+    let out = result.unwrap();
+    assert!(
+        out.contains("Attack Vector") || out.contains("Network"),
+        "should decode AV:N: {}",
+        out
+    );
+    assert!(
+        out.contains("Confidentiality") || out.contains("High"),
+        "should decode C:H: {}",
+        out
+    );
+}
+
+#[test]
+fn test_cvss_tools_score() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::cvss_tools::execute(
+        &serde_json::json!({"action": "score", "vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H"}),
+    ));
+    assert!(
+        result.is_ok(),
+        "cvss_tools score should succeed: {:?}",
+        result
+    );
+    let out = result.unwrap();
+    assert!(
+        out.contains("9.8") || out.contains("Critical"),
+        "critical vuln should score near 9.8: {}",
+        out
+    );
+}
+
+#[test]
+fn test_cvss_tools_severity_only() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::cvss_tools::execute(
+        &serde_json::json!({"action": "severity", "vector": "CVSS:3.1/AV:L/AC:H/PR:H/UI:R/S:U/C:N/I:L/A:N"}),
+    ));
+    assert!(
+        result.is_ok(),
+        "severity action should succeed: {:?}",
+        result
+    );
+    let out = result.unwrap();
+    assert!(
+        out.contains("Low") || out.contains("None") || out.contains("Medium"),
+        "low-severity vector should not be Critical: {}",
+        out
+    );
+}
+
+#[test]
+fn test_cvss_tools_bad_vector() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::cvss_tools::execute(
+        &serde_json::json!({"action": "decode", "vector": "not-a-cvss-vector"}),
+    ));
+    assert!(result.is_err(), "bad vector should return Err");
+}
+
+// ── nmap_tools ───────────────────────────────────────────────────────────────
+
+const SAMPLE_NMAP_XML: &str = r#"<?xml version="1.0" encoding="UTF-8"?>
+<nmaprun>
+<host starttime="1700000000" endtime="1700000001">
+<status state="up" reason="echo-reply"/>
+<address addr="192.168.1.1" addrtype="ipv4"/>
+<hostnames><hostname name="router.local" type="PTR"/></hostnames>
+<ports>
+<port protocol="tcp" portid="22"><state state="open" reason="syn-ack"/><service name="ssh" product="OpenSSH" version="8.9"/></port>
+<port protocol="tcp" portid="80"><state state="open" reason="syn-ack"/><service name="http" product="nginx" version="1.24"/></port>
+<port protocol="tcp" portid="443"><state state="closed" reason="reset"/><service name="https"/></port>
+</ports>
+</host>
+</nmaprun>"#;
+
+#[test]
+fn test_routing_detects_nmap_tools() {
+    use hematite::agent::routing::needs_nmap_tools;
+    assert!(needs_nmap_tools("parse this nmap xml output"));
+    assert!(needs_nmap_tools("show me nmap scan results"));
+    assert!(needs_nmap_tools("analyze nmap -oX report"));
+    assert!(!needs_nmap_tools("check the weather forecast"));
+}
+
+#[test]
+fn test_nmap_tools_parse() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::nmap_tools::execute(
+        &serde_json::json!({"action": "parse", "xml": SAMPLE_NMAP_XML}),
+    ));
+    assert!(result.is_ok(), "nmap parse should succeed: {:?}", result);
+    let out = result.unwrap();
+    assert!(
+        out.contains("192.168.1.1") || out.contains("router"),
+        "should show host: {}",
+        out
+    );
+    assert!(
+        out.contains("22") || out.contains("ssh"),
+        "should show ssh port: {}",
+        out
+    );
+}
+
+#[test]
+fn test_nmap_tools_hosts() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::nmap_tools::execute(
+        &serde_json::json!({"action": "hosts", "xml": SAMPLE_NMAP_XML}),
+    ));
+    assert!(result.is_ok(), "nmap hosts should succeed: {:?}", result);
+    let out = result.unwrap();
+    assert!(out.contains("192.168.1.1"), "should list host IP: {}", out);
+}
+
+#[test]
+fn test_nmap_tools_summary() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::nmap_tools::execute(
+        &serde_json::json!({"action": "summary", "xml": SAMPLE_NMAP_XML}),
+    ));
+    assert!(result.is_ok(), "nmap summary should succeed: {:?}", result);
+    let out = result.unwrap();
+    assert!(
+        out.contains("Host") || out.contains("Open"),
+        "should show summary: {}",
+        out
+    );
+}
+
+// ── postman_tools ─────────────────────────────────────────────────────────────
+
+const SAMPLE_POSTMAN_COLLECTION: &str = r#"{
+  "info": {
+    "name": "My Test API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "url": {"raw": "https://api.example.com/auth/login"},
+            "auth": {"type": "basic"},
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {"mode": "raw"}
+          }
+        }
+      ]
+    },
+    {
+      "name": "Get Users",
+      "request": {
+        "method": "GET",
+        "url": {"raw": "https://api.example.com/users"},
+        "header": []
+      }
+    }
+  ],
+  "variable": [{"key": "base_url", "value": "https://api.example.com"}]
+}"#;
+
+#[test]
+fn test_routing_detects_postman_tools() {
+    use hematite::agent::routing::needs_postman_tools;
+    assert!(needs_postman_tools("parse this postman collection"));
+    assert!(needs_postman_tools(
+        "show me the postman requests in this collection.json"
+    ));
+    assert!(needs_postman_tools("list all postman api folders"));
+    assert!(!needs_postman_tools("check disk space on server"));
+}
+
+#[test]
+fn test_postman_tools_parse() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::postman_tools::execute(
+        &serde_json::json!({"action": "parse", "json": SAMPLE_POSTMAN_COLLECTION}),
+    ));
+    assert!(result.is_ok(), "postman parse should succeed: {:?}", result);
+    let out = result.unwrap();
+    assert!(
+        out.contains("My Test API") || out.contains("Login") || out.contains("GET"),
+        "should show collection: {}",
+        out
+    );
+}
+
+#[test]
+fn test_postman_tools_summary() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::postman_tools::execute(
+        &serde_json::json!({"action": "summary", "json": SAMPLE_POSTMAN_COLLECTION}),
+    ));
+    assert!(
+        result.is_ok(),
+        "postman summary should succeed: {:?}",
+        result
+    );
+    let out = result.unwrap();
+    assert!(
+        out.contains("Request") || out.contains("POST") || out.contains("GET"),
+        "should show summary: {}",
+        out
+    );
+}
+
+#[test]
+fn test_postman_tools_vars() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::postman_tools::execute(
+        &serde_json::json!({"action": "vars", "json": SAMPLE_POSTMAN_COLLECTION}),
+    ));
+    assert!(result.is_ok(), "postman vars should succeed: {:?}", result);
+    let out = result.unwrap();
+    assert!(
+        out.contains("base_url") || out.contains("api.example.com"),
+        "should show variable: {}",
+        out
+    );
+}
+
+// ── ldif_tools ───────────────────────────────────────────────────────────────
+
+const SAMPLE_LDIF: &str = r#"
+dn: uid=jdoe,ou=users,dc=example,dc=com
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+cn: John Doe
+uid: jdoe
+mail: jdoe@example.com
+sn: Doe
+
+dn: uid=asmith,ou=users,dc=example,dc=com
+objectClass: inetOrgPerson
+cn: Alice Smith
+uid: asmith
+mail: asmith@example.com
+sn: Smith
+userPassword: {SSHA}secret123
+"#;
+
+#[test]
+fn test_routing_detects_ldif_tools() {
+    use hematite::agent::routing::needs_ldif_tools;
+    assert!(needs_ldif_tools("parse this ldif file"));
+    assert!(needs_ldif_tools("show me the ldap entries in this .ldif"));
+    assert!(needs_ldif_tools("analyze ldap directory export"));
+    assert!(!needs_ldif_tools("show the weather today"));
+}
+
+#[test]
+fn test_ldif_tools_parse() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::ldif_tools::execute(
+        &serde_json::json!({"action": "parse", "ldif": SAMPLE_LDIF}),
+    ));
+    assert!(result.is_ok(), "ldif parse should succeed: {:?}", result);
+    let out = result.unwrap();
+    assert!(
+        out.contains("jdoe") || out.contains("John Doe"),
+        "should show entry: {}",
+        out
+    );
+    assert!(
+        !out.contains("secret123"),
+        "should redact password: {}",
+        out
+    );
+}
+
+#[test]
+fn test_ldif_tools_summary() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::ldif_tools::execute(
+        &serde_json::json!({"action": "summary", "ldif": SAMPLE_LDIF}),
+    ));
+    assert!(result.is_ok(), "ldif summary should succeed: {:?}", result);
+    let out = result.unwrap();
+    assert!(
+        out.contains("2") || out.contains("Entries") || out.contains("inetOrgPerson"),
+        "should show summary: {}",
+        out
+    );
+}
+
+#[test]
+fn test_ldif_tools_search() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::ldif_tools::execute(
+        &serde_json::json!({"action": "search", "ldif": SAMPLE_LDIF, "query": "alice"}),
+    ));
+    assert!(result.is_ok(), "ldif search should succeed: {:?}", result);
+    let out = result.unwrap();
+    assert!(
+        out.contains("asmith") || out.contains("Alice"),
+        "should find alice: {}",
+        out
+    );
+}
+
+// ── iptables_tools ───────────────────────────────────────────────────────────
+
+const SAMPLE_IPTABLES: &str = r#"# Generated by iptables-save
+*filter
+:INPUT DROP [0:0]
+:FORWARD DROP [0:0]
+:OUTPUT ACCEPT [1234:56789]
+-A INPUT -i lo -j ACCEPT
+-A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
+-A INPUT -p tcp --dport 22 -j ACCEPT
+-A INPUT -p tcp --dport 80 -j ACCEPT
+-A INPUT -p tcp --dport 443 -j ACCEPT
+-A INPUT -j LOG --log-prefix "DROP: "
+COMMIT
+*nat
+:PREROUTING ACCEPT [0:0]
+:POSTROUTING ACCEPT [0:0]
+-A POSTROUTING -o eth0 -j MASQUERADE
+COMMIT
+"#;
+
+#[test]
+fn test_routing_detects_iptables_tools() {
+    use hematite::agent::routing::needs_iptables_tools;
+    assert!(needs_iptables_tools("parse this iptables-save output"));
+    assert!(needs_iptables_tools(
+        "show me the iptables rules on this linux box"
+    ));
+    assert!(needs_iptables_tools(
+        "analyze iptables firewall configuration"
+    ));
+    assert!(!needs_iptables_tools("what color is the sky"));
+}
+
+#[test]
+fn test_iptables_tools_parse() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::iptables_tools::execute(
+        &serde_json::json!({"action": "parse", "iptables": SAMPLE_IPTABLES}),
+    ));
+    assert!(
+        result.is_ok(),
+        "iptables parse should succeed: {:?}",
+        result
+    );
+    let out = result.unwrap();
+    assert!(
+        out.contains("INPUT") || out.contains("ACCEPT") || out.contains("DROP"),
+        "should show chains and targets: {}",
+        out
+    );
+}
+
+#[test]
+fn test_iptables_tools_chains() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::iptables_tools::execute(
+        &serde_json::json!({"action": "chains", "iptables": SAMPLE_IPTABLES}),
+    ));
+    assert!(
+        result.is_ok(),
+        "iptables chains should succeed: {:?}",
+        result
+    );
+    let out = result.unwrap();
+    assert!(
+        out.contains("filter") || out.contains("INPUT"),
+        "should list chains: {}",
+        out
+    );
+}
+
+#[test]
+fn test_iptables_tools_ports() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::iptables_tools::execute(
+        &serde_json::json!({"action": "ports", "iptables": SAMPLE_IPTABLES}),
+    ));
+    assert!(
+        result.is_ok(),
+        "iptables ports should succeed: {:?}",
+        result
+    );
+    let out = result.unwrap();
+    assert!(
+        out.contains("22") || out.contains("80") || out.contains("443"),
+        "should show port rules: {}",
+        out
+    );
+}
+
+#[test]
+fn test_iptables_tools_summary() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::iptables_tools::execute(
+        &serde_json::json!({"action": "summary", "iptables": SAMPLE_IPTABLES}),
+    ));
+    assert!(
+        result.is_ok(),
+        "iptables summary should succeed: {:?}",
+        result
+    );
+    let out = result.unwrap();
+    assert!(
+        out.contains("filter") || out.contains("nat") || out.contains("Summary"),
+        "should show table summary: {}",
+        out
+    );
+}

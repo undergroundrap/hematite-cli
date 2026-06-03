@@ -11360,6 +11360,117 @@ pub fn needs_helm_tools(user_input: &str) -> bool {
     )
 }
 
+pub fn needs_cvss_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "cvss",
+            "cvss score",
+            "cvss vector",
+            "cvss v3",
+            "cvss:3.",
+            "av:n/ac:",
+            "base score",
+            "vulnerability score",
+            "vulnerability severity",
+            "cvss calculator",
+            "cvss decode",
+            "cvss rating",
+            "nvd score",
+            "cve score",
+            "exploitability score",
+            "impact score",
+        ],
+    )
+}
+
+pub fn needs_nmap_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "nmap",
+            "nmap xml",
+            "nmap scan",
+            "nmap output",
+            "nmap result",
+            "parse nmap",
+            "nmap report",
+            "port scan result",
+            "network scan xml",
+            "nmap -ox",
+        ],
+    )
+}
+
+pub fn needs_postman_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "postman",
+            "postman collection",
+            "postman collection.json",
+            "postman requests",
+            "postman folder",
+            "postman api",
+            "parse postman",
+            "postman export",
+            "postman variables",
+            "postman environment",
+            "api collection",
+            "collection.json",
+        ],
+    )
+}
+
+pub fn needs_ldif_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "ldif",
+            ".ldif",
+            "ldif file",
+            "parse ldif",
+            "ldap data",
+            "ldap export",
+            "ldap entries",
+            "ldap directory",
+            "openldap",
+            "active directory ldif",
+            "ldap dn",
+            "directory information",
+            "objectclass ldap",
+            "ldap attributes",
+        ],
+    )
+}
+
+pub fn needs_iptables_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "iptables",
+            "iptables-save",
+            "iptables rules",
+            "iptables chain",
+            "iptables filter",
+            "iptables nat",
+            "iptables mangle",
+            "ip6tables",
+            "parse iptables",
+            "firewall rules iptables",
+            "netfilter",
+            "iptables-restore",
+            "iptables policy",
+            "linux firewall rules",
+        ],
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

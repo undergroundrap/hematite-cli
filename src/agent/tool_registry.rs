@@ -6562,6 +6562,75 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         crate::tools::helm_tools::make_schema(),
     ));
     tools.push(make_tool(
+        "cvss_tools",
+        "Decode, score, and compare CVSS v3.x vulnerability vectors without external utilities. \
+         Actions: \
+         `decode` (default) — human-readable breakdown of every CVSS metric: Attack Vector, Attack Complexity, Privileges Required, User Interaction, \
+           Scope, Confidentiality/Integrity/Availability Impact with plain-English label per value; \
+         `score` — full CVSS v3.1 formula walkthrough: ISS, ISCBase, Exploitability, BaseScore calculation with Roundup, and severity rating; \
+         `severity` — quick rating only: None/Low/Medium/High/Critical for the given vector; \
+         `compare` — side-by-side metric and score comparison of two vectors: pass 'vector_a' and 'vector_b'. \
+         Input: 'vector' as a CVSS:3.x/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H string (or 'vector_a'/'vector_b' for compare). \
+         Supports CVSS 3.0 and 3.1. PR scores adjust automatically for Scope Changed. \
+         Example: cvss_tools(action: 'score', vector: 'CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H').",
+        crate::tools::cvss_tools::make_schema(),
+    ));
+    tools.push(make_tool(
+        "nmap_tools",
+        "Parse and analyze nmap XML scan output without external utilities — no nmap binary required. \
+         Actions: \
+         `parse` (default) — per-host port listing with state icons (✓ open / ✗ closed / ? filtered), service name, and version; \
+         `hosts` — host summary table: IP, hostname, status (up/down), open port count, OS guess; \
+         `ports` — flat port list sorted by port number filterable by state (default: open); \
+         `services` — service-name distribution across all scanned hosts with host:port preview; \
+         `summary` — scan totals: host count, hosts up/down, open port count, filtered ports, OS identification count, top services. \
+         Input: 'xml' (inline nmap -oX output) or 'file' (path to .xml). \
+         Optional: 'host' to filter by IP or hostname substring, 'state' (open/closed/filtered), 'limit'. \
+         Example: nmap_tools(action: 'ports', file: 'scan.xml') or nmap_tools(action: 'summary', xml: '<nmaprun>...').",
+        crate::tools::nmap_tools::make_schema(),
+    ));
+    tools.push(make_tool(
+        "postman_tools",
+        "Parse and inspect Postman Collection v2.1 JSON files without external utilities. \
+         Actions: \
+         `parse` (default) — tabular request listing with HTTP method, name, folder, auth type, and URL; optional filters: 'folder', 'method', 'query', 'limit'; \
+         `requests` — detailed per-request view: URL, auth, body mode (raw/formdata/urlencoded), header count, query param count, test/pre-request script presence; \
+         `folders` — folder hierarchy with request counts per folder; \
+         `vars` — collection-level variable listing with secret-shaped values redacted (key/token/secret/pass); \
+         `summary` — collection totals: request count, folder count, variable count, with-tests count, HTTP method breakdown, auth type breakdown. \
+         Input: 'json' (inline collection JSON string) or 'file' (path to .json Postman collection). \
+         Example: postman_tools(action: 'summary', file: 'MyAPI.postman_collection.json') or postman_tools(action: 'folders', json: '{...}').",
+        crate::tools::postman_tools::make_schema(),
+    ));
+    tools.push(make_tool(
+        "ldif_tools",
+        "Parse and analyze LDAP Data Interchange Format (LDIF) files without external utilities. \
+         Actions: \
+         `parse` (default) — entries with DN, changetype, objectClass list, and attribute values; password/secret attributes auto-redacted; \
+         `search` — filter entries by DN, attribute name, or value substring; pass 'query'; \
+         `attrs` — attribute coverage table: name, total count, and % of entries that have the attribute; \
+         `schema` — subschema/schema entry breakdown, or objectClass distribution found in data when no schema entry exists; \
+         `summary` — entry count, avg attribute count, objectClass distribution, detected directory domain from DC= components. \
+         Handles RFC 2849 line unfolding, base64-encoded values (::), URL references (<), and multi-valued attributes. \
+         Input: 'ldif'/'text' (inline LDIF) or 'file' (path to .ldif). Optional: 'dn', 'query', 'limit'. \
+         Example: ldif_tools(action: 'search', file: 'users.ldif', query: 'john') or ldif_tools(action: 'summary', text: 'dn: uid=...').",
+        crate::tools::ldif_tools::make_schema(),
+    ));
+    tools.push(make_tool(
+        "iptables_tools",
+        "Parse and analyze iptables-save output without external utilities — no iptables binary or root required. \
+         Actions: \
+         `parse` (default) — per-chain rule listing with target icons (✓ ACCEPT / ✗ DROP-REJECT / L LOG / ⇄ NAT) and match criteria; \
+         `chains` — chain summary table: table, chain name, default policy, rule count, packet count; \
+         `rules` — flat rule table: table, chain, target, match summary; filterable by 'table', 'chain', 'target', 'query'; \
+         `ports` — port-specific rules only: table, chain, protocol, dport, target; \
+         `summary` — per-table/chain stats plus risk observations (broad ACCEPT rules with no source/dest/port, FORWARD ACCEPT count). \
+         Input: 'iptables'/'text' (inline iptables-save output) or 'file' (path to saved rules file). \
+         Optional: 'table' (filter/nat/mangle/raw), 'chain', 'target', 'query'. \
+         Example: iptables_tools(action: 'summary', file: '/etc/iptables/rules.v4') or iptables_tools(action: 'ports', table: 'filter').",
+        crate::tools::iptables_tools::make_schema(),
+    ));
+    tools.push(make_tool(
         "macho_tools",
         "Inspect macOS Mach-O binaries (executables, dylibs, frameworks, bundles, fat/universal binaries) without external tools — no otool or nm required. \
          Actions: \
@@ -7495,6 +7564,11 @@ pub async fn dispatch_builtin_tool(
         "grpc_tools" => crate::tools::grpc_tools::execute(args).await,
         "haproxy_tools" => crate::tools::haproxy_tools::execute(args).await,
         "helm_tools" => crate::tools::helm_tools::execute(args).await,
+        "cvss_tools" => crate::tools::cvss_tools::execute(args).await,
+        "nmap_tools" => crate::tools::nmap_tools::execute(args).await,
+        "postman_tools" => crate::tools::postman_tools::execute(args).await,
+        "ldif_tools" => crate::tools::ldif_tools::execute(args).await,
+        "iptables_tools" => crate::tools::iptables_tools::execute(args).await,
         "macho_tools" => crate::tools::macho_tools::execute(args).await,
         "pcap_tools" => crate::tools::pcap_tools::execute(args).await,
         "pe_tools" => crate::tools::pe_tools::execute(args).await,
