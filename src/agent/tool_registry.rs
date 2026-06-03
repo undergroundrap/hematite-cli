@@ -6359,6 +6359,39 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         crate::tools::dex_tools::make_schema(),
     ));
     tools.push(make_tool(
+        "tls_tools",
+        "Parse and decode TLS records, ClientHello/ServerHello handshake messages, cipher suites, and extensions from hex bytes or a binary file — no openssl required. \
+         Actions: \
+         `parse` (default) — auto-detect and decode a TLS record; shows record layer (content-type, version, length) and handshake summary; \
+         `client_hello` — full ClientHello breakdown: all cipher suites graded STRONG/GOOD/WEAK/BROKEN, \
+           all extensions with plain-English explanations, extracted SNI hostname, ALPN protocol list, \
+           Heartbleed extension detection (CVE-2014-0160), and GREASE value detection (modern browser signal); \
+         `server_hello` — chosen cipher suite grade, negotiated TLS version from supported_versions extension; \
+         `cipher_suites` — enumerate and grade all cipher suites from a ClientHello; \
+         `extensions` — list all extensions with type number, name, length, and explanation. \
+         Pass 'hex' for raw hex bytes (spaces ignored) or 'file' for a binary file path. \
+         Example: tls_tools(action: 'client_hello', hex: '16030100f1010000ed03030a...') or \
+         tls_tools(action: 'extensions', file: 'capture.bin').",
+        crate::tools::tls_tools::make_schema(),
+    ));
+    tools.push(make_tool(
+        "protobuf_wire_tools",
+        "Decode raw protobuf (Protocol Buffers) wire format bytes without a .proto schema — useful for inspecting gRPC payloads, debugging serialized messages, and reverse-engineering binary formats. \
+         Actions: \
+         `decode` (default) — recursive field-by-field decode; shows field number, wire type (Varint/Fixed32/Fixed64/LenDelim), \
+           and value; auto-expands nested messages with indentation; labels likely UTF-8 strings; \
+         `fields` — flat field summary table: field number, wire type, raw value, and size; \
+         `strings` — extract all UTF-8 string candidates from length-delimited fields (recursively); \
+         `explain` — verbose: for each field, show all possible type interpretations \
+           (uint64/int64/sint64/bool for Varint; uint32/int32/float for Fixed32; double/sfixed64 for Fixed64; string/bytes/nested for LenDelim). \
+         Optional 'depth' parameter (default 3) controls nested message recursion depth. \
+         Pass 'hex' for hex-encoded bytes (spaces ignored) or 'file' for a binary file path. \
+         Example: protobuf_wire_tools(hex: '0a 07 74 65 73 74 69 6e 67') or \
+         protobuf_wire_tools(action: 'strings', file: 'message.bin') or \
+         protobuf_wire_tools(action: 'explain', hex: '08 96 01').",
+        crate::tools::protobuf_wire_tools::make_schema(),
+    ));
+    tools.push(make_tool(
         "macho_tools",
         "Inspect macOS Mach-O binaries (executables, dylibs, frameworks, bundles, fat/universal binaries) without external tools — no otool or nm required. \
          Actions: \
@@ -7278,6 +7311,8 @@ pub async fn dispatch_builtin_tool(
         "materials_tools" => crate::tools::materials_tools::execute(args).await,
         "class_tools" => crate::tools::class_tools::execute(args).await,
         "dex_tools" => crate::tools::dex_tools::execute(args).await,
+        "tls_tools" => crate::tools::tls_tools::execute(args).await,
+        "protobuf_wire_tools" => crate::tools::protobuf_wire_tools::execute(args).await,
         "macho_tools" => crate::tools::macho_tools::execute(args).await,
         "pcap_tools" => crate::tools::pcap_tools::execute(args).await,
         "pe_tools" => crate::tools::pe_tools::execute(args).await,

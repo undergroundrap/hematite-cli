@@ -66,8 +66,9 @@ use crate::agent::routing::{
     needs_systemd_tools, needs_table_tools, needs_tar_tools, needs_template_gen,
     needs_template_tools, needs_terraform_tools, needs_test_run, needs_text_align_tools,
     needs_text_extract_tools, needs_text_tools, needs_thermo_tools, needs_time_zone_tools,
-    needs_tlv_tools, needs_todo_tools, needs_token_tools, needs_toml_tools, needs_totp_tools,
-    needs_trie_tools, needs_unicode_tools, needs_unit_tools, needs_url_tools, needs_uuid_gen,
+    needs_tlv_tools, needs_tls_tools, needs_todo_tools, needs_token_tools, needs_toml_tools,
+    needs_totp_tools, needs_trie_tools, needs_protobuf_wire_tools, needs_unicode_tools,
+    needs_unit_tools, needs_url_tools, needs_uuid_gen,
     needs_validate_tools, needs_vcf_tools, needs_vector_tools, needs_wasm_tools,
     needs_web_manifest_tools, needs_word_tools, needs_xml_tools, needs_yaml_tools,
     preferred_host_inspection_topic, preferred_maintainer_workflow, preferred_workspace_workflow,
@@ -7714,6 +7715,40 @@ impl ConversationManager {
                  Example: dex_tools(file: 'classes.dex') or \
                  dex_tools(action: 'classes', file: 'classes.dex', limit: 100) or \
                  dex_tools(action: 'strings', file: 'classes.dex')."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_tls_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "TLS NOTICE: Use the `tls_tools` tool to parse and decode TLS records, \
+                 ClientHello/ServerHello handshake messages, cipher suites, and extensions from hex bytes. \
+                 Actions: parse (default — auto-detect record type and decode; shows record layer + handshake summary), \
+                 client_hello (full ClientHello breakdown: all cipher suites graded STRONG/GOOD/WEAK/BROKEN, \
+                 all extensions with explanations, SNI hostname, ALPN protocols, Heartbleed extension detection, \
+                 GREASE detection for modern browser fingerprinting), \
+                 server_hello (chosen cipher suite grade, negotiated TLS version from supported_versions extension), \
+                 cipher_suites (enumerate and grade all cipher suites from a ClientHello hex), \
+                 extensions (list all extensions with type, length, and explanation). \
+                 Pass 'hex' for raw hex bytes or 'file' for a binary file. \
+                 Example: tls_tools(action: 'client_hello', hex: '16030100f1...')"
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_protobuf_wire_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "PROTOBUF WIRE NOTICE: Use the `protobuf_wire_tools` tool to decode raw protobuf wire format bytes \
+                 without a .proto schema. \
+                 Actions: decode (default — recursive field-by-field decode; shows field number, wire type, \
+                 and value; auto-expands nested messages and labels UTF-8 strings), \
+                 fields (field number + wire type summary table), \
+                 strings (extract all UTF-8 string candidates from length-delimited fields), \
+                 explain (verbose: all type interpretations per field — uint64/int64/sint64/bool/float for each wire type). \
+                 Optional 'depth' parameter (default 3) controls nested message recursion depth. \
+                 Pass 'hex' for hex-encoded bytes or 'file' for a binary file. \
+                 Example: protobuf_wire_tools(hex: '0a 07 74 65 73 74 69 6e 67') or \
+                 protobuf_wire_tools(action: 'strings', file: 'message.bin')"
                     .to_string(),
             );
         }

@@ -36459,3 +36459,220 @@ fn test_dex_tools_invalid_hex_magic_returns_error() {
         err
     );
 }
+
+// ─── tls_tools routing tests ──────────────────────────────────────────────────
+
+#[test]
+fn test_routing_detects_tls_tools_record() {
+    use hematite::agent::routing::needs_tls_tools;
+    assert!(needs_tls_tools("parse this tls record"));
+    assert!(needs_tls_tools("decode tls record hex"));
+}
+
+#[test]
+fn test_routing_detects_tls_tools_client_hello() {
+    use hematite::agent::routing::needs_tls_tools;
+    assert!(needs_tls_tools("decode clienthello bytes"));
+    assert!(needs_tls_tools("parse client hello handshake"));
+}
+
+#[test]
+fn test_routing_detects_tls_tools_cipher_suite() {
+    use hematite::agent::routing::needs_tls_tools;
+    assert!(needs_tls_tools("what cipher suite is this tls session using"));
+    assert!(needs_tls_tools("tls cipher suites negotiated"));
+}
+
+#[test]
+fn test_routing_detects_tls_tools_heartbleed() {
+    use hematite::agent::routing::needs_tls_tools;
+    assert!(needs_tls_tools("check for heartbleed extension"));
+    assert!(needs_tls_tools("ssl handshake analysis"));
+}
+
+#[test]
+fn test_routing_tls_tools_negative() {
+    use hematite::agent::routing::needs_tls_tools;
+    assert!(!needs_tls_tools("list my todos"));
+    assert!(!needs_tls_tools("parse json file"));
+}
+
+// ─── tls_tools functional tests ──────────────────────────────────────────────
+
+#[test]
+fn test_tls_tools_no_input_returns_error() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::tls_tools::execute(
+        &serde_json::json!({}),
+    ));
+    assert!(result.is_err(), "missing input should return error");
+    let err = result.unwrap_err();
+    assert!(
+        err.contains("hex") || err.contains("file") || err.contains("input"),
+        "meaningful error: {}",
+        err
+    );
+}
+
+#[test]
+fn test_tls_tools_invalid_hex_returns_error() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::tls_tools::execute(
+        &serde_json::json!({"hex": "zzzz"}),
+    ));
+    assert!(result.is_err(), "invalid hex should fail");
+}
+
+#[test]
+fn test_tls_tools_parse_valid_record() {
+    // Minimal TLS 1.2 ClientHello (52 bytes exactly):
+    // Record header (5):  16 03 01 00 2f
+    // HS header (4):      01 00 00 2b
+    // Body (43): legacy_version(2)=0303 + random(32)=00..1f
+    //            + session_id_len(1)=00 + cs_len(2)=0002
+    //            + cipher_suite(2)=1301 + comp_len(1)=01
+    //            + comp(1)=00 + ext_len(2)=0000
+    let hex = "160301002f0100002b0303\
+               000102030405060708090a0b0c0d0e0f\
+               101112131415161718191a1b1c1d1e1f\
+               000002130101000000";
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::tls_tools::execute(
+        &serde_json::json!({"action": "parse", "hex": hex}),
+    ));
+    assert!(result.is_ok(), "valid ClientHello should parse: {:?}", result);
+    let out = result.unwrap();
+    assert!(
+        out.contains("TLS") || out.contains("Record") || out.contains("Handshake"),
+        "should describe TLS record: {}",
+        out
+    );
+}
+
+#[test]
+fn test_tls_tools_client_hello_action() {
+    // Same 52-byte minimal ClientHello
+    let hex = "160301002f0100002b0303\
+               000102030405060708090a0b0c0d0e0f\
+               101112131415161718191a1b1c1d1e1f\
+               000002130101000000";
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::tls_tools::execute(
+        &serde_json::json!({"action": "client_hello", "hex": hex}),
+    ));
+    assert!(result.is_ok(), "client_hello should parse: {:?}", result);
+    let out = result.unwrap();
+    assert!(
+        out.contains("Cipher") || out.contains("cipher") || out.contains("AES"),
+        "should show cipher info: {}",
+        out
+    );
+}
+
+// ─── protobuf_wire_tools routing tests ───────────────────────────────────────
+
+#[test]
+fn test_routing_detects_protobuf_wire_tools_wire_format() {
+    use hematite::agent::routing::needs_protobuf_wire_tools;
+    assert!(needs_protobuf_wire_tools("decode protobuf wire format bytes"));
+    assert!(needs_protobuf_wire_tools("parse proto wire format"));
+}
+
+#[test]
+fn test_routing_detects_protobuf_wire_tools_grpc() {
+    use hematite::agent::routing::needs_protobuf_wire_tools;
+    assert!(needs_protobuf_wire_tools("decode grpc payload bytes"));
+    assert!(needs_protobuf_wire_tools("decode grpc bytes"));
+}
+
+#[test]
+fn test_routing_detects_protobuf_wire_tools_without_schema() {
+    use hematite::agent::routing::needs_protobuf_wire_tools;
+    assert!(needs_protobuf_wire_tools("decode raw protobuf without schema"));
+    assert!(needs_protobuf_wire_tools("decode raw protobuf bytes"));
+}
+
+#[test]
+fn test_routing_detects_protobuf_wire_tools_varint() {
+    use hematite::agent::routing::needs_protobuf_wire_tools;
+    assert!(needs_protobuf_wire_tools("what is this varint protobuf field"));
+    assert!(needs_protobuf_wire_tools("wire type 2 protobuf"));
+}
+
+#[test]
+fn test_routing_protobuf_wire_tools_negative() {
+    use hematite::agent::routing::needs_protobuf_wire_tools;
+    assert!(!needs_protobuf_wire_tools("inspect proto file schema"));
+    assert!(!needs_protobuf_wire_tools("parse json"));
+}
+
+// ─── protobuf_wire_tools functional tests ────────────────────────────────────
+
+#[test]
+fn test_protobuf_wire_tools_no_input_returns_error() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::protobuf_wire_tools::execute(
+        &serde_json::json!({}),
+    ));
+    assert!(result.is_err(), "missing input should return error");
+    let err = result.unwrap_err();
+    assert!(
+        err.contains("hex") || err.contains("file") || err.contains("input"),
+        "meaningful error: {}",
+        err
+    );
+}
+
+#[test]
+fn test_protobuf_wire_tools_simple_string_field() {
+    // field 1, wire type 2 (length-delimited), 7 bytes "testing"
+    // tag varint: (1 << 3) | 2 = 0x0a
+    // length: 07
+    // data: 74 65 73 74 69 6e 67 = "testing"
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::protobuf_wire_tools::execute(
+        &serde_json::json!({"hex": "0a 07 74 65 73 74 69 6e 67"}),
+    ));
+    assert!(result.is_ok(), "should decode simple string: {:?}", result);
+    let out = result.unwrap();
+    assert!(
+        out.contains("testing") || out.contains("field") || out.contains("Field"),
+        "should show decoded content: {}",
+        out
+    );
+}
+
+#[test]
+fn test_protobuf_wire_tools_varint_field() {
+    // field 1, wire type 0 (varint), value 150
+    // tag: 0x08, varint 150 = 0x96 0x01
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::protobuf_wire_tools::execute(
+        &serde_json::json!({"hex": "08 96 01"}),
+    ));
+    assert!(result.is_ok(), "should decode varint: {:?}", result);
+    let out = result.unwrap();
+    assert!(
+        out.contains("150") || out.contains("Varint") || out.contains("varint"),
+        "should show value 150: {}",
+        out
+    );
+}
+
+#[test]
+fn test_protobuf_wire_tools_strings_action() {
+    // field 1 = "hello", field 2 = "world"
+    // 0a 05 68 65 6c 6c 6f  (field 1, "hello")
+    // 12 05 77 6f 72 6c 64  (field 2, "world")
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::protobuf_wire_tools::execute(
+        &serde_json::json!({"action": "strings", "hex": "0a0568656c6c6f1205776f726c64"}),
+    ));
+    assert!(result.is_ok(), "strings action should work: {:?}", result);
+    let out = result.unwrap();
+    assert!(
+        out.contains("hello") || out.contains("string") || out.contains("String"),
+        "should find string candidates: {}",
+        out
+    );
+}

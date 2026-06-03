@@ -11003,6 +11003,73 @@ pub fn needs_dex_tools(user_input: &str) -> bool {
     )
 }
 
+pub fn needs_tls_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "tls record",
+            "tls handshake",
+            "client hello",
+            "clienthello",
+            "server hello",
+            "serverhello",
+            "tls cipher",
+            "cipher suite",
+            "tls extension",
+            "tls parse",
+            "decode tls",
+            "inspect tls",
+            "tls bytes",
+            "tls hex",
+            "tls 1.2",
+            "tls 1.3",
+            "heartbleed extension",
+            "sni extension",
+            "alpn extension",
+            "supported_versions extension",
+            "key_share extension",
+            "tls alert",
+            "ssl record",
+            "ssl handshake",
+            "ssl client hello",
+            "tls security",
+        ],
+    )
+}
+
+pub fn needs_protobuf_wire_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "protobuf wire",
+            "proto wire",
+            "protobuf bytes",
+            "proto bytes",
+            "decode protobuf",
+            "decode proto",
+            "protobuf hex",
+            "proto hex",
+            "grpc payload",
+            "grpc bytes",
+            "grpc decode",
+            "wire format protobuf",
+            "wire type",
+            "varint protobuf",
+            "protobuf field",
+            "proto field number",
+            "length-delimited",
+            "protobuf binary",
+            "proto binary",
+            "raw protobuf",
+            "raw proto",
+            "protobuf without schema",
+            "proto without schema",
+        ],
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
