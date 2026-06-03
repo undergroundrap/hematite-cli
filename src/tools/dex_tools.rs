@@ -58,8 +58,7 @@ fn parse_header(data: &[u8]) -> Result<(DexHeader, bool), String> {
     let version = String::from_utf8_lossy(&data[4..7]).to_string();
 
     // Endian tag at offset 40
-    let endian_le =
-        u32::from_le_bytes([data[40], data[41], data[42], data[43]]);
+    let endian_le = u32::from_le_bytes([data[40], data[41], data[42], data[43]]);
     let le = endian_le == ENDIAN_CONSTANT;
     if endian_le != ENDIAN_CONSTANT && endian_le != REVERSE_ENDIAN_CONSTANT {
         return Err(format!(
@@ -116,9 +115,19 @@ fn read_string(
         return format!("<string#{}-oob>", idx);
     }
     let data_off = (if le {
-        u32::from_le_bytes([data[id_off], data[id_off + 1], data[id_off + 2], data[id_off + 3]])
+        u32::from_le_bytes([
+            data[id_off],
+            data[id_off + 1],
+            data[id_off + 2],
+            data[id_off + 3],
+        ])
     } else {
-        u32::from_be_bytes([data[id_off], data[id_off + 1], data[id_off + 2], data[id_off + 3]])
+        u32::from_be_bytes([
+            data[id_off],
+            data[id_off + 1],
+            data[id_off + 2],
+            data[id_off + 3],
+        ])
     }) as usize;
 
     if data_off >= data.len() {
@@ -155,11 +164,27 @@ fn read_type_descriptor(data: &[u8], hdr: &DexHeader, type_idx: u32, le: bool) -
         return format!("<type#{}-oob>", type_idx);
     }
     let string_idx = if le {
-        u32::from_le_bytes([data[id_off], data[id_off + 1], data[id_off + 2], data[id_off + 3]])
+        u32::from_le_bytes([
+            data[id_off],
+            data[id_off + 1],
+            data[id_off + 2],
+            data[id_off + 3],
+        ])
     } else {
-        u32::from_be_bytes([data[id_off], data[id_off + 1], data[id_off + 2], data[id_off + 3]])
+        u32::from_be_bytes([
+            data[id_off],
+            data[id_off + 1],
+            data[id_off + 2],
+            data[id_off + 3],
+        ])
     };
-    let raw = read_string(data, hdr.string_ids_off, hdr.string_ids_size, string_idx, le);
+    let raw = read_string(
+        data,
+        hdr.string_ids_off,
+        hdr.string_ids_size,
+        string_idx,
+        le,
+    );
     decode_type_desc(&raw)
 }
 
@@ -318,7 +343,10 @@ fn action_info(data: &[u8], hdr: &DexHeader, le: bool) -> String {
     out.push_str("=== Android DEX Info ===\n\n");
 
     out.push_str(&format!("Magic:         dex\\n{}\n", hdr.version));
-    out.push_str(&format!("Byte order:    {}\n", if le { "little-endian" } else { "big-endian" }));
+    out.push_str(&format!(
+        "Byte order:    {}\n",
+        if le { "little-endian" } else { "big-endian" }
+    ));
     out.push_str(&format!(
         "File size:     {} bytes ({:.1} KB)\n",
         hdr.file_size,
@@ -416,7 +444,10 @@ fn action_methods(data: &[u8], hdr: &DexHeader, le: bool, limit: usize) -> Strin
     }
 
     let count = (hdr.method_ids_size as usize).min(limit);
-    out.push_str(&format!("{:<48} {:<25} {}\n", "Class", "Method", "Return type"));
+    out.push_str(&format!(
+        "{:<48} {:<25} {}\n",
+        "Class", "Method", "Return type"
+    ));
     out.push_str(&format!("{}\n", "-".repeat(100)));
 
     for i in 0..count {
@@ -443,8 +474,7 @@ fn action_methods(data: &[u8], hdr: &DexHeader, le: bool, limit: usize) -> Strin
         };
 
         let class_name = read_type_descriptor(data, hdr, class_idx, le);
-        let method_name =
-            read_string(data, hdr.string_ids_off, hdr.string_ids_size, name_idx, le);
+        let method_name = read_string(data, hdr.string_ids_off, hdr.string_ids_size, name_idx, le);
 
         let return_type = {
             let proto_off = hdr.proto_ids_off as usize + proto_idx as usize * 12;
@@ -588,23 +618,17 @@ pub async fn execute(args: &Value) -> Result<String, String> {
         .get("action")
         .and_then(|v| v.as_str())
         .unwrap_or("info");
-    let limit = args
-        .get("limit")
-        .and_then(|v| v.as_u64())
-        .unwrap_or(50) as usize;
+    let limit = args.get("limit").and_then(|v| v.as_u64()).unwrap_or(50) as usize;
 
     let bytes = if let Some(file_path) = args.get("file").and_then(|v| v.as_str()) {
-        std::fs::read(file_path)
-            .map_err(|e| format!("cannot read file '{}': {}", file_path, e))?
+        std::fs::read(file_path).map_err(|e| format!("cannot read file '{}': {}", file_path, e))?
     } else if let Some(hex_str) = args.get("hex").and_then(|v| v.as_str()) {
         let clean: String = hex_str.chars().filter(|c| c.is_ascii_hexdigit()).collect();
         if clean.len() % 2 != 0 {
             return Err("hex string has odd length".to_string());
         }
         (0..clean.len() / 2)
-            .map(|i| {
-                u8::from_str_radix(&clean[i * 2..i * 2 + 2], 16).map_err(|e| e.to_string())
-            })
+            .map(|i| u8::from_str_radix(&clean[i * 2..i * 2 + 2], 16).map_err(|e| e.to_string()))
             .collect::<Result<Vec<_>, _>>()?
     } else {
         return Err(

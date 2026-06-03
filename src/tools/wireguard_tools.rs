@@ -201,8 +201,7 @@ fn load_input(args: &Value) -> Result<String, String> {
         return Ok(t.to_string());
     }
     if let Some(path) = args["file"].as_str() {
-        return std::fs::read_to_string(path)
-            .map_err(|e| format!("cannot read '{path}': {e}"));
+        return std::fs::read_to_string(path).map_err(|e| format!("cannot read '{path}': {e}"));
     }
     Err("provide 'config', 'text', or 'file'".to_string())
 }
@@ -222,7 +221,10 @@ fn action_info(cfg: &Config) -> String {
     if cfg.interface.address.is_empty() {
         out.push_str("Address:      [not set]\n");
     } else {
-        out.push_str(&format!("Address:      {}\n", cfg.interface.address.join(", ")));
+        out.push_str(&format!(
+            "Address:      {}\n",
+            cfg.interface.address.join(", ")
+        ));
     }
 
     if let Some(ref port) = cfg.interface.listen_port {
@@ -272,10 +274,7 @@ fn action_info(cfg: &Config) -> String {
             })
             .unwrap_or_else(|| "[MISSING]".to_string());
 
-        let ep = peer
-            .endpoint
-            .as_deref()
-            .unwrap_or("—");
+        let ep = peer.endpoint.as_deref().unwrap_or("—");
 
         let allowed = if peer.allowed_ips.is_empty() {
             "[MISSING]".to_string()
@@ -316,22 +315,38 @@ fn action_peers(cfg: &Config) -> String {
             .as_deref()
             .map(|n| format!("─── Peer {} — {} ", i + 1, n))
             .unwrap_or_else(|| format!("─── Peer {} ", i + 1));
-        out.push_str(&format!("{}{}\n", header, "─".repeat(50usize.saturating_sub(header.len()))));
+        out.push_str(&format!(
+            "{}{}\n",
+            header,
+            "─".repeat(50usize.saturating_sub(header.len()))
+        ));
 
         if let Some(ref pk) = peer.public_key {
-            let valid = if is_valid_wg_key(pk) { "✓" } else { "✗ INVALID" };
+            let valid = if is_valid_wg_key(pk) {
+                "✓"
+            } else {
+                "✗ INVALID"
+            };
             out.push_str(&format!("PublicKey:          {} {valid}\n", pk));
         } else {
             out.push_str("PublicKey:          [MISSING]\n");
         }
 
         if let Some(ref psk) = peer.preshared_key {
-            let valid = if is_valid_wg_key(psk) { "✓" } else { "✗ INVALID" };
+            let valid = if is_valid_wg_key(psk) {
+                "✓"
+            } else {
+                "✗ INVALID"
+            };
             out.push_str(&format!("PresharedKey:       [set] {valid}\n"));
         }
 
         if let Some(ref ep) = peer.endpoint {
-            let valid = if validate_endpoint(ep) { "" } else { " ← invalid format" };
+            let valid = if validate_endpoint(ep) {
+                ""
+            } else {
+                " ← invalid format"
+            };
             out.push_str(&format!("Endpoint:           {ep}{valid}\n"));
         }
 
@@ -339,8 +354,16 @@ fn action_peers(cfg: &Config) -> String {
             out.push_str("AllowedIPs:         [MISSING]\n");
         } else {
             for (j, cidr) in peer.allowed_ips.iter().enumerate() {
-                let valid = if validate_cidr(cidr) { "" } else { " ← invalid CIDR" };
-                let label = if j == 0 { "AllowedIPs:         " } else { "                    " };
+                let valid = if validate_cidr(cidr) {
+                    ""
+                } else {
+                    " ← invalid CIDR"
+                };
+                let label = if j == 0 {
+                    "AllowedIPs:         "
+                } else {
+                    "                    "
+                };
                 out.push_str(&format!("{label}{cidr}{valid}\n"));
             }
         }
@@ -362,7 +385,10 @@ fn action_validate(cfg: &Config) -> String {
         issues.push("[Interface] PrivateKey is missing".to_string());
     } else if let Some(ref pk) = cfg.interface.private_key {
         if !is_valid_wg_key(pk) {
-            issues.push("[Interface] PrivateKey is not a valid 32-byte Curve25519 key (44 base64 chars)".to_string());
+            issues.push(
+                "[Interface] PrivateKey is not a valid 32-byte Curve25519 key (44 base64 chars)"
+                    .to_string(),
+            );
         }
     }
 
@@ -379,7 +405,9 @@ fn action_validate(cfg: &Config) -> String {
     if let Some(ref port) = cfg.interface.listen_port {
         match port.parse::<u16>() {
             Ok(0) => issues.push("[Interface] ListenPort 0 is not valid".to_string()),
-            Err(_) => issues.push(format!("[Interface] ListenPort '{port}' is not a valid port number")),
+            Err(_) => issues.push(format!(
+                "[Interface] ListenPort '{port}' is not a valid port number"
+            )),
             Ok(_) => {}
         }
     }
@@ -397,9 +425,9 @@ fn action_validate(cfg: &Config) -> String {
 
         match &peer.public_key {
             None => issues.push(format!("[{id}] PublicKey is missing")),
-            Some(pk) if !is_valid_wg_key(pk) => {
-                issues.push(format!("[{id}] PublicKey is not a valid 32-byte key (44 base64 chars)"))
-            }
+            Some(pk) if !is_valid_wg_key(pk) => issues.push(format!(
+                "[{id}] PublicKey is not a valid 32-byte key (44 base64 chars)"
+            )),
             _ => {}
         }
 
@@ -414,22 +442,32 @@ fn action_validate(cfg: &Config) -> String {
         } else {
             for cidr in &peer.allowed_ips {
                 if !validate_cidr(cidr) {
-                    issues.push(format!("[{id}] AllowedIPs '{cidr}' is not valid CIDR notation"));
+                    issues.push(format!(
+                        "[{id}] AllowedIPs '{cidr}' is not valid CIDR notation"
+                    ));
                 }
             }
         }
 
         if let Some(ref ep) = peer.endpoint {
             if !validate_endpoint(ep) {
-                issues.push(format!("[{id}] Endpoint '{ep}' is not valid host:port format"));
+                issues.push(format!(
+                    "[{id}] Endpoint '{ep}' is not valid host:port format"
+                ));
             }
         }
 
         if let Some(ref ka) = peer.persistent_keepalive {
             match ka.parse::<u32>() {
-                Err(_) => issues.push(format!("[{id}] PersistentKeepalive '{ka}' is not a valid number")),
-                Ok(0) => warnings.push(format!("[{id}] PersistentKeepalive 0 disables keepalives (same as not set)")),
-                Ok(n) if n > 65535 => warnings.push(format!("[{id}] PersistentKeepalive {n} is unusually large")),
+                Err(_) => issues.push(format!(
+                    "[{id}] PersistentKeepalive '{ka}' is not a valid number"
+                )),
+                Ok(0) => warnings.push(format!(
+                    "[{id}] PersistentKeepalive 0 disables keepalives (same as not set)"
+                )),
+                Ok(n) if n > 65535 => {
+                    warnings.push(format!("[{id}] PersistentKeepalive {n} is unusually large"))
+                }
                 _ => {}
             }
         }
@@ -478,7 +516,11 @@ fn action_keys(cfg: &Config) -> String {
     match &cfg.interface.private_key {
         None => out.push_str("PrivateKey: [not set]\n"),
         Some(pk) => {
-            let status = if is_valid_wg_key(pk) { "✓ valid 32-byte key" } else { "✗ invalid format" };
+            let status = if is_valid_wg_key(pk) {
+                "✓ valid 32-byte key"
+            } else {
+                "✗ invalid format"
+            };
             out.push_str(&format!("PrivateKey: [REDACTED] — {status}\n"));
         }
     }
@@ -501,7 +543,11 @@ fn action_keys(cfg: &Config) -> String {
         match &peer.public_key {
             None => out.push_str("  PublicKey:    [not set]\n"),
             Some(pk) => {
-                let status = if is_valid_wg_key(pk) { "✓" } else { "✗ invalid" };
+                let status = if is_valid_wg_key(pk) {
+                    "✓"
+                } else {
+                    "✗ invalid"
+                };
                 out.push_str(&format!("  PublicKey:    {pk} {status}\n"));
             }
         }
@@ -509,7 +555,11 @@ fn action_keys(cfg: &Config) -> String {
         match &peer.preshared_key {
             None => {}
             Some(psk) => {
-                let status = if is_valid_wg_key(psk) { "✓ valid" } else { "✗ invalid" };
+                let status = if is_valid_wg_key(psk) {
+                    "✓ valid"
+                } else {
+                    "✗ invalid"
+                };
                 out.push_str(&format!("  PresharedKey: [REDACTED] — {status}\n"));
             }
         }
@@ -531,7 +581,10 @@ pub async fn execute(args: &Value) -> Result<String, String> {
     if cfg.interface.private_key.is_none() && cfg.peers.is_empty() {
         // Check if this even looks like a WireGuard config
         if !text.contains("[Interface]") && !text.contains("[Peer]") {
-            return Err("does not look like a WireGuard config — expected [Interface] or [Peer] sections".to_string());
+            return Err(
+                "does not look like a WireGuard config — expected [Interface] or [Peer] sections"
+                    .to_string(),
+            );
         }
     }
 

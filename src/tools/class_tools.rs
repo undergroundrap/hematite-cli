@@ -576,7 +576,10 @@ fn action_info(cf: &ClassFile) -> String {
         }
     }
 
-    out.push_str(&format!("\nConstant pool:  {} entries\n", cf.pool.len() - 1));
+    out.push_str(&format!(
+        "\nConstant pool:  {} entries\n",
+        cf.pool.len() - 1
+    ));
     out.push_str(&format!("Fields:         {}\n", cf.fields.len()));
     out.push_str(&format!("Methods:        {}\n", cf.methods.len()));
     out.push_str(&format!("Attributes:     {}\n", cf.attribute_count));
@@ -792,17 +795,14 @@ pub async fn execute(args: &Value) -> Result<String, String> {
         .unwrap_or("info");
 
     let bytes = if let Some(file_path) = args.get("file").and_then(|v| v.as_str()) {
-        std::fs::read(file_path)
-            .map_err(|e| format!("cannot read file '{}': {}", file_path, e))?
+        std::fs::read(file_path).map_err(|e| format!("cannot read file '{}': {}", file_path, e))?
     } else if let Some(hex_str) = args.get("hex").and_then(|v| v.as_str()) {
         let clean: String = hex_str.chars().filter(|c| c.is_ascii_hexdigit()).collect();
         if clean.len() % 2 != 0 {
             return Err("hex string has odd length".to_string());
         }
         (0..clean.len() / 2)
-            .map(|i| {
-                u8::from_str_radix(&clean[i * 2..i * 2 + 2], 16).map_err(|e| e.to_string())
-            })
+            .map(|i| u8::from_str_radix(&clean[i * 2..i * 2 + 2], 16).map_err(|e| e.to_string()))
             .collect::<Result<Vec<_>, _>>()?
     } else {
         return Err(

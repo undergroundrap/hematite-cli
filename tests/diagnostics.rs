@@ -37269,3 +37269,560 @@ fn test_gitlab_ci_tools_validate_missing_script() {
         out
     );
 }
+
+// ── junit_tools ───────────────────────────────────────────────────────────────
+
+#[test]
+fn test_routing_detects_junit_tools_xml() {
+    use hematite::agent::routing::needs_junit_tools;
+    assert!(needs_junit_tools("parse this junit xml"));
+    assert!(needs_junit_tools("show test failures from junit"));
+    assert!(needs_junit_tools("test results xml from ci"));
+}
+
+#[test]
+fn test_routing_detects_junit_tools_xunit() {
+    use hematite::agent::routing::needs_junit_tools;
+    assert!(needs_junit_tools("xunit test report"));
+    assert!(needs_junit_tools(
+        "which tests are failing in this testsuite xml"
+    ));
+}
+
+#[test]
+fn test_routing_does_not_false_positive_junit() {
+    use hematite::agent::routing::needs_junit_tools;
+    assert!(!needs_junit_tools("run cargo tests"));
+    assert!(!needs_junit_tools("show test coverage"));
+}
+
+#[test]
+fn test_junit_tools_parse_simple_xml() {
+    let xml = r#"<?xml version="1.0"?>
+<testsuite name="MySuite" tests="3" failures="1" errors="0" skipped="0" time="1.234">
+  <testcase name="test_ok" classname="com.example.Foo" time="0.1"/>
+  <testcase name="test_fail" classname="com.example.Foo" time="0.5">
+    <failure message="Expected 1 but got 2">AssertionError at line 42</failure>
+  </testcase>
+  <testcase name="test_skip" classname="com.example.Foo" time="0.0">
+    <skipped message="Not yet implemented"/>
+  </testcase>
+</testsuite>"#;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::junit_tools::execute(
+        &serde_json::json!({"action": "parse", "xml": xml}),
+    ));
+    assert!(result.is_ok(), "parse should succeed: {:?}", result);
+    let out = result.unwrap();
+    assert!(out.contains("MySuite"), "should show suite name: {}", out);
+    assert!(out.contains("3"), "should show test count: {}", out);
+}
+
+#[test]
+fn test_junit_tools_failures_action() {
+    let xml = r#"<testsuite name="Suite" tests="2" failures="1">
+  <testcase name="ok" classname="Foo" time="0.1"/>
+  <testcase name="bad" classname="Foo" time="0.5">
+    <failure message="boom">stack trace here</failure>
+  </testcase>
+</testsuite>"#;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::junit_tools::execute(
+        &serde_json::json!({"action": "failures", "xml": xml}),
+    ));
+    assert!(result.is_ok(), "failures should succeed: {:?}", result);
+    let out = result.unwrap();
+    assert!(
+        out.contains("bad") || out.contains("boom"),
+        "should mention failing test: {}",
+        out
+    );
+}
+
+#[test]
+fn test_junit_tools_summary_action() {
+    let xml = r#"<testsuite name="Suite" tests="10" failures="2" errors="1" skipped="1" time="5.0">
+</testsuite>"#;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::junit_tools::execute(
+        &serde_json::json!({"action": "summary", "xml": xml}),
+    ));
+    assert!(result.is_ok(), "summary should succeed: {:?}", result);
+    let out = result.unwrap();
+    assert!(
+        out.contains("10") || out.contains("Suite"),
+        "should show totals: {}",
+        out
+    );
+}
+
+#[test]
+fn test_junit_tools_no_input_error() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::junit_tools::execute(
+        &serde_json::json!({"action": "parse"}),
+    ));
+    assert!(result.is_err(), "should error without xml or file");
+}
+
+// ── ansible_tools ─────────────────────────────────────────────────────────────
+
+#[test]
+fn test_routing_detects_ansible_tools_playbook() {
+    use hematite::agent::routing::needs_ansible_tools;
+    assert!(needs_ansible_tools("parse this ansible playbook"));
+    assert!(needs_ansible_tools(
+        "show all tasks in my ansible playbook.yml"
+    ));
+    assert!(needs_ansible_tools("validate ansible site.yml"));
+}
+
+#[test]
+fn test_routing_detects_ansible_tools_modules() {
+    use hematite::agent::routing::needs_ansible_tools;
+    assert!(needs_ansible_tools(
+        "what ansible modules are used in this playbook"
+    ));
+    assert!(needs_ansible_tools("list ansible handlers"));
+}
+
+#[test]
+fn test_routing_does_not_false_positive_ansible() {
+    use hematite::agent::routing::needs_ansible_tools;
+    assert!(!needs_ansible_tools("run a shell script"));
+    assert!(!needs_ansible_tools("deploy with kubernetes"));
+}
+
+#[test]
+fn test_ansible_tools_parse_simple_playbook() {
+    let yaml = r#"---
+- name: Configure webservers
+  hosts: webservers
+  become: true
+  tasks:
+    - name: Install nginx
+      ansible.builtin.apt:
+        name: nginx
+        state: present
+    - name: Start nginx
+      ansible.builtin.service:
+        name: nginx
+        state: started
+"#;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::ansible_tools::execute(
+        &serde_json::json!({"action": "parse", "yaml": yaml}),
+    ));
+    assert!(result.is_ok(), "parse should succeed: {:?}", result);
+    let out = result.unwrap();
+    assert!(
+        out.contains("webservers") || out.contains("Configure"),
+        "should show play info: {}",
+        out
+    );
+}
+
+#[test]
+fn test_ansible_tools_tasks_action() {
+    let yaml = r#"---
+- name: My Play
+  hosts: all
+  tasks:
+    - name: Copy config
+      ansible.builtin.copy:
+        src: config.conf
+        dest: /etc/app.conf
+      tags: [config]
+    - name: Restart service
+      ansible.builtin.service:
+        name: myapp
+        state: restarted
+      tags: [service]
+"#;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::ansible_tools::execute(
+        &serde_json::json!({"action": "tasks", "yaml": yaml}),
+    ));
+    assert!(result.is_ok(), "tasks should succeed: {:?}", result);
+    let out = result.unwrap();
+    assert!(
+        out.contains("copy") || out.contains("Copy") || out.contains("service"),
+        "should list tasks: {}",
+        out
+    );
+}
+
+#[test]
+fn test_ansible_tools_validate_missing_hosts() {
+    let yaml = r#"---
+- name: Bad play
+  tasks:
+    - name: do something
+      ansible.builtin.debug:
+        msg: hello
+"#;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::ansible_tools::execute(
+        &serde_json::json!({"action": "validate", "yaml": yaml}),
+    ));
+    assert!(
+        result.is_ok(),
+        "validate should return output: {:?}",
+        result
+    );
+    let out = result.unwrap();
+    assert!(
+        out.contains("hosts") || out.contains("warn") || out.contains("issue"),
+        "should warn about missing hosts: {}",
+        out
+    );
+}
+
+#[test]
+fn test_ansible_tools_no_input_error() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::ansible_tools::execute(
+        &serde_json::json!({"action": "parse"}),
+    ));
+    assert!(result.is_err(), "should error without yaml or file");
+}
+
+// ── grpc_tools ────────────────────────────────────────────────────────────────
+
+#[test]
+fn test_routing_detects_grpc_tools_status() {
+    use hematite::agent::routing::needs_grpc_tools;
+    assert!(needs_grpc_tools("what is grpc status code 14"));
+    assert!(needs_grpc_tools("explain grpc error NOT_FOUND"));
+    assert!(needs_grpc_tools("list all grpc status codes"));
+}
+
+#[test]
+fn test_routing_detects_grpc_tools_headers() {
+    use hematite::agent::routing::needs_grpc_tools;
+    assert!(needs_grpc_tools(
+        "what grpc metadata headers are well-known"
+    ));
+    assert!(needs_grpc_tools("explain DEADLINE_EXCEEDED"));
+}
+
+#[test]
+fn test_routing_does_not_false_positive_grpc() {
+    use hematite::agent::routing::needs_grpc_tools;
+    assert!(!needs_grpc_tools("http status code 404"));
+    assert!(!needs_grpc_tools("rest api error handling"));
+}
+
+#[test]
+fn test_grpc_tools_status_by_number() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::grpc_tools::execute(
+        &serde_json::json!({"action": "status", "code": "14"}),
+    ));
+    assert!(
+        result.is_ok(),
+        "status by number should succeed: {:?}",
+        result
+    );
+    let out = result.unwrap();
+    assert!(
+        out.contains("UNAVAILABLE") || out.contains("14"),
+        "should show UNAVAILABLE: {}",
+        out
+    );
+}
+
+#[test]
+fn test_grpc_tools_status_by_name() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::grpc_tools::execute(
+        &serde_json::json!({"action": "status", "code": "NOT_FOUND"}),
+    ));
+    assert!(
+        result.is_ok(),
+        "status by name should succeed: {:?}",
+        result
+    );
+    let out = result.unwrap();
+    assert!(
+        out.contains("NOT_FOUND") || out.contains("5"),
+        "should show NOT_FOUND: {}",
+        out
+    );
+}
+
+#[test]
+fn test_grpc_tools_list_all() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::grpc_tools::execute(
+        &serde_json::json!({"action": "list"}),
+    ));
+    assert!(result.is_ok(), "list should succeed: {:?}", result);
+    let out = result.unwrap();
+    assert!(
+        out.contains("OK") && out.contains("UNAUTHENTICATED"),
+        "should list all codes: {}",
+        out
+    );
+}
+
+#[test]
+fn test_grpc_tools_explain_with_retryability() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::grpc_tools::execute(
+        &serde_json::json!({"action": "explain", "code": "UNAVAILABLE"}),
+    ));
+    assert!(result.is_ok(), "explain should succeed: {:?}", result);
+    let out = result.unwrap();
+    assert!(
+        out.contains("Retryable") || out.contains("backoff") || out.contains("retry"),
+        "should mention retryability: {}",
+        out
+    );
+}
+
+#[test]
+fn test_grpc_tools_headers() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::grpc_tools::execute(
+        &serde_json::json!({"action": "headers"}),
+    ));
+    assert!(result.is_ok(), "headers should succeed: {:?}", result);
+    let out = result.unwrap();
+    assert!(
+        out.contains("grpc-status") || out.contains("content-type"),
+        "should list grpc headers: {}",
+        out
+    );
+}
+
+// ── haproxy_tools ─────────────────────────────────────────────────────────────
+
+#[test]
+fn test_routing_detects_haproxy_tools_config() {
+    use hematite::agent::routing::needs_haproxy_tools;
+    assert!(needs_haproxy_tools("parse my haproxy.cfg"));
+    assert!(needs_haproxy_tools("show haproxy frontend configuration"));
+    assert!(needs_haproxy_tools("validate haproxy config file"));
+}
+
+#[test]
+fn test_routing_detects_haproxy_tools_backends() {
+    use hematite::agent::routing::needs_haproxy_tools;
+    assert!(needs_haproxy_tools("list haproxy backend servers"));
+    assert!(needs_haproxy_tools("haproxy balance algorithm"));
+}
+
+#[test]
+fn test_routing_does_not_false_positive_haproxy() {
+    use hematite::agent::routing::needs_haproxy_tools;
+    assert!(!needs_haproxy_tools("nginx config file"));
+    assert!(!needs_haproxy_tools("apache vhost"));
+}
+
+const SAMPLE_HAPROXY_CFG: &str = r#"global
+    log /dev/log local0
+    maxconn 4096
+
+defaults
+    mode http
+    timeout connect 5000ms
+    timeout client  50000ms
+    timeout server  50000ms
+
+frontend http_front
+    bind *:80
+    default_backend http_back
+
+backend http_back
+    balance roundrobin
+    server web1 192.168.1.10:8080 check
+    server web2 192.168.1.11:8080 check
+"#;
+
+#[test]
+fn test_haproxy_tools_parse() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::haproxy_tools::execute(
+        &serde_json::json!({"action": "parse", "config": SAMPLE_HAPROXY_CFG}),
+    ));
+    assert!(result.is_ok(), "parse should succeed: {:?}", result);
+    let out = result.unwrap();
+    assert!(
+        out.contains("http_front") || out.contains("frontend") || out.contains("http_back"),
+        "should show section names: {}",
+        out
+    );
+}
+
+#[test]
+fn test_haproxy_tools_backends() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::haproxy_tools::execute(
+        &serde_json::json!({"action": "backends", "config": SAMPLE_HAPROXY_CFG}),
+    ));
+    assert!(result.is_ok(), "backends should succeed: {:?}", result);
+    let out = result.unwrap();
+    assert!(
+        out.contains("roundrobin") || out.contains("http_back"),
+        "should show backend info: {}",
+        out
+    );
+}
+
+#[test]
+fn test_haproxy_tools_servers() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::haproxy_tools::execute(
+        &serde_json::json!({"action": "servers", "config": SAMPLE_HAPROXY_CFG}),
+    ));
+    assert!(result.is_ok(), "servers should succeed: {:?}", result);
+    let out = result.unwrap();
+    assert!(
+        out.contains("web1") || out.contains("192.168.1.10"),
+        "should list servers: {}",
+        out
+    );
+}
+
+#[test]
+fn test_haproxy_tools_validate_ok() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::haproxy_tools::execute(
+        &serde_json::json!({"action": "validate", "config": SAMPLE_HAPROXY_CFG}),
+    ));
+    assert!(
+        result.is_ok(),
+        "validate should return output: {:?}",
+        result
+    );
+    // Either ok or warnings — both valid
+    let out = result.unwrap();
+    assert!(!out.is_empty(), "should return non-empty output: {}", out);
+}
+
+// ── helm_tools ────────────────────────────────────────────────────────────────
+
+#[test]
+fn test_routing_detects_helm_tools_chart() {
+    use hematite::agent::routing::needs_helm_tools;
+    assert!(needs_helm_tools("inspect this helm chart"));
+    assert!(needs_helm_tools("show helm values.yaml top keys"));
+    assert!(needs_helm_tools("validate chart.yaml"));
+}
+
+#[test]
+fn test_routing_detects_helm_tools_deps() {
+    use hematite::agent::routing::needs_helm_tools;
+    assert!(needs_helm_tools("list helm dependencies"));
+    assert!(needs_helm_tools("show helm chart templates"));
+}
+
+#[test]
+fn test_routing_does_not_false_positive_helm() {
+    use hematite::agent::routing::needs_helm_tools;
+    assert!(!needs_helm_tools("kubectl apply a deployment"));
+    assert!(!needs_helm_tools("docker compose file"));
+}
+
+const SAMPLE_CHART_YAML: &str = r#"apiVersion: v2
+name: myapp
+description: A sample Helm chart for Kubernetes
+type: application
+version: 1.2.3
+appVersion: "2.0.0"
+keywords:
+  - web
+  - app
+maintainers:
+  - name: Alice
+    email: alice@example.com
+"#;
+
+const SAMPLE_VALUES_YAML: &str = r#"replicaCount: 2
+image:
+  repository: myapp
+  tag: latest
+  pullPolicy: IfNotPresent
+service:
+  type: ClusterIP
+  port: 80
+ingress:
+  enabled: false
+resources:
+  limits:
+    cpu: 100m
+    memory: 128Mi
+"#;
+
+#[test]
+fn test_helm_tools_chart_inline() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::helm_tools::execute(
+        &serde_json::json!({"action": "chart", "chart_yaml": SAMPLE_CHART_YAML}),
+    ));
+    assert!(result.is_ok(), "chart should succeed: {:?}", result);
+    let out = result.unwrap();
+    assert!(
+        out.contains("myapp") || out.contains("1.2.3"),
+        "should show chart metadata: {}",
+        out
+    );
+}
+
+#[test]
+fn test_helm_tools_values_inline() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::helm_tools::execute(
+        &serde_json::json!({"action": "values", "values_yaml": SAMPLE_VALUES_YAML}),
+    ));
+    assert!(result.is_ok(), "values should succeed: {:?}", result);
+    let out = result.unwrap();
+    assert!(
+        out.contains("replicaCount") || out.contains("image"),
+        "should list top-level keys: {}",
+        out
+    );
+}
+
+#[test]
+fn test_helm_tools_validate_inline() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::helm_tools::execute(
+        &serde_json::json!({"action": "validate", "chart_yaml": SAMPLE_CHART_YAML}),
+    ));
+    assert!(result.is_ok(), "validate should succeed: {:?}", result);
+    let out = result.unwrap();
+    // v2 apiVersion is fine — should show OK or pass
+    assert!(
+        out.contains("VALID")
+            || out.contains("ok")
+            || out.contains("pass")
+            || out.contains("myapp"),
+        "should show validation result: {}",
+        out
+    );
+}
+
+#[test]
+fn test_helm_tools_validate_missing_fields() {
+    let incomplete = "name: broken-chart\n";
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::helm_tools::execute(
+        &serde_json::json!({"action": "validate", "chart_yaml": incomplete}),
+    ));
+    assert!(
+        result.is_ok(),
+        "validate should return output: {:?}",
+        result
+    );
+    let out = result.unwrap();
+    assert!(
+        out.contains("version")
+            || out.contains("apiVersion")
+            || out.contains("missing")
+            || out.contains("warn"),
+        "should warn on missing fields: {}",
+        out
+    );
+}

@@ -6498,6 +6498,70 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         crate::tools::gitlab_ci_tools::make_schema(),
     ));
     tools.push(make_tool(
+        "junit_tools",
+        "Parse and analyze JUnit/xUnit XML test result files. Works offline — no test runner or external utilities required. \
+         Actions: \
+         `parse` (default) — suite overview: total tests, passed, failed, errors, skipped, time; per-suite breakdown with failing test names and first-line message; \
+         `failures` — only failing and erroring test cases with status, class name, message, and stack trace body (up to 12 lines); \
+         `summary` — aggregate stats with pass-rate ASCII progress bar and PASSED/FAILED verdict; \
+         `list` — all test cases with status icon, time, and class::name; optional 'status' filter: passed/failed/error/skipped. \
+         Input: 'xml' for inline JUnit XML content; 'file' for path to a .xml test result file. \
+         Example: junit_tools(action: 'failures', file: 'build/test-results/TEST-com.example.Suite.xml') or \
+         junit_tools(action: 'summary', xml: '<testsuite name=\"Suite\" tests=\"10\" failures=\"2\">...</testsuite>').",
+        crate::tools::junit_tools::make_schema(),
+    ));
+    tools.push(make_tool(
+        "ansible_tools",
+        "Parse and inspect Ansible playbooks without external tools — no ansible or ansible-lint required. \
+         Actions: \
+         `parse` (default) — play overview: hosts, task count, handler count, var count, roles; module usage frequency table; \
+         `tasks` — all tasks with module name, display name, tags, when condition, notify, loop; optional 'tag' to filter by tag name; \
+         `vars` — all variables defined in vars: and vars_files: across all plays; \
+         `handlers` — all handlers with module and listening/notified-by info; \
+         `validate` — warn on: missing hosts, missing name on tasks, bare variables ({{ var }} vs \"{{ var }}\"), missing become_user when become: true. \
+         Input: 'yaml'/'playbook' for inline YAML; 'file' for path to .yml playbook. \
+         Example: ansible_tools(action: 'tasks', file: 'site.yml') or ansible_tools(action: 'validate', file: 'deploy.yml').",
+        crate::tools::ansible_tools::make_schema(),
+    ));
+    tools.push(make_tool(
+        "grpc_tools",
+        "Look up gRPC status codes, explain error causes, and list well-known gRPC metadata headers without external utilities. \
+         Actions: \
+         `status` (default) — look up a gRPC status code by number (0–16) or name (e.g. NOT_FOUND); shows code, name, HTTP equivalent, summary; \
+         `explain` — detailed breakdown for a status code: description, common causes, fix steps, retryability; pass 'code'; \
+         `list` — all 17 gRPC status codes (0=OK through 16=UNAUTHENTICATED) with HTTP equivalent and one-line summary; \
+         `headers` — well-known gRPC metadata headers (content-type, grpc-status, grpc-timeout, grpc-encoding, etc.) with direction and description. \
+         Example: grpc_tools(action: 'explain', code: 'DEADLINE_EXCEEDED') or grpc_tools(action: 'status', code: '14') or grpc_tools(action: 'list').",
+        crate::tools::grpc_tools::make_schema(),
+    ));
+    tools.push(make_tool(
+        "haproxy_tools",
+        "Parse, inspect, and validate HAProxy configuration files without external tools — no haproxy binary required. \
+         Actions: \
+         `parse` (default) — overview: global directives, defaults, frontend/backend/listen section counts with names; \
+         `frontends` — per-frontend: bind addresses, ACL rules (name, pattern), use_backend/default_backend mappings; \
+         `backends` — per-backend: balance algorithm, option directives, server list with name/address/options; \
+         `servers` — flat tabular listing of all servers across all backends: backend name, server name, address:port, options; \
+         `validate` — warn on: frontends with no bind, use_backend referencing undefined backend, unreferenced backends, duplicate section names. \
+         Input: 'config'/'text' for inline haproxy.cfg content; 'file' for path to config file. \
+         Example: haproxy_tools(action: 'validate', file: '/etc/haproxy/haproxy.cfg') or haproxy_tools(action: 'servers', file: 'haproxy.cfg').",
+        crate::tools::haproxy_tools::make_schema(),
+    ));
+    tools.push(make_tool(
+        "helm_tools",
+        "Inspect Helm charts without external tools — no helm binary or Kubernetes cluster required. \
+         Actions: \
+         `chart` (default) — Chart.yaml metadata: name, version, appVersion, apiVersion, chart type, description, keywords, maintainers, dependency count; \
+         `values` — top-level keys from values.yaml with type label and value preview; type summary (string/number/boolean/object/array counts); \
+                    detected features (image config, ingress, service, resources, replicas, autoscaling, serviceAccount, security); \
+         `deps` — dependency table: name, version, repository URL, condition, alias (from Chart.yaml dependencies or requirements.yaml); \
+         `validate` — warn on: missing name/version/apiVersion, non-semver version, apiVersion v1 (deprecated), empty description; \
+         `templates` — list files under templates/ dir with detected Kubernetes resource type (Deployment/Service/Ingress/etc.); requires 'chart_dir'. \
+         Input: 'chart_dir' for path to chart root directory; or 'chart_yaml'/'values_yaml' for inline YAML content. \
+         Example: helm_tools(action: 'values', chart_dir: './charts/myapp') or helm_tools(action: 'validate', chart_dir: '.').",
+        crate::tools::helm_tools::make_schema(),
+    ));
+    tools.push(make_tool(
         "macho_tools",
         "Inspect macOS Mach-O binaries (executables, dylibs, frameworks, bundles, fat/universal binaries) without external tools — no otool or nm required. \
          Actions: \
@@ -7426,6 +7490,11 @@ pub async fn dispatch_builtin_tool(
         "webhook_tools" => crate::tools::webhook_tools::execute(args).await,
         "jwk_tools" => crate::tools::jwk_tools::execute(args).await,
         "gitlab_ci_tools" => crate::tools::gitlab_ci_tools::execute(args).await,
+        "junit_tools" => crate::tools::junit_tools::execute(args).await,
+        "ansible_tools" => crate::tools::ansible_tools::execute(args).await,
+        "grpc_tools" => crate::tools::grpc_tools::execute(args).await,
+        "haproxy_tools" => crate::tools::haproxy_tools::execute(args).await,
+        "helm_tools" => crate::tools::helm_tools::execute(args).await,
         "macho_tools" => crate::tools::macho_tools::execute(args).await,
         "pcap_tools" => crate::tools::pcap_tools::execute(args).await,
         "pe_tools" => crate::tools::pe_tools::execute(args).await,

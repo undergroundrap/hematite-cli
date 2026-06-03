@@ -28,33 +28,34 @@ use crate::agent::recovery_recipes::{
 use crate::agent::routing::{
     all_host_inspection_topics, classify_query_intent, is_capability_probe_tool,
     is_scaffold_request, looks_like_mutation_request, needs_acoustics_tools, needs_ansi_tools,
-    needs_archive_tools, needs_ascii_chart_tools, needs_ascii_tools, needs_asn1_tools,
-    needs_astro_tools, needs_base_tools, needs_bencode_tools, needs_bin_pack_tools,
-    needs_binary_tools, needs_bio_tools, needs_calc_tools, needs_cbor_tools, needs_changelog_gen,
-    needs_changelog_tools, needs_char_tools, needs_checksum_tools, needs_chemistry_tools,
-    needs_cipher_tools, needs_circuit_tools, needs_cite_tools, needs_class_tools,
-    needs_code_metrics, needs_color_tools, needs_compression_tools, needs_computation_sandbox,
-    needs_conda_tools, needs_cors_tools, needs_crash_debug, needs_cron_tools, needs_csp_tools,
-    needs_css_tools, needs_csv_tools, needs_data_gen_tools, needs_date_tools,
-    needs_dependency_audit, needs_dex_tools, needs_diff_tools, needs_dns_tools,
+    needs_ansible_tools, needs_archive_tools, needs_ascii_chart_tools, needs_ascii_tools,
+    needs_asn1_tools, needs_astro_tools, needs_base_tools, needs_bencode_tools,
+    needs_bin_pack_tools, needs_binary_tools, needs_bio_tools, needs_calc_tools, needs_cbor_tools,
+    needs_changelog_gen, needs_changelog_tools, needs_char_tools, needs_checksum_tools,
+    needs_chemistry_tools, needs_cipher_tools, needs_circuit_tools, needs_cite_tools,
+    needs_class_tools, needs_code_metrics, needs_color_tools, needs_compression_tools,
+    needs_computation_sandbox, needs_conda_tools, needs_cors_tools, needs_crash_debug,
+    needs_cron_tools, needs_csp_tools, needs_css_tools, needs_csv_tools, needs_data_gen_tools,
+    needs_date_tools, needs_dependency_audit, needs_dex_tools, needs_diff_tools, needs_dns_tools,
     needs_docker_compose_tools, needs_docker_ops, needs_dockerfile_tools, needs_dotenv_tools,
     needs_duration_tools, needs_elf_tools, needs_em_tools, needs_email_tools, needs_encode_tools,
     needs_env_diff, needs_env_schema_tools, needs_file_tree_tools, needs_find_tools, needs_format,
     needs_fraction_tools, needs_geo_tools, needs_geometry_tools, needs_github_actions_tools,
     needs_github_ops, needs_gitignore_tools, needs_gitlab_ci_tools, needs_glob_tools,
     needs_gpu_tools, needs_graph_tools, needs_graphql_tools, needs_graphviz_tools,
-    needs_grep_tools, needs_har_tools, needs_hash_tools, needs_hex_tools, needs_html_tools,
-    needs_http_cache_tools, needs_http_parse_tools, needs_http_request, needs_http_status_tools,
-    needs_ical_tools, needs_id_tools, needs_inflect_tools, needs_ini_tools, needs_interval_tools,
-    needs_ip_tools, needs_jq_tools, needs_json_patch_tools, needs_json_tools, needs_jsonl_tools,
-    needs_jsonschema_tools, needs_jwk_tools, needs_jwt_tools, needs_k8s_tools, needs_keyval_tools,
-    needs_latex_tools, needs_leb128_tools, needs_license_tools, needs_line_tools, needs_lint_check,
-    needs_lock_file_tools, needs_log_parse_tools, needs_logic_tools, needs_macho_tools,
-    needs_make_tools, needs_markdown_gen_tools, needs_markdown_tools, needs_materials_tools,
-    needs_matrix_tools, needs_mechanics_tools, needs_mermaid_tools, needs_mime_tools,
-    needs_money_tools, needs_msgpack_tools, needs_music_tools, needs_nato_tools,
-    needs_net_lookup_tools, needs_network_header_tools, needs_nginx_conf_tools,
-    needs_notebook_tools, needs_nuclear_tools, needs_number_sequence_tools,
+    needs_grep_tools, needs_grpc_tools, needs_haproxy_tools, needs_har_tools, needs_hash_tools,
+    needs_helm_tools, needs_hex_tools, needs_html_tools, needs_http_cache_tools,
+    needs_http_parse_tools, needs_http_request, needs_http_status_tools, needs_ical_tools,
+    needs_id_tools, needs_inflect_tools, needs_ini_tools, needs_interval_tools, needs_ip_tools,
+    needs_jq_tools, needs_json_patch_tools, needs_json_tools, needs_jsonl_tools,
+    needs_jsonschema_tools, needs_junit_tools, needs_jwk_tools, needs_jwt_tools, needs_k8s_tools,
+    needs_keyval_tools, needs_latex_tools, needs_leb128_tools, needs_license_tools,
+    needs_line_tools, needs_lint_check, needs_lock_file_tools, needs_log_parse_tools,
+    needs_logic_tools, needs_macho_tools, needs_make_tools, needs_markdown_gen_tools,
+    needs_markdown_tools, needs_materials_tools, needs_matrix_tools, needs_mechanics_tools,
+    needs_mermaid_tools, needs_mime_tools, needs_money_tools, needs_msgpack_tools,
+    needs_music_tools, needs_nato_tools, needs_net_lookup_tools, needs_network_header_tools,
+    needs_nginx_conf_tools, needs_notebook_tools, needs_nuclear_tools, needs_number_sequence_tools,
     needs_number_theory_tools, needs_number_tools, needs_number_words_tools, needs_openapi_tools,
     needs_optics_tools, needs_package_json_tools, needs_password_gen, needs_path_tools,
     needs_pcap_tools, needs_pe_tools, needs_pem_tools, needs_periodic_tools, needs_physics_tools,
@@ -7926,6 +7927,76 @@ impl ConversationManager {
                  lz (LZ77-inspired sliding-window compression; 'op': encode; optional 'window' and 'lookahead'; pass 'text'), \
                  huffman (Huffman coding — symbol frequency table, optimal code lengths, compressed size estimate; pass 'text'). \
                  Example: compression_tools(text: 'AAABBBCC') or compression_tools(action: 'huffman', text: 'hello world')."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_junit_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "JUNIT NOTICE: Use the `junit_tools` tool to parse and analyze JUnit/xUnit XML test result files without external utilities. \
+                 Actions: parse (default — suite overview with failing tests highlighted; pass 'file' or 'xml'), \
+                 failures (only failing/erroring tests with message and stack trace; pass 'file' or 'xml'), \
+                 summary (aggregate stats with pass-rate bar chart; pass 'file' or 'xml'), \
+                 list (all tests with status; optional 'status' filter: passed/failed/error/skipped). \
+                 Input: 'xml' for inline XML content, 'file' for path to .xml test result file. \
+                 Example: junit_tools(action: 'failures', file: 'build/test-results/TEST-com.example.Suite.xml') or \
+                 junit_tools(action: 'summary', xml: '<testsuite ...>...</testsuite>')."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_ansible_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "ANSIBLE NOTICE: Use the `ansible_tools` tool to parse and inspect Ansible playbooks without external utilities. \
+                 Actions: parse (default — play overview with task counts and module frequency; pass 'file' or 'yaml'), \
+                 tasks (all tasks with module, tags, when condition, notify, loop; optional 'tag' filter), \
+                 vars (all variables defined in vars/vars_files across all plays), \
+                 handlers (all handlers with module and listening triggers), \
+                 validate (warn on missing hosts, missing name, bare variables, missing become_user). \
+                 Input: 'yaml'/'playbook' for inline YAML, 'file' for path to playbook .yml. \
+                 Example: ansible_tools(action: 'tasks', file: 'site.yml') or ansible_tools(action: 'validate', file: 'deploy.yml')."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_grpc_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "GRPC NOTICE: Use the `grpc_tools` tool to look up gRPC status codes and metadata headers without external utilities. \
+                 Actions: status (default — look up a code by number 0–16 or name like NOT_FOUND; pass 'code'), \
+                 explain (detailed causes and fix for a status code; pass 'code'), \
+                 list (all 17 gRPC status codes with HTTP equivalent and summary), \
+                 headers (well-known gRPC metadata headers with direction and description). \
+                 Example: grpc_tools(action: 'explain', code: 'DEADLINE_EXCEEDED') or \
+                 grpc_tools(action: 'status', code: '14') or grpc_tools(action: 'list')."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_haproxy_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "HAPROXY NOTICE: Use the `haproxy_tools` tool to parse and validate HAProxy configuration files without external utilities. \
+                 Actions: parse (default — section overview: global settings, frontend/backend/listen counts; pass 'file' or 'config'), \
+                 frontends (bind addresses, ACL rules, use_backend mappings per frontend), \
+                 backends (balance algorithm, server list, health check options per backend), \
+                 servers (tabular listing of all servers across all backends with address and options), \
+                 validate (warn on missing binds, broken backend references, unreferenced backends, duplicate section names). \
+                 Input: 'config'/'text' for inline config, 'file' for path to haproxy.cfg. \
+                 Example: haproxy_tools(action: 'validate', file: '/etc/haproxy/haproxy.cfg') or \
+                 haproxy_tools(action: 'servers', file: 'haproxy.cfg')."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_helm_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "HELM NOTICE: Use the `helm_tools` tool to inspect Helm charts without external utilities. \
+                 Actions: chart (default — Chart.yaml metadata: name, version, apiVersion, type, dependencies; pass 'chart_dir' or 'chart_yaml'), \
+                 values (top-level keys from values.yaml with type and preview; type summary and detected features; pass 'chart_dir' or 'values_yaml'), \
+                 deps (dependency table: name, version, repository, condition, alias; pass 'chart_dir' or 'chart_yaml'), \
+                 validate (required field checks, semver format, apiVersion v1 warning; pass 'chart_dir' or 'chart_yaml'), \
+                 templates (list template files with detected Kubernetes resource type; pass 'chart_dir'). \
+                 Input: 'chart_dir' for path to chart root, or 'chart_yaml'/'values_yaml' for inline YAML. \
+                 Example: helm_tools(action: 'values', chart_dir: './charts/myapp') or helm_tools(action: 'validate', chart_dir: '.')."
                     .to_string(),
             );
         }

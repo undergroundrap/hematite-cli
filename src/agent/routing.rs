@@ -11243,6 +11243,123 @@ pub fn needs_gitlab_ci_tools(user_input: &str) -> bool {
     )
 }
 
+pub fn needs_junit_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "junit",
+            "xunit",
+            "test result",
+            "test results xml",
+            "failing tests",
+            "test failures",
+            "parse test xml",
+            "test report xml",
+            "junit xml",
+            "test suite xml",
+            "test summary xml",
+            "testcase xml",
+            "testsuite xml",
+            "test pass rate",
+        ],
+    )
+}
+
+pub fn needs_ansible_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "ansible",
+            "ansible playbook",
+            "playbook.yml",
+            "parse playbook",
+            "ansible tasks",
+            "ansible plays",
+            "ansible vars",
+            "ansible handlers",
+            "ansible roles",
+            "ansible validate",
+            "ansible modules",
+            "ansible when",
+            "ansible tags",
+            "ansible become",
+            "inspect playbook",
+        ],
+    )
+}
+
+pub fn needs_grpc_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "grpc status",
+            "grpc code",
+            "grpc error",
+            "not_found grpc",
+            "unavailable grpc",
+            "deadline_exceeded",
+            "unauthenticated grpc",
+            "permission_denied grpc",
+            "grpc metadata",
+            "grpc headers",
+            "grpc status code",
+            "grpc codes",
+            "list grpc",
+            "explain grpc",
+            "grpc retryable",
+        ],
+    )
+}
+
+pub fn needs_haproxy_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "haproxy",
+            "haproxy.cfg",
+            "haproxy config",
+            "parse haproxy",
+            "haproxy frontend",
+            "haproxy backend",
+            "haproxy server",
+            "haproxy acl",
+            "haproxy balance",
+            "haproxy validate",
+            "haproxy listen",
+            "load balancer config",
+            "haproxy global",
+            "haproxy defaults",
+        ],
+    )
+}
+
+pub fn needs_helm_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "helm chart",
+            "helm values",
+            "helm template",
+            "chart.yaml",
+            "values.yaml helm",
+            "parse helm",
+            "inspect helm",
+            "helm deps",
+            "helm dependencies",
+            "helm validate",
+            "helm package",
+            "helm release",
+            "helm repo",
+            "kubernetes helm",
+        ],
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

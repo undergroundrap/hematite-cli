@@ -32,21 +32,35 @@ struct Reader<'a> {
     pos: usize,
 }
 impl<'a> Reader<'a> {
-    fn new(data: &'a [u8]) -> Self { Self { data, pos: 0 } }
-    fn remaining(&self) -> usize { self.data.len().saturating_sub(self.pos) }
+    fn new(data: &'a [u8]) -> Self {
+        Self { data, pos: 0 }
+    }
+    fn remaining(&self) -> usize {
+        self.data.len().saturating_sub(self.pos)
+    }
     fn read_u8(&mut self) -> Result<u8, String> {
-        if self.pos >= self.data.len() { return Err("unexpected end of data".into()); }
-        let v = self.data[self.pos]; self.pos += 1; Ok(v)
+        if self.pos >= self.data.len() {
+            return Err("unexpected end of data".into());
+        }
+        let v = self.data[self.pos];
+        self.pos += 1;
+        Ok(v)
     }
     fn read_u16be(&mut self) -> Result<u16, String> {
         Ok(((self.read_u8()? as u16) << 8) | self.read_u8()? as u16)
     }
     fn read_u24be(&mut self) -> Result<u32, String> {
-        Ok(((self.read_u8()? as u32) << 16) | ((self.read_u8()? as u32) << 8) | self.read_u8()? as u32)
+        Ok(((self.read_u8()? as u32) << 16)
+            | ((self.read_u8()? as u32) << 8)
+            | self.read_u8()? as u32)
     }
     fn read_bytes(&mut self, n: usize) -> Result<Vec<u8>, String> {
         if self.pos + n > self.data.len() {
-            return Err(format!("need {} bytes, only {} remaining", n, self.remaining()));
+            return Err(format!(
+                "need {} bytes, only {} remaining",
+                n,
+                self.remaining()
+            ));
         }
         let v = self.data[self.pos..self.pos + n].to_vec();
         self.pos += n;
@@ -262,7 +276,13 @@ fn alert_description_name(code: u8) -> &'static str {
 }
 
 fn grade_icon(grade: &str) -> &'static str {
-    match grade { "STRONG" => "[+]", "GOOD" => "[~]", "WEAK" => "[!]", "BROKEN" => "[X]", _ => "[ ]" }
+    match grade {
+        "STRONG" => "[+]",
+        "GOOD" => "[~]",
+        "WEAK" => "[!]",
+        "BROKEN" => "[X]",
+        _ => "[ ]",
+    }
 }
 
 fn is_grease(v: u16) -> bool {
@@ -277,7 +297,9 @@ fn hex_str(bytes: &[u8]) -> String {
 
 fn decode_sni(data: &[u8]) -> String {
     let mut r = Reader::new(data);
-    if r.read_u16be().is_err() { return "(parse error)".into(); }
+    if r.read_u16be().is_err() {
+        return "(parse error)".into();
+    }
     if let Ok(name_type) = r.read_u8() {
         if name_type == 0 {
             if let Ok(name_bytes) = r.read_vec16() {
@@ -297,7 +319,11 @@ fn decode_alpn(data: &[u8]) -> Vec<String> {
         let mut lr = Reader::new(&list_bytes);
         while lr.remaining() > 0 {
             match lr.read_vec8() {
-                Ok(b) => { if let Ok(s) = std::str::from_utf8(&b) { protos.push(s.to_string()); } }
+                Ok(b) => {
+                    if let Ok(s) = std::str::from_utf8(&b) {
+                        protos.push(s.to_string());
+                    }
+                }
                 Err(_) => break,
             }
         }
@@ -381,9 +407,13 @@ fn format_extension_value(ext_type: u16, data: &[u8], is_client: bool) -> String
             format!("mode=0x{:02x}  *** CVE-2014-0160 HEARTBLEED ***", mode)
         }
         _ => {
-            if data.is_empty() { "(empty)".into() }
-            else if data.len() <= 6 { hex_str(data) }
-            else { format!("{} bytes", data.len()) }
+            if data.is_empty() {
+                "(empty)".into()
+            } else if data.len() <= 6 {
+                hex_str(data)
+            } else {
+                format!("{} bytes", data.len())
+            }
         }
     }
 }
@@ -421,7 +451,14 @@ fn parse_client_hello(data: &[u8]) -> Result<ClientHello, String> {
             extensions.push((et, ed));
         }
     }
-    Ok(ClientHello { legacy_version, random, session_id, cipher_suites, compression_methods, extensions })
+    Ok(ClientHello {
+        legacy_version,
+        random,
+        session_id,
+        cipher_suites,
+        compression_methods,
+        extensions,
+    })
 }
 
 struct ServerHello {
@@ -450,12 +487,21 @@ fn parse_server_hello(data: &[u8]) -> Result<ServerHello, String> {
             extensions.push((et, ed));
         }
     }
-    Ok(ServerHello { legacy_version, random, session_id, cipher_suite, compression_method, extensions })
+    Ok(ServerHello {
+        legacy_version,
+        random,
+        session_id,
+        cipher_suite,
+        compression_method,
+        extensions,
+    })
 }
 
 // Strip TLS record header and handshake framing to get raw handshake body
 fn extract_handshake_body(data: &[u8], expected_hs_type: u8) -> Result<Vec<u8>, String> {
-    if data.is_empty() { return Err("empty input".into()); }
+    if data.is_empty() {
+        return Err("empty input".into());
+    }
     let mut offset = 0;
 
     // Skip TLS record header (content-type=22, 2-byte version, 2-byte length)
@@ -492,12 +538,25 @@ fn action_parse(data: &[u8]) -> Result<String, String> {
         let content_type = r.read_u8()?;
         let version = r.read_u16be()?;
         let len = r.read_u16be()? as usize;
-        if len > r.remaining() { break; }
+        if len > r.remaining() {
+            break;
+        }
         let body = r.read_bytes(len)?;
         idx += 1;
-        out.push_str(&format!("── TLS Record #{} ─────────────────────────────────────\n", idx));
-        out.push_str(&format!("  Content-Type : 0x{:02x} ({})\n", content_type, content_type_name(content_type)));
-        out.push_str(&format!("  Version      : 0x{:04x} ({})\n", version, tls_version_name(version)));
+        out.push_str(&format!(
+            "── TLS Record #{} ─────────────────────────────────────\n",
+            idx
+        ));
+        out.push_str(&format!(
+            "  Content-Type : 0x{:02x} ({})\n",
+            content_type,
+            content_type_name(content_type)
+        ));
+        out.push_str(&format!(
+            "  Version      : 0x{:04x} ({})\n",
+            version,
+            tls_version_name(version)
+        ));
         out.push_str(&format!("  Length       : {} bytes\n", len));
 
         if content_type == 22 {
@@ -505,37 +564,80 @@ fn action_parse(data: &[u8]) -> Result<String, String> {
             while hr.remaining() >= 4 {
                 let hs_type = hr.read_u8()?;
                 let hs_len = hr.read_u24be()? as usize;
-                if hs_len > hr.remaining() { break; }
+                if hs_len > hr.remaining() {
+                    break;
+                }
                 let hs_data = hr.read_bytes(hs_len)?;
-                out.push_str(&format!("  Handshake    : {} (0x{:02x}, {} bytes)\n",
-                    handshake_type_name(hs_type), hs_type, hs_len));
+                out.push_str(&format!(
+                    "  Handshake    : {} (0x{:02x}, {} bytes)\n",
+                    handshake_type_name(hs_type),
+                    hs_type,
+                    hs_len
+                ));
                 match hs_type {
                     1 => {
                         if let Ok(ch) = parse_client_hello(&hs_data) {
-                            out.push_str(&format!("    Legacy-version : {}\n", tls_version_name(ch.legacy_version)));
-                            out.push_str(&format!("    Session-ID     : {} bytes\n", ch.session_id.len()));
-                            out.push_str(&format!("    Cipher suites  : {} offered\n", ch.cipher_suites.len()));
-                            out.push_str(&format!("    Extensions     : {}\n", ch.extensions.len()));
+                            out.push_str(&format!(
+                                "    Legacy-version : {}\n",
+                                tls_version_name(ch.legacy_version)
+                            ));
+                            out.push_str(&format!(
+                                "    Session-ID     : {} bytes\n",
+                                ch.session_id.len()
+                            ));
+                            out.push_str(&format!(
+                                "    Cipher suites  : {} offered\n",
+                                ch.cipher_suites.len()
+                            ));
+                            out.push_str(&format!(
+                                "    Extensions     : {}\n",
+                                ch.extensions.len()
+                            ));
                             for (et, ed) in &ch.extensions {
-                                if *et == 0x0000 { out.push_str(&format!("    SNI            : {}\n", decode_sni(ed))); }
-                                if *et == 0x0010 { out.push_str(&format!("    ALPN           : [{}]\n", decode_alpn(ed).join(", "))); }
+                                if *et == 0x0000 {
+                                    out.push_str(&format!(
+                                        "    SNI            : {}\n",
+                                        decode_sni(ed)
+                                    ));
+                                }
+                                if *et == 0x0010 {
+                                    out.push_str(&format!(
+                                        "    ALPN           : [{}]\n",
+                                        decode_alpn(ed).join(", ")
+                                    ));
+                                }
                             }
                         }
                     }
                     2 => {
                         if let Ok(sh) = parse_server_hello(&hs_data) {
-                            out.push_str(&format!("    Legacy-version : {}\n", tls_version_name(sh.legacy_version)));
+                            out.push_str(&format!(
+                                "    Legacy-version : {}\n",
+                                tls_version_name(sh.legacy_version)
+                            ));
                             let (cs_name, cs_grade) = cipher_suite_info(sh.cipher_suite);
-                            out.push_str(&format!("    Chosen cipher  : {} {} [{}]\n",
-                                grade_icon(cs_grade), cs_name, cs_grade));
+                            out.push_str(&format!(
+                                "    Chosen cipher  : {} {} [{}]\n",
+                                grade_icon(cs_grade),
+                                cs_name,
+                                cs_grade
+                            ));
                         }
                     }
                     _ => {}
                 }
             }
         } else if content_type == 21 && body.len() >= 2 {
-            let level_str = match body[0] { 1 => "warning", 2 => "fatal", _ => "unknown" };
-            out.push_str(&format!("  Alert        : {} / {}\n", level_str, alert_description_name(body[1])));
+            let level_str = match body[0] {
+                1 => "warning",
+                2 => "fatal",
+                _ => "unknown",
+            };
+            out.push_str(&format!(
+                "  Alert        : {} / {}\n",
+                level_str,
+                alert_description_name(body[1])
+            ));
         } else if content_type == 20 {
             out.push_str("  (ChangeCipherSpec — encrypted traffic follows)\n");
         } else if content_type == 23 {
@@ -552,37 +654,69 @@ fn action_parse(data: &[u8]) -> Result<String, String> {
 
 fn action_client_hello(data: &[u8]) -> Result<String, String> {
     let body = extract_handshake_body(data, 1)?;
-    let ch = parse_client_hello(&body)
-        .map_err(|e| format!("ClientHello parse error: {}", e))?;
+    let ch = parse_client_hello(&body).map_err(|e| format!("ClientHello parse error: {}", e))?;
 
     let mut out = String::new();
     out.push_str("── ClientHello ─────────────────────────────────────────\n");
-    out.push_str(&format!("  Legacy version : 0x{:04x} ({})\n", ch.legacy_version, tls_version_name(ch.legacy_version)));
+    out.push_str(&format!(
+        "  Legacy version : 0x{:04x} ({})\n",
+        ch.legacy_version,
+        tls_version_name(ch.legacy_version)
+    ));
     out.push_str(&format!("  Random         : {}\n", hex_str(&ch.random)));
     if ch.session_id.is_empty() {
         out.push_str("  Session ID     : (empty — new session)\n");
     } else {
-        out.push_str(&format!("  Session ID     : {} bytes\n", ch.session_id.len()));
+        out.push_str(&format!(
+            "  Session ID     : {} bytes\n",
+            ch.session_id.len()
+        ));
     }
-    out.push_str(&format!("  Compression    : {:?}\n", ch.compression_methods));
+    out.push_str(&format!(
+        "  Compression    : {:?}\n",
+        ch.compression_methods
+    ));
 
-    out.push_str(&format!("\n── Cipher Suites ({} offered) ───────────────────────────\n", ch.cipher_suites.len()));
+    out.push_str(&format!(
+        "\n── Cipher Suites ({} offered) ───────────────────────────\n",
+        ch.cipher_suites.len()
+    ));
     let mut n_strong = 0usize;
     let mut n_grease = 0usize;
     for cs in &ch.cipher_suites {
-        if is_grease(*cs) { n_grease += 1; out.push_str(&format!("  0x{:04x}  [GREASE]\n", cs)); continue; }
+        if is_grease(*cs) {
+            n_grease += 1;
+            out.push_str(&format!("  0x{:04x}  [GREASE]\n", cs));
+            continue;
+        }
         let (name, grade) = cipher_suite_info(*cs);
-        if grade == "STRONG" { n_strong += 1; }
-        out.push_str(&format!("  0x{:04x}  {} {:<52} [{}]\n", cs, grade_icon(grade), name, grade));
+        if grade == "STRONG" {
+            n_strong += 1;
+        }
+        out.push_str(&format!(
+            "  0x{:04x}  {} {:<52} [{}]\n",
+            cs,
+            grade_icon(grade),
+            name,
+            grade
+        ));
     }
     if n_grease > 0 {
-        out.push_str(&format!("  ({} GREASE values — modern browser/library detected)\n", n_grease));
+        out.push_str(&format!(
+            "  ({} GREASE values — modern browser/library detected)\n",
+            n_grease
+        ));
     }
 
-    out.push_str(&format!("\n── Extensions ({} present) ──────────────────────────────\n", ch.extensions.len()));
+    out.push_str(&format!(
+        "\n── Extensions ({} present) ──────────────────────────────\n",
+        ch.extensions.len()
+    ));
     let mut heartbleed = false;
     for (et, ed) in &ch.extensions {
-        if *et == 0x000f { heartbleed = true; }
+        if *et == 0x000f {
+            heartbleed = true;
+        }
         let name = extension_name(*et);
         let val = format_extension_value(*et, ed, true);
         out.push_str(&format!("  0x{:04x}  {:<50} {}\n", et, name, val));
@@ -590,7 +724,10 @@ fn action_client_hello(data: &[u8]) -> Result<String, String> {
 
     out.push_str("\n── Security Assessment ──────────────────────────────────\n");
     if n_strong > 0 {
-        out.push_str(&format!("  [+] {} STRONG cipher suites (AEAD + PFS) offered\n", n_strong));
+        out.push_str(&format!(
+            "  [+] {} STRONG cipher suites (AEAD + PFS) offered\n",
+            n_strong
+        ));
     } else {
         out.push_str("  [!] No STRONG cipher suites — configuration is outdated\n");
     }
@@ -604,23 +741,43 @@ fn action_client_hello(data: &[u8]) -> Result<String, String> {
 
 fn action_server_hello(data: &[u8]) -> Result<String, String> {
     let body = extract_handshake_body(data, 2)?;
-    let sh = parse_server_hello(&body)
-        .map_err(|e| format!("ServerHello parse error: {}", e))?;
+    let sh = parse_server_hello(&body).map_err(|e| format!("ServerHello parse error: {}", e))?;
 
     let mut out = String::new();
     out.push_str("── ServerHello ─────────────────────────────────────────\n");
-    out.push_str(&format!("  Legacy version : 0x{:04x} ({})\n", sh.legacy_version, tls_version_name(sh.legacy_version)));
+    out.push_str(&format!(
+        "  Legacy version : 0x{:04x} ({})\n",
+        sh.legacy_version,
+        tls_version_name(sh.legacy_version)
+    ));
     out.push_str(&format!("  Random         : {}\n", hex_str(&sh.random)));
     if !sh.session_id.is_empty() {
-        out.push_str(&format!("  Session ID     : {} bytes\n", sh.session_id.len()));
+        out.push_str(&format!(
+            "  Session ID     : {} bytes\n",
+            sh.session_id.len()
+        ));
     }
-    out.push_str(&format!("  Compression    : 0x{:02x}\n", sh.compression_method));
+    out.push_str(&format!(
+        "  Compression    : 0x{:02x}\n",
+        sh.compression_method
+    ));
 
     let (cs_name, cs_grade) = cipher_suite_info(sh.cipher_suite);
-    out.push_str(&format!("\n── Chosen Cipher Suite ──────────────────────────────────\n"));
-    out.push_str(&format!("  0x{:04x}  {} {} [{}]\n", sh.cipher_suite, grade_icon(cs_grade), cs_name, cs_grade));
+    out.push_str(&format!(
+        "\n── Chosen Cipher Suite ──────────────────────────────────\n"
+    ));
+    out.push_str(&format!(
+        "  0x{:04x}  {} {} [{}]\n",
+        sh.cipher_suite,
+        grade_icon(cs_grade),
+        cs_name,
+        cs_grade
+    ));
 
-    out.push_str(&format!("\n── Extensions ({} present) ──────────────────────────────\n", sh.extensions.len()));
+    out.push_str(&format!(
+        "\n── Extensions ({} present) ──────────────────────────────\n",
+        sh.extensions.len()
+    ));
     for (et, ed) in &sh.extensions {
         let name = extension_name(*et);
         let val = format_extension_value(*et, ed, false);
@@ -639,7 +796,9 @@ fn action_server_hello(data: &[u8]) -> Result<String, String> {
     match cs_grade {
         "STRONG" => out.push_str(&format!("  [+] Chosen cipher is STRONG (AEAD + PFS)\n")),
         "GOOD" => out.push_str(&format!("  [~] Chosen cipher is GOOD (PFS but not AEAD)\n")),
-        "WEAK" => out.push_str(&format!("  [!] Chosen cipher is WEAK (no PFS — RSA key exchange)\n")),
+        "WEAK" => out.push_str(&format!(
+            "  [!] Chosen cipher is WEAK (no PFS — RSA key exchange)\n"
+        )),
         "BROKEN" => out.push_str(&format!("  [X] Chosen cipher is BROKEN — do not use\n")),
         _ => {}
     }
@@ -649,8 +808,7 @@ fn action_server_hello(data: &[u8]) -> Result<String, String> {
 
 fn action_cipher_suites(data: &[u8]) -> Result<String, String> {
     let body = extract_handshake_body(data, 1)?;
-    let ch = parse_client_hello(&body)
-        .map_err(|e| format!("ClientHello parse error: {}", e))?;
+    let ch = parse_client_hello(&body).map_err(|e| format!("ClientHello parse error: {}", e))?;
 
     let mut strong = Vec::new();
     let mut good = Vec::new();
@@ -660,7 +818,10 @@ fn action_cipher_suites(data: &[u8]) -> Result<String, String> {
     let mut grease_n = 0;
 
     for cs in &ch.cipher_suites {
-        if is_grease(*cs) { grease_n += 1; continue; }
+        if is_grease(*cs) {
+            grease_n += 1;
+            continue;
+        }
         let (name, grade) = cipher_suite_info(*cs);
         match grade {
             "STRONG" => strong.push((*cs, name)),
@@ -672,37 +833,58 @@ fn action_cipher_suites(data: &[u8]) -> Result<String, String> {
     }
 
     let mut out = String::new();
-    out.push_str(&format!("── Cipher Suite Analysis ({} total) ─────────────────────\n", ch.cipher_suites.len()));
-    out.push_str(&format!("  [+] STRONG: {:3}   [~] GOOD: {:3}   [!] WEAK: {:3}   [X] BROKEN: {:3}\n\n",
-        strong.len(), good.len(), weak.len(), broken.len()));
+    out.push_str(&format!(
+        "── Cipher Suite Analysis ({} total) ─────────────────────\n",
+        ch.cipher_suites.len()
+    ));
+    out.push_str(&format!(
+        "  [+] STRONG: {:3}   [~] GOOD: {:3}   [!] WEAK: {:3}   [X] BROKEN: {:3}\n\n",
+        strong.len(),
+        good.len(),
+        weak.len(),
+        broken.len()
+    ));
 
     if !strong.is_empty() {
         out.push_str("[+] STRONG — AEAD + PFS:\n");
-        for (code, name) in &strong { out.push_str(&format!("  0x{:04x}  {}\n", code, name)); }
+        for (code, name) in &strong {
+            out.push_str(&format!("  0x{:04x}  {}\n", code, name));
+        }
         out.push('\n');
     }
     if !good.is_empty() {
         out.push_str("[~] GOOD — PFS present:\n");
-        for (code, name) in &good { out.push_str(&format!("  0x{:04x}  {}\n", code, name)); }
+        for (code, name) in &good {
+            out.push_str(&format!("  0x{:04x}  {}\n", code, name));
+        }
         out.push('\n');
     }
     if !weak.is_empty() {
         out.push_str("[!] WEAK — no PFS (RSA key exchange):\n");
-        for (code, name) in &weak { out.push_str(&format!("  0x{:04x}  {}\n", code, name)); }
+        for (code, name) in &weak {
+            out.push_str(&format!("  0x{:04x}  {}\n", code, name));
+        }
         out.push('\n');
     }
     if !broken.is_empty() {
         out.push_str("[X] BROKEN — RC4 / NULL / 3DES / EXPORT:\n");
-        for (code, name) in &broken { out.push_str(&format!("  0x{:04x}  {}\n", code, name)); }
+        for (code, name) in &broken {
+            out.push_str(&format!("  0x{:04x}  {}\n", code, name));
+        }
         out.push('\n');
     }
     if !info_list.is_empty() {
         out.push_str("[ ] SIGNALING:\n");
-        for (code, name) in &info_list { out.push_str(&format!("  0x{:04x}  {}\n", code, name)); }
+        for (code, name) in &info_list {
+            out.push_str(&format!("  0x{:04x}  {}\n", code, name));
+        }
         out.push('\n');
     }
     if grease_n > 0 {
-        out.push_str(&format!("[GREASE: {} values — confirms modern client (Chrome/Firefox/Edge)]\n", grease_n));
+        out.push_str(&format!(
+            "[GREASE: {} values — confirms modern client (Chrome/Firefox/Edge)]\n",
+            grease_n
+        ));
     }
 
     Ok(out)
@@ -712,17 +894,31 @@ fn action_extensions(data: &[u8]) -> Result<String, String> {
     // Try ClientHello first, then ServerHello
     let (extensions, is_client) = extract_handshake_body(data, 1)
         .and_then(|b| parse_client_hello(&b).map(|ch| (ch.extensions, true)))
-        .or_else(|_| extract_handshake_body(data, 2)
-            .and_then(|b| parse_server_hello(&b).map(|sh| (sh.extensions, false))))
-        .map_err(|_| "Could not parse extensions — provide ClientHello or ServerHello bytes".to_string())?;
+        .or_else(|_| {
+            extract_handshake_body(data, 2)
+                .and_then(|b| parse_server_hello(&b).map(|sh| (sh.extensions, false)))
+        })
+        .map_err(|_| {
+            "Could not parse extensions — provide ClientHello or ServerHello bytes".to_string()
+        })?;
 
-    let role = if is_client { "ClientHello" } else { "ServerHello" };
+    let role = if is_client {
+        "ClientHello"
+    } else {
+        "ServerHello"
+    };
     let mut out = String::new();
-    out.push_str(&format!("── {} Extensions ({}) ───────────────────────────────\n", role, extensions.len()));
+    out.push_str(&format!(
+        "── {} Extensions ({}) ───────────────────────────────\n",
+        role,
+        extensions.len()
+    ));
 
     let mut heartbleed = false;
     for (et, ed) in &extensions {
-        if *et == 0x000f { heartbleed = true; }
+        if *et == 0x000f {
+            heartbleed = true;
+        }
         let name = extension_name(*et);
         let val = format_extension_value(*et, ed, is_client);
         out.push_str(&format!("\n  [0x{:04x}] {}\n", et, name));
@@ -733,7 +929,9 @@ fn action_extensions(data: &[u8]) -> Result<String, String> {
     if heartbleed {
         out.push_str("\n\n*** CVE-2014-0160 HEARTBLEED DETECTED ***\n");
         out.push_str("The Heartbeat extension (0x000f) is present.\n");
-        out.push_str("OpenSSL < 1.0.1g with Heartbeat enabled is vulnerable to memory disclosure.\n");
+        out.push_str(
+            "OpenSSL < 1.0.1g with Heartbeat enabled is vulnerable to memory disclosure.\n",
+        );
         out.push_str("Fix: upgrade OpenSSL >= 1.0.1g, or compile with -DOPENSSL_NO_HEARTBEATS\n");
     }
 
@@ -745,7 +943,9 @@ fn action_extensions(data: &[u8]) -> Result<String, String> {
 fn load_input(args: &Value) -> Result<Vec<u8>, String> {
     if let Some(hex) = args.get("hex").and_then(Value::as_str) {
         let clean: String = hex.chars().filter(|c| c.is_ascii_hexdigit()).collect();
-        if clean.len() % 2 != 0 { return Err("odd-length hex string".into()); }
+        if clean.len() % 2 != 0 {
+            return Err("odd-length hex string".into());
+        }
         (0..clean.len() / 2)
             .map(|i| u8::from_str_radix(&clean[i * 2..i * 2 + 2], 16).map_err(|e| e.to_string()))
             .collect()
@@ -757,7 +957,10 @@ fn load_input(args: &Value) -> Result<Vec<u8>, String> {
 }
 
 pub async fn execute(args: &Value) -> Result<String, String> {
-    let action = args.get("action").and_then(Value::as_str).unwrap_or("parse");
+    let action = args
+        .get("action")
+        .and_then(Value::as_str)
+        .unwrap_or("parse");
     let data = load_input(args)?;
     match action {
         "parse" => action_parse(&data),

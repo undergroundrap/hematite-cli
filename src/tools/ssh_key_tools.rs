@@ -147,9 +147,7 @@ fn parse_key_line(line: &str) -> Result<ParsedKey, String> {
         .map_err(|e| format!("base64 error: {e}"))?;
 
     let mut r = WireReader::new(&raw_bytes);
-    let wire_type = r
-        .read_string()
-        .ok_or("truncated wire format")?;
+    let wire_type = r.read_string().ok_or("truncated wire format")?;
 
     let (bits, curve) = match wire_type.as_str() {
         "ssh-rsa" => {
@@ -274,7 +272,10 @@ fn action_info(content: &str) -> Result<String, String> {
     }
 
     if count == 0 && errors == 0 {
-        return Err("no SSH public keys found — provide an authorized_keys line or .pub file content".to_string());
+        return Err(
+            "no SSH public keys found — provide an authorized_keys line or .pub file content"
+                .to_string(),
+        );
     }
     if count == 0 {
         return Err(format!("no valid keys found ({errors} parse error(s))"));
@@ -331,7 +332,9 @@ fn action_validate(content: &str) -> Result<String, String> {
                     "Line {:3}: VALID   {} {} bits{}\n",
                     i + 1,
                     k.key_type,
-                    k.bits.map(|b| b.to_string()).unwrap_or_else(|| "?".to_string()),
+                    k.bits
+                        .map(|b| b.to_string())
+                        .unwrap_or_else(|| "?".to_string()),
                     comment
                 ));
                 let sec = k.security;
@@ -352,10 +355,7 @@ fn action_validate(content: &str) -> Result<String, String> {
     }
 
     out.push('\n');
-    out.push_str(&format!(
-        "Result: {} valid, {} invalid\n",
-        valid, invalid
-    ));
+    out.push_str(&format!("Result: {} valid, {} invalid\n", valid, invalid));
     if invalid == 0 {
         out.push_str("Verdict: VALID\n");
     } else {
