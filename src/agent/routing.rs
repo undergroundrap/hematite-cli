@@ -10938,6 +10938,71 @@ pub fn needs_pcap_tools(user_input: &str) -> bool {
     )
 }
 
+pub fn needs_class_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            ".class file",
+            "java class file",
+            "java bytecode",
+            "jvm bytecode",
+            "class bytecode",
+            "inspect .class",
+            "analyze .class",
+            "parse .class",
+            "cafebabe",
+            "cafe babe",
+            "java constant pool",
+            "jvm class",
+            "class methods",
+            "class fields",
+            "java class info",
+            "java class methods",
+            "java class fields",
+            "class file version",
+            "java major version",
+            "java access flags",
+            "javap",
+            "decompile class",
+            "class imports",
+            "class references",
+            "java compiled",
+        ],
+    )
+}
+
+pub fn needs_dex_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            ".dex file",
+            "dex file",
+            "android dex",
+            "dalvik dex",
+            "dalvik executable",
+            "inspect dex",
+            "analyze dex",
+            "parse dex",
+            "android bytecode",
+            "android classes",
+            "android methods",
+            "android strings",
+            "android apk dex",
+            "classes.dex",
+            "dex version",
+            "dex class",
+            "dex method",
+            "dex strings",
+            "dex types",
+            "android reverse",
+            "dexdump",
+            "baksmali",
+        ],
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

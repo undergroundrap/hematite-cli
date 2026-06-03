@@ -36223,3 +36223,239 @@ fn test_pcap_tools_invalid_magic_returns_error() {
         err
     );
 }
+
+// ─── class_tools routing tests ────────────────────────────────────────────────
+
+#[test]
+fn test_routing_detects_class_tools_class_file() {
+    use hematite::agent::routing::needs_class_tools;
+    assert!(needs_class_tools("inspect this .class file"));
+    assert!(needs_class_tools("analyze the .class file"));
+}
+
+#[test]
+fn test_routing_detects_class_tools_java_bytecode() {
+    use hematite::agent::routing::needs_class_tools;
+    assert!(needs_class_tools("java bytecode analysis"));
+    assert!(needs_class_tools("jvm bytecode inspector"));
+}
+
+#[test]
+fn test_routing_detects_class_tools_cafebabe() {
+    use hematite::agent::routing::needs_class_tools;
+    assert!(needs_class_tools("CAFEBABE header in the file"));
+    assert!(needs_class_tools("cafebabe magic bytes"));
+}
+
+#[test]
+fn test_routing_detects_class_tools_javap() {
+    use hematite::agent::routing::needs_class_tools;
+    assert!(needs_class_tools("javap output of this class"));
+    assert!(needs_class_tools("what methods does this java class expose"));
+}
+
+#[test]
+fn test_routing_class_tools_negative() {
+    use hematite::agent::routing::needs_class_tools;
+    assert!(!needs_class_tools("list all css classes in the stylesheet"));
+    assert!(!needs_class_tools("python class definition"));
+}
+
+// ─── class_tools functional tests ────────────────────────────────────────────
+
+#[test]
+fn test_class_tools_no_input_returns_error() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::class_tools::execute(
+        &serde_json::json!({}),
+    ));
+    assert!(result.is_err(), "no input should fail");
+    let err = result.unwrap_err();
+    assert!(
+        err.contains("file") || err.contains("hex") || err.contains("input"),
+        "meaningful error: {}",
+        err
+    );
+}
+
+#[test]
+fn test_class_tools_invalid_magic_returns_error() {
+    // bytes that are not CAFEBABE
+    let result = tokio::runtime::Runtime::new().unwrap().block_on(
+        hematite::tools::class_tools::execute(
+            &serde_json::json!({"action": "info", "hex": "deadbeef00000000"}),
+        ),
+    );
+    assert!(result.is_err(), "wrong magic should fail");
+    let err = result.unwrap_err();
+    assert!(
+        err.contains("magic") || err.contains("CAFEBABE") || err.contains("class"),
+        "meaningful error: {}",
+        err
+    );
+}
+
+#[test]
+fn test_class_tools_truncated_data_returns_error() {
+    // Valid magic but truncated — only 4 bytes
+    let result = tokio::runtime::Runtime::new().unwrap().block_on(
+        hematite::tools::class_tools::execute(
+            &serde_json::json!({"action": "info", "hex": "cafebabe"}),
+        ),
+    );
+    assert!(result.is_err(), "truncated class file should fail");
+}
+
+#[test]
+fn test_class_tools_missing_file_returns_error() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::class_tools::execute(
+        &serde_json::json!({"action": "info", "file": "/nonexistent/Foo.class"}),
+    ));
+    assert!(result.is_err(), "nonexistent file should fail");
+    let err = result.unwrap_err();
+    assert!(
+        err.contains("Cannot read") || err.contains("No such") || err.contains("nonexistent"),
+        "meaningful IO error: {}",
+        err
+    );
+}
+
+#[test]
+fn test_class_tools_minimal_valid_hex() {
+    // Minimal valid Java 8 class file (cp_count=1, this=1 bogus, super=0, 0 members)
+    // Magic(4) + minor(2) + major(2) + cp_count(2)=1 + access(2) + this(2) + super(2)
+    // + interfaces_count(2) + fields_count(2) + methods_count(2) + attrs_count(2) = 24 bytes
+    // cp_count=1 means 0 actual entries; this_class=0 and super_class=0 are sentinel "none"
+    let hex = "cafebabe00000034000100010000000000000000";
+    let result = tokio::runtime::Runtime::new().unwrap().block_on(
+        hematite::tools::class_tools::execute(
+            &serde_json::json!({"action": "info", "hex": hex}),
+        ),
+    );
+    // Either succeeds (returns info) or fails with a parse error — both are acceptable;
+    // key requirement is no panic.
+    match result {
+        Ok(out) => {
+            // If it parses, it must mention Java or version or class
+            assert!(
+                out.contains("Java") || out.contains("version") || out.contains("class") || out.contains("major"),
+                "info output should mention Java/version/class: {}",
+                &out[..out.len().min(200)]
+            );
+        }
+        Err(e) => {
+            // Fine if the parser rejects it as malformed
+            assert!(
+                e.contains("parse") || e.contains("index") || e.contains("class") || e.contains("constant"),
+                "parse error should be meaningful: {}",
+                e
+            );
+        }
+    }
+}
+
+// ─── dex_tools routing tests ──────────────────────────────────────────────────
+
+#[test]
+fn test_routing_detects_dex_tools_dex_file() {
+    use hematite::agent::routing::needs_dex_tools;
+    assert!(needs_dex_tools("inspect this .dex file"));
+    assert!(needs_dex_tools("analyze the .dex file"));
+}
+
+#[test]
+fn test_routing_detects_dex_tools_android_dex() {
+    use hematite::agent::routing::needs_dex_tools;
+    assert!(needs_dex_tools("android dex format"));
+    assert!(needs_dex_tools("dalvik dex binary"));
+}
+
+#[test]
+fn test_routing_detects_dex_tools_classes_dex() {
+    use hematite::agent::routing::needs_dex_tools;
+    assert!(needs_dex_tools("classes.dex from the APK"));
+    assert!(needs_dex_tools("extract classes.dex strings"));
+}
+
+#[test]
+fn test_routing_detects_dex_tools_dexdump() {
+    use hematite::agent::routing::needs_dex_tools;
+    assert!(needs_dex_tools("dexdump output"));
+    assert!(needs_dex_tools("baksmali disassembly"));
+}
+
+#[test]
+fn test_routing_dex_tools_negative() {
+    use hematite::agent::routing::needs_dex_tools;
+    assert!(!needs_dex_tools("dex trading exchange"));
+    assert!(!needs_dex_tools("uniswap dex liquidity"));
+}
+
+// ─── dex_tools functional tests ──────────────────────────────────────────────
+
+#[test]
+fn test_dex_tools_no_input_returns_error() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::dex_tools::execute(
+        &serde_json::json!({}),
+    ));
+    assert!(result.is_err(), "no input should fail");
+    let err = result.unwrap_err();
+    assert!(
+        err.contains("file") || err.contains("hex") || err.contains("input"),
+        "meaningful error: {}",
+        err
+    );
+}
+
+#[test]
+fn test_dex_tools_missing_file_returns_error() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::dex_tools::execute(
+        &serde_json::json!({"action": "info", "file": "/nonexistent/classes.dex"}),
+    ));
+    assert!(result.is_err(), "nonexistent file should fail");
+    let err = result.unwrap_err();
+    assert!(
+        err.contains("Cannot read") || err.contains("No such") || err.contains("nonexistent"),
+        "meaningful IO error: {}",
+        err
+    );
+}
+
+#[test]
+fn test_dex_tools_invalid_magic_returns_error() {
+    use std::io::Write;
+    let mut tmp = tempfile::NamedTempFile::new().unwrap();
+    tmp.write_all(b"\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b").unwrap();
+    let path = tmp.path().to_str().unwrap().to_string();
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::dex_tools::execute(
+        &serde_json::json!({"action": "info", "file": path}),
+    ));
+    assert!(result.is_err(), "non-DEX bytes should fail");
+    let err = result.unwrap_err();
+    assert!(
+        err.contains("magic") || err.contains("DEX") || err.contains("dex") || err.contains("header"),
+        "meaningful error: {}",
+        err
+    );
+}
+
+#[test]
+fn test_dex_tools_invalid_hex_magic_returns_error() {
+    // hex bytes that don't start with "dex\n"
+    let result = tokio::runtime::Runtime::new().unwrap().block_on(
+        hematite::tools::dex_tools::execute(
+            &serde_json::json!({"action": "info", "hex": "cafebabe00000034"}),
+        ),
+    );
+    assert!(result.is_err(), "non-DEX magic should fail");
+    let err = result.unwrap_err();
+    assert!(
+        err.contains("magic") || err.contains("DEX") || err.contains("dex"),
+        "meaningful error: {}",
+        err
+    );
+}

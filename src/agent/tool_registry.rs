@@ -6326,6 +6326,39 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         crate::tools::materials_tools::schema(),
     ));
     tools.push(make_tool(
+        "class_tools",
+        "Inspect Java .class bytecode files without javap or a JDK installation. \
+         Actions: \
+         `info` (default) — class name, type (class/interface/enum/@interface), access flags, superclass, implemented interfaces, \
+           class file version with Java level label (Java 8 = major 52, Java 17 = major 61, Java 21 = major 65), constant pool entry count and type breakdown, \
+           field/method/attribute counts, source file name from SourceFile attribute; \
+         `methods` — all methods with decoded signature (param types + return type) and access flags (public/private/static/abstract/native/etc.); \
+         `fields` — all fields with decoded Java type and access flags (public/private/static/final/volatile/transient/etc.); \
+         `constants` — constant pool: class references list + string literals (first 30); \
+         `imports` — all classes referenced in the constant pool, categorized as Java stdlib (java.*/javax.*) vs other. \
+         Pass 'file' with the path to a .class file or 'hex' with hex-encoded class bytes. \
+         Example: class_tools(file: 'Main.class') or \
+         class_tools(action: 'methods', file: 'com/example/App.class') or \
+         class_tools(action: 'imports', hex: 'cafebabe...').",
+        crate::tools::class_tools::make_schema(),
+    ));
+    tools.push(make_tool(
+        "dex_tools",
+        "Inspect Android DEX (Dalvik Executable) files without dexdump or an Android SDK. \
+         Actions: \
+         `info` (default) — magic, DEX version string (035/036/037/038/039) with Android API level note, byte order, file size, \
+           string/type/prototype/field/method/class counts, data section offset/size, Adler-32 checksum; \
+         `classes` — all class definitions with class name, superclass, access flags, field count, method count, interface count; 'limit' to cap; \
+         `methods` — all method references with class name, method name, and return type; 'limit' to cap; \
+         `strings` — full string pool listing — useful for spotting hardcoded URLs, API keys, permission strings, and paths; 'limit' to cap; \
+         `imports` — all referenced type descriptors categorized as Android Framework (android.*/dalvik.*) / Java stdlib (java.*/javax.*) / App/third-party. \
+         Pass 'file' with the path to a .dex file or 'hex' with hex-encoded DEX bytes. \
+         Example: dex_tools(file: 'classes.dex') or \
+         dex_tools(action: 'classes', file: 'classes.dex', limit: 100) or \
+         dex_tools(action: 'strings', file: 'classes.dex').",
+        crate::tools::dex_tools::make_schema(),
+    ));
+    tools.push(make_tool(
         "macho_tools",
         "Inspect macOS Mach-O binaries (executables, dylibs, frameworks, bundles, fat/universal binaries) without external tools — no otool or nm required. \
          Actions: \
@@ -7243,6 +7276,8 @@ pub async fn dispatch_builtin_tool(
         "nuclear_tools" => crate::tools::nuclear_tools::execute(args).await,
         "acoustics_tools" => crate::tools::acoustics_tools::execute(args).await,
         "materials_tools" => crate::tools::materials_tools::execute(args).await,
+        "class_tools" => crate::tools::class_tools::execute(args).await,
+        "dex_tools" => crate::tools::dex_tools::execute(args).await,
         "macho_tools" => crate::tools::macho_tools::execute(args).await,
         "pcap_tools" => crate::tools::pcap_tools::execute(args).await,
         "pe_tools" => crate::tools::pe_tools::execute(args).await,

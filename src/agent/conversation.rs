@@ -35,8 +35,8 @@ use crate::agent::routing::{
     needs_cipher_tools, needs_circuit_tools, needs_cite_tools, needs_code_metrics,
     needs_color_tools, needs_compression_tools, needs_computation_sandbox, needs_conda_tools,
     needs_cors_tools, needs_crash_debug, needs_cron_tools, needs_csp_tools, needs_css_tools,
-    needs_csv_tools, needs_data_gen_tools, needs_date_tools, needs_dependency_audit,
-    needs_diff_tools, needs_dns_tools, needs_docker_compose_tools, needs_docker_ops,
+    needs_class_tools, needs_csv_tools, needs_data_gen_tools, needs_date_tools,
+    needs_dependency_audit, needs_dex_tools, needs_diff_tools, needs_dns_tools, needs_docker_compose_tools, needs_docker_ops,
     needs_dockerfile_tools, needs_dotenv_tools, needs_duration_tools, needs_elf_tools,
     needs_em_tools, needs_email_tools, needs_encode_tools, needs_env_diff, needs_env_schema_tools,
     needs_file_tree_tools, needs_find_tools, needs_format, needs_fraction_tools, needs_geo_tools,
@@ -7680,6 +7680,40 @@ impl ConversationManager {
                  Example: pcap_tools(file: 'capture.pcap') or \
                  pcap_tools(action: 'dns', file: 'traffic.pcapng') or \
                  pcap_tools(action: 'conversations', file: 'network.pcap')."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_class_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "CLASS NOTICE: Use the `class_tools` tool to inspect Java .class bytecode files without javap or a JDK installation. \
+                 Actions: \
+                 info (default — class name, type, access flags, superclass, interfaces, version/Java level, constant pool summary, field/method/attribute counts; accepts 'file' or 'hex'), \
+                 methods (all method names, decoded signatures, and access flags), \
+                 fields (all field names, decoded types, and access flags), \
+                 constants (constant pool class references + string literals), \
+                 imports (referenced class names categorized as Java stdlib vs other). \
+                 Pass 'file' with the path to a .class file or 'hex' with hex-encoded class bytes. \
+                 Example: class_tools(file: 'Main.class') or \
+                 class_tools(action: 'methods', file: 'com/example/App.class') or \
+                 class_tools(action: 'imports', hex: 'cafebabe...')."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_dex_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "DEX NOTICE: Use the `dex_tools` tool to inspect Android DEX (Dalvik Executable) files without dexdump or an Android SDK. \
+                 Actions: \
+                 info (default — magic, DEX version, byte order, file size, string/type/field/method/class counts, API level note; pass 'file' or 'hex'), \
+                 classes (class definitions with name, superclass, access flags, field/method counts; 'limit' to cap), \
+                 methods (all method references with class, method name, return type; 'limit' to cap), \
+                 strings (full string pool listing — useful for hardcoded URLs, keys, and paths; 'limit' to cap), \
+                 imports (all referenced types categorized as Android Framework / Java stdlib / App). \
+                 Pass 'file' with the path to a .dex file or 'hex' with hex-encoded DEX bytes. \
+                 Example: dex_tools(file: 'classes.dex') or \
+                 dex_tools(action: 'classes', file: 'classes.dex', limit: 100) or \
+                 dex_tools(action: 'strings', file: 'classes.dex')."
                     .to_string(),
             );
         }
