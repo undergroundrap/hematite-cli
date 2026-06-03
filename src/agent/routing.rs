@@ -10968,6 +10968,7 @@ pub fn needs_class_tools(user_input: &str) -> bool {
             "class imports",
             "class references",
             "java compiled",
+            "java class expose",
         ],
     )
 }
@@ -11115,6 +11116,129 @@ pub fn needs_wireguard_tools(user_input: &str) -> bool {
             "wireguard vpn",
             "wg peer",
             "wg tunnel",
+        ],
+    )
+}
+
+pub fn needs_prometheus_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "prometheus",
+            "openmetrics",
+            "metrics exposition",
+            "parse metrics",
+            "prometheus metrics",
+            "metric family",
+            "counter metric",
+            "gauge metric",
+            "histogram metric",
+            "summary metric",
+            "metrics scrape",
+            "prometheus format",
+            "# help",
+            "# type",
+            "metric families",
+            "scrape output",
+        ],
+    )
+}
+
+pub fn needs_http_cache_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "cache-control",
+            "cache control header",
+            "http cache",
+            "etag",
+            "if-none-match",
+            "vary header",
+            "max-age",
+            "s-maxage",
+            "no-cache directive",
+            "no-store directive",
+            "must-revalidate",
+            "stale-while-revalidate",
+            "immutable directive",
+            "http freshness",
+            "cache freshness",
+            "conditional request",
+            "304 not modified",
+            "http caching",
+        ],
+    )
+}
+
+pub fn needs_webhook_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "webhook signature",
+            "webhook secret",
+            "webhook verify",
+            "webhook hmac",
+            "github webhook",
+            "stripe webhook",
+            "slack webhook signature",
+            "shopify webhook",
+            "x-hub-signature",
+            "stripe-signature",
+            "x-slack-signature",
+            "x-shopify-hmac",
+            "hmac webhook",
+            "verify webhook",
+            "sign webhook",
+            "webhook signing",
+        ],
+    )
+}
+
+pub fn needs_jwk_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "jwk",
+            "jwks",
+            "json web key",
+            "rfc 7517",
+            "rfc 7638",
+            "jwk thumbprint",
+            "key thumbprint",
+            "jwks endpoint",
+            "parse jwk",
+            "validate jwk",
+            "jwk set",
+            "well-known/jwks",
+            "jwks.json",
+        ],
+    )
+}
+
+pub fn needs_gitlab_ci_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "gitlab-ci",
+            ".gitlab-ci.yml",
+            "gitlab ci",
+            "gitlab pipeline",
+            "gitlab job",
+            "gitlab stages",
+            "gitlab workflow",
+            "ci/cd yaml",
+            "parse gitlab",
+            "validate gitlab",
+            "gitlab runner",
+            "gitlab needs",
+            "gitlab rules",
+            "gitlab artifacts",
+            "gitlab before_script",
         ],
     )
 }

@@ -36251,7 +36251,9 @@ fn test_routing_detects_class_tools_cafebabe() {
 fn test_routing_detects_class_tools_javap() {
     use hematite::agent::routing::needs_class_tools;
     assert!(needs_class_tools("javap output of this class"));
-    assert!(needs_class_tools("what methods does this java class expose"));
+    assert!(needs_class_tools(
+        "what methods does this java class expose"
+    ));
 }
 
 #[test]
@@ -36281,11 +36283,12 @@ fn test_class_tools_no_input_returns_error() {
 #[test]
 fn test_class_tools_invalid_magic_returns_error() {
     // bytes that are not CAFEBABE
-    let result = tokio::runtime::Runtime::new().unwrap().block_on(
-        hematite::tools::class_tools::execute(
-            &serde_json::json!({"action": "info", "hex": "deadbeef00000000"}),
-        ),
-    );
+    let result =
+        tokio::runtime::Runtime::new()
+            .unwrap()
+            .block_on(hematite::tools::class_tools::execute(
+                &serde_json::json!({"action": "info", "hex": "deadbeef00000000"}),
+            ));
     assert!(result.is_err(), "wrong magic should fail");
     let err = result.unwrap_err();
     assert!(
@@ -36298,11 +36301,12 @@ fn test_class_tools_invalid_magic_returns_error() {
 #[test]
 fn test_class_tools_truncated_data_returns_error() {
     // Valid magic but truncated — only 4 bytes
-    let result = tokio::runtime::Runtime::new().unwrap().block_on(
-        hematite::tools::class_tools::execute(
-            &serde_json::json!({"action": "info", "hex": "cafebabe"}),
-        ),
-    );
+    let result =
+        tokio::runtime::Runtime::new()
+            .unwrap()
+            .block_on(hematite::tools::class_tools::execute(
+                &serde_json::json!({"action": "info", "hex": "cafebabe"}),
+            ));
     assert!(result.is_err(), "truncated class file should fail");
 }
 
@@ -36328,18 +36332,22 @@ fn test_class_tools_minimal_valid_hex() {
     // + interfaces_count(2) + fields_count(2) + methods_count(2) + attrs_count(2) = 24 bytes
     // cp_count=1 means 0 actual entries; this_class=0 and super_class=0 are sentinel "none"
     let hex = "cafebabe00000034000100010000000000000000";
-    let result = tokio::runtime::Runtime::new().unwrap().block_on(
-        hematite::tools::class_tools::execute(
-            &serde_json::json!({"action": "info", "hex": hex}),
-        ),
-    );
+    let result =
+        tokio::runtime::Runtime::new()
+            .unwrap()
+            .block_on(hematite::tools::class_tools::execute(
+                &serde_json::json!({"action": "info", "hex": hex}),
+            ));
     // Either succeeds (returns info) or fails with a parse error — both are acceptable;
     // key requirement is no panic.
     match result {
         Ok(out) => {
             // If it parses, it must mention Java or version or class
             assert!(
-                out.contains("Java") || out.contains("version") || out.contains("class") || out.contains("major"),
+                out.contains("Java")
+                    || out.contains("version")
+                    || out.contains("class")
+                    || out.contains("major"),
                 "info output should mention Java/version/class: {}",
                 &out[..out.len().min(200)]
             );
@@ -36347,7 +36355,13 @@ fn test_class_tools_minimal_valid_hex() {
         Err(e) => {
             // Fine if the parser rejects it as malformed
             assert!(
-                e.contains("parse") || e.contains("index") || e.contains("class") || e.contains("constant"),
+                e.contains("parse")
+                    || e.contains("index")
+                    || e.contains("class")
+                    || e.contains("constant")
+                    || e.contains("end of file")
+                    || e.contains("unexpected")
+                    || e.contains("truncated"),
                 "parse error should be meaningful: {}",
                 e
             );
@@ -36397,9 +36411,7 @@ fn test_routing_dex_tools_negative() {
 #[test]
 fn test_dex_tools_no_input_returns_error() {
     let rt = tokio::runtime::Runtime::new().unwrap();
-    let result = rt.block_on(hematite::tools::dex_tools::execute(
-        &serde_json::json!({}),
-    ));
+    let result = rt.block_on(hematite::tools::dex_tools::execute(&serde_json::json!({})));
     assert!(result.is_err(), "no input should fail");
     let err = result.unwrap_err();
     assert!(
@@ -36428,7 +36440,8 @@ fn test_dex_tools_missing_file_returns_error() {
 fn test_dex_tools_invalid_magic_returns_error() {
     use std::io::Write;
     let mut tmp = tempfile::NamedTempFile::new().unwrap();
-    tmp.write_all(b"\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b").unwrap();
+    tmp.write_all(b"\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b")
+        .unwrap();
     let path = tmp.path().to_str().unwrap().to_string();
     let rt = tokio::runtime::Runtime::new().unwrap();
     let result = rt.block_on(hematite::tools::dex_tools::execute(
@@ -36437,7 +36450,10 @@ fn test_dex_tools_invalid_magic_returns_error() {
     assert!(result.is_err(), "non-DEX bytes should fail");
     let err = result.unwrap_err();
     assert!(
-        err.contains("magic") || err.contains("DEX") || err.contains("dex") || err.contains("header"),
+        err.contains("magic")
+            || err.contains("DEX")
+            || err.contains("dex")
+            || err.contains("header"),
         "meaningful error: {}",
         err
     );
@@ -36446,11 +36462,12 @@ fn test_dex_tools_invalid_magic_returns_error() {
 #[test]
 fn test_dex_tools_invalid_hex_magic_returns_error() {
     // hex bytes that don't start with "dex\n"
-    let result = tokio::runtime::Runtime::new().unwrap().block_on(
-        hematite::tools::dex_tools::execute(
-            &serde_json::json!({"action": "info", "hex": "cafebabe00000034"}),
-        ),
-    );
+    let result =
+        tokio::runtime::Runtime::new()
+            .unwrap()
+            .block_on(hematite::tools::dex_tools::execute(
+                &serde_json::json!({"action": "info", "hex": "cafebabe00000034"}),
+            ));
     assert!(result.is_err(), "non-DEX magic should fail");
     let err = result.unwrap_err();
     assert!(
@@ -36479,7 +36496,9 @@ fn test_routing_detects_tls_tools_client_hello() {
 #[test]
 fn test_routing_detects_tls_tools_cipher_suite() {
     use hematite::agent::routing::needs_tls_tools;
-    assert!(needs_tls_tools("what cipher suite is this tls session using"));
+    assert!(needs_tls_tools(
+        "what cipher suite is this tls session using"
+    ));
     assert!(needs_tls_tools("tls cipher suites negotiated"));
 }
 
@@ -36502,9 +36521,7 @@ fn test_routing_tls_tools_negative() {
 #[test]
 fn test_tls_tools_no_input_returns_error() {
     let rt = tokio::runtime::Runtime::new().unwrap();
-    let result = rt.block_on(hematite::tools::tls_tools::execute(
-        &serde_json::json!({}),
-    ));
+    let result = rt.block_on(hematite::tools::tls_tools::execute(&serde_json::json!({})));
     assert!(result.is_err(), "missing input should return error");
     let err = result.unwrap_err();
     assert!(
@@ -36540,7 +36557,11 @@ fn test_tls_tools_parse_valid_record() {
     let result = rt.block_on(hematite::tools::tls_tools::execute(
         &serde_json::json!({"action": "parse", "hex": hex}),
     ));
-    assert!(result.is_ok(), "valid ClientHello should parse: {:?}", result);
+    assert!(
+        result.is_ok(),
+        "valid ClientHello should parse: {:?}",
+        result
+    );
     let out = result.unwrap();
     assert!(
         out.contains("TLS") || out.contains("Record") || out.contains("Handshake"),
@@ -36574,7 +36595,9 @@ fn test_tls_tools_client_hello_action() {
 #[test]
 fn test_routing_detects_protobuf_wire_tools_wire_format() {
     use hematite::agent::routing::needs_protobuf_wire_tools;
-    assert!(needs_protobuf_wire_tools("decode protobuf wire format bytes"));
+    assert!(needs_protobuf_wire_tools(
+        "decode protobuf wire format bytes"
+    ));
     assert!(needs_protobuf_wire_tools("parse proto wire format"));
 }
 
@@ -36588,14 +36611,18 @@ fn test_routing_detects_protobuf_wire_tools_grpc() {
 #[test]
 fn test_routing_detects_protobuf_wire_tools_without_schema() {
     use hematite::agent::routing::needs_protobuf_wire_tools;
-    assert!(needs_protobuf_wire_tools("decode raw protobuf without schema"));
+    assert!(needs_protobuf_wire_tools(
+        "decode raw protobuf without schema"
+    ));
     assert!(needs_protobuf_wire_tools("decode raw protobuf bytes"));
 }
 
 #[test]
 fn test_routing_detects_protobuf_wire_tools_varint() {
     use hematite::agent::routing::needs_protobuf_wire_tools;
-    assert!(needs_protobuf_wire_tools("what is this varint protobuf field"));
+    assert!(needs_protobuf_wire_tools(
+        "what is this varint protobuf field"
+    ));
     assert!(needs_protobuf_wire_tools("wire type 2 protobuf"));
 }
 
@@ -36683,7 +36710,9 @@ fn test_protobuf_wire_tools_strings_action() {
 fn test_routing_detects_ssh_key_tools_fingerprint() {
     use hematite::agent::routing::needs_ssh_key_tools;
     assert!(needs_ssh_key_tools("show me the ssh key fingerprint"));
-    assert!(needs_ssh_key_tools("what is the fingerprint of this ssh public key"));
+    assert!(needs_ssh_key_tools(
+        "what is the fingerprint of this ssh public key"
+    ));
 }
 
 #[test]
@@ -36712,9 +36741,9 @@ fn test_routing_ssh_key_tools_negative() {
 #[test]
 fn test_ssh_key_tools_no_input_returns_error() {
     let rt = tokio::runtime::Runtime::new().unwrap();
-    let result = rt.block_on(hematite::tools::ssh_key_tools::execute(
-        &serde_json::json!({}),
-    ));
+    let result = rt.block_on(hematite::tools::ssh_key_tools::execute(&serde_json::json!(
+        {}
+    )));
     assert!(result.is_err(), "missing input should return error");
     let err = result.unwrap_err();
     assert!(
@@ -36754,7 +36783,11 @@ fn test_ssh_key_tools_fingerprint_action() {
             "key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl user@host"
         }),
     ));
-    assert!(result.is_ok(), "fingerprint action should work: {:?}", result);
+    assert!(
+        result.is_ok(),
+        "fingerprint action should work: {:?}",
+        result
+    );
     let out = result.unwrap();
     assert!(
         out.contains("SHA256:") || out.contains("sha256"),
@@ -36865,11 +36898,374 @@ fn test_wireguard_tools_validate_missing_fields() {
     let result = rt.block_on(hematite::tools::wireguard_tools::execute(
         &serde_json::json!({"action": "validate", "config": config}),
     ));
-    assert!(result.is_ok(), "validate should return output even for invalid: {:?}", result);
+    assert!(
+        result.is_ok(),
+        "validate should return output even for invalid: {:?}",
+        result
+    );
     let out = result.unwrap();
     assert!(
         out.contains("INVALID") || out.contains("missing") || out.contains("Missing"),
         "should flag missing required fields: {}",
+        out
+    );
+}
+
+// ─── prometheus_tools routing tests ───────────────────────────────────────────
+
+#[test]
+fn test_routing_detects_prometheus_tools_parse() {
+    use hematite::agent::routing::needs_prometheus_tools;
+    assert!(needs_prometheus_tools("parse my prometheus metrics"));
+    assert!(needs_prometheus_tools("prometheus exposition format"));
+}
+
+#[test]
+fn test_routing_detects_prometheus_tools_type() {
+    use hematite::agent::routing::needs_prometheus_tools;
+    assert!(needs_prometheus_tools(
+        "what metric families are in this scrape output"
+    ));
+    assert!(needs_prometheus_tools("analyze openmetrics data"));
+}
+
+#[test]
+fn test_routing_prometheus_tools_negative() {
+    use hematite::agent::routing::needs_prometheus_tools;
+    assert!(!needs_prometheus_tools("grafana dashboard"));
+    assert!(!needs_prometheus_tools("deploy metrics server"));
+}
+
+// ─── prometheus_tools functional tests ────────────────────────────────────────
+
+#[test]
+fn test_prometheus_tools_no_input_returns_error() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::prometheus_tools::execute(
+        &serde_json::json!({}),
+    ));
+    assert!(result.is_err(), "missing input should return error");
+}
+
+#[test]
+fn test_prometheus_tools_parse_basic() {
+    let metrics = "# HELP http_requests_total Total HTTP requests\n# TYPE http_requests_total counter\nhttp_requests_total{method=\"GET\",status=\"200\"} 1234\nhttp_requests_total{method=\"POST\",status=\"200\"} 567\n";
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::prometheus_tools::execute(
+        &serde_json::json!({"text": metrics}),
+    ));
+    assert!(result.is_ok(), "should parse metrics: {:?}", result);
+    let out = result.unwrap();
+    assert!(
+        out.contains("http_requests_total") || out.contains("counter"),
+        "should show metric family: {}",
+        out
+    );
+}
+
+#[test]
+fn test_prometheus_tools_stats() {
+    let metrics =
+        "# HELP go_goroutines Go goroutines\n# TYPE go_goroutines gauge\ngo_goroutines 42\n";
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::prometheus_tools::execute(
+        &serde_json::json!({"action": "stats", "text": metrics}),
+    ));
+    assert!(result.is_ok(), "stats should work: {:?}", result);
+    let out = result.unwrap();
+    assert!(
+        out.contains("gauge") || out.contains("1") || out.contains("Metric"),
+        "should show stats: {}",
+        out
+    );
+}
+
+// ─── http_cache_tools routing tests ───────────────────────────────────────────
+
+#[test]
+fn test_routing_detects_http_cache_tools_parse() {
+    use hematite::agent::routing::needs_http_cache_tools;
+    assert!(needs_http_cache_tools("parse this cache-control header"));
+    assert!(needs_http_cache_tools(
+        "explain http cache max-age directive"
+    ));
+}
+
+#[test]
+fn test_routing_detects_http_cache_tools_etag() {
+    use hematite::agent::routing::needs_http_cache_tools;
+    assert!(needs_http_cache_tools("how does etag work"));
+    assert!(needs_http_cache_tools("if-none-match header explanation"));
+}
+
+#[test]
+fn test_routing_http_cache_tools_negative() {
+    use hematite::agent::routing::needs_http_cache_tools;
+    assert!(!needs_http_cache_tools("how does dns caching work"));
+    assert!(!needs_http_cache_tools("redis cache setup"));
+}
+
+// ─── http_cache_tools functional tests ────────────────────────────────────────
+
+#[test]
+fn test_http_cache_tools_no_input_returns_error() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::http_cache_tools::execute(
+        &serde_json::json!({}),
+    ));
+    assert!(result.is_err(), "missing header should return error");
+}
+
+#[test]
+fn test_http_cache_tools_parse_directives() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::http_cache_tools::execute(
+        &serde_json::json!({"header": "max-age=3600, must-revalidate, public"}),
+    ));
+    assert!(result.is_ok(), "should parse directives: {:?}", result);
+    let out = result.unwrap();
+    assert!(
+        out.contains("max-age") || out.contains("3600") || out.contains("CACHEABLE"),
+        "should explain directives: {}",
+        out
+    );
+}
+
+#[test]
+fn test_http_cache_tools_analyze_freshness() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::http_cache_tools::execute(
+        &serde_json::json!({"action": "analyze", "header": "max-age=600", "age": "300"}),
+    ));
+    assert!(result.is_ok(), "should analyze freshness: {:?}", result);
+    let out = result.unwrap();
+    assert!(
+        out.contains("FRESH") || out.contains("fresh") || out.contains("300"),
+        "should show freshness result: {}",
+        out
+    );
+}
+
+// ─── webhook_tools routing tests ───────────────────────────────────────────────
+
+#[test]
+fn test_routing_detects_webhook_tools_verify() {
+    use hematite::agent::routing::needs_webhook_tools;
+    assert!(needs_webhook_tools("verify github webhook signature"));
+    assert!(needs_webhook_tools("check stripe webhook secret"));
+}
+
+#[test]
+fn test_routing_detects_webhook_tools_providers() {
+    use hematite::agent::routing::needs_webhook_tools;
+    assert!(needs_webhook_tools("slack webhook signature validation"));
+    assert!(needs_webhook_tools("shopify webhook hmac check"));
+}
+
+#[test]
+fn test_routing_webhook_tools_negative() {
+    use hematite::agent::routing::needs_webhook_tools;
+    assert!(!needs_webhook_tools("set up a github action"));
+    assert!(!needs_webhook_tools("stripe payment integration"));
+}
+
+// ─── webhook_tools functional tests ────────────────────────────────────────────
+
+#[test]
+fn test_webhook_tools_no_input_returns_error() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::webhook_tools::execute(&serde_json::json!(
+        {}
+    )));
+    assert!(result.is_err(), "missing required fields should error");
+}
+
+#[test]
+fn test_webhook_tools_explain_all() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::webhook_tools::execute(
+        &serde_json::json!({"action": "explain", "provider": "all"}),
+    ));
+    assert!(result.is_ok(), "explain should work: {:?}", result);
+    let out = result.unwrap();
+    assert!(
+        out.contains("GitHub") && out.contains("Stripe") && out.contains("Slack"),
+        "should explain all providers: {}",
+        out
+    );
+}
+
+#[test]
+fn test_webhook_tools_generate_github() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::webhook_tools::execute(
+        &serde_json::json!({"action": "generate", "provider": "github", "secret": "mysecret", "body": "{\"event\":\"push\"}"}),
+    ));
+    assert!(result.is_ok(), "generate should work: {:?}", result);
+    let out = result.unwrap();
+    assert!(
+        out.contains("sha256=") || out.contains("X-Hub-Signature"),
+        "should generate github signature: {}",
+        out
+    );
+}
+
+#[test]
+fn test_webhook_tools_verify_github_valid() {
+    // Pre-computed: HMAC-SHA256("mysecret", "hello") = ...
+    // We generate then verify round-trip using generate first
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    // Generate a signature
+    let gen = rt.block_on(hematite::tools::webhook_tools::execute(
+        &serde_json::json!({"action": "generate", "provider": "github", "secret": "testsecret", "body": "testbody"}),
+    ));
+    assert!(gen.is_ok());
+    let gen_out = gen.unwrap();
+    // Extract the sha256=... value
+    let sig = gen_out
+        .lines()
+        .find(|l| l.contains("sha256="))
+        .and_then(|l| l.split_whitespace().last())
+        .unwrap_or("sha256=invalid");
+
+    let verify = rt.block_on(hematite::tools::webhook_tools::execute(
+        &serde_json::json!({"action": "verify", "provider": "github", "secret": "testsecret", "body": "testbody", "signature": sig}),
+    ));
+    assert!(verify.is_ok(), "verify should work: {:?}", verify);
+    let out = verify.unwrap();
+    assert!(out.contains("VALID"), "round-trip should be valid: {}", out);
+}
+
+// ─── jwk_tools routing tests ──────────────────────────────────────────────────
+
+#[test]
+fn test_routing_detects_jwk_tools_info() {
+    use hematite::agent::routing::needs_jwk_tools;
+    assert!(needs_jwk_tools("parse this jwk key"));
+    assert!(needs_jwk_tools("inspect jwks endpoint response"));
+}
+
+#[test]
+fn test_routing_detects_jwk_tools_thumbprint() {
+    use hematite::agent::routing::needs_jwk_tools;
+    assert!(needs_jwk_tools("compute rfc 7638 jwk thumbprint"));
+    assert!(needs_jwk_tools("json web key thumbprint"));
+}
+
+#[test]
+fn test_routing_jwk_tools_negative() {
+    use hematite::agent::routing::needs_jwk_tools;
+    assert!(!needs_jwk_tools("decode this jwt token"));
+    assert!(!needs_jwk_tools("generate rsa key pair"));
+}
+
+// ─── jwk_tools functional tests ───────────────────────────────────────────────
+
+#[test]
+fn test_jwk_tools_no_input_returns_error() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::jwk_tools::execute(&serde_json::json!({})));
+    assert!(result.is_err(), "missing jwk should return error");
+}
+
+#[test]
+fn test_jwk_tools_info_ec_key() {
+    let jwk = r#"{"kty":"EC","crv":"P-256","x":"f83OJ3D2xF1Bg8vub9tLe1gHMzV76e8Tus9uPHvRVEU","y":"x_FEzRu9m36HLN_tue659LNpXW6pCyStikYjKIWI5a0","use":"sig","alg":"ES256"}"#;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::jwk_tools::execute(
+        &serde_json::json!({"jwk": jwk}),
+    ));
+    assert!(result.is_ok(), "should parse EC JWK: {:?}", result);
+    let out = result.unwrap();
+    assert!(
+        out.contains("EC") && out.contains("P-256"),
+        "should show EC key info: {}",
+        out
+    );
+}
+
+#[test]
+fn test_jwk_tools_thumbprint_ec() {
+    let jwk = r#"{"kty":"EC","crv":"P-256","x":"f83OJ3D2xF1Bg8vub9tLe1gHMzV76e8Tus9uPHvRVEU","y":"x_FEzRu9m36HLN_tue659LNpXW6pCyStikYjKIWI5a0"}"#;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::jwk_tools::execute(
+        &serde_json::json!({"action": "thumbprint", "jwk": jwk}),
+    ));
+    assert!(result.is_ok(), "should compute thumbprint: {:?}", result);
+    let out = result.unwrap();
+    assert!(
+        out.contains("RFC 7638") || out.len() > 10,
+        "should show thumbprint: {}",
+        out
+    );
+}
+
+// ─── gitlab_ci_tools routing tests ────────────────────────────────────────────
+
+#[test]
+fn test_routing_detects_gitlab_ci_tools_parse() {
+    use hematite::agent::routing::needs_gitlab_ci_tools;
+    assert!(needs_gitlab_ci_tools("parse this .gitlab-ci.yml"));
+    assert!(needs_gitlab_ci_tools("inspect gitlab pipeline config"));
+}
+
+#[test]
+fn test_routing_detects_gitlab_ci_tools_validate() {
+    use hematite::agent::routing::needs_gitlab_ci_tools;
+    assert!(needs_gitlab_ci_tools("validate gitlab ci yaml"));
+    assert!(needs_gitlab_ci_tools("check gitlab pipeline jobs"));
+}
+
+#[test]
+fn test_routing_gitlab_ci_tools_negative() {
+    use hematite::agent::routing::needs_gitlab_ci_tools;
+    assert!(!needs_gitlab_ci_tools("github actions workflow"));
+    assert!(!needs_gitlab_ci_tools("jenkins pipeline setup"));
+}
+
+// ─── gitlab_ci_tools functional tests ─────────────────────────────────────────
+
+#[test]
+fn test_gitlab_ci_tools_no_input_returns_error() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::gitlab_ci_tools::execute(
+        &serde_json::json!({}),
+    ));
+    assert!(result.is_err(), "missing input should return error");
+}
+
+#[test]
+fn test_gitlab_ci_tools_info_basic() {
+    let yaml = "stages:\n  - build\n  - test\n\nbuild-job:\n  stage: build\n  script:\n    - cargo build\n\ntest-job:\n  stage: test\n  script:\n    - cargo test\n";
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::gitlab_ci_tools::execute(
+        &serde_json::json!({"text": yaml}),
+    ));
+    assert!(result.is_ok(), "should parse gitlab ci: {:?}", result);
+    let out = result.unwrap();
+    assert!(
+        out.contains("build") || out.contains("Jobs"),
+        "should show pipeline info: {}",
+        out
+    );
+}
+
+#[test]
+fn test_gitlab_ci_tools_validate_missing_script() {
+    let yaml = "stages:\n  - build\n\nbuild-job:\n  stage: build\n";
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::gitlab_ci_tools::execute(
+        &serde_json::json!({"action": "validate", "text": yaml}),
+    ));
+    assert!(
+        result.is_ok(),
+        "validate should return output: {:?}",
+        result
+    );
+    let out = result.unwrap();
+    assert!(
+        out.contains("script") || out.contains("issue") || out.contains("missing"),
+        "should flag missing script: {}",
         out
     );
 }

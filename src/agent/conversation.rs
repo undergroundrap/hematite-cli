@@ -32,21 +32,22 @@ use crate::agent::routing::{
     needs_astro_tools, needs_base_tools, needs_bencode_tools, needs_bin_pack_tools,
     needs_binary_tools, needs_bio_tools, needs_calc_tools, needs_cbor_tools, needs_changelog_gen,
     needs_changelog_tools, needs_char_tools, needs_checksum_tools, needs_chemistry_tools,
-    needs_cipher_tools, needs_circuit_tools, needs_cite_tools, needs_code_metrics,
-    needs_color_tools, needs_compression_tools, needs_computation_sandbox, needs_conda_tools,
-    needs_cors_tools, needs_crash_debug, needs_cron_tools, needs_csp_tools, needs_css_tools,
-    needs_class_tools, needs_csv_tools, needs_data_gen_tools, needs_date_tools,
-    needs_dependency_audit, needs_dex_tools, needs_diff_tools, needs_dns_tools, needs_docker_compose_tools, needs_docker_ops,
-    needs_dockerfile_tools, needs_dotenv_tools, needs_duration_tools, needs_elf_tools,
-    needs_em_tools, needs_email_tools, needs_encode_tools, needs_env_diff, needs_env_schema_tools,
-    needs_file_tree_tools, needs_find_tools, needs_format, needs_fraction_tools, needs_geo_tools,
-    needs_geometry_tools, needs_github_actions_tools, needs_github_ops, needs_gitignore_tools,
-    needs_glob_tools, needs_gpu_tools, needs_graph_tools, needs_graphql_tools,
-    needs_graphviz_tools, needs_grep_tools, needs_har_tools, needs_hash_tools, needs_hex_tools,
-    needs_html_tools, needs_http_parse_tools, needs_http_request, needs_http_status_tools,
+    needs_cipher_tools, needs_circuit_tools, needs_cite_tools, needs_class_tools,
+    needs_code_metrics, needs_color_tools, needs_compression_tools, needs_computation_sandbox,
+    needs_conda_tools, needs_cors_tools, needs_crash_debug, needs_cron_tools, needs_csp_tools,
+    needs_css_tools, needs_csv_tools, needs_data_gen_tools, needs_date_tools,
+    needs_dependency_audit, needs_dex_tools, needs_diff_tools, needs_dns_tools,
+    needs_docker_compose_tools, needs_docker_ops, needs_dockerfile_tools, needs_dotenv_tools,
+    needs_duration_tools, needs_elf_tools, needs_em_tools, needs_email_tools, needs_encode_tools,
+    needs_env_diff, needs_env_schema_tools, needs_file_tree_tools, needs_find_tools, needs_format,
+    needs_fraction_tools, needs_geo_tools, needs_geometry_tools, needs_github_actions_tools,
+    needs_github_ops, needs_gitignore_tools, needs_gitlab_ci_tools, needs_glob_tools,
+    needs_gpu_tools, needs_graph_tools, needs_graphql_tools, needs_graphviz_tools,
+    needs_grep_tools, needs_har_tools, needs_hash_tools, needs_hex_tools, needs_html_tools,
+    needs_http_cache_tools, needs_http_parse_tools, needs_http_request, needs_http_status_tools,
     needs_ical_tools, needs_id_tools, needs_inflect_tools, needs_ini_tools, needs_interval_tools,
     needs_ip_tools, needs_jq_tools, needs_json_patch_tools, needs_json_tools, needs_jsonl_tools,
-    needs_jsonschema_tools, needs_jwt_tools, needs_k8s_tools, needs_keyval_tools,
+    needs_jsonschema_tools, needs_jwk_tools, needs_jwt_tools, needs_k8s_tools, needs_keyval_tools,
     needs_latex_tools, needs_leb128_tools, needs_license_tools, needs_line_tools, needs_lint_check,
     needs_lock_file_tools, needs_log_parse_tools, needs_logic_tools, needs_macho_tools,
     needs_make_tools, needs_markdown_gen_tools, needs_markdown_tools, needs_materials_tools,
@@ -57,23 +58,22 @@ use crate::agent::routing::{
     needs_number_theory_tools, needs_number_tools, needs_number_words_tools, needs_openapi_tools,
     needs_optics_tools, needs_package_json_tools, needs_password_gen, needs_path_tools,
     needs_pcap_tools, needs_pe_tools, needs_pem_tools, needs_periodic_tools, needs_physics_tools,
-    needs_plist_tools, needs_port_check, needs_printf_tools, needs_proto_tools,
-    needs_quantum_tools, needs_regex_tools, needs_relativity_tools, needs_robots_txt_tools,
-    needs_rss_tools, needs_scientific_compute, needs_secret_scan, needs_semver_tools,
-    needs_signal_tools, needs_sitemap_tools, needs_size_tools, needs_sort_tools,
-    needs_sql_format_tools, needs_sql_migrate_tools, needs_sql_tools, needs_sqlite_tools,
-    needs_ssh_config_tools, needs_stack_tools, needs_stat_tools, needs_string_metric_tools,
-    needs_systemd_tools, needs_table_tools, needs_tar_tools, needs_template_gen,
-    needs_template_tools, needs_terraform_tools, needs_test_run, needs_text_align_tools,
-    needs_text_extract_tools, needs_text_tools, needs_thermo_tools, needs_time_zone_tools,
-    needs_tlv_tools, needs_tls_tools, needs_todo_tools, needs_token_tools, needs_toml_tools,
-    needs_totp_tools, needs_trie_tools, needs_protobuf_wire_tools, needs_unicode_tools,
-    needs_unit_tools, needs_url_tools, needs_uuid_gen,
-    needs_validate_tools, needs_vcf_tools, needs_vector_tools, needs_wasm_tools,
-    needs_web_manifest_tools, needs_wireguard_tools, needs_word_tools, needs_xml_tools,
-    needs_yaml_tools, needs_ssh_key_tools,
-    preferred_host_inspection_topic, preferred_maintainer_workflow, preferred_workspace_workflow,
-    DirectAnswerKind, QueryIntentClass,
+    needs_plist_tools, needs_port_check, needs_printf_tools, needs_prometheus_tools,
+    needs_proto_tools, needs_protobuf_wire_tools, needs_quantum_tools, needs_regex_tools,
+    needs_relativity_tools, needs_robots_txt_tools, needs_rss_tools, needs_scientific_compute,
+    needs_secret_scan, needs_semver_tools, needs_signal_tools, needs_sitemap_tools,
+    needs_size_tools, needs_sort_tools, needs_sql_format_tools, needs_sql_migrate_tools,
+    needs_sql_tools, needs_sqlite_tools, needs_ssh_config_tools, needs_ssh_key_tools,
+    needs_stack_tools, needs_stat_tools, needs_string_metric_tools, needs_systemd_tools,
+    needs_table_tools, needs_tar_tools, needs_template_gen, needs_template_tools,
+    needs_terraform_tools, needs_test_run, needs_text_align_tools, needs_text_extract_tools,
+    needs_text_tools, needs_thermo_tools, needs_time_zone_tools, needs_tls_tools, needs_tlv_tools,
+    needs_todo_tools, needs_token_tools, needs_toml_tools, needs_totp_tools, needs_trie_tools,
+    needs_unicode_tools, needs_unit_tools, needs_url_tools, needs_uuid_gen, needs_validate_tools,
+    needs_vcf_tools, needs_vector_tools, needs_wasm_tools, needs_web_manifest_tools,
+    needs_webhook_tools, needs_wireguard_tools, needs_word_tools, needs_xml_tools,
+    needs_yaml_tools, preferred_host_inspection_topic, preferred_maintainer_workflow,
+    preferred_workspace_workflow, DirectAnswerKind, QueryIntentClass,
 };
 use crate::agent::tool_registry::dispatch_builtin_tool;
 use crate::agent::truncation::safe_head;
@@ -7778,6 +7778,72 @@ impl ConversationManager {
                  keys (list all keys with validity status — PrivateKey value is always redacted). \
                  Input: 'config' or 'text' for config content, or 'file' for a .conf path. \
                  Example: wireguard_tools(action: 'validate', file: '/etc/wireguard/wg0.conf')"
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_prometheus_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "PROMETHEUS NOTICE: Use the `prometheus_tools` tool to parse and analyze Prometheus/OpenMetrics text exposition. \
+                 Actions: parse (default — list all metric families with type, sample count, and help text), \
+                 metrics (detailed per-family view with sample values and label sets; 'filter'/'limit' args), \
+                 labels (label name distribution and top values), filter (find families by name substring), \
+                 stats (total families, samples, unique labels, breakdown by type). \
+                 Input: 'text' for inline metrics or 'file' for a file path. \
+                 Example: prometheus_tools(action: 'parse', text: '# HELP ...')"
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_http_cache_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "HTTP CACHE NOTICE: Use the `http_cache_tools` tool to parse and analyze HTTP Cache-Control headers. \
+                 Actions: parse (default — decode each directive with plain-English explanation and conflict warnings; pass 'header'), \
+                 analyze (freshness analysis: max-age/s-maxage/Age calculation, stale-while-revalidate window; pass 'header' + optional 'age' in seconds), \
+                 etag (ETag matching: compare computed If-None-Match against provided ETag; pass 'etag' + 'if_none_match'; gives 304 vs 200 verdict), \
+                 vary (Vary header breakdown: cache-key fields, fragmentation risk warnings; pass 'header'). \
+                 Pass 'request: true' to parse as a request Cache-Control. \
+                 Example: http_cache_tools(action: 'analyze', header: 'max-age=3600, stale-while-revalidate=60', age: '120')"
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_webhook_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "WEBHOOK NOTICE: Use the `webhook_tools` tool to verify, generate, and explain webhook HMAC-SHA256 signatures. \
+                 Actions: verify (default — verify a signature against secret+body; VALID/INVALID verdict with expected value on mismatch), \
+                 generate (sign a body with secret and output the provider-specific header format), \
+                 explain (show each provider's header format, signing algorithm, and security notes). \
+                 Pass 'provider': github/stripe/slack/shopify/generic. \
+                 Required fields for verify/generate: 'secret', 'body', 'signature' (verify only). \
+                 Stripe/Slack also require 'timestamp'. \
+                 Example: webhook_tools(action: 'verify', provider: 'github', secret: 'mysecret', body: '{...}', signature: 'sha256=abc123')"
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_jwk_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "JWK NOTICE: Use the `jwk_tools` tool to parse and inspect JSON Web Keys (JWK/JWKS). \
+                 Actions: info (default — key type, size, algorithm, intended use, and RFC 7638 thumbprint), \
+                 validate (check required fields per key type RSA/EC/OKP/oct; warn on weak key sizes; check use vs key_ops conflicts), \
+                 thumbprint (compute RFC 7638 SHA-256 thumbprint in base64url; shows hex too), \
+                 list (tabular summary of all keys in a JWKS). \
+                 Pass 'jwk' with a JWK JSON object or JWKS {\"keys\":[...]} object. \
+                 Example: jwk_tools(action: 'info', jwk: '{\"kty\":\"RSA\",\"n\":\"...\",\"e\":\"AQAB\"}')"
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_gitlab_ci_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "GITLAB CI NOTICE: Use the `gitlab_ci_tools` tool to parse and validate .gitlab-ci.yml files. \
+                 Actions: info (default — stages pipeline, job count, global image/variables/includes overview), \
+                 jobs (detailed per-job breakdown: stage, image, script lines, needs/rules/artifacts; optional 'stage' filter), \
+                 stages (stage list with job count per stage; flags undeclared stage references), \
+                 validate (warn on missing script, undeclared stages, unknown needs references, deprecated only/except, image:latest). \
+                 Input: 'text'/'yaml'/'ci' for inline YAML or 'file' for a file path. \
+                 Example: gitlab_ci_tools(action: 'validate', file: '.gitlab-ci.yml')"
                     .to_string(),
             );
         }

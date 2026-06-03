@@ -6425,6 +6425,79 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         crate::tools::wireguard_tools::make_schema(),
     ));
     tools.push(make_tool(
+        "prometheus_tools",
+        "Parse and analyze Prometheus/OpenMetrics text exposition format. Works offline — no network or Prometheus server required. \
+         Actions: \
+         `parse` (default) — list all metric families with name, type (counter/gauge/histogram/summary/untyped), sample count, and help text; \
+         `metrics` — detailed per-family view showing all samples with label sets and values; supports 'filter' (name substring) and 'limit' (default 10); \
+         `labels` — label name distribution across all samples — occurrence counts, unique value counts, and top values; optional 'filter' for metric name; \
+         `filter` — find metric families by name substring; pass 'query'; \
+         `stats` — summary: total families, total samples, unique label names, breakdown by metric type. \
+         Input: 'text', 'metrics', or 'input' for inline exposition text; 'file' for a file path. \
+         Example: prometheus_tools(text: '# HELP http_requests_total ...\\n# TYPE http_requests_total counter\\nhttp_requests_total{method=\"GET\"} 1234') or \
+         prometheus_tools(action: 'stats', file: '/metrics.txt').",
+        crate::tools::prometheus_tools::make_schema(),
+    ));
+    tools.push(make_tool(
+        "http_cache_tools",
+        "Parse, explain, and analyze HTTP Cache-Control and related caching headers. Works offline — no network calls. \
+         Actions: \
+         `parse` (default) — decode each Cache-Control directive with a plain-English explanation; flags conflicts (no-store+max-age, public+private, immutable without max-age); gives a summary verdict (NOT CACHEABLE / CONDITIONAL / CACHEABLE for Xs); \
+         `analyze` — freshness calculation: s-maxage overrides max-age; checks against 'age' seconds; shows stale-while-revalidate grace window; must-revalidate stale note; \
+         `etag` — ETag conditional request: compare 'etag' (server ETag) against 'if_none_match' (client header); supports weak ETags (W/ prefix) and wildcard (*); gives 304 vs 200 verdict; \
+         `vary` — Vary header breakdown: per-field explanations; fragmentation risk warnings for Cookie/Authorization/User-Agent; cache key formula. \
+         Pass 'header', 'value', or 'cache_control' for the directive string (the 'Cache-Control:' prefix is stripped automatically). \
+         Add 'request: true' to parse as a request-side Cache-Control. \
+         Example: http_cache_tools(header: 'max-age=3600, stale-while-revalidate=60') or \
+         http_cache_tools(action: 'analyze', header: 'max-age=600, must-revalidate', age: '800') or \
+         http_cache_tools(action: 'etag', etag: '\"abc123\"', if_none_match: '\"abc123\"').",
+        crate::tools::http_cache_tools::make_schema(),
+    ));
+    tools.push(make_tool(
+        "webhook_tools",
+        "Verify, generate, and explain webhook HMAC-SHA256 signatures for GitHub, Stripe, Slack, Shopify, and generic endpoints. Works offline — no network calls. \
+         Actions: \
+         `verify` (default) — verify a received signature against your secret and body; gives VALID/INVALID verdict with expected value on mismatch; uses constant-time comparison to prevent timing attacks; \
+         `generate` — sign a body with your secret and output the correct provider-specific header value; \
+         `explain` — show each provider's header name, payload format, algorithm, and security notes (timestamp tolerance, replay prevention). \
+         Pass 'provider': github / stripe / slack / shopify / generic (default). \
+         Required for verify and generate: 'secret' (signing secret), 'body' (raw request body string). \
+         Required for verify: 'signature' or 'sig' (header value to check). \
+         Required for Stripe/Slack verify: 'timestamp' or 'ts'. \
+         Example: webhook_tools(provider: 'github', secret: 'mysecret', body: '{\"event\":\"push\"}', signature: 'sha256=abc...') or \
+         webhook_tools(action: 'generate', provider: 'stripe', secret: 'whsec_...', body: '{...}', timestamp: '1714000000') or \
+         webhook_tools(action: 'explain', provider: 'all').",
+        crate::tools::webhook_tools::make_schema(),
+    ));
+    tools.push(make_tool(
+        "jwk_tools",
+        "Parse, inspect, validate, and compute RFC 7638 thumbprints for JSON Web Keys (JWK) and JWKS sets. Works offline — no network calls. \
+         Actions: \
+         `info` (default) — key type (RSA/EC/OKP/oct), bit size, algorithm, intended use, key ID, and RFC 7638 SHA-256 thumbprint; handles both single JWK and JWKS {\"keys\":[...]}; \
+         `validate` — check required fields per key type (RSA: n+e; EC: crv+x+y; OKP: crv+x; oct: k); warn on RSA<2048 bits, oct<128 bits, conflicting use vs key_ops; \
+         `thumbprint` — compute RFC 7638 SHA-256 thumbprint: canonical sorted minimal JSON → SHA-256 → base64url; also shows hex form; \
+         `list` — tabular summary of all keys in a JWKS: type, algorithm, use, key ID (truncated), thumbprint prefix. \
+         Pass 'jwk' with a JWK JSON object string or a JWKS object. \
+         Example: jwk_tools(jwk: '{\"kty\":\"RSA\",\"n\":\"...\",\"e\":\"AQAB\"}') or \
+         jwk_tools(action: 'thumbprint', jwk: '{\"kty\":\"EC\",\"crv\":\"P-256\",\"x\":\"...\",\"y\":\"...\"}') or \
+         jwk_tools(action: 'list', jwk: '{\"keys\":[...]}').",
+        crate::tools::jwk_tools::make_schema(),
+    ));
+    tools.push(make_tool(
+        "gitlab_ci_tools",
+        "Parse, inspect, and validate .gitlab-ci.yml GitLab CI/CD configuration files. Works offline — no network or GitLab server required. \
+         Actions: \
+         `info` (default) — pipeline overview: declared stages with job mapping, job count, template count, global image, variable count, include count, workflow rules; \
+         `jobs` — detailed per-job breakdown: stage, image, extends, when, tags, parallel count, script/before/after line counts, needs (DAG dependencies), rules count, artifacts paths, variables; optional 'stage' filter; \
+         `stages` — stage list with job count per stage; flags jobs referencing undeclared stages; \
+         `validate` — check: missing 'script' or 'trigger', undeclared stage references, unknown 'needs' job names, deprecated 'only'/'except' vs 'rules', image:latest, empty rules arrays. \
+         Input: 'text', 'yaml', or 'ci' for inline YAML content; 'file' for a .yml file path. \
+         Example: gitlab_ci_tools(file: '.gitlab-ci.yml') or \
+         gitlab_ci_tools(action: 'validate', text: 'stages: [build, test]\\nbuild-job:\\n  stage: build\\n  script: [cargo build]') or \
+         gitlab_ci_tools(action: 'jobs', file: '.gitlab-ci.yml', stage: 'test').",
+        crate::tools::gitlab_ci_tools::make_schema(),
+    ));
+    tools.push(make_tool(
         "macho_tools",
         "Inspect macOS Mach-O binaries (executables, dylibs, frameworks, bundles, fat/universal binaries) without external tools — no otool or nm required. \
          Actions: \
@@ -7348,6 +7421,11 @@ pub async fn dispatch_builtin_tool(
         "protobuf_wire_tools" => crate::tools::protobuf_wire_tools::execute(args).await,
         "ssh_key_tools" => crate::tools::ssh_key_tools::execute(args).await,
         "wireguard_tools" => crate::tools::wireguard_tools::execute(args).await,
+        "prometheus_tools" => crate::tools::prometheus_tools::execute(args).await,
+        "http_cache_tools" => crate::tools::http_cache_tools::execute(args).await,
+        "webhook_tools" => crate::tools::webhook_tools::execute(args).await,
+        "jwk_tools" => crate::tools::jwk_tools::execute(args).await,
+        "gitlab_ci_tools" => crate::tools::gitlab_ci_tools::execute(args).await,
         "macho_tools" => crate::tools::macho_tools::execute(args).await,
         "pcap_tools" => crate::tools::pcap_tools::execute(args).await,
         "pe_tools" => crate::tools::pe_tools::execute(args).await,
