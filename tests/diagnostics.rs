@@ -38570,3 +38570,98 @@ fn test_openid_tools_id_token() {
     assert!(out.contains("accounts.example.com") || out.contains("user123"), "should decode issuer/subject: {}", out);
     assert!(out.contains("RS256"), "should show algorithm: {}", out);
 }
+
+// ── exif_tools ────────────────────────────────────────────────────────────────
+
+#[test]
+fn test_routing_detects_exif_tools() {
+    use hematite::agent::routing::needs_exif_tools;
+    assert!(needs_exif_tools("show me the exif data from this photo"));
+    assert!(needs_exif_tools("extract GPS from image"));
+    assert!(needs_exif_tools("what camera model photo was taken with"));
+    assert!(needs_exif_tools("read exif metadata from jpeg"));
+    assert!(!needs_exif_tools("list files in directory"));
+}
+
+#[test]
+fn test_exif_tools_minimal_tiff() {
+    // Minimal little-endian TIFF with one IFD entry: tag 271 (Make) = "Canon\0"
+    // Byte layout:
+    //   0-7:   TIFF header  (II + 0x002A + IFD0 offset=8)
+    //   8-9:   IFD0 count=1
+    //   10-21: IFD entry (tag=0x010F type=2 count=6 offset=26)
+    //   22-25: next-IFD = 0
+    //   26-31: "Canon\0"
+    let tiff_hex = concat!(
+        "4949",         // II (little-endian)
+        "2A00",         // magic 42
+        "08000000",     // IFD0 at offset 8
+        "0100",         // 1 IFD entry
+        "0F01",         // tag 0x010F = Make
+        "0200",         // type 2 = ASCII
+        "06000000",     // count 6
+        "1A000000",     // value at offset 26 (0x1A) — first byte after IFD structure
+        "00000000",     // next IFD = 0
+        "43616E6F6E00", // "Canon\0" (6 bytes at offset 26)
+    );
+    let bytes: Vec<u8> = (0..tiff_hex.len())
+        .step_by(2)
+        .map(|i| u8::from_str_radix(&tiff_hex[i..i + 2], 16).unwrap())
+        .collect();
+    let hex = bytes.iter().map(|b| format!("{:02X}", b)).collect::<String>();
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::exif_tools::execute(
+        &serde_json::json!({"action": "info", "hex": hex}),
+    ));
+    assert!(result.is_ok(), "exif_tools info on minimal TIFF should succeed: {:?}", result);
+    let out = result.unwrap();
+    assert!(out.contains("Canon"), "should show Make=Canon: {}", out);
+}
+
+#[test]
+fn test_exif_tools_gps() {
+    // Verify gps action handles missing GPS IFD gracefully
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    // Use an action with no input — should return an error or graceful message
+    let result = rt.block_on(hematite::tools::exif_tools::execute(
+        &serde_json::json!({"action": "gps", "hex": "4949"}),
+    ));
+    // Should not panic; may return Ok or Err but must not crash
+    let _ = result;
+}
+
+// ── office_tools ──────────────────────────────────────────────────────────────
+
+#[test]
+fn test_routing_detects_office_tools() {
+    use hematite::agent::routing::needs_office_tools;
+    assert!(needs_office_tools("inspect this .docx file"));
+    assert!(needs_office_tools("extract text from word document"));
+    assert!(needs_office_tools("how many slides in this .pptx"));
+    assert!(needs_office_tools("list sheet names from xlsx file"));
+    assert!(!needs_office_tools("read a plain text file"));
+}
+
+#[test]
+fn test_office_tools_missing_file() {
+    // Returns Ok("Error: ...") for a missing file — should contain an error message
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::office_tools::execute(
+        &serde_json::json!({"action": "info", "file": "/nonexistent/path/document.docx"}),
+    ));
+    assert!(result.is_ok(), "office_tools should return Ok even on missing file");
+    let out = result.unwrap();
+    assert!(out.contains("Error") || out.contains("error"), "should report an error for missing file: {}", out);
+}
+
+#[test]
+fn test_office_tools_no_file_arg() {
+    // No file arg provided — should return the "provide 'file'" message
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::office_tools::execute(
+        &serde_json::json!({"action": "info"}),
+    ));
+    assert!(result.is_ok(), "office_tools should return Ok when file arg is missing");
+    let out = result.unwrap();
+    assert!(out.contains("file") || out.contains("Error"), "should prompt for file path: {}", out);
+}

@@ -76,6 +76,7 @@ use crate::agent::routing::{
     needs_web_manifest_tools, needs_webhook_tools, needs_wireguard_tools, needs_word_tools,
     needs_xml_tools, needs_yaml_tools, needs_spdx_tools, needs_aws_tools, needs_curl_tools,
     needs_oauth_tools, needs_saml_tools, needs_multipart_tools, needs_openid_tools,
+    needs_exif_tools, needs_office_tools,
     preferred_host_inspection_topic,
     preferred_maintainer_workflow, preferred_workspace_workflow, DirectAnswerKind,
     QueryIntentClass,
@@ -8167,6 +8168,33 @@ impl ConversationManager {
                  Input: json/document/file for discovery/userinfo; token/id_token for id_token action. \
                  Example: openid_tools(action: 'discover', file: 'openid-configuration.json') or \
                  openid_tools(action: 'id_token', token: 'eyJhbGci...')."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_exif_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "EXIF NOTICE: Use the `exif_tools` tool to parse EXIF/IPTC metadata from JPEG and TIFF images without external tools. \
+                 Actions: info (default — all EXIF fields: IFD0 image info, ExifIFD camera settings, GPSIFD location), \
+                 camera (make/model/lens model/ISO/exposure time/aperture/focal length/white balance/flash/scene capture type), \
+                 gps (GPS coordinates with decimal degrees and Google Maps link), \
+                 thumbnail (detect embedded JPEG thumbnail with offset and size). \
+                 Pass file (path to JPEG or TIFF) or hex (hex-encoded bytes). \
+                 Example: exif_tools(file: 'photo.jpg') or exif_tools(action: 'gps', file: 'photo.jpg')."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_office_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "OFFICE NOTICE: Use the `office_tools` tool to inspect DOCX, XLSX, and PPTX Office Open XML files without Microsoft Office. \
+                 Actions: info (default — format detection, title/author/dates metadata, paragraph/word count for DOCX, \
+                 sheet names for XLSX, slide count for PPTX), \
+                 content (extract body text for DOCX, sheet names + shared strings preview for XLSX, slide text for PPTX), \
+                 structure (list all ZIP parts with names and sizes), \
+                 validate (check required Open XML parts). \
+                 Pass file (path to .docx, .xlsx, or .pptx). \
+                 Example: office_tools(file: 'report.docx') or office_tools(action: 'content', file: 'data.xlsx')."
                     .to_string(),
             );
         }

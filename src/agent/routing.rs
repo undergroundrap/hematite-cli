@@ -11642,6 +11642,69 @@ pub fn needs_openid_tools(user_input: &str) -> bool {
     )
 }
 
+pub fn needs_exif_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "exif",
+            "exif data",
+            "exif metadata",
+            "image metadata",
+            "jpeg metadata",
+            "photo metadata",
+            "camera metadata",
+            "gps from photo",
+            "gps from image",
+            "extract gps from",
+            "photo location",
+            "image location",
+            "photo coordinates",
+            "tiff metadata",
+            "read exif",
+            "parse exif",
+            "camera model photo",
+            "lens info photo",
+            "shutter speed photo",
+            "aperture photo",
+            "iso photo",
+        ],
+    )
+}
+
+pub fn needs_office_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            ".docx",
+            ".xlsx",
+            ".pptx",
+            "docx file",
+            "xlsx file",
+            "pptx file",
+            "word document",
+            "excel workbook",
+            "powerpoint",
+            "office document",
+            "open xml",
+            "inspect docx",
+            "inspect xlsx",
+            "inspect pptx",
+            "parse docx",
+            "parse xlsx",
+            "read docx",
+            "read xlsx",
+            "office file",
+            "extract text from word",
+            "extract text from docx",
+            "sheet names",
+            "slide count",
+            "presentation slides",
+        ],
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

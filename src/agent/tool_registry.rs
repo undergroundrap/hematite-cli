@@ -6727,6 +6727,33 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         crate::tools::openid_tools::make_schema(),
     ));
     tools.push(make_tool(
+        "exif_tools",
+        "Parse EXIF/IPTC metadata from JPEG and TIFF images without external tools. \
+         Actions: \
+         `info` (default) — all parsed EXIF fields grouped by IFD0 (image), ExifIFD (camera settings), and GPSIFD (location); \
+         `camera` — focused camera and lens info: make, model, lens model, ISO, exposure time, aperture, focal length, white balance, flash, metering mode; \
+         `gps` — GPS coordinates with decimal degrees and Google Maps link; \
+         `thumbnail` — detect embedded JPEG thumbnail (offset and size). \
+         Pass `file` (path to JPEG or TIFF) or `hex` (hex-encoded bytes). \
+         Handles JPEG APP1 EXIF extraction and bare TIFF files. Parses IFD0, EXIF sub-IFD, GPS sub-IFD, and IFD1 thumbnail. \
+         Example: exif_tools(file: 'photo.jpg') or exif_tools(action: 'gps', file: 'photo.jpg') or exif_tools(action: 'camera', file: 'img.tiff').",
+        crate::tools::exif_tools::make_schema(),
+    ));
+    tools.push(make_tool(
+        "office_tools",
+        "Inspect DOCX, XLSX, and PPTX Office Open XML documents without Microsoft Office. \
+         Actions: \
+         `info` (default) — format (DOCX/XLSX/PPTX), title, author, created/modified dates, \
+           and format-specific stats (paragraph/word count for DOCX, sheet names for XLSX, slide count for PPTX); \
+         `content` — extract text from DOCX body, sheet names + shared strings preview for XLSX, \
+           or slide text previews for PPTX; \
+         `structure` — list all ZIP parts with names and sizes grouped by folder; \
+         `validate` — check for required Open XML parts ([Content_Types].xml, _rels/.rels, main document part). \
+         Pass `file` (path to .docx, .xlsx, or .pptx). \
+         Example: office_tools(file: 'report.docx') or office_tools(action: 'content', file: 'data.xlsx') or office_tools(action: 'structure', file: 'deck.pptx').",
+        crate::tools::office_tools::make_schema(),
+    ));
+    tools.push(make_tool(
         "macho_tools",
         "Inspect macOS Mach-O binaries (executables, dylibs, frameworks, bundles, fat/universal binaries) without external tools — no otool or nm required. \
          Actions: \
@@ -7672,6 +7699,8 @@ pub async fn dispatch_builtin_tool(
         "saml_tools" => crate::tools::saml_tools::execute(args).await,
         "multipart_tools" => crate::tools::multipart_tools::execute(args).await,
         "openid_tools" => crate::tools::openid_tools::execute(args).await,
+        "exif_tools" => crate::tools::exif_tools::execute(args).await,
+        "office_tools" => crate::tools::office_tools::execute(args).await,
         "macho_tools" => crate::tools::macho_tools::execute(args).await,
         "pcap_tools" => crate::tools::pcap_tools::execute(args).await,
         "pe_tools" => crate::tools::pe_tools::execute(args).await,
