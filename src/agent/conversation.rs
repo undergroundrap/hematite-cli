@@ -37,7 +37,7 @@ use crate::agent::routing::{
     needs_color_tools, needs_compression_tools, needs_computation_sandbox, needs_conda_tools,
     needs_cors_tools, needs_crash_debug, needs_cron_tools, needs_csp_tools, needs_css_tools,
     needs_csv_tools, needs_curl_tools, needs_cvss_tools, needs_data_gen_tools, needs_date_tools,
-    needs_dependency_audit, needs_dex_tools, needs_diff_tools, needs_dns_tools,
+    needs_dependency_audit, needs_dex_tools, needs_diff_tools, needs_diff3_tools, needs_dns_tools,
     needs_docker_compose_tools, needs_docker_ops, needs_dockerfile_tools, needs_dotenv_tools,
     needs_duration_tools, needs_elf_tools, needs_em_tools, needs_email_tools, needs_encode_tools,
     needs_env_diff, needs_env_schema_tools, needs_exif_tools, needs_file_tree_tools,
@@ -50,7 +50,7 @@ use crate::agent::routing::{
     needs_http_status_tools, needs_ical_tools, needs_id_tools, needs_image_tools,
     needs_inflect_tools, needs_ini_tools, needs_interval_tools, needs_ip_tools,
     needs_iptables_tools, needs_jq_tools, needs_json_patch_tools, needs_json_tools,
-    needs_jsonl_tools, needs_jsonschema_tools, needs_junit_tools, needs_jwk_tools, needs_jwt_tools,
+    needs_jsonl_tools, needs_jsonrpc_tools, needs_jsonschema_tools, needs_junit_tools, needs_jwk_tools, needs_jwt_tools,
     needs_k8s_tools, needs_keyval_tools, needs_latex_tools, needs_ldif_tools, needs_leb128_tools,
     needs_license_tools, needs_line_tools, needs_lint_check, needs_lock_file_tools,
     needs_log_parse_tools, needs_logic_tools, needs_macho_tools, needs_make_tools,
@@ -5159,6 +5159,21 @@ impl ConversationManager {
             );
         }
 
+        // ── Diff3 Tools Routing: steer model toward diff3_tools ──
+        if loop_intervention.is_none() && needs_diff3_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "DIFF3 NOTICE: Use the `diff3_tools` tool for git merge conflict work. \
+                 Actions: conflicts/parse (list all conflict blocks with ours/base/theirs), \
+                 merge3 (three-way merge two sides against a base), \
+                 sides/extract (extract ours or theirs side), \
+                 resolve/auto (auto-resolve with strategy: smart/ours/theirs/both/union). \
+                 Pass 'text' for inline content or 'file' for a file path. \
+                 Example: diff3_tools(action: \"conflicts\", file: \"src/main.rs\") or \
+                 diff3_tools(action: \"resolve\", text: \"...\", strategy: \"ours\")."
+                    .to_string(),
+            );
+        }
+
         // ── Regex Tools Routing: steer model toward regex_tools ──
         if loop_intervention.is_none() && needs_regex_tools(&effective_user_input) {
             loop_intervention = Some(
@@ -6617,6 +6632,24 @@ impl ConversationManager {
                  Pass 'text'/'jsonl' (inline content) or 'file' (path to .jsonl/.ndjson file). \
                  Example: jsonl_tools(action: 'filter', text: '...', field: 'status', value: 'error') or \
                  jsonl_tools(action: 'aggregate', file: 'events.jsonl', field: 'duration', agg: 'avg')."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_jsonrpc_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "JSON-RPC NOTICE: Use the `jsonrpc_tools` tool for JSON-RPC 2.0 message work. \
+                 Actions: parse (default — decode any message: request/notification/response/error/batch \
+                 with field annotations and spec compliance notes), \
+                 build (construct a valid message; 'kind': request/notification/response/error; \
+                 supply 'method'/'id'/'params'/'result'/'error_code'/'error_message' as needed), \
+                 validate (strict RFC 8259 + JSON-RPC 2.0 spec check; reports every violation), \
+                 batch (parse a batch array or build one from 'messages' array). \
+                 Standard error codes: -32700 Parse error, -32600 Invalid Request, \
+                 -32601 Method not found, -32602 Invalid params, -32603 Internal error. \
+                 Pass 'message' with the raw JSON-RPC string to parse/validate. \
+                 Example: jsonrpc_tools(action: \"parse\", message: \"{\\\"jsonrpc\\\":\\\"2.0\\\",\\\"method\\\":\\\"add\\\",\\\"id\\\":1}\") or \
+                 jsonrpc_tools(action: \"build\", kind: \"request\", method: \"subtract\", params: [42, 23], id: 1)."
                     .to_string(),
             );
         }

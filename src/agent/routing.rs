@@ -5832,6 +5832,32 @@ pub fn needs_diff_tools(user_input: &str) -> bool {
         || (lower.contains("similarity") && lower.contains("files"))
 }
 
+/// Returns true when the user wants to parse/resolve 3-way merge conflicts — steer toward `diff3_tools`.
+pub fn needs_diff3_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    lower.contains("merge conflict")
+        || lower.contains("resolve conflict")
+        || lower.contains("conflict marker")
+        || lower.contains("<<<<<<")
+        || lower.contains("=======")
+        || lower.contains(">>>>>>>")
+        || lower.contains("|||||||")
+        || lower.contains("diff3")
+        || lower.contains("three-way merge")
+        || lower.contains("3-way merge")
+        || lower.contains("3 way merge")
+        || lower.contains("parse conflicts")
+        || lower.contains("list conflicts")
+        || lower.contains("auto-resolve")
+        || lower.contains("auto resolve")
+        || lower.contains("take ours")
+        || lower.contains("take theirs")
+        || lower.contains("git conflict")
+        || lower.contains("rebase conflict")
+        || (lower.contains("merge") && lower.contains("conflict"))
+        || (lower.contains("resolve") && lower.contains("git"))
+}
+
 /// Returns true when the user wants regex help — steer toward `regex_tools`.
 pub fn needs_regex_tools(user_input: &str) -> bool {
     let lower = user_input.to_lowercase();
@@ -8746,6 +8772,32 @@ pub fn needs_json_tools(user_input: &str) -> bool {
             "json unique",
         ],
     )
+}
+
+/// Returns true when the user wants to work with JSON-RPC 2.0 — steer toward `jsonrpc_tools`.
+pub fn needs_jsonrpc_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    lower.contains("json-rpc")
+        || lower.contains("jsonrpc")
+        || lower.contains("json rpc")
+        || lower.contains("rpc request")
+        || lower.contains("rpc notification")
+        || lower.contains("rpc response")
+        || lower.contains("rpc error")
+        || lower.contains("rpc batch")
+        || lower.contains("rpc message")
+        || lower.contains("rpc 2.0")
+        || lower.contains("parse rpc")
+        || lower.contains("build rpc")
+        || lower.contains("validate rpc")
+        || lower.contains("-32600")
+        || lower.contains("-32601")
+        || lower.contains("-32602")
+        || lower.contains("-32603")
+        || lower.contains("-32700")
+        || (lower.contains("\"jsonrpc\"") || lower.contains("'jsonrpc'"))
+        || (lower.contains("rpc") && lower.contains("notification"))
+        || (lower.contains("rpc") && lower.contains("batch"))
 }
 
 /// Returns true when the user wants to parse or analyze a DNS zone file — steer toward `dns_tools`.

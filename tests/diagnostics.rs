@@ -16063,6 +16063,21 @@ fn test_routing_detects_diff_tools() {
     assert!(!needs_diff_tools("how do I use git rebase"));
 }
 
+// ── diff3_tools routing ───────────────────────────────────────────────────────
+
+#[test]
+fn test_routing_detects_diff3_tools() {
+    use hematite::agent::routing::needs_diff3_tools;
+    assert!(needs_diff3_tools("there are merge conflicts in this file"));
+    assert!(needs_diff3_tools("resolve the git conflict markers"));
+    assert!(needs_diff3_tools("parse the <<<<<< ======= >>>>>>> conflict blocks"));
+    assert!(needs_diff3_tools("do a three-way merge of base ours and theirs"));
+    assert!(needs_diff3_tools("auto-resolve conflicts using ours strategy"));
+    assert!(needs_diff3_tools("list all diff3 conflicts in the file"));
+    assert!(!needs_diff3_tools("compare these two text files"));
+    assert!(!needs_diff3_tools("rebase my branch onto main"));
+}
+
 // ── yaml_tools tests ─────────────────────────────────────────────────────────
 
 #[test]
@@ -30343,6 +30358,61 @@ fn test_routing_detects_jsonl_tools() {
     assert!(needs_jsonl_tools("newline-delimited json processing"));
     assert!(!needs_jsonl_tools("parse regular json object"));
     assert!(!needs_jsonl_tools("base64 encode string"));
+}
+
+// ── jsonrpc_tools routing ─────────────────────────────────────────────────────
+
+#[test]
+fn test_routing_detects_jsonrpc_tools() {
+    use hematite::agent::routing::needs_jsonrpc_tools;
+    assert!(needs_jsonrpc_tools("parse this json-rpc message"));
+    assert!(needs_jsonrpc_tools("build a jsonrpc request for the subtract method"));
+    assert!(needs_jsonrpc_tools("validate this json rpc 2.0 batch"));
+    assert!(needs_jsonrpc_tools("what does error code -32601 mean"));
+    assert!(needs_jsonrpc_tools("decode this rpc notification"));
+    assert!(!needs_jsonrpc_tools("parse regular json object"));
+    assert!(!needs_jsonrpc_tools("build a REST API endpoint"));
+}
+
+// ── jsonrpc_tools functional ──────────────────────────────────────────────────
+
+#[tokio::test]
+async fn test_jsonrpc_tools_parse_request() {
+    use hematite::tools::jsonrpc_tools;
+    let args = serde_json::json!({
+        "action": "parse",
+        "message": "{\"jsonrpc\":\"2.0\",\"method\":\"subtract\",\"params\":[42,23],\"id\":1}"
+    });
+    let result = jsonrpc_tools::execute(&args).await.unwrap();
+    assert!(result.contains("Request"), "should identify as Request: {}", result);
+    assert!(result.contains("subtract"), "should show method name: {}", result);
+    assert!(result.contains("2.0"), "should show jsonrpc version: {}", result);
+}
+
+#[tokio::test]
+async fn test_jsonrpc_tools_validate_error_response() {
+    use hematite::tools::jsonrpc_tools;
+    let args = serde_json::json!({
+        "action": "validate",
+        "message": "{\"jsonrpc\":\"2.0\",\"error\":{\"code\":-32601,\"message\":\"Method not found\"},\"id\":1}"
+    });
+    let result = jsonrpc_tools::execute(&args).await.unwrap();
+    assert!(result.contains("VALID"), "should be valid: {}", result);
+}
+
+#[tokio::test]
+async fn test_jsonrpc_tools_build_request() {
+    use hematite::tools::jsonrpc_tools;
+    let args = serde_json::json!({
+        "action": "build",
+        "kind": "request",
+        "method": "add",
+        "id": 42
+    });
+    let result = jsonrpc_tools::execute(&args).await.unwrap();
+    assert!(result.contains("\"method\""), "should contain method key: {}", result);
+    assert!(result.contains("add"), "should contain method value: {}", result);
+    assert!(result.contains("Passes spec"), "should pass validation: {}", result);
 }
 
 // ── jsonl_tools functional ────────────────────────────────────────────────────

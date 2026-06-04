@@ -1915,6 +1915,18 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         }),
     ));
     tools.push(make_tool(
+        "diff3_tools",
+        "Parse, inspect, and resolve git-style merge conflicts (<<<<<<< / ======= / >>>>>>> markers). \
+         Accepts inline 'text' or a 'file' path. \
+         Actions: \
+         `conflicts` (default) — list all conflict blocks with line numbers, preview, and classification; \
+         `merge3` — perform a three-way merge from 'base', 'ours', and 'theirs' text; \
+         `sides` — extract only one side from a conflict file ('side': ours | theirs); \
+         `resolve` — auto-resolve with 'strategy': smart (default) | ours | theirs | both | union. \
+         Also decodes diff3-style ||||||| base sections.",
+        crate::tools::diff3_tools::make_schema(),
+    ));
+    tools.push(make_tool(
         "yaml_tools",
         "Validate, format, query, and transform YAML documents without needing external tools. \
          Provide YAML inline ('yaml' arg) or from a file ('file' arg). \
@@ -7423,6 +7435,20 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         crate::tools::jsonl_tools::jsonl_tools_schema(),
     ));
     tools.push(make_tool(
+        "jsonrpc_tools",
+        "Parse, build, validate, and inspect JSON-RPC 2.0 messages without external utilities. \
+         Actions: \
+         `parse` (default) — detect message type (Request/Notification/Response/Error/Batch) and display all fields; \
+         `validate` — spec compliance check per RFC 7049: jsonrpc=2.0, id type, params shape, error.code/message; \
+         `build` — construct a well-formed message ('kind': request | notification | response | error); \
+         `batch` — parse a batch array or build one from 'messages'. \
+         Pass 'message' with a JSON string to parse/validate. \
+         For build: 'kind', 'method', 'id', 'params', 'result', 'error_code', 'error_message'. \
+         Standard error codes: -32700 Parse error, -32600 Invalid Request, -32601 Method not found, \
+         -32602 Invalid params, -32603 Internal error.",
+        crate::tools::jsonrpc_tools::make_schema(),
+    ));
+    tools.push(make_tool(
         "todo_tools",
         "Scan source files for TODO, FIXME, HACK, XXX, NOTE, DEPRECATED, BUG, OPTIMIZE, \
          WORKAROUND, TEMP, KLUDGE, and NB comments without external utilities. \
@@ -7785,6 +7811,7 @@ pub async fn dispatch_builtin_tool(
         "json_tools" => crate::tools::json_tools::execute(args).await,
         "regex_tools" => crate::tools::regex_tools::execute(args).await,
         "diff_tools" => crate::tools::diff_tools::execute(args).await,
+        "diff3_tools" => crate::tools::diff3_tools::execute(args).await,
         "yaml_tools" => crate::tools::yaml_tools::execute(args).await,
         "csv_tools" => crate::tools::csv_tools::execute(args).await,
         "encode_tools" => crate::tools::encode_tools::execute(args).await,
@@ -7901,6 +7928,7 @@ pub async fn dispatch_builtin_tool(
         "unicode_tools" => crate::tools::unicode_tools::execute(args).await,
         "asn1_tools" => crate::tools::asn1_tools::execute(args).await,
         "jsonl_tools" => crate::tools::jsonl_tools::execute(args).await,
+        "jsonrpc_tools" => crate::tools::jsonrpc_tools::execute(args).await,
         "todo_tools" => crate::tools::todo_tools::execute(args).await,
         "grep_tools" => crate::tools::grep_tools::execute(args).await,
         "file_tree_tools" => crate::tools::file_tree_tools::execute(args).await,
