@@ -77,6 +77,7 @@ use crate::agent::routing::{
     needs_xml_tools, needs_yaml_tools, needs_spdx_tools, needs_aws_tools, needs_curl_tools,
     needs_oauth_tools, needs_saml_tools, needs_multipart_tools, needs_openid_tools,
     needs_exif_tools, needs_office_tools, needs_font_tools, needs_svg_tools,
+    needs_image_tools, needs_audio_file_tools,
     preferred_host_inspection_topic,
     preferred_maintainer_workflow, preferred_workspace_workflow, DirectAnswerKind,
     QueryIntentClass,
@@ -8224,6 +8225,34 @@ impl ConversationManager {
                  validate (viewBox/xmlns/title/desc checks, XSS risk from <script>, deprecated attributes, duplicate IDs). \
                  Pass text or svg for inline SVG or file for a .svg path. \
                  Example: svg_tools(file: 'icon.svg') or svg_tools(action: 'validate', file: 'logo.svg')."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_image_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "IMAGE NOTICE: Use the `image_tools` tool to parse image file metadata. \
+                 Supported formats: PNG, JPEG, GIF, WebP, BMP. \
+                 Actions: info (default — format, dimensions, color mode, bit depth, DPI, animation, ICC/EXIF flags), \
+                 dimensions (width × height, aspect ratio), \
+                 color (color mode, bit depth, palette size, alpha, color space), \
+                 metadata (embedded text tags, XMP, ICC profile, JFIF density, GIF comments), \
+                 validate (structural checks: header integrity, required chunks, dimension sanity). \
+                 Pass file (path to image file) or hex (hex-encoded bytes). \
+                 Example: image_tools(file: 'photo.jpg') or image_tools(action: 'color', file: 'icon.png')."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_audio_file_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "AUDIO NOTICE: Use the `audio_file_tools` tool to parse audio file metadata. \
+                 Supported formats: WAV (RIFF/WAVE), MP3 (ID3v1/v2 tags + MPEG frame), FLAC, Ogg Vorbis/Opus. \
+                 Actions: info (default — format, encoding, channels, sample rate, bit depth, duration, bitrate, tags), \
+                 tags (ID3 or Vorbis comment fields only: artist, title, album, year, genre, track, etc.), \
+                 validate (header integrity, tag completeness, byte-rate and MPEG frame checks). \
+                 Pass file (path to audio file) or hex (hex-encoded bytes). \
+                 Example: audio_file_tools(file: 'song.mp3') or audio_file_tools(action: 'tags', file: 'track.flac')."
                     .to_string(),
             );
         }

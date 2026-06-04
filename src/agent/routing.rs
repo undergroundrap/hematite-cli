@@ -11769,6 +11769,91 @@ pub fn needs_svg_tools(user_input: &str) -> bool {
     )
 }
 
+pub fn needs_image_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "image metadata",
+            "image file metadata",
+            "png metadata",
+            "jpeg metadata",
+            "gif metadata",
+            "webp metadata",
+            "bmp metadata",
+            "image dimensions",
+            "image width",
+            "image height",
+            "image color",
+            "image dpi",
+            "image resolution",
+            "image alpha",
+            "parse image",
+            "inspect image",
+            "image format",
+            "image info",
+            "animated gif",
+            "apng",
+            "gif frames",
+            "webp info",
+            "webp file",
+            "png file",
+            "jpeg file",
+            "gif file",
+            "bmp file",
+            "image color mode",
+            "color depth image",
+            "bit depth image",
+            "icc profile image",
+            "validate image",
+            "image palette",
+            "transparency image",
+        ],
+    )
+}
+
+pub fn needs_audio_file_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "audio metadata",
+            "audio file metadata",
+            "wav metadata",
+            "mp3 metadata",
+            "flac metadata",
+            "ogg metadata",
+            "id3 tags",
+            "id3 tag",
+            "vorbis comment",
+            "vorbis tag",
+            "audio duration",
+            "audio sample rate",
+            "audio channels",
+            "audio bit depth",
+            "audio bitrate",
+            "parse mp3",
+            "parse wav",
+            "parse flac",
+            "parse ogg",
+            "inspect mp3",
+            "inspect wav",
+            "inspect flac",
+            "inspect ogg",
+            "mp3 tags",
+            "mp3 info",
+            "flac tags",
+            "ogg tags",
+            "wav info",
+            "read id3",
+            "audio codec",
+            "audio format info",
+            "song tags",
+            "music tags",
+        ],
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

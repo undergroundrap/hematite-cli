@@ -6791,6 +6791,41 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         crate::tools::svg_tools::make_schema(),
     ));
     tools.push(make_tool(
+        "image_tools",
+        "Parse and inspect image file metadata — PNG, JPEG, GIF, WebP, BMP — without external utilities. \
+         Actions: \
+         `info` (default) — format, dimensions (width × height), color type, bit depth, DPI, alpha/ICC/EXIF/XMP presence, \
+           animation info (GIF frame count, APNG), file size, and embedded text tags; \
+         `dimensions` — width, height, and aspect ratio; \
+         `color` — color mode (RGB/RGBA/Grayscale/Palette/etc.), bit depth, palette size, transparency, DPI/PPI; \
+         `metadata` — format-specific embedded metadata: JFIF density, EXIF presence, XMP, ICC profile, sRGB, gamma, \
+           PNG text chunks (tEXt/iTXt), GIF comments, WebP chunks; \
+         `validate` — structural checks: valid magic, header completeness, required chunks present, \
+           suspicious dimensions, mismatched header values. \
+         Accepts `file` (path to .png/.jpg/.gif/.webp/.bmp) or `hex` (hex-encoded bytes). \
+         Zero new dependencies — pure Rust stdlib. \
+         Example: image_tools(file: 'photo.jpg') or image_tools(action: 'color', file: 'icon.png') \
+         or image_tools(action: 'validate', hex: 'FFD8FF...').",
+        crate::tools::image_tools::make_schema(),
+    ));
+    tools.push(make_tool(
+        "audio_file_tools",
+        "Parse audio file metadata — WAV, MP3 (with ID3v1/v2 tags), FLAC, Ogg Vorbis/Opus — without external utilities. \
+         Actions: \
+         `info` (default) — format, encoding, sample rate, channels, bit depth, duration, \
+           bitrate (MP3), Vorbis comments (FLAC/Ogg), ID3 tags (MP3), file size; \
+         `tags` — only the embedded tag/comment fields (artist, title, album, year, genre, track, etc.); \
+         `validate` — structural checks: valid header/magic, required fields, tag completeness, \
+           byte-rate consistency (WAV), MPEG frame presence (MP3). \
+         Accepted formats: WAV (RIFF/WAVE), MP3 (ID3 header or raw MPEG sync), FLAC (fLaC magic), \
+         Ogg Vorbis/Opus (OggS pages). \
+         Accepts `file` (path to audio file) or `hex` (hex-encoded bytes). \
+         Zero new dependencies — pure Rust stdlib. \
+         Example: audio_file_tools(file: 'song.mp3') or audio_file_tools(action: 'tags', file: 'track.flac') \
+         or audio_file_tools(action: 'validate', file: 'speech.wav').",
+        crate::tools::audio_file_tools::make_schema(),
+    ));
+    tools.push(make_tool(
         "macho_tools",
         "Inspect macOS Mach-O binaries (executables, dylibs, frameworks, bundles, fat/universal binaries) without external tools — no otool or nm required. \
          Actions: \
@@ -7740,6 +7775,8 @@ pub async fn dispatch_builtin_tool(
         "office_tools" => crate::tools::office_tools::execute(args).await,
         "font_tools" => crate::tools::font_tools::execute(args).await,
         "svg_tools" => crate::tools::svg_tools::execute(args).await,
+        "image_tools" => crate::tools::image_tools::execute(args).await,
+        "audio_file_tools" => crate::tools::audio_file_tools::execute(args).await,
         "macho_tools" => crate::tools::macho_tools::execute(args).await,
         "pcap_tools" => crate::tools::pcap_tools::execute(args).await,
         "pe_tools" => crate::tools::pe_tools::execute(args).await,

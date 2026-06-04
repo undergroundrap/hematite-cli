@@ -38810,3 +38810,177 @@ fn test_svg_tools_ids() {
     let out = result.unwrap();
     assert!(out.contains("box1") || out.contains("dot1"), "should list element ids: {}", out);
 }
+
+// ── image_tools ───────────────────────────────────────────────────────────────
+
+#[test]
+fn test_routing_detects_image_tools() {
+    use hematite::agent::routing::needs_image_tools;
+    assert!(needs_image_tools("what are the image dimensions of this png"));
+    assert!(needs_image_tools("parse the jpeg metadata"));
+    assert!(needs_image_tools("show me the gif frames count"));
+    assert!(needs_image_tools("image color mode and bit depth"));
+    assert!(needs_image_tools("validate this webp file"));
+    assert!(!needs_image_tools("rotate the image 90 degrees"));
+}
+
+#[test]
+fn test_image_tools_no_args() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::image_tools::execute(
+        &serde_json::json!({}),
+    ));
+    assert!(result.is_ok());
+    let out = result.unwrap();
+    assert!(out.contains("Error") || out.contains("file"), "should ask for file: {}", out);
+}
+
+#[test]
+fn test_image_tools_png_info() {
+    // Minimal PNG: magic + IHDR(width=64,height=48,depth=8,colortype=2) + IEND
+    let png_hex = concat!(
+        "89504e470d0a1a0a",
+        "0000000d49484452",
+        "0000004000000030",
+        "0802000000",
+        "91a0b316",
+        "0000000049454e44",
+        "ae426082"
+    );
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::image_tools::execute(
+        &serde_json::json!({"action": "info", "hex": png_hex}),
+    ));
+    assert!(result.is_ok(), "png info should succeed: {:?}", result);
+    let out = result.unwrap();
+    assert!(out.contains("64") || out.contains("PNG") || out.contains("48"), "should show PNG dimensions: {}", out);
+}
+
+#[test]
+fn test_image_tools_gif_info() {
+    // Minimal GIF87a
+    let gif_hex = concat!(
+        "474946383761",
+        "0a0008000000",
+        "3b"
+    );
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::image_tools::execute(
+        &serde_json::json!({"action": "info", "hex": gif_hex}),
+    ));
+    assert!(result.is_ok(), "gif info should succeed: {:?}", result);
+    let out = result.unwrap();
+    assert!(out.contains("GIF") || out.contains("10") || out.contains("8"), "should show GIF info: {}", out);
+}
+
+#[test]
+fn test_image_tools_validate_unknown() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::image_tools::execute(
+        &serde_json::json!({"action": "validate", "hex": "deadbeef01020304"}),
+    ));
+    assert!(result.is_ok());
+    let out = result.unwrap();
+    assert!(out.contains("Error") || out.contains("unknown") || out.contains("unrecogni"), "should report unknown format: {}", out);
+}
+
+// ── audio_file_tools ─────────────────────────────────────────────────────────
+
+#[test]
+fn test_routing_detects_audio_file_tools() {
+    use hematite::agent::routing::needs_audio_file_tools;
+    assert!(needs_audio_file_tools("show me the mp3 metadata"));
+    assert!(needs_audio_file_tools("what are the id3 tags in this file"));
+    assert!(needs_audio_file_tools("parse flac tags"));
+    assert!(needs_audio_file_tools("audio sample rate and channels"));
+    assert!(needs_audio_file_tools("ogg vorbis comment fields"));
+    assert!(!needs_audio_file_tools("play the audio file now"));
+}
+
+#[test]
+fn test_audio_file_tools_no_args() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::audio_file_tools::execute(
+        &serde_json::json!({}),
+    ));
+    assert!(result.is_ok());
+    let out = result.unwrap();
+    assert!(out.contains("Error") || out.contains("file"), "should ask for file: {}", out);
+}
+
+#[test]
+fn test_audio_file_tools_wav_info() {
+    // Minimal WAV: RIFF + fmt chunk (PCM, stereo, 44100 Hz, 16-bit) + empty data chunk
+    let wav_hex = concat!(
+        "52494646",
+        "24000000",
+        "57415645",
+        "666d7420",
+        "10000000",
+        "0100",
+        "0200",
+        "44ac0000",
+        "10b10200",
+        "0400",
+        "1000",
+        "64617461",
+        "00000000"
+    );
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::audio_file_tools::execute(
+        &serde_json::json!({"action": "info", "hex": wav_hex}),
+    ));
+    assert!(result.is_ok(), "wav info should succeed: {:?}", result);
+    let out = result.unwrap();
+    assert!(out.contains("WAV") || out.contains("44100") || out.contains("PCM"), "should show WAV info: {}", out);
+}
+
+#[test]
+fn test_audio_file_tools_wav_validate() {
+    let wav_hex = concat!(
+        "52494646", "24000000", "57415645",
+        "666d7420", "10000000",
+        "0100", "0200", "44ac0000", "10b10200", "0400", "1000",
+        "64617461", "00000000"
+    );
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::audio_file_tools::execute(
+        &serde_json::json!({"action": "validate", "hex": wav_hex}),
+    ));
+    assert!(result.is_ok(), "wav validate should succeed: {:?}", result);
+    let out = result.unwrap();
+    assert!(out.contains("VALID") || out.contains("WARN") || out.contains("Empty"), "should report validation: {}", out);
+}
+
+#[test]
+fn test_audio_file_tools_ogg_magic() {
+    // Minimal OggS page with zero segments
+    let ogg_hex = concat!(
+        "4f676753",
+        "00",
+        "02",
+        "0000000000000000",
+        "00000000",
+        "00000000",
+        "00000000",
+        "00"
+    );
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::audio_file_tools::execute(
+        &serde_json::json!({"action": "info", "hex": ogg_hex}),
+    ));
+    assert!(result.is_ok(), "ogg info should succeed: {:?}", result);
+    let out = result.unwrap();
+    assert!(out.contains("Ogg") || out.contains("ogg") || out.contains("0x"), "should show Ogg info: {}", out);
+}
+
+#[test]
+fn test_audio_file_tools_unknown_format() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::audio_file_tools::execute(
+        &serde_json::json!({"action": "info", "hex": "cafebabe01020304"}),
+    ));
+    assert!(result.is_ok());
+    let out = result.unwrap();
+    assert!(out.contains("Error") || out.contains("unrecogni"), "should report unknown format: {}", out);
+}
