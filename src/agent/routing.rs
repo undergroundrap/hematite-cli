@@ -11705,6 +11705,70 @@ pub fn needs_office_tools(user_input: &str) -> bool {
     )
 }
 
+pub fn needs_font_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "font file",
+            ".ttf",
+            ".otf",
+            ".woff",
+            "woff2",
+            "truetype",
+            "opentype",
+            "font metadata",
+            "font family",
+            "font name",
+            "font tables",
+            "glyph count",
+            "font glyphs",
+            "glyphs",
+            "inspect font",
+            "parse font",
+            "font license",
+            "font embedding",
+            "font copyright",
+            "unicode coverage",
+            "cmap table",
+            "font version",
+            "sfnt",
+            "font weight",
+        ],
+    )
+}
+
+pub fn needs_svg_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            ".svg",
+            "svg file",
+            "svg document",
+            "svg image",
+            "scalable vector",
+            "parse svg",
+            "inspect svg",
+            "svg elements",
+            "svg ids",
+            "svg viewbox",
+            "svg width",
+            "svg height",
+            "svg namespace",
+            "svg validate",
+            "svg links",
+            "svg styles",
+            "svg animation",
+            "svg script",
+            "svg accessibility",
+            "svg xlink",
+            "svg structure",
+            "vector graphic",
+        ],
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

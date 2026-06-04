@@ -6754,6 +6754,43 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         crate::tools::office_tools::make_schema(),
     ));
     tools.push(make_tool(
+        "font_tools",
+        "Inspect TrueType (TTF), OpenType (OTF), and WOFF/WOFF2 font files without external tools. \
+         Actions: \
+         `info` (default) — font format, family name, subfamily (Regular/Bold/Italic), full name, version, \
+           PostScript name, copyright, license/usage flags, number of glyphs, units per em, weight class, \
+           bold/italic/condensed style flags from OS/2 and head tables; \
+         `names` — all name table entries with platform, name ID, and decoded string value; \
+         `tables` — SFNT table directory with tag, offset, length, and checksum for each table; \
+         `chars` — character coverage: total mapped code points, cmap format, and whether Latin, \
+           Greek, or CJK ranges are covered. \
+         Pass `file` (path to .ttf, .otf, .woff, or .woff2) or `hex` (hex-encoded bytes). \
+         WOFF containers are decompressed to SFNT before parsing. WOFF2 (Brotli-compressed) is noted gracefully. \
+         Zero new dependencies — pure Rust stdlib. \
+         Example: font_tools(file: 'Roboto-Regular.ttf') or font_tools(action: 'names', file: 'font.otf') or font_tools(action: 'chars', file: 'font.woff').",
+        crate::tools::font_tools::make_schema(),
+    ));
+    tools.push(make_tool(
+        "svg_tools",
+        "Parse, inspect, and validate SVG documents without external utilities. \
+         Actions: \
+         `info` (default) — width, height, viewBox, XML namespace, SVG version, title, description, \
+           top-level element count, total element count, and use of key SVG features (defs, symbols, \
+           use, clipPath, mask, filter, animation, text, image); \
+         `elements` — element frequency table sorted by count; \
+         `ids` — all id= attributes with element type and line context for selector and animation targeting; \
+         `links` — external references: href/xlink:href on <a>, <image>, <use>, <feImage>, \
+           and CSS url() values in style attributes; \
+         `styles` — inline style= and class= attributes plus embedded <style> block character count; \
+         `validate` — accessibility and compatibility checks: missing viewBox, missing xmlns, \
+           no <title> or <desc> (WCAG), <script> elements (XSS risk), deprecated attributes \
+           (xlink:href, xml:space), <foreignObject> (embedding risk), duplicate id values. \
+         Accepts `text`/`svg` for inline SVG content or `file` for a .svg path. \
+         Zero new dependencies — custom char-level XML tokenizer, pure Rust stdlib. \
+         Example: svg_tools(file: 'icon.svg') or svg_tools(action: 'elements', file: 'diagram.svg') or svg_tools(action: 'validate', text: '<svg>...</svg>').",
+        crate::tools::svg_tools::make_schema(),
+    ));
+    tools.push(make_tool(
         "macho_tools",
         "Inspect macOS Mach-O binaries (executables, dylibs, frameworks, bundles, fat/universal binaries) without external tools — no otool or nm required. \
          Actions: \
@@ -7701,6 +7738,8 @@ pub async fn dispatch_builtin_tool(
         "openid_tools" => crate::tools::openid_tools::execute(args).await,
         "exif_tools" => crate::tools::exif_tools::execute(args).await,
         "office_tools" => crate::tools::office_tools::execute(args).await,
+        "font_tools" => crate::tools::font_tools::execute(args).await,
+        "svg_tools" => crate::tools::svg_tools::execute(args).await,
         "macho_tools" => crate::tools::macho_tools::execute(args).await,
         "pcap_tools" => crate::tools::pcap_tools::execute(args).await,
         "pe_tools" => crate::tools::pe_tools::execute(args).await,

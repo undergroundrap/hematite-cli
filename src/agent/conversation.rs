@@ -76,7 +76,7 @@ use crate::agent::routing::{
     needs_web_manifest_tools, needs_webhook_tools, needs_wireguard_tools, needs_word_tools,
     needs_xml_tools, needs_yaml_tools, needs_spdx_tools, needs_aws_tools, needs_curl_tools,
     needs_oauth_tools, needs_saml_tools, needs_multipart_tools, needs_openid_tools,
-    needs_exif_tools, needs_office_tools,
+    needs_exif_tools, needs_office_tools, needs_font_tools, needs_svg_tools,
     preferred_host_inspection_topic,
     preferred_maintainer_workflow, preferred_workspace_workflow, DirectAnswerKind,
     QueryIntentClass,
@@ -8195,6 +8195,35 @@ impl ConversationManager {
                  validate (check required Open XML parts). \
                  Pass file (path to .docx, .xlsx, or .pptx). \
                  Example: office_tools(file: 'report.docx') or office_tools(action: 'content', file: 'data.xlsx')."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_font_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "FONT NOTICE: Use the `font_tools` tool to inspect TTF, OTF, WOFF, and WOFF2 font files. \
+                 Actions: info (default — family name, subfamily, version, glyph count, units per em, \
+                 weight class, style flags, license/embedding flags), \
+                 names (all name table entries with platform and name ID), \
+                 tables (SFNT table directory with tag/offset/length), \
+                 chars (character coverage: mapped code points, cmap format, Latin/Greek/CJK ranges). \
+                 Pass file (path to .ttf, .otf, .woff, or .woff2) or hex (hex-encoded bytes). \
+                 Example: font_tools(file: 'Roboto-Regular.ttf') or font_tools(action: 'chars', file: 'font.woff')."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_svg_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "SVG NOTICE: Use the `svg_tools` tool to parse and analyze SVG documents. \
+                 Actions: info (default — width/height/viewBox, xmlns, element counts, feature detection), \
+                 elements (element frequency table), \
+                 ids (all id= attributes with element types), \
+                 links (external href and xlink:href references), \
+                 styles (inline style/class attributes and embedded <style> blocks), \
+                 validate (viewBox/xmlns/title/desc checks, XSS risk from <script>, deprecated attributes, duplicate IDs). \
+                 Pass text or svg for inline SVG or file for a .svg path. \
+                 Example: svg_tools(file: 'icon.svg') or svg_tools(action: 'validate', file: 'logo.svg')."
                     .to_string(),
             );
         }

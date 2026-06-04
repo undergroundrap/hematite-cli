@@ -38665,3 +38665,148 @@ fn test_office_tools_no_file_arg() {
     let out = result.unwrap();
     assert!(out.contains("file") || out.contains("Error"), "should prompt for file path: {}", out);
 }
+
+// ── font_tools ────────────────────────────────────────────────────────────────
+
+#[test]
+fn test_routing_detects_font_tools() {
+    use hematite::agent::routing::needs_font_tools;
+    assert!(needs_font_tools("inspect this .ttf file"));
+    assert!(needs_font_tools("how many glyphs does the font have"));
+    assert!(needs_font_tools("show font tables for this .otf"));
+    assert!(needs_font_tools("what unicode coverage does this .woff have"));
+    assert!(needs_font_tools("truetype font metadata"));
+    assert!(!needs_font_tools("open a text file and read it"));
+}
+
+#[test]
+fn test_font_tools_no_args() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::font_tools::execute(
+        &serde_json::json!({"action": "info"}),
+    ));
+    assert!(result.is_ok(), "font_tools should return Ok when no file provided");
+    let out = result.unwrap();
+    assert!(out.contains("Error") || out.contains("file"), "should prompt for file: {}", out);
+}
+
+#[test]
+fn test_font_tools_minimal_ttf() {
+    // Minimal valid TTF SFNT header:
+    //   sfntVersion u32 = 0x00010000 (TTF)
+    //   numTables   u16 = 0
+    //   searchRange u16 = 0
+    //   entrySelector u16 = 0
+    //   rangeShift  u16 = 0
+    // 12 bytes total — no tables, which is invalid for a real font but enough to
+    // pass the header checks and hit the table-parsing path.
+    let hex = "000100000000000000000000";
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::font_tools::execute(
+        &serde_json::json!({"action": "info", "hex": hex}),
+    ));
+    assert!(result.is_ok(), "font_tools should return Ok on minimal TTF header: {:?}", result);
+    // With 0 tables the output will indicate no name/tables found but should not crash
+    let out = result.unwrap();
+    assert!(!out.is_empty(), "output should not be empty: {}", out);
+}
+
+#[test]
+fn test_font_tools_woff2_graceful() {
+    // WOFF2 signature: 0x774F4632
+    let hex = "774F4632";
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::font_tools::execute(
+        &serde_json::json!({"action": "info", "hex": hex}),
+    ));
+    assert!(result.is_ok(), "font_tools should handle WOFF2 gracefully");
+    let out = result.unwrap();
+    assert!(out.contains("WOFF2") || out.contains("Error"), "should note WOFF2 limitation: {}", out);
+}
+
+// ── svg_tools ─────────────────────────────────────────────────────────────────
+
+#[test]
+fn test_routing_detects_svg_tools() {
+    use hematite::agent::routing::needs_svg_tools;
+    assert!(needs_svg_tools("inspect this .svg file"));
+    assert!(needs_svg_tools("parse the svg document"));
+    assert!(needs_svg_tools("list svg elements"));
+    assert!(needs_svg_tools("validate the svg image"));
+    assert!(needs_svg_tools("show ids in the vector graphic"));
+    assert!(!needs_svg_tools("read a text file from disk"));
+}
+
+#[test]
+fn test_svg_tools_no_args() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::svg_tools::execute(
+        &serde_json::json!({"action": "info"}),
+    ));
+    assert!(result.is_ok(), "svg_tools should return Ok when no content provided");
+    let out = result.unwrap();
+    assert!(out.contains("Error") || out.contains("file"), "should prompt for input: {}", out);
+}
+
+#[test]
+fn test_svg_tools_basic_svg() {
+    let svg = r#"<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100">
+  <title>Test Icon</title>
+  <desc>A simple test SVG</desc>
+  <rect id="bg" x="0" y="0" width="100" height="100" fill="blue"/>
+  <circle id="dot" cx="50" cy="50" r="20" fill="red"/>
+</svg>"#;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::svg_tools::execute(
+        &serde_json::json!({"action": "info", "svg": svg}),
+    ));
+    assert!(result.is_ok(), "svg_tools info should succeed on well-formed SVG: {:?}", result);
+    let out = result.unwrap();
+    assert!(out.contains("100") || out.contains("width"), "should show dimensions: {}", out);
+}
+
+#[test]
+fn test_svg_tools_elements() {
+    let svg = r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10">
+  <rect x="0" y="0" width="5" height="5"/>
+  <rect x="5" y="5" width="5" height="5"/>
+  <circle cx="5" cy="5" r="3"/>
+</svg>"#;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::svg_tools::execute(
+        &serde_json::json!({"action": "elements", "svg": svg}),
+    ));
+    assert!(result.is_ok(), "svg_tools elements should succeed: {:?}", result);
+    let out = result.unwrap();
+    assert!(out.contains("rect") || out.contains("circle"), "should list element types: {}", out);
+}
+
+#[test]
+fn test_svg_tools_validate_missing_viewbox() {
+    // SVG without viewBox — should flag this in validate
+    let svg = r#"<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100">
+  <rect x="0" y="0" width="100" height="100"/>
+</svg>"#;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::svg_tools::execute(
+        &serde_json::json!({"action": "validate", "svg": svg}),
+    ));
+    assert!(result.is_ok(), "svg_tools validate should succeed: {:?}", result);
+    let out = result.unwrap();
+    assert!(out.contains("viewBox") || out.contains("viewbox"), "should flag missing viewBox: {}", out);
+}
+
+#[test]
+fn test_svg_tools_ids() {
+    let svg = r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10">
+  <rect id="box1" x="0" y="0" width="5" height="5"/>
+  <circle id="dot1" cx="5" cy="5" r="3"/>
+</svg>"#;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::svg_tools::execute(
+        &serde_json::json!({"action": "ids", "svg": svg}),
+    ));
+    assert!(result.is_ok(), "svg_tools ids should succeed: {:?}", result);
+    let out = result.unwrap();
+    assert!(out.contains("box1") || out.contains("dot1"), "should list element ids: {}", out);
+}
