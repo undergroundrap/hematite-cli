@@ -17674,6 +17674,57 @@ fn test_routing_detects_ip_tools() {
     assert!(!needs_ip_tools("what is a cron job"));
 }
 
+// ── subnet_tools ─────────────────────────────────────────────────────────────
+
+#[test]
+fn test_routing_detects_subnet_tools() {
+    use hematite::agent::routing::needs_subnet_tools;
+    assert!(needs_subnet_tools("split subnet 10.0.0.0/24 into 4 subnets"));
+    assert!(needs_subnet_tools("cidr aggregate these networks"));
+    assert!(needs_subnet_tools("find the supernet for these IPs"));
+    assert!(needs_subnet_tools("list hosts in cidr 192.168.1.0/28"));
+    assert!(needs_subnet_tools("check cidr overlap between networks"));
+    assert!(!needs_subnet_tools("what is my IP address"));
+    assert!(!needs_subnet_tools("calculate compound interest"));
+}
+
+#[tokio::test]
+async fn test_subnet_tools_split() {
+    let args = serde_json::json!({ "action": "split", "cidr": "10.0.0.0/24", "n": 4 });
+    let result = hematite::tools::subnet_tools::execute(&args).await.unwrap();
+    assert!(result.contains("10.0.0.0"), "should contain first subnet");
+    assert!(result.contains("/26"), "split /24 into 4 → /26 subnets");
+}
+
+#[tokio::test]
+async fn test_subnet_tools_hosts() {
+    let args = serde_json::json!({ "action": "hosts", "cidr": "192.168.1.0/30", "limit": 10 });
+    let result = hematite::tools::subnet_tools::execute(&args).await.unwrap();
+    assert!(result.contains("192.168.1.1"), "should list host IPs");
+    assert!(result.contains("192.168.1.2"), "should list second host");
+}
+
+#[tokio::test]
+async fn test_subnet_tools_aggregate() {
+    let args = serde_json::json!({
+        "action": "aggregate",
+        "ips": ["10.0.0.0/25", "10.0.0.128/25"]
+    });
+    let result = hematite::tools::subnet_tools::execute(&args).await.unwrap();
+    assert!(result.contains("10.0.0.0/24"), "two /25 should aggregate to /24");
+}
+
+#[tokio::test]
+async fn test_subnet_tools_range() {
+    let args = serde_json::json!({
+        "action": "range",
+        "start": "192.168.1.0",
+        "end": "192.168.1.255"
+    });
+    let result = hematite::tools::subnet_tools::execute(&args).await.unwrap();
+    assert!(result.contains("192.168.1.0/24"), "IP range should produce /24 CIDR");
+}
+
 // ── color_tools ───────────────────────────────────────────────────────────────
 
 #[test]
@@ -21673,6 +21724,73 @@ fn test_routing_detects_money_tools() {
     assert!(needs_money_tools("split the bill among 4 people"));
     assert!(!needs_money_tools("calculate the hash of a string"));
     assert!(!needs_money_tools("list network connections"));
+}
+
+// ── financial_tools ──────────────────────────────────────────────────────────
+
+#[test]
+fn test_routing_detects_financial_tools() {
+    use hematite::agent::routing::needs_financial_tools;
+    assert!(needs_financial_tools("show me an amortization schedule for a 30-year mortgage"));
+    assert!(needs_financial_tools("calculate straight line depreciation for equipment"));
+    assert!(needs_financial_tools("roi calculation for this investment"));
+    assert!(needs_financial_tools("find the break-even point"));
+    assert!(needs_financial_tools("calculate NPV and IRR for these cash flows"));
+    assert!(needs_financial_tools("what is the CAGR over 5 years"));
+    assert!(needs_financial_tools("savings planner to reach my goal"));
+    assert!(!needs_financial_tools("split the dinner bill"));
+    assert!(!needs_financial_tools("parse this json file"));
+}
+
+#[tokio::test]
+async fn test_financial_tools_amortize() {
+    let args = serde_json::json!({
+        "action": "amortize",
+        "principal": 200000,
+        "annual_rate": 6.0,
+        "term_months": 360
+    });
+    let result = hematite::tools::financial_tools::execute(&args).await.unwrap();
+    assert!(result.contains("Monthly payment") || result.contains("monthly payment"), "should show monthly payment");
+    assert!(result.contains("1,199") || result.contains("1199") || result.contains("1,200"), "~$1199/mo for 200k at 6% 30yr");
+}
+
+#[tokio::test]
+async fn test_financial_tools_depreciation_sl() {
+    let args = serde_json::json!({
+        "action": "depreciation",
+        "cost": 50000,
+        "salvage": 5000,
+        "life_years": 5,
+        "method": "straight_line"
+    });
+    let result = hematite::tools::financial_tools::execute(&args).await.unwrap();
+    assert!(result.contains("9,000") || result.contains("9000"), "SL: (50000-5000)/5 = $9000/yr");
+}
+
+#[tokio::test]
+async fn test_financial_tools_cashflow() {
+    let args = serde_json::json!({
+        "action": "cashflow",
+        "cashflows": [-100000, 30000, 40000, 50000],
+        "discount_rate": 8
+    });
+    let result = hematite::tools::financial_tools::execute(&args).await.unwrap();
+    assert!(result.contains("NPV"), "should show NPV");
+    assert!(result.contains("IRR") || result.contains("Payback"), "should show IRR or payback");
+}
+
+#[tokio::test]
+async fn test_financial_tools_cagr() {
+    let args = serde_json::json!({
+        "action": "cagr",
+        "start_value": 10000,
+        "end_value": 16105,
+        "years": 5
+    });
+    let result = hematite::tools::financial_tools::execute(&args).await.unwrap();
+    assert!(result.contains("CAGR") || result.contains("growth rate"), "should show CAGR");
+    assert!(result.contains("10.") || result.contains("10%"), "~10% CAGR");
 }
 
 // ── size_tools tests ──────────────────────────────────────────────────────

@@ -6407,6 +6407,33 @@ pub fn needs_ip_tools(user_input: &str) -> bool {
         || lower.contains("/8")
 }
 
+/// Returns true when the user wants advanced subnet operations — steer toward `subnet_tools`.
+pub fn needs_subnet_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    lower.contains("split subnet")
+        || lower.contains("subnet split")
+        || lower.contains("subnets from cidr")
+        || lower.contains("divide cidr")
+        || lower.contains("divide subnet")
+        || lower.contains("list hosts in cidr")
+        || lower.contains("enumerate hosts")
+        || lower.contains("hosts in subnet")
+        || lower.contains("hosts in cidr")
+        || lower.contains("supernet")
+        || lower.contains("cidr aggregat")
+        || lower.contains("aggregate cidr")
+        || lower.contains("aggregate subnet")
+        || lower.contains("aggregate these cidr")
+        || lower.contains("merge cidr")
+        || lower.contains("cidr overlap")
+        || lower.contains("overlapping cidr")
+        || lower.contains("ip range to cidr")
+        || lower.contains("cidr from range")
+        || lower.contains("subnet_tools")
+        || (lower.contains("split") && lower.contains("cidr") && lower.contains("subnet"))
+        || (lower.contains("aggregate") && lower.contains("subnet"))
+}
+
 /// Returns true when the user wants color conversion or analysis — steer toward `color_tools`.
 pub fn needs_color_tools(user_input: &str) -> bool {
     let lower = user_input.to_lowercase();
@@ -7117,6 +7144,42 @@ pub fn needs_money_tools(user_input: &str) -> bool {
         || (lower.contains("loan") && lower.contains("monthly"))
         || (lower.contains("tip") && lower.contains("restaurant"))
         || (lower.contains("bill") && lower.contains("split") && lower.contains("people"))
+}
+
+/// Returns true when the user wants extended financial analysis — steer toward `financial_tools`.
+pub fn needs_financial_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    lower.contains("amortization")
+        || lower.contains("amortize")
+        || lower.contains("amortisation")
+        || lower.contains("depreciation")
+        || lower.contains("straight line depreciation")
+        || lower.contains("double declining")
+        || lower.contains("sum of years")
+        || lower.contains("macrs")
+        || lower.contains("roi calculation")
+        || lower.contains("return on investment")
+        || lower.contains("break-even")
+        || lower.contains("breakeven")
+        || lower.contains("break even analysis")
+        || lower.contains("npv calculation")
+        || lower.contains("net present value")
+        || lower.contains("internal rate of return")
+        || lower.contains(" irr ")
+        || lower.ends_with(" irr")
+        || lower.starts_with("irr ")
+        || lower.contains("cagr")
+        || lower.contains("compound annual growth")
+        || lower.contains("savings goal")
+        || lower.contains("savings planner")
+        || lower.contains("savings plan")
+        || lower.contains("payback period")
+        || lower.contains("cash flow analysis")
+        || lower.contains("cashflow analysis")
+        || lower.contains("financial_tools")
+        || (lower.contains("depreciate") && lower.contains("asset"))
+        || (lower.contains("npv") && lower.contains("cashflow"))
+        || (lower.contains("loan") && lower.contains("amortiz"))
 }
 
 pub fn needs_token_tools(user_input: &str) -> bool {

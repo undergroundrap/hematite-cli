@@ -78,7 +78,8 @@ use crate::agent::routing::{
     needs_unit_tools, needs_url_tools, needs_uuid_gen, needs_validate_tools, needs_vcf_tools,
     needs_vector_tools, needs_video_file_tools, needs_wasm_tools, needs_web_manifest_tools,
     needs_webhook_tools, needs_wireguard_tools, needs_word_tools, needs_xml_tools,
-    needs_yaml_tools, needs_epub_tools, needs_sbom_tools, preferred_host_inspection_topic,
+    needs_yaml_tools, needs_epub_tools, needs_sbom_tools, needs_subnet_tools,
+    needs_financial_tools, preferred_host_inspection_topic,
     preferred_maintainer_workflow, preferred_workspace_workflow, DirectAnswerKind, QueryIntentClass,
 };
 use crate::agent::tool_registry::dispatch_builtin_tool;
@@ -5326,6 +5327,23 @@ impl ConversationManager {
             );
         }
 
+        // ── Subnet Tools Routing: steer model toward subnet_tools ──
+        if loop_intervention.is_none() && needs_subnet_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "SUBNET NOTICE: Use the `subnet_tools` tool for advanced subnet and CIDR operations. \
+                 Actions: split (divide a CIDR into equal smaller subnets — pass 'cidr' and 'prefix'), \
+                 hosts (list all host IPs in a CIDR — pass 'cidr', optional 'limit'), \
+                 supernet (find the smallest containing supernet — pass 'cidr'), \
+                 aggregate (merge a list of CIDRs into minimal covering set — pass 'cidrs' array), \
+                 overlap (check if two CIDRs overlap — pass 'a' and 'b'), \
+                 contains (check if CIDR A contains CIDR B or IP — pass 'cidr' and 'target'), \
+                 range (convert a start-end IP range to CIDR notation — pass 'start' and 'end'). \
+                 Example: subnet_tools(action: \"split\", cidr: \"10.0.0.0/24\", prefix: 26) or \
+                 subnet_tools(action: \"aggregate\", cidrs: [\"10.0.0.0/24\", \"10.0.1.0/24\"])."
+                    .to_string(),
+            );
+        }
+
         // ── Color Tools Routing: steer model toward color_tools ──
         if loop_intervention.is_none() && needs_color_tools(&effective_user_input) {
             loop_intervention = Some(
@@ -5751,6 +5769,22 @@ impl ConversationManager {
                  split_bill (total + people + optional tip % → per-person share). \
                  Example: money_tools(action: \"loan\", principal: 250000, annual_rate: 6.5, term_months: 360) or \
                  money_tools(action: \"compound_interest\", principal: 10000, rate: 5, periods: 10, n: 12)."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_financial_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "FINANCIAL NOTICE: Use the `financial_tools` tool for extended financial analysis — no external libraries needed. \
+                 Actions: amortize (full amortization schedule — pass 'principal', 'annual_rate' %, 'term_months'; optional 'show_schedule' bool), \
+                 depreciation (asset depreciation — pass 'cost', 'salvage', 'life_years', 'method': straight_line/declining_balance/sum_of_years/macrs5/macrs7), \
+                 roi (return on investment — pass 'initial', 'final', optional 'years' for annualized), \
+                 breakeven (break-even analysis — pass 'fixed_costs', 'price_per_unit', 'variable_cost'; optional 'expected_units'), \
+                 cashflow (NPV + IRR + payback — pass 'cashflows' array, 'discount_rate' %), \
+                 cagr (compound annual growth rate — pass 'start_value', 'end_value', 'years'), \
+                 savings (savings goal planner — pass 'target', 'monthly_contribution', optional 'current_savings', 'annual_rate' %, 'years'). \
+                 Example: financial_tools(action: \"amortize\", principal: 300000, annual_rate: 6.5, term_months: 360) or \
+                 financial_tools(action: \"cashflow\", cashflows: [-100000, 30000, 40000, 50000], discount_rate: 8)."
                     .to_string(),
             );
         }

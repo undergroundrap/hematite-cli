@@ -2425,6 +2425,21 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         }),
     ));
     tools.push(make_tool(
+        "subnet_tools",
+        "Extended IPv4 subnet and CIDR operations without shell commands or external utilities. \
+         Actions: \
+         `split` (default) — divide a CIDR block into N equal sub-networks; pass 'cidr' and 'n' (must be power of 2); \
+         `supernet` — find the smallest CIDR that contains all given IPs/CIDRs; pass 'ips' array; \
+         `hosts` — enumerate all usable host IPs in a CIDR; pass 'cidr', optional 'limit' (default 50) and 'offset'; \
+         `aggregate` — compress a list of IPs/CIDRs into the minimal covering set; pass 'ips' array; \
+         `overlap` — find all overlapping pairs in a list of CIDRs; pass 'ips' array; \
+         `contains` — check if every IP in a list falls within a CIDR; pass 'cidr' and 'ips' array; \
+         `range` — convert a start/end IP range to CIDR notation; pass 'start' and 'end'. \
+         Example: subnet_tools(action: 'split', cidr: '10.0.0.0/24', n: 4) or \
+         subnet_tools(action: 'aggregate', ips: ['10.0.0.0/24', '10.0.1.0/24', '10.0.2.0/24']).",
+        crate::tools::subnet_tools::make_schema(),
+    ));
+    tools.push(make_tool(
         "color_tools",
         "Color format conversion, analysis, and palette generation. All computation is local. \
          Accepts any of: #RRGGBB, #RGB, rgb(R,G,B), hsl(H,S%,L%), or CSS named colors (red, blue, coral, etc.). \
@@ -3608,6 +3623,22 @@ pub fn get_tools() -> Vec<ToolDefinition> {
             },
             "required": ["action"]
         }),
+    ));
+    tools.push(make_tool(
+        "financial_tools",
+        "Extended financial analysis — amortization schedules, asset depreciation, ROI, break-even, \
+         NPV/IRR cash flow analysis, CAGR, and savings goal planning. All computation is local, no external libraries. \
+         Actions: \
+         `amortize` — full amortization schedule; pass 'principal', 'annual_rate' (%), 'term_months'; optional 'show_schedule' bool for month-by-month table; \
+         `depreciation` — asset depreciation schedule; pass 'cost', 'salvage', 'life_years', 'method': straight_line/declining_balance/sum_of_years/macrs5/macrs7; \
+         `roi` — return on investment; pass 'initial', 'final' (or 'gain'); optional 'years' for annualized ROI; \
+         `breakeven` — break-even analysis; pass 'fixed_costs', 'price', 'variable_cost'; optional 'expected_units'; \
+         `cashflow` — NPV + IRR + payback period; pass 'cashflows' array (first element is initial investment, negative), 'discount_rate' (%); \
+         `cagr` — compound annual growth rate; pass 'start_value', 'end_value', 'years'; \
+         `savings` — savings goal planner; pass 'target', 'monthly_contribution'; optional 'current_savings', 'annual_rate' (%), 'years'. \
+         Example: financial_tools(action: 'amortize', principal: 300000, annual_rate: 6.5, term_months: 360) or \
+         financial_tools(action: 'cashflow', cashflows: [-100000, 30000, 40000, 50000], discount_rate: 8).",
+        crate::tools::financial_tools::make_schema(),
     ));
     tools.push(make_tool(
         "size_tools",
@@ -7765,6 +7796,7 @@ pub async fn dispatch_builtin_tool(
         "uuid_gen" => crate::tools::uuid_gen::execute(args).await,
         "cron_tools" => crate::tools::cron_tools::execute(args).await,
         "ip_tools" => crate::tools::ip_tools::execute(args).await,
+        "subnet_tools" => crate::tools::subnet_tools::execute(args).await,
         "color_tools" => crate::tools::color_tools::execute(args).await,
         "semver_tools" => crate::tools::semver_tools::execute(args).await,
         "password_gen" => crate::tools::password_gen::execute(args).await,
@@ -7789,6 +7821,7 @@ pub async fn dispatch_builtin_tool(
         "keyval_tools" => crate::tools::keyval_tools::execute(args).await,
         "net_lookup_tools" => crate::tools::net_lookup_tools::execute(args).await,
         "money_tools" => crate::tools::money_tools::execute(args).await,
+        "financial_tools" => crate::tools::financial_tools::execute(args).await,
         "size_tools" => crate::tools::size_tools::execute(args).await,
         "validate_tools" => crate::tools::validate_tools::execute(args).await,
         "token_tools" => crate::tools::token_tools::execute(args).await,
