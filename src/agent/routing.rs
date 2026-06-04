@@ -11593,6 +11593,55 @@ pub fn needs_saml_tools(user_input: &str) -> bool {
     )
 }
 
+pub fn needs_multipart_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "multipart",
+            "form-data",
+            "multipart/form-data",
+            "parse multipart",
+            "file upload body",
+            "parse form-data",
+            "rfc 2046",
+            "content-disposition",
+            "multipart body",
+            "multipart boundary",
+            "build multipart",
+            "generate multipart",
+            "validate multipart",
+        ],
+    )
+}
+
+pub fn needs_openid_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "openid connect",
+            "oidc",
+            "openid configuration",
+            "openid discovery",
+            ".well-known/openid",
+            "id token",
+            "id_token",
+            "oidc scope",
+            "openid scope",
+            "userinfo endpoint",
+            "userinfo claims",
+            "openid claims",
+            "oidc client",
+            "openid client",
+            "oidc discovery",
+            "decode id token",
+            "inspect id token",
+            "openid token",
+        ],
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -75,7 +75,8 @@ use crate::agent::routing::{
     needs_uuid_gen, needs_validate_tools, needs_vcf_tools, needs_vector_tools, needs_wasm_tools,
     needs_web_manifest_tools, needs_webhook_tools, needs_wireguard_tools, needs_word_tools,
     needs_xml_tools, needs_yaml_tools, needs_spdx_tools, needs_aws_tools, needs_curl_tools,
-    needs_oauth_tools, needs_saml_tools, preferred_host_inspection_topic,
+    needs_oauth_tools, needs_saml_tools, needs_multipart_tools, needs_openid_tools,
+    preferred_host_inspection_topic,
     preferred_maintainer_workflow, preferred_workspace_workflow, DirectAnswerKind,
     QueryIntentClass,
 };
@@ -8135,6 +8136,37 @@ impl ConversationManager {
                  explain (plain-English breakdown of SAML fields). \
                  Input: 'xml' for raw SAML XML, 'base64' for base64-encoded SAMLResponse (POST binding), 'file' for a file path. \
                  Example: saml_tools(action: 'parse', base64: 'PHNhbWxwOlJlc3BvbnNlIC4uLj4=')."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_multipart_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "MULTIPART NOTICE: Use the `multipart_tools` tool to parse, inspect, validate, or build multipart/form-data bodies without external utilities. \
+                 Actions: parse (default — tabular part summary with name/content-type/size/filename), \
+                 parts (detailed per-part with all headers and body preview), \
+                 files (only file-upload parts with filename=), \
+                 form (only non-file form fields as name=value), \
+                 validate (RFC 2046 compliance: boundary length, final delimiter, Content-Disposition), \
+                 build (generate multipart body from fields array of {name, value, filename?, content_type?} objects). \
+                 Provide body/text for inline content or file for a path; boundary auto-detected or pass boundary= explicitly. \
+                 Example: multipart_tools(action: 'parts', file: 'request.bin', boundary: 'abc123') or \
+                 multipart_tools(action: 'build', fields: [{name: 'user', value: 'alice'}])."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_openid_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "OPENID NOTICE: Use the `openid_tools` tool to inspect OIDC discovery documents, ID tokens, and userinfo responses without external utilities. \
+                 Actions: discover (default — parse discovery JSON: endpoints, response types, scopes, algorithms, PKCE support), \
+                 id_token (decode OIDC ID token JWT: core claims iss/sub/aud/exp, time claims with expiry status, profile claims; signature NOT verified), \
+                 userinfo (parse userinfo JSON and explain each standard claim with its scope), \
+                 scopes (explain openid/profile/email/address/phone/offline_access with full claim lists), \
+                 client (generate Python authlib config from discovery document). \
+                 Input: json/document/file for discovery/userinfo; token/id_token for id_token action. \
+                 Example: openid_tools(action: 'discover', file: 'openid-configuration.json') or \
+                 openid_tools(action: 'id_token', token: 'eyJhbGci...')."
                     .to_string(),
             );
         }

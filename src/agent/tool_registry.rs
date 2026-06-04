@@ -6693,6 +6693,40 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         crate::tools::saml_tools::make_schema(),
     ));
     tools.push(make_tool(
+        "multipart_tools",
+        "Parse, inspect, validate, and build multipart/form-data (RFC 2046) bodies without external utilities. \
+         Actions: \
+         `parse` (default) — tabular summary of all parts: name, content-type, size, filename; \
+         `parts` — detailed per-part view with all headers, name, filename, encoding, size, and body preview; \
+         `files` — only file-upload parts (those with filename=) showing field name, content-type, size, and filename; \
+         `form` — only non-file form fields as name=value pairs; \
+         `validate` — RFC 2046 compliance checks: boundary length ≤70 chars, final delimiter (--boundary--) present, all parts have Content-Disposition, name or filename present; \
+         `build` — generate a well-formed multipart body from a 'fields' array of {name, value, filename?, content_type?} objects; optional 'boundary'. \
+         Input: 'body'/'text' for inline content or 'file' for a path; boundary auto-detected from first 1 KB or pass 'boundary' explicitly or 'content_type' full header string. \
+         Example: multipart_tools(body: '...', boundary: 'abc123') or multipart_tools(action: 'files', file: 'upload.bin') or \
+         multipart_tools(action: 'build', boundary: 'abc', fields: [{name: 'user', value: 'alice'}, {name: 'data', value: '...', filename: 'data.csv', content_type: 'text/csv'}]).",
+        crate::tools::multipart_tools::make_schema(),
+    ));
+    tools.push(make_tool(
+        "openid_tools",
+        "Inspect OpenID Connect (OIDC) discovery documents, ID tokens, userinfo responses, and scopes without external utilities. \
+         Actions: \
+         `discover` (default) — parse OIDC discovery JSON: all endpoints (authorization/token/userinfo/jwks/end_session), \
+           response types, grant types, scopes, claims, signing algorithms, PKCE methods, subject types; \
+         `id_token` — decode an OIDC ID token JWT: algorithm, core claims (iss/sub/aud/azp/nonce/acr/amr), \
+           time claims (iat/exp/auth_time) with expiry status, at_hash/c_hash/s_hash, profile claims, custom claims; \
+           signature NOT verified (decode only); \
+         `userinfo` — parse userinfo JSON response and explain each standard claim with its scope source; \
+         `scopes` — explain all 6 standard OIDC scopes (openid/profile/email/address/phone/offline_access) with full claim lists; \
+         `client` — generate Python authlib client configuration from a discovery document including PKCE setup; \
+           outputs env var template, auth code flow snippet, and key endpoint summary. \
+         Input: 'json'/'document' for inline discovery/userinfo JSON or 'file' for a path; 'token'/'id_token' for id_token action; \
+         'claims'/'userinfo' JSON string for userinfo action. \
+         Example: openid_tools(action: 'discover', file: 'openid-configuration.json') or \
+         openid_tools(action: 'id_token', token: 'eyJhbGciOiJSUzI1NiJ9...') or openid_tools(action: 'scopes').",
+        crate::tools::openid_tools::make_schema(),
+    ));
+    tools.push(make_tool(
         "macho_tools",
         "Inspect macOS Mach-O binaries (executables, dylibs, frameworks, bundles, fat/universal binaries) without external tools — no otool or nm required. \
          Actions: \
@@ -7636,6 +7670,8 @@ pub async fn dispatch_builtin_tool(
         "curl_tools" => crate::tools::curl_tools::execute(args).await,
         "oauth_tools" => crate::tools::oauth_tools::execute(args).await,
         "saml_tools" => crate::tools::saml_tools::execute(args).await,
+        "multipart_tools" => crate::tools::multipart_tools::execute(args).await,
+        "openid_tools" => crate::tools::openid_tools::execute(args).await,
         "macho_tools" => crate::tools::macho_tools::execute(args).await,
         "pcap_tools" => crate::tools::pcap_tools::execute(args).await,
         "pe_tools" => crate::tools::pe_tools::execute(args).await,

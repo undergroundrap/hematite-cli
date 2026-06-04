@@ -38486,3 +38486,87 @@ fn test_saml_tools_parse() {
         out
     );
 }
+
+#[test]
+fn test_routing_detects_multipart_tools() {
+    use hematite::agent::routing::needs_multipart_tools;
+    assert!(needs_multipart_tools("parse multipart form-data body"));
+    assert!(needs_multipart_tools("how do I inspect a multipart/form-data request?"));
+    assert!(needs_multipart_tools("build a multipart body with file upload"));
+    assert!(!needs_multipart_tools("how do I write a CSS class?"));
+}
+
+#[test]
+fn test_multipart_tools_build() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::multipart_tools::execute(
+        &serde_json::json!({
+            "action": "build",
+            "boundary": "testboundary",
+            "fields": [
+                {"name": "username", "value": "alice"},
+                {"name": "avatar", "value": "...bytes...", "filename": "avatar.png", "content_type": "image/png"}
+            ]
+        }),
+    ));
+    assert!(result.is_ok(), "multipart build should succeed");
+    let out = result.unwrap();
+    assert!(out.contains("--testboundary"), "should include boundary delimiter: {}", out);
+    assert!(out.contains("username"), "should include field name: {}", out);
+    assert!(out.contains("avatar.png"), "should include filename: {}", out);
+    assert!(out.contains("--testboundary--"), "should include final delimiter: {}", out);
+}
+
+#[test]
+fn test_multipart_tools_parse() {
+    let body = "--boundary123\r\nContent-Disposition: form-data; name=\"user\"\r\n\r\nalice\r\n--boundary123\r\nContent-Disposition: form-data; name=\"file\"; filename=\"test.txt\"\r\nContent-Type: text/plain\r\n\r\nhello world\r\n--boundary123--\r\n";
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::multipart_tools::execute(
+        &serde_json::json!({"action": "parse", "body": body, "boundary": "boundary123"}),
+    ));
+    assert!(result.is_ok(), "multipart parse should succeed");
+    let out = result.unwrap();
+    assert!(out.contains("boundary123"), "should show boundary: {}", out);
+}
+
+#[test]
+fn test_routing_detects_openid_tools() {
+    use hematite::agent::routing::needs_openid_tools;
+    assert!(needs_openid_tools("parse the openid connect discovery document"));
+    assert!(needs_openid_tools("decode this oidc id token"));
+    assert!(needs_openid_tools("what scopes does OIDC support?"));
+    assert!(needs_openid_tools("explain userinfo endpoint claims"));
+    assert!(!needs_openid_tools("how do I write a for loop in Python?"));
+}
+
+#[test]
+fn test_openid_tools_scopes() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::openid_tools::execute(
+        &serde_json::json!({"action": "scopes"}),
+    ));
+    assert!(result.is_ok(), "openid scopes should succeed");
+    let out = result.unwrap();
+    assert!(out.contains("openid"), "should describe openid scope: {}", out);
+    assert!(out.contains("profile"), "should describe profile scope: {}", out);
+    assert!(out.contains("email"), "should describe email scope: {}", out);
+    assert!(out.contains("offline_access"), "should describe offline_access scope: {}", out);
+}
+
+#[test]
+fn test_openid_tools_id_token() {
+    // Minimal JWT: header.payload.sig (not signature-verified, decode only)
+    // header: {"alg":"RS256","typ":"JWT"}
+    // payload: {"iss":"https://accounts.example.com","sub":"user123","aud":"client_id","exp":9999999999,"iat":1700000000,"email":"user@example.com","email_verified":true}
+    let header = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9";
+    let payload = "eyJpc3MiOiJodHRwczovL2FjY291bnRzLmV4YW1wbGUuY29tIiwic3ViIjoidXNlcjEyMyIsImF1ZCI6ImNsaWVudF9pZCIsImV4cCI6OTk5OTk5OTk5OSwiaWF0IjoxNzAwMDAwMDAwLCJlbWFpbCI6InVzZXJAZXhhbXBsZS5jb20iLCJlbWFpbF92ZXJpZmllZCI6dHJ1ZX0";
+    let token = format!("{}.{}.fakesig", header, payload);
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::openid_tools::execute(
+        &serde_json::json!({"action": "id_token", "token": token}),
+    ));
+    assert!(result.is_ok(), "openid id_token should succeed");
+    let out = result.unwrap();
+    assert!(out.contains("accounts.example.com") || out.contains("user123"), "should decode issuer/subject: {}", out);
+    assert!(out.contains("RS256"), "should show algorithm: {}", out);
+}
