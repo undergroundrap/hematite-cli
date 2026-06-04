@@ -6693,6 +6693,25 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         crate::tools::saml_tools::make_schema(),
     ));
     tools.push(make_tool(
+        "sbom_tools",
+        "Parse and analyze Software Bill of Materials (SBOM) documents in CycloneDX JSON, SPDX JSON, and SPDX tag-value formats without external utilities. \
+         Actions: \
+         `info` (default) — SBOM format (CycloneDX/SPDX JSON/SPDX tag-value), spec version, document name, serial number/namespace, \
+           revision, creation timestamp, tool/creator, component count, license coverage %, PURL coverage count; \
+         `components` — tabular component list with name, version, license, and PURL ecosystem prefix (pkg:npm, pkg:maven, etc.); \
+           `limit` caps output (default 50); \
+         `licenses` — license distribution across all components: count per SPDX expression with bar chart percentage; \
+         `vulnerabilities` — vulnerability summary and list (CycloneDX only): severity breakdown critical/high/medium/low, \
+           CVE ID, severity, description snippet, affected component refs; \
+         `validate` — compliance check: required fields for each format (specVersion/serialNumber for CDX; \
+           SPDXVersion/DocumentName/DocumentNamespace for SPDX), license coverage warning. \
+         Auto-detects format from content; override with `format`: 'cyclonedx', 'spdx-json', or 'spdx-tv'. \
+         Pass `file` (path to .json/.spdx/.tv file) or `text` (SBOM content string). \
+         Example: sbom_tools(file: 'bom.json') or sbom_tools(action: 'licenses', file: 'sbom.spdx') \
+         or sbom_tools(action: 'components', text: '...', limit: 20).",
+        crate::tools::sbom_tools::make_schema(),
+    ));
+    tools.push(make_tool(
         "multipart_tools",
         "Parse, inspect, validate, and build multipart/form-data (RFC 2046) bodies without external utilities. \
          Actions: \
@@ -6837,6 +6856,23 @@ pub fn get_tools() -> Vec<ToolDefinition> {
          Example: video_file_tools(file: 'clip.mp4') or video_file_tools(action: 'streams', file: 'video.mkv') \
          or video_file_tools(action: 'metadata', file: 'archive.avi').",
         crate::tools::video_file_tools::make_schema(),
+    ));
+    tools.push(make_tool(
+        "epub_tools",
+        "Parse and inspect EPUB 2/3 ebook files without external utilities — no external libraries needed. \
+         Actions: \
+         `info` (default) — EPUB version (2.0/3.0/3.1), title, author(s), publisher, language, identifier, date, \
+           cover presence, spine item count (chapters), table of contents entry count, manifest file count, total ZIP entries; \
+         `metadata` — full OPF Dublin Core metadata: title, language, identifier, date, publisher, subject, \
+           description, rights, and all dc:creator entries; \
+         `toc` — table of contents entries from NCX (EPUB 2) or nav.xhtml (EPUB 3), numbered list; \
+         `spine` — reading order of content documents from OPF spine with resolved hrefs; \
+         `validate` — EPUB compliance check: mimetype entry and content, META-INF/container.xml presence, \
+           dc:title/dc:language/dc:identifier presence, non-empty spine, at least one dc:creator. \
+         Pass `file` (path to .epub) or `hex` (hex-encoded EPUB/ZIP bytes). \
+         Example: epub_tools(file: 'book.epub') or epub_tools(action: 'toc', file: 'novel.epub') \
+         or epub_tools(action: 'validate', file: 'ebook.epub').",
+        crate::tools::epub_tools::make_schema(),
     ));
     tools.push(make_tool(
         "macho_tools",
@@ -7797,6 +7833,7 @@ pub async fn dispatch_builtin_tool(
         "curl_tools" => crate::tools::curl_tools::execute(args).await,
         "oauth_tools" => crate::tools::oauth_tools::execute(args).await,
         "saml_tools" => crate::tools::saml_tools::execute(args).await,
+        "sbom_tools" => crate::tools::sbom_tools::execute(args).await,
         "multipart_tools" => crate::tools::multipart_tools::execute(args).await,
         "openid_tools" => crate::tools::openid_tools::execute(args).await,
         "exif_tools" => crate::tools::exif_tools::execute(args).await,
@@ -7806,6 +7843,7 @@ pub async fn dispatch_builtin_tool(
         "image_tools" => crate::tools::image_tools::execute(args).await,
         "audio_file_tools" => crate::tools::audio_file_tools::execute(args).await,
         "video_file_tools" => crate::tools::video_file_tools::execute(args).await,
+        "epub_tools" => crate::tools::epub_tools::execute(args).await,
         "macho_tools" => crate::tools::macho_tools::execute(args).await,
         "pcap_tools" => crate::tools::pcap_tools::execute(args).await,
         "pdf_tools" => crate::tools::pdf_tools::execute(args).await,

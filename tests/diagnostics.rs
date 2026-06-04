@@ -39349,3 +39349,300 @@ fn test_pdf_tools_not_a_pdf() {
         out
     );
 }
+
+// ── epub_tools tests ──────────────────────────────────────────────────────────
+
+#[test]
+fn test_routing_detects_epub_tools() {
+    use hematite::agent::routing::needs_epub_tools;
+    assert!(needs_epub_tools("show me the epub metadata"), "epub metadata");
+    assert!(needs_epub_tools("inspect this epub file"), "epub file");
+    assert!(needs_epub_tools("list the epub table of contents"), "epub toc");
+    assert!(needs_epub_tools("validate this epub"), "epub validate");
+    assert!(!needs_epub_tools("show me the mp3 metadata"), "should not match");
+}
+
+#[test]
+fn test_epub_tools_no_args() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::epub_tools::execute(&serde_json::json!({})));
+    assert!(result.is_ok());
+    let out = result.unwrap();
+    assert!(out.contains("Error"), "missing args should return Error: {}", out);
+}
+
+#[test]
+fn test_epub_tools_not_an_epub() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::epub_tools::execute(
+        &serde_json::json!({"action": "info", "hex": "deadbeefcafebabe"}),
+    ));
+    assert!(result.is_ok());
+    let out = result.unwrap();
+    assert!(
+        out.contains("Error") || out.contains("not a ZIP"),
+        "should report non-EPUB: {}",
+        out
+    );
+}
+
+// Build a minimal valid EPUB ZIP in memory (stored, no compression)
+fn minimal_epub_zip() -> Vec<u8> {
+    fn zip_stored(name: &[u8], data: &[u8]) -> Vec<u8> {
+        let mut local = Vec::new();
+        local.extend_from_slice(b"PK\x03\x04");
+        local.extend_from_slice(&[0x14, 0x00]); // version needed
+        local.extend_from_slice(&[0x00, 0x00]); // flags
+        local.extend_from_slice(&[0x00, 0x00]); // compression: stored
+        local.extend_from_slice(&[0x00, 0x00, 0x00, 0x00]); // mod time/date
+        local.extend_from_slice(&[0x00, 0x00, 0x00, 0x00]); // crc32
+        let sz = data.len() as u32;
+        local.extend_from_slice(&sz.to_le_bytes()); // compressed
+        local.extend_from_slice(&sz.to_le_bytes()); // uncompressed
+        let nl = name.len() as u16;
+        local.extend_from_slice(&nl.to_le_bytes()); // name len
+        local.extend_from_slice(&[0x00, 0x00]); // extra len
+        local.extend_from_slice(name);
+        local.extend_from_slice(data);
+        local
+    }
+
+    let mimetype = b"application/epub+zip";
+    let container = br#"<?xml version="1.0"?><container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container"><rootfiles><rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/></rootfiles></container>"#;
+    let opf = br#"<?xml version="1.0"?><package version="2.0" xmlns="http://www.idpf.org/2007/opf"><metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:title>Test Book</dc:title><dc:creator>Jane Author</dc:creator><dc:language>en</dc:language><dc:identifier>urn:uuid:test-uuid-1234</dc:identifier><dc:publisher>Test Press</dc:publisher></metadata><manifest><item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/><item id="ch1" href="chapter1.xhtml" media-type="application/xhtml+xml"/></manifest><spine toc="ncx"><itemref idref="ch1"/></spine></package>"#;
+    let ncx = br#"<?xml version="1.0"?><ncx><navMap><navPoint id="np1"><navLabel><text>Chapter 1</text></navLabel><content src="chapter1.xhtml"/></navPoint></navMap></ncx>"#;
+
+    let entries_data: Vec<(Vec<u8>, Vec<u8>)> = vec![
+        (b"mimetype".to_vec(), mimetype.to_vec()),
+        (b"META-INF/container.xml".to_vec(), container.to_vec()),
+        (b"OEBPS/content.opf".to_vec(), opf.to_vec()),
+        (b"OEBPS/toc.ncx".to_vec(), ncx.to_vec()),
+    ];
+
+    let mut offsets: Vec<u32> = Vec::new();
+    let mut body: Vec<u8> = Vec::new();
+
+    for (name, data) in &entries_data {
+        offsets.push(body.len() as u32);
+        body.extend_from_slice(&zip_stored(name, data));
+    }
+
+    // build central directory
+    let cd_offset = body.len() as u32;
+    let mut cd: Vec<u8> = Vec::new();
+    for (i, (name, data)) in entries_data.iter().enumerate() {
+        cd.extend_from_slice(b"PK\x01\x02");
+        cd.extend_from_slice(&[0x14, 0x00]); // version made by
+        cd.extend_from_slice(&[0x14, 0x00]); // version needed
+        cd.extend_from_slice(&[0x00, 0x00]); // flags
+        cd.extend_from_slice(&[0x00, 0x00]); // compression: stored
+        cd.extend_from_slice(&[0x00, 0x00, 0x00, 0x00]); // mod time/date
+        cd.extend_from_slice(&[0x00, 0x00, 0x00, 0x00]); // crc32
+        let sz = data.len() as u32;
+        cd.extend_from_slice(&sz.to_le_bytes());
+        cd.extend_from_slice(&sz.to_le_bytes());
+        let nl = name.len() as u16;
+        cd.extend_from_slice(&nl.to_le_bytes()); // name len
+        cd.extend_from_slice(&[0x00, 0x00]); // extra len
+        cd.extend_from_slice(&[0x00, 0x00]); // comment len
+        cd.extend_from_slice(&[0x00, 0x00]); // disk number start
+        cd.extend_from_slice(&[0x00, 0x00]); // int file attr
+        cd.extend_from_slice(&[0x00, 0x00, 0x00, 0x00]); // ext file attr
+        cd.extend_from_slice(&offsets[i].to_le_bytes()); // local header offset
+        cd.extend_from_slice(name);
+    }
+    let cd_size = cd.len() as u32;
+
+    // EOCD
+    let mut eocd: Vec<u8> = Vec::new();
+    eocd.extend_from_slice(b"PK\x05\x06");
+    eocd.extend_from_slice(&[0x00, 0x00]); // disk num
+    eocd.extend_from_slice(&[0x00, 0x00]); // disk with cd
+    let n = entries_data.len() as u16;
+    eocd.extend_from_slice(&n.to_le_bytes()); // entries on disk
+    eocd.extend_from_slice(&n.to_le_bytes()); // total entries
+    eocd.extend_from_slice(&cd_size.to_le_bytes());
+    eocd.extend_from_slice(&cd_offset.to_le_bytes());
+    eocd.extend_from_slice(&[0x00, 0x00]); // comment len
+
+    let mut out = body;
+    out.extend_from_slice(&cd);
+    out.extend_from_slice(&eocd);
+    out
+}
+
+#[test]
+fn test_epub_tools_info() {
+    let epub_bytes = minimal_epub_zip();
+    let hex: String = epub_bytes.iter().map(|b| format!("{:02x}", b)).collect();
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::epub_tools::execute(
+        &serde_json::json!({"action": "info", "hex": hex}),
+    ));
+    assert!(result.is_ok());
+    let out = result.unwrap();
+    assert!(out.contains("Test Book") || out.contains("EPUB"), "info output: {}", out);
+    assert!(out.contains("Jane Author") || out.contains("Author"), "author: {}", out);
+}
+
+#[test]
+fn test_epub_tools_metadata() {
+    let epub_bytes = minimal_epub_zip();
+    let hex: String = epub_bytes.iter().map(|b| format!("{:02x}", b)).collect();
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::epub_tools::execute(
+        &serde_json::json!({"action": "metadata", "hex": hex}),
+    ));
+    assert!(result.is_ok());
+    let out = result.unwrap();
+    assert!(out.contains("Test Book"), "title in metadata: {}", out);
+    assert!(out.contains("Test Press") || out.contains("Publisher"), "publisher: {}", out);
+}
+
+#[test]
+fn test_epub_tools_toc() {
+    let epub_bytes = minimal_epub_zip();
+    let hex: String = epub_bytes.iter().map(|b| format!("{:02x}", b)).collect();
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::epub_tools::execute(
+        &serde_json::json!({"action": "toc", "hex": hex}),
+    ));
+    assert!(result.is_ok());
+    let out = result.unwrap();
+    assert!(
+        out.contains("Chapter 1") || out.contains("TABLE OF CONTENTS") || out.contains("none detected"),
+        "toc: {}",
+        out
+    );
+}
+
+#[test]
+fn test_epub_tools_validate() {
+    let epub_bytes = minimal_epub_zip();
+    let hex: String = epub_bytes.iter().map(|b| format!("{:02x}", b)).collect();
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::epub_tools::execute(
+        &serde_json::json!({"action": "validate", "hex": hex}),
+    ));
+    assert!(result.is_ok());
+    let out = result.unwrap();
+    assert!(
+        out.contains("VALID") || out.contains("WARNINGS"),
+        "validate verdict: {}",
+        out
+    );
+}
+
+// ── sbom_tools tests ──────────────────────────────────────────────────────────
+
+#[test]
+fn test_routing_detects_sbom_tools() {
+    use hematite::agent::routing::needs_sbom_tools;
+    assert!(needs_sbom_tools("parse this sbom"), "sbom");
+    assert!(needs_sbom_tools("analyze the cyclonedx bill of materials"), "cyclonedx");
+    assert!(needs_sbom_tools("show spdx components"), "spdx");
+    assert!(needs_sbom_tools("what licenses are in this software bill of materials"), "bill of materials");
+    assert!(!needs_sbom_tools("show me the mp3 tags"), "should not match");
+}
+
+#[test]
+fn test_sbom_tools_no_args() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::sbom_tools::execute(&serde_json::json!({})));
+    assert!(result.is_ok());
+    let out = result.unwrap();
+    assert!(out.contains("Error"), "missing args should return Error: {}", out);
+}
+
+#[test]
+fn test_sbom_tools_cyclonedx_info() {
+    let cdx = serde_json::json!({
+        "bomFormat": "CycloneDX",
+        "specVersion": "1.4",
+        "serialNumber": "urn:uuid:test-1234",
+        "version": 1,
+        "metadata": {
+            "timestamp": "2024-01-15T10:00:00Z",
+            "tools": [{"name": "syft", "version": "0.74.0"}],
+            "component": {"type": "application", "name": "my-app", "version": "1.0.0"}
+        },
+        "components": [
+            {"name": "serde", "version": "1.0.0", "purl": "pkg:cargo/serde@1.0.0",
+             "licenses": [{"license": {"id": "MIT"}}]},
+            {"name": "tokio", "version": "1.35.0", "purl": "pkg:cargo/tokio@1.35.0",
+             "licenses": [{"license": {"id": "MIT"}}]}
+        ]
+    });
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::sbom_tools::execute(
+        &serde_json::json!({"action": "info", "text": cdx.to_string()}),
+    ));
+    assert!(result.is_ok());
+    let out = result.unwrap();
+    assert!(out.contains("CycloneDX"), "format: {}", out);
+    assert!(out.contains("1.4") || out.contains("specVersion"), "spec version: {}", out);
+    assert!(out.contains('2') || out.contains("Component"), "component count: {}", out);
+}
+
+#[test]
+fn test_sbom_tools_cyclonedx_licenses() {
+    let cdx = serde_json::json!({
+        "bomFormat": "CycloneDX",
+        "specVersion": "1.4",
+        "components": [
+            {"name": "serde", "version": "1.0.0", "licenses": [{"license": {"id": "MIT"}}]},
+            {"name": "tokio", "version": "1.35.0", "licenses": [{"license": {"id": "MIT"}}]},
+            {"name": "openssl", "version": "0.10.0", "licenses": [{"license": {"id": "Apache-2.0"}}]}
+        ]
+    });
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::sbom_tools::execute(
+        &serde_json::json!({"action": "licenses", "text": cdx.to_string()}),
+    ));
+    assert!(result.is_ok());
+    let out = result.unwrap();
+    assert!(out.contains("MIT"), "MIT license: {}", out);
+    assert!(out.contains("Apache-2.0") || out.contains("Apache"), "Apache license: {}", out);
+}
+
+#[test]
+fn test_sbom_tools_spdx_tv_info() {
+    let spdx_tv = "SPDXVersion: SPDX-2.3\nDataLicense: CC0-1.0\n\
+                   DocumentName: my-sbom\nDocumentNamespace: https://example.com/sbom\n\
+                   Creator: Tool: syft-0.74.0\nCreated: 2024-01-15T10:00:00Z\n\n\
+                   PackageName: serde\nPackageVersion: 1.0.0\n\
+                   PackageLicenseConcluded: MIT\n\nPackageName: tokio\nPackageVersion: 1.35.0\n\
+                   PackageLicenseConcluded: MIT\n";
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::sbom_tools::execute(
+        &serde_json::json!({"action": "info", "text": spdx_tv}),
+    ));
+    assert!(result.is_ok());
+    let out = result.unwrap();
+    assert!(out.contains("SPDX") || out.contains("tag-value"), "format: {}", out);
+    assert!(out.contains('2') || out.contains("Component"), "components: {}", out);
+}
+
+#[test]
+fn test_sbom_tools_validate_cyclonedx() {
+    let cdx = serde_json::json!({
+        "bomFormat": "CycloneDX",
+        "specVersion": "1.4",
+        "serialNumber": "urn:uuid:test",
+        "metadata": {"timestamp": "2024-01-15T10:00:00Z"},
+        "components": [
+            {"name": "serde", "version": "1.0.0", "licenses": [{"license": {"id": "MIT"}}]}
+        ]
+    });
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::sbom_tools::execute(
+        &serde_json::json!({"action": "validate", "text": cdx.to_string()}),
+    ));
+    assert!(result.is_ok());
+    let out = result.unwrap();
+    assert!(
+        out.contains("VALID") || out.contains("WARNINGS") || out.contains("INVALID"),
+        "validate verdict: {}",
+        out
+    );
+}

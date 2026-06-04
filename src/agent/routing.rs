@@ -11929,6 +11929,61 @@ pub fn needs_pdf_tools(user_input: &str) -> bool {
     )
 }
 
+pub fn needs_epub_tools(user_input: &str) -> bool {
+    let s = user_input.to_lowercase();
+    let asks_epub = s.contains("epub")
+        || s.contains(".epub")
+        || s.contains("ebook metadata")
+        || s.contains("ebook file")
+        || s.contains("kindle book")
+        || s.contains("parse epub")
+        || s.contains("inspect epub")
+        || s.contains("epub metadata")
+        || s.contains("epub toc")
+        || s.contains("epub table of contents")
+        || s.contains("epub spine")
+        || s.contains("epub author")
+        || s.contains("epub chapters")
+        || s.contains("epub validate")
+        || s.contains("open ebook")
+        || s.contains("oebps")
+        || s.contains("opf metadata")
+        || s.contains("ncx toc")
+        || s.contains("digital book metadata")
+        || s.contains("epub version")
+        || s.contains("epub publisher");
+    asks_epub
+}
+
+pub fn needs_sbom_tools(user_input: &str) -> bool {
+    let s = user_input.to_lowercase();
+    let asks_sbom = s.contains("sbom")
+        || s.contains("software bill of materials")
+        || s.contains("bill of materials")
+        || s.contains("cyclonedx")
+        || s.contains("spdx")
+        || s.contains("bom.json")
+        || s.contains("sbom.json")
+        || s.contains(".spdx")
+        || s.contains("spdx license")
+        || s.contains("spdx document")
+        || s.contains("parse sbom")
+        || s.contains("inspect sbom")
+        || s.contains("sbom components")
+        || s.contains("sbom licenses")
+        || s.contains("sbom vulnerabilities")
+        || s.contains("supply chain")
+        || s.contains("component licenses")
+        || s.contains("dependency licenses")
+        || s.contains("license inventory")
+        || s.contains("sbom format")
+        || s.contains("software composition")
+        || s.contains("purl ecosystem")
+        || s.contains("sbom validate")
+        || s.contains("bom format");
+    asks_sbom
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

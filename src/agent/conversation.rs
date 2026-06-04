@@ -78,8 +78,8 @@ use crate::agent::routing::{
     needs_unit_tools, needs_url_tools, needs_uuid_gen, needs_validate_tools, needs_vcf_tools,
     needs_vector_tools, needs_video_file_tools, needs_wasm_tools, needs_web_manifest_tools,
     needs_webhook_tools, needs_wireguard_tools, needs_word_tools, needs_xml_tools,
-    needs_yaml_tools, preferred_host_inspection_topic, preferred_maintainer_workflow,
-    preferred_workspace_workflow, DirectAnswerKind, QueryIntentClass,
+    needs_yaml_tools, needs_epub_tools, needs_sbom_tools, preferred_host_inspection_topic,
+    preferred_maintainer_workflow, preferred_workspace_workflow, DirectAnswerKind, QueryIntentClass,
 };
 use crate::agent::tool_registry::dispatch_builtin_tool;
 use crate::agent::truncation::safe_head;
@@ -8280,6 +8280,36 @@ impl ConversationManager {
                  validate (PDF header, %%EOF marker, xref presence). \
                  Pass file (path to PDF) or hex (hex-encoded PDF bytes). \
                  Example: pdf_tools(file: 'report.pdf') or pdf_tools(action: 'metadata', file: 'document.pdf')."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_epub_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "EPUB NOTICE: Use the `epub_tools` tool to inspect EPUB ebook files. \
+                 Actions: info (default — EPUB version, title, author, publisher, language, identifier, cover present, \
+                 spine/chapter count, TOC entry count, manifest file count), \
+                 metadata (full OPF Dublin Core fields: title, language, identifier, date, publisher, subject, description, rights, all authors), \
+                 toc (table of contents from NCX or nav.xhtml, numbered list), \
+                 spine (reading order of content documents with resolved hrefs), \
+                 validate (mimetype entry, container.xml, dc:title/dc:language/dc:identifier, non-empty spine). \
+                 Pass file (path to .epub) or hex (hex-encoded EPUB bytes). \
+                 Example: epub_tools(file: 'book.epub') or epub_tools(action: 'toc', file: 'novel.epub')."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_sbom_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "SBOM NOTICE: Use the `sbom_tools` tool to parse Software Bill of Materials documents. \
+                 Supports CycloneDX JSON, SPDX JSON, and SPDX tag-value formats (auto-detected). \
+                 Actions: info (default — format, spec version, document name, component count, license/PURL coverage), \
+                 components (tabular list: name, version, license, PURL ecosystem prefix; limit parameter), \
+                 licenses (license distribution with bar chart percentages), \
+                 vulnerabilities (CycloneDX only — severity breakdown, CVE list with affected components), \
+                 validate (required fields check, license coverage warning). \
+                 Pass file (path to .json/.spdx/.tv) or text (SBOM content string). \
+                 Example: sbom_tools(file: 'bom.json') or sbom_tools(action: 'licenses', file: 'sbom.spdx')."
                     .to_string(),
             );
         }
