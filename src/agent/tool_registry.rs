@@ -6826,6 +6826,19 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         crate::tools::audio_file_tools::make_schema(),
     ));
     tools.push(make_tool(
+        "video_file_tools",
+        "Parse video container metadata (MP4/MOV, MKV/WebM, AVI) without external utilities. \
+         Actions: \
+         `info` (default) — format, duration, video/audio stream summary, creation date, file size; \
+         `streams` — detailed per-stream breakdown: codec, resolution, frame rate, channels, sample rate; \
+         `metadata` — container-level tags: title, encoder, creation date, compatible brands; \
+         `validate` — structural checks: required headers/boxes, stream presence. \
+         Pass `file` (path to MP4/MOV/MKV/WebM/AVI) or `hex` (hex-encoded bytes). \
+         Example: video_file_tools(file: 'clip.mp4') or video_file_tools(action: 'streams', file: 'video.mkv') \
+         or video_file_tools(action: 'metadata', file: 'archive.avi').",
+        crate::tools::video_file_tools::make_schema(),
+    ));
+    tools.push(make_tool(
         "macho_tools",
         "Inspect macOS Mach-O binaries (executables, dylibs, frameworks, bundles, fat/universal binaries) without external tools — no otool or nm required. \
          Actions: \
@@ -6858,6 +6871,21 @@ pub fn get_tools() -> Vec<ToolDefinition> {
          pcap_tools(action: 'dns', file: 'traffic.pcapng') or \
          pcap_tools(action: 'conversations', file: 'network.pcap').",
         crate::tools::pcap_tools::schema(),
+    ));
+    tools.push(make_tool(
+        "pdf_tools",
+        "Inspect PDF files — page count, metadata, structure, and validation — without external utilities. \
+         Actions: \
+         `info` (default) — PDF version, page count, file size, linearized flag, Info dict fields \
+           (title, author, subject, keywords, creator, producer, creation date, modification date); \
+         `pages` — page count with MediaBox dimensions and standard paper size detection (A4/US Letter); \
+         `metadata` — all Info dictionary fields with date parsing; \
+         `structure` — object count, xref type (traditional table or cross-reference stream), linearized flag; \
+         `validate` — structural checks: PDF header, %%EOF marker, xref presence, page/object counts. \
+         Pass 'file' (path to PDF) or 'hex' (hex-encoded PDF bytes). \
+         Example: pdf_tools(file: 'report.pdf') or pdf_tools(action: 'metadata', file: 'document.pdf') \
+         or pdf_tools(action: 'validate', file: 'form.pdf').",
+        crate::tools::pdf_tools::make_schema(),
     ));
     tools.push(make_tool(
         "pe_tools",
@@ -7777,8 +7805,10 @@ pub async fn dispatch_builtin_tool(
         "svg_tools" => crate::tools::svg_tools::execute(args).await,
         "image_tools" => crate::tools::image_tools::execute(args).await,
         "audio_file_tools" => crate::tools::audio_file_tools::execute(args).await,
+        "video_file_tools" => crate::tools::video_file_tools::execute(args).await,
         "macho_tools" => crate::tools::macho_tools::execute(args).await,
         "pcap_tools" => crate::tools::pcap_tools::execute(args).await,
+        "pdf_tools" => crate::tools::pdf_tools::execute(args).await,
         "pe_tools" => crate::tools::pe_tools::execute(args).await,
         "printf_tools" => crate::tools::printf_tools::execute(args).await,
         "ascii_chart_tools" => crate::tools::ascii_chart_tools::execute(args).await,

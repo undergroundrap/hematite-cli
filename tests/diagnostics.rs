@@ -38274,7 +38274,9 @@ fn test_iptables_tools_summary() {
 fn test_routing_detects_spdx_tools() {
     use hematite::agent::routing::needs_spdx_tools;
     assert!(needs_spdx_tools("what is the MIT spdx identifier"));
-    assert!(needs_spdx_tools("parse this spdx license expression: MIT OR Apache-2.0"));
+    assert!(needs_spdx_tools(
+        "parse this spdx license expression: MIT OR Apache-2.0"
+    ));
     assert!(needs_spdx_tools("list all osi approved spdx licenses"));
     assert!(!needs_spdx_tools("what is the weather today"));
 }
@@ -38315,7 +38317,9 @@ fn test_spdx_tools_parse_expression() {
 fn test_routing_detects_aws_tools() {
     use hematite::agent::routing::needs_aws_tools;
     assert!(needs_aws_tools("parse this arn: arn:aws:s3:::my-bucket"));
-    assert!(needs_aws_tools("decode the aws arn for this lambda function"));
+    assert!(needs_aws_tools(
+        "decode the aws arn for this lambda function"
+    ));
     assert!(needs_aws_tools("what region is us-east-1"));
     assert!(!needs_aws_tools("what is the speed of light"));
 }
@@ -38382,14 +38386,16 @@ fn test_curl_tools_parse() {
 #[test]
 fn test_curl_tools_convert_python() {
     let rt = tokio::runtime::Runtime::new().unwrap();
-    let result = rt.block_on(hematite::tools::curl_tools::execute(
-        &serde_json::json!({
-            "action": "convert",
-            "command": "curl https://httpbin.org/get -H 'Accept: application/json'",
-            "language": "python"
-        }),
-    ));
-    assert!(result.is_ok(), "curl convert python should succeed: {:?}", result);
+    let result = rt.block_on(hematite::tools::curl_tools::execute(&serde_json::json!({
+        "action": "convert",
+        "command": "curl https://httpbin.org/get -H 'Accept: application/json'",
+        "language": "python"
+    })));
+    assert!(
+        result.is_ok(),
+        "curl convert python should succeed: {:?}",
+        result
+    );
     let out = result.unwrap();
     assert!(
         out.contains("requests") || out.contains("import"),
@@ -38403,8 +38409,12 @@ fn test_curl_tools_convert_python() {
 #[test]
 fn test_routing_detects_oauth_tools() {
     use hematite::agent::routing::needs_oauth_tools;
-    assert!(needs_oauth_tools("generate a pkce code verifier and challenge"));
-    assert!(needs_oauth_tools("explain the oauth2 authorization code flow"));
+    assert!(needs_oauth_tools(
+        "generate a pkce code verifier and challenge"
+    ));
+    assert!(needs_oauth_tools(
+        "explain the oauth2 authorization code flow"
+    ));
     assert!(needs_oauth_tools("build an oauth authorization url"));
     assert!(!needs_oauth_tools("what is machine learning"));
 }
@@ -38491,8 +38501,12 @@ fn test_saml_tools_parse() {
 fn test_routing_detects_multipart_tools() {
     use hematite::agent::routing::needs_multipart_tools;
     assert!(needs_multipart_tools("parse multipart form-data body"));
-    assert!(needs_multipart_tools("how do I inspect a multipart/form-data request?"));
-    assert!(needs_multipart_tools("build a multipart body with file upload"));
+    assert!(needs_multipart_tools(
+        "how do I inspect a multipart/form-data request?"
+    ));
+    assert!(needs_multipart_tools(
+        "build a multipart body with file upload"
+    ));
     assert!(!needs_multipart_tools("how do I write a CSS class?"));
 }
 
@@ -38511,10 +38525,26 @@ fn test_multipart_tools_build() {
     ));
     assert!(result.is_ok(), "multipart build should succeed");
     let out = result.unwrap();
-    assert!(out.contains("--testboundary"), "should include boundary delimiter: {}", out);
-    assert!(out.contains("username"), "should include field name: {}", out);
-    assert!(out.contains("avatar.png"), "should include filename: {}", out);
-    assert!(out.contains("--testboundary--"), "should include final delimiter: {}", out);
+    assert!(
+        out.contains("--testboundary"),
+        "should include boundary delimiter: {}",
+        out
+    );
+    assert!(
+        out.contains("username"),
+        "should include field name: {}",
+        out
+    );
+    assert!(
+        out.contains("avatar.png"),
+        "should include filename: {}",
+        out
+    );
+    assert!(
+        out.contains("--testboundary--"),
+        "should include final delimiter: {}",
+        out
+    );
 }
 
 #[test]
@@ -38532,7 +38562,9 @@ fn test_multipart_tools_parse() {
 #[test]
 fn test_routing_detects_openid_tools() {
     use hematite::agent::routing::needs_openid_tools;
-    assert!(needs_openid_tools("parse the openid connect discovery document"));
+    assert!(needs_openid_tools(
+        "parse the openid connect discovery document"
+    ));
     assert!(needs_openid_tools("decode this oidc id token"));
     assert!(needs_openid_tools("what scopes does OIDC support?"));
     assert!(needs_openid_tools("explain userinfo endpoint claims"));
@@ -38547,10 +38579,26 @@ fn test_openid_tools_scopes() {
     ));
     assert!(result.is_ok(), "openid scopes should succeed");
     let out = result.unwrap();
-    assert!(out.contains("openid"), "should describe openid scope: {}", out);
-    assert!(out.contains("profile"), "should describe profile scope: {}", out);
-    assert!(out.contains("email"), "should describe email scope: {}", out);
-    assert!(out.contains("offline_access"), "should describe offline_access scope: {}", out);
+    assert!(
+        out.contains("openid"),
+        "should describe openid scope: {}",
+        out
+    );
+    assert!(
+        out.contains("profile"),
+        "should describe profile scope: {}",
+        out
+    );
+    assert!(
+        out.contains("email"),
+        "should describe email scope: {}",
+        out
+    );
+    assert!(
+        out.contains("offline_access"),
+        "should describe offline_access scope: {}",
+        out
+    );
 }
 
 #[test]
@@ -38567,7 +38615,11 @@ fn test_openid_tools_id_token() {
     ));
     assert!(result.is_ok(), "openid id_token should succeed");
     let out = result.unwrap();
-    assert!(out.contains("accounts.example.com") || out.contains("user123"), "should decode issuer/subject: {}", out);
+    assert!(
+        out.contains("accounts.example.com") || out.contains("user123"),
+        "should decode issuer/subject: {}",
+        out
+    );
     assert!(out.contains("RS256"), "should show algorithm: {}", out);
 }
 
@@ -38608,12 +38660,19 @@ fn test_exif_tools_minimal_tiff() {
         .step_by(2)
         .map(|i| u8::from_str_radix(&tiff_hex[i..i + 2], 16).unwrap())
         .collect();
-    let hex = bytes.iter().map(|b| format!("{:02X}", b)).collect::<String>();
+    let hex = bytes
+        .iter()
+        .map(|b| format!("{:02X}", b))
+        .collect::<String>();
     let rt = tokio::runtime::Runtime::new().unwrap();
     let result = rt.block_on(hematite::tools::exif_tools::execute(
         &serde_json::json!({"action": "info", "hex": hex}),
     ));
-    assert!(result.is_ok(), "exif_tools info on minimal TIFF should succeed: {:?}", result);
+    assert!(
+        result.is_ok(),
+        "exif_tools info on minimal TIFF should succeed: {:?}",
+        result
+    );
     let out = result.unwrap();
     assert!(out.contains("Canon"), "should show Make=Canon: {}", out);
 }
@@ -38649,9 +38708,16 @@ fn test_office_tools_missing_file() {
     let result = rt.block_on(hematite::tools::office_tools::execute(
         &serde_json::json!({"action": "info", "file": "/nonexistent/path/document.docx"}),
     ));
-    assert!(result.is_ok(), "office_tools should return Ok even on missing file");
+    assert!(
+        result.is_ok(),
+        "office_tools should return Ok even on missing file"
+    );
     let out = result.unwrap();
-    assert!(out.contains("Error") || out.contains("error"), "should report an error for missing file: {}", out);
+    assert!(
+        out.contains("Error") || out.contains("error"),
+        "should report an error for missing file: {}",
+        out
+    );
 }
 
 #[test]
@@ -38661,9 +38727,16 @@ fn test_office_tools_no_file_arg() {
     let result = rt.block_on(hematite::tools::office_tools::execute(
         &serde_json::json!({"action": "info"}),
     ));
-    assert!(result.is_ok(), "office_tools should return Ok when file arg is missing");
+    assert!(
+        result.is_ok(),
+        "office_tools should return Ok when file arg is missing"
+    );
     let out = result.unwrap();
-    assert!(out.contains("file") || out.contains("Error"), "should prompt for file path: {}", out);
+    assert!(
+        out.contains("file") || out.contains("Error"),
+        "should prompt for file path: {}",
+        out
+    );
 }
 
 // ── font_tools ────────────────────────────────────────────────────────────────
@@ -38674,7 +38747,9 @@ fn test_routing_detects_font_tools() {
     assert!(needs_font_tools("inspect this .ttf file"));
     assert!(needs_font_tools("how many glyphs does the font have"));
     assert!(needs_font_tools("show font tables for this .otf"));
-    assert!(needs_font_tools("what unicode coverage does this .woff have"));
+    assert!(needs_font_tools(
+        "what unicode coverage does this .woff have"
+    ));
     assert!(needs_font_tools("truetype font metadata"));
     assert!(!needs_font_tools("open a text file and read it"));
 }
@@ -38685,9 +38760,16 @@ fn test_font_tools_no_args() {
     let result = rt.block_on(hematite::tools::font_tools::execute(
         &serde_json::json!({"action": "info"}),
     ));
-    assert!(result.is_ok(), "font_tools should return Ok when no file provided");
+    assert!(
+        result.is_ok(),
+        "font_tools should return Ok when no file provided"
+    );
     let out = result.unwrap();
-    assert!(out.contains("Error") || out.contains("file"), "should prompt for file: {}", out);
+    assert!(
+        out.contains("Error") || out.contains("file"),
+        "should prompt for file: {}",
+        out
+    );
 }
 
 #[test]
@@ -38705,7 +38787,11 @@ fn test_font_tools_minimal_ttf() {
     let result = rt.block_on(hematite::tools::font_tools::execute(
         &serde_json::json!({"action": "info", "hex": hex}),
     ));
-    assert!(result.is_ok(), "font_tools should return Ok on minimal TTF header: {:?}", result);
+    assert!(
+        result.is_ok(),
+        "font_tools should return Ok on minimal TTF header: {:?}",
+        result
+    );
     // With 0 tables the output will indicate no name/tables found but should not crash
     let out = result.unwrap();
     assert!(!out.is_empty(), "output should not be empty: {}", out);
@@ -38721,7 +38807,11 @@ fn test_font_tools_woff2_graceful() {
     ));
     assert!(result.is_ok(), "font_tools should handle WOFF2 gracefully");
     let out = result.unwrap();
-    assert!(out.contains("WOFF2") || out.contains("Error"), "should note WOFF2 limitation: {}", out);
+    assert!(
+        out.contains("WOFF2") || out.contains("Error"),
+        "should note WOFF2 limitation: {}",
+        out
+    );
 }
 
 // ── svg_tools ─────────────────────────────────────────────────────────────────
@@ -38743,9 +38833,16 @@ fn test_svg_tools_no_args() {
     let result = rt.block_on(hematite::tools::svg_tools::execute(
         &serde_json::json!({"action": "info"}),
     ));
-    assert!(result.is_ok(), "svg_tools should return Ok when no content provided");
+    assert!(
+        result.is_ok(),
+        "svg_tools should return Ok when no content provided"
+    );
     let out = result.unwrap();
-    assert!(out.contains("Error") || out.contains("file"), "should prompt for input: {}", out);
+    assert!(
+        out.contains("Error") || out.contains("file"),
+        "should prompt for input: {}",
+        out
+    );
 }
 
 #[test]
@@ -38760,9 +38857,17 @@ fn test_svg_tools_basic_svg() {
     let result = rt.block_on(hematite::tools::svg_tools::execute(
         &serde_json::json!({"action": "info", "svg": svg}),
     ));
-    assert!(result.is_ok(), "svg_tools info should succeed on well-formed SVG: {:?}", result);
+    assert!(
+        result.is_ok(),
+        "svg_tools info should succeed on well-formed SVG: {:?}",
+        result
+    );
     let out = result.unwrap();
-    assert!(out.contains("100") || out.contains("width"), "should show dimensions: {}", out);
+    assert!(
+        out.contains("100") || out.contains("width"),
+        "should show dimensions: {}",
+        out
+    );
 }
 
 #[test]
@@ -38776,9 +38881,17 @@ fn test_svg_tools_elements() {
     let result = rt.block_on(hematite::tools::svg_tools::execute(
         &serde_json::json!({"action": "elements", "svg": svg}),
     ));
-    assert!(result.is_ok(), "svg_tools elements should succeed: {:?}", result);
+    assert!(
+        result.is_ok(),
+        "svg_tools elements should succeed: {:?}",
+        result
+    );
     let out = result.unwrap();
-    assert!(out.contains("rect") || out.contains("circle"), "should list element types: {}", out);
+    assert!(
+        out.contains("rect") || out.contains("circle"),
+        "should list element types: {}",
+        out
+    );
 }
 
 #[test]
@@ -38791,9 +38904,17 @@ fn test_svg_tools_validate_missing_viewbox() {
     let result = rt.block_on(hematite::tools::svg_tools::execute(
         &serde_json::json!({"action": "validate", "svg": svg}),
     ));
-    assert!(result.is_ok(), "svg_tools validate should succeed: {:?}", result);
+    assert!(
+        result.is_ok(),
+        "svg_tools validate should succeed: {:?}",
+        result
+    );
     let out = result.unwrap();
-    assert!(out.contains("viewBox") || out.contains("viewbox"), "should flag missing viewBox: {}", out);
+    assert!(
+        out.contains("viewBox") || out.contains("viewbox"),
+        "should flag missing viewBox: {}",
+        out
+    );
 }
 
 #[test]
@@ -38808,7 +38929,11 @@ fn test_svg_tools_ids() {
     ));
     assert!(result.is_ok(), "svg_tools ids should succeed: {:?}", result);
     let out = result.unwrap();
-    assert!(out.contains("box1") || out.contains("dot1"), "should list element ids: {}", out);
+    assert!(
+        out.contains("box1") || out.contains("dot1"),
+        "should list element ids: {}",
+        out
+    );
 }
 
 // ── image_tools ───────────────────────────────────────────────────────────────
@@ -38816,7 +38941,9 @@ fn test_svg_tools_ids() {
 #[test]
 fn test_routing_detects_image_tools() {
     use hematite::agent::routing::needs_image_tools;
-    assert!(needs_image_tools("what are the image dimensions of this png"));
+    assert!(needs_image_tools(
+        "what are the image dimensions of this png"
+    ));
     assert!(needs_image_tools("parse the jpeg metadata"));
     assert!(needs_image_tools("show me the gif frames count"));
     assert!(needs_image_tools("image color mode and bit depth"));
@@ -38832,7 +38959,11 @@ fn test_image_tools_no_args() {
     ));
     assert!(result.is_ok());
     let out = result.unwrap();
-    assert!(out.contains("Error") || out.contains("file"), "should ask for file: {}", out);
+    assert!(
+        out.contains("Error") || out.contains("file"),
+        "should ask for file: {}",
+        out
+    );
 }
 
 #[test]
@@ -38853,24 +38984,28 @@ fn test_image_tools_png_info() {
     ));
     assert!(result.is_ok(), "png info should succeed: {:?}", result);
     let out = result.unwrap();
-    assert!(out.contains("64") || out.contains("PNG") || out.contains("48"), "should show PNG dimensions: {}", out);
+    assert!(
+        out.contains("64") || out.contains("PNG") || out.contains("48"),
+        "should show PNG dimensions: {}",
+        out
+    );
 }
 
 #[test]
 fn test_image_tools_gif_info() {
     // Minimal GIF87a
-    let gif_hex = concat!(
-        "474946383761",
-        "0a0008000000",
-        "3b"
-    );
+    let gif_hex = concat!("474946383761", "0a0008000000", "3b");
     let rt = tokio::runtime::Runtime::new().unwrap();
     let result = rt.block_on(hematite::tools::image_tools::execute(
         &serde_json::json!({"action": "info", "hex": gif_hex}),
     ));
     assert!(result.is_ok(), "gif info should succeed: {:?}", result);
     let out = result.unwrap();
-    assert!(out.contains("GIF") || out.contains("10") || out.contains("8"), "should show GIF info: {}", out);
+    assert!(
+        out.contains("GIF") || out.contains("10") || out.contains("8"),
+        "should show GIF info: {}",
+        out
+    );
 }
 
 #[test]
@@ -38881,7 +39016,11 @@ fn test_image_tools_validate_unknown() {
     ));
     assert!(result.is_ok());
     let out = result.unwrap();
-    assert!(out.contains("Error") || out.contains("unknown") || out.contains("unrecogni"), "should report unknown format: {}", out);
+    assert!(
+        out.contains("Error") || out.contains("unknown") || out.contains("unrecogni"),
+        "should report unknown format: {}",
+        out
+    );
 }
 
 // ── audio_file_tools ─────────────────────────────────────────────────────────
@@ -38905,26 +39044,19 @@ fn test_audio_file_tools_no_args() {
     ));
     assert!(result.is_ok());
     let out = result.unwrap();
-    assert!(out.contains("Error") || out.contains("file"), "should ask for file: {}", out);
+    assert!(
+        out.contains("Error") || out.contains("file"),
+        "should ask for file: {}",
+        out
+    );
 }
 
 #[test]
 fn test_audio_file_tools_wav_info() {
     // Minimal WAV: RIFF + fmt chunk (PCM, stereo, 44100 Hz, 16-bit) + empty data chunk
     let wav_hex = concat!(
-        "52494646",
-        "24000000",
-        "57415645",
-        "666d7420",
-        "10000000",
-        "0100",
-        "0200",
-        "44ac0000",
-        "10b10200",
-        "0400",
-        "1000",
-        "64617461",
-        "00000000"
+        "52494646", "24000000", "57415645", "666d7420", "10000000", "0100", "0200", "44ac0000",
+        "10b10200", "0400", "1000", "64617461", "00000000"
     );
     let rt = tokio::runtime::Runtime::new().unwrap();
     let result = rt.block_on(hematite::tools::audio_file_tools::execute(
@@ -38932,16 +39064,18 @@ fn test_audio_file_tools_wav_info() {
     ));
     assert!(result.is_ok(), "wav info should succeed: {:?}", result);
     let out = result.unwrap();
-    assert!(out.contains("WAV") || out.contains("44100") || out.contains("PCM"), "should show WAV info: {}", out);
+    assert!(
+        out.contains("WAV") || out.contains("44100") || out.contains("PCM"),
+        "should show WAV info: {}",
+        out
+    );
 }
 
 #[test]
 fn test_audio_file_tools_wav_validate() {
     let wav_hex = concat!(
-        "52494646", "24000000", "57415645",
-        "666d7420", "10000000",
-        "0100", "0200", "44ac0000", "10b10200", "0400", "1000",
-        "64617461", "00000000"
+        "52494646", "24000000", "57415645", "666d7420", "10000000", "0100", "0200", "44ac0000",
+        "10b10200", "0400", "1000", "64617461", "00000000"
     );
     let rt = tokio::runtime::Runtime::new().unwrap();
     let result = rt.block_on(hematite::tools::audio_file_tools::execute(
@@ -38949,7 +39083,11 @@ fn test_audio_file_tools_wav_validate() {
     ));
     assert!(result.is_ok(), "wav validate should succeed: {:?}", result);
     let out = result.unwrap();
-    assert!(out.contains("VALID") || out.contains("WARN") || out.contains("Empty"), "should report validation: {}", out);
+    assert!(
+        out.contains("VALID") || out.contains("WARN") || out.contains("Empty"),
+        "should report validation: {}",
+        out
+    );
 }
 
 #[test]
@@ -38971,7 +39109,11 @@ fn test_audio_file_tools_ogg_magic() {
     ));
     assert!(result.is_ok(), "ogg info should succeed: {:?}", result);
     let out = result.unwrap();
-    assert!(out.contains("Ogg") || out.contains("ogg") || out.contains("0x"), "should show Ogg info: {}", out);
+    assert!(
+        out.contains("Ogg") || out.contains("ogg") || out.contains("0x"),
+        "should show Ogg info: {}",
+        out
+    );
 }
 
 #[test]
@@ -38982,5 +39124,228 @@ fn test_audio_file_tools_unknown_format() {
     ));
     assert!(result.is_ok());
     let out = result.unwrap();
-    assert!(out.contains("Error") || out.contains("unrecogni"), "should report unknown format: {}", out);
+    assert!(
+        out.contains("Error") || out.contains("unrecogni"),
+        "should report unknown format: {}",
+        out
+    );
+}
+
+// ── video_file_tools ──────────────────────────────────────────────────────────
+
+#[test]
+fn test_routing_detects_video_file_tools() {
+    use hematite::agent::routing::needs_video_file_tools;
+    assert!(needs_video_file_tools("show me the mp4 metadata"));
+    assert!(needs_video_file_tools("inspect this mkv file"));
+    assert!(needs_video_file_tools(
+        "what are the video streams in this file"
+    ));
+    assert!(needs_video_file_tools("parse avi file header"));
+    assert!(!needs_video_file_tools("list all files in directory"));
+}
+
+#[test]
+fn test_video_file_tools_no_args() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::video_file_tools::execute(
+        &serde_json::json!({}),
+    ));
+    assert!(result.is_ok());
+    let out = result.unwrap();
+    assert!(
+        out.contains("Error"),
+        "should report missing input: {}",
+        out
+    );
+}
+
+#[test]
+fn test_video_file_tools_mp4_ftyp() {
+    // Minimal MP4: ftyp box (size=20, tag="ftyp", brand="mp42", minor=0, compat=["mp42","isom"])
+    let mp4_hex = concat!(
+        "00000018", // box size = 24
+        "66747970", // "ftyp"
+        "6d703432", // "mp42"
+        "00000000", // minor version
+        "6d703432", // compat brand "mp42"
+        "69736f6d"  // compat brand "isom"
+    );
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::video_file_tools::execute(
+        &serde_json::json!({"action": "info", "hex": mp4_hex}),
+    ));
+    assert!(result.is_ok(), "mp4 info should succeed: {:?}", result);
+    let out = result.unwrap();
+    // ftyp found → dispatched as MP4, but no moov so no duration yet
+    assert!(
+        out.contains("MP4")
+            || out.contains("mp4")
+            || out.contains("Format")
+            || out.contains("Error"),
+        "should show MP4 info or graceful error: {}",
+        out
+    );
+}
+
+#[test]
+fn test_video_file_tools_mkv_magic() {
+    // Minimal EBML header: element ID 1A 45 DF A3 + data size 0x84 (4 bytes) + content
+    let mkv_hex = "1a45dfa3848484848484";
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::video_file_tools::execute(
+        &serde_json::json!({"action": "info", "hex": mkv_hex}),
+    ));
+    assert!(result.is_ok(), "mkv info should succeed: {:?}", result);
+    let out = result.unwrap();
+    assert!(
+        out.contains("MKV")
+            || out.contains("WebM")
+            || out.contains("Matroska")
+            || out.contains("Format")
+            || out.contains("stream"),
+        "should show MKV info: {}",
+        out
+    );
+}
+
+#[test]
+fn test_video_file_tools_avi_magic() {
+    // RIFF....AVI  header (minimal; no streams so parse may return None → error)
+    let avi_hex = concat!(
+        "52494646", // "RIFF"
+        "10000000", // file size (little-endian)
+        "41564920"  // "AVI "
+    );
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::video_file_tools::execute(
+        &serde_json::json!({"action": "info", "hex": avi_hex}),
+    ));
+    assert!(result.is_ok(), "avi info should succeed: {:?}", result);
+    let out = result.unwrap();
+    // Without a full avih structure width/height=0 → parse_avi returns None → error string
+    assert!(
+        out.contains("AVI") || out.contains("Error") || out.contains("RIFF"),
+        "should show AVI info or error: {}",
+        out
+    );
+}
+
+#[test]
+fn test_video_file_tools_unknown_format() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::video_file_tools::execute(
+        &serde_json::json!({"action": "info", "hex": "deadbeef01020304"}),
+    ));
+    assert!(result.is_ok());
+    let out = result.unwrap();
+    assert!(
+        out.contains("Error") || out.contains("unrecogni"),
+        "should report unknown format: {}",
+        out
+    );
+}
+
+// ── pdf_tools ─────────────────────────────────────────────────────────────────
+
+#[test]
+fn test_routing_detects_pdf_tools() {
+    use hematite::agent::routing::needs_pdf_tools;
+    assert!(needs_pdf_tools("show me the pdf metadata"));
+    assert!(needs_pdf_tools("how many pages in this pdf file"));
+    assert!(needs_pdf_tools("parse pdf document"));
+    assert!(needs_pdf_tools("validate pdf structure"));
+    assert!(!needs_pdf_tools("list all files in directory"));
+}
+
+#[test]
+fn test_pdf_tools_no_args() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::pdf_tools::execute(&serde_json::json!({})));
+    assert!(result.is_ok());
+    let out = result.unwrap();
+    assert!(
+        out.contains("Error"),
+        "should report missing input: {}",
+        out
+    );
+}
+
+#[test]
+fn test_pdf_tools_basic_pdf() {
+    // Minimal valid PDF bytes
+    let pdf = b"%PDF-1.4\n1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n\
+               2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n\
+               3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] >>\nendobj\n\
+               xref\n0 4\n0000000000 65535 f\n0000000009 00000 n\n\
+               0000000068 00000 n\n0000000125 00000 n\n\
+               trailer\n<< /Size 4 /Root 1 0 R >>\nstartxref\n200\n%%EOF\n";
+    let hex: String = pdf.iter().map(|b| format!("{:02x}", b)).collect();
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::pdf_tools::execute(
+        &serde_json::json!({"action": "info", "hex": hex}),
+    ));
+    assert!(result.is_ok(), "pdf info should succeed: {:?}", result);
+    let out = result.unwrap();
+    assert!(
+        out.contains("1.4") || out.contains("PDF"),
+        "should contain PDF version: {}",
+        out
+    );
+}
+
+#[test]
+fn test_pdf_tools_validate_good() {
+    let pdf = b"%PDF-1.7\n1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n\
+               2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n\
+               3 0 obj\n<< /Type /Page /MediaBox [0 0 595 842] >>\nendobj\n\
+               xref\n0 4\n0000000000 65535 f\ntrailer\n<< /Size 4 /Root 1 0 R >>\nstartxref\n100\n%%EOF\n";
+    let hex: String = pdf.iter().map(|b| format!("{:02x}", b)).collect();
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::pdf_tools::execute(
+        &serde_json::json!({"action": "validate", "hex": hex}),
+    ));
+    assert!(result.is_ok());
+    let out = result.unwrap();
+    assert!(
+        out.contains("VALID") || out.contains("WARNINGS"),
+        "should show validation result: {}",
+        out
+    );
+}
+
+#[test]
+fn test_pdf_tools_metadata_action() {
+    let pdf = b"%PDF-1.4\n1 0 obj << /Title (Test Document) /Author (Jane Doe) >> endobj\n\
+               xref\n0 2\ntrailer\n<< /Size 2 /Root 1 0 R >>\nstartxref\n50\n%%EOF\n";
+    let hex: String = pdf.iter().map(|b| format!("{:02x}", b)).collect();
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::pdf_tools::execute(
+        &serde_json::json!({"action": "metadata", "hex": hex}),
+    ));
+    assert!(result.is_ok());
+    let out = result.unwrap();
+    assert!(
+        out.contains("1.4")
+            || out.contains("Title")
+            || out.contains("Author")
+            || out.contains("metadata"),
+        "should show metadata: {}",
+        out
+    );
+}
+
+#[test]
+fn test_pdf_tools_not_a_pdf() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(hematite::tools::pdf_tools::execute(
+        &serde_json::json!({"action": "info", "hex": "cafebabe01020304deadbeef"}),
+    ));
+    assert!(result.is_ok());
+    let out = result.unwrap();
+    assert!(
+        out.contains("Error") || out.contains("Not a valid"),
+        "should report non-PDF: {}",
+        out
+    );
 }

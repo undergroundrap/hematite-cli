@@ -11854,6 +11854,81 @@ pub fn needs_audio_file_tools(user_input: &str) -> bool {
     )
 }
 
+pub fn needs_video_file_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "video metadata",
+            "video file metadata",
+            "mp4 metadata",
+            "mkv metadata",
+            "avi metadata",
+            "mov metadata",
+            "webm metadata",
+            "mp4 file",
+            "mkv file",
+            "avi file",
+            "mov file",
+            "webm file",
+            "parse mp4",
+            "parse mkv",
+            "parse avi",
+            "parse mov",
+            "inspect mp4",
+            "inspect mkv",
+            "inspect avi",
+            "video streams",
+            "video codec",
+            "video duration",
+            "video resolution",
+            "video container",
+            "mp4 info",
+            "mkv info",
+            "avi info",
+            "video frame rate",
+            "mp4 streams",
+            "mkv streams",
+            "matroska",
+            "mp4 container",
+            "video file info",
+        ],
+    )
+}
+
+pub fn needs_pdf_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "pdf metadata",
+            "pdf file metadata",
+            "parse pdf",
+            "inspect pdf",
+            "pdf info",
+            "pdf page count",
+            "pdf pages",
+            "pdf author",
+            "pdf title",
+            "pdf creator",
+            "pdf producer",
+            "pdf creation date",
+            "pdf structure",
+            "pdf version",
+            "pdf validate",
+            "validate pdf",
+            "pdf document",
+            "pdf info dict",
+            ".pdf file",
+            "pdf file",
+            "pdf size",
+            "pdf linearized",
+            "pdf xref",
+            "pdf object count",
+        ],
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
