@@ -4,15 +4,15 @@ pub fn make_schema() -> Value {
     json!({
         "name": "openid_tools",
         "description": "Inspects OpenID Connect (OIDC) discovery documents, ID tokens, and userinfo responses without external utilities. \
-Actions: discover (default — parse OIDC discovery JSON: endpoints, response types, grant types, scopes, signing algorithms), \
-id_token (decode and explain an OIDC ID token JWT with claim-by-claim breakdown), \
-userinfo (parse userinfo JSON response, explain standard claims), \
-scopes (explain OIDC scopes: openid/profile/email/address/phone/offline_access with claim lists), \
-client (generate OAuth client config from discovery doc with Python authlib example). \
-Input: json/document for inline discovery JSON or file for a path; token/id_token for id_token action; \
-claims/userinfo for userinfo action. \
-Example: openid_tools(action: 'discover', file: 'openid-configuration.json') or \
-openid_tools(action: 'id_token', token: 'eyJ...') or openid_tools(action: 'scopes').",
+    Actions: discover (default — parse OIDC discovery JSON: endpoints, response types, grant types, scopes, signing algorithms), \
+    id_token (decode and explain an OIDC ID token JWT with claim-by-claim breakdown), \
+    userinfo (parse userinfo JSON response, explain standard claims), \
+    scopes (explain OIDC scopes: openid/profile/email/address/phone/offline_access with claim lists), \
+    client (generate OAuth client config from discovery doc with Python authlib example). \
+    Input: json/document for inline discovery JSON or file for a path; token/id_token for id_token action; \
+    claims/userinfo for userinfo action. \
+    Example: openid_tools(action: 'discover', file: 'openid-configuration.json') or \
+    openid_tools(action: 'id_token', token: 'eyJ...') or openid_tools(action: 'scopes').",
         "input_schema": {
             "type": "object",
             "properties": {
@@ -31,7 +31,8 @@ openid_tools(action: 'id_token', token: 'eyJ...') or openid_tools(action: 'scope
 }
 
 fn get_json_input(args: &Value) -> Option<Value> {
-    let s = args.get("json")
+    let s = args
+        .get("json")
         .or_else(|| args.get("document"))
         .or_else(|| args.get("claims"))
         .or_else(|| args.get("userinfo"))
@@ -67,10 +68,16 @@ fn base64url_decode(input: &str) -> Option<Vec<u8>> {
         let b = decode_map[b64[i + 1] as usize];
         let c = decode_map[b64[i + 2] as usize];
         let d = decode_map[b64[i + 3] as usize];
-        if a == 255 || b == 255 { break; }
+        if a == 255 || b == 255 {
+            break;
+        }
         buf.push((a << 2) | (b >> 4));
-        if c != 255 { buf.push((b << 4) | (c >> 2)); }
-        if d != 255 { buf.push((c << 6) | d); }
+        if c != 255 {
+            buf.push((b << 4) | (c >> 2));
+        }
+        if d != 255 {
+            buf.push((c << 6) | d);
+        }
         i += 4;
     }
     let _ = buf.iter().all(|_| true); // suppress unused warning
@@ -78,7 +85,9 @@ fn base64url_decode(input: &str) -> Option<Vec<u8>> {
 }
 
 fn format_unix_ts(ts: i64) -> String {
-    if ts <= 0 { return "N/A".to_string(); }
+    if ts <= 0 {
+        return "N/A".to_string();
+    }
     let secs = ts as u64;
     let days = secs / 86400;
     let rem = secs % 86400;
@@ -105,7 +114,11 @@ fn epoch_days_to_ymd(mut days: i64) -> (i64, u32, u32) {
 }
 
 fn expiry_status(exp: i64, now_hint: i64) -> &'static str {
-    if exp < now_hint { "EXPIRED" } else { "VALID" }
+    if exp < now_hint {
+        "EXPIRED"
+    } else {
+        "VALID"
+    }
 }
 
 fn time_now_approx() -> i64 {
@@ -121,23 +134,27 @@ fn time_now_approx() -> i64 {
 }
 
 pub async fn execute(args: &Value) -> Result<String, String> {
-    let action = args.get("action").and_then(|v| v.as_str()).unwrap_or("discover");
+    let action = args
+        .get("action")
+        .and_then(|v| v.as_str())
+        .unwrap_or("discover");
 
     Ok(match action {
         "id_token" => {
-            let token = args.get("token")
+            let token = args
+                .get("token")
                 .or_else(|| args.get("id_token"))
                 .and_then(|v| v.as_str())
                 .unwrap_or("");
             decode_id_token(token)
         }
         "userinfo" => {
-            let claims = get_json_input(args)
-                .or_else(|| {
-                    args.get("claims").or_else(|| args.get("userinfo"))
-                        .and_then(|v| v.as_str())
-                        .and_then(|s| serde_json::from_str(s).ok())
-                });
+            let claims = get_json_input(args).or_else(|| {
+                args.get("claims")
+                    .or_else(|| args.get("userinfo"))
+                    .and_then(|v| v.as_str())
+                    .and_then(|s| serde_json::from_str(s).ok())
+            });
             match claims {
                 Some(c) => explain_userinfo(&c),
                 None => "Error: provide userinfo JSON via json/claims/file.".to_string(),
@@ -172,7 +189,12 @@ fn discover_info(doc: &Value) -> String {
     let get_arr_str = |key: &str| -> Vec<String> {
         doc.get(key)
             .and_then(|v| v.as_array())
-            .map(|a| a.iter().filter_map(|x| x.as_str()).map(|s| s.to_string()).collect())
+            .map(|a| {
+                a.iter()
+                    .filter_map(|x| x.as_str())
+                    .map(|s| s.to_string())
+                    .collect()
+            })
             .unwrap_or_default()
     };
 
@@ -204,7 +226,10 @@ fn discover_info(doc: &Value) -> String {
     out.push_str("── Capabilities ────────────────────────\n");
     let response_types = get_arr_str("response_types_supported");
     if !response_types.is_empty() {
-        out.push_str(&format!("  Response types:   {}\n", response_types.join(", ")));
+        out.push_str(&format!(
+            "  Response types:   {}\n",
+            response_types.join(", ")
+        ));
     }
     let grant_types = get_arr_str("grant_types_supported");
     if !grant_types.is_empty() {
@@ -224,22 +249,34 @@ fn discover_info(doc: &Value) -> String {
     out.push_str("── Algorithms ──────────────────────────\n");
     let id_token_algs = get_arr_str("id_token_signing_alg_values_supported");
     if !id_token_algs.is_empty() {
-        out.push_str(&format!("  ID token signing: {}\n", id_token_algs.join(", ")));
+        out.push_str(&format!(
+            "  ID token signing: {}\n",
+            id_token_algs.join(", ")
+        ));
     }
     let userinfo_algs = get_arr_str("userinfo_signing_alg_values_supported");
     if !userinfo_algs.is_empty() {
-        out.push_str(&format!("  UserInfo signing: {}\n", userinfo_algs.join(", ")));
+        out.push_str(&format!(
+            "  UserInfo signing: {}\n",
+            userinfo_algs.join(", ")
+        ));
     }
     let token_endpoint_auth = get_arr_str("token_endpoint_auth_methods_supported");
     if !token_endpoint_auth.is_empty() {
-        out.push_str(&format!("  Token endpoint auth: {}\n", token_endpoint_auth.join(", ")));
+        out.push_str(&format!(
+            "  Token endpoint auth: {}\n",
+            token_endpoint_auth.join(", ")
+        ));
     }
 
     // PKCE
     let pkce_methods = get_arr_str("code_challenge_methods_supported");
     if !pkce_methods.is_empty() {
         out.push('\n');
-        out.push_str(&format!("PKCE supported: {}  (use S256 for new implementations)\n", pkce_methods.join(", ")));
+        out.push_str(&format!(
+            "PKCE supported: {}  (use S256 for new implementations)\n",
+            pkce_methods.join(", ")
+        ));
     } else {
         out.push('\n');
         out.push_str("PKCE: not advertised in discovery document\n");
@@ -252,10 +289,16 @@ fn discover_info(doc: &Value) -> String {
     }
 
     // Claims param support
-    if let Some(true) = doc.get("claims_parameter_supported").and_then(|v| v.as_bool()) {
+    if let Some(true) = doc
+        .get("claims_parameter_supported")
+        .and_then(|v| v.as_bool())
+    {
         out.push_str("Claims parameter: supported\n");
     }
-    if let Some(true) = doc.get("request_parameter_supported").and_then(|v| v.as_bool()) {
+    if let Some(true) = doc
+        .get("request_parameter_supported")
+        .and_then(|v| v.as_bool())
+    {
         out.push_str("Request parameter (JAR): supported\n");
     }
 
@@ -288,15 +331,23 @@ fn decode_id_token(token: &str) -> String {
         None => return "Error: could not decode JWT payload".to_string(),
     };
 
-    let alg = header_json.get("alg").and_then(|v| v.as_str()).unwrap_or("?");
+    let alg = header_json
+        .get("alg")
+        .and_then(|v| v.as_str())
+        .unwrap_or("?");
     let kid = header_json.get("kid").and_then(|v| v.as_str());
 
     let now = time_now_approx();
 
     let mut out = String::from("OIDC ID Token\n\n");
-    out.push_str(&format!("Algorithm: {}{}    [Signature NOT verified — decode only]\n",
+    out.push_str(&format!(
+        "Algorithm: {}{}    [Signature NOT verified — decode only]\n",
         alg,
-        if let Some(k) = kid { format!("  KID: {}", k) } else { String::new() }
+        if let Some(k) = kid {
+            format!("  KID: {}", k)
+        } else {
+            String::new()
+        }
     ));
     out.push('\n');
 
@@ -315,7 +366,8 @@ fn decode_id_token(token: &str) -> String {
         if let Some(v) = payload_json.get(*key) {
             let display = match v {
                 Value::String(s) => s.clone(),
-                Value::Array(a) => a.iter()
+                Value::Array(a) => a
+                    .iter()
                     .filter_map(|x| x.as_str())
                     .collect::<Vec<_>>()
                     .join(", "),
@@ -365,24 +417,42 @@ fn decode_id_token(token: &str) -> String {
 
     // Standard profile claims
     let profile_claims = [
-        ("name", "Name"), ("given_name", "Given Name"), ("family_name", "Family Name"),
-        ("middle_name", "Middle Name"), ("nickname", "Nickname"), ("preferred_username", "Preferred Username"),
-        ("profile", "Profile URL"), ("picture", "Picture URL"), ("website", "Website"),
-        ("email", "Email"), ("email_verified", "Email Verified"),
-        ("gender", "Gender"), ("birthdate", "Birthdate"),
-        ("phone_number", "Phone"), ("phone_number_verified", "Phone Verified"),
-        ("locale", "Locale"), ("zoneinfo", "Zoneinfo"),
+        ("name", "Name"),
+        ("given_name", "Given Name"),
+        ("family_name", "Family Name"),
+        ("middle_name", "Middle Name"),
+        ("nickname", "Nickname"),
+        ("preferred_username", "Preferred Username"),
+        ("profile", "Profile URL"),
+        ("picture", "Picture URL"),
+        ("website", "Website"),
+        ("email", "Email"),
+        ("email_verified", "Email Verified"),
+        ("gender", "Gender"),
+        ("birthdate", "Birthdate"),
+        ("phone_number", "Phone"),
+        ("phone_number_verified", "Phone Verified"),
+        ("locale", "Locale"),
+        ("zoneinfo", "Zoneinfo"),
         ("updated_at", "Updated At"),
     ];
 
-    let has_profile = profile_claims.iter().any(|(k, _)| payload_json.get(*k).is_some());
+    let has_profile = profile_claims
+        .iter()
+        .any(|(k, _)| payload_json.get(*k).is_some());
     if has_profile {
         out.push('\n');
         out.push_str("── Profile Claims ──────────────────────\n");
         for (key, label) in &profile_claims {
             if let Some(v) = payload_json.get(*key) {
                 let display = match v {
-                    Value::Bool(b) => if *b { "true".to_string() } else { "false".to_string() },
+                    Value::Bool(b) => {
+                        if *b {
+                            "true".to_string()
+                        } else {
+                            "false".to_string()
+                        }
+                    }
                     Value::Number(n) => {
                         if key == &"updated_at" {
                             format_unix_ts(n.as_i64().unwrap_or(0))
@@ -400,15 +470,50 @@ fn decode_id_token(token: &str) -> String {
 
     // Extra custom claims
     let known: std::collections::HashSet<&str> = [
-        "iss","sub","aud","azp","nonce","acr","amr","iat","exp","auth_time","nbf",
-        "at_hash","c_hash","s_hash","name","given_name","family_name","middle_name",
-        "nickname","preferred_username","profile","picture","website","email",
-        "email_verified","gender","birthdate","phone_number","phone_number_verified",
-        "locale","zoneinfo","updated_at",
-    ].iter().cloned().collect();
+        "iss",
+        "sub",
+        "aud",
+        "azp",
+        "nonce",
+        "acr",
+        "amr",
+        "iat",
+        "exp",
+        "auth_time",
+        "nbf",
+        "at_hash",
+        "c_hash",
+        "s_hash",
+        "name",
+        "given_name",
+        "family_name",
+        "middle_name",
+        "nickname",
+        "preferred_username",
+        "profile",
+        "picture",
+        "website",
+        "email",
+        "email_verified",
+        "gender",
+        "birthdate",
+        "phone_number",
+        "phone_number_verified",
+        "locale",
+        "zoneinfo",
+        "updated_at",
+    ]
+    .iter()
+    .cloned()
+    .collect();
 
-    let extras: Vec<(&String, &Value)> = payload_json.as_object()
-        .map(|o| o.iter().filter(|(k, _)| !known.contains(k.as_str())).collect())
+    let extras: Vec<(&String, &Value)> = payload_json
+        .as_object()
+        .map(|o| {
+            o.iter()
+                .filter(|(k, _)| !known.contains(k.as_str()))
+                .collect()
+        })
         .unwrap_or_default();
 
     if !extras.is_empty() {
@@ -436,13 +541,29 @@ fn explain_userinfo(claims: &Value) -> String {
         ("website", "User's website URL", "profile"),
         ("gender", "User's gender", "profile"),
         ("birthdate", "Date of birth (YYYY-MM-DD)", "profile"),
-        ("zoneinfo", "IANA timezone (e.g. America/Chicago)", "profile"),
+        (
+            "zoneinfo",
+            "IANA timezone (e.g. America/Chicago)",
+            "profile",
+        ),
         ("locale", "BCP47 locale tag (e.g. en-US)", "profile"),
-        ("updated_at", "Last profile update (Unix timestamp)", "profile"),
+        (
+            "updated_at",
+            "Last profile update (Unix timestamp)",
+            "profile",
+        ),
         ("email", "Email address", "email"),
-        ("email_verified", "Whether email is verified by IdP", "email"),
+        (
+            "email_verified",
+            "Whether email is verified by IdP",
+            "email",
+        ),
         ("phone_number", "Phone number (E.164 format)", "phone"),
-        ("phone_number_verified", "Whether phone is verified by IdP", "phone"),
+        (
+            "phone_number_verified",
+            "Whether phone is verified by IdP",
+            "phone",
+        ),
         ("address", "Structured postal address object", "address"),
     ];
 
@@ -453,20 +574,32 @@ fn explain_userinfo(claims: &Value) -> String {
                 Value::Bool(b) => if *b { "true ✓" } else { "false ✗" }.to_string(),
                 Value::String(s) => s.clone(),
                 Value::Number(n) => {
-                    if *key == "updated_at" { format_unix_ts(n.as_i64().unwrap_or(0)) }
-                    else { n.to_string() }
+                    if *key == "updated_at" {
+                        format_unix_ts(n.as_i64().unwrap_or(0))
+                    } else {
+                        n.to_string()
+                    }
                 }
                 Value::Object(_) => format!("{}", v),
                 other => other.to_string(),
             };
-            out.push_str(&format!("  {:<28} {}  [{}]\n  └ {}\n\n", key, val, scope, desc));
+            out.push_str(&format!(
+                "  {:<28} {}  [{}]\n  └ {}\n\n",
+                key, val, scope, desc
+            ));
         }
     }
 
     // Extra claims
-    let known: std::collections::HashSet<&str> = claim_explanations.iter().map(|(k, _, _)| *k).collect();
-    let extras: Vec<(&String, &Value)> = claims.as_object()
-        .map(|o| o.iter().filter(|(k, _)| !known.contains(k.as_str())).collect())
+    let known: std::collections::HashSet<&str> =
+        claim_explanations.iter().map(|(k, _, _)| *k).collect();
+    let extras: Vec<(&String, &Value)> = claims
+        .as_object()
+        .map(|o| {
+            o.iter()
+                .filter(|(k, _)| !known.contains(k.as_str()))
+                .collect()
+        })
         .unwrap_or_default();
 
     if !extras.is_empty() {
@@ -510,7 +643,9 @@ fn explain_scopes() -> String {
     out.push_str("Notes:\n");
     out.push_str("  • Always include openid to trigger OIDC mode\n");
     out.push_str("  • Some IdPs require additional custom scopes (e.g. api, roles, groups)\n");
-    out.push_str("  • Consult the discovery document scopes_supported field for IdP-specific additions\n");
+    out.push_str(
+        "  • Consult the discovery document scopes_supported field for IdP-specific additions\n",
+    );
     out
 }
 
@@ -522,13 +657,24 @@ fn generate_client_config(doc: &Value) -> String {
     let token_ep = get_str("token_endpoint");
     let userinfo_ep = get_str("userinfo_endpoint");
     let jwks_uri = get_str("jwks_uri");
-    let end_session_ep = doc.get("end_session_endpoint").and_then(|v| v.as_str()).unwrap_or("");
+    let end_session_ep = doc
+        .get("end_session_endpoint")
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
 
-    let pkce_methods: Vec<String> = doc.get("code_challenge_methods_supported")
+    let pkce_methods: Vec<String> = doc
+        .get("code_challenge_methods_supported")
         .and_then(|v| v.as_array())
-        .map(|a| a.iter().filter_map(|x| x.as_str()).map(|s| s.to_string()).collect())
+        .map(|a| {
+            a.iter()
+                .filter_map(|x| x.as_str())
+                .map(|s| s.to_string())
+                .collect()
+        })
         .unwrap_or_default();
-    let pkce_supported = pkce_methods.contains(&"S256".to_string()) || pkce_methods.contains(&"s256".to_string()) || !pkce_methods.is_empty();
+    let pkce_supported = pkce_methods.contains(&"S256".to_string())
+        || pkce_methods.contains(&"s256".to_string())
+        || !pkce_methods.is_empty();
 
     let mut out = String::from("OIDC Client Configuration\n\n");
 
@@ -555,14 +701,20 @@ fn generate_client_config(doc: &Value) -> String {
         out.push_str("    code_challenge_method='S256',\n");
         out.push_str(")\n\n");
         out.push_str("# Exchange code:\n");
-        out.push_str(&format!("token = client.fetch_token('{}', code=request.args['code'],\n", token_ep));
+        out.push_str(&format!(
+            "token = client.fetch_token('{}', code=request.args['code'],\n",
+            token_ep
+        ));
         out.push_str("                            code_verifier=code_verifier)\n\n");
     } else {
         out.push_str("uri, state = client.create_authorization_url(\n");
         out.push_str(&format!("    '{}',\n", auth_ep));
         out.push_str(")\n\n");
         out.push_str("# Exchange code:\n");
-        out.push_str(&format!("token = client.fetch_token('{}', code=request.args['code'])\n\n", token_ep));
+        out.push_str(&format!(
+            "token = client.fetch_token('{}', code=request.args['code'])\n\n",
+            token_ep
+        ));
     }
     out.push_str(&format!("# UserInfo: GET {}\n", userinfo_ep));
     if !end_session_ep.is_empty() {
@@ -581,7 +733,10 @@ fn generate_client_config(doc: &Value) -> String {
     }
     out.push('\n');
     if pkce_supported {
-        out.push_str(&format!("PKCE: supported ({}) — use S256\n", pkce_methods.join(", ")));
+        out.push_str(&format!(
+            "PKCE: supported ({}) — use S256\n",
+            pkce_methods.join(", ")
+        ));
     } else {
         out.push_str("PKCE: not advertised — use client_secret for public clients\n");
     }

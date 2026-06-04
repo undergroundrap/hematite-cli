@@ -4,12 +4,12 @@ pub fn make_schema() -> Value {
     json!({
         "name": "font_tools",
         "description": "Inspect TTF, OTF, and WOFF/WOFF2 font files without external tools. \
-Actions: info (default — family, style, version, copyright, license, glyph count, tables), \
-names (all name records — IDs 0-22 with human labels), \
-tables (OpenType table directory with tag, offset, length), \
-chars (Unicode character coverage summary from cmap). \
-Pass file (path to .ttf/.otf/.woff/.woff2) or hex (hex-encoded bytes). \
-Example: font_tools(file: 'font.ttf') or font_tools(action: 'names', file: 'font.otf') or font_tools(action: 'tables', hex: '0001...').",
+    Actions: info (default — family, style, version, copyright, license, glyph count, tables), \
+    names (all name records — IDs 0-22 with human labels), \
+    tables (OpenType table directory with tag, offset, length), \
+    chars (Unicode character coverage summary from cmap). \
+    Pass file (path to .ttf/.otf/.woff/.woff2) or hex (hex-encoded bytes). \
+    Example: font_tools(file: 'font.ttf') or font_tools(action: 'names', file: 'font.otf') or font_tools(action: 'tables', hex: '0001...').",
         "input_schema": {
             "type": "object",
             "properties": {
@@ -23,11 +23,16 @@ Example: font_tools(file: 'font.ttf') or font_tools(action: 'names', file: 'font
 }
 
 pub async fn execute(args: &Value) -> Result<String, String> {
-    let action = args.get("action").and_then(|v| v.as_str()).unwrap_or("info");
+    let action = args
+        .get("action")
+        .and_then(|v| v.as_str())
+        .unwrap_or("info");
 
     let bytes = match get_bytes(args) {
         Some(b) => b,
-        None => return Ok("Error: provide 'file' (path to TTF/OTF/WOFF) or 'hex' bytes.".to_string()),
+        None => {
+            return Ok("Error: provide 'file' (path to TTF/OTF/WOFF) or 'hex' bytes.".to_string())
+        }
     };
 
     if bytes.len() < 12 {
@@ -192,7 +197,12 @@ fn parse_table_dir(data: &[u8], num: usize) -> Vec<TableEntry> {
         let checksum = read_u32(data, base + 4);
         let offset = read_u32(data, base + 8);
         let length = read_u32(data, base + 12);
-        tables.push(TableEntry { tag, checksum, offset, length });
+        tables.push(TableEntry {
+            tag,
+            checksum,
+            offset,
+            length,
+        });
     }
     tables
 }
@@ -229,7 +239,10 @@ fn read_u32(data: &[u8], off: usize) -> u32 {
 }
 
 fn read_i16(data: &[u8], off: usize) -> i16 {
-    i16::from_be_bytes([data.get(off).copied().unwrap_or(0), data.get(off + 1).copied().unwrap_or(0)])
+    i16::from_be_bytes([
+        data.get(off).copied().unwrap_or(0),
+        data.get(off + 1).copied().unwrap_or(0),
+    ])
 }
 
 // ── Name table parsing ──────────────────────────────────────────────────────
@@ -298,7 +311,13 @@ fn parse_name_table(name_data: &[u8]) -> Vec<NameRecord> {
         }
         let raw = &name_data[abs..abs + length];
         let s = decode_name_string(platform, encoding, raw);
-        records.push(NameRecord { platform, encoding, language, name_id, string: s });
+        records.push(NameRecord {
+            platform,
+            encoding,
+            language,
+            name_id,
+            string: s,
+        });
     }
     records
 }
@@ -308,14 +327,30 @@ fn decode_name_string(platform: u16, encoding: u16, raw: &[u8]) -> String {
     if platform == 3 && (encoding == 0 || encoding == 1) {
         let chars: Vec<u16> = raw
             .chunks(2)
-            .map(|c| u16::from_be_bytes([c.get(0).copied().unwrap_or(0), c.get(1).copied().unwrap_or(0)]))
+            .map(|c| {
+                u16::from_be_bytes([
+                    c.get(0).copied().unwrap_or(0),
+                    c.get(1).copied().unwrap_or(0),
+                ])
+            })
             .collect();
         return String::from_utf16_lossy(&chars).trim().to_string();
     }
     // Mac Roman or Platform 0 (Unicode)
     if platform == 0 || (platform == 1 && encoding == 0) {
         // Best-effort ASCII-compatible
-        return raw.iter().map(|&b| if b >= 0x20 && b < 0x80 { b as char } else { '?' }).collect::<String>().trim().to_string();
+        return raw
+            .iter()
+            .map(|&b| {
+                if b >= 0x20 && b < 0x80 {
+                    b as char
+                } else {
+                    '?'
+                }
+            })
+            .collect::<String>()
+            .trim()
+            .to_string();
     }
     String::from_utf8_lossy(raw).trim().to_string()
 }
@@ -410,12 +445,26 @@ fn weight_label(w: u16) -> &'static str {
 
 fn mac_style_str(style: u16) -> String {
     let mut parts = Vec::new();
-    if style & 0x01 != 0 { parts.push("Bold"); }
-    if style & 0x02 != 0 { parts.push("Italic"); }
-    if style & 0x04 != 0 { parts.push("Underline"); }
-    if style & 0x08 != 0 { parts.push("Outline"); }
-    if style & 0x10 != 0 { parts.push("Shadow"); }
-    if parts.is_empty() { "Regular".to_string() } else { parts.join(", ") }
+    if style & 0x01 != 0 {
+        parts.push("Bold");
+    }
+    if style & 0x02 != 0 {
+        parts.push("Italic");
+    }
+    if style & 0x04 != 0 {
+        parts.push("Underline");
+    }
+    if style & 0x08 != 0 {
+        parts.push("Outline");
+    }
+    if style & 0x10 != 0 {
+        parts.push("Shadow");
+    }
+    if parts.is_empty() {
+        "Regular".to_string()
+    } else {
+        parts.join(", ")
+    }
 }
 
 // ── cmap character coverage ─────────────────────────────────────────────────
@@ -476,9 +525,15 @@ fn cmap_coverage(data: &[u8], tables: &[TableEntry]) -> (usize, bool, bool, bool
                 let start = read_u32(cmap_data, base);
                 let end = read_u32(cmap_data, base + 4);
                 count += (end - start + 1) as usize;
-                if start <= 0x007F { has_latin = true; }
-                if start >= 0x0370 && end <= 0x03FF { has_greek = true; }
-                if start <= 0x9FFF && end >= 0x4E00 { has_cjk = true; }
+                if start <= 0x007F {
+                    has_latin = true;
+                }
+                if start >= 0x0370 && end <= 0x03FF {
+                    has_greek = true;
+                }
+                if start <= 0x9FFF && end >= 0x4E00 {
+                    has_cjk = true;
+                }
             }
         } else if fmt == 4 && off + 14 <= cmap_data.len() {
             let seg_count = (read_u16(cmap_data, off + 6) as usize) / 2;
@@ -490,9 +545,15 @@ fn cmap_coverage(data: &[u8], tables: &[TableEntry]) -> (usize, bool, bool, bool
                     break;
                 }
                 count += (end_code - start_code + 1) as usize;
-                if start_code <= 0x007F { has_latin = true; }
-                if start_code >= 0x0370 && end_code <= 0x03FF { has_greek = true; }
-                if start_code <= 0x9FFF && end_code >= 0x4E00 { has_cjk = true; }
+                if start_code <= 0x007F {
+                    has_latin = true;
+                }
+                if start_code >= 0x0370 && end_code <= 0x03FF {
+                    has_greek = true;
+                }
+                if start_code <= 0x9FFF && end_code >= 0x4E00 {
+                    has_cjk = true;
+                }
             }
         }
     }
@@ -556,13 +617,26 @@ fn format_info(data: &[u8], tables: &[TableEntry], sfnt_version: u32) -> String 
         out.push_str(&format!("  {:24} {}\n", "Units Per Em:", upm));
     }
     if weight > 0 {
-        out.push_str(&format!("  {:24} {} ({})\n", "Weight Class:", weight, weight_label(weight)));
+        out.push_str(&format!(
+            "  {:24} {} ({})\n",
+            "Weight Class:",
+            weight,
+            weight_label(weight)
+        ));
     }
     if mac_style > 0 || weight == 400 {
-        out.push_str(&format!("  {:24} {}\n", "Style Flags:", mac_style_str(mac_style)));
+        out.push_str(&format!(
+            "  {:24} {}\n",
+            "Style Flags:",
+            mac_style_str(mac_style)
+        ));
     }
     if let Some(fs) = fs_type {
-        out.push_str(&format!("  {:24} {}\n", "Embedding Rights:", decode_fs_type(fs)));
+        out.push_str(&format!(
+            "  {:24} {}\n",
+            "Embedding Rights:",
+            decode_fs_type(fs)
+        ));
     }
     out.push_str(&format!("  {:24} {}\n", "Tables:", tables.len()));
 
@@ -570,11 +644,21 @@ fn format_info(data: &[u8], tables: &[TableEntry], sfnt_version: u32) -> String 
     if cmap_count > 0 {
         out.push_str(&format!("  {:24} {}\n", "Mapped Codepoints:", cmap_count));
         let mut scripts = Vec::new();
-        if has_latin { scripts.push("Latin"); }
-        if has_greek { scripts.push("Greek"); }
-        if has_cjk { scripts.push("CJK"); }
+        if has_latin {
+            scripts.push("Latin");
+        }
+        if has_greek {
+            scripts.push("Greek");
+        }
+        if has_cjk {
+            scripts.push("CJK");
+        }
         if !scripts.is_empty() {
-            out.push_str(&format!("  {:24} {}\n", "Scripts Detected:", scripts.join(", ")));
+            out.push_str(&format!(
+                "  {:24} {}\n",
+                "Scripts Detected:",
+                scripts.join(", ")
+            ));
         }
     } else {
         out.push_str("  No cmap table or unrecognised format.\n");
@@ -582,11 +666,19 @@ fn format_info(data: &[u8], tables: &[TableEntry], sfnt_version: u32) -> String 
 
     if let Some(ref c) = copyright {
         out.push_str("\nLegal\n");
-        let short_copy = if c.len() > 120 { format!("{}...", &c[..120]) } else { c.clone() };
+        let short_copy = if c.len() > 120 {
+            format!("{}...", &c[..120])
+        } else {
+            c.clone()
+        };
         out.push_str(&format!("  {:24} {}\n", "Copyright:", short_copy));
     }
     if let Some(ref l) = license {
-        let short_lic = if l.len() > 120 { format!("{}...", &l[..120]) } else { l.clone() };
+        let short_lic = if l.len() > 120 {
+            format!("{}...", &l[..120])
+        } else {
+            l.clone()
+        };
         out.push_str(&format!("  {:24} {}\n", "License:", short_lic));
     }
 
@@ -616,7 +708,11 @@ fn format_names(data: &[u8], tables: &[TableEntry]) -> String {
     for id in ids {
         let label = name_id_label(id);
         let val = &seen[&id];
-        let short = if val.len() > 100 { format!("{}...", &val[..100]) } else { val.clone() };
+        let short = if val.len() > 100 {
+            format!("{}...", &val[..100])
+        } else {
+            val.clone()
+        };
         out.push_str(&format!("  {:3}  {:32} {}\n", id, label, short));
     }
     out
@@ -628,9 +724,19 @@ fn format_tables(data: &[u8], tables: &[TableEntry], sfnt_version: u32) -> Strin
         0x4F54544F => "OpenType/CFF",
         _ => "TrueType",
     };
-    let mut out = format!("OpenType Table Directory — {} ({} tables)\n\n", flavor, tables.len());
-    out.push_str(&format!("  {:8}  {:10}  {:10}  {}\n", "Tag", "Offset", "Length", "Description"));
-    out.push_str(&format!("  {:8}  {:10}  {:10}  {}\n", "───", "──────", "──────", "───────────"));
+    let mut out = format!(
+        "OpenType Table Directory — {} ({} tables)\n\n",
+        flavor,
+        tables.len()
+    );
+    out.push_str(&format!(
+        "  {:8}  {:10}  {:10}  {}\n",
+        "Tag", "Offset", "Length", "Description"
+    ));
+    out.push_str(&format!(
+        "  {:8}  {:10}  {:10}  {}\n",
+        "───", "──────", "──────", "───────────"
+    ));
     for t in tables {
         let tag_str = String::from_utf8_lossy(&t.tag).to_string();
         let desc = table_desc(&t.tag);
@@ -693,7 +799,10 @@ fn format_chars(data: &[u8], tables: &[TableEntry]) -> String {
     let version = read_u16(cmap_data, 0);
     let num = read_u16(cmap_data, 2) as usize;
 
-    let mut out = format!("Character Map  (cmap version {}, {} subtable(s))\n\n", version, num);
+    let mut out = format!(
+        "Character Map  (cmap version {}, {} subtable(s))\n\n",
+        version, num
+    );
 
     for i in 0..num {
         let base = 4 + i * 8;
@@ -725,9 +834,15 @@ fn format_chars(data: &[u8], tables: &[TableEntry]) -> String {
     if count > 0 {
         out.push_str(&format!("  Total mapped codepoints: {}\n", count));
         let mut scripts = Vec::new();
-        if has_latin { scripts.push("Basic Latin (U+0000–U+007F)"); }
-        if has_greek { scripts.push("Greek (U+0370–U+03FF)"); }
-        if has_cjk { scripts.push("CJK Unified Ideographs"); }
+        if has_latin {
+            scripts.push("Basic Latin (U+0000–U+007F)");
+        }
+        if has_greek {
+            scripts.push("Greek (U+0370–U+03FF)");
+        }
+        if has_cjk {
+            scripts.push("CJK Unified Ideographs");
+        }
         for s in &scripts {
             out.push_str(&format!("  ✓ {}\n", s));
         }

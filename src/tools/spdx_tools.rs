@@ -26,60 +26,438 @@ struct SpdxEntry {
 }
 
 static LICENSES: &[SpdxEntry] = &[
-    SpdxEntry { id: "MIT", name: "MIT License", osi: true, fsf: true, copyleft: "none", deprecated: false },
-    SpdxEntry { id: "MIT-0", name: "MIT No Attribution", osi: true, fsf: false, copyleft: "none", deprecated: false },
-    SpdxEntry { id: "Apache-2.0", name: "Apache License 2.0", osi: true, fsf: true, copyleft: "none", deprecated: false },
-    SpdxEntry { id: "GPL-2.0-only", name: "GNU General Public License v2.0 only", osi: true, fsf: true, copyleft: "strong", deprecated: false },
-    SpdxEntry { id: "GPL-2.0-or-later", name: "GNU General Public License v2.0 or later", osi: true, fsf: true, copyleft: "strong", deprecated: false },
-    SpdxEntry { id: "GPL-3.0-only", name: "GNU General Public License v3.0 only", osi: true, fsf: true, copyleft: "strong", deprecated: false },
-    SpdxEntry { id: "GPL-3.0-or-later", name: "GNU General Public License v3.0 or later", osi: true, fsf: true, copyleft: "strong", deprecated: false },
-    SpdxEntry { id: "LGPL-2.0-only", name: "GNU Library General Public License v2 only", osi: true, fsf: true, copyleft: "weak", deprecated: false },
-    SpdxEntry { id: "LGPL-2.0-or-later", name: "GNU Library General Public License v2 or later", osi: true, fsf: true, copyleft: "weak", deprecated: false },
-    SpdxEntry { id: "LGPL-2.1-only", name: "GNU Lesser General Public License v2.1 only", osi: true, fsf: true, copyleft: "weak", deprecated: false },
-    SpdxEntry { id: "LGPL-2.1-or-later", name: "GNU Lesser General Public License v2.1 or later", osi: true, fsf: true, copyleft: "weak", deprecated: false },
-    SpdxEntry { id: "LGPL-3.0-only", name: "GNU Lesser General Public License v3.0 only", osi: true, fsf: true, copyleft: "weak", deprecated: false },
-    SpdxEntry { id: "LGPL-3.0-or-later", name: "GNU Lesser General Public License v3.0 or later", osi: true, fsf: true, copyleft: "weak", deprecated: false },
-    SpdxEntry { id: "AGPL-3.0-only", name: "GNU Affero General Public License v3.0 only", osi: true, fsf: true, copyleft: "network", deprecated: false },
-    SpdxEntry { id: "AGPL-3.0-or-later", name: "GNU Affero General Public License v3.0 or later", osi: true, fsf: true, copyleft: "network", deprecated: false },
-    SpdxEntry { id: "MPL-2.0", name: "Mozilla Public License 2.0", osi: true, fsf: true, copyleft: "weak", deprecated: false },
-    SpdxEntry { id: "MPL-2.0-no-copyleft-exception", name: "Mozilla Public License 2.0 (no copyleft exception)", osi: true, fsf: false, copyleft: "weak", deprecated: false },
-    SpdxEntry { id: "BSD-2-Clause", name: "BSD 2-Clause \"Simplified\" License", osi: true, fsf: true, copyleft: "none", deprecated: false },
-    SpdxEntry { id: "BSD-3-Clause", name: "BSD 3-Clause \"New\" or \"Revised\" License", osi: true, fsf: true, copyleft: "none", deprecated: false },
-    SpdxEntry { id: "BSD-4-Clause", name: "BSD 4-Clause \"Original\" License", osi: false, fsf: false, copyleft: "none", deprecated: false },
-    SpdxEntry { id: "ISC", name: "ISC License", osi: true, fsf: true, copyleft: "none", deprecated: false },
-    SpdxEntry { id: "0BSD", name: "BSD Zero Clause License", osi: true, fsf: false, copyleft: "none", deprecated: false },
-    SpdxEntry { id: "CC0-1.0", name: "Creative Commons Zero v1.0 Universal", osi: false, fsf: true, copyleft: "none", deprecated: false },
-    SpdxEntry { id: "Unlicense", name: "The Unlicense", osi: true, fsf: true, copyleft: "none", deprecated: false },
-    SpdxEntry { id: "WTFPL", name: "Do What The F*ck You Want To Public License", osi: false, fsf: true, copyleft: "none", deprecated: false },
-    SpdxEntry { id: "Zlib", name: "zlib License", osi: true, fsf: true, copyleft: "none", deprecated: false },
-    SpdxEntry { id: "BSL-1.0", name: "Boost Software License 1.0", osi: true, fsf: true, copyleft: "none", deprecated: false },
-    SpdxEntry { id: "OFL-1.1", name: "SIL Open Font License 1.1", osi: true, fsf: true, copyleft: "weak", deprecated: false },
-    SpdxEntry { id: "PostgreSQL", name: "PostgreSQL License", osi: true, fsf: true, copyleft: "none", deprecated: false },
-    SpdxEntry { id: "Python-2.0", name: "Python License 2.0", osi: true, fsf: true, copyleft: "none", deprecated: false },
-    SpdxEntry { id: "Artistic-2.0", name: "Artistic License 2.0", osi: true, fsf: true, copyleft: "weak", deprecated: false },
-    SpdxEntry { id: "EUPL-1.2", name: "European Union Public License 1.2", osi: true, fsf: true, copyleft: "strong", deprecated: false },
-    SpdxEntry { id: "CDDL-1.0", name: "Common Development and Distribution License 1.0", osi: true, fsf: false, copyleft: "weak", deprecated: false },
-    SpdxEntry { id: "EPL-1.0", name: "Eclipse Public License 1.0", osi: true, fsf: false, copyleft: "weak", deprecated: false },
-    SpdxEntry { id: "EPL-2.0", name: "Eclipse Public License 2.0", osi: true, fsf: true, copyleft: "weak", deprecated: false },
-    SpdxEntry { id: "OSL-3.0", name: "Open Software License 3.0", osi: true, fsf: true, copyleft: "network", deprecated: false },
-    SpdxEntry { id: "CPAL-1.0", name: "Common Public Attribution License 1.0", osi: true, fsf: false, copyleft: "network", deprecated: false },
-    SpdxEntry { id: "CC-BY-4.0", name: "Creative Commons Attribution 4.0 International", osi: false, fsf: false, copyleft: "none", deprecated: false },
-    SpdxEntry { id: "CC-BY-SA-4.0", name: "Creative Commons Attribution Share Alike 4.0 International", osi: false, fsf: true, copyleft: "strong", deprecated: false },
-    SpdxEntry { id: "CC-BY-NC-4.0", name: "Creative Commons Attribution Non Commercial 4.0 International", osi: false, fsf: false, copyleft: "none", deprecated: false },
-    SpdxEntry { id: "SSPL-1.0", name: "Server Side Public License v1", osi: false, fsf: false, copyleft: "network", deprecated: false },
-    SpdxEntry { id: "BUSL-1.1", name: "Business Source License 1.1", osi: false, fsf: false, copyleft: "none", deprecated: false },
-    SpdxEntry { id: "GPL-2.0", name: "GNU General Public License v2.0 only", osi: true, fsf: true, copyleft: "strong", deprecated: true },
-    SpdxEntry { id: "GPL-3.0", name: "GNU General Public License v3.0 only", osi: true, fsf: true, copyleft: "strong", deprecated: true },
-    SpdxEntry { id: "LGPL-2.1", name: "GNU Lesser General Public License v2.1 only", osi: true, fsf: true, copyleft: "weak", deprecated: true },
-    SpdxEntry { id: "LGPL-3.0", name: "GNU Lesser General Public License v3.0 only", osi: true, fsf: true, copyleft: "weak", deprecated: true },
-    SpdxEntry { id: "AGPL-3.0", name: "GNU Affero General Public License v3.0", osi: true, fsf: true, copyleft: "network", deprecated: true },
-    SpdxEntry { id: "eCos-2.0", name: "eCos license version 2.0", osi: true, fsf: true, copyleft: "weak", deprecated: false },
-    SpdxEntry { id: "LPPL-1.3c", name: "LaTeX Project Public License v1.3c", osi: true, fsf: true, copyleft: "weak", deprecated: false },
-    SpdxEntry { id: "MPL-1.1", name: "Mozilla Public License 1.1", osi: true, fsf: false, copyleft: "weak", deprecated: false },
-    SpdxEntry { id: "RPL-1.5", name: "Reciprocal Public License 1.5", osi: true, fsf: false, copyleft: "strong", deprecated: false },
-    SpdxEntry { id: "SimPL-2.0", name: "Simple Public License 2.0", osi: true, fsf: false, copyleft: "strong", deprecated: false },
-    SpdxEntry { id: "MS-PL", name: "Microsoft Public License", osi: true, fsf: false, copyleft: "none", deprecated: false },
-    SpdxEntry { id: "MS-RL", name: "Microsoft Reciprocal License", osi: true, fsf: false, copyleft: "weak", deprecated: false },
+    SpdxEntry {
+        id: "MIT",
+        name: "MIT License",
+        osi: true,
+        fsf: true,
+        copyleft: "none",
+        deprecated: false,
+    },
+    SpdxEntry {
+        id: "MIT-0",
+        name: "MIT No Attribution",
+        osi: true,
+        fsf: false,
+        copyleft: "none",
+        deprecated: false,
+    },
+    SpdxEntry {
+        id: "Apache-2.0",
+        name: "Apache License 2.0",
+        osi: true,
+        fsf: true,
+        copyleft: "none",
+        deprecated: false,
+    },
+    SpdxEntry {
+        id: "GPL-2.0-only",
+        name: "GNU General Public License v2.0 only",
+        osi: true,
+        fsf: true,
+        copyleft: "strong",
+        deprecated: false,
+    },
+    SpdxEntry {
+        id: "GPL-2.0-or-later",
+        name: "GNU General Public License v2.0 or later",
+        osi: true,
+        fsf: true,
+        copyleft: "strong",
+        deprecated: false,
+    },
+    SpdxEntry {
+        id: "GPL-3.0-only",
+        name: "GNU General Public License v3.0 only",
+        osi: true,
+        fsf: true,
+        copyleft: "strong",
+        deprecated: false,
+    },
+    SpdxEntry {
+        id: "GPL-3.0-or-later",
+        name: "GNU General Public License v3.0 or later",
+        osi: true,
+        fsf: true,
+        copyleft: "strong",
+        deprecated: false,
+    },
+    SpdxEntry {
+        id: "LGPL-2.0-only",
+        name: "GNU Library General Public License v2 only",
+        osi: true,
+        fsf: true,
+        copyleft: "weak",
+        deprecated: false,
+    },
+    SpdxEntry {
+        id: "LGPL-2.0-or-later",
+        name: "GNU Library General Public License v2 or later",
+        osi: true,
+        fsf: true,
+        copyleft: "weak",
+        deprecated: false,
+    },
+    SpdxEntry {
+        id: "LGPL-2.1-only",
+        name: "GNU Lesser General Public License v2.1 only",
+        osi: true,
+        fsf: true,
+        copyleft: "weak",
+        deprecated: false,
+    },
+    SpdxEntry {
+        id: "LGPL-2.1-or-later",
+        name: "GNU Lesser General Public License v2.1 or later",
+        osi: true,
+        fsf: true,
+        copyleft: "weak",
+        deprecated: false,
+    },
+    SpdxEntry {
+        id: "LGPL-3.0-only",
+        name: "GNU Lesser General Public License v3.0 only",
+        osi: true,
+        fsf: true,
+        copyleft: "weak",
+        deprecated: false,
+    },
+    SpdxEntry {
+        id: "LGPL-3.0-or-later",
+        name: "GNU Lesser General Public License v3.0 or later",
+        osi: true,
+        fsf: true,
+        copyleft: "weak",
+        deprecated: false,
+    },
+    SpdxEntry {
+        id: "AGPL-3.0-only",
+        name: "GNU Affero General Public License v3.0 only",
+        osi: true,
+        fsf: true,
+        copyleft: "network",
+        deprecated: false,
+    },
+    SpdxEntry {
+        id: "AGPL-3.0-or-later",
+        name: "GNU Affero General Public License v3.0 or later",
+        osi: true,
+        fsf: true,
+        copyleft: "network",
+        deprecated: false,
+    },
+    SpdxEntry {
+        id: "MPL-2.0",
+        name: "Mozilla Public License 2.0",
+        osi: true,
+        fsf: true,
+        copyleft: "weak",
+        deprecated: false,
+    },
+    SpdxEntry {
+        id: "MPL-2.0-no-copyleft-exception",
+        name: "Mozilla Public License 2.0 (no copyleft exception)",
+        osi: true,
+        fsf: false,
+        copyleft: "weak",
+        deprecated: false,
+    },
+    SpdxEntry {
+        id: "BSD-2-Clause",
+        name: "BSD 2-Clause \"Simplified\" License",
+        osi: true,
+        fsf: true,
+        copyleft: "none",
+        deprecated: false,
+    },
+    SpdxEntry {
+        id: "BSD-3-Clause",
+        name: "BSD 3-Clause \"New\" or \"Revised\" License",
+        osi: true,
+        fsf: true,
+        copyleft: "none",
+        deprecated: false,
+    },
+    SpdxEntry {
+        id: "BSD-4-Clause",
+        name: "BSD 4-Clause \"Original\" License",
+        osi: false,
+        fsf: false,
+        copyleft: "none",
+        deprecated: false,
+    },
+    SpdxEntry {
+        id: "ISC",
+        name: "ISC License",
+        osi: true,
+        fsf: true,
+        copyleft: "none",
+        deprecated: false,
+    },
+    SpdxEntry {
+        id: "0BSD",
+        name: "BSD Zero Clause License",
+        osi: true,
+        fsf: false,
+        copyleft: "none",
+        deprecated: false,
+    },
+    SpdxEntry {
+        id: "CC0-1.0",
+        name: "Creative Commons Zero v1.0 Universal",
+        osi: false,
+        fsf: true,
+        copyleft: "none",
+        deprecated: false,
+    },
+    SpdxEntry {
+        id: "Unlicense",
+        name: "The Unlicense",
+        osi: true,
+        fsf: true,
+        copyleft: "none",
+        deprecated: false,
+    },
+    SpdxEntry {
+        id: "WTFPL",
+        name: "Do What The F*ck You Want To Public License",
+        osi: false,
+        fsf: true,
+        copyleft: "none",
+        deprecated: false,
+    },
+    SpdxEntry {
+        id: "Zlib",
+        name: "zlib License",
+        osi: true,
+        fsf: true,
+        copyleft: "none",
+        deprecated: false,
+    },
+    SpdxEntry {
+        id: "BSL-1.0",
+        name: "Boost Software License 1.0",
+        osi: true,
+        fsf: true,
+        copyleft: "none",
+        deprecated: false,
+    },
+    SpdxEntry {
+        id: "OFL-1.1",
+        name: "SIL Open Font License 1.1",
+        osi: true,
+        fsf: true,
+        copyleft: "weak",
+        deprecated: false,
+    },
+    SpdxEntry {
+        id: "PostgreSQL",
+        name: "PostgreSQL License",
+        osi: true,
+        fsf: true,
+        copyleft: "none",
+        deprecated: false,
+    },
+    SpdxEntry {
+        id: "Python-2.0",
+        name: "Python License 2.0",
+        osi: true,
+        fsf: true,
+        copyleft: "none",
+        deprecated: false,
+    },
+    SpdxEntry {
+        id: "Artistic-2.0",
+        name: "Artistic License 2.0",
+        osi: true,
+        fsf: true,
+        copyleft: "weak",
+        deprecated: false,
+    },
+    SpdxEntry {
+        id: "EUPL-1.2",
+        name: "European Union Public License 1.2",
+        osi: true,
+        fsf: true,
+        copyleft: "strong",
+        deprecated: false,
+    },
+    SpdxEntry {
+        id: "CDDL-1.0",
+        name: "Common Development and Distribution License 1.0",
+        osi: true,
+        fsf: false,
+        copyleft: "weak",
+        deprecated: false,
+    },
+    SpdxEntry {
+        id: "EPL-1.0",
+        name: "Eclipse Public License 1.0",
+        osi: true,
+        fsf: false,
+        copyleft: "weak",
+        deprecated: false,
+    },
+    SpdxEntry {
+        id: "EPL-2.0",
+        name: "Eclipse Public License 2.0",
+        osi: true,
+        fsf: true,
+        copyleft: "weak",
+        deprecated: false,
+    },
+    SpdxEntry {
+        id: "OSL-3.0",
+        name: "Open Software License 3.0",
+        osi: true,
+        fsf: true,
+        copyleft: "network",
+        deprecated: false,
+    },
+    SpdxEntry {
+        id: "CPAL-1.0",
+        name: "Common Public Attribution License 1.0",
+        osi: true,
+        fsf: false,
+        copyleft: "network",
+        deprecated: false,
+    },
+    SpdxEntry {
+        id: "CC-BY-4.0",
+        name: "Creative Commons Attribution 4.0 International",
+        osi: false,
+        fsf: false,
+        copyleft: "none",
+        deprecated: false,
+    },
+    SpdxEntry {
+        id: "CC-BY-SA-4.0",
+        name: "Creative Commons Attribution Share Alike 4.0 International",
+        osi: false,
+        fsf: true,
+        copyleft: "strong",
+        deprecated: false,
+    },
+    SpdxEntry {
+        id: "CC-BY-NC-4.0",
+        name: "Creative Commons Attribution Non Commercial 4.0 International",
+        osi: false,
+        fsf: false,
+        copyleft: "none",
+        deprecated: false,
+    },
+    SpdxEntry {
+        id: "SSPL-1.0",
+        name: "Server Side Public License v1",
+        osi: false,
+        fsf: false,
+        copyleft: "network",
+        deprecated: false,
+    },
+    SpdxEntry {
+        id: "BUSL-1.1",
+        name: "Business Source License 1.1",
+        osi: false,
+        fsf: false,
+        copyleft: "none",
+        deprecated: false,
+    },
+    SpdxEntry {
+        id: "GPL-2.0",
+        name: "GNU General Public License v2.0 only",
+        osi: true,
+        fsf: true,
+        copyleft: "strong",
+        deprecated: true,
+    },
+    SpdxEntry {
+        id: "GPL-3.0",
+        name: "GNU General Public License v3.0 only",
+        osi: true,
+        fsf: true,
+        copyleft: "strong",
+        deprecated: true,
+    },
+    SpdxEntry {
+        id: "LGPL-2.1",
+        name: "GNU Lesser General Public License v2.1 only",
+        osi: true,
+        fsf: true,
+        copyleft: "weak",
+        deprecated: true,
+    },
+    SpdxEntry {
+        id: "LGPL-3.0",
+        name: "GNU Lesser General Public License v3.0 only",
+        osi: true,
+        fsf: true,
+        copyleft: "weak",
+        deprecated: true,
+    },
+    SpdxEntry {
+        id: "AGPL-3.0",
+        name: "GNU Affero General Public License v3.0",
+        osi: true,
+        fsf: true,
+        copyleft: "network",
+        deprecated: true,
+    },
+    SpdxEntry {
+        id: "eCos-2.0",
+        name: "eCos license version 2.0",
+        osi: true,
+        fsf: true,
+        copyleft: "weak",
+        deprecated: false,
+    },
+    SpdxEntry {
+        id: "LPPL-1.3c",
+        name: "LaTeX Project Public License v1.3c",
+        osi: true,
+        fsf: true,
+        copyleft: "weak",
+        deprecated: false,
+    },
+    SpdxEntry {
+        id: "MPL-1.1",
+        name: "Mozilla Public License 1.1",
+        osi: true,
+        fsf: false,
+        copyleft: "weak",
+        deprecated: false,
+    },
+    SpdxEntry {
+        id: "RPL-1.5",
+        name: "Reciprocal Public License 1.5",
+        osi: true,
+        fsf: false,
+        copyleft: "strong",
+        deprecated: false,
+    },
+    SpdxEntry {
+        id: "SimPL-2.0",
+        name: "Simple Public License 2.0",
+        osi: true,
+        fsf: false,
+        copyleft: "strong",
+        deprecated: false,
+    },
+    SpdxEntry {
+        id: "MS-PL",
+        name: "Microsoft Public License",
+        osi: true,
+        fsf: false,
+        copyleft: "none",
+        deprecated: false,
+    },
+    SpdxEntry {
+        id: "MS-RL",
+        name: "Microsoft Reciprocal License",
+        osi: true,
+        fsf: false,
+        copyleft: "weak",
+        deprecated: false,
+    },
 ];
 
 fn lookup(id: &str) -> Option<&'static SpdxEntry> {
@@ -96,22 +474,40 @@ fn copyleft_label(c: &str) -> &'static str {
 }
 
 fn action_info(args: &Value) -> Result<String, String> {
-    let id = args.get("license")
+    let id = args
+        .get("license")
         .or_else(|| args.get("expression"))
         .and_then(|v| v.as_str())
-        .ok_or("Provide 'license' with an SPDX identifier (e.g. MIT, Apache-2.0, GPL-3.0-or-later).")?;
+        .ok_or(
+            "Provide 'license' with an SPDX identifier (e.g. MIT, Apache-2.0, GPL-3.0-or-later).",
+        )?;
 
     if let Some(e) = lookup(id) {
-        let osi = if e.osi { "✓ OSI Approved" } else { "✗ Not OSI Approved" };
-        let fsf = if e.fsf { "✓ FSF Free" } else { "✗ Not FSF Free" };
-        let dep = if e.deprecated { "  ⚠ DEPRECATED — prefer versioned successor\n" } else { "" };
+        let osi = if e.osi {
+            "✓ OSI Approved"
+        } else {
+            "✗ Not OSI Approved"
+        };
+        let fsf = if e.fsf {
+            "✓ FSF Free"
+        } else {
+            "✗ Not FSF Free"
+        };
+        let dep = if e.deprecated {
+            "  ⚠ DEPRECATED — prefer versioned successor\n"
+        } else {
+            ""
+        };
         let mut out = format!("## {}\n\n", e.id);
         out.push_str(&format!("  Name:      {}\n", e.name));
         out.push_str(&format!("  Type:      {}\n", copyleft_label(e.copyleft)));
         out.push_str(&format!("  OSI:       {}\n", osi));
         out.push_str(&format!("  FSF:       {}\n", fsf));
         out.push_str(dep);
-        out.push_str(&format!("\n  SPDX URL:  https://spdx.org/licenses/{}.html\n", e.id));
+        out.push_str(&format!(
+            "\n  SPDX URL:  https://spdx.org/licenses/{}.html\n",
+            e.id
+        ));
         return Ok(out);
     }
 
@@ -119,16 +515,16 @@ fn action_info(args: &Value) -> Result<String, String> {
     let lower = id.to_lowercase();
     let suggestions: Vec<&str> = LICENSES
         .iter()
-        .filter(|e| {
-            e.id.to_lowercase().contains(&lower)
-                || e.name.to_lowercase().contains(&lower)
-        })
+        .filter(|e| e.id.to_lowercase().contains(&lower) || e.name.to_lowercase().contains(&lower))
         .map(|e| e.id)
         .take(5)
         .collect();
 
     if suggestions.is_empty() {
-        Err(format!("'{}' is not a known SPDX identifier. Use action='list' to browse all licenses.", id))
+        Err(format!(
+            "'{}' is not a known SPDX identifier. Use action='list' to browse all licenses.",
+            id
+        ))
     } else {
         Ok(format!(
             "'{}' not found. Did you mean one of:\n{}\n\nUse action='list' to browse all {} licenses.",
@@ -157,13 +553,23 @@ fn tokenize(expr: &str) -> Vec<Token> {
     let mut chars = expr.chars().peekable();
     while let Some(&c) = chars.peek() {
         match c {
-            ' ' | '\t' | '\n' => { chars.next(); }
-            '(' => { chars.next(); tokens.push(Token::LParen); }
-            ')' => { chars.next(); tokens.push(Token::RParen); }
+            ' ' | '\t' | '\n' => {
+                chars.next();
+            }
+            '(' => {
+                chars.next();
+                tokens.push(Token::LParen);
+            }
+            ')' => {
+                chars.next();
+                tokens.push(Token::RParen);
+            }
             _ => {
                 let mut word = String::new();
                 while let Some(&ch) = chars.peek() {
-                    if ch == ' ' || ch == '\t' || ch == '(' || ch == ')' { break; }
+                    if ch == ' ' || ch == '\t' || ch == '(' || ch == ')' {
+                        break;
+                    }
                     word.push(ch);
                     chars.next();
                 }
@@ -196,7 +602,9 @@ impl Parser {
 
     fn consume(&mut self) -> Token {
         let t = self.tokens[self.pos].clone();
-        if self.pos + 1 < self.tokens.len() { self.pos += 1; }
+        if self.pos + 1 < self.tokens.len() {
+            self.pos += 1;
+        }
         t
     }
 
@@ -238,7 +646,11 @@ impl Parser {
             Token::Id(id) => {
                 self.consume();
                 let or_later = id.ends_with('+');
-                let base_id = if or_later { id.trim_end_matches('+').to_string() } else { id.clone() };
+                let base_id = if or_later {
+                    id.trim_end_matches('+').to_string()
+                } else {
+                    id.clone()
+                };
                 // Check for WITH clause
                 if matches!(self.peek(), Token::With) {
                     self.consume();
@@ -261,8 +673,8 @@ impl Parser {
 
 #[derive(Debug)]
 enum ExprNode {
-    License(String, bool),             // id, or_later
-    With(String, String, bool),        // id, exception, or_later
+    License(String, bool),      // id, or_later
+    With(String, String, bool), // id, exception, or_later
     And(Box<ExprNode>, Box<ExprNode>),
     Or(Box<ExprNode>, Box<ExprNode>),
 }
@@ -273,7 +685,11 @@ impl ExprNode {
         match self {
             ExprNode::License(id, or_later) => {
                 let suffix = if *or_later { "+" } else { "" };
-                let known = if lookup(id).is_some() { "" } else { " ⚠ unknown" };
+                let known = if lookup(id).is_some() {
+                    ""
+                } else {
+                    " ⚠ unknown"
+                };
                 format!("{}License: {}{}{}\n", pad, id, suffix, known)
             }
             ExprNode::With(id, exc, or_later) => {
@@ -281,10 +697,20 @@ impl ExprNode {
                 format!("{}License: {}{} WITH {}\n", pad, id, suffix, exc)
             }
             ExprNode::And(l, r) => {
-                format!("{}AND\n{}{}", pad, l.display(indent + 1), r.display(indent + 1))
+                format!(
+                    "{}AND\n{}{}",
+                    pad,
+                    l.display(indent + 1),
+                    r.display(indent + 1)
+                )
             }
             ExprNode::Or(l, r) => {
-                format!("{}OR\n{}{}", pad, l.display(indent + 1), r.display(indent + 1))
+                format!(
+                    "{}OR\n{}{}",
+                    pad,
+                    l.display(indent + 1),
+                    r.display(indent + 1)
+                )
             }
         }
     }
@@ -320,7 +746,9 @@ impl ExprNode {
                 let rc = r.max_copyleft();
                 // network > strong > weak > none
                 for level in &["network", "strong", "weak"] {
-                    if lc == *level || rc == *level { return level; }
+                    if lc == *level || rc == *level {
+                        return level;
+                    }
                 }
                 "none"
             }
@@ -339,31 +767,41 @@ fn parse_expression(expr: &str) -> Result<ExprNode, String> {
 }
 
 fn action_parse(args: &Value) -> Result<String, String> {
-    let expr = args.get("expression")
+    let expr = args
+        .get("expression")
         .or_else(|| args.get("license"))
         .and_then(|v| v.as_str())
         .ok_or("Provide 'expression' with an SPDX license expression.")?;
 
     let node = parse_expression(expr).map_err(|e| format!("Parse error: {}", e))?;
     let ids = node.collect_ids();
-    let unknown: Vec<&str> = ids.iter().filter(|id| lookup(id).is_none()).map(|s| s.as_str()).collect();
+    let unknown: Vec<&str> = ids
+        .iter()
+        .filter(|id| lookup(id).is_none())
+        .map(|s| s.as_str())
+        .collect();
 
     let mut out = format!("## SPDX Expression Parse\n\n  {}\n\n## Tree\n\n", expr);
     out.push_str(&node.display(1));
     out.push('\n');
 
     if !unknown.is_empty() {
-        out.push_str(&format!("  ⚠ Unknown identifiers: {}\n\n", unknown.join(", ")));
+        out.push_str(&format!(
+            "  ⚠ Unknown identifiers: {}\n\n",
+            unknown.join(", ")
+        ));
     }
 
     // Summary per leaf
     out.push_str("## Licenses\n\n");
     for id in &ids {
         if let Some(e) = lookup(id) {
-            let flags = format!("OSI:{} FSF:{} {}",
+            let flags = format!(
+                "OSI:{} FSF:{} {}",
                 if e.osi { "✓" } else { "✗" },
                 if e.fsf { "✓" } else { "✗" },
-                copyleft_label(e.copyleft));
+                copyleft_label(e.copyleft)
+            );
             out.push_str(&format!("  {:30} {}\n", e.id, flags));
         }
     }
@@ -371,7 +809,8 @@ fn action_parse(args: &Value) -> Result<String, String> {
 }
 
 fn action_validate(args: &Value) -> Result<String, String> {
-    let expr = args.get("expression")
+    let expr = args
+        .get("expression")
         .or_else(|| args.get("license"))
         .and_then(|v| v.as_str())
         .ok_or("Provide 'expression' with an SPDX license expression.")?;
@@ -380,25 +819,36 @@ fn action_validate(args: &Value) -> Result<String, String> {
         Err(e) => Ok(format!("INVALID\n\n  Parse error: {}", e)),
         Ok(node) => {
             let ids = node.collect_ids();
-            let unknown: Vec<&str> = ids.iter()
+            let unknown: Vec<&str> = ids
+                .iter()
                 .filter(|id| lookup(id).is_none() && !id.starts_with("LicenseRef-"))
                 .map(|s| s.as_str())
                 .collect();
-            let deprecated: Vec<&str> = ids.iter()
+            let deprecated: Vec<&str> = ids
+                .iter()
                 .filter_map(|id| lookup(id))
                 .filter(|e| e.deprecated)
                 .map(|e| e.id)
                 .collect();
 
             if unknown.is_empty() && deprecated.is_empty() {
-                Ok(format!("VALID\n\n  Expression parses correctly.\n  Identifiers: {}\n", ids.join(", ")))
+                Ok(format!(
+                    "VALID\n\n  Expression parses correctly.\n  Identifiers: {}\n",
+                    ids.join(", ")
+                ))
             } else {
                 let mut out = "VALID (with warnings)\n".to_string();
                 if !unknown.is_empty() {
-                    out.push_str(&format!("\n  ⚠ Unknown identifiers (may be valid LicenseRef- or newer SPDX): {}\n", unknown.join(", ")));
+                    out.push_str(&format!(
+                        "\n  ⚠ Unknown identifiers (may be valid LicenseRef- or newer SPDX): {}\n",
+                        unknown.join(", ")
+                    ));
                 }
                 if !deprecated.is_empty() {
-                    out.push_str(&format!("\n  ⚠ Deprecated identifiers (use versioned successor): {}\n", deprecated.join(", ")));
+                    out.push_str(&format!(
+                        "\n  ⚠ Deprecated identifiers (use versioned successor): {}\n",
+                        deprecated.join(", ")
+                    ));
                 }
                 Ok(out)
             }
@@ -409,17 +859,21 @@ fn action_validate(args: &Value) -> Result<String, String> {
 fn action_list(args: &Value) -> Result<String, String> {
     let category = args.get("category").and_then(|v| v.as_str()).unwrap_or("");
 
-    let filtered: Vec<&SpdxEntry> = LICENSES.iter().filter(|e| {
-        match category.to_lowercase().as_str() {
+    let filtered: Vec<&SpdxEntry> = LICENSES
+        .iter()
+        .filter(|e| match category.to_lowercase().as_str() {
             "permissive" => e.copyleft == "none" && !e.deprecated,
             "copyleft" | "strong-copyleft" => e.copyleft == "strong" && !e.deprecated,
             "weak-copyleft" => e.copyleft == "weak" && !e.deprecated,
             "network-copyleft" => e.copyleft == "network" && !e.deprecated,
-            "public-domain" => (e.id == "CC0-1.0" || e.id == "Unlicense" || e.id == "0BSD" || e.id == "WTFPL") && !e.deprecated,
+            "public-domain" => {
+                (e.id == "CC0-1.0" || e.id == "Unlicense" || e.id == "0BSD" || e.id == "WTFPL")
+                    && !e.deprecated
+            }
             "deprecated" => e.deprecated,
             _ => !e.deprecated,
-        }
-    }).collect();
+        })
+        .collect();
 
     let mut out = format!("{:<25} {:<5} {:<5} {}\n", "SPDX ID", "OSI", "FSF", "TYPE");
     out.push_str(&format!("{}\n", "-".repeat(70)));
@@ -437,7 +891,8 @@ fn action_list(args: &Value) -> Result<String, String> {
 }
 
 fn action_check(args: &Value) -> Result<String, String> {
-    let expr = args.get("expression")
+    let expr = args
+        .get("expression")
         .or_else(|| args.get("license"))
         .and_then(|v| v.as_str())
         .ok_or("Provide 'expression' with an SPDX license expression to check.")?;
@@ -447,17 +902,38 @@ fn action_check(args: &Value) -> Result<String, String> {
     let copyleft = node.max_copyleft();
     let osi = node.is_osi_compatible();
 
-    let all_osi = ids.iter().all(|id| lookup(id).map(|e| e.osi).unwrap_or(false));
-    let all_fsf = ids.iter().all(|id| lookup(id).map(|e| e.fsf).unwrap_or(false));
-    let any_deprecated = ids.iter().any(|id| lookup(id).map(|e| e.deprecated).unwrap_or(false));
+    let all_osi = ids
+        .iter()
+        .all(|id| lookup(id).map(|e| e.osi).unwrap_or(false));
+    let all_fsf = ids
+        .iter()
+        .all(|id| lookup(id).map(|e| e.fsf).unwrap_or(false));
+    let any_deprecated = ids
+        .iter()
+        .any(|id| lookup(id).map(|e| e.deprecated).unwrap_or(false));
 
     let copyleft_label_str = copyleft_label(copyleft);
 
     let mut out = format!("## Expression Properties: {}\n\n", expr);
-    out.push_str(&format!("  OSI compatible:    {} ({})\n",
+    out.push_str(&format!(
+        "  OSI compatible:    {} ({})\n",
         if osi { "✓ Yes" } else { "✗ No" },
-        if all_osi { "all licenses" } else if osi { "at least one branch" } else { "no OSI-approved licenses" }));
-    out.push_str(&format!("  FSF free:          {}\n", if all_fsf { "✓ All licenses" } else { "✗ Some licenses are not FSF free" }));
+        if all_osi {
+            "all licenses"
+        } else if osi {
+            "at least one branch"
+        } else {
+            "no OSI-approved licenses"
+        }
+    ));
+    out.push_str(&format!(
+        "  FSF free:          {}\n",
+        if all_fsf {
+            "✓ All licenses"
+        } else {
+            "✗ Some licenses are not FSF free"
+        }
+    ));
     out.push_str(&format!("  Copyleft:          {}\n", copyleft_label_str));
     if any_deprecated {
         out.push_str("  Deprecated IDs:    ⚠ Expression contains deprecated SPDX identifiers\n");
@@ -466,7 +942,9 @@ fn action_check(args: &Value) -> Result<String, String> {
     out.push_str(&format!("  Identifiers:       {}\n", ids.join(", ")));
 
     if copyleft == "strong" || copyleft == "network" {
-        out.push_str("\n  Note: Strong/network copyleft licenses typically require derivative works\n");
+        out.push_str(
+            "\n  Note: Strong/network copyleft licenses typically require derivative works\n",
+        );
         out.push_str("        to be distributed under the same terms.\n");
     }
     Ok(out)
@@ -474,8 +952,11 @@ fn action_check(args: &Value) -> Result<String, String> {
 
 pub async fn execute(args: &Value) -> Result<String, String> {
     let action = args.get("action").and_then(|v| v.as_str()).unwrap_or(
-        if args.get("expression").is_some() && args.get("license").is_none() { "parse" }
-        else { "info" }
+        if args.get("expression").is_some() && args.get("license").is_none() {
+            "parse"
+        } else {
+            "info"
+        },
     );
     match action {
         "parse" => action_parse(args),

@@ -6,10 +6,10 @@ pub fn make_schema() -> Value {
     json!({
         "name": "office_tools",
         "description": "Inspect DOCX, XLSX, and PPTX Office Open XML documents without Microsoft Office. \
-Actions: info (default — format, metadata, stats), content (extract text/sheet names/slide previews), \
-structure (list ZIP parts), validate (check required Open XML parts). \
-Pass file (path to .docx, .xlsx, or .pptx). \
-Example: office_tools(file: 'report.docx') or office_tools(action: 'content', file: 'data.xlsx') or office_tools(action: 'structure', file: 'deck.pptx').",
+    Actions: info (default — format, metadata, stats), content (extract text/sheet names/slide previews), \
+    structure (list ZIP parts), validate (check required Open XML parts). \
+    Pass file (path to .docx, .xlsx, or .pptx). \
+    Example: office_tools(file: 'report.docx') or office_tools(action: 'content', file: 'data.xlsx') or office_tools(action: 'structure', file: 'deck.pptx').",
         "input_schema": {
             "type": "object",
             "properties": {
@@ -22,15 +22,14 @@ Example: office_tools(file: 'report.docx') or office_tools(action: 'content', fi
 }
 
 pub async fn execute(args: &Value) -> Result<String, String> {
-    let action = args.get("action").and_then(|v| v.as_str()).unwrap_or("info");
+    let action = args
+        .get("action")
+        .and_then(|v| v.as_str())
+        .unwrap_or("info");
 
     let path = match args.get("file").and_then(|v| v.as_str()) {
         Some(p) => p,
-        None => {
-            return Ok(
-                "Error: provide 'file' path to a DOCX, XLSX, or PPTX file.".to_string(),
-            )
-        }
+        None => return Ok("Error: provide 'file' path to a DOCX, XLSX, or PPTX file.".to_string()),
     };
 
     let file = match std::fs::File::open(path) {
@@ -114,9 +113,7 @@ fn strip_tags(s: &str) -> String {
         }
     }
     // Collapse whitespace
-    out.split_whitespace()
-        .collect::<Vec<_>>()
-        .join(" ")
+    out.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
 fn count_tag(xml: &str, tag: &str) -> usize {
@@ -307,7 +304,11 @@ fn extract_slide_title(slide_xml: &str) -> Option<String> {
     // Then extract the text from nearby <a:t> elements
     // Simple approach: find first non-empty text in the slide
     let text = strip_tags(slide_xml);
-    let first = text.split_whitespace().take(12).collect::<Vec<_>>().join(" ");
+    let first = text
+        .split_whitespace()
+        .take(12)
+        .collect::<Vec<_>>()
+        .join(" ");
     if first.is_empty() {
         None
     } else {
@@ -351,8 +352,14 @@ fn extract_content(archive: &mut zip::ZipArchive<std::fs::File>) -> String {
                     let mut pos = 0;
                     while let Some(found) = ss[pos..].find("<t") {
                         let start = pos + found;
-                        let after = ss[start..].find('>').map(|e| start + e + 1).unwrap_or(ss.len());
-                        let close = ss[after..].find("</t>").map(|e| after + e).unwrap_or(ss.len());
+                        let after = ss[start..]
+                            .find('>')
+                            .map(|e| start + e + 1)
+                            .unwrap_or(ss.len());
+                        let close = ss[after..]
+                            .find("</t>")
+                            .map(|e| after + e)
+                            .unwrap_or(ss.len());
                         let text = ss[after..close].trim().to_string();
                         if !text.is_empty() {
                             v.push(text);
@@ -380,7 +387,11 @@ fn extract_content(archive: &mut zip::ZipArchive<std::fs::File>) -> String {
                 let path = format!("ppt/slides/slide{}.xml", i);
                 if let Some(xml) = read_zip_entry(archive, &path) {
                     let text = strip_tags(&xml);
-                    let preview: String = text.split_whitespace().take(20).collect::<Vec<_>>().join(" ");
+                    let preview: String = text
+                        .split_whitespace()
+                        .take(20)
+                        .collect::<Vec<_>>()
+                        .join(" ");
                     let _ = writeln!(out, "  Slide {}: {}", i, preview);
                 }
             }
@@ -464,7 +475,9 @@ fn validate_doc(archive: &mut zip::ZipArchive<std::fs::File>) -> String {
                 issues.push("word/document.xml missing".to_string());
             }
             if read_zip_entry(archive, "word/_rels/document.xml.rels").is_none() {
-                issues.push("word/_rels/document.xml.rels missing (may cause opening errors)".to_string());
+                issues.push(
+                    "word/_rels/document.xml.rels missing (may cause opening errors)".to_string(),
+                );
             }
         }
         "xlsx" => {

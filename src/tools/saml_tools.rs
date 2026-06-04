@@ -27,7 +27,11 @@ struct XmlNode {
 }
 
 fn attr_val<'a>(node: &'a XmlNode, name: &str) -> Option<&'a str> {
-    node.attrs.iter().find(|(k, _)| k == name || k.ends_with(&format!(":{}", name)) || k.eq_ignore_ascii_case(name))
+    node.attrs
+        .iter()
+        .find(|(k, _)| {
+            k == name || k.ends_with(&format!(":{}", name)) || k.eq_ignore_ascii_case(name)
+        })
         .map(|(_, v)| v.as_str())
 }
 
@@ -43,20 +47,28 @@ fn find_all<'a>(node: &'a XmlNode, local_name: &str) -> Vec<&'a XmlNode> {
 }
 
 fn find_first<'a>(node: &'a XmlNode, local_name: &str) -> Option<&'a XmlNode> {
-    if tag_local(&node.tag) == local_name { return Some(node); }
+    if tag_local(&node.tag) == local_name {
+        return Some(node);
+    }
     for c in &node.children {
-        if let Some(found) = find_first(c, local_name) { return Some(found); }
+        if let Some(found) = find_first(c, local_name) {
+            return Some(found);
+        }
     }
     None
 }
 
 fn tag_local(tag: &str) -> &str {
-    if let Some(pos) = tag.rfind(':') { &tag[pos + 1..] } else { tag }
+    if let Some(pos) = tag.rfind(':') {
+        &tag[pos + 1..]
+    } else {
+        tag
+    }
 }
 
 fn parse_xml_simple(xml: &str) -> Result<XmlNode, String> {
-    use quick_xml::Reader;
     use quick_xml::events::Event;
+    use quick_xml::Reader;
 
     let mut reader = Reader::from_str(xml);
     reader.config_mut().trim_text(true);
@@ -70,20 +82,36 @@ fn parse_xml_simple(xml: &str) -> Result<XmlNode, String> {
                 let mut attrs = Vec::new();
                 for attr in e.attributes().flatten() {
                     let key = String::from_utf8_lossy(attr.key.as_ref()).to_string();
-                    let val = attr.decode_and_unescape_value(reader.decoder()).unwrap_or_default().to_string();
+                    let val = attr
+                        .decode_and_unescape_value(reader.decoder())
+                        .unwrap_or_default()
+                        .to_string();
                     attrs.push((key, val));
                 }
-                stack.push(XmlNode { tag, attrs, text: String::new(), children: Vec::new() });
+                stack.push(XmlNode {
+                    tag,
+                    attrs,
+                    text: String::new(),
+                    children: Vec::new(),
+                });
             }
             Ok(Event::Empty(e)) => {
                 let tag = String::from_utf8_lossy(e.name().as_ref()).to_string();
                 let mut attrs = Vec::new();
                 for attr in e.attributes().flatten() {
                     let key = String::from_utf8_lossy(attr.key.as_ref()).to_string();
-                    let val = attr.decode_and_unescape_value(reader.decoder()).unwrap_or_default().to_string();
+                    let val = attr
+                        .decode_and_unescape_value(reader.decoder())
+                        .unwrap_or_default()
+                        .to_string();
                     attrs.push((key, val));
                 }
-                let node = XmlNode { tag, attrs, text: String::new(), children: Vec::new() };
+                let node = XmlNode {
+                    tag,
+                    attrs,
+                    text: String::new(),
+                    children: Vec::new(),
+                };
                 if let Some(parent) = stack.last_mut() {
                     parent.children.push(node);
                 }
@@ -125,9 +153,7 @@ fn base64_decode_standard(s: &str) -> Option<Vec<u8>> {
     const TABLE: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
     let s: String = s.chars().filter(|c| !c.is_whitespace()).collect();
     let s = s.trim_end_matches('=');
-    let decode_char = |c: u8| -> Option<u8> {
-        TABLE.iter().position(|&x| x == c).map(|p| p as u8)
-    };
+    let decode_char = |c: u8| -> Option<u8> { TABLE.iter().position(|&x| x == c).map(|p| p as u8) };
     let bytes = s.as_bytes();
     let mut out = Vec::new();
     let mut i = 0;
@@ -142,8 +168,12 @@ fn base64_decode_standard(s: &str) -> Option<Vec<u8>> {
                 let d = decode_char(bytes[i + 3])?;
                 out.push((c << 2) | d);
                 i += 4;
-            } else { i += 3; }
-        } else { i += 2; }
+            } else {
+                i += 3;
+            }
+        } else {
+            i += 2;
+        }
     }
     Some(out)
 }
@@ -153,18 +183,23 @@ fn load_saml(args: &Value) -> Result<String, String> {
         return Ok(xml.to_string());
     }
     if let Some(b64) = args.get("base64").and_then(|v| v.as_str()) {
-        let decoded = base64_decode_standard(b64)
-            .ok_or("Cannot decode base64 input")?;
-        return String::from_utf8(decoded).map_err(|_| "Decoded bytes are not valid UTF-8".to_string());
+        let decoded = base64_decode_standard(b64).ok_or("Cannot decode base64 input")?;
+        return String::from_utf8(decoded)
+            .map_err(|_| "Decoded bytes are not valid UTF-8".to_string());
     }
     if let Some(path) = args.get("file").and_then(|v| v.as_str()) {
-        let raw = std::fs::read_to_string(path)
-            .map_err(|e| format!("Cannot read '{}': {}", path, e))?;
+        let raw =
+            std::fs::read_to_string(path).map_err(|e| format!("Cannot read '{}': {}", path, e))?;
         // If the file content looks like base64, decode it
         let trimmed = raw.trim();
-        if trimmed.chars().all(|c| c.is_alphanumeric() || "+/=\n\r ".contains(c)) && !trimmed.starts_with('<') {
+        if trimmed
+            .chars()
+            .all(|c| c.is_alphanumeric() || "+/=\n\r ".contains(c))
+            && !trimmed.starts_with('<')
+        {
             let decoded = base64_decode_standard(trimmed).ok_or("Cannot decode file as base64")?;
-            return String::from_utf8(decoded).map_err(|_| "Decoded file is not valid UTF-8".to_string());
+            return String::from_utf8(decoded)
+                .map_err(|_| "Decoded file is not valid UTF-8".to_string());
         }
         return Ok(raw);
     }
@@ -200,15 +235,26 @@ struct SamlInfo {
 impl SamlInfo {
     fn new() -> Self {
         SamlInfo {
-            doc_type: String::new(), version: String::new(), id: String::new(),
-            in_response_to: String::new(), issue_instant: String::new(),
-            issuer: String::new(), destination: String::new(),
-            status_code: String::new(), status_message: String::new(),
-            assertion_id: String::new(), subject_nameid: String::new(),
-            nameid_format: String::new(), not_before: String::new(),
-            not_on_or_after: String::new(), session_index: String::new(),
-            session_not_on_or_after: String::new(), attributes: Vec::new(),
-            authn_context: String::new(), signature_present: false, encrypted_assertion: false,
+            doc_type: String::new(),
+            version: String::new(),
+            id: String::new(),
+            in_response_to: String::new(),
+            issue_instant: String::new(),
+            issuer: String::new(),
+            destination: String::new(),
+            status_code: String::new(),
+            status_message: String::new(),
+            assertion_id: String::new(),
+            subject_nameid: String::new(),
+            nameid_format: String::new(),
+            not_before: String::new(),
+            not_on_or_after: String::new(),
+            session_index: String::new(),
+            session_not_on_or_after: String::new(),
+            attributes: Vec::new(),
+            authn_context: String::new(),
+            signature_present: false,
+            encrypted_assertion: false,
         }
     }
 }
@@ -248,7 +294,12 @@ fn parse_saml_doc(root: &XmlNode) -> SamlInfo {
         if let Some(subject) = find_first(assertion, "Subject") {
             if let Some(nameid) = find_first(subject, "NameID") {
                 info.subject_nameid = nameid.text.clone();
-                info.nameid_format = attr_val(nameid, "Format").unwrap_or("").rsplit(':').next().unwrap_or("").to_string();
+                info.nameid_format = attr_val(nameid, "Format")
+                    .unwrap_or("")
+                    .rsplit(':')
+                    .next()
+                    .unwrap_or("")
+                    .to_string();
             }
         }
 
@@ -261,7 +312,9 @@ fn parse_saml_doc(root: &XmlNode) -> SamlInfo {
         // AuthnStatement
         if let Some(authn) = find_first(assertion, "AuthnStatement") {
             info.session_index = attr_val(authn, "SessionIndex").unwrap_or("").to_string();
-            info.session_not_on_or_after = attr_val(authn, "SessionNotOnOrAfter").unwrap_or("").to_string();
+            info.session_not_on_or_after = attr_val(authn, "SessionNotOnOrAfter")
+                .unwrap_or("")
+                .to_string();
             if let Some(ctx) = find_first(authn, "AuthnContextClassRef") {
                 info.authn_context = ctx.text.rsplit(':').next().unwrap_or(&ctx.text).to_string();
             }
@@ -272,7 +325,9 @@ fn parse_saml_doc(root: &XmlNode) -> SamlInfo {
             for attr in find_all(attr_stmt, "Attribute") {
                 let name = attr_val(attr, "Name").unwrap_or("").to_string();
                 let values: Vec<String> = find_all(attr, "AttributeValue")
-                    .into_iter().map(|v| v.text.clone()).collect();
+                    .into_iter()
+                    .map(|v| v.text.clone())
+                    .collect();
                 info.attributes.push((name, values));
             }
         }
@@ -299,16 +354,32 @@ fn action_parse(args: &Value) -> Result<String, String> {
     }
 
     if !info.status_code.is_empty() {
-        let icon = if info.status_code == "Success" { "✓" } else { "✗" };
-        out.push_str(&format!("  Status:          {} {}\n", icon, info.status_code));
+        let icon = if info.status_code == "Success" {
+            "✓"
+        } else {
+            "✗"
+        };
+        out.push_str(&format!(
+            "  Status:          {} {}\n",
+            icon, info.status_code
+        ));
         if !info.status_message.is_empty() {
             out.push_str(&format!("  Status message:  {}\n", info.status_message));
         }
     }
 
-    out.push_str(&format!("  Signature:       {}\n", if info.signature_present { "✓ Present" } else { "✗ Missing" }));
+    out.push_str(&format!(
+        "  Signature:       {}\n",
+        if info.signature_present {
+            "✓ Present"
+        } else {
+            "✗ Missing"
+        }
+    ));
     if info.encrypted_assertion {
-        out.push_str("  Assertion:       Encrypted (cannot read attributes without SP private key)\n");
+        out.push_str(
+            "  Assertion:       Encrypted (cannot read attributes without SP private key)\n",
+        );
         return Ok(out);
     }
 
@@ -334,7 +405,10 @@ fn action_parse(args: &Value) -> Result<String, String> {
         out.push_str("\n## Session\n\n");
         out.push_str(&format!("  SessionIndex:    {}\n", info.session_index));
         if !info.session_not_on_or_after.is_empty() {
-            out.push_str(&format!("  SessionExpires:  {}\n", info.session_not_on_or_after));
+            out.push_str(&format!(
+                "  SessionExpires:  {}\n",
+                info.session_not_on_or_after
+            ));
         }
         if !info.authn_context.is_empty() {
             out.push_str(&format!("  AuthnContext:    {}\n", info.authn_context));
@@ -350,7 +424,10 @@ fn action_parse(args: &Value) -> Result<String, String> {
             let display_val = vals.join(", ");
             let val_preview: String = display_val.chars().take(60).collect();
             let ellipsis = if display_val.len() > 60 { "..." } else { "" };
-            out.push_str(&format!("  {:<40} {}{}\n", short_name, val_preview, ellipsis));
+            out.push_str(&format!(
+                "  {:<40} {}{}\n",
+                short_name, val_preview, ellipsis
+            ));
         }
     }
 
@@ -363,7 +440,10 @@ fn action_attributes(args: &Value) -> Result<String, String> {
     let info = parse_saml_doc(&root);
 
     if info.encrypted_assertion {
-        return Ok("Assertion is encrypted — cannot extract attributes without the SP private key.".to_string());
+        return Ok(
+            "Assertion is encrypted — cannot extract attributes without the SP private key."
+                .to_string(),
+        );
     }
 
     if info.attributes.is_empty() {
@@ -382,18 +462,20 @@ fn action_attributes(args: &Value) -> Result<String, String> {
     // Common attribute mapping hints
     out.push_str("## Common Attribute Mappings\n\n");
     let known: &[(&str, &str)] = &[
-        ("NameID",             "Primary user identifier"),
-        ("emailaddress",       "User email — often the login identifier"),
-        ("givenname",          "First name"),
-        ("surname",            "Last name"),
-        ("name",               "Display name"),
-        ("upn",                "User Principal Name (Active Directory UPN)"),
-        ("groups",             "Group memberships — used for role-based access"),
-        ("role",               "Application role assignment"),
-        ("objectidentifier",   "Azure AD / Entra object ID (immutable)"),
-        ("tenantid",           "Azure AD tenant ID"),
+        ("NameID", "Primary user identifier"),
+        ("emailaddress", "User email — often the login identifier"),
+        ("givenname", "First name"),
+        ("surname", "Last name"),
+        ("name", "Display name"),
+        ("upn", "User Principal Name (Active Directory UPN)"),
+        ("groups", "Group memberships — used for role-based access"),
+        ("role", "Application role assignment"),
+        ("objectidentifier", "Azure AD / Entra object ID (immutable)"),
+        ("tenantid", "Azure AD tenant ID"),
     ];
-    let attrs_lower: Vec<String> = info.attributes.iter()
+    let attrs_lower: Vec<String> = info
+        .attributes
+        .iter()
         .map(|(n, _)| n.rsplit('/').next().unwrap_or(n).to_lowercase())
         .collect();
     for (key, desc) in known {
@@ -419,7 +501,10 @@ fn action_validate(args: &Value) -> Result<String, String> {
         if info.status_code == "Success" {
             ok_items.push("Status: Success".to_string());
         } else {
-            issues.push(format!("Status is not Success: {} — {}", info.status_code, info.status_message));
+            issues.push(format!(
+                "Status is not Success: {} — {}",
+                info.status_code, info.status_message
+            ));
         }
     }
 
@@ -444,14 +529,23 @@ fn action_validate(args: &Value) -> Result<String, String> {
             issues.push("No NameID found in Subject".to_string());
         }
     } else {
-        ok_items.push(format!("NameID present: {}", &info.subject_nameid[..info.subject_nameid.len().min(60)]));
+        ok_items.push(format!(
+            "NameID present: {}",
+            &info.subject_nameid[..info.subject_nameid.len().min(60)]
+        ));
     }
 
     // Validity window
     if info.not_before.is_empty() && info.not_on_or_after.is_empty() {
-        warnings.push("No Conditions element with validity window — no time constraint on this assertion".to_string());
+        warnings.push(
+            "No Conditions element with validity window — no time constraint on this assertion"
+                .to_string(),
+        );
     } else {
-        ok_items.push(format!("Conditions window: {} to {}", info.not_before, info.not_on_or_after));
+        ok_items.push(format!(
+            "Conditions window: {} to {}",
+            info.not_before, info.not_on_or_after
+        ));
         // Note: actual time comparison requires current time; we flag it but can't check without chrono
         warnings.push("Time-based validity (NotBefore/NotOnOrAfter) not checked — verify against current UTC time manually".to_string());
     }
@@ -465,35 +559,53 @@ fn action_validate(args: &Value) -> Result<String, String> {
     if info.in_response_to.is_empty() && info.doc_type == "Response" {
         warnings.push("No InResponseTo attribute — this is an IdP-initiated assertion (not SP-initiated); validate that this flow is expected".to_string());
     } else if !info.in_response_to.is_empty() {
-        ok_items.push(format!("InResponseTo present: {} (verify against original AuthnRequest ID)", info.in_response_to));
+        ok_items.push(format!(
+            "InResponseTo present: {} (verify against original AuthnRequest ID)",
+            info.in_response_to
+        ));
     }
 
     // Destination
     if info.destination.is_empty() {
-        warnings.push("No Destination attribute — SP should reject assertions without a matching Destination".to_string());
+        warnings.push(
+            "No Destination attribute — SP should reject assertions without a matching Destination"
+                .to_string(),
+        );
     } else {
         ok_items.push(format!("Destination: {}", info.destination));
     }
 
-    let verdict = if !issues.is_empty() { "INVALID" } else if !warnings.is_empty() { "VALID (with warnings)" } else { "VALID" };
+    let verdict = if !issues.is_empty() {
+        "INVALID"
+    } else if !warnings.is_empty() {
+        "VALID (with warnings)"
+    } else {
+        "VALID"
+    };
 
     let mut out = format!("## SAML Validation: {}\n\n", verdict);
 
     if !ok_items.is_empty() {
         out.push_str("## ✓ OK\n\n");
-        for item in &ok_items { out.push_str(&format!("  ✓ {}\n", item)); }
+        for item in &ok_items {
+            out.push_str(&format!("  ✓ {}\n", item));
+        }
         out.push('\n');
     }
 
     if !warnings.is_empty() {
         out.push_str("## ⚠ Warnings\n\n");
-        for w in &warnings { out.push_str(&format!("  ⚠  {}\n", w)); }
+        for w in &warnings {
+            out.push_str(&format!("  ⚠  {}\n", w));
+        }
         out.push('\n');
     }
 
     if !issues.is_empty() {
         out.push_str("## ✗ Issues\n\n");
-        for issue in &issues { out.push_str(&format!("  ✗ {}\n", issue)); }
+        for issue in &issues {
+            out.push_str(&format!("  ✗ {}\n", issue));
+        }
         out.push('\n');
     }
 
@@ -504,7 +616,9 @@ fn action_validate(args: &Value) -> Result<String, String> {
     out.push_str("  4. Confirm InResponseTo matches your AuthnRequest ID (SP-initiated)\n");
     out.push_str("  5. Confirm current time is within NotBefore/NotOnOrAfter window\n");
     out.push_str("  6. Confirm Audience matches your SP entity ID in AudienceRestriction\n");
-    out.push_str("  7. Replay protection: store and reject seen assertion IDs (use AssertionID cache)\n");
+    out.push_str(
+        "  7. Replay protection: store and reject seen assertion IDs (use AssertionID cache)\n",
+    );
 
     Ok(out)
 }
@@ -642,14 +756,20 @@ fn action_explain(args: &Value) -> Result<String, String> {
 }
 
 pub async fn execute(args: &Value) -> Result<String, String> {
-    let action = args.get("action").and_then(|v| v.as_str()).unwrap_or_else(|| {
-        if args.get("topic").is_some() { "explain" }
-        else { "parse" }
-    });
+    let action = args
+        .get("action")
+        .and_then(|v| v.as_str())
+        .unwrap_or_else(|| {
+            if args.get("topic").is_some() {
+                "explain"
+            } else {
+                "parse"
+            }
+        });
     match action {
         "attributes" => action_attributes(args),
-        "validate"   => action_validate(args),
-        "explain"    => action_explain(args),
-        _            => action_parse(args),
+        "validate" => action_validate(args),
+        "explain" => action_explain(args),
+        _ => action_parse(args),
     }
 }

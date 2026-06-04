@@ -4,14 +4,14 @@ pub fn make_schema() -> Value {
     json!({
         "name": "svg_tools",
         "description": "Parse and analyze SVG (Scalable Vector Graphics) files without external utilities. \
-Actions: info (default — dimensions, viewBox, element counts, title/desc), \
-elements (all distinct element types with counts), \
-ids (all id attributes with element type), \
-links (href/xlink:href references and linked resources), \
-styles (inline style rules and class usage), \
-validate (common SVG issues: missing viewBox, deprecated attributes, accessibility). \
-Pass file (path to .svg) or svg (inline SVG text). \
-Example: svg_tools(file: 'icon.svg') or svg_tools(action: 'ids', file: 'diagram.svg') or svg_tools(action: 'elements', svg: '<svg>...</svg>').",
+    Actions: info (default — dimensions, viewBox, element counts, title/desc), \
+    elements (all distinct element types with counts), \
+    ids (all id attributes with element type), \
+    links (href/xlink:href references and linked resources), \
+    styles (inline style rules and class usage), \
+    validate (common SVG issues: missing viewBox, deprecated attributes, accessibility). \
+    Pass file (path to .svg) or svg (inline SVG text). \
+    Example: svg_tools(file: 'icon.svg') or svg_tools(action: 'ids', file: 'diagram.svg') or svg_tools(action: 'elements', svg: '<svg>...</svg>').",
         "input_schema": {
             "type": "object",
             "properties": {
@@ -25,16 +25,26 @@ Example: svg_tools(file: 'icon.svg') or svg_tools(action: 'ids', file: 'diagram.
 }
 
 pub async fn execute(args: &Value) -> Result<String, String> {
-    let action = args.get("action").and_then(|v| v.as_str()).unwrap_or("info");
+    let action = args
+        .get("action")
+        .and_then(|v| v.as_str())
+        .unwrap_or("info");
 
     let text = get_text(args);
     let text = match text {
         Some(t) => t,
-        None => return Ok("Error: provide 'file' (path to SVG file) or 'svg' (inline SVG text).".to_string()),
+        None => {
+            return Ok(
+                "Error: provide 'file' (path to SVG file) or 'svg' (inline SVG text).".to_string(),
+            )
+        }
     };
 
     if !text.contains("<svg") && !text.contains("<SVG") {
-        return Ok("Error: input does not appear to be an SVG document (no <svg> element found).".to_string());
+        return Ok(
+            "Error: input does not appear to be an SVG document (no <svg> element found)."
+                .to_string(),
+        );
     }
 
     Ok(match action {
@@ -61,8 +71,14 @@ fn get_text(args: &Value) -> Option<String> {
 
 #[derive(Debug, Clone)]
 enum Token<'a> {
-    StartTag { name: &'a str, attrs: &'a str, self_closing: bool },
-    EndTag { name: &'a str },
+    StartTag {
+        name: &'a str,
+        attrs: &'a str,
+        self_closing: bool,
+    },
+    EndTag {
+        name: &'a str,
+    },
     Text(&'a str),
 }
 
@@ -80,7 +96,9 @@ fn next_token<'a>(src: &'a str, pos: usize) -> Option<(Token<'a>, usize)> {
         while end < len {
             let b = bytes[end];
             if let Some(q) = in_str {
-                if b == q { in_str = None; }
+                if b == q {
+                    in_str = None;
+                }
             } else if b == b'"' || b == b'\'' {
                 in_str = Some(b);
             } else if b == b'>' {
@@ -97,16 +115,31 @@ fn next_token<'a>(src: &'a str, pos: usize) -> Option<(Token<'a>, usize)> {
 
         let inner = &tag_src[1..tag_src.len() - 1]; // strip < >
         let self_closing = inner.ends_with('/');
-        let inner = if self_closing { &inner[..inner.len() - 1] } else { inner };
+        let inner = if self_closing {
+            &inner[..inner.len() - 1]
+        } else {
+            inner
+        };
         let inner = inner.trim();
 
         if inner.starts_with('/') {
-            let name = inner[1..].split_whitespace().next().unwrap_or("").trim_end_matches('/');
+            let name = inner[1..]
+                .split_whitespace()
+                .next()
+                .unwrap_or("")
+                .trim_end_matches('/');
             return Some((Token::EndTag { name }, end + 1));
         }
 
         let (name, attrs) = split_tag_name(inner);
-        return Some((Token::StartTag { name, attrs, self_closing }, end + 1));
+        return Some((
+            Token::StartTag {
+                name,
+                attrs,
+                self_closing,
+            },
+            end + 1,
+        ));
     }
 
     // Text node
@@ -145,7 +178,9 @@ fn get_attr<'a>(attrs: &'a str, key: &str) -> Option<&'a str> {
                 let end = val[1..].find('\'').unwrap_or(val.len() - 1);
                 return Some(&val[1..end + 1]);
             } else {
-                let end = val.find(|c: char| c.is_ascii_whitespace()).unwrap_or(val.len());
+                let end = val
+                    .find(|c: char| c.is_ascii_whitespace())
+                    .unwrap_or(val.len());
                 return Some(&val[..end]);
             }
         }
@@ -187,8 +222,14 @@ fn parse_root(text: &str) -> SvgRoot {
                 if bare == "svg" && root_attrs.is_none() {
                     root_attrs = Some(attrs);
                 }
-                if bare == "title" { in_title = true; text_buf.clear(); }
-                if bare == "desc" { in_desc = true; text_buf.clear(); }
+                if bare == "title" {
+                    in_title = true;
+                    text_buf.clear();
+                }
+                if bare == "desc" {
+                    in_desc = true;
+                    text_buf.clear();
+                }
             }
             Token::EndTag { name } => {
                 let bare = strip_ns(name).to_ascii_lowercase();
@@ -256,7 +297,11 @@ fn format_info(text: &str) -> String {
     }
     if let Some(ref d) = root.desc {
         if !d.is_empty() {
-            let short = if d.len() > 80 { format!("{}...", &d[..80]) } else { d.clone() };
+            let short = if d.len() > 80 {
+                format!("{}...", &d[..80])
+            } else {
+                d.clone()
+            };
             out.push_str(&format!("  {:24} {}\n", "Description:", short));
         }
     }
@@ -304,21 +349,42 @@ fn format_info(text: &str) -> String {
     let has_defs = counts.contains_key("defs");
     let has_use = counts.contains_key("use");
     let has_script = counts.contains_key("script");
-    let has_anim = counts.contains_key("animate") || counts.contains_key("animatetransform") || counts.contains_key("animatemotion");
+    let has_anim = counts.contains_key("animate")
+        || counts.contains_key("animatetransform")
+        || counts.contains_key("animatemotion");
     let has_filter = counts.contains_key("filter");
     let has_mask = counts.contains_key("mask");
-    let has_gradient = counts.contains_key("lineargradient") || counts.contains_key("radialgradient");
-    let has_text = counts.contains_key("text") || counts.contains_key("tspan") || counts.contains_key("textpath");
+    let has_gradient =
+        counts.contains_key("lineargradient") || counts.contains_key("radialgradient");
+    let has_text = counts.contains_key("text")
+        || counts.contains_key("tspan")
+        || counts.contains_key("textpath");
 
     let mut flags = Vec::new();
-    if has_defs { flags.push("uses <defs>"); }
-    if has_use { flags.push("uses <use> (symbol reuse)"); }
-    if has_script { flags.push("contains <script>"); }
-    if has_anim { flags.push("has animations"); }
-    if has_filter { flags.push("has filters/effects"); }
-    if has_mask { flags.push("has masks"); }
-    if has_gradient { flags.push("has gradients"); }
-    if has_text { flags.push("contains text elements"); }
+    if has_defs {
+        flags.push("uses <defs>");
+    }
+    if has_use {
+        flags.push("uses <use> (symbol reuse)");
+    }
+    if has_script {
+        flags.push("contains <script>");
+    }
+    if has_anim {
+        flags.push("has animations");
+    }
+    if has_filter {
+        flags.push("has filters/effects");
+    }
+    if has_mask {
+        flags.push("has masks");
+    }
+    if has_gradient {
+        flags.push("has gradients");
+    }
+    if has_text {
+        flags.push("contains text elements");
+    }
 
     if !flags.is_empty() {
         out.push_str("\nFeatures\n");
@@ -339,12 +405,21 @@ fn format_elements(text: &str) -> String {
     let mut sorted: Vec<_> = counts.iter().collect();
     sorted.sort_by(|a, b| b.1.cmp(a.1).then(a.0.cmp(b.0)));
 
-    let mut out = format!("SVG Elements  ({} total, {} types)\n\n", total, sorted.len());
+    let mut out = format!(
+        "SVG Elements  ({} total, {} types)\n\n",
+        total,
+        sorted.len()
+    );
     out.push_str(&format!("  {:24} {:>6}  {}\n", "Element", "Count", "Role"));
     out.push_str(&format!("  {:24} {:>6}  {}\n", "───────", "─────", "────"));
     for (tag, count) in &sorted {
         let role = element_role(tag);
-        out.push_str(&format!("  {:24} {:>6}  {}\n", format!("<{}>", tag), count, role));
+        out.push_str(&format!(
+            "  {:24} {:>6}  {}\n",
+            format!("<{}>", tag),
+            count,
+            role
+        ));
     }
     out
 }
@@ -452,7 +527,8 @@ fn format_links(text: &str) -> String {
 
 fn format_styles(text: &str) -> String {
     let mut inline_styles: usize = 0;
-    let mut class_usage: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+    let mut class_usage: std::collections::HashMap<String, usize> =
+        std::collections::HashMap::new();
     let mut style_block = String::new();
     let mut in_style = false;
     let mut pos = 0;
@@ -460,7 +536,11 @@ fn format_styles(text: &str) -> String {
     while let Some((tok, next)) = next_token(text, pos) {
         pos = next;
         match tok {
-            Token::StartTag { name, attrs, self_closing } => {
+            Token::StartTag {
+                name,
+                attrs,
+                self_closing,
+            } => {
                 let bare = strip_ns(name).to_ascii_lowercase();
                 if bare == "style" && !self_closing {
                     in_style = true;
@@ -488,12 +568,22 @@ fn format_styles(text: &str) -> String {
     }
 
     let mut out = String::from("SVG Styles\n\n");
-    out.push_str(&format!("  {:32} {}\n", "Elements with inline style:", inline_styles));
-    out.push_str(&format!("  {:32} {}\n", "Unique CSS classes used:", class_usage.len()));
+    out.push_str(&format!(
+        "  {:32} {}\n",
+        "Elements with inline style:", inline_styles
+    ));
+    out.push_str(&format!(
+        "  {:32} {}\n",
+        "Unique CSS classes used:",
+        class_usage.len()
+    ));
 
     if !style_block.trim().is_empty() {
         let rule_count = style_block.matches('{').count();
-        out.push_str(&format!("  {:32} {}\n", "CSS rules in <style> block:", rule_count));
+        out.push_str(&format!(
+            "  {:32} {}\n",
+            "CSS rules in <style> block:", rule_count
+        ));
         out.push_str("\nStyle Block Preview (first 500 chars)\n");
         let preview: String = style_block.trim().chars().take(500).collect();
         out.push_str(&format!("  {}\n", preview.replace('\n', "\n  ")));
@@ -526,7 +616,8 @@ fn format_validate(text: &str) -> String {
 
     // viewBox check
     if root.viewbox.is_none() {
-        warnings.push("Missing viewBox — SVG will not scale correctly in all contexts.".to_string());
+        warnings
+            .push("Missing viewBox — SVG will not scale correctly in all contexts.".to_string());
     } else {
         ok.push("viewBox present");
     }
@@ -540,19 +631,26 @@ fn format_validate(text: &str) -> String {
 
     // xmlns check
     if root.xmlns.is_none() {
-        warnings.push("Missing xmlns attribute on <svg> — may cause rendering issues in some contexts.".to_string());
+        warnings.push(
+            "Missing xmlns attribute on <svg> — may cause rendering issues in some contexts."
+                .to_string(),
+        );
     } else {
         ok.push("xmlns declared");
     }
 
     // Accessibility checks
     if root.title.as_deref().map(|t| t.is_empty()).unwrap_or(true) {
-        warnings.push("No <title> element — reduces accessibility (screen readers need a title).".to_string());
+        warnings.push(
+            "No <title> element — reduces accessibility (screen readers need a title).".to_string(),
+        );
     } else {
         ok.push("<title> present");
     }
     if root.desc.as_deref().map(|t| t.is_empty()).unwrap_or(true) {
-        warnings.push("No <desc> element — consider adding a description for accessibility.".to_string());
+        warnings.push(
+            "No <desc> element — consider adding a description for accessibility.".to_string(),
+        );
     }
 
     // Script check
@@ -577,7 +675,10 @@ fn format_validate(text: &str) -> String {
     // Duplicate IDs
     let dup_ids = find_duplicate_ids(text);
     if !dup_ids.is_empty() {
-        issues.push(format!("Duplicate id attributes found: {} — IDs must be unique.", dup_ids.join(", ")));
+        issues.push(format!(
+            "Duplicate id attributes found: {} — IDs must be unique.",
+            dup_ids.join(", ")
+        ));
     } else {
         ok.push("No duplicate IDs");
     }
@@ -596,7 +697,10 @@ fn format_validate(text: &str) -> String {
         out.push('\n');
     }
     if !warnings.is_empty() {
-        out.push_str(&format!("Warnings ({}) — consider fixing\n", warnings.len()));
+        out.push_str(&format!(
+            "Warnings ({}) — consider fixing\n",
+            warnings.len()
+        ));
         for w in &warnings {
             out.push_str(&format!("  ⚠ {}\n", w));
         }

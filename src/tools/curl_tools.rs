@@ -78,7 +78,7 @@ fn parse_curl_command(cmd: &str) -> Result<CurlRequest, String> {
                 if let Some(hdr) = tokens.get(i) {
                     if let Some(colon) = hdr.find(':') {
                         let name = hdr[..colon].trim().to_string();
-                        let val  = hdr[colon + 1..].trim().to_string();
+                        let val = hdr[colon + 1..].trim().to_string();
                         req.headers.push((name, val));
                     }
                 }
@@ -86,33 +86,55 @@ fn parse_curl_command(cmd: &str) -> Result<CurlRequest, String> {
             "-d" | "--data" | "--data-ascii" => {
                 i += 1;
                 req.data = tokens.get(i).cloned();
-                if req.method.is_empty() { req.method = "POST".to_string(); }
+                if req.method.is_empty() {
+                    req.method = "POST".to_string();
+                }
             }
             "--data-binary" | "--data-raw" => {
                 i += 1;
                 req.data_binary = tokens.get(i).cloned();
-                if req.method.is_empty() { req.method = "POST".to_string(); }
+                if req.method.is_empty() {
+                    req.method = "POST".to_string();
+                }
             }
             "-F" | "--form" => {
                 i += 1;
                 if let Some(field) = tokens.get(i) {
                     if let Some(eq) = field.find('=') {
-                        req.form.push((field[..eq].to_string(), field[eq + 1..].to_string()));
+                        req.form
+                            .push((field[..eq].to_string(), field[eq + 1..].to_string()));
                     }
                 }
-                if req.method.is_empty() { req.method = "POST".to_string(); }
+                if req.method.is_empty() {
+                    req.method = "POST".to_string();
+                }
             }
             "-u" | "--user" => {
                 i += 1;
                 req.auth = tokens.get(i).cloned();
             }
-            "-k" | "--insecure" => { req.insecure = true; }
-            "-L" | "--location" => { req.follow_redirects = true; }
-            "-v" | "--verbose" => { req.verbose = true; }
-            "-s" | "--silent" => { req.silent = true; }
-            "-i" | "--include" => { req.include_headers = true; }
-            "-I" | "--head" => { req.head_only = true; req.method = "HEAD".to_string(); }
-            "--compressed" => { req.compressed = true; }
+            "-k" | "--insecure" => {
+                req.insecure = true;
+            }
+            "-L" | "--location" => {
+                req.follow_redirects = true;
+            }
+            "-v" | "--verbose" => {
+                req.verbose = true;
+            }
+            "-s" | "--silent" => {
+                req.silent = true;
+            }
+            "-i" | "--include" => {
+                req.include_headers = true;
+            }
+            "-I" | "--head" => {
+                req.head_only = true;
+                req.method = "HEAD".to_string();
+            }
+            "--compressed" => {
+                req.compressed = true;
+            }
             "-o" | "--output" => {
                 i += 1;
                 req.output = tokens.get(i).cloned();
@@ -164,40 +186,49 @@ fn tokenize_shell(s: &str) -> Result<Vec<String>, String> {
         match c {
             '\\' => {
                 if let Some(next) = chars.next() {
-                    if next != '\n' { cur.push(next); }
-                }
-            }
-            '\'' => {
-                loop {
-                    match chars.next() {
-                        Some('\'') => break,
-                        Some(ch) => cur.push(ch),
-                        None => return Err("Unterminated single quote".to_string()),
+                    if next != '\n' {
+                        cur.push(next);
                     }
                 }
             }
-            '"' => {
-                loop {
-                    match chars.next() {
-                        Some('"') => break,
-                        Some('\\') => { if let Some(esc) = chars.next() { cur.push(esc); } }
-                        Some(ch) => cur.push(ch),
-                        None => return Err("Unterminated double quote".to_string()),
-                    }
+            '\'' => loop {
+                match chars.next() {
+                    Some('\'') => break,
+                    Some(ch) => cur.push(ch),
+                    None => return Err("Unterminated single quote".to_string()),
                 }
-            }
+            },
+            '"' => loop {
+                match chars.next() {
+                    Some('"') => break,
+                    Some('\\') => {
+                        if let Some(esc) = chars.next() {
+                            cur.push(esc);
+                        }
+                    }
+                    Some(ch) => cur.push(ch),
+                    None => return Err("Unterminated double quote".to_string()),
+                }
+            },
             ' ' | '\t' | '\n' | '\r' => {
-                if !cur.is_empty() { tokens.push(cur.clone()); cur.clear(); }
+                if !cur.is_empty() {
+                    tokens.push(cur.clone());
+                    cur.clear();
+                }
             }
             _ => cur.push(c),
         }
     }
-    if !cur.is_empty() { tokens.push(cur); }
+    if !cur.is_empty() {
+        tokens.push(cur);
+    }
     Ok(tokens)
 }
 
 fn action_parse(args: &Value) -> Result<String, String> {
-    let cmd = args.get("command").and_then(|v| v.as_str())
+    let cmd = args
+        .get("command")
+        .and_then(|v| v.as_str())
         .ok_or("Provide 'command' with a curl command string")?;
     let req = parse_curl_command(cmd)?;
 
@@ -211,7 +242,11 @@ fn action_parse(args: &Value) -> Result<String, String> {
         for (name, val) in &req.headers {
             // Redact Authorization values
             if name.to_lowercase() == "authorization" {
-                let redacted = if val.len() > 8 { format!("{}...[REDACTED]", &val[..8]) } else { "[REDACTED]".to_string() };
+                let redacted = if val.len() > 8 {
+                    format!("{}...[REDACTED]", &val[..8])
+                } else {
+                    "[REDACTED]".to_string()
+                };
                 out.push_str(&format!("  {}: {}\n", name, redacted));
             } else {
                 out.push_str(&format!("  {}: {}\n", name, val));
@@ -222,14 +257,20 @@ fn action_parse(args: &Value) -> Result<String, String> {
     if let Some(auth) = &req.auth {
         let parts: Vec<&str> = auth.splitn(2, ':').collect();
         if parts.len() == 2 {
-            out.push_str(&format!("\n## Auth\n\n  Basic auth — user: {}, password: [REDACTED]\n", parts[0]));
+            out.push_str(&format!(
+                "\n## Auth\n\n  Basic auth — user: {}, password: [REDACTED]\n",
+                parts[0]
+            ));
         }
     }
 
     if let Some(data) = &req.data {
         let preview: String = data.chars().take(200).collect();
         let ellipsis = if data.len() > 200 { "..." } else { "" };
-        out.push_str(&format!("\n## Request Body\n\n  Mode:     form-data / raw\n  Preview:  {}{}\n", preview, ellipsis));
+        out.push_str(&format!(
+            "\n## Request Body\n\n  Mode:     form-data / raw\n  Preview:  {}{}\n",
+            preview, ellipsis
+        ));
         // Detect content type
         if data.starts_with('{') || data.starts_with('[') {
             out.push_str("  Detected: JSON body\n");
@@ -239,7 +280,10 @@ fn action_parse(args: &Value) -> Result<String, String> {
     }
     if let Some(data) = &req.data_binary {
         let preview: String = data.chars().take(200).collect();
-        out.push_str(&format!("\n## Request Body (binary/raw)\n\n  Preview: {}\n", preview));
+        out.push_str(&format!(
+            "\n## Request Body (binary/raw)\n\n  Preview: {}\n",
+            preview
+        ));
     }
 
     if !req.form.is_empty() {
@@ -250,31 +294,71 @@ fn action_parse(args: &Value) -> Result<String, String> {
     }
 
     out.push_str("\n## Flags\n\n");
-    if req.insecure { out.push_str("  -k (--insecure): SSL verification disabled\n"); }
-    if req.follow_redirects { out.push_str("  -L (--location): Follow redirects\n"); }
-    if req.verbose { out.push_str("  -v (--verbose): Verbose output\n"); }
-    if req.silent { out.push_str("  -s (--silent): Silent mode\n"); }
-    if req.include_headers { out.push_str("  -i (--include): Include response headers\n"); }
-    if req.head_only { out.push_str("  -I (--head): HEAD request only\n"); }
-    if req.compressed { out.push_str("  --compressed: Accept gzip/deflate\n"); }
-    if let Some(t) = req.max_time { out.push_str(&format!("  --max-time: {} seconds\n", t)); }
-    if let Some(t) = req.timeout { out.push_str(&format!("  --connect-timeout: {} seconds\n", t)); }
-    if let Some(ua) = &req.user_agent { out.push_str(&format!("  -A (--user-agent): {}\n", ua)); }
-    if let Some(p) = &req.proxy { out.push_str(&format!("  -x (--proxy): {}\n", p)); }
-    if let Some(o) = &req.output { out.push_str(&format!("  -o (--output): {}\n", o)); }
-    if let Some(c) = &req.cookie { out.push_str(&format!("  -b (--cookie): {}\n", c)); }
-    if let Some(c) = &req.cookie_jar { out.push_str(&format!("  -c (--cookie-jar): {}\n", c)); }
+    if req.insecure {
+        out.push_str("  -k (--insecure): SSL verification disabled\n");
+    }
+    if req.follow_redirects {
+        out.push_str("  -L (--location): Follow redirects\n");
+    }
+    if req.verbose {
+        out.push_str("  -v (--verbose): Verbose output\n");
+    }
+    if req.silent {
+        out.push_str("  -s (--silent): Silent mode\n");
+    }
+    if req.include_headers {
+        out.push_str("  -i (--include): Include response headers\n");
+    }
+    if req.head_only {
+        out.push_str("  -I (--head): HEAD request only\n");
+    }
+    if req.compressed {
+        out.push_str("  --compressed: Accept gzip/deflate\n");
+    }
+    if let Some(t) = req.max_time {
+        out.push_str(&format!("  --max-time: {} seconds\n", t));
+    }
+    if let Some(t) = req.timeout {
+        out.push_str(&format!("  --connect-timeout: {} seconds\n", t));
+    }
+    if let Some(ua) = &req.user_agent {
+        out.push_str(&format!("  -A (--user-agent): {}\n", ua));
+    }
+    if let Some(p) = &req.proxy {
+        out.push_str(&format!("  -x (--proxy): {}\n", p));
+    }
+    if let Some(o) = &req.output {
+        out.push_str(&format!("  -o (--output): {}\n", o));
+    }
+    if let Some(c) = &req.cookie {
+        out.push_str(&format!("  -b (--cookie): {}\n", c));
+    }
+    if let Some(c) = &req.cookie_jar {
+        out.push_str(&format!("  -c (--cookie-jar): {}\n", c));
+    }
 
     Ok(out)
 }
 
 fn action_build(args: &Value) -> Result<String, String> {
-    let url = args.get("url").and_then(|v| v.as_str())
+    let url = args
+        .get("url")
+        .and_then(|v| v.as_str())
         .ok_or("Provide 'url' for the build action")?;
 
-    let method = args.get("method").and_then(|v| v.as_str()).unwrap_or("GET").to_uppercase();
-    let insecure = args.get("insecure").and_then(|v| v.as_bool()).unwrap_or(false);
-    let follow = args.get("follow_redirects").and_then(|v| v.as_bool()).unwrap_or(false);
+    let method = args
+        .get("method")
+        .and_then(|v| v.as_str())
+        .unwrap_or("GET")
+        .to_uppercase();
+    let insecure = args
+        .get("insecure")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+    let follow = args
+        .get("follow_redirects")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
     let timeout = args.get("timeout").and_then(|v| v.as_u64());
     let output = args.get("output").and_then(|v| v.as_str());
     let auth = args.get("auth").and_then(|v| v.as_str());
@@ -303,7 +387,8 @@ fn action_build(args: &Value) -> Result<String, String> {
     let mut full_url = url.to_string();
     if let Some(params) = args.get("params").and_then(|v| v.as_object()) {
         if !params.is_empty() {
-            let qs: Vec<String> = params.iter()
+            let qs: Vec<String> = params
+                .iter()
                 .map(|(k, v)| format!("{}={}", k, v.as_str().unwrap_or_default()))
                 .collect();
             let sep = if full_url.contains('?') { '&' } else { '?' };
@@ -324,10 +409,18 @@ fn action_build(args: &Value) -> Result<String, String> {
         }
     }
 
-    if insecure { parts.push("-k".to_string()); }
-    if follow { parts.push("-L".to_string()); }
-    if let Some(t) = timeout { parts.push(format!("--max-time {}", t)); }
-    if let Some(o) = output { parts.push(format!("-o '{}'", o)); }
+    if insecure {
+        parts.push("-k".to_string());
+    }
+    if follow {
+        parts.push("-L".to_string());
+    }
+    if let Some(t) = timeout {
+        parts.push(format!("--max-time {}", t));
+    }
+    if let Some(o) = output {
+        parts.push(format!("-o '{}'", o));
+    }
 
     parts.push(format!("'{}'", full_url));
 
@@ -348,28 +441,55 @@ fn req_to_python(req: &CurlRequest) -> String {
     }
 
     let method = req.method.to_lowercase();
-    let headers_arg = if req.headers.is_empty() { String::new() } else { ", headers=headers".to_string() };
+    let headers_arg = if req.headers.is_empty() {
+        String::new()
+    } else {
+        ", headers=headers".to_string()
+    };
 
     let data_arg = if let Some(d) = &req.data {
-        if d.starts_with('{') { format!(", json={}", d) }
-        else { format!(", data=\"{}\"", d) }
+        if d.starts_with('{') {
+            format!(", json={}", d)
+        } else {
+            format!(", data=\"{}\"", d)
+        }
     } else if let Some(d) = &req.data_binary {
         format!(", data=\"{}\"", d)
     } else {
         String::new()
     };
 
-    let verify_arg = if req.insecure { ", verify=False".to_string() } else { String::new() };
+    let verify_arg = if req.insecure {
+        ", verify=False".to_string()
+    } else {
+        String::new()
+    };
     let auth_arg = if let Some(a) = &req.auth {
         let parts: Vec<&str> = a.splitn(2, ':').collect();
-        if parts.len() == 2 { format!(", auth=(\"{}\", \"{}\")", parts[0], parts[1]) }
-        else { String::new() }
-    } else { String::new() };
+        if parts.len() == 2 {
+            format!(", auth=(\"{}\", \"{}\")", parts[0], parts[1])
+        } else {
+            String::new()
+        }
+    } else {
+        String::new()
+    };
 
-    let allow_redirects = if req.follow_redirects { ", allow_redirects=True".to_string() } else { String::new() };
-    let timeout_arg = if let Some(t) = req.max_time.or(req.timeout) { format!(", timeout={}", t) } else { String::new() };
+    let allow_redirects = if req.follow_redirects {
+        ", allow_redirects=True".to_string()
+    } else {
+        String::new()
+    };
+    let timeout_arg = if let Some(t) = req.max_time.or(req.timeout) {
+        format!(", timeout={}", t)
+    } else {
+        String::new()
+    };
 
-    lines.push(format!("response = requests.{}(\n    \"{}\"{}{}{}{}{}{}\n)", method, req.url, headers_arg, data_arg, verify_arg, auth_arg, allow_redirects, timeout_arg));
+    lines.push(format!(
+        "response = requests.{}(\n    \"{}\"{}{}{}{}{}{}\n)",
+        method, req.url, headers_arg, data_arg, verify_arg, auth_arg, allow_redirects, timeout_arg
+    ));
     lines.push(String::new());
     lines.push("print(response.status_code)".to_string());
     lines.push("print(response.text)".to_string());
@@ -393,11 +513,21 @@ fn req_to_go(req: &CurlRequest) -> String {
     lines.push("func main() {".to_string());
 
     if has_body {
-        let body = req.data.as_deref().or(req.data_binary.as_deref()).unwrap_or("");
+        let body = req
+            .data
+            .as_deref()
+            .or(req.data_binary.as_deref())
+            .unwrap_or("");
         lines.push(format!("\tbody := strings.NewReader(`{}`)", body));
-        lines.push(format!("\treq, _ := http.NewRequest(\"{}\", \"{}\", body)", req.method, req.url));
+        lines.push(format!(
+            "\treq, _ := http.NewRequest(\"{}\", \"{}\", body)",
+            req.method, req.url
+        ));
     } else {
-        lines.push(format!("\treq, _ := http.NewRequest(\"{}\", \"{}\", nil)", req.method, req.url));
+        lines.push(format!(
+            "\treq, _ := http.NewRequest(\"{}\", \"{}\", nil)",
+            req.method, req.url
+        ));
     }
 
     for (k, v) in &req.headers {
@@ -406,7 +536,10 @@ fn req_to_go(req: &CurlRequest) -> String {
     if let Some(auth) = &req.auth {
         let parts: Vec<&str> = auth.splitn(2, ':').collect();
         if parts.len() == 2 {
-            lines.push(format!("\treq.SetBasicAuth(\"{}\", \"{}\")", parts[0], parts[1]));
+            lines.push(format!(
+                "\treq.SetBasicAuth(\"{}\", \"{}\")",
+                parts[0], parts[1]
+            ));
         }
     }
 
@@ -430,7 +563,9 @@ fn req_to_js(req: &CurlRequest) -> String {
     let mut options = vec![format!("  method: '{}'", method)];
 
     if !req.headers.is_empty() {
-        let hdrs: Vec<String> = req.headers.iter()
+        let hdrs: Vec<String> = req
+            .headers
+            .iter()
             .map(|(k, v)| format!("    '{}': '{}'", k, v))
             .collect();
         options.push(format!("  headers: {{\n{}\n  }}", hdrs.join(",\n")));
@@ -441,7 +576,10 @@ fn req_to_js(req: &CurlRequest) -> String {
     }
 
     let opts = options.join(",\n");
-    lines.push(format!("const response = await fetch('{}', {{\n{}\n}});", req.url, opts));
+    lines.push(format!(
+        "const response = await fetch('{}', {{\n{}\n}});",
+        req.url, opts
+    ));
     lines.push(String::new());
     lines.push("const data = await response.json();".to_string());
     lines.push("console.log(response.status, data);".to_string());
@@ -450,16 +588,26 @@ fn req_to_js(req: &CurlRequest) -> String {
 }
 
 fn action_convert(args: &Value) -> Result<String, String> {
-    let cmd = args.get("command").and_then(|v| v.as_str())
+    let cmd = args
+        .get("command")
+        .and_then(|v| v.as_str())
         .ok_or("Provide 'command' with a curl command string")?;
-    let lang = args.get("language").and_then(|v| v.as_str()).unwrap_or("python");
+    let lang = args
+        .get("language")
+        .and_then(|v| v.as_str())
+        .unwrap_or("python");
     let req = parse_curl_command(cmd)?;
 
     let code = match lang {
         "python" => req_to_python(&req),
-        "go"     => req_to_go(&req),
+        "go" => req_to_go(&req),
         "javascript" | "js" | "node" => req_to_js(&req),
-        other => return Err(format!("Unknown language '{}'. Supported: python, go, javascript", other)),
+        other => {
+            return Err(format!(
+                "Unknown language '{}'. Supported: python, go, javascript",
+                other
+            ))
+        }
     };
 
     let lang_label = match lang {
@@ -468,18 +616,28 @@ fn action_convert(args: &Value) -> Result<String, String> {
         _ => "Python (requests)",
     };
 
-    Ok(format!("## curl → {} Conversion\n\n```{}\n{}\n```\n", lang_label, lang, code))
+    Ok(format!(
+        "## curl → {} Conversion\n\n```{}\n{}\n```\n",
+        lang_label, lang, code
+    ))
 }
 
 pub async fn execute(args: &Value) -> Result<String, String> {
-    let action = args.get("action").and_then(|v| v.as_str()).unwrap_or_else(|| {
-        if args.get("url").is_some() { "build" }
-        else if args.get("language").is_some() { "convert" }
-        else { "parse" }
-    });
+    let action = args
+        .get("action")
+        .and_then(|v| v.as_str())
+        .unwrap_or_else(|| {
+            if args.get("url").is_some() {
+                "build"
+            } else if args.get("language").is_some() {
+                "convert"
+            } else {
+                "parse"
+            }
+        });
     match action {
-        "build"   => action_build(args),
+        "build" => action_build(args),
         "convert" => action_convert(args),
-        _         => action_parse(args),
+        _ => action_parse(args),
     }
 }

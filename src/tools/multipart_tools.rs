@@ -4,13 +4,13 @@ pub fn make_schema() -> Value {
     json!({
         "name": "multipart_tools",
         "description": "Parses, inspects, and builds multipart/form-data (RFC 2046) bodies without external utilities. \
-Actions: parse (default — tabular part summary), parts (detailed per-part with headers and body preview), \
-files (only file-upload parts with filename), form (only non-file form fields as name=value), \
-validate (RFC 2046 compliance checks), build (generate a multipart body from a fields array). \
-Input: body/text for inline content or file for a path; boundary explicit or auto-detected from \
-content_type header string or first 1 KB of body. \
-Example: multipart_tools(body: '...', boundary: 'abc123') or multipart_tools(action: 'files', file: 'upload.bin') \
-or multipart_tools(action: 'build', boundary: 'abc', fields: [{name: 'user', value: 'alice'}, {name: 'data', value: '...', filename: 'data.csv', content_type: 'text/csv'}]).",
+    Actions: parse (default — tabular part summary), parts (detailed per-part with headers and body preview), \
+    files (only file-upload parts with filename), form (only non-file form fields as name=value), \
+    validate (RFC 2046 compliance checks), build (generate a multipart body from a fields array). \
+    Input: body/text for inline content or file for a path; boundary explicit or auto-detected from \
+    content_type header string or first 1 KB of body. \
+    Example: multipart_tools(body: '...', boundary: 'abc123') or multipart_tools(action: 'files', file: 'upload.bin') \
+    or multipart_tools(action: 'build', boundary: 'abc', fields: [{name: 'user', value: 'alice'}, {name: 'data', value: '...', filename: 'data.csv', content_type: 'text/csv'}]).",
         "input_schema": {
             "type": "object",
             "properties": {
@@ -73,7 +73,11 @@ fn parse_boundary_from_ct(ct: &str) -> Option<String> {
 }
 
 fn get_body(args: &Value) -> Option<Vec<u8>> {
-    if let Some(s) = args.get("body").or_else(|| args.get("text")).and_then(|v| v.as_str()) {
+    if let Some(s) = args
+        .get("body")
+        .or_else(|| args.get("text"))
+        .and_then(|v| v.as_str())
+    {
         return Some(s.as_bytes().to_vec());
     }
     if let Some(path) = args.get("file").and_then(|v| v.as_str()) {
@@ -96,7 +100,8 @@ fn parse_parts(body: &[u8], boundary: &str) -> Vec<Part> {
         if trimmed.starts_with("--") {
             break;
         }
-        if trimmed.starts_with("--") || *seg == "--\r\n" || *seg == "--\n" || seg.starts_with("--") {
+        if trimmed.starts_with("--") || *seg == "--\r\n" || *seg == "--\n" || seg.starts_with("--")
+        {
             break;
         }
         let seg_bytes = trimmed.as_bytes();
@@ -104,7 +109,12 @@ fn parse_parts(body: &[u8], boundary: &str) -> Vec<Part> {
         let split_pos = find_header_body_split(seg_bytes);
         if let Some(pos) = split_pos {
             let header_str = String::from_utf8_lossy(&seg_bytes[..pos]);
-            let body_start = pos + if seg_bytes.get(pos..pos + 2) == Some(b"\r\n") { 4 } else { 2 };
+            let body_start = pos
+                + if seg_bytes.get(pos..pos + 2) == Some(b"\r\n") {
+                    4
+                } else {
+                    2
+                };
             let body_bytes = if body_start <= seg_bytes.len() {
                 seg_bytes[body_start..].to_vec()
             } else {
@@ -124,7 +134,14 @@ fn parse_parts(body: &[u8], boundary: &str) -> Vec<Part> {
                 .iter()
                 .find(|(k, _)| k.eq_ignore_ascii_case("content-transfer-encoding"))
                 .map(|(_, v)| v.trim().to_string());
-            parts.push(Part { headers, name, filename, content_type, transfer_encoding, body: body_clean });
+            parts.push(Part {
+                headers,
+                name,
+                filename,
+                content_type,
+                transfer_encoding,
+                body: body_clean,
+            });
         }
     }
     parts
@@ -193,7 +210,10 @@ fn body_preview(body: &[u8], limit: usize) -> String {
 }
 
 pub async fn execute(args: &Value) -> Result<String, String> {
-    let action = args.get("action").and_then(|v| v.as_str()).unwrap_or("parse");
+    let action = args
+        .get("action")
+        .and_then(|v| v.as_str())
+        .unwrap_or("parse");
 
     if action == "build" {
         return Ok(build(args));
@@ -241,18 +261,27 @@ fn show_parse(parts: &[Part], boundary: &str) -> String {
     let file_count = parts.iter().filter(|p| p.filename.is_some()).count();
     let form_count = parts.iter().filter(|p| p.filename.is_none()).count();
     out.push('\n');
-    out.push_str(&format!("File parts: {}  Form fields: {}\n", file_count, form_count));
+    out.push_str(&format!(
+        "File parts: {}  Form fields: {}\n",
+        file_count, form_count
+    ));
     out
 }
 
 fn show_parts(parts: &[Part], boundary: &str) -> String {
     let mut out = format!("Boundary: {}\n\n", boundary);
     for (i, p) in parts.iter().enumerate() {
-        out.push_str(&format!("─── Part {} ─────────────────────────────\n", i + 1));
+        out.push_str(&format!(
+            "─── Part {} ─────────────────────────────\n",
+            i + 1
+        ));
         for (k, v) in &p.headers {
             out.push_str(&format!("  {}: {}\n", k, v));
         }
-        out.push_str(&format!("  [name]          {}\n", p.name.as_deref().unwrap_or("(none)")));
+        out.push_str(&format!(
+            "  [name]          {}\n",
+            p.name.as_deref().unwrap_or("(none)")
+        ));
         if let Some(f) = &p.filename {
             out.push_str(&format!("  [filename]      {}\n", f));
         }
@@ -261,7 +290,10 @@ fn show_parts(parts: &[Part], boundary: &str) -> String {
             out.push_str(&format!("  [encoding]      {}\n", te));
         }
         out.push_str(&format!("  [size]          {} bytes\n", p.body.len()));
-        out.push_str(&format!("  [body preview]  {}\n\n", body_preview(&p.body, 120)));
+        out.push_str(&format!(
+            "  [body preview]  {}\n\n",
+            body_preview(&p.body, 120)
+        ));
     }
     out
 }
@@ -272,7 +304,10 @@ fn show_files(parts: &[Part]) -> String {
         return "No file-upload parts found.".to_string();
     }
     let mut out = format!("File parts: {}\n\n", files.len());
-    out.push_str(&format!("{:<4} {:<24} {:<20} {:<10} {}\n", "#", "Field Name", "Content-Type", "Size", "Filename"));
+    out.push_str(&format!(
+        "{:<4} {:<24} {:<20} {:<10} {}\n",
+        "#", "Field Name", "Content-Type", "Size", "Filename"
+    ));
     out.push_str(&"-".repeat(80));
     out.push('\n');
     for (i, p) in files.iter().enumerate() {
@@ -325,12 +360,18 @@ fn validate(parts: &[Part], body: &[u8], boundary: &str) -> String {
 
     // Check each part for Content-Disposition
     for (i, p) in parts.iter().enumerate() {
-        let has_disp = p.headers.iter().any(|(k, _)| k.eq_ignore_ascii_case("content-disposition"));
+        let has_disp = p
+            .headers
+            .iter()
+            .any(|(k, _)| k.eq_ignore_ascii_case("content-disposition"));
         if !has_disp {
             issues.push(format!("Part {} missing Content-Disposition header", i + 1));
         }
         if p.name.is_none() && p.filename.is_none() {
-            issues.push(format!("Part {} has no name or filename in Content-Disposition", i + 1));
+            issues.push(format!(
+                "Part {} has no name or filename in Content-Disposition",
+                i + 1
+            ));
         }
     }
 
@@ -366,7 +407,10 @@ fn build(args: &Value) -> String {
 
     let mut body = String::new();
     for field in fields {
-        let name = field.get("name").and_then(|v| v.as_str()).unwrap_or("field");
+        let name = field
+            .get("name")
+            .and_then(|v| v.as_str())
+            .unwrap_or("field");
         let value = field.get("value").and_then(|v| v.as_str()).unwrap_or("");
         let filename = field.get("filename").and_then(|v| v.as_str());
         let ct = field.get("content_type").and_then(|v| v.as_str());
@@ -380,7 +424,10 @@ fn build(args: &Value) -> String {
             let content_type = ct.unwrap_or("application/octet-stream");
             body.push_str(&format!("Content-Type: {}\r\n", content_type));
         } else {
-            body.push_str(&format!("Content-Disposition: form-data; name=\"{}\"\r\n", name));
+            body.push_str(&format!(
+                "Content-Disposition: form-data; name=\"{}\"\r\n",
+                name
+            ));
             if let Some(c) = ct {
                 body.push_str(&format!("Content-Type: {}\r\n", c));
             }
@@ -398,7 +445,10 @@ fn build(args: &Value) -> String {
         body.len()
     );
     out.push_str("Content-Type header to use:\n");
-    out.push_str(&format!("  Content-Type: multipart/form-data; boundary={}\n\n", boundary));
+    out.push_str(&format!(
+        "  Content-Type: multipart/form-data; boundary={}\n\n",
+        boundary
+    ));
     out.push_str("Body:\n");
     out.push_str(&body);
     out

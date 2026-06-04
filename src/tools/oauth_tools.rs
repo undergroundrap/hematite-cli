@@ -39,26 +39,32 @@ fn base64url_encode(bytes: &[u8]) -> String {
     let mut i = 0;
     while i + 2 < bytes.len() {
         let n = ((bytes[i] as u32) << 16) | ((bytes[i + 1] as u32) << 8) | (bytes[i + 2] as u32);
-        let _ = write!(out, "{}{}{}{}",
+        let _ = write!(
+            out,
+            "{}{}{}{}",
             CHARS[((n >> 18) & 63) as usize] as char,
             CHARS[((n >> 12) & 63) as usize] as char,
-            CHARS[((n >>  6) & 63) as usize] as char,
-            CHARS[( n        & 63) as usize] as char,
+            CHARS[((n >> 6) & 63) as usize] as char,
+            CHARS[(n & 63) as usize] as char,
         );
         i += 3;
     }
     if i + 1 == bytes.len() {
         let n = (bytes[i] as u32) << 16;
-        let _ = write!(out, "{}{}",
+        let _ = write!(
+            out,
+            "{}{}",
             CHARS[((n >> 18) & 63) as usize] as char,
             CHARS[((n >> 12) & 63) as usize] as char,
         );
     } else if i + 2 == bytes.len() {
         let n = ((bytes[i] as u32) << 16) | ((bytes[i + 1] as u32) << 8);
-        let _ = write!(out, "{}{}{}",
+        let _ = write!(
+            out,
+            "{}{}{}",
             CHARS[((n >> 18) & 63) as usize] as char,
             CHARS[((n >> 12) & 63) as usize] as char,
-            CHARS[((n >>  6) & 63) as usize] as char,
+            CHARS[((n >> 6) & 63) as usize] as char,
         );
     }
     out
@@ -99,7 +105,10 @@ fn pkce_pair(verifier_override: Option<&str>, method: &str) -> Result<(String, S
 }
 
 fn action_pkce(args: &Value) -> Result<String, String> {
-    let method = args.get("code_challenge_method").and_then(|v| v.as_str()).unwrap_or("S256");
+    let method = args
+        .get("code_challenge_method")
+        .and_then(|v| v.as_str())
+        .unwrap_or("S256");
     let verifier_in = args.get("code_verifier").and_then(|v| v.as_str());
 
     let (verifier, challenge) = pkce_pair(verifier_in, method)?;
@@ -111,13 +120,20 @@ fn action_pkce(args: &Value) -> Result<String, String> {
     out.push_str(&format!("  code_challenge:  {}\n\n", challenge));
     out.push_str("## Usage\n\n");
     out.push_str("  1. Store code_verifier securely on the client (never send to auth server).\n");
-    out.push_str("  2. Include code_challenge and code_challenge_method=S256 in the /authorize request.\n");
+    out.push_str(
+        "  2. Include code_challenge and code_challenge_method=S256 in the /authorize request.\n",
+    );
     out.push_str("  3. When exchanging the auth code for a token, send the code_verifier.\n");
     out.push_str("  4. The auth server computes SHA256(code_verifier) and verifies it matches code_challenge.\n\n");
     if method == "plain" {
-        out.push_str("  ⚠  Plain method transmits the verifier directly — use S256 for production.\n");
+        out.push_str(
+            "  ⚠  Plain method transmits the verifier directly — use S256 for production.\n",
+        );
     }
-    out.push_str(&format!("  Verifier length: {} chars (RFC 7636 requires 43–128)\n", verifier.len()));
+    out.push_str(&format!(
+        "  Verifier length: {} chars (RFC 7636 requires 43–128)\n",
+        verifier.len()
+    ));
     Ok(out)
 }
 
@@ -225,7 +241,10 @@ static GRANTS: &[GrantInfo] = &[
 ];
 
 fn action_grant(args: &Value) -> Result<String, String> {
-    let gt = args.get("grant_type").and_then(|v| v.as_str()).unwrap_or("");
+    let gt = args
+        .get("grant_type")
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
 
     if gt.is_empty() {
         // List all
@@ -233,24 +252,50 @@ fn action_grant(args: &Value) -> Result<String, String> {
         out.push_str(&format!("{}\n", "-".repeat(70)));
         for g in GRANTS {
             let user = if g.requires_user { "Yes" } else { "No" };
-            let status = if g.recommended { "✓ Recommended" } else { "⚠ Deprecated" };
+            let status = if g.recommended {
+                "✓ Recommended"
+            } else {
+                "⚠ Deprecated"
+            };
             out.push_str(&format!("{:<30} {:<15} {}\n", g.id, user, status));
         }
         out.push_str("\nUse grant_type='<id>' for detailed information.\n");
         return Ok(out);
     }
 
-    let info = GRANTS.iter().find(|g| g.id.eq_ignore_ascii_case(gt) || g.name.to_lowercase().contains(&gt.to_lowercase()))
-        .ok_or_else(|| format!("Unknown grant type '{}'. Known: {}", gt, GRANTS.iter().map(|g| g.id).collect::<Vec<_>>().join(", ")))?;
+    let info = GRANTS
+        .iter()
+        .find(|g| {
+            g.id.eq_ignore_ascii_case(gt) || g.name.to_lowercase().contains(&gt.to_lowercase())
+        })
+        .ok_or_else(|| {
+            format!(
+                "Unknown grant type '{}'. Known: {}",
+                gt,
+                GRANTS.iter().map(|g| g.id).collect::<Vec<_>>().join(", ")
+            )
+        })?;
 
     let mut out = format!("## OAuth 2.0 Grant: {}\n\n", info.name);
     out.push_str(&format!("  Grant type:    {}\n", info.id));
     out.push_str(&format!("  Use case:      {}\n", info.use_case));
-    out.push_str(&format!("  Requires user: {}\n", if info.requires_user { "Yes" } else { "No" }));
-    out.push_str(&format!("  Status:        {}\n\n", if info.recommended { "✓ Recommended" } else { "⚠ Deprecated — do not use for new integrations" }));
+    out.push_str(&format!(
+        "  Requires user: {}\n",
+        if info.requires_user { "Yes" } else { "No" }
+    ));
+    out.push_str(&format!(
+        "  Status:        {}\n\n",
+        if info.recommended {
+            "✓ Recommended"
+        } else {
+            "⚠ Deprecated — do not use for new integrations"
+        }
+    ));
     out.push_str(&format!("## Description\n\n  {}\n\n", info.description));
     out.push_str("## Flow\n\n");
-    for step in info.flow { out.push_str(&format!("  {}\n", step)); }
+    for step in info.flow {
+        out.push_str(&format!("  {}\n", step));
+    }
     out.push_str(&format!("\n## Security Notes\n\n  {}\n", info.security));
     Ok(out)
 }
@@ -261,7 +306,9 @@ fn url_encode(s: &str) -> String {
     let mut out = String::new();
     for b in s.bytes() {
         match b {
-            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => out.push(b as char),
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => {
+                out.push(b as char)
+            }
             _ => out.push_str(&format!("%{:02X}", b)),
         }
     }
@@ -269,21 +316,42 @@ fn url_encode(s: &str) -> String {
 }
 
 fn action_url(args: &Value) -> Result<String, String> {
-    let endpoint = args.get("authorization_endpoint").and_then(|v| v.as_str())
-        .ok_or("Provide 'authorization_endpoint' (e.g. https://accounts.google.com/o/oauth2/auth)")?;
-    let client_id = args.get("client_id").and_then(|v| v.as_str())
+    let endpoint = args
+        .get("authorization_endpoint")
+        .and_then(|v| v.as_str())
+        .ok_or(
+            "Provide 'authorization_endpoint' (e.g. https://accounts.google.com/o/oauth2/auth)",
+        )?;
+    let client_id = args
+        .get("client_id")
+        .and_then(|v| v.as_str())
         .ok_or("Provide 'client_id'")?;
-    let redirect_uri = args.get("redirect_uri").and_then(|v| v.as_str())
+    let redirect_uri = args
+        .get("redirect_uri")
+        .and_then(|v| v.as_str())
         .ok_or("Provide 'redirect_uri'")?;
-    let scope = args.get("scope").and_then(|v| v.as_str()).unwrap_or("openid profile email");
-    let state = args.get("state").and_then(|v| v.as_str()).map(|s| s.to_string())
+    let scope = args
+        .get("scope")
+        .and_then(|v| v.as_str())
+        .unwrap_or("openid profile email");
+    let state = args
+        .get("state")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string())
         .unwrap_or_else(|| base64url_encode(&random_bytes_32())[..16].to_string());
 
     let use_pkce = args.get("code_challenge_method").is_some()
         || args.get("code_verifier").is_some()
-        || args.get("grant_type").and_then(|v| v.as_str()).unwrap_or("authorization_code") == "authorization_code";
+        || args
+            .get("grant_type")
+            .and_then(|v| v.as_str())
+            .unwrap_or("authorization_code")
+            == "authorization_code";
 
-    let method = args.get("code_challenge_method").and_then(|v| v.as_str()).unwrap_or("S256");
+    let method = args
+        .get("code_challenge_method")
+        .and_then(|v| v.as_str())
+        .unwrap_or("S256");
     let (verifier, challenge) = if use_pkce {
         let verifier_in = args.get("code_verifier").and_then(|v| v.as_str());
         let (v, c) = pkce_pair(verifier_in, method)?;
@@ -304,7 +372,8 @@ fn action_url(args: &Value) -> Result<String, String> {
         params.push(("code_challenge_method".to_string(), method.to_string()));
     }
 
-    let qs: Vec<String> = params.iter()
+    let qs: Vec<String> = params
+        .iter()
         .map(|(k, v)| format!("{}={}", k, url_encode(v)))
         .collect();
     let full_url = format!("{}?{}", endpoint, qs.join("&"));
@@ -320,12 +389,18 @@ fn action_url(args: &Value) -> Result<String, String> {
     if let Some(ref v) = verifier {
         out.push_str("\n## PKCE Values (store securely)\n\n");
         out.push_str(&format!("  code_verifier:  {}\n", v));
-        out.push_str(&format!("  code_challenge: {}\n", challenge.as_deref().unwrap_or("")));
+        out.push_str(&format!(
+            "  code_challenge: {}\n",
+            challenge.as_deref().unwrap_or("")
+        ));
         out.push_str(&format!("  method:         {}\n", method));
         out.push_str("\n  ⚠  Keep code_verifier secret — send it with the token exchange, never with the /authorize request.\n");
     }
 
-    out.push_str(&format!("\n## State\n\n  {}\n  Validate state on redirect to prevent CSRF.\n", state));
+    out.push_str(&format!(
+        "\n## State\n\n  {}\n  Validate state on redirect to prevent CSRF.\n",
+        state
+    ));
     Ok(out)
 }
 
@@ -335,29 +410,56 @@ fn base64url_decode(s: &str) -> Option<Vec<u8>> {
     const CHARS: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
     let padded: String = {
         let mut p = s.replace('-', "+").replace('_', "/");
-        while p.len() % 4 != 0 { p.push('='); }
+        while p.len() % 4 != 0 {
+            p.push('=');
+        }
         p
     };
     let mut buf: Vec<u8> = Vec::new();
     let bytes = padded.as_bytes();
     let mut i = 0;
     while i + 3 < bytes.len() {
-        let a = bytes[i]; let b = bytes[i+1]; let c = bytes[i+2]; let d = bytes[i+3];
+        let a = bytes[i];
+        let b = bytes[i + 1];
+        let c = bytes[i + 2];
+        let d = bytes[i + 3];
         let decode_char = |ch: u8| -> Option<u8> {
-            CHARS.iter().position(|&x| x == ch).map(|p| p as u8)
-                .or_else(|| if ch == b'+' { Some(62) } else if ch == b'/' { Some(63) } else if ch == b'=' { Some(0) } else { None })
+            CHARS
+                .iter()
+                .position(|&x| x == ch)
+                .map(|p| p as u8)
+                .or_else(|| {
+                    if ch == b'+' {
+                        Some(62)
+                    } else if ch == b'/' {
+                        Some(63)
+                    } else if ch == b'=' {
+                        Some(0)
+                    } else {
+                        None
+                    }
+                })
         };
-        let av = decode_char(a)?; let bv = decode_char(b)?; let cv = decode_char(c)?; let dv = decode_char(d)?;
+        let av = decode_char(a)?;
+        let bv = decode_char(b)?;
+        let cv = decode_char(c)?;
+        let dv = decode_char(d)?;
         buf.push((av << 2) | (bv >> 4));
-        if c != b'=' { buf.push((bv << 4) | (cv >> 2)); }
-        if d != b'=' { buf.push((cv << 2) | dv); }
+        if c != b'=' {
+            buf.push((bv << 4) | (cv >> 2));
+        }
+        if d != b'=' {
+            buf.push((cv << 2) | dv);
+        }
         i += 4;
     }
     Some(buf)
 }
 
 fn action_token(args: &Value) -> Result<String, String> {
-    let token = args.get("token").and_then(|v| v.as_str())
+    let token = args
+        .get("token")
+        .and_then(|v| v.as_str())
         .ok_or("Provide 'token' with an access token or JWT")?;
 
     let parts: Vec<&str> = token.split('.').collect();
@@ -374,17 +476,23 @@ fn action_token(args: &Value) -> Result<String, String> {
     let header_bytes = base64url_decode(parts[0]).ok_or("Cannot decode JWT header")?;
     let payload_bytes = base64url_decode(parts[1]).ok_or("Cannot decode JWT payload")?;
 
-    let header_str = String::from_utf8(header_bytes).map_err(|_| "JWT header is not valid UTF-8")?;
-    let payload_str = String::from_utf8(payload_bytes).map_err(|_| "JWT payload is not valid UTF-8")?;
+    let header_str =
+        String::from_utf8(header_bytes).map_err(|_| "JWT header is not valid UTF-8")?;
+    let payload_str =
+        String::from_utf8(payload_bytes).map_err(|_| "JWT payload is not valid UTF-8")?;
 
-    let header: Value = serde_json::from_str(&header_str).map_err(|e| format!("JWT header JSON error: {}", e))?;
-    let payload: Value = serde_json::from_str(&payload_str).map_err(|e| format!("JWT payload JSON error: {}", e))?;
+    let header: Value =
+        serde_json::from_str(&header_str).map_err(|e| format!("JWT header JSON error: {}", e))?;
+    let payload: Value =
+        serde_json::from_str(&payload_str).map_err(|e| format!("JWT payload JSON error: {}", e))?;
 
     let alg = header.get("alg").and_then(|v| v.as_str()).unwrap_or("?");
     let typ = header.get("typ").and_then(|v| v.as_str()).unwrap_or("JWT");
 
     let now = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_secs();
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs();
 
     let mut out = format!("## JWT Inspection\n\n");
     out.push_str(&format!("  Type:      {}\n", typ));
@@ -397,13 +505,21 @@ fn action_token(args: &Value) -> Result<String, String> {
                 if let Some(ts) = v.as_u64() {
                     let dt = format_unix_ts(ts);
                     let status = if key == "exp" {
-                        if ts < now { format!(" ⚠  EXPIRED {} seconds ago", now - ts) }
-                        else { format!(" ✓ expires in {} seconds", ts - now) }
-                    } else { String::new() };
+                        if ts < now {
+                            format!(" ⚠  EXPIRED {} seconds ago", now - ts)
+                        } else {
+                            format!(" ✓ expires in {} seconds", ts - now)
+                        }
+                    } else {
+                        String::new()
+                    };
                     out.push_str(&format!("  {:<14} {}{}\n", label, dt, status));
                 }
             } else {
-                let s = match v { Value::String(s) => s.clone(), other => other.to_string() };
+                let s = match v {
+                    Value::String(s) => s.clone(),
+                    other => other.to_string(),
+                };
                 let preview: String = s.chars().take(80).collect();
                 let ellipsis = if s.len() > 80 { "..." } else { "" };
                 out.push_str(&format!("  {:<14} {}{}\n", label, preview, ellipsis));
@@ -413,16 +529,16 @@ fn action_token(args: &Value) -> Result<String, String> {
 
     {
         let out = &mut out;
-        print_claim(out, "sub",   "sub (subject)");
-        print_claim(out, "iss",   "iss (issuer)");
-        print_claim(out, "aud",   "aud (audience)");
-        print_claim(out, "iat",   "iat (issued)");
-        print_claim(out, "exp",   "exp (expires)");
-        print_claim(out, "nbf",   "nbf (not before)");
+        print_claim(out, "sub", "sub (subject)");
+        print_claim(out, "iss", "iss (issuer)");
+        print_claim(out, "aud", "aud (audience)");
+        print_claim(out, "iat", "iat (issued)");
+        print_claim(out, "exp", "exp (expires)");
+        print_claim(out, "nbf", "nbf (not before)");
         print_claim(out, "scope", "scope");
-        print_claim(out, "scp",   "scp");
+        print_claim(out, "scp", "scp");
         print_claim(out, "email", "email");
-        print_claim(out, "name",  "name");
+        print_claim(out, "name", "name");
         print_claim(out, "roles", "roles");
     }
 
@@ -435,7 +551,10 @@ fn action_token(args: &Value) -> Result<String, String> {
 
     out.push_str("\n## Signature\n\n");
     out.push_str("  (not verified — local inspection only)\n");
-    out.push_str(&format!("  Signature: {}...\n", &parts[2][..parts[2].len().min(16)]));
+    out.push_str(&format!(
+        "  Signature: {}...\n",
+        &parts[2][..parts[2].len().min(16)]
+    ));
 
     Ok(out)
 }
@@ -471,7 +590,10 @@ fn epoch_to_ymd(days: u64) -> (u64, u64, u64) {
 // ── Explain ───────────────────────────────────────────────────────────────────
 
 fn action_explain(args: &Value) -> Result<String, String> {
-    let topic = args.get("topic").and_then(|v| v.as_str()).unwrap_or("flows");
+    let topic = args
+        .get("topic")
+        .and_then(|v| v.as_str())
+        .unwrap_or("flows");
 
     let text = match topic {
         "pkce" => concat!(
@@ -556,20 +678,34 @@ fn action_explain(args: &Value) -> Result<String, String> {
 }
 
 pub async fn execute(args: &Value) -> Result<String, String> {
-    let action = args.get("action").and_then(|v| v.as_str()).unwrap_or_else(|| {
-        if args.get("token").is_some() { "token" }
-        else if args.get("grant_type").is_some() && args.get("authorization_endpoint").is_none() { "grant" }
-        else if args.get("authorization_endpoint").is_some() { "url" }
-        else if args.get("code_verifier").is_some() || args.get("code_challenge_method").is_some() { "pkce" }
-        else if args.get("topic").is_some() { "explain" }
-        else { "pkce" }
-    });
+    let action = args
+        .get("action")
+        .and_then(|v| v.as_str())
+        .unwrap_or_else(|| {
+            if args.get("token").is_some() {
+                "token"
+            } else if args.get("grant_type").is_some()
+                && args.get("authorization_endpoint").is_none()
+            {
+                "grant"
+            } else if args.get("authorization_endpoint").is_some() {
+                "url"
+            } else if args.get("code_verifier").is_some()
+                || args.get("code_challenge_method").is_some()
+            {
+                "pkce"
+            } else if args.get("topic").is_some() {
+                "explain"
+            } else {
+                "pkce"
+            }
+        });
     match action {
-        "pkce"    => action_pkce(args),
-        "grant"   => action_grant(args),
-        "url"     => action_url(args),
-        "token"   => action_token(args),
+        "pkce" => action_pkce(args),
+        "grant" => action_grant(args),
+        "url" => action_url(args),
+        "token" => action_token(args),
         "explain" => action_explain(args),
-        _         => action_pkce(args),
+        _ => action_pkce(args),
     }
 }

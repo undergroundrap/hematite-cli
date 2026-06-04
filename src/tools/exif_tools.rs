@@ -5,9 +5,9 @@ pub fn make_schema() -> Value {
     json!({
         "name": "exif_tools",
         "description": "Parse EXIF/IPTC metadata from JPEG and TIFF images without external tools. \
-Actions: info (default — all EXIF fields), camera (make/model/lens/exposure), gps (coordinates + Google Maps link), thumbnail (detect embedded thumbnail). \
-Pass file (JPEG or TIFF path) or hex (hex-encoded bytes). \
-Example: exif_tools(file: 'photo.jpg') or exif_tools(action: 'gps', file: 'photo.jpg') or exif_tools(action: 'camera', hex: 'FFD8...').",
+    Actions: info (default — all EXIF fields), camera (make/model/lens/exposure), gps (coordinates + Google Maps link), thumbnail (detect embedded thumbnail). \
+    Pass file (JPEG or TIFF path) or hex (hex-encoded bytes). \
+    Example: exif_tools(file: 'photo.jpg') or exif_tools(action: 'gps', file: 'photo.jpg') or exif_tools(action: 'camera', hex: 'FFD8...').",
         "input_schema": {
             "type": "object",
             "properties": {
@@ -21,22 +21,24 @@ Example: exif_tools(file: 'photo.jpg') or exif_tools(action: 'gps', file: 'photo
 }
 
 pub async fn execute(args: &Value) -> Result<String, String> {
-    let action = args.get("action").and_then(|v| v.as_str()).unwrap_or("info");
+    let action = args
+        .get("action")
+        .and_then(|v| v.as_str())
+        .unwrap_or("info");
 
     let bytes = match get_bytes(args) {
         Some(b) => b,
         None => return Ok("Error: provide 'file' (path to JPEG/TIFF) or 'hex' bytes.".to_string()),
     };
 
-    let tiff_data = match find_tiff_data(&bytes) {
-        Some(d) => d,
-        None => {
-            return Ok(
+    let tiff_data =
+        match find_tiff_data(&bytes) {
+            Some(d) => d,
+            None => return Ok(
                 "No EXIF data found. File must be a JPEG with APP1 EXIF segment or a TIFF file."
                     .to_string(),
-            )
-        }
-    };
+            ),
+        };
 
     if tiff_data.len() < 8 {
         return Ok("TIFF data too short to parse.".to_string());
@@ -147,9 +149,7 @@ fn find_jpeg_exif(bytes: &[u8]) -> Option<Vec<u8>> {
 
         if marker == 0xE1 && seg_end > pos + 10 {
             let data_start = pos + 4;
-            if data_start + 6 <= bytes.len()
-                && &bytes[data_start..data_start + 6] == b"Exif\0\0"
-            {
+            if data_start + 6 <= bytes.len() && &bytes[data_start..data_start + 6] == b"Exif\0\0" {
                 return Some(bytes[data_start + 6..seg_end].to_vec());
             }
         }
@@ -228,7 +228,11 @@ fn parse_ifd(data: &[u8], offset: usize, le: bool, ifd_name: &'static str) -> Ve
 
         let total = cnt.saturating_mul(type_size);
         let raw_offset = read_u32(data, base + 8, le);
-        let data_ptr = if total <= 4 { base + 8 } else { raw_offset as usize };
+        let data_ptr = if total <= 4 {
+            base + 8
+        } else {
+            raw_offset as usize
+        };
 
         let value_str = format_tag_value(data, data_ptr, typ, cnt, le, tag);
         let value_offset = if matches!(tag, 0x8769 | 0x8825) {
@@ -248,14 +252,7 @@ fn parse_ifd(data: &[u8], offset: usize, le: bool, ifd_name: &'static str) -> Ve
     entries
 }
 
-fn format_tag_value(
-    data: &[u8],
-    ptr: usize,
-    typ: u16,
-    count: usize,
-    le: bool,
-    tag: u16,
-) -> String {
+fn format_tag_value(data: &[u8], ptr: usize, typ: u16, count: usize, le: bool, tag: u16) -> String {
     if ptr >= data.len() {
         return String::new();
     }
