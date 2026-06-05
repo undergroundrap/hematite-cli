@@ -50,7 +50,10 @@ pub fn make_schema() -> Value {
 }
 
 pub async fn execute(args: &Value) -> Result<String, String> {
-    let action = args.get("action").and_then(|v| v.as_str()).unwrap_or("parse");
+    let action = args
+        .get("action")
+        .and_then(|v| v.as_str())
+        .unwrap_or("parse");
     match action {
         "parse" | "inspect" | "decode" => do_parse(args),
         "build" | "create" | "generate" => do_build(args),
@@ -168,13 +171,21 @@ fn do_parse(args: &Value) -> Result<String, String> {
 
 fn parse_single(v: &Value) -> Result<String, String> {
     let kind = detect_kind(v);
-    let mut out = format!("JSON-RPC 2.0 — {}\n{}\n\n", kind_label(&kind), "─".repeat(45));
+    let mut out = format!(
+        "JSON-RPC 2.0 — {}\n{}\n\n",
+        kind_label(&kind),
+        "─".repeat(45)
+    );
 
     if let Some(obj) = v.as_object() {
         match obj.get("jsonrpc") {
             Some(ver) => {
                 let ver_str = ver.as_str().unwrap_or("(non-string)");
-                let ok = if ver_str == "2.0" { "✓" } else { "✗ (expected \"2.0\")" };
+                let ok = if ver_str == "2.0" {
+                    "✓"
+                } else {
+                    "✗ (expected \"2.0\")"
+                };
                 out.push_str(&format!("  jsonrpc : \"{}\" {}\n", ver_str, ok));
             }
             None => {
@@ -229,11 +240,18 @@ fn parse_single(v: &Value) -> Result<String, String> {
         }
 
         let known = ["jsonrpc", "id", "method", "params", "result", "error"];
-        let extras: Vec<_> = obj.keys().filter(|k| !known.contains(&k.as_str())).collect();
+        let extras: Vec<_> = obj
+            .keys()
+            .filter(|k| !known.contains(&k.as_str()))
+            .collect();
         if !extras.is_empty() {
             out.push_str(&format!(
                 "\n  Extra keys: {}\n",
-                extras.iter().map(|s| s.as_str()).collect::<Vec<_>>().join(", ")
+                extras
+                    .iter()
+                    .map(|s| s.as_str())
+                    .collect::<Vec<_>>()
+                    .join(", ")
             ));
         }
 
@@ -372,10 +390,7 @@ fn validate_single_message(v: &Value) -> Vec<String> {
         None => issues.push("Missing required field 'jsonrpc'".to_string()),
         Some(ver) => {
             if ver.as_str() != Some("2.0") {
-                issues.push(format!(
-                    "'jsonrpc' must be exactly \"2.0\", got: {}",
-                    ver
-                ));
+                issues.push(format!("'jsonrpc' must be exactly \"2.0\", got: {}", ver));
             }
         }
     }
@@ -393,9 +408,7 @@ fn validate_single_message(v: &Value) -> Vec<String> {
         }
         if let Some(params) = obj.get("params") {
             if !params.is_array() && !params.is_object() {
-                issues.push(
-                    "'params' must be an array or object (not null/scalar)".to_string(),
-                );
+                issues.push("'params' must be an array or object (not null/scalar)".to_string());
             }
         }
         if has_id {
@@ -414,15 +427,11 @@ fn validate_single_message(v: &Value) -> Vec<String> {
             }
         }
         if has_error {
-            issues.push(
-                "Response must not contain both 'result' and 'error'".to_string(),
-            );
+            issues.push("Response must not contain both 'result' and 'error'".to_string());
         }
     } else if has_error {
         if !has_id {
-            issues.push(
-                "Error response must include 'id' (use null if unknown)".to_string(),
-            );
+            issues.push("Error response must include 'id' (use null if unknown)".to_string());
         }
         let err = &obj["error"];
         match err.as_object() {
@@ -431,9 +440,7 @@ fn validate_single_message(v: &Value) -> Vec<String> {
                 match err_obj.get("code") {
                     None => issues.push("'error.code' is required (integer)".to_string()),
                     Some(c) => {
-                        if !c.is_number()
-                            || c.as_f64().map(|f| f.fract() != 0.0).unwrap_or(false)
-                        {
+                        if !c.is_number() || c.as_f64().map(|f| f.fract() != 0.0).unwrap_or(false) {
                             issues.push("'error.code' must be an integer".to_string());
                         }
                     }
@@ -460,7 +467,10 @@ fn validate_single_message(v: &Value) -> Vec<String> {
 // ── Action: build ──────────────────────────────────────────────────────────
 
 fn do_build(args: &Value) -> Result<String, String> {
-    let kind = args.get("kind").and_then(|v| v.as_str()).unwrap_or("request");
+    let kind = args
+        .get("kind")
+        .and_then(|v| v.as_str())
+        .unwrap_or("request");
 
     let msg = match kind {
         "request" => build_request(args)?,
@@ -553,17 +563,13 @@ fn build_error(args: &Value) -> Result<Value, String> {
         .get("error_code")
         .or_else(|| args.get("code"))
         .and_then(|v| v.as_i64())
-        .ok_or_else(|| {
-            "Pass 'error_code' (integer) for an error response.".to_string()
-        })?;
+        .ok_or_else(|| "Pass 'error_code' (integer) for an error response.".to_string())?;
 
     let message = args
         .get("error_message")
         .or_else(|| args.get("message"))
         .and_then(|v| v.as_str())
-        .ok_or_else(|| {
-            "Pass 'error_message' (string) for an error response.".to_string()
-        })?;
+        .ok_or_else(|| "Pass 'error_message' (string) for an error response.".to_string())?;
 
     let mut err_obj = json!({
         "code": code,
@@ -584,10 +590,7 @@ fn build_error(args: &Value) -> Result<Value, String> {
 // ── Action: batch ──────────────────────────────────────────────────────────
 
 fn do_batch(args: &Value) -> Result<String, String> {
-    if args.get("message").is_some()
-        || args.get("text").is_some()
-        || args.get("json").is_some()
-    {
+    if args.get("message").is_some() || args.get("text").is_some() || args.get("json").is_some() {
         let v = load_message(args)?;
         if !v.is_array() {
             return Ok("Input is not a JSON array. A batch must be a JSON array.".to_string());

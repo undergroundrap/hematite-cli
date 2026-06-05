@@ -16070,9 +16070,15 @@ fn test_routing_detects_diff3_tools() {
     use hematite::agent::routing::needs_diff3_tools;
     assert!(needs_diff3_tools("there are merge conflicts in this file"));
     assert!(needs_diff3_tools("resolve the git conflict markers"));
-    assert!(needs_diff3_tools("parse the <<<<<< ======= >>>>>>> conflict blocks"));
-    assert!(needs_diff3_tools("do a three-way merge of base ours and theirs"));
-    assert!(needs_diff3_tools("auto-resolve conflicts using ours strategy"));
+    assert!(needs_diff3_tools(
+        "parse the <<<<<< ======= >>>>>>> conflict blocks"
+    ));
+    assert!(needs_diff3_tools(
+        "do a three-way merge of base ours and theirs"
+    ));
+    assert!(needs_diff3_tools(
+        "auto-resolve conflicts using ours strategy"
+    ));
     assert!(needs_diff3_tools("list all diff3 conflicts in the file"));
     assert!(!needs_diff3_tools("compare these two text files"));
     assert!(!needs_diff3_tools("rebase my branch onto main"));
@@ -17694,7 +17700,9 @@ fn test_routing_detects_ip_tools() {
 #[test]
 fn test_routing_detects_subnet_tools() {
     use hematite::agent::routing::needs_subnet_tools;
-    assert!(needs_subnet_tools("split subnet 10.0.0.0/24 into 4 subnets"));
+    assert!(needs_subnet_tools(
+        "split subnet 10.0.0.0/24 into 4 subnets"
+    ));
     assert!(needs_subnet_tools("cidr aggregate these networks"));
     assert!(needs_subnet_tools("find the supernet for these IPs"));
     assert!(needs_subnet_tools("list hosts in cidr 192.168.1.0/28"));
@@ -17726,7 +17734,10 @@ async fn test_subnet_tools_aggregate() {
         "ips": ["10.0.0.0/25", "10.0.0.128/25"]
     });
     let result = hematite::tools::subnet_tools::execute(&args).await.unwrap();
-    assert!(result.contains("10.0.0.0/24"), "two /25 should aggregate to /24");
+    assert!(
+        result.contains("10.0.0.0/24"),
+        "two /25 should aggregate to /24"
+    );
 }
 
 #[tokio::test]
@@ -17737,7 +17748,10 @@ async fn test_subnet_tools_range() {
         "end": "192.168.1.255"
     });
     let result = hematite::tools::subnet_tools::execute(&args).await.unwrap();
-    assert!(result.contains("192.168.1.0/24"), "IP range should produce /24 CIDR");
+    assert!(
+        result.contains("192.168.1.0/24"),
+        "IP range should produce /24 CIDR"
+    );
 }
 
 // ── color_tools ───────────────────────────────────────────────────────────────
@@ -21746,11 +21760,17 @@ fn test_routing_detects_money_tools() {
 #[test]
 fn test_routing_detects_financial_tools() {
     use hematite::agent::routing::needs_financial_tools;
-    assert!(needs_financial_tools("show me an amortization schedule for a 30-year mortgage"));
-    assert!(needs_financial_tools("calculate straight line depreciation for equipment"));
+    assert!(needs_financial_tools(
+        "show me an amortization schedule for a 30-year mortgage"
+    ));
+    assert!(needs_financial_tools(
+        "calculate straight line depreciation for equipment"
+    ));
     assert!(needs_financial_tools("roi calculation for this investment"));
     assert!(needs_financial_tools("find the break-even point"));
-    assert!(needs_financial_tools("calculate NPV and IRR for these cash flows"));
+    assert!(needs_financial_tools(
+        "calculate NPV and IRR for these cash flows"
+    ));
     assert!(needs_financial_tools("what is the CAGR over 5 years"));
     assert!(needs_financial_tools("savings planner to reach my goal"));
     assert!(!needs_financial_tools("split the dinner bill"));
@@ -21765,9 +21785,17 @@ async fn test_financial_tools_amortize() {
         "annual_rate": 6.0,
         "term_months": 360
     });
-    let result = hematite::tools::financial_tools::execute(&args).await.unwrap();
-    assert!(result.contains("Monthly payment") || result.contains("monthly payment"), "should show monthly payment");
-    assert!(result.contains("1,199") || result.contains("1199") || result.contains("1,200"), "~$1199/mo for 200k at 6% 30yr");
+    let result = hematite::tools::financial_tools::execute(&args)
+        .await
+        .unwrap();
+    assert!(
+        result.contains("Monthly payment") || result.contains("monthly payment"),
+        "should show monthly payment"
+    );
+    assert!(
+        result.contains("1,199") || result.contains("1199") || result.contains("1,200"),
+        "~$1199/mo for 200k at 6% 30yr"
+    );
 }
 
 #[tokio::test]
@@ -21779,8 +21807,13 @@ async fn test_financial_tools_depreciation_sl() {
         "life_years": 5,
         "method": "straight_line"
     });
-    let result = hematite::tools::financial_tools::execute(&args).await.unwrap();
-    assert!(result.contains("9,000") || result.contains("9000"), "SL: (50000-5000)/5 = $9000/yr");
+    let result = hematite::tools::financial_tools::execute(&args)
+        .await
+        .unwrap();
+    assert!(
+        result.contains("9,000") || result.contains("9000"),
+        "SL: (50000-5000)/5 = $9000/yr"
+    );
 }
 
 #[tokio::test]
@@ -21790,9 +21823,14 @@ async fn test_financial_tools_cashflow() {
         "cashflows": [-100000, 30000, 40000, 50000],
         "discount_rate": 8
     });
-    let result = hematite::tools::financial_tools::execute(&args).await.unwrap();
+    let result = hematite::tools::financial_tools::execute(&args)
+        .await
+        .unwrap();
     assert!(result.contains("NPV"), "should show NPV");
-    assert!(result.contains("IRR") || result.contains("Payback"), "should show IRR or payback");
+    assert!(
+        result.contains("IRR") || result.contains("Payback"),
+        "should show IRR or payback"
+    );
 }
 
 #[tokio::test]
@@ -21803,9 +21841,17 @@ async fn test_financial_tools_cagr() {
         "end_value": 16105,
         "years": 5
     });
-    let result = hematite::tools::financial_tools::execute(&args).await.unwrap();
-    assert!(result.contains("CAGR") || result.contains("growth rate"), "should show CAGR");
-    assert!(result.contains("10.") || result.contains("10%"), "~10% CAGR");
+    let result = hematite::tools::financial_tools::execute(&args)
+        .await
+        .unwrap();
+    assert!(
+        result.contains("CAGR") || result.contains("growth rate"),
+        "should show CAGR"
+    );
+    assert!(
+        result.contains("10.") || result.contains("10%"),
+        "~10% CAGR"
+    );
 }
 
 // ── size_tools tests ──────────────────────────────────────────────────────
@@ -30366,7 +30412,9 @@ fn test_routing_detects_jsonl_tools() {
 fn test_routing_detects_jsonrpc_tools() {
     use hematite::agent::routing::needs_jsonrpc_tools;
     assert!(needs_jsonrpc_tools("parse this json-rpc message"));
-    assert!(needs_jsonrpc_tools("build a jsonrpc request for the subtract method"));
+    assert!(needs_jsonrpc_tools(
+        "build a jsonrpc request for the subtract method"
+    ));
     assert!(needs_jsonrpc_tools("validate this json rpc 2.0 batch"));
     assert!(needs_jsonrpc_tools("what does error code -32601 mean"));
     assert!(needs_jsonrpc_tools("decode this rpc notification"));
@@ -30384,9 +30432,21 @@ async fn test_jsonrpc_tools_parse_request() {
         "message": "{\"jsonrpc\":\"2.0\",\"method\":\"subtract\",\"params\":[42,23],\"id\":1}"
     });
     let result = jsonrpc_tools::execute(&args).await.unwrap();
-    assert!(result.contains("Request"), "should identify as Request: {}", result);
-    assert!(result.contains("subtract"), "should show method name: {}", result);
-    assert!(result.contains("2.0"), "should show jsonrpc version: {}", result);
+    assert!(
+        result.contains("Request"),
+        "should identify as Request: {}",
+        result
+    );
+    assert!(
+        result.contains("subtract"),
+        "should show method name: {}",
+        result
+    );
+    assert!(
+        result.contains("2.0"),
+        "should show jsonrpc version: {}",
+        result
+    );
 }
 
 #[tokio::test]
@@ -30410,9 +30470,21 @@ async fn test_jsonrpc_tools_build_request() {
         "id": 42
     });
     let result = jsonrpc_tools::execute(&args).await.unwrap();
-    assert!(result.contains("\"method\""), "should contain method key: {}", result);
-    assert!(result.contains("add"), "should contain method value: {}", result);
-    assert!(result.contains("Passes spec"), "should pass validation: {}", result);
+    assert!(
+        result.contains("\"method\""),
+        "should contain method key: {}",
+        result
+    );
+    assert!(
+        result.contains("add"),
+        "should contain method value: {}",
+        result
+    );
+    assert!(
+        result.contains("Passes spec"),
+        "should pass validation: {}",
+        result
+    );
 }
 
 // ── jsonl_tools functional ────────────────────────────────────────────────────
@@ -39543,11 +39615,20 @@ fn test_pdf_tools_not_a_pdf() {
 #[test]
 fn test_routing_detects_epub_tools() {
     use hematite::agent::routing::needs_epub_tools;
-    assert!(needs_epub_tools("show me the epub metadata"), "epub metadata");
+    assert!(
+        needs_epub_tools("show me the epub metadata"),
+        "epub metadata"
+    );
     assert!(needs_epub_tools("inspect this epub file"), "epub file");
-    assert!(needs_epub_tools("list the epub table of contents"), "epub toc");
+    assert!(
+        needs_epub_tools("list the epub table of contents"),
+        "epub toc"
+    );
     assert!(needs_epub_tools("validate this epub"), "epub validate");
-    assert!(!needs_epub_tools("show me the mp3 metadata"), "should not match");
+    assert!(
+        !needs_epub_tools("show me the mp3 metadata"),
+        "should not match"
+    );
 }
 
 #[test]
@@ -39556,7 +39637,11 @@ fn test_epub_tools_no_args() {
     let result = rt.block_on(hematite::tools::epub_tools::execute(&serde_json::json!({})));
     assert!(result.is_ok());
     let out = result.unwrap();
-    assert!(out.contains("Error"), "missing args should return Error: {}", out);
+    assert!(
+        out.contains("Error"),
+        "missing args should return Error: {}",
+        out
+    );
 }
 
 #[test]
@@ -39669,8 +39754,16 @@ fn test_epub_tools_info() {
     ));
     assert!(result.is_ok());
     let out = result.unwrap();
-    assert!(out.contains("Test Book") || out.contains("EPUB"), "info output: {}", out);
-    assert!(out.contains("Jane Author") || out.contains("Author"), "author: {}", out);
+    assert!(
+        out.contains("Test Book") || out.contains("EPUB"),
+        "info output: {}",
+        out
+    );
+    assert!(
+        out.contains("Jane Author") || out.contains("Author"),
+        "author: {}",
+        out
+    );
 }
 
 #[test]
@@ -39684,7 +39777,11 @@ fn test_epub_tools_metadata() {
     assert!(result.is_ok());
     let out = result.unwrap();
     assert!(out.contains("Test Book"), "title in metadata: {}", out);
-    assert!(out.contains("Test Press") || out.contains("Publisher"), "publisher: {}", out);
+    assert!(
+        out.contains("Test Press") || out.contains("Publisher"),
+        "publisher: {}",
+        out
+    );
 }
 
 #[test]
@@ -39698,7 +39795,9 @@ fn test_epub_tools_toc() {
     assert!(result.is_ok());
     let out = result.unwrap();
     assert!(
-        out.contains("Chapter 1") || out.contains("TABLE OF CONTENTS") || out.contains("none detected"),
+        out.contains("Chapter 1")
+            || out.contains("TABLE OF CONTENTS")
+            || out.contains("none detected"),
         "toc: {}",
         out
     );
@@ -39727,10 +39826,19 @@ fn test_epub_tools_validate() {
 fn test_routing_detects_sbom_tools() {
     use hematite::agent::routing::needs_sbom_tools;
     assert!(needs_sbom_tools("parse this sbom"), "sbom");
-    assert!(needs_sbom_tools("analyze the cyclonedx bill of materials"), "cyclonedx");
+    assert!(
+        needs_sbom_tools("analyze the cyclonedx bill of materials"),
+        "cyclonedx"
+    );
     assert!(needs_sbom_tools("show spdx components"), "spdx");
-    assert!(needs_sbom_tools("what licenses are in this software bill of materials"), "bill of materials");
-    assert!(!needs_sbom_tools("show me the mp3 tags"), "should not match");
+    assert!(
+        needs_sbom_tools("what licenses are in this software bill of materials"),
+        "bill of materials"
+    );
+    assert!(
+        !needs_sbom_tools("show me the mp3 tags"),
+        "should not match"
+    );
 }
 
 #[test]
@@ -39739,7 +39847,11 @@ fn test_sbom_tools_no_args() {
     let result = rt.block_on(hematite::tools::sbom_tools::execute(&serde_json::json!({})));
     assert!(result.is_ok());
     let out = result.unwrap();
-    assert!(out.contains("Error"), "missing args should return Error: {}", out);
+    assert!(
+        out.contains("Error"),
+        "missing args should return Error: {}",
+        out
+    );
 }
 
 #[test]
@@ -39768,8 +39880,16 @@ fn test_sbom_tools_cyclonedx_info() {
     assert!(result.is_ok());
     let out = result.unwrap();
     assert!(out.contains("CycloneDX"), "format: {}", out);
-    assert!(out.contains("1.4") || out.contains("specVersion"), "spec version: {}", out);
-    assert!(out.contains('2') || out.contains("Component"), "component count: {}", out);
+    assert!(
+        out.contains("1.4") || out.contains("specVersion"),
+        "spec version: {}",
+        out
+    );
+    assert!(
+        out.contains('2') || out.contains("Component"),
+        "component count: {}",
+        out
+    );
 }
 
 #[test]
@@ -39790,7 +39910,11 @@ fn test_sbom_tools_cyclonedx_licenses() {
     assert!(result.is_ok());
     let out = result.unwrap();
     assert!(out.contains("MIT"), "MIT license: {}", out);
-    assert!(out.contains("Apache-2.0") || out.contains("Apache"), "Apache license: {}", out);
+    assert!(
+        out.contains("Apache-2.0") || out.contains("Apache"),
+        "Apache license: {}",
+        out
+    );
 }
 
 #[test]
@@ -39807,8 +39931,16 @@ fn test_sbom_tools_spdx_tv_info() {
     ));
     assert!(result.is_ok());
     let out = result.unwrap();
-    assert!(out.contains("SPDX") || out.contains("tag-value"), "format: {}", out);
-    assert!(out.contains('2') || out.contains("Component"), "components: {}", out);
+    assert!(
+        out.contains("SPDX") || out.contains("tag-value"),
+        "format: {}",
+        out
+    );
+    assert!(
+        out.contains('2') || out.contains("Component"),
+        "components: {}",
+        out
+    );
 }
 
 #[test]
@@ -39844,7 +39976,9 @@ fn test_routing_detects_coverage_tools() {
     assert!(needs_coverage_tools("analyze istanbul coverage summary"));
     assert!(needs_coverage_tools("which lines are uncovered"));
     assert!(needs_coverage_tools("compare coverage before and after"));
-    assert!(needs_coverage_tools("show files below 80% coverage threshold"));
+    assert!(needs_coverage_tools(
+        "show files below 80% coverage threshold"
+    ));
     assert!(!needs_coverage_tools("run the test suite"));
     assert!(!needs_coverage_tools("generate a unit test"));
 }
@@ -39873,7 +40007,10 @@ fn test_coverage_tools_uncovered_lines() {
             &serde_json::json!({ "action": "uncovered", "text": lcov }),
         ))
         .unwrap();
-    assert!(out.contains("uncovered") || out.contains("lines"), "got: {out}");
+    assert!(
+        out.contains("uncovered") || out.contains("lines"),
+        "got: {out}"
+    );
 }
 
 #[test]
@@ -39895,8 +40032,12 @@ fn test_routing_detects_strace_tools() {
     use hematite::agent::routing::needs_strace_tools;
     assert!(needs_strace_tools("parse my strace output"));
     assert!(needs_strace_tools("analyze this strace log"));
-    assert!(needs_strace_tools("show syscall frequency from strace file"));
-    assert!(needs_strace_tools("which file operations did the process make in strace"));
+    assert!(needs_strace_tools(
+        "show syscall frequency from strace file"
+    ));
+    assert!(needs_strace_tools(
+        "which file operations did the process make in strace"
+    ));
     assert!(needs_strace_tools("find failed syscalls in strace"));
     assert!(needs_strace_tools("trace network calls from strace"));
     assert!(!needs_strace_tools("run the application and check logs"));
@@ -39913,7 +40054,10 @@ fn test_strace_tools_summary() {
             &serde_json::json!({ "action": "summary", "text": strace }),
         ))
         .unwrap();
-    assert!(out.contains("openat") || out.contains("syscall") || out.contains("Syscall"), "got: {out}");
+    assert!(
+        out.contains("openat") || out.contains("syscall") || out.contains("Syscall"),
+        "got: {out}"
+    );
 }
 
 #[test]
@@ -39978,7 +40122,10 @@ add_subdirectory(tests)
         ))
         .unwrap();
     assert!(out.contains("MyApp") || out.contains("cmake"), "got: {out}");
-    assert!(out.contains("3.20") || out.contains("Minimum"), "got: {out}");
+    assert!(
+        out.contains("3.20") || out.contains("Minimum"),
+        "got: {out}"
+    );
 }
 
 #[test]
@@ -39996,8 +40143,14 @@ add_custom_target(clean_all COMMAND rm -rf build)
             &serde_json::json!({ "action": "targets", "text": cmake }),
         ))
         .unwrap();
-    assert!(out.contains("demo") || out.contains("Executable"), "got: {out}");
-    assert!(out.contains("demolib") || out.contains("SHARED") || out.contains("Library"), "got: {out}");
+    assert!(
+        out.contains("demo") || out.contains("Executable"),
+        "got: {out}"
+    );
+    assert!(
+        out.contains("demolib") || out.contains("SHARED") || out.contains("Library"),
+        "got: {out}"
+    );
 }
 
 #[test]
@@ -40013,7 +40166,10 @@ add_executable(app ${SOURCES})
             &serde_json::json!({ "action": "validate", "text": cmake }),
         ))
         .unwrap();
-    assert!(out.contains("cmake_minimum_required") || out.contains("WARNINGS") || out.contains("VALID"), "got: {out}");
+    assert!(
+        out.contains("cmake_minimum_required") || out.contains("WARNINGS") || out.contains("VALID"),
+        "got: {out}"
+    );
 }
 
 // ── dotnet_tools routing ──
@@ -40047,7 +40203,10 @@ fn test_dotnet_tools_info() {
             &serde_json::json!({ "action": "info", "text": csproj }),
         ))
         .unwrap();
-    assert!(out.contains("net8.0") || out.contains("Target Framework"), "got: {out}");
+    assert!(
+        out.contains("net8.0") || out.contains("Target Framework"),
+        "got: {out}"
+    );
     assert!(out.contains("Exe") || out.contains("Output"), "got: {out}");
 }
 
@@ -40069,7 +40228,10 @@ fn test_dotnet_tools_packages() {
             &serde_json::json!({ "action": "packages", "text": csproj }),
         ))
         .unwrap();
-    assert!(out.contains("Newtonsoft.Json") || out.contains("NuGet"), "got: {out}");
+    assert!(
+        out.contains("Newtonsoft.Json") || out.contains("NuGet"),
+        "got: {out}"
+    );
     assert!(out.contains("Serilog") || out.contains("3.1"), "got: {out}");
 }
 
@@ -40086,5 +40248,248 @@ fn test_dotnet_tools_validate() {
             &serde_json::json!({ "action": "validate", "text": csproj }),
         ))
         .unwrap();
-    assert!(out.contains("INVALID") || out.contains("VALID") || out.contains("Sdk"), "got: {out}");
+    assert!(
+        out.contains("INVALID") || out.contains("VALID") || out.contains("Sdk"),
+        "got: {out}"
+    );
+}
+
+// ── maven_tools ────────────────────────────────────────────────────────────
+
+#[test]
+fn test_routing_detects_maven_tools() {
+    assert!(hematite::agent::routing::needs_maven_tools("parse pom.xml"));
+    assert!(hematite::agent::routing::needs_maven_tools(
+        "what are the maven dependencies"
+    ));
+    assert!(hematite::agent::routing::needs_maven_tools(
+        "show maven plugins"
+    ));
+    assert!(hematite::agent::routing::needs_maven_tools(
+        "maven profiles list"
+    ));
+    assert!(hematite::agent::routing::needs_maven_tools(
+        "validate this maven pom"
+    ));
+    assert!(hematite::agent::routing::needs_maven_tools(
+        "mvn dependency tree"
+    ));
+    // negative — should not trigger maven routing
+    assert!(!hematite::agent::routing::needs_maven_tools(
+        "run the build system"
+    ));
+    assert!(!hematite::agent::routing::needs_maven_tools(
+        "show project dependencies in gradle"
+    ));
+}
+
+#[test]
+fn test_maven_tools_info() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let pom = r#"<?xml version="1.0"?>
+<project>
+  <groupId>com.example</groupId>
+  <artifactId>my-app</artifactId>
+  <version>1.2.3</version>
+  <packaging>jar</packaging>
+  <description>Example Maven project</description>
+  <properties>
+    <maven.compiler.release>17</maven.compiler.release>
+  </properties>
+  <dependencies>
+    <dependency>
+      <groupId>org.springframework</groupId>
+      <artifactId>spring-core</artifactId>
+      <version>6.1.0</version>
+    </dependency>
+    <dependency>
+      <groupId>junit</groupId>
+      <artifactId>junit</artifactId>
+      <version>4.13.2</version>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+</project>"#;
+    let out = rt
+        .block_on(hematite::tools::maven_tools::execute(
+            &serde_json::json!({ "action": "info", "pom": pom }),
+        ))
+        .unwrap();
+    assert!(out.contains("com.example"), "got: {out}");
+    assert!(
+        out.contains("my-app") || out.contains("Maven"),
+        "got: {out}"
+    );
+    assert!(out.contains("1.2.3"), "got: {out}");
+}
+
+#[test]
+fn test_maven_tools_deps() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let pom = r#"<project>
+  <groupId>com.example</groupId>
+  <artifactId>my-app</artifactId>
+  <version>1.0</version>
+  <dependencies>
+    <dependency>
+      <groupId>org.springframework</groupId>
+      <artifactId>spring-core</artifactId>
+      <version>6.1.0</version>
+    </dependency>
+    <dependency>
+      <groupId>junit</groupId>
+      <artifactId>junit</artifactId>
+      <version>4.13.2</version>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+</project>"#;
+    let out = rt
+        .block_on(hematite::tools::maven_tools::execute(
+            &serde_json::json!({ "action": "deps", "pom": pom }),
+        ))
+        .unwrap();
+    assert!(
+        out.contains("spring-core") || out.contains("org.springframework"),
+        "got: {out}"
+    );
+    assert!(out.contains("junit"), "got: {out}");
+}
+
+#[test]
+fn test_maven_tools_validate() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let pom = r#"<project>
+  <artifactId>my-app</artifactId>
+  <dependencies>
+    <dependency>
+      <groupId>com.example</groupId>
+      <artifactId>lib</artifactId>
+      <version>LATEST</version>
+    </dependency>
+  </dependencies>
+</project>"#;
+    let out = rt
+        .block_on(hematite::tools::maven_tools::execute(
+            &serde_json::json!({ "action": "validate", "pom": pom }),
+        ))
+        .unwrap();
+    // Should warn about missing groupId or LATEST version
+    assert!(
+        out.contains("WARN")
+            || out.contains("Missing")
+            || out.contains("LATEST")
+            || out.contains("groupId"),
+        "got: {out}"
+    );
+}
+
+// ── gradle_tools ───────────────────────────────────────────────────────────
+
+#[test]
+fn test_routing_detects_gradle_tools() {
+    assert!(hematite::agent::routing::needs_gradle_tools(
+        "parse build.gradle"
+    ));
+    assert!(hematite::agent::routing::needs_gradle_tools(
+        "show gradle dependencies"
+    ));
+    assert!(hematite::agent::routing::needs_gradle_tools(
+        "list gradle plugins"
+    ));
+    assert!(hematite::agent::routing::needs_gradle_tools(
+        "build.gradle.kts file"
+    ));
+    assert!(hematite::agent::routing::needs_gradle_tools(
+        "analyze gradle configuration"
+    ));
+    assert!(hematite::agent::routing::needs_gradle_tools(
+        "validate gradle file"
+    ));
+    // negative
+    assert!(!hematite::agent::routing::needs_gradle_tools(
+        "run the maven build"
+    ));
+    assert!(!hematite::agent::routing::needs_gradle_tools(
+        "show pom.xml dependencies"
+    ));
+}
+
+#[test]
+fn test_gradle_tools_info() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let gradle = r#"
+group = 'com.example'
+version = '2.0.0'
+description = 'My Gradle project'
+
+plugins {
+    id 'java'
+    id 'org.springframework.boot' version '3.2.0'
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation 'org.springframework.boot:spring-boot-starter:3.2.0'
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.10.0'
+}
+"#;
+    let out = rt
+        .block_on(hematite::tools::gradle_tools::execute(
+            &serde_json::json!({ "action": "info", "gradle": gradle }),
+        ))
+        .unwrap();
+    assert!(
+        out.contains("com.example") || out.contains("2.0.0") || out.contains("Gradle"),
+        "got: {out}"
+    );
+}
+
+#[test]
+fn test_gradle_tools_deps() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let gradle = r#"
+dependencies {
+    implementation 'org.springframework.boot:spring-boot-starter:3.2.0'
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.10.0'
+    runtimeOnly 'com.h2database:h2:2.2.224'
+}
+"#;
+    let out = rt
+        .block_on(hematite::tools::gradle_tools::execute(
+            &serde_json::json!({ "action": "deps", "gradle": gradle }),
+        ))
+        .unwrap();
+    assert!(
+        out.contains("spring-boot-starter") || out.contains("implementation"),
+        "got: {out}"
+    );
+    assert!(
+        out.contains("junit-jupiter") || out.contains("testImplementation"),
+        "got: {out}"
+    );
+}
+
+#[test]
+fn test_gradle_tools_validate() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let gradle = r#"
+dependencies {
+    compile 'org.old:lib:1.0'
+    implementation 'com.example:app'
+}
+"#;
+    let out = rt
+        .block_on(hematite::tools::gradle_tools::execute(
+            &serde_json::json!({ "action": "validate", "gradle": gradle }),
+        ))
+        .unwrap();
+    // Should warn about deprecated 'compile' or missing group/version
+    assert!(
+        out.contains("WARN") || out.contains("deprecated") || out.contains("No '"),
+        "got: {out}"
+    );
 }

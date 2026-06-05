@@ -230,7 +230,9 @@ fn parse_opf(opf: &str) -> EpubMeta {
         description: tag_text(opf, "dc:description"),
         date: tag_text(opf, "dc:date"),
         rights: tag_text(opf, "dc:rights"),
-        cover_present: opf.contains("cover-image") || opf.contains("cover.jpg") || opf.contains("cover.png"),
+        cover_present: opf.contains("cover-image")
+            || opf.contains("cover.jpg")
+            || opf.contains("cover.png"),
         epub_version: String::from("2.0"),
         spine_items: Vec::new(),
         toc_items: Vec::new(),
@@ -343,12 +345,7 @@ fn opf_dir(opf_path: &str) -> &str {
     }
 }
 
-fn resolve_toc(
-    opf: &str,
-    opf_path: &str,
-    entries: &[ZipEntry],
-    data: &[u8],
-) -> Vec<String> {
+fn resolve_toc(opf: &str, opf_path: &str, entries: &[ZipEntry], data: &[u8]) -> Vec<String> {
     let prefix = opf_dir(opf_path);
 
     // EPUB 3: look for <item properties="nav">
@@ -440,9 +437,7 @@ fn dispatch(action: &str, data: &[u8]) -> String {
 
     // verify mimetype entry
     let has_mimetype = entries.iter().any(|e| e.name == "mimetype");
-    let has_container = entries
-        .iter()
-        .any(|e| e.name == "META-INF/container.xml");
+    let has_container = entries.iter().any(|e| e.name == "META-INF/container.xml");
 
     // read container.xml
     let container_text = entries
@@ -456,9 +451,7 @@ fn dispatch(action: &str, data: &[u8]) -> String {
         None => return "Error: cannot find OPF package file in EPUB".to_string(),
     };
 
-    let opf_text = match find_entry(&entries, &opf_path)
-        .and_then(|e| extract_entry_text(data, e))
-    {
+    let opf_text = match find_entry(&entries, &opf_path).and_then(|e| extract_entry_text(data, e)) {
         Some(t) => t,
         None => return format!("Error: OPF file '{}' is compressed or missing", opf_path),
     };
@@ -506,10 +499,7 @@ fn dispatch(action: &str, data: &[u8]) -> String {
                     meta.toc_items.len().to_string()
                 }
             ));
-            out.push_str(&format!(
-                "  Manifest Files: {}\n",
-                meta.manifest_items
-            ));
+            out.push_str(&format!("  Manifest Files: {}\n", meta.manifest_items));
             out.push_str(&format!("  Total ZIP Entries: {}\n", entries.len()));
             out
         }
@@ -570,9 +560,14 @@ fn dispatch(action: &str, data: &[u8]) -> String {
                 issues.push("WARN: missing 'mimetype' entry (required by EPUB spec)".to_string());
             } else {
                 // check mimetype content
-                if let Some(mt) = find_entry(&entries, "mimetype").and_then(|e| extract_entry_text(data, e)) {
+                if let Some(mt) =
+                    find_entry(&entries, "mimetype").and_then(|e| extract_entry_text(data, e))
+                {
                     if mt.trim() != "application/epub+zip" {
-                        issues.push(format!("WARN: mimetype content is '{}' (should be 'application/epub+zip')", mt.trim()));
+                        issues.push(format!(
+                            "WARN: mimetype content is '{}' (should be 'application/epub+zip')",
+                            mt.trim()
+                        ));
                     }
                 }
             }
@@ -605,8 +600,14 @@ fn dispatch(action: &str, data: &[u8]) -> String {
 
             let mut out = format!("EPUB VALIDATION: {}\n\n", verdict);
             out.push_str(&format!("  EPUB Version  : {}\n", meta.epub_version));
-            out.push_str(&format!("  mimetype entry: {}\n", if has_mimetype { "present" } else { "MISSING" }));
-            out.push_str(&format!("  container.xml : {}\n", if has_container { "present" } else { "MISSING" }));
+            out.push_str(&format!(
+                "  mimetype entry: {}\n",
+                if has_mimetype { "present" } else { "MISSING" }
+            ));
+            out.push_str(&format!(
+                "  container.xml : {}\n",
+                if has_container { "present" } else { "MISSING" }
+            ));
             out.push_str(&format!("  OPF path      : {}\n", opf_path));
             out.push_str(&format!("  Spine items   : {}\n", meta.spine_items.len()));
             if !issues.is_empty() {
@@ -640,7 +641,9 @@ pub async fn execute(args: &Value) -> Result<String, String> {
             Err(_) => return Ok("Error: invalid hex input".to_string()),
         }
     } else {
-        return Ok("Error: provide 'file' (path to .epub) or 'hex' (hex-encoded EPUB bytes)".to_string());
+        return Ok(
+            "Error: provide 'file' (path to .epub) or 'hex' (hex-encoded EPUB bytes)".to_string(),
+        );
     };
 
     Ok(dispatch(action, &data))

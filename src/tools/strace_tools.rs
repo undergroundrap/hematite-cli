@@ -106,7 +106,9 @@ fn strip_timestamp(s: &str) -> &str {
     // simple heuristic: has exactly 2 colons → HH:MM:SS
     // or is all digits + one dot → epoch timestamp
     let colon_count = candidate.chars().filter(|&c| c == ':').count();
-    if colon_count == 2 || (candidate.contains('.') && candidate.chars().all(|c| c.is_ascii_digit() || c == '.')) {
+    if colon_count == 2
+        || (candidate.contains('.') && candidate.chars().all(|c| c.is_ascii_digit() || c == '.'))
+    {
         trimmed[end..].trim_start()
     } else {
         trimmed
@@ -119,11 +121,7 @@ fn parse_call_line(line: &str, pid: Option<u32>) -> Option<StraceCall> {
     let syscall = line[..paren_open].trim().to_string();
 
     // syscall must be a valid identifier
-    if syscall.is_empty()
-        || !syscall
-            .chars()
-            .all(|c| c.is_alphanumeric() || c == '_')
-    {
+    if syscall.is_empty() || !syscall.chars().all(|c| c.is_alphanumeric() || c == '_') {
         return None;
     }
 
@@ -202,7 +200,10 @@ fn extract_errno(result: &str) -> Option<String> {
     if parts.len() >= 2
         && (parts[0] == "-1" || parts[0].starts_with("-1"))
         && parts[1].starts_with('E')
-        && parts[1].chars().skip(1).all(|c| c.is_uppercase() || c.is_ascii_digit())
+        && parts[1]
+            .chars()
+            .skip(1)
+            .all(|c| c.is_uppercase() || c.is_ascii_digit())
     {
         return Some(parts[1].to_string());
     }
@@ -223,10 +224,7 @@ fn load_calls(args: &Value) -> Result<Vec<StraceCall>, String> {
 }
 
 fn filter_pid<'a>(calls: &'a [StraceCall], args: &Value) -> Vec<&'a StraceCall> {
-    let pid_filter: Option<u32> = args
-        .get("pid")
-        .and_then(|v| v.as_u64())
-        .map(|n| n as u32);
+    let pid_filter: Option<u32> = args.get("pid").and_then(|v| v.as_u64()).map(|n| n as u32);
     calls
         .iter()
         .filter(|c| match pid_filter {
@@ -311,10 +309,7 @@ fn do_summary(args: &Value) -> Result<String, String> {
         }
     }
     if sorted.len() > limit {
-        out.push_str(&format!(
-            "... and {} more syscalls\n",
-            sorted.len() - limit
-        ));
+        out.push_str(&format!("... and {} more syscalls\n", sorted.len() - limit));
     }
 
     Ok(out)
@@ -349,10 +344,7 @@ fn do_calls(args: &Value) -> Result<String, String> {
     out.push('\n');
 
     for c in matched {
-        let pid_str = c
-            .pid
-            .map(|p| format!("[{}] ", p))
-            .unwrap_or_default();
+        let pid_str = c.pid.map(|p| format!("[{}] ", p)).unwrap_or_default();
         let args_preview = if c.args_raw.len() > 60 {
             format!("{}…", &c.args_raw[..60])
         } else {
@@ -365,7 +357,11 @@ fn do_calls(args: &Value) -> Result<String, String> {
             .unwrap_or_default();
         out.push_str(&format!(
             "{}{:<20} ({}) = {}{}\n",
-            pid_str, c.syscall, args_preview, c.result.split_whitespace().next().unwrap_or("?"), errno_str
+            pid_str,
+            c.syscall,
+            args_preview,
+            c.result.split_whitespace().next().unwrap_or("?"),
+            errno_str
         ));
     }
 
@@ -374,10 +370,34 @@ fn do_calls(args: &Value) -> Result<String, String> {
 
 fn do_files(args: &Value) -> Result<String, String> {
     const FILE_SYSCALLS: &[&str] = &[
-        "open", "openat", "openat2", "creat", "close", "read", "write", "pread64", "pwrite64",
-        "stat", "lstat", "fstat", "access", "faccessat", "unlink", "unlinkat", "rename",
-        "renameat", "mkdir", "rmdir", "link", "symlink", "readlink", "chmod", "chown",
-        "truncate", "ftruncate", "mmap",
+        "open",
+        "openat",
+        "openat2",
+        "creat",
+        "close",
+        "read",
+        "write",
+        "pread64",
+        "pwrite64",
+        "stat",
+        "lstat",
+        "fstat",
+        "access",
+        "faccessat",
+        "unlink",
+        "unlinkat",
+        "rename",
+        "renameat",
+        "mkdir",
+        "rmdir",
+        "link",
+        "symlink",
+        "readlink",
+        "chmod",
+        "chown",
+        "truncate",
+        "ftruncate",
+        "mmap",
     ];
 
     let calls = load_calls(args)?;
@@ -445,9 +465,25 @@ fn do_files(args: &Value) -> Result<String, String> {
 
 fn do_network(args: &Value) -> Result<String, String> {
     const NET_SYSCALLS: &[&str] = &[
-        "socket", "connect", "bind", "listen", "accept", "accept4", "send", "sendto",
-        "sendmsg", "recv", "recvfrom", "recvmsg", "shutdown", "setsockopt", "getsockopt",
-        "getpeername", "getsockname", "poll", "epoll_wait",
+        "socket",
+        "connect",
+        "bind",
+        "listen",
+        "accept",
+        "accept4",
+        "send",
+        "sendto",
+        "sendmsg",
+        "recv",
+        "recvfrom",
+        "recvmsg",
+        "shutdown",
+        "setsockopt",
+        "getsockopt",
+        "getpeername",
+        "getsockname",
+        "poll",
+        "epoll_wait",
     ];
 
     let calls = load_calls(args)?;
@@ -467,7 +503,10 @@ fn do_network(args: &Value) -> Result<String, String> {
     let mut freq: HashMap<&str, u64> = HashMap::new();
 
     let mut out = String::new();
-    out.push_str(&format!("Network operations ({} shown):\n", net_calls.len()));
+    out.push_str(&format!(
+        "Network operations ({} shown):\n",
+        net_calls.len()
+    ));
     out.push_str(&"─".repeat(70));
     out.push('\n');
 
@@ -485,11 +524,7 @@ fn do_network(args: &Value) -> Result<String, String> {
         let flag = if c.is_error { "✗" } else { "✓" };
         out.push_str(&format!(
             "{} {:<16} = {}{}  {}\n",
-            flag,
-            c.syscall,
-            result_short,
-            errno_str,
-            addr
+            flag, c.syscall, result_short, errno_str, addr
         ));
     }
 
@@ -511,11 +546,7 @@ fn do_errors(args: &Value) -> Result<String, String> {
     let filtered = filter_pid(&calls, args);
     let limit = args.get("limit").and_then(|v| v.as_u64()).unwrap_or(50) as usize;
 
-    let errors: Vec<_> = filtered
-        .iter()
-        .filter(|c| c.is_error)
-        .take(limit)
-        .collect();
+    let errors: Vec<_> = filtered.iter().filter(|c| c.is_error).take(limit).collect();
 
     if errors.is_empty() {
         return Ok("No failed syscalls found.".to_string());
@@ -543,10 +574,7 @@ fn do_errors(args: &Value) -> Result<String, String> {
     out.push_str(&"─".repeat(70));
     out.push('\n');
     for c in &errors {
-        let pid_str = c
-            .pid
-            .map(|p| format!("[{}] ", p))
-            .unwrap_or_default();
+        let pid_str = c.pid.map(|p| format!("[{}] ", p)).unwrap_or_default();
         let errno_str = c
             .errno
             .as_deref()
@@ -627,7 +655,10 @@ fn extract_addr(args: &str) -> String {
 // ── entry point ──────────────────────────────────────────────────────────────
 
 pub async fn execute(args: &Value) -> Result<String, String> {
-    let action = args.get("action").and_then(|v| v.as_str()).unwrap_or("summary");
+    let action = args
+        .get("action")
+        .and_then(|v| v.as_str())
+        .unwrap_or("summary");
     match action {
         "summary" => do_summary(args),
         "calls" => do_calls(args),

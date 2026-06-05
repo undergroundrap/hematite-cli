@@ -91,10 +91,9 @@ fn parse_lcov(text: &str) -> Vec<FileCov> {
                 // DA:line_number,execution_count[,checksum]
                 let parts: Vec<&str> = rest.splitn(3, ',').collect();
                 if parts.len() >= 2 {
-                    if let (Ok(lineno), Ok(count)) = (
-                        parts[0].parse::<u32>(),
-                        parts[1].parse::<u64>(),
-                    ) {
+                    if let (Ok(lineno), Ok(count)) =
+                        (parts[0].parse::<u32>(), parts[1].parse::<u64>())
+                    {
                         da_map.insert(lineno, count);
                     }
                 }
@@ -316,13 +315,8 @@ fn do_files(args: &Value) -> Result<String, String> {
         return Ok("No coverage records found.".to_string());
     }
 
-    let threshold: Option<f64> = args
-        .get("threshold")
-        .and_then(|v| v.as_f64());
-    let limit = args
-        .get("limit")
-        .and_then(|v| v.as_u64())
-        .unwrap_or(50) as usize;
+    let threshold: Option<f64> = args.get("threshold").and_then(|v| v.as_f64());
+    let limit = args.get("limit").and_then(|v| v.as_u64()).unwrap_or(50) as usize;
 
     let mut sorted = records.clone();
     sorted.sort_by(|a, b| a.line_pct().partial_cmp(&b.line_pct()).unwrap());
@@ -339,7 +333,9 @@ fn do_files(args: &Value) -> Result<String, String> {
     if filtered.is_empty() {
         return Ok(format!(
             "No files{}.",
-            threshold.map(|t| format!(" below {:.0}% coverage", t)).unwrap_or_default()
+            threshold
+                .map(|t| format!(" below {:.0}% coverage", t))
+                .unwrap_or_default()
         ));
     }
 
@@ -352,7 +348,10 @@ fn do_files(args: &Value) -> Result<String, String> {
             records.len()
         ));
     } else {
-        out.push_str(&format!("All files by line coverage ({}):\n", filtered.len()));
+        out.push_str(&format!(
+            "All files by line coverage ({}):\n",
+            filtered.len()
+        ));
     }
     out.push_str(&format!(
         "{:<55} {:>7}  {:>7}  {:>7}\n",
@@ -380,10 +379,7 @@ fn do_uncovered(args: &Value) -> Result<String, String> {
         return Ok("No coverage records found.".to_string());
     }
 
-    let limit = args
-        .get("limit")
-        .and_then(|v| v.as_u64())
-        .unwrap_or(50) as usize;
+    let limit = args.get("limit").and_then(|v| v.as_u64()).unwrap_or(50) as usize;
 
     let mut out = String::new();
     let mut count = 0;
@@ -422,7 +418,10 @@ fn do_uncovered(args: &Value) -> Result<String, String> {
     let mut header = format!(
         "Uncovered lines ({} total uncovered across {} files)\n",
         total_uncovered,
-        records.iter().filter(|f| !f.uncovered_lines.is_empty()).count()
+        records
+            .iter()
+            .filter(|f| !f.uncovered_lines.is_empty())
+            .count()
     );
     if count >= limit {
         header.push_str(&format!("(showing first {} files)\n", limit));
@@ -525,12 +524,7 @@ fn do_compare(args: &Value) -> Result<String, String> {
         })
         .filter(|(_, pa, pb)| (pb - pa).abs() > 0.1)
         .collect();
-    changed.sort_by(|x, y| {
-        (y.2 - y.1)
-            .abs()
-            .partial_cmp(&(x.2 - x.1).abs())
-            .unwrap()
-    });
+    changed.sort_by(|x, y| (y.2 - y.1).abs().partial_cmp(&(x.2 - x.1).abs()).unwrap());
 
     let new_files: Vec<_> = b_map
         .keys()
@@ -576,7 +570,10 @@ fn do_compare(args: &Value) -> Result<String, String> {
 }
 
 pub async fn execute(args: &Value) -> Result<String, String> {
-    let action = args.get("action").and_then(|v| v.as_str()).unwrap_or("summary");
+    let action = args
+        .get("action")
+        .and_then(|v| v.as_str())
+        .unwrap_or("summary");
     match action {
         "summary" => do_summary(args),
         "files" => do_files(args),

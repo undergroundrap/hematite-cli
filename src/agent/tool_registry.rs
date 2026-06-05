@@ -4089,6 +4089,36 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         }),
     ));
     tools.push(make_tool(
+        "maven_tools",
+        "Parse, inspect, and validate Maven pom.xml files without external utilities. \
+         Actions: info (default — groupId/artifactId/version, packaging, parent, Java version, dep/plugin/profile counts, scope distribution), \
+         deps (dependency table with scope, optional/type flags; optional 'scope' and 'filter' args; shows managedDependencies separately), \
+         plugins (build plugin table with version; pluginManagement section shown separately), \
+         profiles (all profiles with activation type and dep/plugin counts), \
+         properties (all <properties> key-value pairs), \
+         validate (missing coordinates, version ranges, duplicate deps, SNAPSHOT in release, compiler source/target mismatch). \
+         Pass 'file' (path to pom.xml) or 'pom'/'text'/'xml' (inline XML). \
+         Example: maven_tools(action: 'info', file: 'pom.xml') or \
+         maven_tools(action: 'deps', pom: '...', scope: 'test') or \
+         maven_tools(action: 'validate', file: 'pom.xml').",
+        crate::tools::maven_tools::make_schema(),
+    ));
+    tools.push(make_tool(
+        "gradle_tools",
+        "Parse, inspect, and validate Gradle build files (build.gradle Groovy DSL and build.gradle.kts Kotlin DSL) without external utilities. \
+         Actions: info (default — group/version/description, Java target, repositories, plugin list, dependency configuration counts), \
+         deps (dependencies grouped by configuration — implementation/api/testImplementation/etc.; optional 'configuration' and 'filter' args), \
+         tasks (custom task definitions with type, dependsOn, description), \
+         plugins (applied plugins with id, version, apply flag), \
+         properties (ext/extra property assignments), \
+         validate (missing group/version, no repositories, deprecated configurations, jcenter warning, deps without versions, duplicates). \
+         Pass 'file' (path to build.gradle or build.gradle.kts) or 'gradle'/'text' (inline content). \
+         Example: gradle_tools(action: 'info', file: 'build.gradle') or \
+         gradle_tools(action: 'deps', gradle: '...', configuration: 'implementation') or \
+         gradle_tools(action: 'plugins', file: 'build.gradle.kts').",
+        crate::tools::gradle_tools::make_schema(),
+    ));
+    tools.push(make_tool(
         "changelog_tools",
         "Parse, query, and validate CHANGELOG.md files in Keep a Changelog format. \
          Actions: list (default — all releases with version, date, section names, item counts; YANKED flag), \
@@ -8031,6 +8061,8 @@ pub async fn dispatch_builtin_tool(
         "gitignore_tools" => crate::tools::gitignore_tools::execute(args).await,
         "license_tools" => crate::tools::license_tools::execute(args).await,
         "make_tools" => crate::tools::make_tools::execute(args).await,
+        "maven_tools" => crate::tools::maven_tools::execute(args).await,
+        "gradle_tools" => crate::tools::gradle_tools::execute(args).await,
         "changelog_tools" => crate::tools::changelog_tools::execute(args).await,
         "ssh_config_tools" => crate::tools::ssh_config_tools::execute(args).await,
         "systemd_tools" => crate::tools::systemd_tools::execute(args).await,

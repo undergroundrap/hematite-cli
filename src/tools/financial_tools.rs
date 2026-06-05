@@ -58,18 +58,36 @@ fn fmt_currency(n: f64) -> String {
     } else {
         let s = format!("{}{:.2}", sign, abs);
         let (int_part, dec_part) = s.split_once('.').unwrap_or((&s, "00"));
-        let int_with_commas = int_part.trim_start_matches('-')
-            .chars().rev().collect::<Vec<_>>()
-            .chunks(3).map(|c| c.iter().collect::<String>())
-            .collect::<Vec<_>>().join(",")
-            .chars().rev().collect::<String>();
-        format!("{}{}{}.{}", sign, if n < 0.0 { "$" } else { "$" }, int_with_commas, dec_part)
+        let int_with_commas = int_part
+            .trim_start_matches('-')
+            .chars()
+            .rev()
+            .collect::<Vec<_>>()
+            .chunks(3)
+            .map(|c| c.iter().collect::<String>())
+            .collect::<Vec<_>>()
+            .join(",")
+            .chars()
+            .rev()
+            .collect::<String>();
+        format!(
+            "{}{}{}.{}",
+            sign,
+            if n < 0.0 { "$" } else { "$" },
+            int_with_commas,
+            dec_part
+        )
     }
 }
 
 // ── Amortization ─────────────────────────────────────────────────────────────
 
-fn action_amortize(principal: f64, annual_rate: f64, term_months: u32, show_schedule: bool) -> String {
+fn action_amortize(
+    principal: f64,
+    annual_rate: f64,
+    term_months: u32,
+    show_schedule: bool,
+) -> String {
     if principal <= 0.0 || annual_rate < 0.0 || term_months == 0 {
         return "Error: principal must be > 0, annual_rate >= 0, term_months > 0.".to_string();
     }
@@ -88,10 +106,20 @@ fn action_amortize(principal: f64, annual_rate: f64, term_months: u32, show_sche
     let _ = writeln!(out, "Loan Amortization Schedule");
     let _ = writeln!(out, "  Principal:       {}", fmt_currency(principal));
     let _ = writeln!(out, "  Annual rate:     {:.3}%", annual_rate);
-    let _ = writeln!(out, "  Term:            {} months ({:.1} years)", term_months, term_months as f64 / 12.0);
+    let _ = writeln!(
+        out,
+        "  Term:            {} months ({:.1} years)",
+        term_months,
+        term_months as f64 / 12.0
+    );
     let _ = writeln!(out, "  Monthly payment: {}", fmt_currency(payment));
     let _ = writeln!(out, "  Total paid:      {}", fmt_currency(total_paid));
-    let _ = writeln!(out, "  Total interest:  {} ({:.1}% of principal)", fmt_currency(total_interest), total_interest / principal * 100.0);
+    let _ = writeln!(
+        out,
+        "  Total interest:  {} ({:.1}% of principal)",
+        fmt_currency(total_interest),
+        total_interest / principal * 100.0
+    );
     out.push('\n');
 
     // Find payoff date for interest-only crossover
@@ -106,13 +134,20 @@ fn action_amortize(principal: f64, annual_rate: f64, term_months: u32, show_sche
         }
     }
     if interest_half_month > 0 {
-        let _ = writeln!(out, "  Principal > interest starting month: {} of {}", interest_half_month, term_months);
+        let _ = writeln!(
+            out,
+            "  Principal > interest starting month: {} of {}",
+            interest_half_month, term_months
+        );
     }
 
     if show_schedule {
         out.push('\n');
-        let _ = writeln!(out, "{:<6} {:>14} {:>14} {:>14} {:>14}",
-            "Month", "Payment", "Principal", "Interest", "Balance");
+        let _ = writeln!(
+            out,
+            "{:<6} {:>14} {:>14} {:>14} {:>14}",
+            "Month", "Payment", "Principal", "Interest", "Balance"
+        );
         out.push_str(&"-".repeat(68));
         out.push('\n');
         balance = principal;
@@ -122,30 +157,45 @@ fn action_amortize(principal: f64, annual_rate: f64, term_months: u32, show_sche
             balance = (balance - principal_paid).max(0.0);
             // Show every month if <= 24, else every 12th
             if term_months <= 24 || i % 12 == 0 || i == 1 || i == term_months {
-                let label = if term_months > 24 && i % 12 == 0 { format!("Year {}", i / 12) } else { format!("Month {}", i) };
-                let _ = writeln!(out, "{:<6} {:>14} {:>14} {:>14} {:>14}",
+                let label = if term_months > 24 && i % 12 == 0 {
+                    format!("Year {}", i / 12)
+                } else {
+                    format!("Month {}", i)
+                };
+                let _ = writeln!(
+                    out,
+                    "{:<6} {:>14} {:>14} {:>14} {:>14}",
                     label,
                     fmt_currency(payment),
                     fmt_currency(principal_paid),
                     fmt_currency(interest),
-                    fmt_currency(balance));
+                    fmt_currency(balance)
+                );
             }
         }
         if term_months > 24 {
-            let _ = writeln!(out, "\n(showing yearly summaries — use show_schedule: false for summary only)");
+            let _ = writeln!(
+                out,
+                "\n(showing yearly summaries — use show_schedule: false for summary only)"
+            );
         }
     } else {
         // Show first 3 and last 3 months as preview
         out.push('\n');
-        let _ = writeln!(out, "{:<10} {:>12} {:>12} {:>12} {:>14}",
-            "Month", "Payment", "Principal", "Interest", "Balance");
+        let _ = writeln!(
+            out,
+            "{:<10} {:>12} {:>12} {:>12} {:>14}",
+            "Month", "Payment", "Principal", "Interest", "Balance"
+        );
         out.push_str(&"-".repeat(64));
         out.push('\n');
         let preview_months: Vec<u32> = if term_months <= 6 {
             (1..=term_months).collect()
         } else {
             let mut v: Vec<u32> = (1..=3).collect();
-            if term_months > 6 { v.push(0); } // separator
+            if term_months > 6 {
+                v.push(0);
+            } // separator
             let mut tail: Vec<u32> = ((term_months - 2)..=term_months).collect();
             v.append(&mut tail);
             v
@@ -160,12 +210,26 @@ fn action_amortize(principal: f64, annual_rate: f64, term_months: u32, show_sche
             rows.push((i, payment, pp, interest, bal));
         }
         for m in &preview_months {
-            if *m == 0 { let _ = writeln!(out, "  ..."); continue; }
+            if *m == 0 {
+                let _ = writeln!(out, "  ...");
+                continue;
+            }
             let r = &rows[(*m - 1) as usize];
-            let _ = writeln!(out, "{:<10} {:>12} {:>12} {:>12} {:>14}",
-                format!("Month {}", r.0), fmt_currency(r.1), fmt_currency(r.2), fmt_currency(r.3), fmt_currency(r.4));
+            let _ = writeln!(
+                out,
+                "{:<10} {:>12} {:>12} {:>12} {:>14}",
+                format!("Month {}", r.0),
+                fmt_currency(r.1),
+                fmt_currency(r.2),
+                fmt_currency(r.3),
+                fmt_currency(r.4)
+            );
         }
-        let _ = writeln!(out, "\nPass show_schedule: true for the full {} month table.", term_months);
+        let _ = writeln!(
+            out,
+            "\nPass show_schedule: true for the full {} month table.",
+            term_months
+        );
         let _ = balance;
     }
     out
@@ -188,7 +252,11 @@ fn action_depreciation(cost: f64, salvage: f64, life: u32, method: &str) -> Stri
     let _ = writeln!(out, "  Salvage:   {}", fmt_currency(salvage));
     let _ = writeln!(out, "  Depreciable: {}", fmt_currency(depreciable));
     let _ = writeln!(out, "  Life:      {} years\n", life);
-    let _ = writeln!(out, "{:<6} {:>16} {:>16} {:>16}", "Year", "Depreciation", "Accum. Depr.", "Book Value");
+    let _ = writeln!(
+        out,
+        "{:<6} {:>16} {:>16} {:>16}",
+        "Year", "Depreciation", "Accum. Depr.", "Book Value"
+    );
     out.push_str(&"-".repeat(60));
     out.push('\n');
 
@@ -202,7 +270,14 @@ fn action_depreciation(cost: f64, salvage: f64, life: u32, method: &str) -> Stri
                 let depr = (book * rate).min(book - salvage);
                 accum += depr;
                 book -= depr;
-                let _ = writeln!(out, "{:<6} {:>16} {:>16} {:>16}", y, fmt_currency(depr), fmt_currency(accum), fmt_currency(book));
+                let _ = writeln!(
+                    out,
+                    "{:<6} {:>16} {:>16} {:>16}",
+                    y,
+                    fmt_currency(depr),
+                    fmt_currency(accum),
+                    fmt_currency(book)
+                );
             }
         }
         "sum_of_years" | "syd" => {
@@ -212,7 +287,14 @@ fn action_depreciation(cost: f64, salvage: f64, life: u32, method: &str) -> Stri
                 let depr = depreciable * fraction;
                 accum += depr;
                 book -= depr;
-                let _ = writeln!(out, "{:<6} {:>16} {:>16} {:>16}", y, fmt_currency(depr), fmt_currency(accum), fmt_currency(book));
+                let _ = writeln!(
+                    out,
+                    "{:<6} {:>16} {:>16} {:>16}",
+                    y,
+                    fmt_currency(depr),
+                    fmt_currency(accum),
+                    fmt_currency(book)
+                );
             }
         }
         "macrs5" => {
@@ -222,17 +304,33 @@ fn action_depreciation(cost: f64, salvage: f64, life: u32, method: &str) -> Stri
                 let depr = cost * rate;
                 accum += depr;
                 book -= depr;
-                let _ = writeln!(out, "{:<6} {:>16} {:>16} {:>16}", y + 1, fmt_currency(depr), fmt_currency(accum), fmt_currency(book));
+                let _ = writeln!(
+                    out,
+                    "{:<6} {:>16} {:>16} {:>16}",
+                    y + 1,
+                    fmt_currency(depr),
+                    fmt_currency(accum),
+                    fmt_currency(book)
+                );
             }
         }
         "macrs7" => {
             // MACRS half-year convention, 7-year property
-            let rates = [0.1429, 0.2449, 0.1749, 0.1249, 0.0893, 0.0893, 0.0893, 0.0445];
+            let rates = [
+                0.1429, 0.2449, 0.1749, 0.1249, 0.0893, 0.0893, 0.0893, 0.0445,
+            ];
             for (y, &rate) in rates.iter().enumerate() {
                 let depr = cost * rate;
                 accum += depr;
                 book -= depr;
-                let _ = writeln!(out, "{:<6} {:>16} {:>16} {:>16}", y + 1, fmt_currency(depr), fmt_currency(accum), fmt_currency(book));
+                let _ = writeln!(
+                    out,
+                    "{:<6} {:>16} {:>16} {:>16}",
+                    y + 1,
+                    fmt_currency(depr),
+                    fmt_currency(accum),
+                    fmt_currency(book)
+                );
             }
         }
         _ => {
@@ -241,7 +339,14 @@ fn action_depreciation(cost: f64, salvage: f64, life: u32, method: &str) -> Stri
             for y in 1..=life {
                 accum += annual;
                 book -= annual;
-                let _ = writeln!(out, "{:<6} {:>16} {:>16} {:>16}", y, fmt_currency(annual), fmt_currency(accum), fmt_currency(book.max(salvage)));
+                let _ = writeln!(
+                    out,
+                    "{:<6} {:>16} {:>16} {:>16}",
+                    y,
+                    fmt_currency(annual),
+                    fmt_currency(accum),
+                    fmt_currency(book.max(salvage))
+                );
             }
         }
     }
@@ -268,7 +373,9 @@ fn action_roi(initial: f64, final_val: f64, years: f64) -> String {
     let roi_pct = gain / initial * 100.0;
     let annualized = if years > 0.0 {
         ((final_val / initial).powf(1.0 / years) - 1.0) * 100.0
-    } else { 0.0 };
+    } else {
+        0.0
+    };
 
     let mut out = String::new();
     let _ = writeln!(out, "Return on Investment");
@@ -284,30 +391,65 @@ fn action_roi(initial: f64, final_val: f64, years: f64) -> String {
             let _ = writeln!(out, "  Rule of 72 double: {:.1} years", 72.0 / annualized);
         }
     }
-    let verdict = if roi_pct > 0.0 { "PROFITABLE" } else if roi_pct < 0.0 { "LOSS" } else { "BREAK-EVEN" };
+    let verdict = if roi_pct > 0.0 {
+        "PROFITABLE"
+    } else if roi_pct < 0.0 {
+        "LOSS"
+    } else {
+        "BREAK-EVEN"
+    };
     let _ = writeln!(out, "  Verdict:            {}", verdict);
     out
 }
 
 // ── Break-Even ───────────────────────────────────────────────────────────────
 
-fn action_breakeven(fixed_costs: f64, price: f64, variable_cost: f64, expected_units: f64) -> String {
+fn action_breakeven(
+    fixed_costs: f64,
+    price: f64,
+    variable_cost: f64,
+    expected_units: f64,
+) -> String {
     if price <= variable_cost {
-        return format!("Error: price per unit ({}) must exceed variable cost ({}).", price, variable_cost);
+        return format!(
+            "Error: price per unit ({}) must exceed variable cost ({}).",
+            price, variable_cost
+        );
     }
     let contribution_margin = price - variable_cost;
     let cm_ratio = contribution_margin / price;
     let be_units = fixed_costs / contribution_margin;
     let be_revenue = be_units * price;
-    let margin_of_safety_units = if expected_units > be_units { expected_units - be_units } else { 0.0 };
-    let margin_of_safety_pct = if expected_units > 0.0 { margin_of_safety_units / expected_units * 100.0 } else { 0.0 };
+    let margin_of_safety_units = if expected_units > be_units {
+        expected_units - be_units
+    } else {
+        0.0
+    };
+    let margin_of_safety_pct = if expected_units > 0.0 {
+        margin_of_safety_units / expected_units * 100.0
+    } else {
+        0.0
+    };
 
     let mut out = String::new();
     let _ = writeln!(out, "Break-Even Analysis");
-    let _ = writeln!(out, "  Fixed costs:           {}", fmt_currency(fixed_costs));
+    let _ = writeln!(
+        out,
+        "  Fixed costs:           {}",
+        fmt_currency(fixed_costs)
+    );
     let _ = writeln!(out, "  Price per unit:        {}", fmt_currency(price));
-    let _ = writeln!(out, "  Variable cost/unit:    {}", fmt_currency(variable_cost));
-    let _ = writeln!(out, "  Contribution margin:   {} ({:.1}% of price)", fmt_currency(contribution_margin), cm_ratio * 100.0);
+    let _ = writeln!(
+        out,
+        "  Variable cost/unit:    {}",
+        fmt_currency(variable_cost)
+    );
+    let _ = writeln!(
+        out,
+        "  Contribution margin:   {} ({:.1}% of price)",
+        fmt_currency(contribution_margin),
+        cm_ratio * 100.0
+    );
     out.push('\n');
     let _ = writeln!(out, "  Break-even units:      {:.0} units", be_units.ceil());
     let _ = writeln!(out, "  Break-even revenue:    {}", fmt_currency(be_revenue));
@@ -315,9 +457,21 @@ fn action_breakeven(fixed_costs: f64, price: f64, variable_cost: f64, expected_u
         out.push('\n');
         let _ = writeln!(out, "  Expected sales:        {:.0} units", expected_units);
         let profit_at_expected = expected_units * contribution_margin - fixed_costs;
-        let _ = writeln!(out, "  Profit at expected:    {}", fmt_currency(profit_at_expected));
-        let _ = writeln!(out, "  Margin of safety:      {:.0} units ({:.1}%)", margin_of_safety_units, margin_of_safety_pct);
-        let verdict = if expected_units >= be_units { "PROFITABLE at expected volume" } else { "LOSS at expected volume" };
+        let _ = writeln!(
+            out,
+            "  Profit at expected:    {}",
+            fmt_currency(profit_at_expected)
+        );
+        let _ = writeln!(
+            out,
+            "  Margin of safety:      {:.0} units ({:.1}%)",
+            margin_of_safety_units, margin_of_safety_pct
+        );
+        let verdict = if expected_units >= be_units {
+            "PROFITABLE at expected volume"
+        } else {
+            "LOSS at expected volume"
+        };
         let _ = writeln!(out, "  Verdict:               {}", verdict);
     }
     out
@@ -332,7 +486,9 @@ fn action_cashflow(cashflows: &[f64], discount_rate: f64) -> String {
     let r = discount_rate / 100.0;
 
     // NPV
-    let npv: f64 = cashflows.iter().enumerate()
+    let npv: f64 = cashflows
+        .iter()
+        .enumerate()
         .map(|(i, &cf)| cf / (1.0 + r).powi(i as i32))
         .sum();
 
@@ -356,18 +512,35 @@ fn action_cashflow(cashflows: &[f64], discount_rate: f64) -> String {
     let _ = writeln!(out, "  Cash flows:  {} periods", cashflows.len());
     let _ = writeln!(out, "  Discount rate: {:.2}%", discount_rate);
     out.push('\n');
-    let _ = writeln!(out, "{:<8} {:>14} {:>14} {:>14}", "Period", "Cash Flow", "PV", "Cumulative PV");
+    let _ = writeln!(
+        out,
+        "{:<8} {:>14} {:>14} {:>14}",
+        "Period", "Cash Flow", "PV", "Cumulative PV"
+    );
     out.push_str(&"-".repeat(56));
     out.push('\n');
     let mut cum_pv = 0.0;
     for (i, &cf) in cashflows.iter().enumerate() {
         let pv = cf / (1.0 + r).powi(i as i32);
         cum_pv += pv;
-        let _ = writeln!(out, "{:<8} {:>14} {:>14} {:>14}", i, fmt_currency(cf), fmt_currency(pv), fmt_currency(cum_pv));
+        let _ = writeln!(
+            out,
+            "{:<8} {:>14} {:>14} {:>14}",
+            i,
+            fmt_currency(cf),
+            fmt_currency(pv),
+            fmt_currency(cum_pv)
+        );
     }
     out.push('\n');
     let _ = writeln!(out, "  NPV:          {}", fmt_currency(npv));
-    let verdict = if npv > 0.0 { "ACCEPT (positive NPV)" } else if npv < 0.0 { "REJECT (negative NPV)" } else { "INDIFFERENT" };
+    let verdict = if npv > 0.0 {
+        "ACCEPT (positive NPV)"
+    } else if npv < 0.0 {
+        "REJECT (negative NPV)"
+    } else {
+        "INDIFFERENT"
+    };
     let _ = writeln!(out, "  NPV verdict:  {}", verdict);
     if let Some(p) = payback {
         let _ = writeln!(out, "  Payback:      {:.2} periods", p);
@@ -382,7 +555,11 @@ fn action_cashflow(cashflows: &[f64], discount_rate: f64) -> String {
 
 fn bisect_irr(cashflows: &[f64]) -> Option<f64> {
     let npv_at = |r: f64| -> f64 {
-        cashflows.iter().enumerate().map(|(i, &cf)| cf / (1.0 + r).powi(i as i32)).sum()
+        cashflows
+            .iter()
+            .enumerate()
+            .map(|(i, &cf)| cf / (1.0 + r).powi(i as i32))
+            .sum()
     };
     // Search between -99% and 1000%
     let (mut lo, mut hi) = (-0.999, 10.0);
@@ -391,8 +568,14 @@ fn bisect_irr(cashflows: &[f64]) -> Option<f64> {
     }
     for _ in 0..100 {
         let mid = (lo + hi) / 2.0;
-        if npv_at(mid) > 0.0 { lo = mid; } else { hi = mid; }
-        if hi - lo < 1e-8 { break; }
+        if npv_at(mid) > 0.0 {
+            lo = mid;
+        } else {
+            hi = mid;
+        }
+        if hi - lo < 1e-8 {
+            break;
+        }
     }
     Some((lo + hi) / 2.0 * 100.0)
 }
@@ -417,7 +600,12 @@ fn action_cagr(start: f64, end: f64, years: f64) -> String {
     let _ = writeln!(out, "  Projected values at {:.2}% CAGR:", cagr);
     let _ = writeln!(out, "  {:<10} {}", "Year", "Value");
     for y in 0..=(years as u32) {
-        let _ = writeln!(out, "  {:<10} {}", y, fmt_currency(start * (1.0 + cagr / 100.0).powi(y as i32)));
+        let _ = writeln!(
+            out,
+            "  {:<10} {}",
+            y,
+            fmt_currency(start * (1.0 + cagr / 100.0).powi(y as i32))
+        );
     }
     out
 }
@@ -438,7 +626,12 @@ fn action_savings(target: f64, monthly: f64, current: f64, annual_rate: f64, yea
         let _ = writeln!(out, "  Monthly contribution: {}", fmt_currency(monthly));
         if monthly_rate == 0.0 {
             let months_needed = ((target - current) / monthly).ceil();
-            let _ = writeln!(out, "\n  Months to reach target: {:.0} ({:.1} years)", months_needed, months_needed / 12.0);
+            let _ = writeln!(
+                out,
+                "\n  Months to reach target: {:.0} ({:.1} years)",
+                months_needed,
+                months_needed / 12.0
+            );
         } else {
             // FV = PV*(1+r)^n + PMT*((1+r)^n - 1)/r
             // Solve for n using iteration
@@ -449,20 +642,41 @@ fn action_savings(target: f64, monthly: f64, current: f64, annual_rate: f64, yea
                 n += 1;
             }
             if fv >= target {
-                let _ = writeln!(out, "\n  Months to reach target: {} ({:.1} years)", n, n as f64 / 12.0);
-                let _ = writeln!(out, "  Total contributed:      {}", fmt_currency(current + monthly * n as f64));
-                let _ = writeln!(out, "  Interest earned:        {}", fmt_currency(fv - current - monthly * n as f64));
+                let _ = writeln!(
+                    out,
+                    "\n  Months to reach target: {} ({:.1} years)",
+                    n,
+                    n as f64 / 12.0
+                );
+                let _ = writeln!(
+                    out,
+                    "  Total contributed:      {}",
+                    fmt_currency(current + monthly * n as f64)
+                );
+                let _ = writeln!(
+                    out,
+                    "  Interest earned:        {}",
+                    fmt_currency(fv - current - monthly * n as f64)
+                );
                 // Milestones
                 out.push('\n');
                 let _ = writeln!(out, "  Milestones:");
                 let mut bal = current;
                 for y in 1..=((n / 12) + 1).min(30) {
-                    for _ in 0..12 { bal = bal * (1.0 + monthly_rate) + monthly; }
-                    if bal >= target { let _ = writeln!(out, "    Year {:>3}: {} ✓ GOAL", y, fmt_currency(bal)); break; }
+                    for _ in 0..12 {
+                        bal = bal * (1.0 + monthly_rate) + monthly;
+                    }
+                    if bal >= target {
+                        let _ = writeln!(out, "    Year {:>3}: {} ✓ GOAL", y, fmt_currency(bal));
+                        break;
+                    }
                     let _ = writeln!(out, "    Year {:>3}: {}", y, fmt_currency(bal));
                 }
             } else {
-                let _ = writeln!(out, "\n  Target not reachable in 100 years with this contribution rate.");
+                let _ = writeln!(
+                    out,
+                    "\n  Target not reachable in 100 years with this contribution rate."
+                );
             }
         }
     } else if years > 0.0 {
@@ -474,11 +688,27 @@ fn action_savings(target: f64, monthly: f64, current: f64, annual_rate: f64, yea
             let growth = (1.0 + monthly_rate).powi(n as i32);
             (target - current * growth) * monthly_rate / (growth - 1.0)
         };
-        let _ = writeln!(out, "  Time to goal:         {} months ({:.1} years)", n, years);
-        let _ = writeln!(out, "\n  Required monthly contribution: {}", fmt_currency(required_monthly));
+        let _ = writeln!(
+            out,
+            "  Time to goal:         {} months ({:.1} years)",
+            n, years
+        );
+        let _ = writeln!(
+            out,
+            "\n  Required monthly contribution: {}",
+            fmt_currency(required_monthly)
+        );
         let total_contributed = current + required_monthly * n as f64;
-        let _ = writeln!(out, "  Total to contribute:           {}", fmt_currency(total_contributed));
-        let _ = writeln!(out, "  Interest earned:               {}", fmt_currency(target - total_contributed));
+        let _ = writeln!(
+            out,
+            "  Total to contribute:           {}",
+            fmt_currency(total_contributed)
+        );
+        let _ = writeln!(
+            out,
+            "  Interest earned:               {}",
+            fmt_currency(target - total_contributed)
+        );
     } else {
         return "Error: provide either monthly_contribution (to find time) or years (to find monthly amount).".to_string().into();
     }
@@ -488,7 +718,10 @@ fn action_savings(target: f64, monthly: f64, current: f64, annual_rate: f64, yea
 // ── Entry point ───────────────────────────────────────────────────────────────
 
 pub async fn execute(args: &Value) -> Result<String, String> {
-    let action = args.get("action").and_then(|v| v.as_str()).unwrap_or("amortize");
+    let action = args
+        .get("action")
+        .and_then(|v| v.as_str())
+        .unwrap_or("amortize");
 
     let out = match action {
         "amortize" | "loan" | "mortgage" => {

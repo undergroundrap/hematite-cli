@@ -107,7 +107,12 @@ fn parse_conflicts(text: &str) -> Vec<Conflict> {
     let lines: Vec<&str> = text.lines().collect();
 
     #[derive(PartialEq, Clone, Copy)]
-    enum State { Normal, InOurs, InBase, InTheirs }
+    enum State {
+        Normal,
+        InOurs,
+        InBase,
+        InTheirs,
+    }
 
     let mut state = State::Normal;
     let mut conflicts = Vec::new();
@@ -123,12 +128,19 @@ fn parse_conflicts(text: &str) -> Vec<Conflict> {
             ConflictLine::ConflictStart { label } if state == State::Normal => {
                 state = State::InOurs;
                 start_line = i + 1;
-                ours_label = if label.is_empty() { "ours".to_string() } else { label };
-                ours_buf.clear(); base_buf.clear(); theirs_buf.clear();
+                ours_label = if label.is_empty() {
+                    "ours".to_string()
+                } else {
+                    label
+                };
+                ours_buf.clear();
+                base_buf.clear();
+                theirs_buf.clear();
                 has_base = false;
             }
             ConflictLine::ConflictBase if state == State::InOurs => {
-                state = State::InBase; has_base = true;
+                state = State::InBase;
+                has_base = true;
             }
             ConflictLine::ConflictSep if state == State::InOurs || state == State::InBase => {
                 state = State::InTheirs;
@@ -138,17 +150,25 @@ fn parse_conflicts(text: &str) -> Vec<Conflict> {
                     start_line,
                     ours_label: ours_label.clone(),
                     ours_lines: ours_buf.clone(),
-                    base_lines: if has_base { Some(base_buf.clone()) } else { None },
-                    theirs_label: if label.is_empty() { "theirs".to_string() } else { label },
+                    base_lines: if has_base {
+                        Some(base_buf.clone())
+                    } else {
+                        None
+                    },
+                    theirs_label: if label.is_empty() {
+                        "theirs".to_string()
+                    } else {
+                        label
+                    },
                     theirs_lines: theirs_buf.clone(),
                 });
                 state = State::Normal;
             }
             ConflictLine::Normal(line) => match state {
-                State::InOurs   => ours_buf.push(line),
-                State::InBase   => base_buf.push(line),
+                State::InOurs => ours_buf.push(line),
+                State::InBase => base_buf.push(line),
                 State::InTheirs => theirs_buf.push(line),
-                State::Normal   => {}
+                State::Normal => {}
             },
             _ => {}
         }
@@ -161,8 +181,7 @@ fn load_text(args: &Value) -> Result<String, String> {
         return Ok(text.to_string());
     }
     if let Some(path) = args.get("file").and_then(|v| v.as_str()) {
-        return std::fs::read_to_string(path)
-            .map_err(|e| format!("Cannot read '{}': {}", path, e));
+        return std::fs::read_to_string(path).map_err(|e| format!("Cannot read '{}': {}", path, e));
     }
     Err("Pass 'text' with conflict-marked content, or 'file' with a path.".to_string())
 }
@@ -174,7 +193,10 @@ fn do_conflicts(args: &Value) -> Result<String, String> {
     let conflicts = parse_conflicts(&text);
 
     if conflicts.is_empty() {
-        return Ok("No conflict markers found.\nExpected: <<<<<<< / ======= / >>>>>>> markers.".to_string());
+        return Ok(
+            "No conflict markers found.\nExpected: <<<<<<< / ======= / >>>>>>> markers."
+                .to_string(),
+        );
     }
 
     let mut out = format!(
@@ -186,14 +208,25 @@ fn do_conflicts(args: &Value) -> Result<String, String> {
 
     for (idx, c) in conflicts.iter().enumerate() {
         out.push_str(&format!("Conflict #{} (line {})\n", idx + 1, c.start_line));
-        out.push_str(&format!("  Ours   ({}): {} line{}\n", c.ours_label, c.ours_lines.len(),
-            if c.ours_lines.len() == 1 { "" } else { "s" }));
+        out.push_str(&format!(
+            "  Ours   ({}): {} line{}\n",
+            c.ours_label,
+            c.ours_lines.len(),
+            if c.ours_lines.len() == 1 { "" } else { "s" }
+        ));
         if let Some(base) = &c.base_lines {
-            out.push_str(&format!("  Base:  {} line{}\n", base.len(),
-                if base.len() == 1 { "" } else { "s" }));
+            out.push_str(&format!(
+                "  Base:  {} line{}\n",
+                base.len(),
+                if base.len() == 1 { "" } else { "s" }
+            ));
         }
-        out.push_str(&format!("  Theirs ({}): {} line{}\n", c.theirs_label, c.theirs_lines.len(),
-            if c.theirs_lines.len() == 1 { "" } else { "s" }));
+        out.push_str(&format!(
+            "  Theirs ({}): {} line{}\n",
+            c.theirs_label,
+            c.theirs_lines.len(),
+            if c.theirs_lines.len() == 1 { "" } else { "s" }
+        ));
 
         if !c.ours_lines.is_empty() {
             out.push_str("  — Ours:\n");
@@ -201,7 +234,10 @@ fn do_conflicts(args: &Value) -> Result<String, String> {
                 out.push_str(&format!("      {}\n", line));
             }
             if c.ours_lines.len() > 5 {
-                out.push_str(&format!("      ... ({} more lines)\n", c.ours_lines.len() - 5));
+                out.push_str(&format!(
+                    "      ... ({} more lines)\n",
+                    c.ours_lines.len() - 5
+                ));
             }
         } else {
             out.push_str("  — Ours: (empty — deletion)\n");
@@ -213,7 +249,10 @@ fn do_conflicts(args: &Value) -> Result<String, String> {
                 out.push_str(&format!("      {}\n", line));
             }
             if c.theirs_lines.len() > 5 {
-                out.push_str(&format!("      ... ({} more lines)\n", c.theirs_lines.len() - 5));
+                out.push_str(&format!(
+                    "      ... ({} more lines)\n",
+                    c.theirs_lines.len() - 5
+                ));
             }
         } else {
             out.push_str("  — Theirs: (empty — deletion)\n");
@@ -237,9 +276,12 @@ fn do_conflicts(args: &Value) -> Result<String, String> {
         }
     }
 
-    let trivial = conflicts.iter().filter(|c| {
-        c.ours_lines == c.theirs_lines || (c.ours_lines.is_empty() && c.theirs_lines.is_empty())
-    }).count();
+    let trivial = conflicts
+        .iter()
+        .filter(|c| {
+            c.ours_lines == c.theirs_lines || (c.ours_lines.is_empty() && c.theirs_lines.is_empty())
+        })
+        .count();
     let non_trivial = conflicts.len() - trivial;
     out.push_str(&format!("\n{}\n", "─".repeat(50)));
     out.push_str(&format!(
@@ -262,7 +304,12 @@ fn do_sides(args: &Value) -> Result<String, String> {
     }
 
     #[derive(PartialEq, Clone, Copy)]
-    enum State { Normal, InOurs, InBase, InTheirs }
+    enum State {
+        Normal,
+        InOurs,
+        InBase,
+        InTheirs,
+    }
 
     let mut state = State::Normal;
     let mut result_lines: Vec<String> = Vec::new();
@@ -271,9 +318,12 @@ fn do_sides(args: &Value) -> Result<String, String> {
     for raw in text.lines() {
         match classify_line(raw) {
             ConflictLine::ConflictStart { .. } if state == State::Normal => {
-                state = State::InOurs; conflict_count += 1;
+                state = State::InOurs;
+                conflict_count += 1;
             }
-            ConflictLine::ConflictBase if state == State::InOurs => { state = State::InBase; }
+            ConflictLine::ConflictBase if state == State::InOurs => {
+                state = State::InBase;
+            }
             ConflictLine::ConflictSep if state == State::InOurs || state == State::InBase => {
                 state = State::InTheirs;
             }
@@ -281,8 +331,8 @@ fn do_sides(args: &Value) -> Result<String, String> {
                 state = State::Normal;
             }
             ConflictLine::Normal(line) => match state {
-                State::Normal              => result_lines.push(line),
-                State::InOurs   if side == "ours"   => result_lines.push(line),
+                State::Normal => result_lines.push(line),
+                State::InOurs if side == "ours" => result_lines.push(line),
                 State::InTheirs if side == "theirs" => result_lines.push(line),
                 _ => {}
             },
@@ -296,7 +346,8 @@ fn do_sides(args: &Value) -> Result<String, String> {
 
     Ok(format!(
         "Extracted '{}' side from {} conflict{}:\n\n{}",
-        side, conflict_count,
+        side,
+        conflict_count,
         if conflict_count == 1 { "" } else { "s" },
         result_lines.join("\n")
     ))
@@ -306,10 +357,18 @@ fn do_sides(args: &Value) -> Result<String, String> {
 
 fn do_resolve(args: &Value) -> Result<String, String> {
     let text = load_text(args)?;
-    let strategy = args.get("strategy").and_then(|v| v.as_str()).unwrap_or("smart");
+    let strategy = args
+        .get("strategy")
+        .and_then(|v| v.as_str())
+        .unwrap_or("smart");
 
     #[derive(PartialEq, Clone, Copy)]
-    enum State { Normal, InOurs, InBase, InTheirs }
+    enum State {
+        Normal,
+        InOurs,
+        InBase,
+        InTheirs,
+    }
 
     let mut state = State::Normal;
     let mut result: Vec<String> = Vec::new();
@@ -324,17 +383,24 @@ fn do_resolve(args: &Value) -> Result<String, String> {
         match classify_line(raw) {
             ConflictLine::ConflictStart { .. } if state == State::Normal => {
                 state = State::InOurs;
-                ours_buf.clear(); base_buf.clear(); theirs_buf.clear();
+                ours_buf.clear();
+                base_buf.clear();
+                theirs_buf.clear();
                 has_base = false;
             }
             ConflictLine::ConflictBase if state == State::InOurs => {
-                state = State::InBase; has_base = true;
+                state = State::InBase;
+                has_base = true;
             }
             ConflictLine::ConflictSep if state == State::InOurs || state == State::InBase => {
                 state = State::InTheirs;
             }
             ConflictLine::ConflictEnd { label } if state == State::InTheirs => {
-                let lb = if label.is_empty() { "theirs".to_string() } else { label };
+                let lb = if label.is_empty() {
+                    "theirs".to_string()
+                } else {
+                    label
+                };
 
                 let resolved_lines: Option<Vec<String>> = match strategy {
                     "ours" => Some(ours_buf.clone()),
@@ -377,9 +443,9 @@ fn do_resolve(args: &Value) -> Result<String, String> {
                 state = State::Normal;
             }
             ConflictLine::Normal(line) => match state {
-                State::Normal   => result.push(line),
-                State::InOurs   => ours_buf.push(line),
-                State::InBase   => base_buf.push(line),
+                State::Normal => result.push(line),
+                State::InOurs => ours_buf.push(line),
+                State::InBase => base_buf.push(line),
                 State::InTheirs => theirs_buf.push(line),
             },
             _ => {}
@@ -391,10 +457,16 @@ fn do_resolve(args: &Value) -> Result<String, String> {
         return Ok("No conflict markers found in input.".to_string());
     }
 
-    let mut out = format!("Resolved {}/{} conflicts using strategy='{}'\n", resolved, total, strategy);
+    let mut out = format!(
+        "Resolved {}/{} conflicts using strategy='{}'\n",
+        resolved, total, strategy
+    );
     if remaining > 0 {
-        out.push_str(&format!("{} conflict{} still need manual review.\n", remaining,
-            if remaining == 1 { "" } else { "s" }));
+        out.push_str(&format!(
+            "{} conflict{} still need manual review.\n",
+            remaining,
+            if remaining == 1 { "" } else { "s" }
+        ));
     } else {
         out.push_str("All conflicts resolved — file is clean.\n");
     }
@@ -407,32 +479,49 @@ fn do_resolve(args: &Value) -> Result<String, String> {
 // ── Action: merge3 ────────────────────────────────────────────────────────
 
 fn do_merge3(args: &Value) -> Result<String, String> {
-    let base = args.get("base").and_then(|v| v.as_str())
+    let base = args
+        .get("base")
+        .and_then(|v| v.as_str())
         .ok_or("Pass 'base', 'ours', and 'theirs' text for merge3 action.")?;
-    let ours = args.get("ours").and_then(|v| v.as_str())
+    let ours = args
+        .get("ours")
+        .and_then(|v| v.as_str())
         .ok_or("Pass 'ours' text for merge3 action.")?;
-    let theirs = args.get("theirs").and_then(|v| v.as_str())
+    let theirs = args
+        .get("theirs")
+        .and_then(|v| v.as_str())
         .ok_or("Pass 'theirs' text for merge3 action.")?;
 
-    let label_a = args.get("label_ours").and_then(|v| v.as_str()).unwrap_or("ours");
-    let label_b = args.get("label_theirs").and_then(|v| v.as_str()).unwrap_or("theirs");
+    let label_a = args
+        .get("label_ours")
+        .and_then(|v| v.as_str())
+        .unwrap_or("ours");
+    let label_b = args
+        .get("label_theirs")
+        .and_then(|v| v.as_str())
+        .unwrap_or("theirs");
 
     let base_lines: Vec<String> = base.lines().map(|s| s.to_string()).collect();
     let ours_lines: Vec<String> = ours.lines().map(|s| s.to_string()).collect();
     let theirs_lines: Vec<String> = theirs.lines().map(|s| s.to_string()).collect();
 
-    let (merged, conflict_count) = merge3_lines(&base_lines, &ours_lines, &theirs_lines, label_a, label_b);
+    let (merged, conflict_count) =
+        merge3_lines(&base_lines, &ours_lines, &theirs_lines, label_a, label_b);
 
     let header = if conflict_count == 0 {
         "Merged successfully — 0 conflicts\n\n".to_string()
     } else {
         format!(
             "Merged with {} conflict{}. Review markers and edit manually.\n\n",
-            conflict_count, if conflict_count == 1 { "" } else { "s" }
+            conflict_count,
+            if conflict_count == 1 { "" } else { "s" }
         )
     };
 
-    Ok(format!("{}─── Merged result ─────────────────────────────────────────\n\n{}", header, merged))
+    Ok(format!(
+        "{}─── Merged result ─────────────────────────────────────────\n\n{}",
+        header, merged
+    ))
 }
 
 // ── LCS-based three-way merge ──────────────────────────────────────────────
@@ -468,7 +557,8 @@ fn compute_side_change(base: &[String], side: &[String]) -> SideChange {
     while i > 0 && j > 0 {
         if base[i - 1] == side[j - 1] && dp[i][j] == dp[i - 1][j - 1] + 1 {
             matches.push((i - 1, j - 1));
-            i -= 1; j -= 1;
+            i -= 1;
+            j -= 1;
         } else if dp[i - 1][j] >= dp[i][j - 1] {
             i -= 1;
         } else {
@@ -499,7 +589,11 @@ fn compute_side_change(base: &[String], side: &[String]) -> SideChange {
     let side_start = prev_si.map(|x| x + 1).unwrap_or(0);
     let insertions_end: Vec<String> = (side_start..side.len()).map(|k| side[k].clone()).collect();
 
-    SideChange { insertions, insertions_end, kept }
+    SideChange {
+        insertions,
+        insertions_end,
+        kept,
+    }
 }
 
 fn emit_insertions(
@@ -513,20 +607,35 @@ fn emit_insertions(
     match (ins_a.is_empty(), ins_b.is_empty()) {
         (true, true) => {}
         (false, true) => {
-            for l in ins_a { out.push_str(l); out.push('\n'); }
+            for l in ins_a {
+                out.push_str(l);
+                out.push('\n');
+            }
         }
         (true, false) => {
-            for l in ins_b { out.push_str(l); out.push('\n'); }
+            for l in ins_b {
+                out.push_str(l);
+                out.push('\n');
+            }
         }
         (false, false) => {
             if ins_a == ins_b {
-                for l in ins_a { out.push_str(l); out.push('\n'); }
+                for l in ins_a {
+                    out.push_str(l);
+                    out.push('\n');
+                }
             } else {
                 *conflicts += 1;
                 out.push_str(&format!("<<<<<<< {}\n", la));
-                for l in ins_a { out.push_str(l); out.push('\n'); }
+                for l in ins_a {
+                    out.push_str(l);
+                    out.push('\n');
+                }
                 out.push_str("=======\n");
-                for l in ins_b { out.push_str(l); out.push('\n'); }
+                for l in ins_b {
+                    out.push_str(l);
+                    out.push('\n');
+                }
                 out.push_str(&format!(">>>>>>> {}\n", lb));
             }
         }
@@ -548,15 +657,26 @@ fn merge3_lines(
     let mut conflicts = 0usize;
 
     for i in 0..n {
-        emit_insertions(&sa.insertions[i], &sb.insertions[i], la, lb, &mut out, &mut conflicts);
+        emit_insertions(
+            &sa.insertions[i],
+            &sb.insertions[i],
+            la,
+            lb,
+            &mut out,
+            &mut conflicts,
+        );
 
         match (sa.kept[i], sb.kept[i]) {
-            (true, true) => { out.push_str(&base[i]); out.push('\n'); }
+            (true, true) => {
+                out.push_str(&base[i]);
+                out.push('\n');
+            }
             (false, false) => {} // both deleted
             (true, false) => {
                 conflicts += 1;
                 out.push_str(&format!("<<<<<<< {}\n", la));
-                out.push_str(&base[i]); out.push('\n');
+                out.push_str(&base[i]);
+                out.push('\n');
                 out.push_str("=======\n");
                 out.push_str(&format!(">>>>>>> {}\n", lb));
             }
@@ -564,13 +684,21 @@ fn merge3_lines(
                 conflicts += 1;
                 out.push_str(&format!("<<<<<<< {}\n", la));
                 out.push_str("=======\n");
-                out.push_str(&base[i]); out.push('\n');
+                out.push_str(&base[i]);
+                out.push('\n');
                 out.push_str(&format!(">>>>>>> {}\n", lb));
             }
         }
     }
 
-    emit_insertions(&sa.insertions_end, &sb.insertions_end, la, lb, &mut out, &mut conflicts);
+    emit_insertions(
+        &sa.insertions_end,
+        &sb.insertions_end,
+        la,
+        lb,
+        &mut out,
+        &mut conflicts,
+    );
 
     (out, conflicts)
 }

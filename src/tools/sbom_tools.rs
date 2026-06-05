@@ -121,16 +121,14 @@ fn parse_cyclonedx(json: &Value) -> Sbom {
                 .map(String::from)
         });
     let timestamp = metadata["timestamp"].as_str().map(String::from);
-    let metadata_component = metadata["component"]["name"]
-        .as_str()
-        .map(|n| {
-            let ver = metadata["component"]["version"].as_str().unwrap_or("");
-            if ver.is_empty() {
-                n.to_string()
-            } else {
-                format!("{} {}", n, ver)
-            }
-        });
+    let metadata_component = metadata["component"]["name"].as_str().map(|n| {
+        let ver = metadata["component"]["version"].as_str().unwrap_or("");
+        if ver.is_empty() {
+            n.to_string()
+        } else {
+            format!("{} {}", n, ver)
+        }
+    });
 
     let mut components = Vec::new();
     if let Some(arr) = json["components"].as_array() {
@@ -333,10 +331,7 @@ fn parse_spdx_tv(text: &str) -> Sbom {
                 }
                 "PackageLicenseConcluded" | "PackageLicenseDeclared" => {
                     if let Some(c) = current.as_mut() {
-                        if c.license.is_none()
-                            && val != "NOASSERTION"
-                            && val != "NONE"
-                        {
+                        if c.license.is_none() && val != "NOASSERTION" && val != "NONE" {
                             c.license = Some(val);
                         }
                     }
@@ -389,18 +384,14 @@ fn dispatch(action: &str, text: &str, fmt: &str, limit: usize) -> String {
     };
 
     let sbom = match detected_fmt {
-        SbomFormat::CycloneDx => {
-            match serde_json::from_str::<Value>(text) {
-                Ok(json) => parse_cyclonedx(&json),
-                Err(e) => return format!("Error: CycloneDX JSON parse error: {}", e),
-            }
-        }
-        SbomFormat::SpdxJson => {
-            match serde_json::from_str::<Value>(text) {
-                Ok(json) => parse_spdx_json(&json),
-                Err(e) => return format!("Error: SPDX JSON parse error: {}", e),
-            }
-        }
+        SbomFormat::CycloneDx => match serde_json::from_str::<Value>(text) {
+            Ok(json) => parse_cyclonedx(&json),
+            Err(e) => return format!("Error: CycloneDX JSON parse error: {}", e),
+        },
+        SbomFormat::SpdxJson => match serde_json::from_str::<Value>(text) {
+            Ok(json) => parse_spdx_json(&json),
+            Err(e) => return format!("Error: SPDX JSON parse error: {}", e),
+        },
         SbomFormat::SpdxTv => parse_spdx_tv(text),
     };
 
@@ -417,7 +408,11 @@ fn dispatch(action: &str, text: &str, fmt: &str, limit: usize) -> String {
             if let Some(v) = &sbom.spec_version.as_ref().or(sbom.spdx_version.as_ref()) {
                 out.push_str(&format!("  Version      : {}\n", v));
             }
-            if let Some(n) = &sbom.document_name.as_ref().or(sbom.metadata_component.as_ref()) {
+            if let Some(n) = &sbom
+                .document_name
+                .as_ref()
+                .or(sbom.metadata_component.as_ref())
+            {
                 out.push_str(&format!("  Document     : {}\n", n));
             }
             if let Some(sn) = &sbom.serial_number {
@@ -433,7 +428,11 @@ fn dispatch(action: &str, text: &str, fmt: &str, limit: usize) -> String {
                 out.push_str(&format!("  Tool/Creator : {}\n", tool));
             }
             out.push_str(&format!("  Components   : {}\n", sbom.components.len()));
-            let with_license = sbom.components.iter().filter(|c| c.license.is_some()).count();
+            let with_license = sbom
+                .components
+                .iter()
+                .filter(|c| c.license.is_some())
+                .count();
             out.push_str(&format!(
                 "  With License : {} ({:.0}%)\n",
                 with_license,
@@ -446,7 +445,10 @@ fn dispatch(action: &str, text: &str, fmt: &str, limit: usize) -> String {
             let with_purl = sbom.components.iter().filter(|c| c.purl.is_some()).count();
             out.push_str(&format!("  With PURL    : {}\n", with_purl));
             if !sbom.vulnerabilities.is_empty() {
-                out.push_str(&format!("  Vulnerabilities: {}\n", sbom.vulnerabilities.len()));
+                out.push_str(&format!(
+                    "  Vulnerabilities: {}\n",
+                    sbom.vulnerabilities.len()
+                ));
             }
             out
         }
@@ -456,11 +458,7 @@ fn dispatch(action: &str, text: &str, fmt: &str, limit: usize) -> String {
             }
             let display: Vec<&Component> = sbom.components.iter().take(limit).collect();
             let total = sbom.components.len();
-            let mut out = format!(
-                "COMPONENTS ({}/{})\n",
-                display.len(),
-                total
-            );
+            let mut out = format!("COMPONENTS ({}/{})\n", display.len(), total);
             out.push_str(&format!(
                 "  {:<35} {:<20} {:<25} {}\n",
                 "Name", "Version", "License", "PURL prefix"
@@ -503,7 +501,8 @@ fn dispatch(action: &str, text: &str, fmt: &str, limit: usize) -> String {
             out
         }
         "licenses" => {
-            let mut counts: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+            let mut counts: std::collections::HashMap<String, usize> =
+                std::collections::HashMap::new();
             let mut no_license = 0usize;
             for c in &sbom.components {
                 match &c.license {
@@ -527,7 +526,10 @@ fn dispatch(action: &str, text: &str, fmt: &str, limit: usize) -> String {
                 };
                 let fill = (pct / 100.0 * bar_width as f64) as usize;
                 let bar = format!("{}{}", "█".repeat(fill), "░".repeat(bar_width - fill));
-                out.push_str(&format!("  {:30} {:4} ({:5.1}%) {}\n", lic, count, pct, bar));
+                out.push_str(&format!(
+                    "  {:30} {:4} ({:5.1}%) {}\n",
+                    lic, count, pct, bar
+                ));
             }
             if no_license > 0 {
                 let pct = no_license as f64 / total as f64 * 100.0;
@@ -550,11 +552,15 @@ fn dispatch(action: &str, text: &str, fmt: &str, limit: usize) -> String {
                     SbomFormat::CycloneDx => {
                         return "No vulnerabilities section in this CycloneDX SBOM".to_string()
                     }
-                    _ => return "Vulnerability data is only available in CycloneDX SBOMs".to_string(),
+                    _ => {
+                        return "Vulnerability data is only available in CycloneDX SBOMs"
+                            .to_string()
+                    }
                 }
             }
             let mut out = format!("VULNERABILITIES ({})\n\n", sbom.vulnerabilities.len());
-            let mut severity_counts: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+            let mut severity_counts: std::collections::HashMap<String, usize> =
+                std::collections::HashMap::new();
             for v in &sbom.vulnerabilities {
                 let sev = v.severity.clone().unwrap_or_else(|| "unknown".to_string());
                 *severity_counts.entry(sev).or_insert(0) += 1;
@@ -596,7 +602,10 @@ fn dispatch(action: &str, text: &str, fmt: &str, limit: usize) -> String {
                         issues.push("ERROR: missing 'specVersion'".to_string());
                     }
                     if sbom.serial_number.is_none() {
-                        warnings.push("WARN: missing 'serialNumber' (recommended for SBOM identity)".to_string());
+                        warnings.push(
+                            "WARN: missing 'serialNumber' (recommended for SBOM identity)"
+                                .to_string(),
+                        );
                     }
                     if sbom.components.is_empty() {
                         warnings.push("WARN: no components listed".to_string());
@@ -631,7 +640,11 @@ fn dispatch(action: &str, text: &str, fmt: &str, limit: usize) -> String {
             }
 
             // license coverage check
-            let no_license = sbom.components.iter().filter(|c| c.license.is_none()).count();
+            let no_license = sbom
+                .components
+                .iter()
+                .filter(|c| c.license.is_none())
+                .count();
             if no_license > 0 && !sbom.components.is_empty() {
                 let pct = no_license * 100 / sbom.components.len();
                 warnings.push(format!(
@@ -653,7 +666,11 @@ fn dispatch(action: &str, text: &str, fmt: &str, limit: usize) -> String {
             let mut out = format!("SBOM VALIDATION: {}\n\n", verdict);
             out.push_str(&format!("  Format      : {}\n", fmt_name));
             out.push_str(&format!("  Components  : {}\n", sbom.components.len()));
-            let with_lic = sbom.components.iter().filter(|c| c.license.is_some()).count();
+            let with_lic = sbom
+                .components
+                .iter()
+                .filter(|c| c.license.is_some())
+                .count();
             out.push_str(&format!("  With License: {}\n", with_lic));
 
             if !issues.is_empty() || !warnings.is_empty() {
@@ -684,7 +701,9 @@ pub async fn execute(args: &Value) -> Result<String, String> {
     } else if let Some(t) = args["text"].as_str() {
         t.to_string()
     } else {
-        return Ok("Error: provide 'file' (path to SBOM file) or 'text' (SBOM content string)".to_string());
+        return Ok(
+            "Error: provide 'file' (path to SBOM file) or 'text' (SBOM content string)".to_string(),
+        );
     };
 
     if text.trim().is_empty() {

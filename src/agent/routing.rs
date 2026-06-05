@@ -10796,6 +10796,59 @@ pub fn needs_dotnet_tools(user_input: &str) -> bool {
     )
 }
 
+pub fn needs_maven_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "maven_tools",
+            "pom.xml",
+            "maven pom",
+            "parse pom",
+            "maven dependencies",
+            "maven plugins",
+            "maven profiles",
+            "maven properties",
+            "maven validate",
+            "maven build",
+            "maven project",
+            "groupid artifactid",
+            "dependencymanagement",
+            "maven lifecycle",
+            "mvn dependency",
+            "mvn build",
+        ],
+    )
+}
+
+pub fn needs_gradle_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "gradle_tools",
+            "build.gradle",
+            "build.gradle.kts",
+            "settings.gradle",
+            "gradle dependencies",
+            "gradle plugins",
+            "gradle tasks",
+            "gradle properties",
+            "gradle build",
+            "parse gradle",
+            "analyze gradle",
+            "gradle configuration",
+            "implementation dep",
+            "testimplementation",
+            "gradle ext",
+            "gradle validate",
+            "gradle file",
+            "groovy dsl",
+            "kotlin dsl gradle",
+        ],
+    )
+}
+
 pub fn needs_web_manifest_tools(user_input: &str) -> bool {
     let lower = user_input.to_lowercase();
     contains_any(
