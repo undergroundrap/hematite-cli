@@ -251,6 +251,8 @@ Hematite is more than a chat shell around a local model.
 - **Grounded architecture overviews**: broad read-only architecture questions now combine the AST injection with one authoritative `trace_runtime_flow` topic instead of drifting into long repo rewrites
 - **Grounded toolchain guidance**: `describe_toolchain` gives the model a verified read-only map of Hematite's actual built-in tools, when to use them, and what investigation order makes sense
 - **Vision support**: screenshot and diagram analysis can flow through `vision_analyze` when a task benefits from visual inspection
+- **LSP code intelligence** (`lsp_definitions`, `lsp_references`, `lsp_hover`, `lsp_search_symbol`, `lsp_rename_symbol`, `lsp_get_diagnostics`): go-to-definition, find-all-references, hover documentation, workspace symbol search, safe rename, and live diagnostics — wired through the active language server so code navigation and understanding are grounded in the actual AST rather than pattern matching
+- **Active context pinning** (`auto_pin_context`, `list_pinned`): during complex refactors the model can lock 1–3 core files into prioritized memory so architecture files stay visible across turns without burning context on re-retrieval each turn
 
 ## 6. Developer Utility Tools
 
@@ -549,6 +551,7 @@ That result cannot come from training data. SHA-256 is deterministic but not mem
 - **Empirical Big-O Auditor**: Verifies algorithmic complexity claims by running performance regressions against varying input sizes ($N$).
 - **Computational Ledger (Scientific Memory)**: A persistent, RAG-indexed notebook (`.hematite/docs/scientific_ledger.md`) where Hematite stores derivations, constants, and multi-step theorem proofs. This allows the model to recall previous project math in future turns without eating context.
 - **Dataset Bridge**: Seamless integration between SQL data (CSV/DB/JSON) and high-precision scientific solvers, enabling statistical analysis and formal math on production datasets.
+- **Python-sandbox data analysis CLI** (`--sample`, `--correlate`, `--timeseries`, `--fourier`, `--cluster`, `--normalize`, `--pca`, `--hypothesis`, `--polyfit`): batch data-analysis commands that run via the Python stdlib sandbox against CSV/TSV/JSON/SQLite files — random sampling with train/test split, Pearson/Spearman correlation matrix with heatmap, trend/seasonality/moving-average/change-point detection, FFT frequency analysis, k-means clustering, feature scaling (z-score/min-max/robust/L2), principal component analysis, hypothesis testing (one-sample and two-sample t-test, chi-square, ANOVA, Mann-Whitney, Pearson correlation, proportion z-test, confidence intervals), and polynomial curve fitting with R²/RMSE/MAE and an ASCII scatter chart — no external libraries required.
 
 ## 12. Unlimited Hardened Technical Research
 
