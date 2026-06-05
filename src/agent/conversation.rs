@@ -35,7 +35,7 @@ use crate::agent::routing::{
     needs_char_tools, needs_checksum_tools, needs_chemistry_tools, needs_cipher_tools,
     needs_circuit_tools, needs_cite_tools, needs_class_tools, needs_code_metrics,
     needs_color_tools, needs_compression_tools, needs_computation_sandbox, needs_conda_tools,
-    needs_cors_tools, needs_crash_debug, needs_cron_tools, needs_csp_tools, needs_css_tools,
+    needs_cors_tools, needs_coverage_tools, needs_crash_debug, needs_cron_tools, needs_csp_tools, needs_css_tools,
     needs_csv_tools, needs_curl_tools, needs_cvss_tools, needs_data_gen_tools, needs_date_tools,
     needs_dependency_audit, needs_dex_tools, needs_diff_tools, needs_diff3_tools, needs_dns_tools,
     needs_docker_compose_tools, needs_docker_ops, needs_dockerfile_tools, needs_dotenv_tools,
@@ -69,7 +69,7 @@ use crate::agent::routing::{
     needs_saml_tools, needs_scientific_compute, needs_secret_scan, needs_semver_tools,
     needs_signal_tools, needs_sitemap_tools, needs_size_tools, needs_sort_tools, needs_spdx_tools,
     needs_sql_format_tools, needs_sql_migrate_tools, needs_sql_tools, needs_sqlite_tools,
-    needs_ssh_config_tools, needs_ssh_key_tools, needs_stack_tools, needs_stat_tools,
+    needs_ssh_config_tools, needs_ssh_key_tools, needs_stack_tools, needs_stat_tools, needs_strace_tools,
     needs_string_metric_tools, needs_svg_tools, needs_systemd_tools, needs_table_tools,
     needs_tar_tools, needs_template_gen, needs_template_tools, needs_terraform_tools,
     needs_test_run, needs_text_align_tools, needs_text_extract_tools, needs_text_tools,
@@ -5499,6 +5499,22 @@ impl ConversationManager {
             );
         }
 
+        if loop_intervention.is_none() && needs_strace_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "STRACE NOTICE: Use the `strace_tools` tool to parse and analyze Linux strace system-call traces without external utilities. \
+                 Supports plain strace output, -f (multi-PID), -T (elapsed time), and -t/-tt (timestamp) formats. \
+                 Actions: summary (default — syscall frequency table with count, errors, and optional elapsed time; pass 'text' or 'file'), \
+                 calls (chronological listing; optional 'syscall' name filter and 'pid' filter), \
+                 files (file-related syscalls — open/read/write/stat etc. — with path extraction and most-accessed paths table), \
+                 network (network syscalls — socket/connect/bind/recv/send etc. — with address extraction), \
+                 errors (only failed syscalls — errno distribution table plus per-call listing). \
+                 Example: strace_tools(file: '/tmp/strace.txt') or \
+                 strace_tools(action: 'errors', file: 'strace.log') or \
+                 strace_tools(action: 'network', text: '...')."
+                    .to_string(),
+            );
+        }
+
         // ── Markdown Tools Routing: steer model toward markdown_tools ──
         if loop_intervention.is_none() && needs_markdown_tools(&effective_user_input) {
             loop_intervention = Some(
@@ -7931,6 +7947,21 @@ impl ConversationManager {
                  preflight (simulate an OPTIONS preflight request and show PASS/FAIL per origin/method/header; pass 'origin', 'method', 'request_headers', and server config). \
                  Example: cors_tools(action: 'validate', headers: {\"Access-Control-Allow-Origin\":\"*\",\"Access-Control-Allow-Credentials\":\"true\"}) or \
                  cors_tools(action: 'generate', origin: 'https://app.example.com', allowed_origins: ['https://app.example.com'], allow_credentials: true)."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_coverage_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "COVERAGE NOTICE: Use the `coverage_tools` tool to parse and analyze code coverage reports without external utilities. \
+                 Supports LCOV format (SF:/end_of_record lines) and Istanbul/nyc JSON (coverage-summary.json) — auto-detected. \
+                 Actions: summary (default — overall line/function/branch % with bar charts and grade A–F; pass 'text' or 'file'), \
+                 files (per-file table sorted by line coverage; optional 'threshold' to filter below N%; 'limit' to cap rows), \
+                 uncovered (list uncovered lines per file grouped into ranges; pass 'text' or 'file'), \
+                 compare (before/after delta — pass 'text'/'file' for report A and 'text_b'/'file_b' for report B; shows per-metric delta and most-changed files). \
+                 Example: coverage_tools(file: 'coverage/lcov.info') or \
+                 coverage_tools(action: 'files', file: 'coverage-summary.json', threshold: 80) or \
+                 coverage_tools(action: 'compare', file: 'before.info', file_b: 'after.info')."
                     .to_string(),
             );
         }

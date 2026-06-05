@@ -10675,6 +10675,71 @@ pub fn needs_cors_tools(user_input: &str) -> bool {
     )
 }
 
+pub fn needs_coverage_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "coverage_tools",
+            "code coverage",
+            "lcov",
+            "lcov.info",
+            ".lcov",
+            "coverage report",
+            "coverage summary",
+            "istanbul coverage",
+            "nyc coverage",
+            "coverage-summary.json",
+            "coverage percentage",
+            "uncovered lines",
+            "lines are uncovered",
+            "uncovered code",
+            "line coverage",
+            "branch coverage",
+            "function coverage",
+            "parse coverage",
+            "analyze coverage",
+            "compare coverage",
+            "coverage threshold",
+            "coverage grade",
+            "coverage diff",
+        ],
+    )
+}
+
+pub fn needs_strace_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "strace_tools",
+            "strace output",
+            "strace log",
+            "strace file",
+            "parse strace",
+            "analyze strace",
+            "strace syscall",
+            "system call trace",
+            "syscall trace",
+            "syscall frequency",
+            "failed syscall",
+            "strace error",
+            "strace network",
+            "strace files",
+            "in strace",
+            "from strace",
+            "via strace",
+            "ltrace",
+            "ptrace log",
+            "openat strace",
+            "strace -o",
+            "strace report",
+            "trace file operations",
+            "trace network calls",
+        ],
+    )
+}
+
 pub fn needs_web_manifest_tools(user_input: &str) -> bool {
     let lower = user_input.to_lowercase();
     contains_any(

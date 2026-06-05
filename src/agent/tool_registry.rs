@@ -1705,6 +1705,21 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         crate::tools::cors_tools::cors_tools_schema(),
     ));
     tools.push(make_tool(
+        "coverage_tools",
+        "Parse, analyze, and compare code coverage reports (LCOV format and Istanbul/nyc JSON) without external utilities. \
+         Auto-detects format: LCOV (SF:/end_of_record text format) or Istanbul (JSON object with per-file pct fields). \
+         Actions: \
+         summary (default — overall line/function/branch coverage with ASCII bar charts, grade A–F, and worst 5 files; pass 'text' or 'file'), \
+         files (per-file coverage table sorted by line %; optional 'threshold' to show only files below N%; 'limit' to cap output), \
+         uncovered (list uncovered lines per file grouped into ranges, e.g. lines 42–48; pass 'text' or 'file'), \
+         compare (diff two reports — before/after delta per metric, most-changed files, new/removed files; pass 'text'/'file' for report A and 'text_b'/'file_b' for report B). \
+         Example: coverage_tools(file: 'coverage/lcov.info') or \
+         coverage_tools(action: 'uncovered', file: 'lcov.info') or \
+         coverage_tools(action: 'files', file: 'coverage-summary.json', threshold: 80) or \
+         coverage_tools(action: 'compare', file: 'before.info', file_b: 'after.info').",
+        crate::tools::coverage_tools::make_schema(),
+    ));
+    tools.push(make_tool(
         "web_manifest_tools",
         "Parse, validate, and inspect PWA Web App Manifest (manifest.json / .webmanifest) files without external utilities. \
          Actions: parse (default — full manifest field summary including icons/screenshots/shortcuts counts; pass 'manifest' as JSON object/string or 'file' path), \
@@ -2791,6 +2806,22 @@ pub fn get_tools() -> Vec<ToolDefinition> {
             },
             "required": []
         }),
+    ));
+    tools.push(make_tool(
+        "strace_tools",
+        "Parse and analyze Linux strace system-call traces without external utilities. \
+         Supports plain strace output, -f (multi-PID), -T (elapsed time), and -t/-tt (timestamp) formats. \
+         Actions: \
+         summary (default — syscall frequency table sorted by count with error count and optional elapsed time; pass 'text' or 'file'), \
+         calls (chronological listing of all syscalls; optional 'syscall' filter and 'pid' filter), \
+         files (file-related operations — open/read/write/stat/unlink/rename etc. — with path extraction and most-accessed paths table), \
+         network (network operations — socket/connect/bind/accept/send/recv etc. — with address extraction and breakdown by syscall type), \
+         errors (only failed syscalls — errno distribution table plus per-call listing; shows ENOENT/EACCES/ECONNREFUSED etc.). \
+         Example: strace_tools(file: '/tmp/strace.txt') or \
+         strace_tools(action: 'errors', text: '4242  openat(AT_FDCWD, \"/etc/missing\", O_RDONLY) = -1 ENOENT') or \
+         strace_tools(action: 'files', file: 'strace.log', pid: 4242) or \
+         strace_tools(action: 'network', text: '...').",
+        crate::tools::strace_tools::make_schema(),
     ));
     tools.push(make_tool(
         "markdown_tools",
@@ -7805,6 +7836,7 @@ pub async fn dispatch_builtin_tool(
         "notebook_tools" => crate::tools::notebook_tools::execute(args).await,
         "conda_tools" => crate::tools::conda_tools::execute(args).await,
         "cors_tools" => crate::tools::cors_tools::execute(args).await,
+        "coverage_tools" => crate::tools::coverage_tools::execute(args).await,
         "web_manifest_tools" => crate::tools::web_manifest_tools::execute(args).await,
         "json_patch_tools" => crate::tools::json_patch_tools::execute(args).await,
         "markdown_gen_tools" => crate::tools::markdown_gen_tools::execute(args).await,
@@ -7831,6 +7863,7 @@ pub async fn dispatch_builtin_tool(
         "xml_tools" => crate::tools::xml_tools::execute(args).await,
         "archive_tools" => crate::tools::archive_tools::execute(args).await,
         "sqlite_tools" => crate::tools::sqlite_tools::execute(args).await,
+        "strace_tools" => crate::tools::strace_tools::execute(args).await,
         "markdown_tools" => crate::tools::markdown_tools::execute(args).await,
         "url_tools" => crate::tools::url_tools::execute(args).await,
         "line_tools" => crate::tools::line_tools::execute(args).await,

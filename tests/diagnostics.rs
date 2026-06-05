@@ -39834,3 +39834,114 @@ fn test_sbom_tools_validate_cyclonedx() {
         out
     );
 }
+
+// ── coverage_tools routing ──
+#[test]
+fn test_routing_detects_coverage_tools() {
+    use hematite::agent::routing::needs_coverage_tools;
+    assert!(needs_coverage_tools("parse my lcov.info file"));
+    assert!(needs_coverage_tools("show code coverage report"));
+    assert!(needs_coverage_tools("analyze istanbul coverage summary"));
+    assert!(needs_coverage_tools("which lines are uncovered"));
+    assert!(needs_coverage_tools("compare coverage before and after"));
+    assert!(needs_coverage_tools("show files below 80% coverage threshold"));
+    assert!(!needs_coverage_tools("run the test suite"));
+    assert!(!needs_coverage_tools("generate a unit test"));
+}
+
+// ── coverage_tools functional ──
+#[test]
+fn test_coverage_tools_summary_lcov() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let lcov = "TN:\nSF:src/main.rs\nDA:1,1\nDA:2,1\nDA:3,0\nDA:4,0\nLH:2\nLF:4\nFNF:2\nFNH:1\nBRF:4\nBRH:2\nend_of_record\nSF:src/lib.rs\nDA:1,1\nDA:2,1\nDA:3,1\nLH:3\nLF:3\nFNF:1\nFNH:1\nBRF:2\nBRH:2\nend_of_record\n";
+    let out = rt
+        .block_on(hematite::tools::coverage_tools::execute(
+            &serde_json::json!({ "action": "summary", "text": lcov }),
+        ))
+        .unwrap();
+    assert!(out.contains("Coverage Summary"), "got: {out}");
+    assert!(out.contains("Lines"), "got: {out}");
+    assert!(out.contains("Functions"), "got: {out}");
+}
+
+#[test]
+fn test_coverage_tools_uncovered_lines() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let lcov = "SF:src/foo.rs\nDA:1,1\nDA:2,0\nDA:3,0\nDA:5,0\nLH:1\nLF:4\nend_of_record\n";
+    let out = rt
+        .block_on(hematite::tools::coverage_tools::execute(
+            &serde_json::json!({ "action": "uncovered", "text": lcov }),
+        ))
+        .unwrap();
+    assert!(out.contains("uncovered") || out.contains("lines"), "got: {out}");
+}
+
+#[test]
+fn test_coverage_tools_istanbul_json() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let istanbul = r#"{"src/app.js":{"lines":{"total":100,"covered":80,"skipped":0,"pct":80},"functions":{"total":20,"covered":15,"skipped":0,"pct":75},"branches":{"total":30,"covered":20,"skipped":0,"pct":66.67}}}"#;
+    let out = rt
+        .block_on(hematite::tools::coverage_tools::execute(
+            &serde_json::json!({ "action": "summary", "text": istanbul }),
+        ))
+        .unwrap();
+    assert!(out.contains("Coverage Summary"), "got: {out}");
+    assert!(out.contains("80"), "got: {out}");
+}
+
+// ── strace_tools routing ──
+#[test]
+fn test_routing_detects_strace_tools() {
+    use hematite::agent::routing::needs_strace_tools;
+    assert!(needs_strace_tools("parse my strace output"));
+    assert!(needs_strace_tools("analyze this strace log"));
+    assert!(needs_strace_tools("show syscall frequency from strace file"));
+    assert!(needs_strace_tools("which file operations did the process make in strace"));
+    assert!(needs_strace_tools("find failed syscalls in strace"));
+    assert!(needs_strace_tools("trace network calls from strace"));
+    assert!(!needs_strace_tools("run the application and check logs"));
+    assert!(!needs_strace_tools("show process list"));
+}
+
+// ── strace_tools functional ──
+#[test]
+fn test_strace_tools_summary() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let strace = "4242  openat(AT_FDCWD, \"/etc/passwd\", O_RDONLY) = 3\n4242  read(3, \"root:x:0:0\", 100) = 42\n4242  close(3) = 0\n4242  write(1, \"hello\n\", 6) = 6\n4242  openat(AT_FDCWD, \"/etc/missing\", O_RDONLY) = -1 ENOENT (No such file or directory)\n";
+    let out = rt
+        .block_on(hematite::tools::strace_tools::execute(
+            &serde_json::json!({ "action": "summary", "text": strace }),
+        ))
+        .unwrap();
+    assert!(out.contains("openat") || out.contains("syscall") || out.contains("Syscall"), "got: {out}");
+}
+
+#[test]
+fn test_strace_tools_errors() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let strace = "openat(AT_FDCWD, \"/etc/missing\", O_RDONLY) = -1 ENOENT (No such file or directory)\nconnect(3, {sa_family=AF_INET, sin_port=htons(80)}, 16) = -1 ECONNREFUSED (Connection refused)\n";
+    let out = rt
+        .block_on(hematite::tools::strace_tools::execute(
+            &serde_json::json!({ "action": "errors", "text": strace }),
+        ))
+        .unwrap();
+    assert!(
+        out.contains("ENOENT") || out.contains("failed") || out.contains("Failed"),
+        "got: {out}"
+    );
+}
+
+#[test]
+fn test_strace_tools_files() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let strace = "openat(AT_FDCWD, \"/etc/ld.so.cache\", O_RDONLY|O_CLOEXEC) = 3\nread(3, \"abc\", 100) = 3\nclose(3) = 0\n";
+    let out = rt
+        .block_on(hematite::tools::strace_tools::execute(
+            &serde_json::json!({ "action": "files", "text": strace }),
+        ))
+        .unwrap();
+    assert!(
+        out.contains("openat") || out.contains("File operations"),
+        "got: {out}"
+    );
+}
