@@ -5454,6 +5454,20 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         }),
     ));
     tools.push(make_tool(
+        "stylelint_tools",
+        "Parse, inspect, and validate Stylelint configuration files (.stylelintrc, .stylelintrc.json, .stylelintrc.yaml, or 'stylelint' key in package.json) without external utilities. Auto-detects JSON vs YAML. \
+         Actions: \
+         `info` (default) — full config overview: rule/plugin/extends/override counts, extends chain, rule severity summary; \
+         `rules` — detailed rule listing grouped by severity (error/warning/disabled) with options; \
+         `plugins` — numbered plugin list; \
+         `extends` — config inheritance chain with base-to-top ordering note; \
+         `validate` — common issues: no rules/extends/plugins, deprecated v15+ rules, SCSS/order rules without matching plugins, unknown top-level keys, invalid severity values. \
+         Input: 'config' (inline JSON or YAML string) or 'file' (path to .stylelintrc, .stylelintrc.json, .stylelintrc.yaml, or package.json). \
+         Note: JavaScript config files (.js/.mjs/.cjs) cannot be statically parsed. \
+         Example: stylelint_tools(file: '.stylelintrc.json') or stylelint_tools(action: 'rules', config: '{\"rules\": {\"color-no-invalid-hex\": true}}').",
+        crate::tools::stylelint_tools::make_schema(),
+    ));
+    tools.push(make_tool(
         "calc_tools",
         "Evaluate mathematical expressions, RPN calculations, multi-variable sessions, and numeric sequences \
          without needing run_code or a Python sandbox. \
@@ -6896,6 +6910,19 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         crate::tools::spdx_tools::make_schema(),
     ));
     tools.push(make_tool(
+        "babel_tools",
+        "Parse, inspect, and validate Babel configuration files (babel.config.json, .babelrc, .babelrc.json, .babelrc.yaml, or 'babel' key in package.json) without external utilities. Auto-detects JSON vs YAML. \
+         Actions: \
+         `info` (default) — full config overview: preset/plugin/env/override counts, preset and plugin tables; \
+         `presets` — detailed preset listing with numbered index and per-preset options; \
+         `plugins` — detailed plugin listing with numbered index and per-plugin options; \
+         `env` — environment-specific configuration (production/development/test blocks); \
+         `validate` — common config issues: @babel/preset-env without targets, deprecated es2015/react/stage-x presets, deprecated plugins, duplicate presets/plugins. \
+         Input: 'config' (inline JSON or YAML string) or 'file' (path to babel.config.json, .babelrc, .babelrc.json, .babelrc.yaml, or package.json). \
+         Example: babel_tools(file: 'babel.config.json') or babel_tools(action: 'validate', config: '{\"presets\": [\"@babel/preset-env\"]}').",
+        crate::tools::babel_tools::make_schema(),
+    ));
+    tools.push(make_tool(
         "aws_tools",
         "Parse and look up AWS ARNs, S3 URIs, regions, and service codes without external utilities. \
          Actions: \
@@ -8000,6 +8027,7 @@ pub async fn dispatch_builtin_tool(
         "time_zone_tools" => crate::tools::time_zone_tools::execute(args).await,
         "word_tools" => crate::tools::word_tools::execute(args).await,
         "string_metric_tools" => crate::tools::string_metric_tools::execute(args).await,
+        "stylelint_tools" => crate::tools::stylelint_tools::execute(args).await,
         "calc_tools" => crate::tools::calc_tools::execute(args).await,
         "secret_scanner" => crate::tools::secret_scanner::execute(args).await,
         "code_metrics" => crate::tools::code_metrics::execute(args).await,
@@ -8100,6 +8128,7 @@ pub async fn dispatch_builtin_tool(
         "ldif_tools" => crate::tools::ldif_tools::execute(args).await,
         "iptables_tools" => crate::tools::iptables_tools::execute(args).await,
         "spdx_tools" => crate::tools::spdx_tools::execute(args).await,
+        "babel_tools" => crate::tools::babel_tools::execute(args).await,
         "aws_tools" => crate::tools::aws_tools::execute(args).await,
         "curl_tools" => crate::tools::curl_tools::execute(args).await,
         "oauth_tools" => crate::tools::oauth_tools::execute(args).await,

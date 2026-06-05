@@ -12340,7 +12340,11 @@ pub fn needs_git_log_tools(user_input: &str) -> bool {
         || lower.contains("git log analysis")
         || lower.contains("commits per week")
         || lower.contains("git history")
-        || (lower.contains("git log") && (lower.contains("parse") || lower.contains("analyz") || lower.contains("inspect") || lower.contains("summar")))
+        || (lower.contains("git log")
+            && (lower.contains("parse")
+                || lower.contains("analyz")
+                || lower.contains("inspect")
+                || lower.contains("summar")))
 }
 
 pub fn needs_journald_tools(user_input: &str) -> bool {
@@ -12358,7 +12362,11 @@ pub fn needs_journald_tools(user_input: &str) -> bool {
         || lower.contains("-o json journal")
         || lower.contains("systemd log")
         || lower.contains("linux system log")
-        || (lower.contains("journal") && (lower.contains("parse") || lower.contains("analyz") || lower.contains("filter") || lower.contains("summar")))
+        || (lower.contains("journal")
+            && (lower.contains("parse")
+                || lower.contains("analyz")
+                || lower.contains("filter")
+                || lower.contains("summar")))
 }
 
 pub fn needs_tsconfig_tools(user_input: &str) -> bool {
@@ -12375,7 +12383,11 @@ pub fn needs_tsconfig_tools(user_input: &str) -> bool {
         || lower.contains("typescript paths")
         || lower.contains("project references typescript")
         || lower.contains("ts project references")
-        || (lower.contains("tsconfig") && (lower.contains("parse") || lower.contains("analyz") || lower.contains("inspect") || lower.contains("validate")))
+        || (lower.contains("tsconfig")
+            && (lower.contains("parse")
+                || lower.contains("analyz")
+                || lower.contains("inspect")
+                || lower.contains("validate")))
 }
 
 pub fn needs_eslint_tools(user_input: &str) -> bool {
@@ -12394,7 +12406,11 @@ pub fn needs_eslint_tools(user_input: &str) -> bool {
         || lower.contains("parse eslint")
         || lower.contains("validate eslint")
         || lower.contains("inspect eslint")
-        || (lower.contains("eslint") && (lower.contains("parse") || lower.contains("analyz") || lower.contains("inspect") || lower.contains("validate")))
+        || (lower.contains("eslint")
+            && (lower.contains("parse")
+                || lower.contains("analyz")
+                || lower.contains("inspect")
+                || lower.contains("validate")))
 }
 
 pub fn needs_prettier_tools(user_input: &str) -> bool {
@@ -12415,7 +12431,11 @@ pub fn needs_prettier_tools(user_input: &str) -> bool {
         || lower.contains("trailing comma prettier")
         || lower.contains("print width prettier")
         || lower.contains("tab width prettier")
-        || (lower.contains("prettier") && (lower.contains("parse") || lower.contains("analyz") || lower.contains("inspect") || lower.contains("validate")))
+        || (lower.contains("prettier")
+            && (lower.contains("parse")
+                || lower.contains("analyz")
+                || lower.contains("inspect")
+                || lower.contains("validate")))
 }
 
 pub fn needs_jest_tools(user_input: &str) -> bool {
@@ -12435,7 +12455,55 @@ pub fn needs_jest_tools(user_input: &str) -> bool {
         || lower.contains("parse jest")
         || lower.contains("validate jest")
         || lower.contains("inspect jest")
-        || (lower.contains("jest") && (lower.contains("parse") || lower.contains("analyz") || lower.contains("inspect") || lower.contains("validate")))
+        || (lower.contains("jest")
+            && (lower.contains("parse")
+                || lower.contains("analyz")
+                || lower.contains("inspect")
+                || lower.contains("validate")))
+}
+
+pub fn needs_stylelint_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    lower.contains("stylelint_tools")
+        || lower.contains(".stylelintrc")
+        || lower.contains("stylelint.config.json")
+        || lower.contains("stylelint.config.js")
+        || lower.contains("stylelint config")
+        || lower.contains("stylelint configuration")
+        || lower.contains("stylelint rules")
+        || lower.contains("stylelint plugins")
+        || lower.contains("stylelint extends")
+        || lower.contains("stylelint overrides")
+        || lower.contains("scss/ rule")
+        || lower.contains("order/ rule")
+        || (lower.contains("stylelint")
+            && (lower.contains("parse")
+                || lower.contains("analyz")
+                || lower.contains("inspect")
+                || lower.contains("validate")))
+}
+
+pub fn needs_babel_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    lower.contains("babel_tools")
+        || lower.contains("babel.config.json")
+        || lower.contains("babel.config.js")
+        || lower.contains("babel.config.ts")
+        || lower.contains(".babelrc")
+        || lower.contains("babel config")
+        || lower.contains("babel configuration")
+        || lower.contains("babel preset")
+        || lower.contains("babel plugin")
+        || lower.contains("@babel/preset-env")
+        || lower.contains("@babel/preset-react")
+        || lower.contains("@babel/preset-typescript")
+        || lower.contains("babel transform")
+        || lower.contains("babel env config")
+        || (lower.contains("babel")
+            && (lower.contains("parse")
+                || lower.contains("analyz")
+                || lower.contains("inspect")
+                || lower.contains("validate")))
 }
 
 #[cfg(test)]

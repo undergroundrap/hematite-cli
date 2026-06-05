@@ -40502,17 +40502,19 @@ fn test_routing_detects_go_mod_tools() {
     assert!(hematite::agent::routing::needs_go_mod_tools(
         "go module dependencies"
     ));
-    assert!(hematite::agent::routing::needs_go_mod_tools("validate go.mod"));
+    assert!(hematite::agent::routing::needs_go_mod_tools(
+        "validate go.mod"
+    ));
     assert!(hematite::agent::routing::needs_go_mod_tools(
         "golang module path"
     ));
-    assert!(hematite::agent::routing::needs_go_mod_tools("go.mod replace"));
+    assert!(hematite::agent::routing::needs_go_mod_tools(
+        "go.mod replace"
+    ));
     assert!(!hematite::agent::routing::needs_go_mod_tools(
         "go test ./..."
     ));
-    assert!(!hematite::agent::routing::needs_go_mod_tools(
-        "golang tour"
-    ));
+    assert!(!hematite::agent::routing::needs_go_mod_tools("golang tour"));
 }
 
 #[test]
@@ -40618,7 +40620,10 @@ fn test_requirements_tools_info() {
         ))
         .unwrap();
     assert!(out.contains("requests"), "got: {out}");
-    assert!(out.contains("pinned") || out.contains("Pinned"), "got: {out}");
+    assert!(
+        out.contains("pinned") || out.contains("Pinned"),
+        "got: {out}"
+    );
 }
 
 #[test]
@@ -40695,9 +40700,15 @@ feed0001|Alice|alice@example.com|2024-03-13 09:00:00 +0000|chore: update deps\n"
             &serde_json::json!({ "action": "parse", "log": log }),
         ))
         .unwrap();
-    assert!(out.contains("abc12345") || out.contains("abc1234"), "got: {out}");
+    assert!(
+        out.contains("abc12345") || out.contains("abc1234"),
+        "got: {out}"
+    );
     assert!(out.contains("Alice") || out.contains("alice"), "got: {out}");
-    assert!(out.contains("feat: add login") || out.contains("login"), "got: {out}");
+    assert!(
+        out.contains("feat: add login") || out.contains("login"),
+        "got: {out}"
+    );
 }
 
 #[test]
@@ -40765,8 +40776,14 @@ fn test_journald_tools_parse() {
             &serde_json::json!({ "action": "parse", "log": log }),
         ))
         .unwrap();
-    assert!(out.contains("nginx") || out.contains("nginx.service"), "got: {out}");
-    assert!(out.contains("sshd") || out.contains("sshd.service"), "got: {out}");
+    assert!(
+        out.contains("nginx") || out.contains("nginx.service"),
+        "got: {out}"
+    );
+    assert!(
+        out.contains("sshd") || out.contains("sshd.service"),
+        "got: {out}"
+    );
 }
 
 #[test]
@@ -40781,8 +40798,14 @@ fn test_journald_tools_errors() {
         ))
         .unwrap();
     // Should include CRIT and ERR entries but not the INFO entry
-    assert!(out.contains("CRIT") || out.contains("disk failure"), "got: {out}");
-    assert!(out.contains("ERR") || out.contains("connection refused"), "got: {out}");
+    assert!(
+        out.contains("CRIT") || out.contains("disk failure"),
+        "got: {out}"
+    );
+    assert!(
+        out.contains("ERR") || out.contains("connection refused"),
+        "got: {out}"
+    );
 }
 
 #[test]
@@ -40841,8 +40864,14 @@ fn test_tsconfig_tools_info() {
             &serde_json::json!({ "action": "info", "tsconfig": tsconfig }),
         ))
         .unwrap();
-    assert!(out.contains("ES2020") || out.contains("target"), "should show target: {out}");
-    assert!(out.contains("strict") || out.contains("Strict"), "should mention strict: {out}");
+    assert!(
+        out.contains("ES2020") || out.contains("target"),
+        "should show target: {out}"
+    );
+    assert!(
+        out.contains("strict") || out.contains("Strict"),
+        "should mention strict: {out}"
+    );
 }
 
 #[test]
@@ -40860,8 +40889,13 @@ fn test_tsconfig_tools_validate() {
         ))
         .unwrap();
     // Should warn on paths without baseUrl, and possibly ES5 target
-    assert!(out.contains("baseUrl") || out.contains("paths") || out.contains("WARN") || out.contains("strict"),
-        "should flag paths-without-baseUrl or strict warning: {out}");
+    assert!(
+        out.contains("baseUrl")
+            || out.contains("paths")
+            || out.contains("WARN")
+            || out.contains("strict"),
+        "should flag paths-without-baseUrl or strict warning: {out}"
+    );
 }
 
 #[test]
@@ -40881,7 +40915,10 @@ fn test_tsconfig_tools_compiler_with_comments() {
             &serde_json::json!({ "action": "compiler", "tsconfig": tsconfig }),
         ))
         .unwrap();
-    assert!(out.contains("ESNext") || out.contains("esnext"), "should show target after comment stripping: {out}");
+    assert!(
+        out.contains("ESNext") || out.contains("esnext"),
+        "should show target after comment stripping: {out}"
+    );
 }
 
 // ── eslint_tools ──────────────────────────────────────────────────────────────
@@ -40924,8 +40961,14 @@ fn test_eslint_tools_legacy_info() {
             &serde_json::json!({ "action": "info", "config": config }),
         ))
         .unwrap();
-    assert!(out.contains("typescript") || out.contains("@typescript-eslint"), "should show parser/plugin: {out}");
-    assert!(out.contains("react") || out.contains("React"), "should show react plugin: {out}");
+    assert!(
+        out.contains("typescript") || out.contains("@typescript-eslint"),
+        "should show parser/plugin: {out}"
+    );
+    assert!(
+        out.contains("react") || out.contains("React"),
+        "should show react plugin: {out}"
+    );
 }
 
 #[test]
@@ -40944,8 +40987,14 @@ fn test_eslint_tools_rules() {
             &serde_json::json!({ "action": "rules", "config": config }),
         ))
         .unwrap();
-    assert!(out.contains("no-console"), "should list no-console rule: {out}");
-    assert!(out.contains("no-unused-vars"), "should list no-unused-vars rule: {out}");
+    assert!(
+        out.contains("no-console"),
+        "should list no-console rule: {out}"
+    );
+    assert!(
+        out.contains("no-unused-vars"),
+        "should list no-unused-vars rule: {out}"
+    );
     assert!(out.contains("eqeqeq"), "should list eqeqeq rule: {out}");
 }
 
@@ -40968,7 +41017,10 @@ fn test_eslint_tools_flat_config() {
             &serde_json::json!({ "action": "info", "config": config }),
         ))
         .unwrap();
-    assert!(out.contains("Flat") || out.contains("flat") || out.contains("config"), "should detect flat config: {out}");
+    assert!(
+        out.contains("Flat") || out.contains("flat") || out.contains("config"),
+        "should detect flat config: {out}"
+    );
 }
 
 #[test]
@@ -41000,7 +41052,10 @@ fn test_prettier_tools_info_json() {
         ))
         .unwrap();
     assert!(out.contains("printWidth"), "should show printWidth: {out}");
-    assert!(out.contains("singleQuote"), "should show singleQuote: {out}");
+    assert!(
+        out.contains("singleQuote"),
+        "should show singleQuote: {out}"
+    );
     assert!(out.contains("100"), "should show value 100: {out}");
 }
 
@@ -41017,8 +41072,14 @@ fn test_prettier_tools_validate_deprecated() {
             &serde_json::json!({ "action": "validate", "config": config }),
         ))
         .unwrap();
-    assert!(out.contains("DEPRECATED") || out.contains("Deprecated"), "should flag deprecated option: {out}");
-    assert!(out.contains("ERROR") || out.contains("invalid"), "should flag invalid trailingComma: {out}");
+    assert!(
+        out.contains("DEPRECATED") || out.contains("Deprecated"),
+        "should flag deprecated option: {out}"
+    );
+    assert!(
+        out.contains("ERROR") || out.contains("invalid"),
+        "should flag invalid trailingComma: {out}"
+    );
 }
 
 #[test]
@@ -41043,7 +41104,10 @@ fn test_prettier_tools_overrides() {
         ))
         .unwrap();
     assert!(out.contains("Override"), "should show overrides: {out}");
-    assert!(out.contains("*.md") || out.contains("md"), "should show file pattern: {out}");
+    assert!(
+        out.contains("*.md") || out.contains("md"),
+        "should show file pattern: {out}"
+    );
 }
 
 #[test]
@@ -41076,7 +41140,10 @@ fn test_jest_tools_info() {
         .unwrap();
     assert!(out.contains("ts-jest"), "should show preset: {out}");
     assert!(out.contains("node"), "should show testEnvironment: {out}");
-    assert!(out.contains("enabled"), "should show coverage enabled: {out}");
+    assert!(
+        out.contains("enabled"),
+        "should show coverage enabled: {out}"
+    );
 }
 
 #[test]
@@ -41097,8 +41164,14 @@ fn test_jest_tools_coverage() {
             &serde_json::json!({ "action": "coverage", "config": config }),
         ))
         .unwrap();
-    assert!(out.contains("Threshold") || out.contains("threshold"), "should show thresholds: {out}");
-    assert!(out.contains("80") || out.contains("lines"), "should show line threshold: {out}");
+    assert!(
+        out.contains("Threshold") || out.contains("threshold"),
+        "should show thresholds: {out}"
+    );
+    assert!(
+        out.contains("80") || out.contains("lines"),
+        "should show line threshold: {out}"
+    );
 }
 
 #[test]
@@ -41114,5 +41187,171 @@ fn test_jest_tools_validate_conflict() {
             &serde_json::json!({ "action": "validate", "config": config }),
         ))
         .unwrap();
-    assert!(out.contains("ERROR") || out.contains("testMatch") || out.contains("testRegex"), "should flag conflict: {out}");
+    assert!(
+        out.contains("ERROR") || out.contains("testMatch") || out.contains("testRegex"),
+        "should flag conflict: {out}"
+    );
+}
+
+// ── babel_tools ──────────────────────────────────────────────────────────────
+
+#[test]
+fn test_routing_detects_babel_tools() {
+    use hematite::agent::routing::needs_babel_tools;
+    assert!(needs_babel_tools("inspect my babel.config.json"));
+    assert!(needs_babel_tools("parse .babelrc for me"));
+    assert!(needs_babel_tools("validate @babel/preset-env config"));
+}
+
+#[test]
+fn test_babel_tools_info() {
+    let config = r#"{
+        "presets": [
+            ["@babel/preset-env", {"targets": "> 0.25%"}],
+            "@babel/preset-react"
+        ],
+        "plugins": ["@babel/plugin-proposal-class-properties"]
+    }"#;
+    let out = tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(hematite::tools::babel_tools::execute(
+            &serde_json::json!({ "action": "info", "config": config }),
+        ))
+        .unwrap();
+    assert!(
+        out.contains("Preset") || out.contains("preset"),
+        "should show presets: {out}"
+    );
+    assert!(
+        out.contains("@babel/preset-env") || out.contains("preset-env"),
+        "should list preset-env: {out}"
+    );
+    assert!(
+        out.contains("Plugin") || out.contains("plugin"),
+        "should show plugins: {out}"
+    );
+}
+
+#[test]
+fn test_babel_tools_validate_no_targets() {
+    let config = r#"{
+        "presets": ["@babel/preset-env"]
+    }"#;
+    let out = tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(hematite::tools::babel_tools::execute(
+            &serde_json::json!({ "action": "validate", "config": config }),
+        ))
+        .unwrap();
+    assert!(
+        out.contains("targets") || out.contains("WARN"),
+        "should warn about missing targets: {out}"
+    );
+}
+
+#[test]
+fn test_babel_tools_env() {
+    let config = r#"{
+        "presets": ["@babel/preset-env"],
+        "env": {
+            "test": {
+                "plugins": ["@babel/plugin-transform-modules-commonjs"]
+            },
+            "production": {
+                "plugins": ["transform-react-remove-prop-types"]
+            }
+        }
+    }"#;
+    let out = tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(hematite::tools::babel_tools::execute(
+            &serde_json::json!({ "action": "env", "config": config }),
+        ))
+        .unwrap();
+    assert!(
+        out.contains("test") || out.contains("production"),
+        "should show env blocks: {out}"
+    );
+    assert!(
+        out.contains("commonjs") || out.contains("transform"),
+        "should show env plugins: {out}"
+    );
+}
+
+// ── stylelint_tools ───────────────────────────────────────────────────────────
+
+#[test]
+fn test_routing_detects_stylelint_tools() {
+    use hematite::agent::routing::needs_stylelint_tools;
+    assert!(needs_stylelint_tools("inspect my .stylelintrc.json"));
+    assert!(needs_stylelint_tools("validate stylelint config"));
+    assert!(needs_stylelint_tools("parse .stylelintrc for scss rules"));
+}
+
+#[test]
+fn test_stylelint_tools_info() {
+    let config = r#"{
+        "extends": ["stylelint-config-standard"],
+        "plugins": ["stylelint-scss"],
+        "rules": {
+            "color-no-invalid-hex": true,
+            "unit-allowed-list": ["em", "rem", "px"],
+            "color-hex-length": "short"
+        }
+    }"#;
+    let out = tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(hematite::tools::stylelint_tools::execute(
+            &serde_json::json!({ "action": "info", "config": config }),
+        ))
+        .unwrap();
+    assert!(
+        out.contains("Rule") || out.contains("rule"),
+        "should show rules count: {out}"
+    );
+    assert!(
+        out.contains("stylelint-config-standard") || out.contains("Extends"),
+        "should show extends: {out}"
+    );
+}
+
+#[test]
+fn test_stylelint_tools_rules() {
+    let config = r#"{
+        "rules": {
+            "color-no-invalid-hex": [true],
+            "unit-allowed-list": [true, ["em", "rem"]],
+            "no-empty-source": null
+        }
+    }"#;
+    let out = tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(hematite::tools::stylelint_tools::execute(
+            &serde_json::json!({ "action": "rules", "config": config }),
+        ))
+        .unwrap();
+    assert!(
+        out.contains("color-no-invalid-hex") || out.contains("color"),
+        "should list color rule: {out}"
+    );
+}
+
+#[test]
+fn test_stylelint_tools_validate_scss_no_plugin() {
+    let config = r#"{
+        "rules": {
+            "scss/at-rule-no-unknown": true,
+            "scss/selector-no-redundant-nesting-selector": true
+        }
+    }"#;
+    let out = tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(hematite::tools::stylelint_tools::execute(
+            &serde_json::json!({ "action": "validate", "config": config }),
+        ))
+        .unwrap();
+    assert!(
+        out.contains("scss") || out.contains("plugin") || out.contains("WARN"),
+        "should warn about scss rules without plugin: {out}"
+    );
 }

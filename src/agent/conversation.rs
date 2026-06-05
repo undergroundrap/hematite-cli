@@ -29,60 +29,62 @@ use crate::agent::routing::{
     all_host_inspection_topics, classify_query_intent, is_capability_probe_tool,
     is_scaffold_request, looks_like_mutation_request, needs_acoustics_tools, needs_ansi_tools,
     needs_ansible_tools, needs_archive_tools, needs_ascii_chart_tools, needs_ascii_tools,
-    needs_asn1_tools, needs_astro_tools, needs_audio_file_tools, needs_aws_tools, needs_base_tools,
-    needs_bencode_tools, needs_bin_pack_tools, needs_binary_tools, needs_bio_tools,
-    needs_calc_tools, needs_cbor_tools, needs_changelog_gen, needs_changelog_tools,
-    needs_char_tools, needs_checksum_tools, needs_chemistry_tools, needs_cipher_tools,
-    needs_circuit_tools, needs_cite_tools, needs_class_tools, needs_cmake_tools,
-    needs_code_metrics, needs_color_tools, needs_compression_tools, needs_computation_sandbox,
-    needs_conda_tools, needs_cors_tools, needs_coverage_tools, needs_crash_debug, needs_cron_tools,
-    needs_csp_tools, needs_css_tools, needs_csv_tools, needs_curl_tools, needs_cvss_tools,
-    needs_data_gen_tools, needs_date_tools, needs_dependency_audit, needs_dex_tools,
-    needs_diff3_tools, needs_diff_tools, needs_dns_tools, needs_docker_compose_tools,
-    needs_docker_ops, needs_dockerfile_tools, needs_dotenv_tools, needs_dotnet_tools,
-    needs_duration_tools, needs_elf_tools, needs_em_tools, needs_email_tools, needs_encode_tools,
-    needs_env_diff, needs_env_schema_tools, needs_epub_tools, needs_exif_tools,
-    needs_file_tree_tools, needs_financial_tools, needs_find_tools, needs_font_tools, needs_format,
-    needs_fraction_tools, needs_geo_tools, needs_geometry_tools, needs_github_actions_tools,
-    needs_github_ops, needs_gitignore_tools, needs_gitlab_ci_tools, needs_glob_tools,
-    needs_git_log_tools, needs_go_mod_tools, needs_gpu_tools, needs_gradle_tools, needs_graph_tools, needs_graphql_tools,
+    needs_asn1_tools, needs_astro_tools, needs_audio_file_tools, needs_aws_tools,
+    needs_babel_tools, needs_base_tools, needs_bencode_tools, needs_bin_pack_tools,
+    needs_binary_tools, needs_bio_tools, needs_calc_tools, needs_cbor_tools, needs_changelog_gen,
+    needs_changelog_tools, needs_char_tools, needs_checksum_tools, needs_chemistry_tools,
+    needs_cipher_tools, needs_circuit_tools, needs_cite_tools, needs_class_tools,
+    needs_cmake_tools, needs_code_metrics, needs_color_tools, needs_compression_tools,
+    needs_computation_sandbox, needs_conda_tools, needs_cors_tools, needs_coverage_tools,
+    needs_crash_debug, needs_cron_tools, needs_csp_tools, needs_css_tools, needs_csv_tools,
+    needs_curl_tools, needs_cvss_tools, needs_data_gen_tools, needs_date_tools,
+    needs_dependency_audit, needs_dex_tools, needs_diff3_tools, needs_diff_tools, needs_dns_tools,
+    needs_docker_compose_tools, needs_docker_ops, needs_dockerfile_tools, needs_dotenv_tools,
+    needs_dotnet_tools, needs_duration_tools, needs_elf_tools, needs_em_tools, needs_email_tools,
+    needs_encode_tools, needs_env_diff, needs_env_schema_tools, needs_epub_tools,
+    needs_eslint_tools, needs_exif_tools, needs_file_tree_tools, needs_financial_tools,
+    needs_find_tools, needs_font_tools, needs_format, needs_fraction_tools, needs_geo_tools,
+    needs_geometry_tools, needs_git_log_tools, needs_github_actions_tools, needs_github_ops,
+    needs_gitignore_tools, needs_gitlab_ci_tools, needs_glob_tools, needs_go_mod_tools,
+    needs_gpu_tools, needs_gradle_tools, needs_graph_tools, needs_graphql_tools,
     needs_graphviz_tools, needs_grep_tools, needs_grpc_tools, needs_haproxy_tools, needs_har_tools,
     needs_hash_tools, needs_helm_tools, needs_hex_tools, needs_html_tools, needs_http_cache_tools,
     needs_http_parse_tools, needs_http_request, needs_http_status_tools, needs_ical_tools,
     needs_id_tools, needs_image_tools, needs_inflect_tools, needs_ini_tools, needs_interval_tools,
-    needs_ip_tools, needs_iptables_tools, needs_jq_tools, needs_json_patch_tools, needs_json_tools,
-    needs_eslint_tools, needs_jest_tools, needs_journald_tools, needs_jsonl_tools, needs_jsonrpc_tools, needs_jsonschema_tools, needs_junit_tools,
-    needs_jwk_tools, needs_jwt_tools, needs_k8s_tools, needs_keyval_tools, needs_latex_tools,
-    needs_ldif_tools, needs_leb128_tools, needs_license_tools, needs_line_tools, needs_lint_check,
-    needs_lock_file_tools, needs_log_parse_tools, needs_logic_tools, needs_macho_tools,
-    needs_make_tools, needs_markdown_gen_tools, needs_markdown_tools, needs_materials_tools,
-    needs_matrix_tools, needs_maven_tools, needs_mechanics_tools, needs_mermaid_tools,
-    needs_mime_tools, needs_money_tools, needs_msgpack_tools, needs_multipart_tools,
-    needs_music_tools, needs_nato_tools, needs_net_lookup_tools, needs_network_header_tools,
-    needs_nginx_conf_tools, needs_nmap_tools, needs_notebook_tools, needs_nuclear_tools,
-    needs_number_sequence_tools, needs_number_theory_tools, needs_number_tools,
-    needs_number_words_tools, needs_oauth_tools, needs_office_tools, needs_openapi_tools,
-    needs_openid_tools, needs_optics_tools, needs_package_json_tools, needs_password_gen,
-    needs_path_tools, needs_pcap_tools, needs_pdf_tools, needs_pe_tools, needs_pem_tools,
-    needs_periodic_tools, needs_physics_tools, needs_plist_tools, needs_port_check,
-    needs_postman_tools, needs_prettier_tools, needs_printf_tools, needs_prometheus_tools, needs_proto_tools,
-    needs_protobuf_wire_tools, needs_quantum_tools, needs_regex_tools, needs_relativity_tools,
-    needs_requirements_tools, needs_robots_txt_tools, needs_rss_tools, needs_saml_tools, needs_sbom_tools,
+    needs_ip_tools, needs_iptables_tools, needs_jest_tools, needs_journald_tools, needs_jq_tools,
+    needs_json_patch_tools, needs_json_tools, needs_jsonl_tools, needs_jsonrpc_tools,
+    needs_jsonschema_tools, needs_junit_tools, needs_jwk_tools, needs_jwt_tools, needs_k8s_tools,
+    needs_keyval_tools, needs_latex_tools, needs_ldif_tools, needs_leb128_tools,
+    needs_license_tools, needs_line_tools, needs_lint_check, needs_lock_file_tools,
+    needs_log_parse_tools, needs_logic_tools, needs_macho_tools, needs_make_tools,
+    needs_markdown_gen_tools, needs_markdown_tools, needs_materials_tools, needs_matrix_tools,
+    needs_maven_tools, needs_mechanics_tools, needs_mermaid_tools, needs_mime_tools,
+    needs_money_tools, needs_msgpack_tools, needs_multipart_tools, needs_music_tools,
+    needs_nato_tools, needs_net_lookup_tools, needs_network_header_tools, needs_nginx_conf_tools,
+    needs_nmap_tools, needs_notebook_tools, needs_nuclear_tools, needs_number_sequence_tools,
+    needs_number_theory_tools, needs_number_tools, needs_number_words_tools, needs_oauth_tools,
+    needs_office_tools, needs_openapi_tools, needs_openid_tools, needs_optics_tools,
+    needs_package_json_tools, needs_password_gen, needs_path_tools, needs_pcap_tools,
+    needs_pdf_tools, needs_pe_tools, needs_pem_tools, needs_periodic_tools, needs_physics_tools,
+    needs_plist_tools, needs_port_check, needs_postman_tools, needs_prettier_tools,
+    needs_printf_tools, needs_prometheus_tools, needs_proto_tools, needs_protobuf_wire_tools,
+    needs_quantum_tools, needs_regex_tools, needs_relativity_tools, needs_requirements_tools,
+    needs_robots_txt_tools, needs_rss_tools, needs_saml_tools, needs_sbom_tools,
     needs_scientific_compute, needs_secret_scan, needs_semver_tools, needs_signal_tools,
     needs_sitemap_tools, needs_size_tools, needs_sort_tools, needs_spdx_tools,
     needs_sql_format_tools, needs_sql_migrate_tools, needs_sql_tools, needs_sqlite_tools,
     needs_ssh_config_tools, needs_ssh_key_tools, needs_stack_tools, needs_stat_tools,
-    needs_strace_tools, needs_string_metric_tools, needs_subnet_tools, needs_svg_tools,
-    needs_systemd_tools, needs_table_tools, needs_tar_tools, needs_template_gen,
+    needs_strace_tools, needs_string_metric_tools, needs_stylelint_tools, needs_subnet_tools,
+    needs_svg_tools, needs_systemd_tools, needs_table_tools, needs_tar_tools, needs_template_gen,
     needs_template_tools, needs_terraform_tools, needs_test_run, needs_text_align_tools,
     needs_text_extract_tools, needs_text_tools, needs_thermo_tools, needs_time_zone_tools,
     needs_tls_tools, needs_tlv_tools, needs_todo_tools, needs_token_tools, needs_toml_tools,
-    needs_totp_tools, needs_trie_tools, needs_tsconfig_tools, needs_unicode_tools, needs_unit_tools, needs_url_tools,
-    needs_uuid_gen, needs_validate_tools, needs_vcf_tools, needs_vector_tools,
-    needs_video_file_tools, needs_wasm_tools, needs_web_manifest_tools, needs_webhook_tools,
-    needs_wireguard_tools, needs_word_tools, needs_xml_tools, needs_yaml_tools,
-    preferred_host_inspection_topic, preferred_maintainer_workflow, preferred_workspace_workflow,
-    DirectAnswerKind, QueryIntentClass,
+    needs_totp_tools, needs_trie_tools, needs_tsconfig_tools, needs_unicode_tools,
+    needs_unit_tools, needs_url_tools, needs_uuid_gen, needs_validate_tools, needs_vcf_tools,
+    needs_vector_tools, needs_video_file_tools, needs_wasm_tools, needs_web_manifest_tools,
+    needs_webhook_tools, needs_wireguard_tools, needs_word_tools, needs_xml_tools,
+    needs_yaml_tools, preferred_host_inspection_topic, preferred_maintainer_workflow,
+    preferred_workspace_workflow, DirectAnswerKind, QueryIntentClass,
 };
 use crate::agent::tool_registry::dispatch_builtin_tool;
 use crate::agent::truncation::safe_head;
@@ -6647,6 +6649,20 @@ impl ConversationManager {
             );
         }
 
+        if loop_intervention.is_none() && needs_stylelint_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "STYLELINT NOTICE: Use the `stylelint_tools` tool to parse, inspect, and validate Stylelint configuration files without external utilities. \
+                 Actions: info (default — full config overview: rule/plugin/extends/override counts and severity summary), \
+                 rules (detailed rule listing grouped by severity with options), \
+                 plugins (numbered plugin list), \
+                 extends (config inheritance chain with ordering note), \
+                 validate (common issues: no rules/extends/plugins, deprecated v15+ rules, SCSS/order rules without matching plugins, unknown keys). \
+                 Pass 'config' for inline JSON or YAML, or 'file' for a path to .stylelintrc, .stylelintrc.json, .stylelintrc.yaml, or package.json. \
+                 Example: stylelint_tools(action: 'rules', file: '.stylelintrc.json')."
+                    .to_string(),
+            );
+        }
+
         if loop_intervention.is_none() && needs_calc_tools(&effective_user_input) {
             loop_intervention = Some(
                 "CALC TOOLS NOTICE: Use the `calc_tools` tool to evaluate mathematical expressions and generate \
@@ -8382,6 +8398,20 @@ impl ConversationManager {
                  check (check if a license expression is compatible with a target license). \
                  Pass 'expression' or 'license'. \
                  Example: spdx_tools(action: 'parse', expression: 'MIT AND Apache-2.0')."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_babel_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "BABEL NOTICE: Use the `babel_tools` tool to parse, inspect, and validate Babel configuration files without external utilities. \
+                 Actions: info (default — full config overview: preset/plugin/env/override counts and tables), \
+                 presets (numbered preset listing with options), \
+                 plugins (numbered plugin listing with options), \
+                 env (environment-specific configuration: production/development/test blocks), \
+                 validate (common issues: @babel/preset-env without targets, deprecated stage-x/es2015/react presets, duplicate presets/plugins). \
+                 Pass 'config' for inline JSON or YAML, or 'file' for a path to babel.config.json, .babelrc, .babelrc.json, .babelrc.yaml, or package.json. \
+                 Example: babel_tools(action: 'validate', file: 'babel.config.json')."
                     .to_string(),
             );
         }
