@@ -10849,6 +10849,58 @@ pub fn needs_gradle_tools(user_input: &str) -> bool {
     )
 }
 
+pub fn needs_go_mod_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "go_mod_tools",
+            "go.mod",
+            "go.sum",
+            "golang module",
+            "parse go.mod",
+            "go module dependencies",
+            "go require",
+            "go replace directive",
+            "go exclude",
+            "go modules",
+            "validate go.mod",
+            "gomod",
+            "go mod tidy",
+            "go module path",
+            "go indirect dep",
+            "go direct dep",
+        ],
+    )
+}
+
+pub fn needs_requirements_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "requirements_tools",
+            "requirements.txt",
+            "requirements file",
+            "pyproject.toml dependencies",
+            "parse requirements",
+            "python dependencies",
+            "pip requirements",
+            "poetry dependencies",
+            "python packages",
+            "pip install requirements",
+            "python requirements",
+            "validate requirements",
+            "pyproject deps",
+            "pinned packages",
+            "pip freeze",
+            "poetry.lock",
+            "pep 621",
+            "python dep group",
+        ],
+    )
+}
+
 pub fn needs_web_manifest_tools(user_input: &str) -> bool {
     let lower = user_input.to_lowercase();
     contains_any(

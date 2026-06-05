@@ -4119,6 +4119,34 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         crate::tools::gradle_tools::make_schema(),
     ));
     tools.push(make_tool(
+        "go_mod_tools",
+        "Parse, inspect, and validate Go module files (go.mod). \
+         Actions: info (default — module path, Go version, toolchain, direct/indirect dep counts), \
+         require (all required modules; filter by name substring or indirect flag), \
+         replace (all replace directives, flagging local path replacements as CI risk), \
+         exclude (excluded module versions), \
+         validate (VALID/WARNINGS/INVALID — old Go version, local replaces, pseudo-versions, \
+         multiple major versions of same module). \
+         Example: go_mod_tools(action: 'info', file: 'go.mod') or \
+         go_mod_tools(action: 'require', gomod: '...', indirect: true) or \
+         go_mod_tools(action: 'validate', file: 'go.mod').",
+        crate::tools::go_mod_tools::make_schema(),
+    ));
+    tools.push(make_tool(
+        "requirements_tools",
+        "Parse, inspect, and validate Python dependency files (requirements.txt, pyproject.toml \
+         PEP 621 and Poetry). Auto-detects format. \
+         Actions: info (default — total packages, pinned/loose/unpinned breakdown, editable/URL deps), \
+         list (tabular listing; filter by group or name substring), \
+         validate (VALID/WARNINGS/INVALID — unpinned main deps, duplicates, editable in main, URL deps, mixed pinning), \
+         extras (dependency groups summary for Poetry/PEP 621, or package-level extras for requirements.txt), \
+         export (re-emit as requirements.txt format). \
+         Example: requirements_tools(action: 'info', file: 'requirements.txt') or \
+         requirements_tools(action: 'list', requirements: '...', group: 'dev') or \
+         requirements_tools(action: 'validate', file: 'pyproject.toml').",
+        crate::tools::requirements_tools::make_schema(),
+    ));
+    tools.push(make_tool(
         "changelog_tools",
         "Parse, query, and validate CHANGELOG.md files in Keep a Changelog format. \
          Actions: list (default — all releases with version, date, section names, item counts; YANKED flag), \
@@ -8063,6 +8091,8 @@ pub async fn dispatch_builtin_tool(
         "make_tools" => crate::tools::make_tools::execute(args).await,
         "maven_tools" => crate::tools::maven_tools::execute(args).await,
         "gradle_tools" => crate::tools::gradle_tools::execute(args).await,
+        "go_mod_tools" => crate::tools::go_mod_tools::execute(args).await,
+        "requirements_tools" => crate::tools::requirements_tools::execute(args).await,
         "changelog_tools" => crate::tools::changelog_tools::execute(args).await,
         "ssh_config_tools" => crate::tools::ssh_config_tools::execute(args).await,
         "systemd_tools" => crate::tools::systemd_tools::execute(args).await,

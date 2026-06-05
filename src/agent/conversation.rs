@@ -45,7 +45,7 @@ use crate::agent::routing::{
     needs_file_tree_tools, needs_financial_tools, needs_find_tools, needs_font_tools, needs_format,
     needs_fraction_tools, needs_geo_tools, needs_geometry_tools, needs_github_actions_tools,
     needs_github_ops, needs_gitignore_tools, needs_gitlab_ci_tools, needs_glob_tools,
-    needs_gpu_tools, needs_gradle_tools, needs_graph_tools, needs_graphql_tools,
+    needs_go_mod_tools, needs_gpu_tools, needs_gradle_tools, needs_graph_tools, needs_graphql_tools,
     needs_graphviz_tools, needs_grep_tools, needs_grpc_tools, needs_haproxy_tools, needs_har_tools,
     needs_hash_tools, needs_helm_tools, needs_hex_tools, needs_html_tools, needs_http_cache_tools,
     needs_http_parse_tools, needs_http_request, needs_http_status_tools, needs_ical_tools,
@@ -67,7 +67,7 @@ use crate::agent::routing::{
     needs_periodic_tools, needs_physics_tools, needs_plist_tools, needs_port_check,
     needs_postman_tools, needs_printf_tools, needs_prometheus_tools, needs_proto_tools,
     needs_protobuf_wire_tools, needs_quantum_tools, needs_regex_tools, needs_relativity_tools,
-    needs_robots_txt_tools, needs_rss_tools, needs_saml_tools, needs_sbom_tools,
+    needs_requirements_tools, needs_robots_txt_tools, needs_rss_tools, needs_saml_tools, needs_sbom_tools,
     needs_scientific_compute, needs_secret_scan, needs_semver_tools, needs_signal_tools,
     needs_sitemap_tools, needs_size_tools, needs_sort_tools, needs_spdx_tools,
     needs_sql_format_tools, needs_sql_migrate_tools, needs_sql_tools, needs_sqlite_tools,
@@ -6190,6 +6190,39 @@ impl ConversationManager {
                  Example: gradle_tools(action: 'info', file: 'build.gradle') or \
                  gradle_tools(action: 'deps', gradle: '...', configuration: 'implementation') or \
                  gradle_tools(action: 'plugins', file: 'build.gradle.kts')."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_go_mod_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "GO MODULE NOTICE: Use the `go_mod_tools` tool to parse, inspect, and validate Go module files (go.mod) without external utilities. \
+                 Actions: info (default — module path, Go version, toolchain, direct/indirect dep counts and list), \
+                 require (all required modules with version; filter by name substring with 'filter', or by indirect flag with 'indirect: true/false'), \
+                 replace (all replace directives; local path replacements flagged as CI risk), \
+                 exclude (excluded module versions), \
+                 validate (VALID/WARNINGS/INVALID — old Go version, local replaces, pseudo-version direct deps, multiple majors of same module). \
+                 Pass 'file' (path to go.mod) or 'gomod' (inline content). \
+                 Example: go_mod_tools(action: 'info', file: 'go.mod') or \
+                 go_mod_tools(action: 'require', gomod: '...', indirect: false) or \
+                 go_mod_tools(action: 'validate', file: 'go.mod')."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_requirements_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "PYTHON REQUIREMENTS NOTICE: Use the `requirements_tools` tool to parse, inspect, and validate Python dependency files \
+                 (requirements.txt, pyproject.toml PEP 621, pyproject.toml Poetry) without external utilities. Auto-detects format. \
+                 Actions: info (default — total packages, pinned/loose/unpinned counts, editable/URL deps), \
+                 list (tabular listing; filter by group with 'group', or by name with 'filter'), \
+                 validate (VALID/WARNINGS/INVALID — unpinned main deps, duplicates, editable in main, URL deps, mixed pinning), \
+                 extras (dependency groups for Poetry/PEP 621, or package-level extras for requirements.txt), \
+                 export (re-emit as pip requirements.txt format). \
+                 Pass 'file' (path to requirements.txt or pyproject.toml) or 'requirements' (inline content). \
+                 Example: requirements_tools(action: 'info', file: 'requirements.txt') or \
+                 requirements_tools(action: 'list', requirements: '...', group: 'dev') or \
+                 requirements_tools(action: 'validate', file: 'pyproject.toml')."
                     .to_string(),
             );
         }

@@ -40493,3 +40493,171 @@ dependencies {
         "got: {out}"
     );
 }
+
+// ── go_mod_tools ────────────────────────────────────────────────────────────
+
+#[test]
+fn test_routing_detects_go_mod_tools() {
+    assert!(hematite::agent::routing::needs_go_mod_tools("parse go.mod"));
+    assert!(hematite::agent::routing::needs_go_mod_tools(
+        "go module dependencies"
+    ));
+    assert!(hematite::agent::routing::needs_go_mod_tools("validate go.mod"));
+    assert!(hematite::agent::routing::needs_go_mod_tools(
+        "golang module path"
+    ));
+    assert!(hematite::agent::routing::needs_go_mod_tools("go.mod replace"));
+    assert!(!hematite::agent::routing::needs_go_mod_tools(
+        "go test ./..."
+    ));
+    assert!(!hematite::agent::routing::needs_go_mod_tools(
+        "golang tour"
+    ));
+}
+
+#[test]
+fn test_go_mod_tools_info() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let gomod = r#"module github.com/example/myapp
+
+go 1.21
+
+toolchain go1.21.5
+
+require (
+    github.com/gin-gonic/gin v1.9.1
+    golang.org/x/net v0.17.0 // indirect
+)
+"#;
+    let out = rt
+        .block_on(hematite::tools::go_mod_tools::execute(
+            &serde_json::json!({ "action": "info", "gomod": gomod }),
+        ))
+        .unwrap();
+    assert!(out.contains("github.com/example/myapp"), "got: {out}");
+    assert!(out.contains("1.21"), "got: {out}");
+}
+
+#[test]
+fn test_go_mod_tools_require_indirect_filter() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let gomod = r#"module example.com/app
+
+go 1.20
+
+require (
+    github.com/direct/dep v1.0.0
+    golang.org/x/net v0.17.0 // indirect
+)
+"#;
+    let out = rt
+        .block_on(hematite::tools::go_mod_tools::execute(
+            &serde_json::json!({ "action": "require", "gomod": gomod, "indirect": true }),
+        ))
+        .unwrap();
+    assert!(out.contains("golang.org/x/net"), "got: {out}");
+}
+
+#[test]
+fn test_go_mod_tools_validate_local_replace() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let gomod = r#"module example.com/app
+
+go 1.18
+
+require github.com/foo/bar v1.0.0
+
+replace github.com/foo/bar => ../local/bar
+"#;
+    let out = rt
+        .block_on(hematite::tools::go_mod_tools::execute(
+            &serde_json::json!({ "action": "validate", "gomod": gomod }),
+        ))
+        .unwrap();
+    // Should warn about local replace directive (CI risk)
+    assert!(
+        out.contains("local") || out.contains("replace") || out.contains("WARN"),
+        "got: {out}"
+    );
+}
+
+// ── requirements_tools ──────────────────────────────────────────────────────
+
+#[test]
+fn test_routing_detects_requirements_tools() {
+    assert!(hematite::agent::routing::needs_requirements_tools(
+        "parse requirements.txt"
+    ));
+    assert!(hematite::agent::routing::needs_requirements_tools(
+        "python dependencies"
+    ));
+    assert!(hematite::agent::routing::needs_requirements_tools(
+        "pyproject.toml dependencies"
+    ));
+    assert!(hematite::agent::routing::needs_requirements_tools(
+        "validate requirements"
+    ));
+    assert!(hematite::agent::routing::needs_requirements_tools(
+        "pip freeze output"
+    ));
+    assert!(!hematite::agent::routing::needs_requirements_tools(
+        "install python"
+    ));
+    assert!(!hematite::agent::routing::needs_requirements_tools(
+        "write a flask app"
+    ));
+}
+
+#[test]
+fn test_requirements_tools_info() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let reqs = "requests==2.31.0\nflask>=2.0\nnumpy\n";
+    let out = rt
+        .block_on(hematite::tools::requirements_tools::execute(
+            &serde_json::json!({ "action": "info", "requirements": reqs }),
+        ))
+        .unwrap();
+    assert!(out.contains("requests"), "got: {out}");
+    assert!(out.contains("pinned") || out.contains("Pinned"), "got: {out}");
+}
+
+#[test]
+fn test_requirements_tools_validate_unpinned() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let reqs = "requests\nflask\n";
+    let out = rt
+        .block_on(hematite::tools::requirements_tools::execute(
+            &serde_json::json!({ "action": "validate", "requirements": reqs }),
+        ))
+        .unwrap();
+    // All unpinned — should produce a warning
+    assert!(
+        out.contains("WARN") || out.contains("Unpinned") || out.contains("unpinned"),
+        "got: {out}"
+    );
+}
+
+#[test]
+fn test_requirements_tools_extras_groups() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let pyproject = r#"[tool.poetry]
+name = "myapp"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+requests = "^2.31"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.0"
+black = "^23.0"
+"#;
+    let out = rt
+        .block_on(hematite::tools::requirements_tools::execute(
+            &serde_json::json!({ "action": "extras", "requirements": pyproject }),
+        ))
+        .unwrap();
+    assert!(
+        out.contains("dev") || out.contains("main") || out.contains("group"),
+        "got: {out}"
+    );
+}
