@@ -4210,6 +4210,35 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         crate::tools::eslint_tools::make_schema(),
     ));
     tools.push(make_tool(
+        "prettier_tools",
+        "Parse, inspect, validate, and explain Prettier configuration files (.prettierrc, .prettierrc.json, .prettierrc.yaml) without external utilities. \
+         Auto-detects JSON vs YAML format. \
+         Actions: info (default — all options with current values and defaults), \
+         validate (deprecated/invalid options and conflicts), \
+         explain (plain-English per-option explanations), \
+         overrides (file-pattern override blocks). \
+         Pass 'file' (path to .prettierrc or similar) or 'config' (inline JSON or YAML). \
+         Example: prettier_tools(action: 'info', file: '.prettierrc') or \
+         prettier_tools(action: 'validate', config: '...') or \
+         prettier_tools(action: 'overrides', file: '.prettierrc.json').",
+        crate::tools::prettier_tools::make_schema(),
+    ));
+    tools.push(make_tool(
+        "jest_tools",
+        "Parse, inspect, and validate Jest configuration (jest.config.json, or 'jest' key in package.json) without external utilities. \
+         Actions: info (default — full config overview: preset, testEnvironment, transforms, module mappings, coverage flag), \
+         testmatch (test file patterns, ignore patterns, file extensions), \
+         transforms (file transformer rules), \
+         modules (moduleNameMapper, moduleDirectories, setupFiles), \
+         coverage (coverage settings and thresholds), \
+         validate (config issues: conflicting testMatch+testRegex, bad timeout, threshold without collectCoverage, etc.). \
+         Pass 'file' (path to jest.config.json or package.json) or 'config' (inline JSON). \
+         Example: jest_tools(action: 'info', file: 'jest.config.json') or \
+         jest_tools(action: 'coverage', config: '...') or \
+         jest_tools(action: 'validate', file: 'package.json').",
+        crate::tools::jest_tools::make_schema(),
+    ));
+    tools.push(make_tool(
         "changelog_tools",
         "Parse, query, and validate CHANGELOG.md files in Keep a Changelog format. \
          Actions: list (default — all releases with version, date, section names, item counts; YANKED flag), \
@@ -8160,6 +8189,8 @@ pub async fn dispatch_builtin_tool(
         "journald_tools" => crate::tools::journald_tools::execute(args).await,
         "tsconfig_tools" => crate::tools::tsconfig_tools::execute(args).await,
         "eslint_tools" => crate::tools::eslint_tools::execute(args).await,
+        "prettier_tools" => crate::tools::prettier_tools::execute(args).await,
+        "jest_tools" => crate::tools::jest_tools::execute(args).await,
         "changelog_tools" => crate::tools::changelog_tools::execute(args).await,
         "ssh_config_tools" => crate::tools::ssh_config_tools::execute(args).await,
         "systemd_tools" => crate::tools::systemd_tools::execute(args).await,

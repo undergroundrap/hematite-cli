@@ -40970,3 +40970,149 @@ fn test_eslint_tools_flat_config() {
         .unwrap();
     assert!(out.contains("Flat") || out.contains("flat") || out.contains("config"), "should detect flat config: {out}");
 }
+
+#[test]
+fn test_routing_detects_prettier_tools() {
+    assert!(hematite::agent::routing::needs_prettier_tools(
+        "parse my .prettierrc and show what options are set"
+    ));
+    assert!(hematite::agent::routing::needs_prettier_tools(
+        "validate prettierrc.json for deprecated options"
+    ));
+    assert!(hematite::agent::routing::needs_prettier_tools(
+        "inspect my prettier configuration"
+    ));
+}
+
+#[test]
+fn test_prettier_tools_info_json() {
+    let config = r#"{
+        "printWidth": 100,
+        "tabWidth": 4,
+        "singleQuote": true,
+        "trailingComma": "es5",
+        "semi": false
+    }"#;
+    let out = tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(hematite::tools::prettier_tools::execute(
+            &serde_json::json!({ "action": "info", "config": config }),
+        ))
+        .unwrap();
+    assert!(out.contains("printWidth"), "should show printWidth: {out}");
+    assert!(out.contains("singleQuote"), "should show singleQuote: {out}");
+    assert!(out.contains("100"), "should show value 100: {out}");
+}
+
+#[test]
+fn test_prettier_tools_validate_deprecated() {
+    let config = r#"{
+        "jsxBracketSameLine": true,
+        "trailingComma": "invalid_value",
+        "endOfLine": "crlf"
+    }"#;
+    let out = tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(hematite::tools::prettier_tools::execute(
+            &serde_json::json!({ "action": "validate", "config": config }),
+        ))
+        .unwrap();
+    assert!(out.contains("DEPRECATED") || out.contains("Deprecated"), "should flag deprecated option: {out}");
+    assert!(out.contains("ERROR") || out.contains("invalid"), "should flag invalid trailingComma: {out}");
+}
+
+#[test]
+fn test_prettier_tools_overrides() {
+    let config = r#"{
+        "semi": true,
+        "overrides": [
+            {
+                "files": "*.md",
+                "options": { "proseWrap": "always" }
+            },
+            {
+                "files": ["*.ts", "*.tsx"],
+                "options": { "singleQuote": false }
+            }
+        ]
+    }"#;
+    let out = tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(hematite::tools::prettier_tools::execute(
+            &serde_json::json!({ "action": "overrides", "config": config }),
+        ))
+        .unwrap();
+    assert!(out.contains("Override"), "should show overrides: {out}");
+    assert!(out.contains("*.md") || out.contains("md"), "should show file pattern: {out}");
+}
+
+#[test]
+fn test_routing_detects_jest_tools() {
+    assert!(hematite::agent::routing::needs_jest_tools(
+        "parse my jest.config.json and show the coverage settings"
+    ));
+    assert!(hematite::agent::routing::needs_jest_tools(
+        "validate jest configuration for issues"
+    ));
+    assert!(hematite::agent::routing::needs_jest_tools(
+        "inspect jest transforms and module mappings"
+    ));
+}
+
+#[test]
+fn test_jest_tools_info() {
+    let config = r#"{
+        "preset": "ts-jest",
+        "testEnvironment": "node",
+        "collectCoverage": true,
+        "coverageDirectory": "coverage",
+        "testTimeout": 10000
+    }"#;
+    let out = tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(hematite::tools::jest_tools::execute(
+            &serde_json::json!({ "action": "info", "config": config }),
+        ))
+        .unwrap();
+    assert!(out.contains("ts-jest"), "should show preset: {out}");
+    assert!(out.contains("node"), "should show testEnvironment: {out}");
+    assert!(out.contains("enabled"), "should show coverage enabled: {out}");
+}
+
+#[test]
+fn test_jest_tools_coverage() {
+    let config = r#"{
+        "collectCoverage": true,
+        "coverageReporters": ["lcov", "text"],
+        "coverageThreshold": {
+            "global": {
+                "lines": 80,
+                "branches": 70
+            }
+        }
+    }"#;
+    let out = tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(hematite::tools::jest_tools::execute(
+            &serde_json::json!({ "action": "coverage", "config": config }),
+        ))
+        .unwrap();
+    assert!(out.contains("Threshold") || out.contains("threshold"), "should show thresholds: {out}");
+    assert!(out.contains("80") || out.contains("lines"), "should show line threshold: {out}");
+}
+
+#[test]
+fn test_jest_tools_validate_conflict() {
+    let config = r#"{
+        "testMatch": ["**/*.test.ts"],
+        "testRegex": ".*\\.test\\.ts$",
+        "testTimeout": 0
+    }"#;
+    let out = tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(hematite::tools::jest_tools::execute(
+            &serde_json::json!({ "action": "validate", "config": config }),
+        ))
+        .unwrap();
+    assert!(out.contains("ERROR") || out.contains("testMatch") || out.contains("testRegex"), "should flag conflict: {out}");
+}

@@ -51,7 +51,7 @@ use crate::agent::routing::{
     needs_http_parse_tools, needs_http_request, needs_http_status_tools, needs_ical_tools,
     needs_id_tools, needs_image_tools, needs_inflect_tools, needs_ini_tools, needs_interval_tools,
     needs_ip_tools, needs_iptables_tools, needs_jq_tools, needs_json_patch_tools, needs_json_tools,
-    needs_eslint_tools, needs_journald_tools, needs_jsonl_tools, needs_jsonrpc_tools, needs_jsonschema_tools, needs_junit_tools,
+    needs_eslint_tools, needs_jest_tools, needs_journald_tools, needs_jsonl_tools, needs_jsonrpc_tools, needs_jsonschema_tools, needs_junit_tools,
     needs_jwk_tools, needs_jwt_tools, needs_k8s_tools, needs_keyval_tools, needs_latex_tools,
     needs_ldif_tools, needs_leb128_tools, needs_license_tools, needs_line_tools, needs_lint_check,
     needs_lock_file_tools, needs_log_parse_tools, needs_logic_tools, needs_macho_tools,
@@ -65,7 +65,7 @@ use crate::agent::routing::{
     needs_openid_tools, needs_optics_tools, needs_package_json_tools, needs_password_gen,
     needs_path_tools, needs_pcap_tools, needs_pdf_tools, needs_pe_tools, needs_pem_tools,
     needs_periodic_tools, needs_physics_tools, needs_plist_tools, needs_port_check,
-    needs_postman_tools, needs_printf_tools, needs_prometheus_tools, needs_proto_tools,
+    needs_postman_tools, needs_prettier_tools, needs_printf_tools, needs_prometheus_tools, needs_proto_tools,
     needs_protobuf_wire_tools, needs_quantum_tools, needs_regex_tools, needs_relativity_tools,
     needs_requirements_tools, needs_robots_txt_tools, needs_rss_tools, needs_saml_tools, needs_sbom_tools,
     needs_scientific_compute, needs_secret_scan, needs_semver_tools, needs_signal_tools,
@@ -6291,6 +6291,37 @@ impl ConversationManager {
                  Example: eslint_tools(action: 'info', file: '.eslintrc.json') or \
                  eslint_tools(action: 'rules', config: '...', filter: 'react') or \
                  eslint_tools(action: 'validate', file: 'eslint.config.json')."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_prettier_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "PRETTIER NOTICE: Use the `prettier_tools` tool to parse, inspect, validate, and explain Prettier configuration files without external utilities. \
+                 Auto-detects JSON vs YAML format for .prettierrc, .prettierrc.json, .prettierrc.yaml. \
+                 Actions: info (default — all configured options and defaults), \
+                 validate (deprecated/invalid options, insertPragma+requirePragma conflict, rangeStart>rangeEnd, unknown options, override issues), \
+                 explain (plain-English per-option explanations with current vs default), \
+                 overrides (file-pattern override blocks with options). \
+                 Example: prettier_tools(action: 'info', file: '.prettierrc') or \
+                 prettier_tools(action: 'validate', config: '...') or \
+                 prettier_tools(action: 'overrides', file: '.prettierrc.json')."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_jest_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "JEST NOTICE: Use the `jest_tools` tool to parse, inspect, and validate Jest configuration without external utilities. \
+                 Actions: info (default — preset, testEnvironment, transform count, module mappings, coverage flag), \
+                 testmatch (test file patterns, ignore paths, file extensions), \
+                 transforms (file transformer rules with options), \
+                 modules (moduleNameMapper, moduleDirectories, setupFiles), \
+                 coverage (coverage settings and per-scope thresholds), \
+                 validate (conflicting testMatch+testRegex, bad timeout, threshold without collectCoverage, unknown keys). \
+                 Example: jest_tools(action: 'info', file: 'jest.config.json') or \
+                 jest_tools(action: 'coverage', config: '...') or \
+                 jest_tools(action: 'validate', file: 'package.json')."
                     .to_string(),
             );
         }

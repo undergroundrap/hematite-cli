@@ -12397,6 +12397,47 @@ pub fn needs_eslint_tools(user_input: &str) -> bool {
         || (lower.contains("eslint") && (lower.contains("parse") || lower.contains("analyz") || lower.contains("inspect") || lower.contains("validate")))
 }
 
+pub fn needs_prettier_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    lower.contains("prettier_tools")
+        || lower.contains(".prettierrc")
+        || lower.contains("prettierrc.json")
+        || lower.contains("prettierrc.yaml")
+        || lower.contains("prettierrc.yml")
+        || lower.contains("prettier config")
+        || lower.contains("prettier configuration")
+        || lower.contains("prettier options")
+        || lower.contains("prettier rules")
+        || lower.contains("parse prettier")
+        || lower.contains("validate prettier")
+        || lower.contains("inspect prettier")
+        || lower.contains("prettier overrides")
+        || lower.contains("trailing comma prettier")
+        || lower.contains("print width prettier")
+        || lower.contains("tab width prettier")
+        || (lower.contains("prettier") && (lower.contains("parse") || lower.contains("analyz") || lower.contains("inspect") || lower.contains("validate")))
+}
+
+pub fn needs_jest_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    lower.contains("jest_tools")
+        || lower.contains("jest.config.json")
+        || lower.contains("jest.config.js")
+        || lower.contains("jest.config.ts")
+        || lower.contains("jest config")
+        || lower.contains("jest configuration")
+        || lower.contains("jest preset")
+        || lower.contains("jest transforms")
+        || lower.contains("jest coverage")
+        || lower.contains("jest threshold")
+        || lower.contains("jest testmatch")
+        || lower.contains("jest modulenameMapper")
+        || lower.contains("parse jest")
+        || lower.contains("validate jest")
+        || lower.contains("inspect jest")
+        || (lower.contains("jest") && (lower.contains("parse") || lower.contains("analyz") || lower.contains("inspect") || lower.contains("validate")))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
