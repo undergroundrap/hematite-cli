@@ -207,7 +207,11 @@ fn parse_pkg_name(s: &str) -> Option<String> {
         .chars()
         .take_while(|c| c.is_alphanumeric() || *c == '-' || *c == '_' || *c == '.')
         .collect();
-    if name.is_empty() { None } else { Some(name) }
+    if name.is_empty() {
+        None
+    } else {
+        Some(name)
+    }
 }
 
 fn parse_requirements_txt(text: &str) -> Vec<PkgEntry> {
@@ -390,12 +394,7 @@ fn extract_poetry_extras(val: &str) -> Vec<String> {
             if let Some(end) = inner.find(']') {
                 return inner[..end]
                     .split(',')
-                    .map(|s| {
-                        s.trim()
-                            .trim_matches('"')
-                            .trim_matches('\'')
-                            .to_string()
-                    })
+                    .map(|s| s.trim().trim_matches('"').trim_matches('\'').to_string())
                     .filter(|s| !s.is_empty())
                     .collect();
             }
@@ -422,8 +421,7 @@ fn load_text(args: &Value) -> Result<String, String> {
         return Ok(t.to_string());
     }
     if let Some(f) = args.get("file").and_then(|v| v.as_str()) {
-        return std::fs::read_to_string(f)
-            .map_err(|e| format!("Cannot read '{}': {}", f, e));
+        return std::fs::read_to_string(f).map_err(|e| format!("Cannot read '{}': {}", f, e));
     }
     Err("Provide 'requirements' (inline text) or 'file' (path to requirements.txt or pyproject.toml).".to_string())
 }
@@ -456,17 +454,14 @@ fn do_info(text: &str) -> String {
     let total = entries.len();
     let pinned = entries.iter().filter(|e| e.pin_type() == "pinned").count();
     let loose = entries.iter().filter(|e| e.pin_type() == "loose").count();
-    let unpinned = entries.iter().filter(|e| e.pin_type() == "unpinned").count();
+    let unpinned = entries
+        .iter()
+        .filter(|e| e.pin_type() == "unpinned")
+        .count();
     let editable = entries.iter().filter(|e| e.editable).count();
     let url_deps = entries.iter().filter(|e| !e.url.is_empty()).count();
-    let with_extras = entries
-        .iter()
-        .filter(|e| !e.extras.is_empty())
-        .count();
-    let with_markers = entries
-        .iter()
-        .filter(|e| !e.marker.is_empty())
-        .count();
+    let with_extras = entries.iter().filter(|e| !e.extras.is_empty()).count();
+    let with_markers = entries.iter().filter(|e| !e.marker.is_empty()).count();
 
     // Group summary
     let mut groups: Vec<String> = Vec::new();
@@ -478,7 +473,11 @@ fn do_info(text: &str) -> String {
 
     let mut out = String::new();
     out.push_str(&format!("Format      : {}\n", format_name(&fmt)));
-    out.push_str(&format!("Total       : {} package{}\n", total, if total == 1 { "" } else { "s" }));
+    out.push_str(&format!(
+        "Total       : {} package{}\n",
+        total,
+        if total == 1 { "" } else { "s" }
+    ));
     out.push_str(&format!(
         "Pinned      : {}  Loose: {}  Unpinned: {}\n",
         pinned, loose, unpinned
@@ -500,7 +499,12 @@ fn do_info(text: &str) -> String {
     }
 
     out.push_str("\nPackages:\n");
-    let name_w = entries.iter().map(|e| e.name.len()).max().unwrap_or(10).max(10);
+    let name_w = entries
+        .iter()
+        .map(|e| e.name.len())
+        .max()
+        .unwrap_or(10)
+        .max(10);
     out.push_str(&format!(
         "{:<width$}  {:<8}  {}\n",
         "Name",
@@ -552,9 +556,7 @@ fn do_list(args: &Value, text: &str) -> String {
         .filter(|e| {
             (group_filter == "all" || e.group == group_filter)
                 && (name_filter.is_empty()
-                    || e.name
-                        .to_lowercase()
-                        .contains(&name_filter.to_lowercase()))
+                    || e.name.to_lowercase().contains(&name_filter.to_lowercase()))
         })
         .collect();
 
@@ -607,7 +609,12 @@ fn do_list(args: &Value, text: &str) -> String {
             width = name_w
         ));
         if !e.marker.is_empty() {
-            out.push_str(&format!("{:<width$}  ; {}\n", "", e.marker, width = name_w + 18));
+            out.push_str(&format!(
+                "{:<width$}  ; {}\n",
+                "",
+                e.marker,
+                width = name_w + 18
+            ));
         }
     }
 
@@ -644,9 +651,18 @@ fn do_extras(text: &str) -> String {
     let mut out = format!("Format: {}\n\nDependency groups:\n", format_name(&fmt));
     for group in &groups {
         let pkgs: Vec<&PkgEntry> = entries.iter().filter(|e| &e.group == group).collect();
-        out.push_str(&format!("\n[{}] ({} package{})\n", group, pkgs.len(), if pkgs.len() == 1 { "" } else { "s" }));
+        out.push_str(&format!(
+            "\n[{}] ({} package{})\n",
+            group,
+            pkgs.len(),
+            if pkgs.len() == 1 { "" } else { "s" }
+        ));
         for p in pkgs {
-            let spec = if p.specifiers.is_empty() { "(any)".to_string() } else { p.specifiers.clone() };
+            let spec = if p.specifiers.is_empty() {
+                "(any)".to_string()
+            } else {
+                p.specifiers.clone()
+            };
             let extras_str = if p.extras.is_empty() {
                 String::new()
             } else {
@@ -666,7 +682,10 @@ fn do_validate(text: &str) -> String {
     let mut warnings: Vec<String> = Vec::new();
 
     if entries.is_empty() {
-        return format!("Format: {}\n\nNo packages found — empty or unrecognized file.\n", format_name(&fmt));
+        return format!(
+            "Format: {}\n\nNo packages found — empty or unrecognized file.\n",
+            format_name(&fmt)
+        );
     }
 
     // Check for unpinned packages (could be a problem in production)
@@ -785,7 +804,10 @@ fn do_export(text: &str) -> String {
     let mut out = format!("# Exported from {} format\n", format_name(&fmt));
     for e in &entries {
         if e.editable {
-            out.push_str(&format!("-e {}\n", if e.url.is_empty() { &e.name } else { &e.url }));
+            out.push_str(&format!(
+                "-e {}\n",
+                if e.url.is_empty() { &e.name } else { &e.url }
+            ));
             continue;
         }
         let extras_str = if e.extras.is_empty() {
@@ -820,10 +842,12 @@ pub async fn execute(args: &Value) -> Result<String, String> {
         "validate" => do_validate(&text),
         "extras" => do_extras(&text),
         "export" => do_export(&text),
-        other => return Err(format!(
-            "Unknown action '{}'. Valid: info, list, validate, extras, export.",
-            other
-        )),
+        other => {
+            return Err(format!(
+                "Unknown action '{}'. Valid: info, list, validate, extras, export.",
+                other
+            ))
+        }
     };
 
     Ok(result)

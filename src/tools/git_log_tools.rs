@@ -45,7 +45,11 @@ fn parse_log(text: &str) -> Vec<Commit> {
     let mut commits: Vec<Commit> = Vec::new();
 
     // Detect format by checking first non-empty line
-    let first = lines.iter().find(|l| !l.trim().is_empty()).copied().unwrap_or("");
+    let first = lines
+        .iter()
+        .find(|l| !l.trim().is_empty())
+        .copied()
+        .unwrap_or("");
     let pipe_count = first.chars().filter(|&c| c == '|').count();
 
     if pipe_count >= 4 {
@@ -83,7 +87,10 @@ fn parse_log(text: &str) -> Vec<Commit> {
                 });
             }
         }
-    } else if first.len() > 7 && first[..7].chars().all(|c| c.is_ascii_hexdigit()) && first.contains(' ') {
+    } else if first.len() > 7
+        && first[..7].chars().all(|c| c.is_ascii_hexdigit())
+        && first.contains(' ')
+    {
         // Format 2: oneline (short hash + space + subject)
         for line in &lines {
             let line = line.trim();
@@ -120,7 +127,10 @@ fn parse_log(text: &str) -> Vec<Commit> {
                     commits.push(c);
                 }
                 let hash = trimmed[7..].trim().to_string();
-                current = Some(Commit { hash, ..Default::default() });
+                current = Some(Commit {
+                    hash,
+                    ..Default::default()
+                });
                 in_message = false;
             } else if let Some(ref mut c) = current {
                 if trimmed.starts_with("Author: ") {
@@ -226,7 +236,10 @@ fn action_parse(commits: &[Commit], limit: usize) -> String {
         return "No commits found. Provide git log output via 'log' or 'file'.".into();
     }
     let mut out = format!("─── git log — {} commits ───\n\n", commits.len());
-    out.push_str(&format!("{:<9} {:<12} {:<22} {}\n", "HASH", "DATE", "AUTHOR", "SUBJECT"));
+    out.push_str(&format!(
+        "{:<9} {:<12} {:<22} {}\n",
+        "HASH", "DATE", "AUTHOR", "SUBJECT"
+    ));
     out.push_str(&"─".repeat(90));
     out.push('\n');
     for c in commits.iter().take(limit) {
@@ -249,7 +262,10 @@ fn action_parse(commits: &[Commit], limit: usize) -> String {
         ));
     }
     if commits.len() > limit {
-        out.push_str(&format!("\n… {} more (use 'limit' to show more)\n", commits.len() - limit));
+        out.push_str(&format!(
+            "\n… {} more (use 'limit' to show more)\n",
+            commits.len() - limit
+        ));
     }
     out
 }
@@ -272,14 +288,24 @@ fn action_authors(commits: &[Commit]) -> String {
     ranked.sort_by(|a, b| b.0.cmp(&a.0));
 
     let total = commits.len() as f64;
-    let mut out = format!("─── Author Leaderboard — {} commits total ───\n\n", commits.len());
-    out.push_str(&format!("{:<4} {:<25} {:<28} {:>6}  BAR\n", "#", "AUTHOR", "EMAIL", "COMMITS"));
+    let mut out = format!(
+        "─── Author Leaderboard — {} commits total ───\n\n",
+        commits.len()
+    );
+    out.push_str(&format!(
+        "{:<4} {:<25} {:<28} {:>6}  BAR\n",
+        "#", "AUTHOR", "EMAIL", "COMMITS"
+    ));
     out.push_str(&"─".repeat(80));
     out.push('\n');
     for (i, (n, name, email)) in ranked.iter().enumerate() {
         let pct = (*n as f64 / total * 100.0) as usize;
         let bar = "█".repeat(pct.min(40));
-        let email_short = if email.len() > 26 { format!("{}..", &email[..24]) } else { email.clone() };
+        let email_short = if email.len() > 26 {
+            format!("{}..", &email[..24])
+        } else {
+            email.clone()
+        };
         out.push_str(&format!(
             "{:<4} {:<25} {:<28} {:>6}  {}\n",
             i + 1,
@@ -364,13 +390,20 @@ fn action_files(commits: &[Commit]) -> String {
         total_ins,
         total_del,
     );
-    out.push_str(&format!("{:<9} {:<12} {:>8} {:>8} {:>8}  SUBJECT\n", "HASH", "DATE", "FILES", "+INS", "-DEL"));
+    out.push_str(&format!(
+        "{:<9} {:<12} {:>8} {:>8} {:>8}  SUBJECT\n",
+        "HASH", "DATE", "FILES", "+INS", "-DEL"
+    ));
     out.push_str(&"─".repeat(80));
     out.push('\n');
     let mut sorted: Vec<&Commit> = commits.iter().filter(|c| c.stat_files > 0).collect();
     sorted.sort_by(|a, b| b.stat_files.cmp(&a.stat_files));
     for c in sorted.iter().take(30) {
-        let subj = if c.subject.len() > 32 { format!("{}..", &c.subject[..30]) } else { c.subject.clone() };
+        let subj = if c.subject.len() > 32 {
+            format!("{}..", &c.subject[..30])
+        } else {
+            c.subject.clone()
+        };
         out.push_str(&format!(
             "{:<9} {:<12} {:>8} {:>8} {:>8}  {}\n",
             short_hash(&c.hash),
@@ -391,14 +424,24 @@ fn action_summary(commits: &[Commit]) -> String {
     let authors: std::collections::HashSet<&str> =
         commits.iter().map(|c| c.author_name.as_str()).collect();
 
-    let first_date = commits.last().map(|c| short_date(&c.date_iso)).unwrap_or_default();
-    let last_date = commits.first().map(|c| short_date(&c.date_iso)).unwrap_or_default();
+    let first_date = commits
+        .last()
+        .map(|c| short_date(&c.date_iso))
+        .unwrap_or_default();
+    let last_date = commits
+        .first()
+        .map(|c| short_date(&c.date_iso))
+        .unwrap_or_default();
 
     // Approximate weeks between first and last
     let weeks = {
         let parse_yw = |s: &str| -> Option<(i64, i64)> {
             let parts: Vec<i64> = s.split('-').filter_map(|x| x.parse().ok()).collect();
-            if parts.len() >= 2 { Some((parts[0], parts[1])) } else { None }
+            if parts.len() >= 2 {
+                Some((parts[0], parts[1]))
+            } else {
+                None
+            }
         };
         if let (Some((y1, m1)), Some((y2, m2))) = (parse_yw(&first_date), parse_yw(&last_date)) {
             let months = (y2 - y1) * 12 + (m2 - m1);
@@ -412,7 +455,10 @@ fn action_summary(commits: &[Commit]) -> String {
     let mut out = "─── git log Summary ───\n\n".to_string();
     out.push_str(&format!("  Total commits : {}\n", commits.len()));
     out.push_str(&format!("  Authors       : {}\n", authors.len()));
-    out.push_str(&format!("  Date range    : {} → {}\n", first_date, last_date));
+    out.push_str(&format!(
+        "  Date range    : {} → {}\n",
+        first_date, last_date
+    ));
     out.push_str(&format!("  Approx. rate  : {:.1} commits/week\n", per_week));
 
     let total_ins: u32 = commits.iter().map(|c| c.stat_ins).sum();
@@ -483,10 +529,12 @@ pub async fn execute(args: &Value) -> Result<String, String> {
         "frequency" => action_frequency(&commits),
         "files" => action_files(&commits),
         "summary" => action_summary(&commits),
-        other => return Err(format!(
-            "Unknown action '{}'. Choose: parse, authors, frequency, files, summary.",
-            other
-        )),
+        other => {
+            return Err(format!(
+                "Unknown action '{}'. Choose: parse, authors, frequency, files, summary.",
+                other
+            ))
+        }
     };
 
     Ok(result)

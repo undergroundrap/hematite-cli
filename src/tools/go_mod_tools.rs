@@ -81,7 +81,10 @@ fn comment_text(s: &str) -> Option<String> {
 fn split_module_version(s: &str) -> (String, String) {
     let parts: Vec<&str> = s.splitn(2, char::is_whitespace).collect();
     let module = parts[0].trim().to_string();
-    let version = parts.get(1).map(|v| v.trim().to_string()).unwrap_or_default();
+    let version = parts
+        .get(1)
+        .map(|v| v.trim().to_string())
+        .unwrap_or_default();
     (module, version)
 }
 
@@ -153,7 +156,11 @@ fn parse_require_line(s: &str) -> Option<GoRequire> {
     if module.is_empty() || version.is_empty() {
         return None;
     }
-    Some(GoRequire { module, version, indirect })
+    Some(GoRequire {
+        module,
+        version,
+        indirect,
+    })
 }
 
 fn parse_block<T, F>(text: &str, keyword: &str, parse_line: F) -> Vec<T>
@@ -219,7 +226,12 @@ fn parse_replace_line(s: &str) -> Option<GoReplace> {
     }
     let (old_module, old_version) = split_module_version(parts[0].trim());
     let (new_path, new_version) = split_module_version(parts[1].trim());
-    Some(GoReplace { old_module, old_version, new_path, new_version })
+    Some(GoReplace {
+        old_module,
+        old_version,
+        new_path,
+        new_version,
+    })
 }
 
 fn parse_replaces(text: &str) -> Vec<GoReplace> {
@@ -244,7 +256,10 @@ fn parse_retracts(text: &str) -> Vec<(String, Option<String>)> {
         let trimmed = line.trim();
         if let Some(rest) = trimmed.strip_prefix("retract ") {
             let cmt = comment_text(rest);
-            let ver_part = strip_comment(rest).trim().trim_matches('[').trim_matches(']');
+            let ver_part = strip_comment(rest)
+                .trim()
+                .trim_matches('[')
+                .trim_matches(']');
             for v in ver_part.split(',') {
                 let v = v.trim();
                 if !v.is_empty() {
@@ -300,7 +315,12 @@ fn do_info(text: &str, filename: &str) -> Result<String, String> {
         out.push_str("\nDirect Dependencies\n");
         out.push_str(&"─".repeat(60));
         out.push('\n');
-        let w = direct.iter().map(|r| r.module.len()).max().unwrap_or(20).min(60);
+        let w = direct
+            .iter()
+            .map(|r| r.module.len())
+            .max()
+            .unwrap_or(20)
+            .min(60);
         for r in &direct {
             out.push_str(&format!("  {:<w$}  {}\n", r.module, r.version, w = w));
         }
@@ -347,7 +367,12 @@ fn do_require(text: &str, args: &Value) -> Result<String, String> {
         out.push_str(&format!("\nDirect ({})\n", direct.len()));
         out.push_str(&"─".repeat(50));
         out.push('\n');
-        let w = direct.iter().map(|r| r.module.len()).max().unwrap_or(20).min(60);
+        let w = direct
+            .iter()
+            .map(|r| r.module.len())
+            .max()
+            .unwrap_or(20)
+            .min(60);
         for r in direct {
             out.push_str(&format!("  {:<w$}  {}\n", r.module, r.version, w = w));
         }
@@ -357,7 +382,12 @@ fn do_require(text: &str, args: &Value) -> Result<String, String> {
         out.push_str(&format!("\nIndirect ({})\n", indirect.len()));
         out.push_str(&"─".repeat(50));
         out.push('\n');
-        let w = indirect.iter().map(|r| r.module.len()).max().unwrap_or(20).min(60);
+        let w = indirect
+            .iter()
+            .map(|r| r.module.len())
+            .max()
+            .unwrap_or(20)
+            .min(60);
         for r in indirect {
             out.push_str(&format!(
                 "  {:<w$}  {}  // indirect\n",
@@ -411,7 +441,10 @@ fn do_replace(text: &str) -> Result<String, String> {
     }
 
     if !local.is_empty() {
-        out.push_str(&format!("\nLocal Path Replacements ({})  [CI risk]\n", local.len()));
+        out.push_str(&format!(
+            "\nLocal Path Replacements ({})  [CI risk]\n",
+            local.len()
+        ));
         out.push_str(&"─".repeat(50));
         out.push('\n');
         for r in &local {
@@ -457,9 +490,7 @@ fn do_validate(text: &str) -> Result<String, String> {
 
     let go_ver = parse_go_version(text);
     if go_ver.is_none() {
-        issues.push(
-            "WARNING: Missing `go` version directive — add `go 1.21` or newer".to_string(),
-        );
+        issues.push("WARNING: Missing `go` version directive — add `go 1.21` or newer".to_string());
     } else if let Some(ref v) = go_ver {
         let parts: Vec<u32> = v.split('.').filter_map(|p| p.parse().ok()).collect();
         if parts.len() >= 2 && parts[0] == 1 && parts[1] < 16 {
@@ -475,7 +506,10 @@ fn do_validate(text: &str) -> Result<String, String> {
     let retracts = parse_retracts(text);
 
     // Direct deps using pseudo-versions
-    for r in requires.iter().filter(|r| !r.indirect && r.version.contains("v0.0.0-")) {
+    for r in requires
+        .iter()
+        .filter(|r| !r.indirect && r.version.contains("v0.0.0-"))
+    {
         issues.push(format!(
             "WARNING: Direct dep {} uses pseudo-version {} — prefer a tagged release",
             r.module, r.version
@@ -511,10 +545,7 @@ fn do_validate(text: &str) -> Result<String, String> {
     for r in &requires {
         let base = if let Some(slash) = r.module.rfind('/') {
             let suffix = &r.module[slash + 1..];
-            if suffix.len() > 1
-                && suffix.starts_with('v')
-                && suffix[1..].parse::<u32>().is_ok()
-            {
+            if suffix.len() > 1 && suffix.starts_with('v') && suffix[1..].parse::<u32>().is_ok() {
                 r.module[..slash].to_string()
             } else {
                 r.module.clone()

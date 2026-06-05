@@ -83,7 +83,20 @@ fn days_to_ymd(mut days: u64) -> (u32, u32, u32) {
         days -= days_in_year;
         y += 1;
     }
-    let months = [31u32, if is_leap(y) { 29 } else { 28 }, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+    let months = [
+        31u32,
+        if is_leap(y) { 29 } else { 28 },
+        31,
+        30,
+        31,
+        30,
+        31,
+        31,
+        30,
+        31,
+        30,
+        31,
+    ];
     let mut mo = 1u32;
     for &dim in &months {
         if days < dim as u64 {
@@ -120,10 +133,7 @@ fn parse_journal(text: &str) -> Vec<JournalEntry> {
             .get("__REALTIME_TIMESTAMP")
             .and_then(|v| v.as_str())
             .and_then(|s| s.parse().ok())
-            .or_else(|| {
-                obj.get("__REALTIME_TIMESTAMP")
-                    .and_then(|v| v.as_u64())
-            })
+            .or_else(|| obj.get("__REALTIME_TIMESTAMP").and_then(|v| v.as_u64()))
             .unwrap_or(0);
 
         let unit = obj
@@ -156,7 +166,11 @@ fn parse_journal(text: &str) -> Vec<JournalEntry> {
             .get("PRIORITY")
             .and_then(|v| v.as_str())
             .and_then(|s| s.parse().ok())
-            .or_else(|| obj.get("PRIORITY").and_then(|v| v.as_u64()).map(|n| n as u8))
+            .or_else(|| {
+                obj.get("PRIORITY")
+                    .and_then(|v| v.as_u64())
+                    .map(|n| n as u8)
+            })
             .unwrap_or(6); // default INFO
 
         // MESSAGE may be a string or an array of bytes
@@ -211,20 +225,41 @@ fn action_parse(entries: &[JournalEntry], limit: usize) -> String {
             .into();
     }
     let mut out = format!("─── journalctl — {} entries ───\n\n", entries.len());
-    out.push_str(&format!("{:<21} {:<6} {:<35} {}\n", "TIMESTAMP", "PRI", "UNIT", "MESSAGE"));
+    out.push_str(&format!(
+        "{:<21} {:<6} {:<35} {}\n",
+        "TIMESTAMP", "PRI", "UNIT", "MESSAGE"
+    ));
     out.push_str(&"─".repeat(100));
     out.push('\n');
     for e in entries.iter().take(limit) {
         let ts = format_ts(e.timestamp_us);
         let label = unit_label(e);
-        let unit_short = if label.len() > 33 { format!("{}..", &label[..31]) } else { label };
+        let unit_short = if label.len() > 33 {
+            format!("{}..", &label[..31])
+        } else {
+            label
+        };
         let msg = e.message.lines().next().unwrap_or("").trim();
-        let msg_short = if msg.len() > 60 { format!("{}..", &msg[..58]) } else { msg.to_string() };
-        let pri = format!("{} {}", priority_icon(e.priority), priority_label(e.priority));
-        out.push_str(&format!("{:<21} {:<9} {:<35} {}\n", ts, pri, unit_short, msg_short));
+        let msg_short = if msg.len() > 60 {
+            format!("{}..", &msg[..58])
+        } else {
+            msg.to_string()
+        };
+        let pri = format!(
+            "{} {}",
+            priority_icon(e.priority),
+            priority_label(e.priority)
+        );
+        out.push_str(&format!(
+            "{:<21} {:<9} {:<35} {}\n",
+            ts, pri, unit_short, msg_short
+        ));
     }
     if entries.len() > limit {
-        out.push_str(&format!("\n… {} more (increase 'limit' to show more)\n", entries.len() - limit));
+        out.push_str(&format!(
+            "\n… {} more (increase 'limit' to show more)\n",
+            entries.len() - limit
+        ));
     }
     out
 }
@@ -242,22 +277,31 @@ fn action_units(entries: &[JournalEntry]) -> String {
             entry.1 = e.priority; // track worst priority seen for this unit
         }
     }
-    let mut ranked: Vec<(String, u32, u8)> = counts
-        .into_iter()
-        .map(|(u, (n, p))| (u, n, p))
-        .collect();
+    let mut ranked: Vec<(String, u32, u8)> =
+        counts.into_iter().map(|(u, (n, p))| (u, n, p)).collect();
     ranked.sort_by(|a, b| b.1.cmp(&a.1));
 
     let total = entries.len() as f64;
-    let mut out = format!("─── Unit Frequency — {} entries, {} units ───\n\n", entries.len(), ranked.len());
-    out.push_str(&format!("{:<4} {:<40} {:>7}  {:>5}  WORST  BAR\n", "#", "UNIT", "COUNT", "PCT"));
+    let mut out = format!(
+        "─── Unit Frequency — {} entries, {} units ───\n\n",
+        entries.len(),
+        ranked.len()
+    );
+    out.push_str(&format!(
+        "{:<4} {:<40} {:>7}  {:>5}  WORST  BAR\n",
+        "#", "UNIT", "COUNT", "PCT"
+    ));
     out.push_str(&"─".repeat(80));
     out.push('\n');
     for (i, (unit, n, worst_pri)) in ranked.iter().take(40).enumerate() {
         let pct = (*n as f64 / total * 100.0) as usize;
         let bar_len = pct.min(30);
         let bar = "█".repeat(bar_len);
-        let unit_short = if unit.len() > 38 { format!("{}..", &unit[..36]) } else { unit.clone() };
+        let unit_short = if unit.len() > 38 {
+            format!("{}..", &unit[..36])
+        } else {
+            unit.clone()
+        };
         out.push_str(&format!(
             "{:<4} {:<40} {:>7}  {:>4}%  {:<7}  {}\n",
             i + 1,
@@ -283,17 +327,35 @@ fn action_errors(entries: &[JournalEntry], limit: usize) -> String {
         errs.len(),
         entries.len()
     );
-    out.push_str(&format!("{:<21} {:<6} {:<35} {}\n", "TIMESTAMP", "PRI", "UNIT", "MESSAGE"));
+    out.push_str(&format!(
+        "{:<21} {:<6} {:<35} {}\n",
+        "TIMESTAMP", "PRI", "UNIT", "MESSAGE"
+    ));
     out.push_str(&"─".repeat(100));
     out.push('\n');
     for e in errs.iter().take(limit) {
         let ts = format_ts(e.timestamp_us);
         let label = unit_label(e);
-        let unit_short = if label.len() > 33 { format!("{}..", &label[..31]) } else { label };
+        let unit_short = if label.len() > 33 {
+            format!("{}..", &label[..31])
+        } else {
+            label
+        };
         let msg = e.message.lines().next().unwrap_or("").trim();
-        let msg_short = if msg.len() > 60 { format!("{}..", &msg[..58]) } else { msg.to_string() };
-        let pri = format!("{} {}", priority_icon(e.priority), priority_label(e.priority));
-        out.push_str(&format!("{:<21} {:<9} {:<35} {}\n", ts, pri, unit_short, msg_short));
+        let msg_short = if msg.len() > 60 {
+            format!("{}..", &msg[..58])
+        } else {
+            msg.to_string()
+        };
+        let pri = format!(
+            "{} {}",
+            priority_icon(e.priority),
+            priority_label(e.priority)
+        );
+        out.push_str(&format!(
+            "{:<21} {:<9} {:<35} {}\n",
+            ts, pri, unit_short, msg_short
+        ));
     }
     if errs.len() > limit {
         out.push_str(&format!("\n… {} more errors\n", errs.len() - limit));
@@ -301,7 +363,12 @@ fn action_errors(entries: &[JournalEntry], limit: usize) -> String {
     out
 }
 
-fn action_filter(entries: &[JournalEntry], unit_filter: Option<&str>, pri_filter: Option<u8>, limit: usize) -> String {
+fn action_filter(
+    entries: &[JournalEntry],
+    unit_filter: Option<&str>,
+    pri_filter: Option<u8>,
+    limit: usize,
+) -> String {
     let filtered: Vec<&JournalEntry> = entries
         .iter()
         .filter(|e| {
@@ -316,8 +383,7 @@ fn action_filter(entries: &[JournalEntry], unit_filter: Option<&str>, pri_filter
     if filtered.is_empty() {
         return format!(
             "No entries match filter (unit={:?}, priority≤{:?}).",
-            unit_filter,
-            pri_filter
+            unit_filter, pri_filter
         );
     }
 
@@ -326,17 +392,35 @@ fn action_filter(entries: &[JournalEntry], unit_filter: Option<&str>, pri_filter
         filtered.len(),
         entries.len()
     );
-    out.push_str(&format!("{:<21} {:<9} {:<35} {}\n", "TIMESTAMP", "PRI", "UNIT", "MESSAGE"));
+    out.push_str(&format!(
+        "{:<21} {:<9} {:<35} {}\n",
+        "TIMESTAMP", "PRI", "UNIT", "MESSAGE"
+    ));
     out.push_str(&"─".repeat(100));
     out.push('\n');
     for e in filtered.iter().take(limit) {
         let ts = format_ts(e.timestamp_us);
         let label = unit_label(e);
-        let unit_short = if label.len() > 33 { format!("{}..", &label[..31]) } else { label };
+        let unit_short = if label.len() > 33 {
+            format!("{}..", &label[..31])
+        } else {
+            label
+        };
         let msg = e.message.lines().next().unwrap_or("").trim();
-        let msg_short = if msg.len() > 60 { format!("{}..", &msg[..58]) } else { msg.to_string() };
-        let pri = format!("{} {}", priority_icon(e.priority), priority_label(e.priority));
-        out.push_str(&format!("{:<21} {:<9} {:<35} {}\n", ts, pri, unit_short, msg_short));
+        let msg_short = if msg.len() > 60 {
+            format!("{}..", &msg[..58])
+        } else {
+            msg.to_string()
+        };
+        let pri = format!(
+            "{} {}",
+            priority_icon(e.priority),
+            priority_label(e.priority)
+        );
+        out.push_str(&format!(
+            "{:<21} {:<9} {:<35} {}\n",
+            ts, pri, unit_short, msg_short
+        ));
     }
     if filtered.len() > limit {
         out.push_str(&format!("\n… {} more\n", filtered.len() - limit));
@@ -354,20 +438,29 @@ fn action_summary(entries: &[JournalEntry]) -> String {
         pri_dist[p] += 1;
     }
 
-    let hosts: std::collections::HashSet<&str> =
-        entries.iter().map(|e| e.hostname.as_str()).filter(|h| !h.is_empty()).collect();
+    let hosts: std::collections::HashSet<&str> = entries
+        .iter()
+        .map(|e| e.hostname.as_str())
+        .filter(|h| !h.is_empty())
+        .collect();
 
-    let first_ts = entries.iter().map(|e| e.timestamp_us).filter(|&t| t > 0).min();
-    let last_ts = entries.iter().map(|e| e.timestamp_us).filter(|&t| t > 0).max();
+    let first_ts = entries
+        .iter()
+        .map(|e| e.timestamp_us)
+        .filter(|&t| t > 0)
+        .min();
+    let last_ts = entries
+        .iter()
+        .map(|e| e.timestamp_us)
+        .filter(|&t| t > 0)
+        .max();
 
     let mut unit_counts: HashMap<String, u32> = HashMap::new();
     for e in entries {
         *unit_counts.entry(unit_label(e)).or_default() += 1;
     }
-    let mut top_units: Vec<(&str, u32)> = unit_counts
-        .iter()
-        .map(|(u, &n)| (u.as_str(), n))
-        .collect();
+    let mut top_units: Vec<(&str, u32)> =
+        unit_counts.iter().map(|(u, &n)| (u.as_str(), n)).collect();
     top_units.sort_by(|a, b| b.1.cmp(&a.1));
 
     let mut out = "─── journald Summary ───\n\n".to_string();
@@ -376,7 +469,11 @@ fn action_summary(entries: &[JournalEntry]) -> String {
         out.push_str(&format!("  Host          : {}\n", h));
     }
     if let (Some(f), Some(l)) = (first_ts, last_ts) {
-        out.push_str(&format!("  Time range    : {} → {}\n", format_ts(f), format_ts(l)));
+        out.push_str(&format!(
+            "  Time range    : {} → {}\n",
+            format_ts(f),
+            format_ts(l)
+        ));
     }
 
     out.push_str("\n  Priority Distribution:\n");
@@ -448,10 +545,12 @@ pub async fn execute(args: &Value) -> Result<String, String> {
         "errors" => action_errors(&entries, limit),
         "filter" => action_filter(&entries, unit_filter, pri_filter, limit),
         "summary" => action_summary(&entries),
-        other => return Err(format!(
-            "Unknown action '{}'. Choose: parse, units, errors, filter, summary.",
-            other
-        )),
+        other => {
+            return Err(format!(
+                "Unknown action '{}'. Choose: parse, units, errors, filter, summary.",
+                other
+            ))
+        }
     };
 
     Ok(result)

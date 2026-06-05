@@ -31,11 +31,14 @@ fn load_config(args: &Value) -> Result<Value, String> {
     } else if let Some(f) = args.get("file").and_then(|v| v.as_str()) {
         std::fs::read_to_string(f).map_err(|e| format!("Cannot read '{}': {}", f, e))?
     } else {
-        return Err("Provide 'config' (inline JSON) or 'file' (path to jest.config.json or package.json).".to_string());
+        return Err(
+            "Provide 'config' (inline JSON) or 'file' (path to jest.config.json or package.json)."
+                .to_string(),
+        );
     };
 
-    let parsed: Value = serde_json::from_str(text.trim())
-        .map_err(|e| format!("JSON parse error: {}", e))?;
+    let parsed: Value =
+        serde_json::from_str(text.trim()).map_err(|e| format!("JSON parse error: {}", e))?;
 
     if parsed.get("name").is_some() && parsed.get("version").is_some() {
         parsed
@@ -77,20 +80,48 @@ fn action_info(cfg: &Value) -> String {
         out.push_str("Test Environment: node (default)\n");
     }
     if let Some(roots) = obj.get("roots").and_then(|v| v.as_array()) {
-        out.push_str(&format!("Roots:            {:?}\n", roots.iter().filter_map(|v| v.as_str()).collect::<Vec<_>>()));
+        out.push_str(&format!(
+            "Roots:            {:?}\n",
+            roots.iter().filter_map(|v| v.as_str()).collect::<Vec<_>>()
+        ));
     }
     if let Some(timeout) = obj.get("testTimeout").and_then(|v| v.as_u64()) {
         out.push_str(&format!("Test Timeout:     {}ms\n", timeout));
     }
 
-    let transform_count = obj.get("transform").and_then(|v| v.as_object()).map(|o| o.len()).unwrap_or(0);
-    let mapper_count = obj.get("moduleNameMapper").and_then(|v| v.as_object()).map(|o| o.len()).unwrap_or(0);
-    let setup_files = obj.get("setupFiles").and_then(|v| v.as_array()).map(|a| a.len()).unwrap_or(0);
-    let setup_after = obj.get("setupFilesAfterFramework").and_then(|v| v.as_array())
-        .or_else(|| obj.get("setupFilesAfterFramework").and_then(|v| v.as_array()))
+    let transform_count = obj
+        .get("transform")
+        .and_then(|v| v.as_object())
+        .map(|o| o.len())
+        .unwrap_or(0);
+    let mapper_count = obj
+        .get("moduleNameMapper")
+        .and_then(|v| v.as_object())
+        .map(|o| o.len())
+        .unwrap_or(0);
+    let setup_files = obj
+        .get("setupFiles")
+        .and_then(|v| v.as_array())
         .map(|a| a.len())
-        .unwrap_or_else(|| obj.get("setupFilesAfterFramework").and_then(|v| v.as_array()).map(|a| a.len()).unwrap_or(0));
-    let coverage_enabled = obj.get("collectCoverage").and_then(|v| v.as_bool()).unwrap_or(false);
+        .unwrap_or(0);
+    let setup_after = obj
+        .get("setupFilesAfterFramework")
+        .and_then(|v| v.as_array())
+        .or_else(|| {
+            obj.get("setupFilesAfterFramework")
+                .and_then(|v| v.as_array())
+        })
+        .map(|a| a.len())
+        .unwrap_or_else(|| {
+            obj.get("setupFilesAfterFramework")
+                .and_then(|v| v.as_array())
+                .map(|a| a.len())
+                .unwrap_or(0)
+        });
+    let coverage_enabled = obj
+        .get("collectCoverage")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
 
     out.push('\n');
     out.push_str("Summary\n");
@@ -99,10 +130,20 @@ fn action_info(cfg: &Value) -> String {
     out.push_str(&format!("  Transforms:         {}\n", transform_count));
     out.push_str(&format!("  Module mappings:    {}\n", mapper_count));
     out.push_str(&format!("  Setup files:        {}\n", setup_files));
-    out.push_str(&format!("  Coverage:           {}\n", if coverage_enabled { "enabled" } else { "not auto-collected" }));
+    out.push_str(&format!(
+        "  Coverage:           {}\n",
+        if coverage_enabled {
+            "enabled"
+        } else {
+            "not auto-collected"
+        }
+    ));
 
     if let Some(proj_arr) = obj.get("projects").and_then(|v| v.as_array()) {
-        out.push_str(&format!("  Projects:           {} (multi-project)\n", proj_arr.len()));
+        out.push_str(&format!(
+            "  Projects:           {} (multi-project)\n",
+            proj_arr.len()
+        ));
     }
 
     out.push('\n');
@@ -111,10 +152,23 @@ fn action_info(cfg: &Value) -> String {
     out.push('\n');
 
     let display_keys = [
-        "preset", "testEnvironment", "testTimeout", "bail", "verbose",
-        "maxWorkers", "passWithNoTests", "testPathPattern", "rootDir",
-        "globalSetup", "globalTeardown", "runner", "testRunner",
-        "fakeTimers", "clearMocks", "restoreMocks", "resetMocks",
+        "preset",
+        "testEnvironment",
+        "testTimeout",
+        "bail",
+        "verbose",
+        "maxWorkers",
+        "passWithNoTests",
+        "testPathPattern",
+        "rootDir",
+        "globalSetup",
+        "globalTeardown",
+        "runner",
+        "testRunner",
+        "fakeTimers",
+        "clearMocks",
+        "restoreMocks",
+        "resetMocks",
     ];
     for key in &display_keys {
         if let Some(val) = obj.get(*key) {
@@ -141,11 +195,18 @@ fn action_testmatch(cfg: &Value) -> String {
     ];
 
     let patterns: Vec<String> = if let Some(arr) = obj.get("testMatch").and_then(|v| v.as_array()) {
-        arr.iter().filter_map(|v| v.as_str()).map(|s| s.to_string()).collect()
+        arr.iter()
+            .filter_map(|v| v.as_str())
+            .map(|s| s.to_string())
+            .collect()
     } else if let Some(regex) = obj.get("testRegex") {
         match regex {
             Value::String(s) => vec![format!("(regex) {}", s)],
-            Value::Array(a) => a.iter().filter_map(|v| v.as_str()).map(|s| format!("(regex) {}", s)).collect(),
+            Value::Array(a) => a
+                .iter()
+                .filter_map(|v| v.as_str())
+                .map(|s| format!("(regex) {}", s))
+                .collect(),
             _ => vec![],
         }
     } else {
@@ -153,7 +214,11 @@ fn action_testmatch(cfg: &Value) -> String {
     };
 
     let configured = obj.contains_key("testMatch") || obj.contains_key("testRegex");
-    out.push_str(if configured { "Test Match (configured):\n" } else { "Test Match (defaults):\n" });
+    out.push_str(if configured {
+        "Test Match (configured):\n"
+    } else {
+        "Test Match (defaults):\n"
+    });
     for p in &patterns {
         out.push_str(&format!("  {}\n", p));
     }
@@ -222,10 +287,15 @@ fn action_transforms(cfg: &Value) -> String {
             }
         }
     } else {
-        out.push_str("No 'transform' configured — Jest uses babel-jest by default for .js/.ts files.\n");
+        out.push_str(
+            "No 'transform' configured — Jest uses babel-jest by default for .js/.ts files.\n",
+        );
     }
 
-    if let Some(ignore) = obj.get("transformIgnorePatterns").and_then(|v| v.as_array()) {
+    if let Some(ignore) = obj
+        .get("transformIgnorePatterns")
+        .and_then(|v| v.as_array())
+    {
         out.push_str("transformIgnorePatterns:\n");
         for p in ignore {
             if let Some(s) = p.as_str() {
@@ -295,7 +365,10 @@ fn action_modules(cfg: &Value) -> String {
         }
     }
 
-    if let Some(sf) = obj.get("setupFilesAfterFramework").and_then(|v| v.as_array()) {
+    if let Some(sf) = obj
+        .get("setupFilesAfterFramework")
+        .and_then(|v| v.as_array())
+    {
         out.push('\n');
         out.push_str("setupFilesAfterFramework:\n");
         for p in sf {
@@ -318,7 +391,10 @@ fn action_coverage(cfg: &Value) -> String {
     out.push_str(&"═".repeat(52));
     out.push('\n');
 
-    let collect = obj.get("collectCoverage").and_then(|v| v.as_bool()).unwrap_or(false);
+    let collect = obj
+        .get("collectCoverage")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
     out.push_str(&format!("collectCoverage:    {}\n", collect));
 
     if let Some(from) = obj.get("collectCoverageFrom").and_then(|v| v.as_array()) {
@@ -392,7 +468,10 @@ fn action_validate(cfg: &Value) -> String {
         if timeout == 0 {
             issues.push("[ERROR] testTimeout is 0 — tests will time out immediately.".to_string());
         } else if timeout > 60_000 {
-            issues.push(format!("[WARN]  testTimeout is {}ms (>60s) — very long; ensure this is intentional.", timeout));
+            issues.push(format!(
+                "[WARN]  testTimeout is {}ms (>60s) — very long; ensure this is intentional.",
+                timeout
+            ));
         }
     }
 
@@ -403,7 +482,10 @@ fn action_validate(cfg: &Value) -> String {
     }
 
     let has_thresholds = obj.get("coverageThreshold").is_some();
-    let collects = obj.get("collectCoverage").and_then(|v| v.as_bool()).unwrap_or(false);
+    let collects = obj
+        .get("collectCoverage")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
     if has_thresholds && !collects {
         issues.push("[WARN]  coverageThreshold is set but collectCoverage is false — thresholds will not be enforced unless you run with --coverage.".to_string());
     }
@@ -415,7 +497,9 @@ fn action_validate(cfg: &Value) -> String {
                 Value::Array(a) => a.first().and_then(|v| v.as_str()).unwrap_or(""),
                 _ => "",
             };
-            if t_name.contains("ts-jest") && obj.get("preset").and_then(|v| v.as_str()) == Some("ts-jest") {
+            if t_name.contains("ts-jest")
+                && obj.get("preset").and_then(|v| v.as_str()) == Some("ts-jest")
+            {
                 issues.push("[WARN]  Both 'preset: ts-jest' and a ts-jest transform rule are present — the preset already includes the transform; one is redundant.".to_string());
             }
             if pattern.is_empty() {
@@ -428,31 +512,95 @@ fn action_validate(cfg: &Value) -> String {
         && obj.get("transform").is_none()
         && obj.get("preset").and_then(|v| v.as_str()) != Some("ts-jest")
     {
-        issues.push("[WARN]  'globals.ts-jest' is configured but no ts-jest preset or transform is set.".to_string());
+        issues.push(
+            "[WARN]  'globals.ts-jest' is configured but no ts-jest preset or transform is set."
+                .to_string(),
+        );
     }
 
     let unknown_keys = [
-        "automock", "browser", "cacheDirectory", "clearMocks", "coveragePathIgnorePatterns",
-        "coverageProvider", "coverageReporters", "coverageThreshold", "dependencyExtractor",
-        "displayName", "errorOnDeprecated", "extensionsToTreatAsEsm", "fakeTimers",
-        "forceCoverageMatch", "globalSetup", "globalTeardown", "globals", "haste",
-        "injectGlobals", "maxConcurrency", "maxWorkers", "moduleDirectories",
-        "moduleFileExtensions", "moduleNameMapper", "modulePaths", "modulePathIgnorePatterns",
-        "notify", "notifyMode", "passWithNoTests", "preset", "prettierPath", "projects",
-        "reporters", "resetMocks", "resetModules", "resolver", "restoreMocks", "rootDir",
-        "roots", "runner", "runInBand", "sandboxInjectedGlobals", "setupFiles",
-        "setupFilesAfterFramework", "slowTestThreshold", "snapshotFormat", "snapshotResolver",
-        "snapshotSerializers", "testEnvironment", "testEnvironmentOptions", "testLocationInResults",
-        "testMatch", "testNamePattern", "testPathIgnorePatterns", "testPathPattern",
-        "testRegex", "testResultsProcessor", "testRunner", "testSequencer", "testTimeout",
-        "testURL", "timers", "transform", "transformIgnorePatterns", "unmockedModulePathPatterns",
-        "verbose", "watchPathIgnorePatterns", "watchPlugins", "watchman", "workerIdleMemoryLimit",
-        "workerThreads", "collectCoverage", "collectCoverageFrom", "coverageDirectory",
+        "automock",
+        "browser",
+        "cacheDirectory",
+        "clearMocks",
+        "coveragePathIgnorePatterns",
+        "coverageProvider",
+        "coverageReporters",
+        "coverageThreshold",
+        "dependencyExtractor",
+        "displayName",
+        "errorOnDeprecated",
+        "extensionsToTreatAsEsm",
+        "fakeTimers",
+        "forceCoverageMatch",
+        "globalSetup",
+        "globalTeardown",
+        "globals",
+        "haste",
+        "injectGlobals",
+        "maxConcurrency",
+        "maxWorkers",
+        "moduleDirectories",
+        "moduleFileExtensions",
+        "moduleNameMapper",
+        "modulePaths",
+        "modulePathIgnorePatterns",
+        "notify",
+        "notifyMode",
+        "passWithNoTests",
+        "preset",
+        "prettierPath",
+        "projects",
+        "reporters",
+        "resetMocks",
+        "resetModules",
+        "resolver",
+        "restoreMocks",
+        "rootDir",
+        "roots",
+        "runner",
+        "runInBand",
+        "sandboxInjectedGlobals",
+        "setupFiles",
+        "setupFilesAfterFramework",
+        "slowTestThreshold",
+        "snapshotFormat",
+        "snapshotResolver",
+        "snapshotSerializers",
+        "testEnvironment",
+        "testEnvironmentOptions",
+        "testLocationInResults",
+        "testMatch",
+        "testNamePattern",
+        "testPathIgnorePatterns",
+        "testPathPattern",
+        "testRegex",
+        "testResultsProcessor",
+        "testRunner",
+        "testSequencer",
+        "testTimeout",
+        "testURL",
+        "timers",
+        "transform",
+        "transformIgnorePatterns",
+        "unmockedModulePathPatterns",
+        "verbose",
+        "watchPathIgnorePatterns",
+        "watchPlugins",
+        "watchman",
+        "workerIdleMemoryLimit",
+        "workerThreads",
+        "collectCoverage",
+        "collectCoverageFrom",
+        "coverageDirectory",
     ];
 
     for key in obj.keys() {
         if !unknown_keys.contains(&key.as_str()) {
-            issues.push(format!("[WARN]  Unknown key '{}' — may be a typo or a custom Jest plugin option.", key));
+            issues.push(format!(
+                "[WARN]  Unknown key '{}' — may be a typo or a custom Jest plugin option.",
+                key
+            ));
         }
     }
 
@@ -465,8 +613,15 @@ fn action_validate(cfg: &Value) -> String {
     } else {
         let errors = issues.iter().filter(|i| i.starts_with("[ERROR]")).count();
         let warns = issues.iter().filter(|i| i.starts_with("[WARN]")).count();
-        out.push_str(if errors > 0 { "INVALID\n\n" } else { "VALID (with warnings)\n\n" });
-        out.push_str(&format!("Issues: {} error(s), {} warning(s)\n\n", errors, warns));
+        out.push_str(if errors > 0 {
+            "INVALID\n\n"
+        } else {
+            "VALID (with warnings)\n\n"
+        });
+        out.push_str(&format!(
+            "Issues: {} error(s), {} warning(s)\n\n",
+            errors, warns
+        ));
         for issue in &issues {
             out.push_str(&format!("  {}\n", issue));
         }
@@ -477,14 +632,20 @@ fn action_validate(cfg: &Value) -> String {
 
 pub async fn execute(args: &Value) -> Result<String, String> {
     let cfg = load_config(args)?;
-    let action = args.get("action").and_then(|v| v.as_str()).unwrap_or("info");
+    let action = args
+        .get("action")
+        .and_then(|v| v.as_str())
+        .unwrap_or("info");
     match action {
-        "info"       => Ok(action_info(&cfg)),
-        "testmatch"  => Ok(action_testmatch(&cfg)),
+        "info" => Ok(action_info(&cfg)),
+        "testmatch" => Ok(action_testmatch(&cfg)),
         "transforms" => Ok(action_transforms(&cfg)),
-        "modules"    => Ok(action_modules(&cfg)),
-        "coverage"   => Ok(action_coverage(&cfg)),
-        "validate"   => Ok(action_validate(&cfg)),
-        other => Err(format!("Unknown action '{}'. Valid: info, testmatch, transforms, modules, coverage, validate.", other)),
+        "modules" => Ok(action_modules(&cfg)),
+        "coverage" => Ok(action_coverage(&cfg)),
+        "validate" => Ok(action_validate(&cfg)),
+        other => Err(format!(
+            "Unknown action '{}'. Valid: info, testmatch, transforms, modules, coverage, validate.",
+            other
+        )),
     }
 }

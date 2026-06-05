@@ -21,11 +21,9 @@ pub fn make_schema() -> Value {
 
 fn load_input(args: &Value) -> Result<Value, String> {
     if let Some(f) = args.get("file").and_then(|v| v.as_str()) {
-        let text = std::fs::read_to_string(f)
-            .map_err(|e| format!("Cannot read '{}': {}", f, e))?;
+        let text = std::fs::read_to_string(f).map_err(|e| format!("Cannot read '{}': {}", f, e))?;
         let stripped = strip_comments(&text);
-        serde_json::from_str(&stripped)
-            .map_err(|e| format!("JSON parse error in '{}': {}", f, e))
+        serde_json::from_str(&stripped).map_err(|e| format!("JSON parse error in '{}': {}", f, e))
     } else if let Some(t) = args.get("tsconfig").and_then(|v| v.as_str()) {
         let stripped = strip_comments(t);
         serde_json::from_str(&stripped).map_err(|e| format!("JSON parse error: {}", e))
@@ -40,22 +38,47 @@ fn strip_comments(s: &str) -> String {
     let mut in_string = false;
     let mut escape_next = false;
     while let Some(c) = chars.next() {
-        if escape_next { out.push(c); escape_next = false; continue; }
-        if in_string {
-            if c == '\\' { escape_next = true; out.push(c); continue; }
-            if c == '"' { in_string = false; }
-            out.push(c); continue;
+        if escape_next {
+            out.push(c);
+            escape_next = false;
+            continue;
         }
-        if c == '"' { in_string = true; out.push(c); continue; }
+        if in_string {
+            if c == '\\' {
+                escape_next = true;
+                out.push(c);
+                continue;
+            }
+            if c == '"' {
+                in_string = false;
+            }
+            out.push(c);
+            continue;
+        }
+        if c == '"' {
+            in_string = true;
+            out.push(c);
+            continue;
+        }
         if c == '/' {
             if chars.peek() == Some(&'/') {
                 chars.next();
-                for nc in chars.by_ref() { if nc == '\n' { out.push('\n'); break; } }
+                for nc in chars.by_ref() {
+                    if nc == '\n' {
+                        out.push('\n');
+                        break;
+                    }
+                }
                 continue;
             } else if chars.peek() == Some(&'*') {
                 chars.next();
                 let mut prev = ' ';
-                for nc in chars.by_ref() { if prev == '*' && nc == '/' { break; } prev = nc; }
+                for nc in chars.by_ref() {
+                    if prev == '*' && nc == '/' {
+                        break;
+                    }
+                    prev = nc;
+                }
                 continue;
             }
         }
@@ -86,7 +109,10 @@ fn action_info(cfg: &Value) -> String {
             out.push_str(&format!("  moduleResol:  {}\n", mr));
         }
         let strict = co.get("strict").and_then(|v| v.as_bool()).unwrap_or(false);
-        out.push_str(&format!("  strict:       {}\n", if strict { "true ✓" } else { "false ✗" }));
+        out.push_str(&format!(
+            "  strict:       {}\n",
+            if strict { "true ✓" } else { "false ✗" }
+        ));
 
         if let Some(od) = co.get("outDir").and_then(|v| v.as_str()) {
             out.push_str(&format!("  outDir:       {}\n", od));
@@ -95,31 +121,70 @@ fn action_info(cfg: &Value) -> String {
             out.push_str(&format!("  rootDir:      {}\n", rd));
         }
         let noEmit = co.get("noEmit").and_then(|v| v.as_bool()).unwrap_or(false);
-        if noEmit { out.push_str("  noEmit:       true\n"); }
-        let composite = co.get("composite").and_then(|v| v.as_bool()).unwrap_or(false);
-        if composite { out.push_str("  composite:    true\n"); }
+        if noEmit {
+            out.push_str("  noEmit:       true\n");
+        }
+        let composite = co
+            .get("composite")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
+        if composite {
+            out.push_str("  composite:    true\n");
+        }
         let jsx = co.get("jsx").and_then(|v| v.as_str());
-        if let Some(j) = jsx { out.push_str(&format!("  jsx:          {}\n", j)); }
-        let decl_maps = co.get("declaration").and_then(|v| v.as_bool()).unwrap_or(false);
-        if decl_maps { out.push_str("  declaration:  true\n"); }
+        if let Some(j) = jsx {
+            out.push_str(&format!("  jsx:          {}\n", j));
+        }
+        let decl_maps = co
+            .get("declaration")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
+        if decl_maps {
+            out.push_str("  declaration:  true\n");
+        }
         if let Some(paths) = co.get("paths").and_then(|v| v.as_object()) {
             out.push_str(&format!("  paths:        {} alias(es)\n", paths.len()));
         }
     }
 
-    let include_count = cfg.get("include")
-        .and_then(|v| v.as_array()).map(|a| a.len()).unwrap_or(0);
-    let exclude_count = cfg.get("exclude")
-        .and_then(|v| v.as_array()).map(|a| a.len()).unwrap_or(0);
-    let files_count = cfg.get("files")
-        .and_then(|v| v.as_array()).map(|a| a.len()).unwrap_or(0);
-    let refs_count = cfg.get("references")
-        .and_then(|v| v.as_array()).map(|a| a.len()).unwrap_or(0);
+    let include_count = cfg
+        .get("include")
+        .and_then(|v| v.as_array())
+        .map(|a| a.len())
+        .unwrap_or(0);
+    let exclude_count = cfg
+        .get("exclude")
+        .and_then(|v| v.as_array())
+        .map(|a| a.len())
+        .unwrap_or(0);
+    let files_count = cfg
+        .get("files")
+        .and_then(|v| v.as_array())
+        .map(|a| a.len())
+        .unwrap_or(0);
+    let refs_count = cfg
+        .get("references")
+        .and_then(|v| v.as_array())
+        .map(|a| a.len())
+        .unwrap_or(0);
 
-    out.push_str(&format!("\ninclude:         {} pattern(s)\n", include_count));
+    out.push_str(&format!(
+        "\ninclude:         {} pattern(s)\n",
+        include_count
+    ));
     out.push_str(&format!("exclude:         {} pattern(s)\n", exclude_count));
-    if files_count > 0 { out.push_str(&format!("files:           {} explicit file(s)\n", files_count)); }
-    if refs_count > 0 { out.push_str(&format!("references:      {} project reference(s)\n", refs_count)); }
+    if files_count > 0 {
+        out.push_str(&format!(
+            "files:           {} explicit file(s)\n",
+            files_count
+        ));
+    }
+    if refs_count > 0 {
+        out.push_str(&format!(
+            "references:      {} project reference(s)\n",
+            refs_count
+        ));
+    }
     out
 }
 
@@ -132,13 +197,80 @@ fn action_compiler(cfg: &Value) -> String {
     let mut out = String::from("compilerOptions\n===============\n\n");
 
     let categories: &[(&str, &[&str])] = &[
-        ("Language & Target", &["target", "module", "moduleResolution", "lib", "jsx", "jsxFactory", "jsxFragmentFactory", "jsxImportSource"]),
-        ("Emit", &["outDir", "outFile", "rootDir", "declaration", "declarationDir", "declarationMap", "sourceMap", "inlineSourceMap", "inlineSources", "noEmit", "removeComments", "emitDeclarationOnly"]),
-        ("Strict Checks", &["strict", "noImplicitAny", "strictNullChecks", "strictFunctionTypes", "strictBindCallApply", "strictPropertyInitialization", "noImplicitThis", "useUnknownInCatchVariables", "alwaysStrict"]),
-        ("Module Resolution", &["baseUrl", "paths", "rootDirs", "typeRoots", "types", "resolveJsonModule", "esModuleInterop", "allowSyntheticDefaultImports", "moduleDetection"]),
-        ("Code Quality", &["noUnusedLocals", "noUnusedParameters", "noImplicitReturns", "noFallthroughCasesInSwitch", "noUncheckedIndexedAccess", "exactOptionalPropertyTypes"]),
+        (
+            "Language & Target",
+            &[
+                "target",
+                "module",
+                "moduleResolution",
+                "lib",
+                "jsx",
+                "jsxFactory",
+                "jsxFragmentFactory",
+                "jsxImportSource",
+            ],
+        ),
+        (
+            "Emit",
+            &[
+                "outDir",
+                "outFile",
+                "rootDir",
+                "declaration",
+                "declarationDir",
+                "declarationMap",
+                "sourceMap",
+                "inlineSourceMap",
+                "inlineSources",
+                "noEmit",
+                "removeComments",
+                "emitDeclarationOnly",
+            ],
+        ),
+        (
+            "Strict Checks",
+            &[
+                "strict",
+                "noImplicitAny",
+                "strictNullChecks",
+                "strictFunctionTypes",
+                "strictBindCallApply",
+                "strictPropertyInitialization",
+                "noImplicitThis",
+                "useUnknownInCatchVariables",
+                "alwaysStrict",
+            ],
+        ),
+        (
+            "Module Resolution",
+            &[
+                "baseUrl",
+                "paths",
+                "rootDirs",
+                "typeRoots",
+                "types",
+                "resolveJsonModule",
+                "esModuleInterop",
+                "allowSyntheticDefaultImports",
+                "moduleDetection",
+            ],
+        ),
+        (
+            "Code Quality",
+            &[
+                "noUnusedLocals",
+                "noUnusedParameters",
+                "noImplicitReturns",
+                "noFallthroughCasesInSwitch",
+                "noUncheckedIndexedAccess",
+                "exactOptionalPropertyTypes",
+            ],
+        ),
         ("Project", &["composite", "incremental", "tsBuildInfoFile"]),
-        ("Decorators", &["experimentalDecorators", "emitDecoratorMetadata"]),
+        (
+            "Decorators",
+            &["experimentalDecorators", "emitDecoratorMetadata"],
+        ),
         ("Other", &[]),
     ];
 
@@ -199,9 +331,16 @@ fn action_includes(cfg: &Value) -> String {
     }
 
     let co = cfg.get("compilerOptions");
-    if let Some(rd) = co.and_then(|c| c.get("rootDirs")).and_then(|v| v.as_array()) {
+    if let Some(rd) = co
+        .and_then(|c| c.get("rootDirs"))
+        .and_then(|v| v.as_array())
+    {
         out.push_str("rootDirs:\n");
-        for d in rd { if let Some(s) = d.as_str() { out.push_str(&format!("  {}\n", s)); } }
+        for d in rd {
+            if let Some(s) = d.as_str() {
+                out.push_str(&format!("  {}\n", s));
+            }
+        }
         out.push('\n');
     }
 
@@ -209,7 +348,11 @@ fn action_includes(cfg: &Value) -> String {
         out.push_str("paths (aliases):\n");
         for (alias, targets) in paths {
             let t = match targets {
-                Value::Array(a) => a.iter().filter_map(|v| v.as_str()).collect::<Vec<_>>().join(", "),
+                Value::Array(a) => a
+                    .iter()
+                    .filter_map(|v| v.as_str())
+                    .collect::<Vec<_>>()
+                    .join(", "),
                 _ => compact_val(targets),
             };
             out.push_str(&format!("  {:30} -> {}\n", alias, t));
@@ -234,16 +377,31 @@ fn action_references(cfg: &Value) -> String {
     out.push('\n');
 
     for r in refs {
-        let path = r.get("path").and_then(|v| v.as_str()).unwrap_or("(no path)");
+        let path = r
+            .get("path")
+            .and_then(|v| v.as_str())
+            .unwrap_or("(no path)");
         let prepend = r.get("prepend").and_then(|v| v.as_bool()).unwrap_or(false);
         out.push_str(&format!("  {}", path));
-        if prepend { out.push_str(" [prepend]"); }
+        if prepend {
+            out.push_str(" [prepend]");
+        }
         out.push('\n');
     }
 
     if let Some(co) = cfg.get("compilerOptions") {
-        let composite = co.get("composite").and_then(|v| v.as_bool()).unwrap_or(false);
-        out.push_str(&format!("\nThis project composite: {}\n", if composite { "true ✓" } else { "false — required for referenced projects" }));
+        let composite = co
+            .get("composite")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
+        out.push_str(&format!(
+            "\nThis project composite: {}\n",
+            if composite {
+                "true ✓"
+            } else {
+                "false — required for referenced projects"
+            }
+        ));
     }
     out
 }
@@ -253,15 +411,23 @@ fn action_validate(cfg: &Value) -> String {
 
     let co = cfg.get("compilerOptions");
 
-    let strict = co.and_then(|c| c.get("strict")).and_then(|v| v.as_bool()).unwrap_or(false);
+    let strict = co
+        .and_then(|c| c.get("strict"))
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
     if !strict {
         issues.push("strict is not enabled — enables strict null checks, noImplicitAny, and other safety checks".into());
     }
 
-    let no_emit = co.and_then(|c| c.get("noEmit")).and_then(|v| v.as_bool()).unwrap_or(false);
+    let no_emit = co
+        .and_then(|c| c.get("noEmit"))
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
     let out_dir = co.and_then(|c| c.get("outDir")).and_then(|v| v.as_str());
     if no_emit && out_dir.is_some() {
-        issues.push("noEmit: true but outDir is also set — outDir has no effect when noEmit is true".into());
+        issues.push(
+            "noEmit: true but outDir is also set — outDir has no effect when noEmit is true".into(),
+        );
     }
     if !no_emit && out_dir.is_none() {
         issues.push("No outDir set — compiled output will be written next to source files".into());
@@ -270,36 +436,57 @@ fn action_validate(cfg: &Value) -> String {
     let paths = co.and_then(|c| c.get("paths"));
     let base_url = co.and_then(|c| c.get("baseUrl"));
     if paths.is_some() && base_url.is_none() {
-        let mr = co.and_then(|c| c.get("moduleResolution")).and_then(|v| v.as_str()).unwrap_or("");
+        let mr = co
+            .and_then(|c| c.get("moduleResolution"))
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
         let bundler_mode = mr.eq_ignore_ascii_case("bundler");
         if !bundler_mode {
             issues.push("paths configured but no baseUrl — paths requires baseUrl (or moduleResolution: 'bundler')".into());
         }
     }
 
-    let mr = co.and_then(|c| c.get("moduleResolution")).and_then(|v| v.as_str()).unwrap_or("");
+    let mr = co
+        .and_then(|c| c.get("moduleResolution"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
     if mr.eq_ignore_ascii_case("node") {
         issues.push("moduleResolution: 'node' is deprecated in TypeScript 5 — prefer 'node16', 'nodenext', or 'bundler'".into());
     }
 
-    let exp_dec = co.and_then(|c| c.get("experimentalDecorators")).and_then(|v| v.as_bool()).unwrap_or(false);
-    let emit_meta = co.and_then(|c| c.get("emitDecoratorMetadata")).and_then(|v| v.as_bool()).unwrap_or(false);
+    let exp_dec = co
+        .and_then(|c| c.get("experimentalDecorators"))
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+    let emit_meta = co
+        .and_then(|c| c.get("emitDecoratorMetadata"))
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
     if exp_dec && !emit_meta {
         issues.push("experimentalDecorators enabled but emitDecoratorMetadata is not — most decorator frameworks (NestJS, TypeORM) need both".into());
     }
 
     if let Some(refs) = cfg.get("references").and_then(|v| v.as_array()) {
         if !refs.is_empty() {
-            let composite = co.and_then(|c| c.get("composite")).and_then(|v| v.as_bool()).unwrap_or(false);
+            let composite = co
+                .and_then(|c| c.get("composite"))
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false);
             if !composite {
                 issues.push("Project has references but composite: true is not set — referenced projects require composite".into());
             }
         }
     }
 
-    let target = co.and_then(|c| c.get("target")).and_then(|v| v.as_str()).unwrap_or("ES3");
+    let target = co
+        .and_then(|c| c.get("target"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("ES3");
     if target.eq_ignore_ascii_case("es3") || target.eq_ignore_ascii_case("es5") {
-        issues.push(format!("target: '{}' — very old target; consider ES2018 or later for modern environments", target));
+        issues.push(format!(
+            "target: '{}' — very old target; consider ES2018 or later for modern environments",
+            target
+        ));
     }
 
     let mut out = String::from("tsconfig.json Validation\n========================\n\n");
@@ -316,13 +503,16 @@ fn action_validate(cfg: &Value) -> String {
 
 pub async fn execute(args: &Value) -> Result<String, String> {
     let cfg = load_input(args)?;
-    let action = args.get("action").and_then(|v| v.as_str()).unwrap_or("info");
+    let action = args
+        .get("action")
+        .and_then(|v| v.as_str())
+        .unwrap_or("info");
 
     Ok(match action {
-        "compiler"   => action_compiler(&cfg),
-        "includes"   => action_includes(&cfg),
+        "compiler" => action_compiler(&cfg),
+        "includes" => action_includes(&cfg),
         "references" => action_references(&cfg),
-        "validate"   => action_validate(&cfg),
-        _            => action_info(&cfg),
+        "validate" => action_validate(&cfg),
+        _ => action_info(&cfg),
     })
 }
