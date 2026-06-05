@@ -18050,7 +18050,12 @@ fn test_password_gen_length() {
         .lines()
         .find(|l| l.trim_start().starts_with("Password"))
         .unwrap_or("");
-    let password = password_line.split(':').nth(1).unwrap_or("").trim();
+    // strip the "Password : " label prefix; the password itself may contain ':'
+    let password = password_line
+        .trim_start()
+        .strip_prefix("Password :")
+        .unwrap_or("")
+        .trim();
     assert_eq!(password.len(), 24);
 }
 
