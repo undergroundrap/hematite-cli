@@ -51,7 +51,7 @@ use crate::agent::routing::{
     needs_http_parse_tools, needs_http_request, needs_http_status_tools, needs_ical_tools,
     needs_id_tools, needs_image_tools, needs_inflect_tools, needs_ini_tools, needs_interval_tools,
     needs_ip_tools, needs_iptables_tools, needs_jq_tools, needs_json_patch_tools, needs_json_tools,
-    needs_journald_tools, needs_jsonl_tools, needs_jsonrpc_tools, needs_jsonschema_tools, needs_junit_tools,
+    needs_eslint_tools, needs_journald_tools, needs_jsonl_tools, needs_jsonrpc_tools, needs_jsonschema_tools, needs_junit_tools,
     needs_jwk_tools, needs_jwt_tools, needs_k8s_tools, needs_keyval_tools, needs_latex_tools,
     needs_ldif_tools, needs_leb128_tools, needs_license_tools, needs_line_tools, needs_lint_check,
     needs_lock_file_tools, needs_log_parse_tools, needs_logic_tools, needs_macho_tools,
@@ -77,7 +77,7 @@ use crate::agent::routing::{
     needs_template_tools, needs_terraform_tools, needs_test_run, needs_text_align_tools,
     needs_text_extract_tools, needs_text_tools, needs_thermo_tools, needs_time_zone_tools,
     needs_tls_tools, needs_tlv_tools, needs_todo_tools, needs_token_tools, needs_toml_tools,
-    needs_totp_tools, needs_trie_tools, needs_unicode_tools, needs_unit_tools, needs_url_tools,
+    needs_totp_tools, needs_trie_tools, needs_tsconfig_tools, needs_unicode_tools, needs_unit_tools, needs_url_tools,
     needs_uuid_gen, needs_validate_tools, needs_vcf_tools, needs_vector_tools,
     needs_video_file_tools, needs_wasm_tools, needs_web_manifest_tools, needs_webhook_tools,
     needs_wireguard_tools, needs_word_tools, needs_xml_tools, needs_yaml_tools,
@@ -6257,6 +6257,40 @@ impl ConversationManager {
                  Example: journald_tools(action: 'errors', file: 'journal.json') or \
                  journald_tools(action: 'units', log: '...') or \
                  journald_tools(action: 'filter', file: 'journal.json', unit: 'nginx.service', priority: 4)."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_tsconfig_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "TSCONFIG NOTICE: Use the `tsconfig_tools` tool to parse, inspect, and validate TypeScript configuration files (tsconfig.json) without external utilities. \
+                 Actions: info (default — extends chain, compilerOptions summary with target/module/strict/outDir, include/exclude/references counts), \
+                 compiler (all compilerOptions grouped by category: Language/Emit/Strict Checks/Module Resolution/Code Quality/Project/Decorators), \
+                 includes (include/exclude/files patterns and paths aliases), \
+                 references (project references with paths and composite flag check), \
+                 validate (strict not enabled, no outDir, noEmit+outDir conflict, paths without baseUrl, deprecated moduleResolution: node, \
+                   experimentalDecorators without emitDecoratorMetadata, composite missing on referenced projects). \
+                 Handles JSON with // and /* */ comments. \
+                 Example: tsconfig_tools(action: 'info', file: 'tsconfig.json') or \
+                 tsconfig_tools(action: 'compiler', tsconfig: '...') or \
+                 tsconfig_tools(action: 'validate', file: 'tsconfig.base.json')."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_eslint_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "ESLINT NOTICE: Use the `eslint_tools` tool to parse, inspect, and validate ESLint configuration files without external utilities. \
+                 Actions: info (default — format detection legacy .eslintrc.json/flat eslint.config.js, root flag, parser, extends/plugins/envs/globals counts, \
+                   rule breakdown by severity error/warn/off), \
+                 rules (all configured rules with severity icon and options; optional 'filter' arg for name substring), \
+                 plugins (configured plugin list), \
+                 extends (preset/extends chain with order note — legacy only), \
+                 validate (root: true missing, no rules+no extends, eslint:all anti-pattern, flat config issues, unknown severity values). \
+                 Detects flat config (JSON array) vs legacy config (JSON object) automatically. \
+                 Example: eslint_tools(action: 'info', file: '.eslintrc.json') or \
+                 eslint_tools(action: 'rules', config: '...', filter: 'react') or \
+                 eslint_tools(action: 'validate', file: 'eslint.config.json')."
                     .to_string(),
             );
         }

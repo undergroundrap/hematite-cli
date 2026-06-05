@@ -12361,6 +12361,42 @@ pub fn needs_journald_tools(user_input: &str) -> bool {
         || (lower.contains("journal") && (lower.contains("parse") || lower.contains("analyz") || lower.contains("filter") || lower.contains("summar")))
 }
 
+pub fn needs_tsconfig_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    lower.contains("tsconfig_tools")
+        || lower.contains("tsconfig.json")
+        || lower.contains("tsconfig.base.json")
+        || lower.contains("typescript config")
+        || lower.contains("typescript configuration")
+        || lower.contains("compileroptions")
+        || lower.contains("typescript target")
+        || lower.contains("typescript module")
+        || lower.contains("typescript strict")
+        || lower.contains("typescript paths")
+        || lower.contains("project references typescript")
+        || lower.contains("ts project references")
+        || (lower.contains("tsconfig") && (lower.contains("parse") || lower.contains("analyz") || lower.contains("inspect") || lower.contains("validate")))
+}
+
+pub fn needs_eslint_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    lower.contains("eslint_tools")
+        || lower.contains(".eslintrc.json")
+        || lower.contains(".eslintrc.js")
+        || lower.contains("eslint.config.js")
+        || lower.contains("eslint.config.mjs")
+        || lower.contains("eslint config")
+        || lower.contains("eslint configuration")
+        || lower.contains("eslint rules")
+        || lower.contains("eslint plugins")
+        || lower.contains("eslint extends")
+        || lower.contains("eslint flat config")
+        || lower.contains("parse eslint")
+        || lower.contains("validate eslint")
+        || lower.contains("inspect eslint")
+        || (lower.contains("eslint") && (lower.contains("parse") || lower.contains("analyz") || lower.contains("inspect") || lower.contains("validate")))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

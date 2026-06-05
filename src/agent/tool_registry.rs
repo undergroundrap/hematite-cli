@@ -4178,6 +4178,38 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         crate::tools::journald_tools::make_schema(),
     ));
     tools.push(make_tool(
+        "tsconfig_tools",
+        "Parse, inspect, and validate TypeScript configuration files (tsconfig.json) without external utilities. \
+         Actions: info (default — extends chain, compilerOptions summary with target/module/strict/outDir, include/exclude/refs counts), \
+         compiler (all compilerOptions grouped by category: Language/Emit/Strict/Module Resolution/Code Quality/Project/Decorators), \
+         includes (include/exclude/files patterns and paths aliases), \
+         references (project references with paths and composite flag), \
+         validate (best-practice checks — strict not enabled, no outDir, noEmit+outDir conflict, paths without baseUrl, \
+           deprecated moduleResolution: node, experimentalDecorators without emitDecoratorMetadata, composite missing on referenced projects). \
+         Handles JSON with // and /* */ comments (common in tsconfig). \
+         Pass 'file' (path to tsconfig.json) or 'tsconfig' (inline JSON content). \
+         Example: tsconfig_tools(action: 'info', file: 'tsconfig.json') or \
+         tsconfig_tools(action: 'compiler', tsconfig: '...') or \
+         tsconfig_tools(action: 'validate', file: 'tsconfig.base.json').",
+        crate::tools::tsconfig_tools::make_schema(),
+    ));
+    tools.push(make_tool(
+        "eslint_tools",
+        "Parse, inspect, and validate ESLint configuration files (.eslintrc.json or flat eslint.config.js array) without external utilities. \
+         Actions: info (default — format detection legacy/flat, root flag, parser, extends/plugins/envs/globals counts, \
+           rule breakdown by severity error/warn/off), \
+         rules (all configured rules with severity icon and options; optional 'filter' for name substring), \
+         plugins (configured plugin list), \
+         extends (preset/extends chain with order note), \
+         validate (root: true missing, no rules+no extends, eslint:all warning, flat config issues, unknown severity values). \
+         Detects flat config (JSON array) vs legacy config (JSON object) automatically. \
+         Pass 'file' (path to .eslintrc.json or eslint.config.json) or 'config' (inline JSON content). \
+         Example: eslint_tools(action: 'info', file: '.eslintrc.json') or \
+         eslint_tools(action: 'rules', config: '...', filter: 'react') or \
+         eslint_tools(action: 'validate', file: 'eslint.config.json').",
+        crate::tools::eslint_tools::make_schema(),
+    ));
+    tools.push(make_tool(
         "changelog_tools",
         "Parse, query, and validate CHANGELOG.md files in Keep a Changelog format. \
          Actions: list (default — all releases with version, date, section names, item counts; YANKED flag), \
@@ -8126,6 +8158,8 @@ pub async fn dispatch_builtin_tool(
         "requirements_tools" => crate::tools::requirements_tools::execute(args).await,
         "git_log_tools" => crate::tools::git_log_tools::execute(args).await,
         "journald_tools" => crate::tools::journald_tools::execute(args).await,
+        "tsconfig_tools" => crate::tools::tsconfig_tools::execute(args).await,
+        "eslint_tools" => crate::tools::eslint_tools::execute(args).await,
         "changelog_tools" => crate::tools::changelog_tools::execute(args).await,
         "ssh_config_tools" => crate::tools::ssh_config_tools::execute(args).await,
         "systemd_tools" => crate::tools::systemd_tools::execute(args).await,

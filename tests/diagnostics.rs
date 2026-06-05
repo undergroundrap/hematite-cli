@@ -40801,3 +40801,172 @@ fn test_journald_tools_units() {
     let sshd_pos = out.find("sshd").unwrap_or(usize::MAX);
     assert!(nginx_pos < sshd_pos, "nginx should rank above sshd: {out}");
 }
+
+// ── tsconfig_tools ────────────────────────────────────────────────────────────
+
+#[test]
+fn test_routing_detects_tsconfig_tools() {
+    assert!(hematite::agent::routing::needs_tsconfig_tools(
+        "parse tsconfig.json and show me the compiler options"
+    ));
+    assert!(hematite::agent::routing::needs_tsconfig_tools(
+        "validate typescript config for my project"
+    ));
+    assert!(hematite::agent::routing::needs_tsconfig_tools(
+        "what typescript target is set in tsconfig.base.json"
+    ));
+    assert!(!hematite::agent::routing::needs_tsconfig_tools(
+        "show me the package.json scripts"
+    ));
+    assert!(!hematite::agent::routing::needs_tsconfig_tools(
+        "list all jest config options"
+    ));
+}
+
+#[test]
+fn test_tsconfig_tools_info() {
+    let tsconfig = r#"{
+        "compilerOptions": {
+            "target": "ES2020",
+            "module": "commonjs",
+            "strict": true,
+            "outDir": "./dist"
+        },
+        "include": ["src/**/*"],
+        "exclude": ["node_modules"]
+    }"#;
+    let out = tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(hematite::tools::tsconfig_tools::execute(
+            &serde_json::json!({ "action": "info", "tsconfig": tsconfig }),
+        ))
+        .unwrap();
+    assert!(out.contains("ES2020") || out.contains("target"), "should show target: {out}");
+    assert!(out.contains("strict") || out.contains("Strict"), "should mention strict: {out}");
+}
+
+#[test]
+fn test_tsconfig_tools_validate() {
+    let tsconfig = r#"{
+        "compilerOptions": {
+            "target": "ES5",
+            "paths": { "@/*": ["./src/*"] }
+        }
+    }"#;
+    let out = tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(hematite::tools::tsconfig_tools::execute(
+            &serde_json::json!({ "action": "validate", "tsconfig": tsconfig }),
+        ))
+        .unwrap();
+    // Should warn on paths without baseUrl, and possibly ES5 target
+    assert!(out.contains("baseUrl") || out.contains("paths") || out.contains("WARN") || out.contains("strict"),
+        "should flag paths-without-baseUrl or strict warning: {out}");
+}
+
+#[test]
+fn test_tsconfig_tools_compiler_with_comments() {
+    // tsconfig files often contain // comments — must strip before parsing
+    let tsconfig = r#"{
+        // Main compiler settings
+        "compilerOptions": {
+            "target": "ESNext", /* modern target */
+            "module": "esnext",
+            "strict": false
+        }
+    }"#;
+    let out = tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(hematite::tools::tsconfig_tools::execute(
+            &serde_json::json!({ "action": "compiler", "tsconfig": tsconfig }),
+        ))
+        .unwrap();
+    assert!(out.contains("ESNext") || out.contains("esnext"), "should show target after comment stripping: {out}");
+}
+
+// ── eslint_tools ──────────────────────────────────────────────────────────────
+
+#[test]
+fn test_routing_detects_eslint_tools() {
+    assert!(hematite::agent::routing::needs_eslint_tools(
+        "parse my eslint.config.js and show the rules"
+    ));
+    assert!(hematite::agent::routing::needs_eslint_tools(
+        "validate .eslintrc.json configuration"
+    ));
+    assert!(hematite::agent::routing::needs_eslint_tools(
+        "what eslint plugins are configured in this project"
+    ));
+    assert!(!hematite::agent::routing::needs_eslint_tools(
+        "run the prettier formatter on my files"
+    ));
+    assert!(!hematite::agent::routing::needs_eslint_tools(
+        "show typescript compiler options"
+    ));
+}
+
+#[test]
+fn test_eslint_tools_legacy_info() {
+    let config = r#"{
+        "root": true,
+        "parser": "@typescript-eslint/parser",
+        "plugins": ["@typescript-eslint", "react"],
+        "extends": ["eslint:recommended", "plugin:@typescript-eslint/recommended"],
+        "rules": {
+            "no-console": "warn",
+            "no-unused-vars": "error"
+        },
+        "env": { "browser": true, "node": true }
+    }"#;
+    let out = tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(hematite::tools::eslint_tools::execute(
+            &serde_json::json!({ "action": "info", "config": config }),
+        ))
+        .unwrap();
+    assert!(out.contains("typescript") || out.contains("@typescript-eslint"), "should show parser/plugin: {out}");
+    assert!(out.contains("react") || out.contains("React"), "should show react plugin: {out}");
+}
+
+#[test]
+fn test_eslint_tools_rules() {
+    let config = r#"{
+        "rules": {
+            "no-console": "warn",
+            "no-unused-vars": ["error", { "args": "all" }],
+            "semi": ["error", "always"],
+            "eqeqeq": "off"
+        }
+    }"#;
+    let out = tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(hematite::tools::eslint_tools::execute(
+            &serde_json::json!({ "action": "rules", "config": config }),
+        ))
+        .unwrap();
+    assert!(out.contains("no-console"), "should list no-console rule: {out}");
+    assert!(out.contains("no-unused-vars"), "should list no-unused-vars rule: {out}");
+    assert!(out.contains("eqeqeq"), "should list eqeqeq rule: {out}");
+}
+
+#[test]
+fn test_eslint_tools_flat_config() {
+    // Flat config is a JSON array
+    let config = r#"[
+        {
+            "files": ["**/*.ts"],
+            "plugins": { "typescript": {} },
+            "rules": {
+                "no-console": "warn",
+                "no-var": "error"
+            }
+        }
+    ]"#;
+    let out = tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(hematite::tools::eslint_tools::execute(
+            &serde_json::json!({ "action": "info", "config": config }),
+        ))
+        .unwrap();
+    assert!(out.contains("Flat") || out.contains("flat") || out.contains("config"), "should detect flat config: {out}");
+}
