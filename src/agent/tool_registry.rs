@@ -3880,6 +3880,34 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         }),
     ));
     tools.push(make_tool(
+        "cmake_tools",
+        "Parse, inspect, and validate CMakeLists.txt and .cmake files without external utilities. \
+         Actions: \
+         `info` (default) — cmake_minimum_required version, project name/version, languages, executable/library/subdir/find_package counts. \
+         `targets` — all add_executable, add_library, and add_custom_target entries with names, types, and source file counts. \
+         `options` — all option() variables with description and default value; all set() variable assignments. \
+         `deps` — find_package(), target_link_libraries, include_directories, add_subdirectory, and include() module calls. \
+         `validate` — missing cmake_minimum_required, missing project(), file(GLOB) fragility, mixing modern/old-style target commands, hardcoded absolute paths. \
+         Input: 'file' for path to CMakeLists.txt, or 'text'/'cmake' for inline content. \
+         Example: cmake_tools(file: 'CMakeLists.txt') or cmake_tools(action: 'targets', file: 'CMakeLists.txt') or \
+         cmake_tools(action: 'validate', text: '...')",
+        crate::tools::cmake_tools::make_schema(),
+    ));
+    tools.push(make_tool(
+        "dotnet_tools",
+        "Parse, inspect, and validate .NET project files (.csproj, .fsproj, .vbproj) and solution files (.sln) without external utilities. \
+         Actions: \
+         `info` (default) — SDK, target framework, output type, assembly name, root namespace, version, nullable, LangVersion, package/project ref counts. For .sln: project list with types and paths. \
+         `packages` — NuGet PackageReference list with name, version, and conditional flag; warns on wildcard versions. \
+         `targets` — build targets and conditional configurations (Debug/Release PropertyGroups) and custom MSBuild Target elements. \
+         `references` — ProjectReference (project-to-project) and legacy assembly Reference entries with HintPath. \
+         `validate` — missing SDK attribute, no target framework, wildcard package versions, missing package Version, credentials in project file, deprecated DotNetCliToolReference. \
+         Input: 'file' for path to .csproj/.fsproj/.vbproj/.sln, or 'text'/'xml' for inline XML. \
+         Example: dotnet_tools(file: 'MyApp.csproj') or dotnet_tools(action: 'packages', file: 'MyLib.csproj') or \
+         dotnet_tools(action: 'validate', text: '...')",
+        crate::tools::dotnet_tools::make_schema(),
+    ));
+    tools.push(make_tool(
         "css_tools",
         "Parse, validate, extract variables, compute statistics, and minify CSS without external utilities. \
          Actions: \
@@ -7993,6 +8021,8 @@ pub async fn dispatch_builtin_tool(
         "graphviz_tools" => crate::tools::graphviz_tools::execute(args).await,
         "mermaid_tools" => crate::tools::mermaid_tools::execute(args).await,
         "dns_tools" => crate::tools::dns_tools::execute(args).await,
+        "cmake_tools" => crate::tools::cmake_tools::execute(args).await,
+        "dotnet_tools" => crate::tools::dotnet_tools::execute(args).await,
         "css_tools" => crate::tools::css_tools::execute(args).await,
         "log_parse_tools" => crate::tools::log_parse_tools::execute(args).await,
         "csp_tools" => crate::tools::csp_tools::execute(args).await,

@@ -10740,6 +10740,62 @@ pub fn needs_strace_tools(user_input: &str) -> bool {
     )
 }
 
+pub fn needs_cmake_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "cmake_tools",
+            "cmakelists.txt",
+            "cmakelists",
+            "cmake project",
+            "parse cmake",
+            "analyze cmake",
+            "cmake targets",
+            "cmake options",
+            "add_executable",
+            "add_library cmake",
+            "find_package",
+            "cmake dependencies",
+            "cmake validate",
+            "cmake modules",
+            "cmake file(",
+            "cmake file(glob",
+            "target_link_libraries",
+            "cmake subdirectory",
+            "cmake configure",
+        ],
+    )
+}
+
+pub fn needs_dotnet_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    contains_any(
+        &lower,
+        &[
+            "dotnet_tools",
+            ".csproj",
+            ".fsproj",
+            ".vbproj",
+            ".sln file",
+            "solution file",
+            "visual studio solution",
+            "nuget packages",
+            "packagereference",
+            "dotnet project",
+            "parse csproj",
+            "parse sln",
+            "msbuild project",
+            "sdk-style project",
+            "targetframework",
+            "target framework",
+            "dotnet validate",
+            "csproj packages",
+            "project references csproj",
+        ],
+    )
+}
+
 pub fn needs_web_manifest_tools(user_input: &str) -> bool {
     let lower = user_input.to_lowercase();
     contains_any(

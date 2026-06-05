@@ -39945,3 +39945,146 @@ fn test_strace_tools_files() {
         "got: {out}"
     );
 }
+
+// ── cmake_tools routing ──
+#[test]
+fn test_routing_detects_cmake_tools() {
+    use hematite::agent::routing::needs_cmake_tools;
+    assert!(needs_cmake_tools("parse my CMakeLists.txt"));
+    assert!(needs_cmake_tools("show cmake targets"));
+    assert!(needs_cmake_tools("analyze cmake project dependencies"));
+    assert!(needs_cmake_tools("validate this cmakelists"));
+    assert!(needs_cmake_tools("what does find_package do here"));
+    assert!(needs_cmake_tools("target_link_libraries not working"));
+    assert!(!needs_cmake_tools("check my Makefile"));
+    assert!(!needs_cmake_tools("run cmake build from shell"));
+}
+
+// ── cmake_tools functional ──
+#[test]
+fn test_cmake_tools_info() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let cmake = r#"
+cmake_minimum_required(VERSION 3.20)
+project(MyApp VERSION 1.2.3 LANGUAGES CXX)
+find_package(OpenSSL REQUIRED)
+add_executable(myapp src/main.cpp src/util.cpp)
+add_library(mylib STATIC src/lib.cpp)
+add_subdirectory(tests)
+"#;
+    let out = rt
+        .block_on(hematite::tools::cmake_tools::execute(
+            &serde_json::json!({ "action": "info", "text": cmake }),
+        ))
+        .unwrap();
+    assert!(out.contains("MyApp") || out.contains("cmake"), "got: {out}");
+    assert!(out.contains("3.20") || out.contains("Minimum"), "got: {out}");
+}
+
+#[test]
+fn test_cmake_tools_targets() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let cmake = r#"
+cmake_minimum_required(VERSION 3.15)
+project(Demo)
+add_executable(demo main.cpp helper.cpp)
+add_library(demolib SHARED lib.cpp)
+add_custom_target(clean_all COMMAND rm -rf build)
+"#;
+    let out = rt
+        .block_on(hematite::tools::cmake_tools::execute(
+            &serde_json::json!({ "action": "targets", "text": cmake }),
+        ))
+        .unwrap();
+    assert!(out.contains("demo") || out.contains("Executable"), "got: {out}");
+    assert!(out.contains("demolib") || out.contains("SHARED") || out.contains("Library"), "got: {out}");
+}
+
+#[test]
+fn test_cmake_tools_validate() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let cmake = r#"
+project(Incomplete)
+file(GLOB SOURCES *.cpp)
+add_executable(app ${SOURCES})
+"#;
+    let out = rt
+        .block_on(hematite::tools::cmake_tools::execute(
+            &serde_json::json!({ "action": "validate", "text": cmake }),
+        ))
+        .unwrap();
+    assert!(out.contains("cmake_minimum_required") || out.contains("WARNINGS") || out.contains("VALID"), "got: {out}");
+}
+
+// ── dotnet_tools routing ──
+#[test]
+fn test_routing_detects_dotnet_tools() {
+    use hematite::agent::routing::needs_dotnet_tools;
+    assert!(needs_dotnet_tools("parse my MyApp.csproj file"));
+    assert!(needs_dotnet_tools("show nuget packages in the project"));
+    assert!(needs_dotnet_tools("analyze the .sln file"));
+    assert!(needs_dotnet_tools("what is the targetframework"));
+    assert!(needs_dotnet_tools("validate this msbuild project"));
+    assert!(needs_dotnet_tools("list packagereference versions"));
+    assert!(!needs_dotnet_tools("run dotnet build from terminal"));
+    assert!(!needs_dotnet_tools("check my JavaScript package.json"));
+}
+
+// ── dotnet_tools functional ──
+#[test]
+fn test_dotnet_tools_info() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let csproj = r#"<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <AssemblyName>MyApp</AssemblyName>
+  </PropertyGroup>
+</Project>"#;
+    let out = rt
+        .block_on(hematite::tools::dotnet_tools::execute(
+            &serde_json::json!({ "action": "info", "text": csproj }),
+        ))
+        .unwrap();
+    assert!(out.contains("net8.0") || out.contains("Target Framework"), "got: {out}");
+    assert!(out.contains("Exe") || out.contains("Output"), "got: {out}");
+}
+
+#[test]
+fn test_dotnet_tools_packages() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let csproj = r#"<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+    <PackageReference Include="Serilog" Version="3.1.1" />
+    <PackageReference Include="FluentValidation" Version="11.*" />
+  </ItemGroup>
+</Project>"#;
+    let out = rt
+        .block_on(hematite::tools::dotnet_tools::execute(
+            &serde_json::json!({ "action": "packages", "text": csproj }),
+        ))
+        .unwrap();
+    assert!(out.contains("Newtonsoft.Json") || out.contains("NuGet"), "got: {out}");
+    assert!(out.contains("Serilog") || out.contains("3.1"), "got: {out}");
+}
+
+#[test]
+fn test_dotnet_tools_validate() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let csproj = r#"<Project>
+  <ItemGroup>
+    <PackageReference Include="SomeLib" Version="2.*" />
+  </ItemGroup>
+</Project>"#;
+    let out = rt
+        .block_on(hematite::tools::dotnet_tools::execute(
+            &serde_json::json!({ "action": "validate", "text": csproj }),
+        ))
+        .unwrap();
+    assert!(out.contains("INVALID") || out.contains("VALID") || out.contains("Sdk"), "got: {out}");
+}

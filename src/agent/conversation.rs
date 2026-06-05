@@ -37,8 +37,8 @@ use crate::agent::routing::{
     needs_color_tools, needs_compression_tools, needs_computation_sandbox, needs_conda_tools,
     needs_cors_tools, needs_coverage_tools, needs_crash_debug, needs_cron_tools, needs_csp_tools, needs_css_tools,
     needs_csv_tools, needs_curl_tools, needs_cvss_tools, needs_data_gen_tools, needs_date_tools,
-    needs_dependency_audit, needs_dex_tools, needs_diff_tools, needs_diff3_tools, needs_dns_tools,
-    needs_docker_compose_tools, needs_docker_ops, needs_dockerfile_tools, needs_dotenv_tools,
+    needs_cmake_tools, needs_dependency_audit, needs_dex_tools, needs_diff_tools, needs_diff3_tools, needs_dns_tools,
+    needs_dotnet_tools, needs_docker_compose_tools, needs_docker_ops, needs_dockerfile_tools, needs_dotenv_tools,
     needs_duration_tools, needs_elf_tools, needs_em_tools, needs_email_tools, needs_encode_tools,
     needs_env_diff, needs_env_schema_tools, needs_exif_tools, needs_file_tree_tools,
     needs_find_tools, needs_font_tools, needs_format, needs_fraction_tools, needs_geo_tools,
@@ -7947,6 +7947,36 @@ impl ConversationManager {
                  preflight (simulate an OPTIONS preflight request and show PASS/FAIL per origin/method/header; pass 'origin', 'method', 'request_headers', and server config). \
                  Example: cors_tools(action: 'validate', headers: {\"Access-Control-Allow-Origin\":\"*\",\"Access-Control-Allow-Credentials\":\"true\"}) or \
                  cors_tools(action: 'generate', origin: 'https://app.example.com', allowed_origins: ['https://app.example.com'], allow_credentials: true)."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_cmake_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "CMAKE NOTICE: Use the `cmake_tools` tool to parse, inspect, and validate CMakeLists.txt and .cmake files without external utilities. \
+                 Actions: info (default — min CMake version, project name/version, executable/library/subdir/find_package counts), \
+                 targets (all add_executable, add_library, add_custom_target entries with types and source counts), \
+                 options (all option() variables with defaults and all set() assignments), \
+                 deps (find_package, target_link_libraries, include_directories, add_subdirectory, include() calls), \
+                 validate (missing cmake_minimum_required, file(GLOB) fragility, mixing modern/old-style commands, hardcoded paths). \
+                 Input: 'file' for path to CMakeLists.txt or 'text'/'cmake' for inline content. \
+                 Example: cmake_tools(file: 'CMakeLists.txt') or cmake_tools(action: 'deps', file: 'CMakeLists.txt') or \
+                 cmake_tools(action: 'validate', text: '...')"
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_dotnet_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "DOTNET NOTICE: Use the `dotnet_tools` tool to parse, inspect, and validate .NET project files (.csproj/.fsproj/.vbproj) and solution files (.sln) without external utilities. \
+                 Actions: info (default — SDK, target framework, output type, language, version, nullable, LangVersion, package/project ref counts; for .sln: project list with types), \
+                 packages (NuGet PackageReference list with name, version, condition; warns on wildcard versions), \
+                 targets (conditional configurations Debug/Release with properties; custom MSBuild Target names), \
+                 references (ProjectReference and legacy assembly Reference entries with HintPath), \
+                 validate (missing SDK, no target framework, wildcard package versions, credentials, deprecated DotNetCliToolReference). \
+                 Input: 'file' for path to .csproj/.fsproj/.vbproj/.sln or 'text'/'xml' for inline XML. \
+                 Example: dotnet_tools(file: 'MyApp.csproj') or dotnet_tools(action: 'packages', file: 'MyLib.csproj') or \
+                 dotnet_tools(action: 'validate', text: '...')"
                     .to_string(),
             );
         }
