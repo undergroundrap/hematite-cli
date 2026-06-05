@@ -12325,6 +12325,42 @@ pub fn needs_sbom_tools(user_input: &str) -> bool {
     asks_sbom
 }
 
+pub fn needs_git_log_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    lower.contains("git_log_tools")
+        || lower.contains("git log output")
+        || lower.contains("parse git log")
+        || lower.contains("analyze git log")
+        || lower.contains("commit history")
+        || lower.contains("commit frequency")
+        || lower.contains("commit authors")
+        || lower.contains("author leaderboard")
+        || lower.contains("git log --stat")
+        || lower.contains("file churn")
+        || lower.contains("git log analysis")
+        || lower.contains("commits per week")
+        || lower.contains("git history")
+        || (lower.contains("git log") && (lower.contains("parse") || lower.contains("analyz") || lower.contains("inspect") || lower.contains("summar")))
+}
+
+pub fn needs_journald_tools(user_input: &str) -> bool {
+    let lower = user_input.to_lowercase();
+    lower.contains("journald_tools")
+        || lower.contains("journalctl")
+        || lower.contains("journald")
+        || lower.contains("systemd journal")
+        || lower.contains("journal log")
+        || lower.contains("parse journal")
+        || lower.contains("journal entries")
+        || lower.contains("journal errors")
+        || lower.contains("journal units")
+        || lower.contains("journal priority")
+        || lower.contains("-o json journal")
+        || lower.contains("systemd log")
+        || lower.contains("linux system log")
+        || (lower.contains("journal") && (lower.contains("parse") || lower.contains("analyz") || lower.contains("filter") || lower.contains("summar")))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

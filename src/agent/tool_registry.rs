@@ -4147,6 +4147,37 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         crate::tools::requirements_tools::make_schema(),
     ));
     tools.push(make_tool(
+        "git_log_tools",
+        "Parse and analyze git log output without external utilities. \
+         Accepts pipe-delimited format (git log --format='%H|%an|%ae|%ai|%s'), oneline, or verbose log; \
+         optionally with --stat for file change counts. \
+         Actions: parse (default — tabular commit list), \
+         authors (commit leaderboard by author), \
+         frequency (day-of-week and hour-of-day heatmap), \
+         files (commits ranked by files changed from --stat output), \
+         summary (total commits, authors, date range, commits/week, top contributors). \
+         Pass 'log' (inline text) or 'file' (path to saved log). Optional 'author' to filter by name or email substring. \
+         Example: git_log_tools(action: 'authors', file: 'log.txt') or \
+         git_log_tools(action: 'summary', log: '...') or \
+         git_log_tools(action: 'frequency', file: 'log.txt').",
+        crate::tools::git_log_tools::make_schema(),
+    ));
+    tools.push(make_tool(
+        "journald_tools",
+        "Parse and analyze journalctl -o json output (systemd journal NDJSON) without external utilities. \
+         Actions: parse (default — timestamped entry list with priority, unit, and message), \
+         units (service frequency table with worst-priority badge), \
+         errors (only priority ≤ 3: ERR/CRIT/ALERT/EMERG entries), \
+         filter (filter by unit name and/or priority level), \
+         summary (priority distribution, top units, host, time range, error count). \
+         Pass 'log' (inline journalctl JSON text) or 'file' (path to saved file). \
+         Generate with: journalctl -o json -n 1000 > journal.json \
+         Example: journald_tools(action: 'errors', file: 'journal.json') or \
+         journald_tools(action: 'units', log: '...') or \
+         journald_tools(action: 'filter', file: 'journal.json', unit: 'nginx.service', priority: 4).",
+        crate::tools::journald_tools::make_schema(),
+    ));
+    tools.push(make_tool(
         "changelog_tools",
         "Parse, query, and validate CHANGELOG.md files in Keep a Changelog format. \
          Actions: list (default — all releases with version, date, section names, item counts; YANKED flag), \
@@ -8093,6 +8124,8 @@ pub async fn dispatch_builtin_tool(
         "gradle_tools" => crate::tools::gradle_tools::execute(args).await,
         "go_mod_tools" => crate::tools::go_mod_tools::execute(args).await,
         "requirements_tools" => crate::tools::requirements_tools::execute(args).await,
+        "git_log_tools" => crate::tools::git_log_tools::execute(args).await,
+        "journald_tools" => crate::tools::journald_tools::execute(args).await,
         "changelog_tools" => crate::tools::changelog_tools::execute(args).await,
         "ssh_config_tools" => crate::tools::ssh_config_tools::execute(args).await,
         "systemd_tools" => crate::tools::systemd_tools::execute(args).await,

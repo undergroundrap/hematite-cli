@@ -45,13 +45,13 @@ use crate::agent::routing::{
     needs_file_tree_tools, needs_financial_tools, needs_find_tools, needs_font_tools, needs_format,
     needs_fraction_tools, needs_geo_tools, needs_geometry_tools, needs_github_actions_tools,
     needs_github_ops, needs_gitignore_tools, needs_gitlab_ci_tools, needs_glob_tools,
-    needs_go_mod_tools, needs_gpu_tools, needs_gradle_tools, needs_graph_tools, needs_graphql_tools,
+    needs_git_log_tools, needs_go_mod_tools, needs_gpu_tools, needs_gradle_tools, needs_graph_tools, needs_graphql_tools,
     needs_graphviz_tools, needs_grep_tools, needs_grpc_tools, needs_haproxy_tools, needs_har_tools,
     needs_hash_tools, needs_helm_tools, needs_hex_tools, needs_html_tools, needs_http_cache_tools,
     needs_http_parse_tools, needs_http_request, needs_http_status_tools, needs_ical_tools,
     needs_id_tools, needs_image_tools, needs_inflect_tools, needs_ini_tools, needs_interval_tools,
     needs_ip_tools, needs_iptables_tools, needs_jq_tools, needs_json_patch_tools, needs_json_tools,
-    needs_jsonl_tools, needs_jsonrpc_tools, needs_jsonschema_tools, needs_junit_tools,
+    needs_journald_tools, needs_jsonl_tools, needs_jsonrpc_tools, needs_jsonschema_tools, needs_junit_tools,
     needs_jwk_tools, needs_jwt_tools, needs_k8s_tools, needs_keyval_tools, needs_latex_tools,
     needs_ldif_tools, needs_leb128_tools, needs_license_tools, needs_line_tools, needs_lint_check,
     needs_lock_file_tools, needs_log_parse_tools, needs_logic_tools, needs_macho_tools,
@@ -6223,6 +6223,40 @@ impl ConversationManager {
                  Example: requirements_tools(action: 'info', file: 'requirements.txt') or \
                  requirements_tools(action: 'list', requirements: '...', group: 'dev') or \
                  requirements_tools(action: 'validate', file: 'pyproject.toml')."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_git_log_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "GIT LOG NOTICE: Use the `git_log_tools` tool to parse and analyze git log output without external utilities. \
+                 Accepts pipe-delimited format (git log --format='%H|%an|%ae|%ai|%s'), oneline, or verbose log; optionally with --stat for file churn. \
+                 Actions: parse (default — tabular commit list with hash/date/author/subject), \
+                 authors (commit leaderboard ranked by contribution count), \
+                 frequency (day-of-week and hour-of-day heatmap), \
+                 files (commits ranked by files changed — requires --stat output), \
+                 summary (total commits, unique authors, date range, commits/week, top contributors). \
+                 Pass 'log' (inline text) or 'file' (path to saved log). Optional 'author' to filter. \
+                 Example: git_log_tools(action: 'authors', file: 'log.txt') or \
+                 git_log_tools(action: 'summary', log: '...') or \
+                 git_log_tools(action: 'frequency', file: 'log.txt')."
+                    .to_string(),
+            );
+        }
+
+        if loop_intervention.is_none() && needs_journald_tools(&effective_user_input) {
+            loop_intervention = Some(
+                "JOURNALD NOTICE: Use the `journald_tools` tool to parse and analyze journalctl -o json output (systemd journal NDJSON) without external utilities. \
+                 Actions: parse (default — timestamped entry list with priority, unit, and message), \
+                 units (service frequency table ranked by occurrence with worst-priority badge), \
+                 errors (only priority ≤ 3: ERR/CRIT/ALERT/EMERG entries), \
+                 filter (filter by unit name substring and/or max priority level), \
+                 summary (priority distribution, top units, host, time range, error count). \
+                 Pass 'log' (inline journalctl JSON text) or 'file' (path to saved .json file). \
+                 Generate with: journalctl -o json -n 1000 > journal.json \
+                 Example: journald_tools(action: 'errors', file: 'journal.json') or \
+                 journald_tools(action: 'units', log: '...') or \
+                 journald_tools(action: 'filter', file: 'journal.json', unit: 'nginx.service', priority: 4)."
                     .to_string(),
             );
         }

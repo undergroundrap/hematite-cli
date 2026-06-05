@@ -40661,3 +40661,143 @@ black = "^23.0"
         "got: {out}"
     );
 }
+
+// ── git_log_tools ─────────────────────────────────────────────────────────────
+
+#[test]
+fn test_routing_detects_git_log_tools() {
+    assert!(hematite::agent::routing::needs_git_log_tools(
+        "parse git log output"
+    ));
+    assert!(hematite::agent::routing::needs_git_log_tools(
+        "analyze commit history and show author leaderboard"
+    ));
+    assert!(hematite::agent::routing::needs_git_log_tools(
+        "commit frequency heatmap from git log"
+    ));
+    assert!(!hematite::agent::routing::needs_git_log_tools(
+        "show me git diff"
+    ));
+    assert!(!hematite::agent::routing::needs_git_log_tools(
+        "run git status"
+    ));
+}
+
+#[test]
+fn test_git_log_tools_parse_pipe_format() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let log = "\
+abc12345|Alice|alice@example.com|2024-03-15 14:22:00 +0000|feat: add login\n\
+def67890|Bob|bob@example.com|2024-03-14 10:05:00 +0000|fix: correct auth bug\n\
+feed0001|Alice|alice@example.com|2024-03-13 09:00:00 +0000|chore: update deps\n";
+    let out = rt
+        .block_on(hematite::tools::git_log_tools::execute(
+            &serde_json::json!({ "action": "parse", "log": log }),
+        ))
+        .unwrap();
+    assert!(out.contains("abc12345") || out.contains("abc1234"), "got: {out}");
+    assert!(out.contains("Alice") || out.contains("alice"), "got: {out}");
+    assert!(out.contains("feat: add login") || out.contains("login"), "got: {out}");
+}
+
+#[test]
+fn test_git_log_tools_authors() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let log = "\
+aaa00001|Alice|alice@example.com|2024-03-15 14:00:00 +0000|feat: a\n\
+bbb00002|Bob|bob@example.com|2024-03-14 10:00:00 +0000|fix: b\n\
+ccc00003|Alice|alice@example.com|2024-03-13 09:00:00 +0000|chore: c\n\
+ddd00004|Alice|alice@example.com|2024-03-12 08:00:00 +0000|docs: d\n";
+    let out = rt
+        .block_on(hematite::tools::git_log_tools::execute(
+            &serde_json::json!({ "action": "authors", "log": log }),
+        ))
+        .unwrap();
+    // Alice has 3 commits, Bob has 1 — Alice should appear first
+    let alice_pos = out.find("Alice").unwrap_or(usize::MAX);
+    let bob_pos = out.find("Bob").unwrap_or(usize::MAX);
+    assert!(alice_pos < bob_pos, "Alice should rank above Bob: {out}");
+}
+
+#[test]
+fn test_git_log_tools_summary() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let log = "\
+aaa00001|Dev One|dev1@example.com|2024-03-15 14:00:00 +0000|feat: first\n\
+bbb00002|Dev Two|dev2@example.com|2024-01-10 10:00:00 +0000|fix: second\n";
+    let out = rt
+        .block_on(hematite::tools::git_log_tools::execute(
+            &serde_json::json!({ "action": "summary", "log": log }),
+        ))
+        .unwrap();
+    assert!(out.contains("2") || out.contains("commit"), "got: {out}");
+    assert!(out.contains("2024"), "got: {out}");
+}
+
+// ── journald_tools ────────────────────────────────────────────────────────────
+
+#[test]
+fn test_routing_detects_journald_tools() {
+    assert!(hematite::agent::routing::needs_journald_tools(
+        "parse journalctl output"
+    ));
+    assert!(hematite::agent::routing::needs_journald_tools(
+        "analyze systemd journal errors"
+    ));
+    assert!(hematite::agent::routing::needs_journald_tools(
+        "journalctl -o json filter by unit"
+    ));
+    assert!(!hematite::agent::routing::needs_journald_tools(
+        "show me system services"
+    ));
+    assert!(!hematite::agent::routing::needs_journald_tools(
+        "check nginx config"
+    ));
+}
+
+#[test]
+fn test_journald_tools_parse() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let log = r#"{"__REALTIME_TIMESTAMP":"1710504120000000","_SYSTEMD_UNIT":"nginx.service","PRIORITY":"6","MESSAGE":"started worker process","_PID":"1234","_COMM":"nginx","_HOSTNAME":"myhost"}
+{"__REALTIME_TIMESTAMP":"1710504125000000","_SYSTEMD_UNIT":"sshd.service","PRIORITY":"4","MESSAGE":"Failed password for root","_PID":"5678","_COMM":"sshd","_HOSTNAME":"myhost"}"#;
+    let out = rt
+        .block_on(hematite::tools::journald_tools::execute(
+            &serde_json::json!({ "action": "parse", "log": log }),
+        ))
+        .unwrap();
+    assert!(out.contains("nginx") || out.contains("nginx.service"), "got: {out}");
+    assert!(out.contains("sshd") || out.contains("sshd.service"), "got: {out}");
+}
+
+#[test]
+fn test_journald_tools_errors() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let log = r#"{"__REALTIME_TIMESTAMP":"1710504120000000","_SYSTEMD_UNIT":"nginx.service","PRIORITY":"6","MESSAGE":"started","_PID":"100","_COMM":"nginx","_HOSTNAME":"h"}
+{"__REALTIME_TIMESTAMP":"1710504125000000","_SYSTEMD_UNIT":"kernel","PRIORITY":"2","MESSAGE":"CRIT: disk failure detected","_PID":"1","_COMM":"kernel","_HOSTNAME":"h"}
+{"__REALTIME_TIMESTAMP":"1710504130000000","_SYSTEMD_UNIT":"app.service","PRIORITY":"3","MESSAGE":"ERR: connection refused","_PID":"200","_COMM":"app","_HOSTNAME":"h"}"#;
+    let out = rt
+        .block_on(hematite::tools::journald_tools::execute(
+            &serde_json::json!({ "action": "errors", "log": log }),
+        ))
+        .unwrap();
+    // Should include CRIT and ERR entries but not the INFO entry
+    assert!(out.contains("CRIT") || out.contains("disk failure"), "got: {out}");
+    assert!(out.contains("ERR") || out.contains("connection refused"), "got: {out}");
+}
+
+#[test]
+fn test_journald_tools_units() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let log = r#"{"__REALTIME_TIMESTAMP":"1710504120000000","_SYSTEMD_UNIT":"nginx.service","PRIORITY":"6","MESSAGE":"req","_PID":"1","_COMM":"nginx","_HOSTNAME":"h"}
+{"__REALTIME_TIMESTAMP":"1710504121000000","_SYSTEMD_UNIT":"nginx.service","PRIORITY":"6","MESSAGE":"req2","_PID":"1","_COMM":"nginx","_HOSTNAME":"h"}
+{"__REALTIME_TIMESTAMP":"1710504122000000","_SYSTEMD_UNIT":"sshd.service","PRIORITY":"4","MESSAGE":"auth","_PID":"2","_COMM":"sshd","_HOSTNAME":"h"}"#;
+    let out = rt
+        .block_on(hematite::tools::journald_tools::execute(
+            &serde_json::json!({ "action": "units", "log": log }),
+        ))
+        .unwrap();
+    // nginx.service has 2 entries, sshd.service has 1 — nginx should rank first
+    let nginx_pos = out.find("nginx").unwrap_or(usize::MAX);
+    let sshd_pos = out.find("sshd").unwrap_or(usize::MAX);
+    assert!(nginx_pos < sshd_pos, "nginx should rank above sshd: {out}");
+}
