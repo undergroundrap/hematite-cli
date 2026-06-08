@@ -251,14 +251,9 @@ fn icmpv6_type_name(typ: u8) -> &'static str {
 
 fn action_parse(data: &[u8], hint: &str) -> Result<String, String> {
     let hint_l = hint.to_lowercase();
-    if (hint_l == "ethernet" || (data.len() >= 14 && hint_l.is_empty()))
-        && data.len() >= 14
-    {
+    if (hint_l == "ethernet" || (data.len() >= 14 && hint_l.is_empty())) && data.len() >= 14 {
         let ethertype = u16::from_be_bytes([data[12], data[13]]);
-        if ethertype == 0x0800
-            || ethertype == 0x86DD
-            || ethertype == 0x0806
-            || ethertype >= 0x0600
+        if ethertype == 0x0800 || ethertype == 0x86DD || ethertype == 0x0806 || ethertype >= 0x0600
         {
             let mut out = decode_ethernet(data)?;
             out.push('\n');

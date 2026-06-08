@@ -70,13 +70,7 @@ fn fmt_currency(n: f64) -> String {
             .chars()
             .rev()
             .collect::<String>();
-        format!(
-            "{}{}{}.{}",
-            sign,
-            "$",
-            int_with_commas,
-            dec_part
-        )
+        format!("{}{}{}.{}", sign, "$", int_with_commas, dec_part)
     }
 }
 

@@ -740,7 +740,9 @@ fn action_packets(pcap: &PcapFile, limit: usize) -> String {
                 let dp = u16::from_be_bytes([p[2], p[3]]);
                 let tcp_data_off = ((p[12] as usize) >> 4) * 4;
                 if dp == 80 || dp == 8080 || dp == 8000 {
-                    p.get(tcp_data_off..).and_then(try_parse_http).unwrap_or_default()
+                    p.get(tcp_data_off..)
+                        .and_then(try_parse_http)
+                        .unwrap_or_default()
                 } else {
                     String::new()
                 }

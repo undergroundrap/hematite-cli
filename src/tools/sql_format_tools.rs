@@ -680,7 +680,8 @@ fn action_extract(sql: &str, args: &Value) -> Result<String, String> {
                 if matches!(
                     upper.as_str(),
                     "FROM" | "JOIN" | "INTO" | "UPDATE" | "TABLE"
-                ) && i + 1 < n && non_ws[i + 1].kind == TokKind::Ident
+                ) && i + 1 < n
+                    && non_ws[i + 1].kind == TokKind::Ident
                 {
                     let name = non_ws[i + 1].text.clone();
                     if !tables.contains(&name) {

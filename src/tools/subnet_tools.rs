@@ -313,11 +313,7 @@ fn action_supernet(ips: &[String]) -> String {
         prefix,
     };
 
-    let mut out = format!(
-        "Supernet for {} CIDRs: {}\n\n",
-        cidrs.len(),
-        supernet
-    );
+    let mut out = format!("Supernet for {} CIDRs: {}\n\n", cidrs.len(), supernet);
     out.push_str(&format!("  Prefix:    /{}\n", supernet.prefix));
     out.push_str(&format!("  Network:   {}\n", fmt_ipv4(supernet.network)));
     out.push_str(&format!(
@@ -633,10 +629,8 @@ pub async fn execute(args: &Value) -> Result<String, String> {
         .to_string();
 
     // Infer action
-    let action = args
-        .get("action")
-        .and_then(|v| v.as_str())
-        .unwrap_or(if !start.is_empty() && !end.is_empty() {
+    let action = args.get("action").and_then(|v| v.as_str()).unwrap_or(
+        if !start.is_empty() && !end.is_empty() {
             "range"
         } else if ips.len() > 1 && cidr.is_empty() {
             "aggregate"
@@ -644,7 +638,8 @@ pub async fn execute(args: &Value) -> Result<String, String> {
             "split"
         } else {
             "hosts"
-        });
+        },
+    );
 
     let out = match action {
         "split" => {

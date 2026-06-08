@@ -1,4 +1,4 @@
-﻿// ─── Pure-Rust math utilities ─────────────────────────────────────────────────
+// ─── Pure-Rust math utilities ─────────────────────────────────────────────────
 // Number theory, sequences, combinatorics — no Python sandbox, instant results.
 
 // Index-based loops are standard notation for DP tables, matrix ops, and
@@ -20180,9 +20180,7 @@ pub fn jwt_calc(query: &str) -> String {
             Some(inner[..end].to_string())
         } else {
             // number or keyword
-            let end = val_start
-                .find([',', '}', ']'])
-                .unwrap_or(val_start.len());
+            let end = val_start.find([',', '}', ']']).unwrap_or(val_start.len());
             Some(val_start[..end].trim().to_string())
         }
     }
@@ -26301,7 +26299,11 @@ pub fn port_calc(query: &str) -> String {
     let q = query.trim().to_lowercase();
 
     if q.is_empty() || q == "list" || q == "all" {
-        let _ = writeln!(out, "  {:>5}  {:<14}  {:<8}  DESCRIPTION", "PORT", "SERVICE", "PROTO");
+        let _ = writeln!(
+            out,
+            "  {:>5}  {:<14}  {:<8}  DESCRIPTION",
+            "PORT", "SERVICE", "PROTO"
+        );
         let _ = writeln!(out, "  {}", "─".repeat(56));
         for &(port, name, proto, desc) in PORTS {
             let _ = writeln!(out, "  {:>5}  {:<14}  {:<8}  {}", port, name, proto, desc);
@@ -26347,7 +26349,11 @@ pub fn port_calc(query: &str) -> String {
         let _ = writeln!(out, "  No ports found for '{query}'");
         let _ = writeln!(out, "  Try: port number, service name, or 'list' for all");
     } else {
-        let _ = writeln!(out, "  {:>5}  {:<14}  {:<8}  DESCRIPTION", "PORT", "SERVICE", "PROTO");
+        let _ = writeln!(
+            out,
+            "  {:>5}  {:<14}  {:<8}  DESCRIPTION",
+            "PORT", "SERVICE", "PROTO"
+        );
         let _ = writeln!(out, "  {}", "─".repeat(56));
         for &&(port, name, proto, desc) in &matches {
             let _ = writeln!(out, "  {:>5}  {:<14}  {:<8}  {}", port, name, proto, desc);
@@ -26724,7 +26730,11 @@ pub fn chars_calc(query: &str) -> String {
         }
     }
 
-    let _ = writeln!(out, "  {:<6}  {:<8}  {:<10}  {:<26}  {:<10}  BLOCK", "CHAR", "U+", "BYTES", "NAME", "HTML");
+    let _ = writeln!(
+        out,
+        "  {:<6}  {:<8}  {:<10}  {:<26}  {:<10}  BLOCK",
+        "CHAR", "U+", "BYTES", "NAME", "HTML"
+    );
     let _ = writeln!(out, "  {}", "─".repeat(80));
 
     for c in &chars_to_inspect {
@@ -29342,7 +29352,11 @@ pub fn ascii_table_calc(query: &str) -> String {
             "  Full 7-bit ASCII Table  (Dec / Hex / Oct / Char / Name)"
         );
         let _ = writeln!(out, "{sep}");
-        let _ = writeln!(out, "  {:>3}  {:>4}  {:>4}  {:>4}  Description", "Dec", "Hex", "Oct", "Chr");
+        let _ = writeln!(
+            out,
+            "  {:>3}  {:>4}  {:>4}  {:>4}  Description",
+            "Dec", "Hex", "Oct", "Chr"
+        );
         let _ = writeln!(out, "  {}", "─".repeat(55));
         for &(dec, hex, ch, desc) in ASCII {
             let _ = writeln!(
@@ -29372,7 +29386,11 @@ pub fn ascii_table_calc(query: &str) -> String {
 
     if let Some(f) = filter_fn {
         let _ = writeln!(out, "{sep}");
-        let _ = writeln!(out, "  {:>3}  {:>4}  {:>4}  {:>4}  Description", "Dec", "Hex", "Oct", "Chr");
+        let _ = writeln!(
+            out,
+            "  {:>3}  {:>4}  {:>4}  {:>4}  Description",
+            "Dec", "Hex", "Oct", "Chr"
+        );
         let _ = writeln!(out, "  {}", "─".repeat(55));
         for &(dec, hex, ch, desc) in ASCII.iter().filter(|&&(d, _, _, _)| f(d)) {
             let _ = writeln!(
@@ -29403,7 +29421,11 @@ pub fn ascii_table_calc(query: &str) -> String {
         let _ = writeln!(out, "       digits, letters, punct, all");
     } else {
         let _ = writeln!(out, "{sep}");
-        let _ = writeln!(out, "  {:>3}  {:>4}  {:>4}  {:>4}  Description", "Dec", "Hex", "Oct", "Chr");
+        let _ = writeln!(
+            out,
+            "  {:>3}  {:>4}  {:>4}  {:>4}  Description",
+            "Dec", "Hex", "Oct", "Chr"
+        );
         let _ = writeln!(out, "  {}", "─".repeat(55));
         for &&(dec, hex, ch, desc) in &found {
             let _ = writeln!(

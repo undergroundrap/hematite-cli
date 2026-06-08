@@ -231,10 +231,7 @@ fn parse_pdf_date(d: &str) -> String {
     let min = if d.len() >= 12 { &d[10..12] } else { "00" };
     let sec = if d.len() >= 14 { &d[12..14] } else { "00" };
     let tz = if d.len() > 14 {
-        d[14..]
-            .replace('\'', ":")
-            .trim_end_matches(':')
-            .to_string()
+        d[14..].replace('\'', ":").trim_end_matches(':').to_string()
     } else {
         String::new()
     };

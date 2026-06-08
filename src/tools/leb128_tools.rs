@@ -554,10 +554,7 @@ fn action_explain(val: i64, signed: bool) -> Result<String, String> {
     out.push_str(&"─".repeat(70));
     out.push('\n');
     out.push_str(&format!("  Value:   {} ({:#x})\n", val, val));
-    out.push_str(&format!(
-        "  Decimal binary: {:b}\n",
-        val as u64
-    ));
+    out.push_str(&format!("  Decimal binary: {:b}\n", val as u64));
     out.push('\n');
     out.push_str(&format!(
         "  Encoded as {} byte{}:\n",

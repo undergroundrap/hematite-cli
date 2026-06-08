@@ -224,9 +224,7 @@ fn action_parse(args: &Value) -> Result<String, String> {
     let filtered: Vec<&Request> = requests
         .iter()
         .filter(|r| {
-            folder_filter.is_none_or(|f| {
-                r.folder.to_lowercase().contains(&f.to_lowercase())
-            })
+            folder_filter.is_none_or(|f| r.folder.to_lowercase().contains(&f.to_lowercase()))
         })
         .filter(|r| method_filter.as_deref().is_none_or(|m| r.method == m))
         .filter(|r| {

@@ -1,4 +1,4 @@
-﻿use serde_json::Value;
+use serde_json::Value;
 use std::collections::HashMap;
 
 pub fn make_schema() -> Value {
@@ -402,7 +402,9 @@ fn action_analyze(args: &Value) -> Result<String, String> {
                     }
                 }
                 if must_reval {
-                    out.push_str("   must-revalidate: CANNOT serve stale â€” must contact origin\n");
+                    out.push_str(
+                        "   must-revalidate: CANNOT serve stale â€” must contact origin\n",
+                    );
                 }
                 out.push_str(
                     "\n   Action: send conditional request (If-None-Match or If-Modified-Since)\n",
@@ -464,10 +466,7 @@ fn action_etag(args: &Value) -> Result<String, String> {
         let matches = is_star
             || inm.split(',').map(|s| s.trim()).any(|candidate| {
                 candidate == et
-                    || (is_weak
-                        && candidate
-                            .strip_prefix("W/")
-                            .is_some_and(|c| c == &et[2..]))
+                    || (is_weak && candidate.strip_prefix("W/").is_some_and(|c| c == &et[2..]))
                     || (!is_weak && candidate.strip_prefix("W/").is_some_and(|c| c == et))
             });
 

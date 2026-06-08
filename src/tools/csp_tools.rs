@@ -212,7 +212,13 @@ fn explain_action(args: &Value) -> Result<String, String> {
                 parts.push("hash-verified resources".to_string());
             }
             if !hosts.is_empty() {
-                parts.push(hosts.iter().map(|h| h.as_str()).collect::<Vec<_>>().join(", "));
+                parts.push(
+                    hosts
+                        .iter()
+                        .map(|h| h.as_str())
+                        .collect::<Vec<_>>()
+                        .join(", "),
+                );
             }
             if has_unsafe_inline {
                 parts.push("inline (UNSAFE)".to_string());

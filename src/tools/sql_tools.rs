@@ -280,7 +280,11 @@ fn parse_create_table(stmt: &str) -> Option<Table> {
     };
     let raw_name = ws.get(name_idx)?.clone();
     // Strip schema prefix if present (schema.name → name)
-    let table_name = raw_name.split('.').next_back().unwrap_or(&raw_name).to_string();
+    let table_name = raw_name
+        .split('.')
+        .next_back()
+        .unwrap_or(&raw_name)
+        .to_string();
 
     // Extract the body between the outermost parens
     let body = extract_paren_body(stmt)?;

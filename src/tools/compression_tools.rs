@@ -159,7 +159,9 @@ fn action_rle(args: &Value) -> Result<String, String> {
             lines.push(format!("  Ratio:   {:.3}", ratio));
             lines.push(String::new());
             lines.push("  Best for: highly repetitive sequences (e.g. 'AAAAAABBB')".to_string());
-            lines.push("  Worst for: diverse text — every unique char costs 1 extra byte".to_string());
+            lines.push(
+                "  Worst for: diverse text — every unique char costs 1 extra byte".to_string(),
+            );
             Ok(lines.join("\n"))
         }
     }

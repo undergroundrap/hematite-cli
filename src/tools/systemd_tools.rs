@@ -469,7 +469,10 @@ fn validate_action(args: &Value) -> Result<String, String> {
 
         let user = get_kv(&uf.service, "User");
         if user.is_none() {
-            warnings.push("No User= directive — service will run as root; prefer a dedicated non-root user".to_string());
+            warnings.push(
+                "No User= directive — service will run as root; prefer a dedicated non-root user"
+                    .to_string(),
+            );
         }
 
         if get_kv(&uf.service, "NoNewPrivileges").is_none() {

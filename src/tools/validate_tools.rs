@@ -402,9 +402,7 @@ fn url_action(args: &Value) -> Result<String, String> {
     }
 
     // Extract host (up to first / ? #)
-    let host_end = rest
-        .find(['/', '?', '#'])
-        .unwrap_or(rest.len());
+    let host_end = rest.find(['/', '?', '#']).unwrap_or(rest.len());
     let host = &rest[..host_end];
 
     let is_localhost = host == "localhost" || host.starts_with("localhost:");

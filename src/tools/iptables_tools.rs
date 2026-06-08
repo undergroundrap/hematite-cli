@@ -287,9 +287,7 @@ fn action_parse(args: &Value) -> Result<String, String> {
                 .rules
                 .iter()
                 .filter(|r| target_filter.as_deref().is_none_or(|tf| r.target == tf))
-                .filter(|r| {
-                    query.is_none_or(|q| r.raw.to_lowercase().contains(&q.to_lowercase()))
-                })
+                .filter(|r| query.is_none_or(|q| r.raw.to_lowercase().contains(&q.to_lowercase())))
                 .collect();
 
             let policy_disp = if chain.policy == "-" {

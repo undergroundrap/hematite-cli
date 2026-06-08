@@ -277,8 +277,7 @@ fn format_report(files: &[FileStats], root: &Path) -> Result<String, String> {
 
     out.push_str("\nBY LANGUAGE (top 12 by code lines)\n");
     type ExtEntry<'a> = (&'a str, (usize, usize, usize, usize));
-    let mut ext_vec: Vec<ExtEntry<'_>> =
-        by_ext.into_iter().collect();
+    let mut ext_vec: Vec<ExtEntry<'_>> = by_ext.into_iter().collect();
     ext_vec.sort_by(|a, b| b.1 .2.cmp(&a.1 .2));
     for (ext, (file_count, lines, code, _)) in ext_vec.iter().take(12) {
         out.push_str(&format!(

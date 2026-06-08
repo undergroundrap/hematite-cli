@@ -121,9 +121,7 @@ fn parse_kv_line(line: &str) -> Vec<(String, String)> {
     let mut remaining = line.trim();
     while !remaining.is_empty() {
         if let Some(eq_pos) = remaining.find('=') {
-            let key = remaining[..eq_pos]
-                .trim()
-                .trim_end_matches(' ');
+            let key = remaining[..eq_pos].trim().trim_end_matches(' ');
             // handle key with spaces (take last word before =)
             let key = key.split_whitespace().last().unwrap_or(key);
             remaining = &remaining[eq_pos + 1..];

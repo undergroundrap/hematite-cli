@@ -362,7 +362,11 @@ fn balance_equation(equation: &str) -> Result<String, String> {
         let pc = pivot_col[r];
         let pv = matrix[r][pc];
         let mut rhs_val = rat_mul(matrix[r][cols], (1, 1));
-        for (c, &mc) in matrix[r][(pc + 1)..cols].iter().enumerate().map(|(i, v)| (pc + 1 + i, v)) {
+        for (c, &mc) in matrix[r][(pc + 1)..cols]
+            .iter()
+            .enumerate()
+            .map(|(i, v)| (pc + 1 + i, v))
+        {
             let contrib = rat_mul(mc, coeff[c]);
             rhs_val = rat_sub(rhs_val, contrib);
         }

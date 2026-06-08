@@ -29,8 +29,7 @@ fn load_chart_yaml(args: &Value) -> Result<Option<Yaml>, String> {
         let path = format!("{}/Chart.yaml", dir.trim_end_matches('/'));
         if let Ok(s) = std::fs::read_to_string(&path) {
             return Ok(Some(
-                serde_yaml::from_str(&s)
-                    .map_err(|e| format!("Chart.yaml parse error: {}", e))?,
+                serde_yaml::from_str(&s).map_err(|e| format!("Chart.yaml parse error: {}", e))?,
             ));
         } // else try alternate
         let path2 = format!("{}/chart.yaml", dir.trim_end_matches('/'));

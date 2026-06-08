@@ -475,14 +475,9 @@ fn extract_simple_props(xml: &str) -> Vec<(String, String)> {
     let mut rest = xml;
     while let Some(pos) = rest.find('<') {
         let slice = &rest[pos + 1..];
-        let name_end = slice
-            .find(['>', ' ', '/'])
-            .unwrap_or(slice.len());
+        let name_end = slice.find(['>', ' ', '/']).unwrap_or(slice.len());
         let tag = &slice[..name_end];
-        if !tag.is_empty()
-            && !tag.starts_with('/')
-            && !tag.starts_with('!')
-            && !skip.contains(&tag)
+        if !tag.is_empty() && !tag.starts_with('/') && !tag.starts_with('!') && !skip.contains(&tag)
         {
             let close = format!("</{tag}>");
             if let Some(gt) = slice.find('>') {

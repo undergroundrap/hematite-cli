@@ -341,10 +341,7 @@ fn collect_plugins(text: &str, _is_kts: bool) -> Vec<GradlePlugin> {
 
         // kotlin("jvm") style
         if let Some(rest_k) = t.strip_prefix("kotlin(") {
-            let id = format!(
-                "org.jetbrains.kotlin.{}",
-                extract_first_string(rest_k)
-            );
+            let id = format!("org.jetbrains.kotlin.{}", extract_first_string(rest_k));
             let version = if let Some(vi) = t.find("version") {
                 let after = &t[vi + "version".len()..].trim_start();
                 extract_first_string(after)
@@ -413,9 +410,7 @@ fn collect_tasks(text: &str, is_kts: bool) -> Vec<GradleTask> {
         // KTS:    tasks.register("foo") { ... } or val foo by tasks.registering { ... }
         if !is_kts && t.starts_with("task ") {
             let rest = &t["task ".len()..];
-            let name_end = rest
-                .find(['(', ' ', '{'])
-                .unwrap_or(rest.len());
+            let name_end = rest.find(['(', ' ', '{']).unwrap_or(rest.len());
             let name = rest[..name_end].trim().to_string();
             let task_type = if rest.contains("type:") {
                 extract_groovy_type(rest)
@@ -461,9 +456,7 @@ fn extract_groovy_type(s: &str) -> String {
     // type: Bar  or  (type: Bar)
     if let Some(pos) = s.find("type:") {
         let after = s[pos + 5..].trim();
-        let end = after
-            .find([')', ',', ' ', '{'])
-            .unwrap_or(after.len());
+        let end = after.find([')', ',', ' ', '{']).unwrap_or(after.len());
         return after[..end].trim().to_string();
     }
     String::new()
@@ -486,8 +479,7 @@ fn extract_depends_on_from_block(lines: &[&str], start: usize) -> Vec<String> {
         let t = line.trim();
         if let Some(rest_dep) = t.strip_prefix("dependsOn") {
             // dependsOn "task1", "task2"  or  dependsOn(tasks.named("foo"))
-            let rest =
-                rest_dep.trim_start_matches(['(', ':', ' ']);
+            let rest = rest_dep.trim_start_matches(['(', ':', ' ']);
             for part in rest.split(',') {
                 let s = part
                     .trim()
