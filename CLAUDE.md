@@ -955,6 +955,7 @@ For behavioral changes, diagnostics are part of the change, not optional cleanup
 cargo fmt
 cargo check --tests
 cargo test --test diagnostics
+cargo deny check
 powershell -ExecutionPolicy Bypass -File ./scripts/verify-doc-sync.ps1
 pwsh ./scripts/package-windows.ps1 -AddToPath
 ```
@@ -962,13 +963,26 @@ pwsh ./scripts/package-windows.ps1 -AddToPath
 Why these exist:
 
 - `cargo fmt`
-  Normalizes Rust formatting so the diff stays readable and consistent.
+  Normalizes Rust formatting so the diff stays readable and consistent. CI runs `cargo fmt --all --check` and will fail if this is skipped — always run it before every commit.
 - `cargo check --tests`
   Fast compile check for both app code and test code without paying the full release-build cost yet.
 - `cargo test --test diagnostics`
   Runs the focused behavior checks where tool routing, Vein behavior, host inspection, and other product-level regressions are usually covered.
+- `cargo deny check`
+  Validates licenses, detects duplicate crates, and checks advisories. Run this before pushing whenever `Cargo.toml` or any transitive dep changes. New crates occasionally use non-standard SPDX license identifiers (e.g. `bzip2-1.0.6`) that must be explicitly added to the `allow` list in `deny.toml`. The fix is always a one-liner there, but it will fail CI if skipped.
 - `pwsh ./scripts/package-windows.ps1 -AddToPath`
   Rebuilds the actual portable build you run locally, updates the PATH-backed copy, and gives you the real pre-release smoke test.
+
+**CI-only fix retag rule:** When a CI failure has no user-visible change (formatting, license config, doc typo), do NOT bump the version. Fix the issue, then force-move the existing tag to the new commit:
+
+```powershell
+git tag -d vX.Y.Z
+git push origin :refs/tags/vX.Y.Z
+git tag -a vX.Y.Z -m "Release vX.Y.Z"
+git push origin vX.Y.Z
+```
+
+Only bump the version when the change itself warrants it per the versioning policy. A `cargo fmt` pass or a `deny.toml` line addition is not a release — it is a tag correction.
 
 **Mojibake check (run before every publish):** After any README or doc edit, scan for encoding corruption before committing or publishing to crates.io. PowerShell's `Set-Content` with `-Encoding utf8` and the bump-version script both write UTF-8 correctly, but copying text from browsers or other tools can introduce Windows-1252 sequences. Common symptoms: `â€"` instead of `—`, `â€™` instead of `'`, `16â€"24` instead of `16–24`. Quick check:
 
