@@ -305,8 +305,6 @@ fn is_keyword(s: &str) -> bool {
             | "CHECK"
             | "DEFAULT"
             | "CONSTRAINT"
-            | "NOT"
-            | "NULL"
             | "AUTO_INCREMENT"
             | "AUTOINCREMENT"
             | "IDENTITY"
@@ -682,12 +680,11 @@ fn action_extract(sql: &str, args: &Value) -> Result<String, String> {
                 if matches!(
                     upper.as_str(),
                     "FROM" | "JOIN" | "INTO" | "UPDATE" | "TABLE"
-                ) {
-                    if i + 1 < n && non_ws[i + 1].kind == TokKind::Ident {
-                        let name = non_ws[i + 1].text.clone();
-                        if !tables.contains(&name) {
-                            tables.push(name);
-                        }
+                ) && i + 1 < n && non_ws[i + 1].kind == TokKind::Ident
+                {
+                    let name = non_ws[i + 1].text.clone();
+                    if !tables.contains(&name) {
+                        tables.push(name);
                     }
                 }
             }
@@ -705,8 +702,8 @@ fn action_extract(sql: &str, args: &Value) -> Result<String, String> {
             // Extract columns from SELECT … FROM
             let mut cols = Vec::new();
             let mut in_select = false;
-            for i in 0..n {
-                let upper = non_ws[i].text.to_uppercase();
+            for token in &non_ws {
+                let upper = token.text.to_uppercase();
                 if upper == "SELECT" {
                     in_select = true;
                     continue;
@@ -715,8 +712,8 @@ fn action_extract(sql: &str, args: &Value) -> Result<String, String> {
                     in_select = false;
                     continue;
                 }
-                if in_select && non_ws[i].kind == TokKind::Ident {
-                    let name = non_ws[i].text.clone();
+                if in_select && token.kind == TokKind::Ident {
+                    let name = token.text.clone();
                     // Skip alias keywords
                     if !matches!(
                         name.to_uppercase().as_str(),

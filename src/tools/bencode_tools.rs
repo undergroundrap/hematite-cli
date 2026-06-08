@@ -194,7 +194,7 @@ fn dict_get<'a>(entries: &'a [(Vec<u8>, BencodeValue)], key: &str) -> Option<&'a
         .map(|(_, v)| v)
 }
 
-fn dict_str<'a>(entries: &'a [(Vec<u8>, BencodeValue)], key: &str) -> Option<String> {
+fn dict_str(entries: &[(Vec<u8>, BencodeValue)], key: &str) -> Option<String> {
     match dict_get(entries, key)? {
         BencodeValue::Bytes(b) => Some(bytes_to_str(b)),
         _ => None,
@@ -322,7 +322,7 @@ fn render_bencode(val: &BencodeValue, indent: usize, out: &mut String) {
 fn action_decode(args: &Value) -> Result<String, String> {
     let data = resolve_bytes(args)?;
     let mut pos = 0usize;
-    let root = parse(&data, &mut pos).map_err(|e| format!("{e}"))?;
+    let root = parse(&data, &mut pos).map_err(|e| e.to_string())?;
 
     let mut out = format!("Bencode Decode\n{}\n\n", "─".repeat(34));
     render_bencode(&root, 0, &mut out);

@@ -46,6 +46,7 @@ pub fn cite_tools_schema() -> Value {
     })
 }
 
+#[allow(dead_code)]
 struct Citation<'a> {
     authors: Vec<String>,
     title: &'a str,

@@ -132,8 +132,8 @@ fn path_matches_rule(path: &str, rule: &str) -> bool {
         return false;
     }
     // Rule ending in $ means exact match
-    let (rule_pat, exact) = if rule.ends_with('$') {
-        (&rule[..rule.len() - 1], true)
+    let (rule_pat, exact) = if let Some(stripped) = rule.strip_suffix('$') {
+        (stripped, true)
     } else {
         (rule, false)
     };
@@ -165,12 +165,10 @@ fn wildcard_match(path: &str, pattern: &str, exact: bool) -> bool {
                 return false;
             }
             pos = part.len();
+        } else if let Some(found) = path[pos..].find(part) {
+            pos += found + part.len();
         } else {
-            if let Some(found) = path[pos..].find(part) {
-                pos += found + part.len();
-            } else {
-                return false;
-            }
+            return false;
         }
     }
     if exact {
@@ -295,17 +293,18 @@ fn check_action(args: &Value) -> Result<String, String> {
         let mut best_disallow: Option<&str> = None;
 
         for allow_rule in &block.allows {
-            if path_matches_rule(check_path, allow_rule) {
-                if best_allow.map(|b: &str| b.len()).unwrap_or(0) <= allow_rule.len() {
-                    best_allow = Some(allow_rule);
-                }
+            if path_matches_rule(check_path, allow_rule)
+                && best_allow.map(|b: &str| b.len()).unwrap_or(0) <= allow_rule.len()
+            {
+                best_allow = Some(allow_rule);
             }
         }
         for disallow_rule in &block.disallows {
-            if !disallow_rule.is_empty() && path_matches_rule(check_path, disallow_rule) {
-                if best_disallow.map(|b: &str| b.len()).unwrap_or(0) <= disallow_rule.len() {
-                    best_disallow = Some(disallow_rule);
-                }
+            if !disallow_rule.is_empty()
+                && path_matches_rule(check_path, disallow_rule)
+                && best_disallow.map(|b: &str| b.len()).unwrap_or(0) <= disallow_rule.len()
+            {
+                best_disallow = Some(disallow_rule);
             }
         }
 

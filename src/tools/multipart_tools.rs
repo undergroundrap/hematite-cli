@@ -88,7 +88,7 @@ fn get_body(args: &Value) -> Option<Vec<u8>> {
 
 fn parse_parts(body: &[u8], boundary: &str) -> Vec<Part> {
     let delimiter = format!("--{}", boundary);
-    let final_delimiter = format!("--{}--", boundary);
+    let _final_delimiter = format!("--{}--", boundary);
     let body_str = String::from_utf8_lossy(body);
     let mut parts = Vec::new();
 

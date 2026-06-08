@@ -741,7 +741,7 @@ fn action_constellation(args: &Value) -> String {
         .to_lowercase();
 
     if q.is_empty() {
-        let mut out = format!("All 88 IAU Constellations\n\n");
+        let mut out = "All 88 IAU Constellations\n\n".to_string();
         out.push_str(&format!(
             "{:<6} {:<26} {:<26} {}\n",
             "Abbr", "Name", "Meaning", "Region"

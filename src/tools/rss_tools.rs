@@ -273,7 +273,7 @@ fn list_action(xml: &str, args: &Value) -> Result<String, String> {
 
 fn info_action(xml: &str) -> Result<String, String> {
     let (meta, entries) = parse_feed(xml)?;
-    let mut out = format!("Feed Information\n\n");
+    let mut out = "Feed Information\n\n".to_string();
     out.push_str(&format!("  Type:        {}\n", meta.feed_type));
     out.push_str(&format!("  Title:       {}\n", meta.title));
     out.push_str(&format!("  Entries:     {}\n", entries.len()));

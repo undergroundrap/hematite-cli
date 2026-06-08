@@ -108,14 +108,12 @@ fn action_vigenere(args: &Value) -> Result<String, String> {
             if c.is_ascii_alphabetic() {
                 let k = key_bytes[ki % key_bytes.len()] as i32;
                 ki += 1;
-                let shifted = if decode {
-                    let base = if c.is_uppercase() { b'A' } else { b'a' };
+                let base = if c.is_uppercase() { b'A' } else { b'a' };
+                if decode {
                     (((c as i32 - base as i32 - k).rem_euclid(26)) as u8 + base) as char
                 } else {
-                    let base = if c.is_uppercase() { b'A' } else { b'a' };
                     (((c as i32 - base as i32 + k).rem_euclid(26)) as u8 + base) as char
-                };
-                shifted
+                }
             } else {
                 c
             }
@@ -169,9 +167,9 @@ fn action_rail_fence(args: &Value) -> Result<String, String> {
     // Build rail assignment for each position
     let mut rail_idx: Vec<usize> = vec![0; n];
     let cycle = 2 * (rails - 1);
-    for i in 0..n {
+    for (i, slot) in rail_idx.iter_mut().enumerate().take(n) {
         let pos = i % cycle;
-        rail_idx[i] = if pos < rails { pos } else { cycle - pos };
+        *slot = if pos < rails { pos } else { cycle - pos };
     }
 
     let result: String = if !decode {

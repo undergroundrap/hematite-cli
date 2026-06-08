@@ -358,7 +358,7 @@ fn validate(args: &serde_json::Value) -> Result<String, String> {
             }
             if url
                 .host_str()
-                .map_or(false, |h| h == "localhost" || h == "127.0.0.1")
+                .is_some_and(|h| h == "localhost" || h == "127.0.0.1")
             {
                 out.push_str("Note: localhost URL — likely a development endpoint.\n");
             }

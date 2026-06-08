@@ -73,7 +73,7 @@ fn fmt_currency(n: f64) -> String {
         format!(
             "{}{}{}.{}",
             sign,
-            if n < 0.0 { "$" } else { "$" },
+            "$",
             int_with_commas,
             dec_part
         )
@@ -598,7 +598,7 @@ fn action_cagr(start: f64, end: f64, years: f64) -> String {
     let _ = writeln!(out, "  Total return:  {:.2}%", total_return);
     out.push('\n');
     let _ = writeln!(out, "  Projected values at {:.2}% CAGR:", cagr);
-    let _ = writeln!(out, "  {:<10} {}", "Year", "Value");
+    let _ = writeln!(out, "  {:<10} Value", "Year");
     for y in 0..=(years as u32) {
         let _ = writeln!(
             out,
@@ -710,7 +710,7 @@ fn action_savings(target: f64, monthly: f64, current: f64, annual_rate: f64, yea
             fmt_currency(target - total_contributed)
         );
     } else {
-        return "Error: provide either monthly_contribution (to find time) or years (to find monthly amount).".to_string().into();
+        return "Error: provide either monthly_contribution (to find time) or years (to find monthly amount).".to_string();
     }
     out
 }

@@ -65,8 +65,8 @@ fn generate(args: &serde_json::Value) -> Result<String, String> {
 
     let mut out = format!("UUID GENERATE\n{}\n", "─".repeat(50));
     out.push_str(&format!("UUID v4 : {uuid}\n"));
-    out.push_str(&format!("Version : 4 (random)\n"));
-    out.push_str(&format!("Variant : RFC 4122\n"));
+    out.push_str("Version : 4 (random)\n");
+    out.push_str("Variant : RFC 4122\n");
     Ok(out)
 }
 

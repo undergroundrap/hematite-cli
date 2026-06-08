@@ -199,6 +199,7 @@ fn decode_base64(data: &[u8]) -> Result<Vec<u8>, ()> {
 
 // ── MIME helpers ─────────────────────────────────────────────────────────────
 
+#[allow(dead_code)]
 struct MimePart {
     content_type: String,
     encoding: String,
@@ -338,6 +339,7 @@ fn render_mime_tree(parts: &[MimePart], indent: usize, out: &mut String) {
 
 // ── Received header parsing ──────────────────────────────────────────────────
 
+#[allow(dead_code)]
 struct Hop {
     from: String,
     by: String,

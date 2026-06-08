@@ -428,16 +428,14 @@ fn base64url_decode(s: &str) -> Option<Vec<u8>> {
                 .iter()
                 .position(|&x| x == ch)
                 .map(|p| p as u8)
-                .or_else(|| {
-                    if ch == b'+' {
-                        Some(62)
-                    } else if ch == b'/' {
-                        Some(63)
-                    } else if ch == b'=' {
-                        Some(0)
-                    } else {
-                        None
-                    }
+                .or(if ch == b'+' {
+                    Some(62)
+                } else if ch == b'/' {
+                    Some(63)
+                } else if ch == b'=' {
+                    Some(0)
+                } else {
+                    None
                 })
         };
         let av = decode_char(a)?;
@@ -465,7 +463,7 @@ fn action_token(args: &Value) -> Result<String, String> {
     let parts: Vec<&str> = token.split('.').collect();
     if parts.len() != 3 {
         // Opaque token
-        let mut out = format!("## Access Token Inspection\n\n");
+        let mut out = "## Access Token Inspection\n\n".to_string();
         out.push_str("  Format:  Opaque (not a JWT)\n");
         out.push_str(&format!("  Length:  {} characters\n", token.len()));
         out.push_str(&format!("  Prefix:  {}\n", &token[..token.len().min(8)]));
@@ -494,7 +492,7 @@ fn action_token(args: &Value) -> Result<String, String> {
         .unwrap_or_default()
         .as_secs();
 
-    let mut out = format!("## JWT Inspection\n\n");
+    let mut out = "## JWT Inspection\n\n".to_string();
     out.push_str(&format!("  Type:      {}\n", typ));
     out.push_str(&format!("  Algorithm: {}\n\n", alg));
 
@@ -574,7 +572,7 @@ fn format_unix_ts(ts: u64) -> String {
 }
 
 fn epoch_to_ymd(days: u64) -> (u64, u64, u64) {
-    let mut d = days + 719468;
+    let d = days + 719468;
     let era = d / 146097;
     let doe = d % 146097;
     let yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365;

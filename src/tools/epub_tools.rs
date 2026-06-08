@@ -26,6 +26,7 @@ pub fn make_schema() -> Value {
     })
 }
 
+#[allow(dead_code)]
 fn find_bytes(haystack: &[u8], needle: &[u8]) -> Option<usize> {
     haystack.windows(needle.len()).position(|w| w == needle)
 }
@@ -44,6 +45,7 @@ fn ru32le(b: &[u8], o: usize) -> u32 {
     u32::from_le_bytes([b[o], b[o + 1], b[o + 2], b[o + 3]])
 }
 
+#[allow(dead_code)]
 struct ZipEntry {
     name: String,
     offset: usize,
@@ -60,7 +62,7 @@ fn parse_zip_central_dir(data: &[u8]) -> Vec<ZipEntry> {
         return entries;
     }
     let mut eocd = None;
-    let search_start = if n > 65557 { n - 65557 } else { 0 };
+    let search_start = n.saturating_sub(65557);
     for i in (search_start..=n.saturating_sub(22)).rev() {
         if data[i..].starts_with(b"PK\x05\x06") {
             eocd = Some(i);

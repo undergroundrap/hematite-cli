@@ -252,7 +252,7 @@ fn compare_action(args: &Value) -> Result<String, String> {
     let diff = (a - b).abs();
     let ratio = if b != 0.0 { a / b } else { f64::INFINITY };
 
-    let mut out = format!("Size Comparison\n\n");
+    let mut out = "Size Comparison\n\n".to_string();
     out.push_str(&format!("  A: {a_str:<20}  =  {}\n", fmt_bytes_decimal(a)));
     out.push_str(&format!("  B: {b_str:<20}  =  {}\n", fmt_bytes_decimal(b)));
     out.push_str(&format!("\n  {cmp}\n"));
@@ -277,7 +277,7 @@ fn bandwidth_action(args: &Value) -> Result<String, String> {
         let speed_lower = speed_str.to_lowercase();
         let (bits_per_sec, label) = parse_bandwidth_speed(speed_str, &speed_lower)?;
         let seconds = size_bytes * 8.0 / bits_per_sec;
-        let mut out = format!("Bandwidth Estimate\n\n");
+        let mut out = "Bandwidth Estimate\n\n".to_string();
         out.push_str(&format!(
             "  File size:   {}\n",
             fmt_bytes_decimal(size_bytes)
@@ -297,7 +297,7 @@ fn bandwidth_action(args: &Value) -> Result<String, String> {
             return Err("size_tools bandwidth: 'time' must be > 0".to_string());
         }
         let bits_per_sec = size_bytes * 8.0 / secs;
-        let mut out = format!("Bandwidth Estimate\n\n");
+        let mut out = "Bandwidth Estimate\n\n".to_string();
         out.push_str(&format!(
             "  File size:   {}\n",
             fmt_bytes_decimal(size_bytes)

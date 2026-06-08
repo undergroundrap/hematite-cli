@@ -296,7 +296,7 @@ fn action_strip(args: &Value) -> String {
             if chars.peek() == Some(&'{') {
                 chars.next(); // consume {
                 let mut depth = 1;
-                while let Some(c) = chars.next() {
+                for c in chars.by_ref() {
                     if c == '{' {
                         depth += 1;
                     } else if c == '}' {
@@ -311,7 +311,7 @@ fn action_strip(args: &Value) -> String {
             }
         } else if c == '$' {
             // Inline math -- keep content
-            while let Some(c) = chars.next() {
+            for c in chars.by_ref() {
                 if c == '$' {
                     break;
                 }
@@ -454,14 +454,14 @@ fn action_convert(args: &Value) -> String {
     let mut out = String::new();
     for line in text.lines() {
         let l = line.trim();
-        if l.starts_with("### ") {
-            out.push_str(&format!("\\subsubsection{{{}}}\n", escape_latex(&l[4..])));
-        } else if l.starts_with("## ") {
-            out.push_str(&format!("\\subsection{{{}}}\n", escape_latex(&l[3..])));
-        } else if l.starts_with("# ") {
-            out.push_str(&format!("\\section{{{}}}\n", escape_latex(&l[2..])));
-        } else if l.starts_with("- ") || l.starts_with("* ") {
-            out.push_str(&format!("\\item {}\n", escape_latex(&l[2..])));
+        if let Some(h) = l.strip_prefix("### ") {
+            out.push_str(&format!("\\subsubsection{{{}}}\n", escape_latex(h)));
+        } else if let Some(h) = l.strip_prefix("## ") {
+            out.push_str(&format!("\\subsection{{{}}}\n", escape_latex(h)));
+        } else if let Some(h) = l.strip_prefix("# ") {
+            out.push_str(&format!("\\section{{{}}}\n", escape_latex(h)));
+        } else if let Some(item) = l.strip_prefix("- ").or_else(|| l.strip_prefix("* ")) {
+            out.push_str(&format!("\\item {}\n", escape_latex(item)));
         } else if l.is_empty() {
             out.push('\n');
         } else {

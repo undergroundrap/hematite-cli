@@ -215,10 +215,10 @@ fn extract_stack_frames(output: &str) -> Vec<String> {
                 .and_then(|s| s.strip_prefix(':'))
             {
                 frames.push(rest.trim().to_string());
-            } else if trimmed.starts_with("at ") {
+            } else if let Some(loc) = trimmed.strip_prefix("at ") {
                 // Attach location to previous frame.
                 if let Some(last) = frames.last_mut() {
-                    last.push_str(&format!("  ← {}", &trimmed[3..]));
+                    last.push_str(&format!("  ← {loc}"));
                 }
             }
         }

@@ -632,7 +632,7 @@ fn do_extras(text: &str) -> String {
         }
     }
 
-    if groups.len() <= 1 && groups.get(0).map(|s| s.as_str()) == Some("main") {
+    if groups.len() <= 1 && groups.first().map(|s| s.as_str()) == Some("main") {
         // Check for package-level extras
         let with_extras: Vec<&PkgEntry> = entries.iter().filter(|e| !e.extras.is_empty()).collect();
         if with_extras.is_empty() {

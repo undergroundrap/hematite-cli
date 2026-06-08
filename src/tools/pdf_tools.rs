@@ -233,7 +233,6 @@ fn parse_pdf_date(d: &str) -> String {
     let tz = if d.len() > 14 {
         d[14..]
             .replace('\'', ":")
-            .replace('+', "+")
             .trim_end_matches(':')
             .to_string()
     } else {

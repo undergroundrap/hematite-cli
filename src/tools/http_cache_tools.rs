@@ -1,17 +1,17 @@
-use serde_json::Value;
+﻿use serde_json::Value;
 use std::collections::HashMap;
 
 pub fn make_schema() -> Value {
     serde_json::json!({
         "name": "http_cache_tools",
-        "description": "Parse, explain, and analyze HTTP Cache-Control and caching headers. Works offline — no network calls.",
+        "description": "Parse, explain, and analyze HTTP Cache-Control and caching headers. Works offline â€” no network calls.",
         "parameters": {
             "type": "object",
             "properties": {
                 "action": {
                     "type": "string",
                     "enum": ["parse", "analyze", "etag", "vary"],
-                    "description": "parse (default — directive breakdown with conflict warnings), analyze (freshness calculation with age), etag (304 vs 200 verdict), vary (Vary field explanations)"
+                    "description": "parse (default â€” directive breakdown with conflict warnings), analyze (freshness calculation with age), etag (304 vs 200 verdict), vary (Vary field explanations)"
                 },
                 "header": { "type": "string", "description": "Cache-Control header value (prefix stripped automatically)" },
                 "value": { "type": "string", "description": "Alias for 'header'" },
@@ -113,14 +113,14 @@ fn explain_directive(name: &str, value: Option<&str>, is_request: bool) -> Strin
         "s-maxage" => {
             let secs = value.and_then(|v| v.parse::<u64>().ok()).unwrap_or(0);
             format!(
-                "Shared caches (CDN/proxy) freshness: {} ({} s) — overrides max-age for shared caches",
+                "Shared caches (CDN/proxy) freshness: {} ({} s) â€” overrides max-age for shared caches",
                 secs_to_human(secs),
                 secs
             )
         }
         "no-cache" => {
             if is_request {
-                "Force end-to-end reload — shared cache must not serve without revalidation".to_string()
+                "Force end-to-end reload â€” shared cache must not serve without revalidation".to_string()
             } else {
                 "Must revalidate with origin before each use (cached but not served without validation)".to_string()
             }
@@ -129,21 +129,21 @@ fn explain_directive(name: &str, value: Option<&str>, is_request: bool) -> Strin
             if is_request {
                 "Ask caches not to store any part of this request or its response".to_string()
             } else {
-                "Must NOT store response anywhere — not in memory or on disk".to_string()
+                "Must NOT store response anywhere â€” not in memory or on disk".to_string()
             }
         }
         "no-transform" => "Intermediaries must not transform the content (e.g. compress images, modify encoding)".to_string(),
-        "must-revalidate" => "Once stale, MUST revalidate with origin — cannot serve stale even if origin is down".to_string(),
+        "must-revalidate" => "Once stale, MUST revalidate with origin â€” cannot serve stale even if origin is down".to_string(),
         "proxy-revalidate" => "Like must-revalidate but only for shared (proxy/CDN) caches".to_string(),
         "public" => "May be stored by any cache including shared caches, even for authenticated responses".to_string(),
         "private" => {
             if let Some(fields) = value {
                 format!("Browser-only cache. Fields '{}' must not be stored by shared caches", fields)
             } else {
-                "Browser (private) cache only — CDNs and proxies must not store this response".to_string()
+                "Browser (private) cache only â€” CDNs and proxies must not store this response".to_string()
             }
         }
-        "immutable" => "Content will not change during freshness window — skip conditional revalidation entirely".to_string(),
+        "immutable" => "Content will not change during freshness window â€” skip conditional revalidation entirely".to_string(),
         "stale-while-revalidate" => {
             let secs = value.and_then(|v| v.parse::<u64>().ok()).unwrap_or(0);
             format!(
@@ -172,7 +172,7 @@ fn explain_directive(name: &str, value: Option<&str>, is_request: bool) -> Strin
             let secs = value.and_then(|v| v.parse::<u64>().ok()).unwrap_or(0);
             format!("Only accept responses that will remain fresh for at least {} more seconds", secs)
         }
-        "only-if-cached" => "Return cached response only — do not contact origin. Return 504 if nothing cached.".to_string(),
+        "only-if-cached" => "Return cached response only â€” do not contact origin. Return 504 if nothing cached.".to_string(),
         other => format!(
             "Non-standard or extension directive: {}{}",
             other,
@@ -211,7 +211,7 @@ fn action_parse(args: &Value) -> Result<String, String> {
         warnings.push("no-store + max-age: max-age is meaningless when no-store is set");
     }
     if has_public && has_private {
-        warnings.push("public + private: contradictory — private takes precedence");
+        warnings.push("public + private: contradictory â€” private takes precedence");
     }
     if !is_request && has_immutable && !has_max_age {
         warnings
@@ -234,16 +234,16 @@ fn action_parse(args: &Value) -> Result<String, String> {
     if !warnings.is_empty() {
         out.push_str(&format!("\n{}\n", "-".repeat(70)));
         for w in &warnings {
-            out.push_str(&format!("  ⚠ {}\n", w));
+            out.push_str(&format!("  âš  {}\n", w));
         }
     }
 
     out.push_str(&format!("\n{}\n", "-".repeat(70)));
     if !is_request {
         if has_no_store {
-            out.push_str("Summary: NOT CACHEABLE — no-store prevents all caching.\n");
+            out.push_str("Summary: NOT CACHEABLE â€” no-store prevents all caching.\n");
         } else if has_no_cache {
-            out.push_str("Summary: CONDITIONAL — cached but must revalidate on every use.\n");
+            out.push_str("Summary: CONDITIONAL â€” cached but must revalidate on every use.\n");
         } else if has_max_age {
             let secs = directives
                 .iter()
@@ -256,13 +256,13 @@ fn action_parse(args: &Value) -> Result<String, String> {
                 secs_to_human(secs),
                 secs,
                 if has_immutable {
-                    " — immutable (no revalidation during window)"
+                    " â€” immutable (no revalidation during window)"
                 } else {
                     ""
                 }
             ));
         } else {
-            out.push_str("Summary: No explicit freshness — heuristic caching may apply.\n");
+            out.push_str("Summary: No explicit freshness â€” heuristic caching may apply.\n");
         }
     }
     Ok(out)
@@ -301,7 +301,7 @@ fn action_analyze(args: &Value) -> Result<String, String> {
         .collect();
 
     let mut out = String::from("Cache Freshness Analysis\n");
-    out.push_str(&format!("{}\n\n", "═".repeat(50)));
+    out.push_str(&format!("{}\n\n", "â•".repeat(50)));
     out.push_str(&format!("Response CC : {}\n", response_cc));
     if let Some(rcc) = &request_cc {
         out.push_str(&format!("Request CC  : {}\n", rcc));
@@ -313,16 +313,16 @@ fn action_analyze(args: &Value) -> Result<String, String> {
     ));
 
     if resp.contains_key("no-store") {
-        out.push_str("❌ NOT CACHEABLE\n   no-store: response must not be stored in any cache.\n");
+        out.push_str("âŒ NOT CACHEABLE\n   no-store: response must not be stored in any cache.\n");
         return Ok(out);
     }
 
     if req.contains_key("no-cache") {
-        out.push_str("🔄 REQUEST FORCED RELOAD (request no-cache)\n   Client demands fresh response from origin.\n\n");
+        out.push_str("ðŸ”„ REQUEST FORCED RELOAD (request no-cache)\n   Client demands fresh response from origin.\n\n");
     }
 
     if resp.contains_key("no-cache") {
-        out.push_str("🔄 MUST REVALIDATE ON EVERY USE (response no-cache)\n   Cached but must be validated before every use.\n");
+        out.push_str("ðŸ”„ MUST REVALIDATE ON EVERY USE (response no-cache)\n   Cached but must be validated before every use.\n");
         return Ok(out);
     }
 
@@ -354,7 +354,7 @@ fn action_analyze(args: &Value) -> Result<String, String> {
             let is_fresh = age_secs < lifetime;
             if is_fresh {
                 let remaining = lifetime - age_secs;
-                out.push_str("✅ FRESH\n");
+                out.push_str("âœ… FRESH\n");
                 out.push_str(&format!(
                     "   Freshness lifetime : {} ({} s)\n",
                     secs_to_human(lifetime),
@@ -377,7 +377,7 @@ fn action_analyze(args: &Value) -> Result<String, String> {
                 }
             } else {
                 let stale_for = age_secs - lifetime;
-                out.push_str("⚠ STALE\n");
+                out.push_str("âš  STALE\n");
                 out.push_str(&format!(
                     "   Freshness lifetime : {} ({} s)\n",
                     secs_to_human(lifetime),
@@ -396,13 +396,13 @@ fn action_analyze(args: &Value) -> Result<String, String> {
                 if let Some(swr) = stale_while_reval {
                     if stale_for <= swr {
                         out.push_str(&format!(
-                            "   stale-while-revalidate: within grace ({} window) — can serve stale, background fetch active\n",
+                            "   stale-while-revalidate: within grace ({} window) â€” can serve stale, background fetch active\n",
                             secs_to_human(swr)
                         ));
                     }
                 }
                 if must_reval {
-                    out.push_str("   must-revalidate: CANNOT serve stale — must contact origin\n");
+                    out.push_str("   must-revalidate: CANNOT serve stale â€” must contact origin\n");
                 }
                 out.push_str(
                     "\n   Action: send conditional request (If-None-Match or If-Modified-Since)\n",
@@ -416,10 +416,10 @@ fn action_analyze(args: &Value) -> Result<String, String> {
             }
         }
         None => {
-            out.push_str("⚠ NO EXPLICIT FRESHNESS\n");
+            out.push_str("âš  NO EXPLICIT FRESHNESS\n");
             out.push_str("   No max-age or s-maxage directive.\n");
             out.push_str(
-                "   Heuristic caching may apply (typically ~10% of (Date − Last-Modified)).\n",
+                "   Heuristic caching may apply (typically ~10% of (Date âˆ’ Last-Modified)).\n",
             );
         }
     }
@@ -443,7 +443,7 @@ fn action_etag(args: &Value) -> Result<String, String> {
         .and_then(|v| v.as_str());
 
     let mut out = String::from("Conditional Request Analysis\n");
-    out.push_str(&format!("{}\n\n", "═".repeat(50)));
+    out.push_str(&format!("{}\n\n", "â•".repeat(50)));
     let mut has_input = false;
 
     if let (Some(et), Some(inm)) = (etag, if_none_match) {
@@ -454,9 +454,9 @@ fn action_etag(args: &Value) -> Result<String, String> {
         out.push_str(&format!(
             "Type          : {} ETag\n\n",
             if is_weak {
-                "Weak — semantically equivalent (minor differences allowed)"
+                "Weak â€” semantically equivalent (minor differences allowed)"
             } else {
-                "Strong — byte-for-byte identical"
+                "Strong â€” byte-for-byte identical"
             }
         ));
 
@@ -467,24 +467,23 @@ fn action_etag(args: &Value) -> Result<String, String> {
                     || (is_weak
                         && candidate
                             .strip_prefix("W/")
-                            .map_or(false, |c| c == &et[2..]))
-                    || (!is_weak && candidate.strip_prefix("W/").map_or(false, |c| c == et))
+                            .is_some_and(|c| c == &et[2..]))
+                    || (!is_weak && candidate.strip_prefix("W/").is_some_and(|c| c == et))
             });
 
         if matches {
             out.push_str(
-                "Result: 304 NOT MODIFIED — client cache is up-to-date, no body transfer needed.\n",
+                "Result: 304 NOT MODIFIED â€” client cache is up-to-date, no body transfer needed.\n",
             );
         } else {
             out.push_str(
-                "Result: 200 OK — ETag does not match, server should return fresh content with new ETag.\n",
+                "Result: 200 OK â€” ETag does not match, server should return fresh content with new ETag.\n",
             );
         }
     }
 
-    if etag.is_some() && if_none_match.is_none() {
+    if let Some(et) = etag.filter(|_| if_none_match.is_none()) {
         has_input = true;
-        let et = etag.unwrap();
         let is_weak = et.starts_with("W/");
         out.push_str(&format!("ETag: {}\n\n", et));
         out.push_str(&format!(
@@ -505,7 +504,7 @@ fn action_etag(args: &Value) -> Result<String, String> {
         out.push('\n');
         out.push_str(&format!("Last-Modified    : {}\n", lm));
         out.push_str(&format!("If-Modified-Since: {}\n\n", ims));
-        out.push_str("Note: Timestamp comparison — 304 if Last-Modified <= If-Modified-Since.\n");
+        out.push_str("Note: Timestamp comparison â€” 304 if Last-Modified <= If-Modified-Since.\n");
         out.push_str(
             "If-Modified-Since precision is 1 second. Use ETag for sub-second change detection.\n",
         );
@@ -528,7 +527,7 @@ fn action_vary(args: &Value) -> Result<String, String> {
 
     if vary.trim() == "*" {
         out.push_str(
-            "Vary: * — response is unique per request. Effectively uncacheable by shared caches.\n",
+            "Vary: * â€” response is unique per request. Effectively uncacheable by shared caches.\n",
         );
         return Ok(out);
     }
@@ -543,24 +542,24 @@ fn action_vary(args: &Value) -> Result<String, String> {
     for f in &fields {
         let lower = f.to_lowercase();
         let note = match lower.as_str() {
-            "accept-encoding" => "Different encodings (gzip, br, identity) get separate entries — set this whenever you compress responses.",
-            "accept-language" => "Different language preferences get separate entries — required for multi-language content negotiation.",
-            "accept" => "Different content types (json, html, xml) get separate entries — common for REST APIs serving multiple formats.",
-            "origin" => "CORS: different origins get separate entries — required when Access-Control-Allow-Origin varies.",
+            "accept-encoding" => "Different encodings (gzip, br, identity) get separate entries â€” set this whenever you compress responses.",
+            "accept-language" => "Different language preferences get separate entries â€” required for multi-language content negotiation.",
+            "accept" => "Different content types (json, html, xml) get separate entries â€” common for REST APIs serving multiple formats.",
+            "origin" => "CORS: different origins get separate entries â€” required when Access-Control-Allow-Origin varies.",
             "cookie" | "set-cookie" => {
-                warnings.push(format!("⚠ Vary on {} creates per-user cache entries — effectively private, shared caches usually won't store.", f));
-                "Per-user cache key — shared caches typically won't cache at all."
+                warnings.push(format!("âš  Vary on {} creates per-user cache entries â€” effectively private, shared caches usually won't store.", f));
+                "Per-user cache key â€” shared caches typically won't cache at all."
             }
             "authorization" => {
-                warnings.push("⚠ Vary on Authorization makes responses private — CDNs generally skip these.".to_string());
-                "Per-credential cache key — shared caches typically won't cache at all."
+                warnings.push("âš  Vary on Authorization makes responses private â€” CDNs generally skip these.".to_string());
+                "Per-credential cache key â€” shared caches typically won't cache at all."
             }
             "user-agent" => {
-                warnings.push("⚠ Vary on User-Agent causes massive cache fragmentation — avoid unless truly necessary.".to_string());
-                "Per-browser cache key — thousands of unique User-Agent strings = near-empty cache hit rate."
+                warnings.push("âš  Vary on User-Agent causes massive cache fragmentation â€” avoid unless truly necessary.".to_string());
+                "Per-browser cache key â€” thousands of unique User-Agent strings = near-empty cache hit rate."
             }
-            "save-data" => "Data-saving preference gets separate entries — useful for lite vs full page variants.",
-            _ => "Non-standard or custom header — verify all shared caches support arbitrary Vary fields.",
+            "save-data" => "Data-saving preference gets separate entries â€” useful for lite vs full page variants.",
+            _ => "Non-standard or custom header â€” verify all shared caches support arbitrary Vary fields.",
         };
         out.push_str(&format!("  {:<25}  {}\n", f, note));
     }

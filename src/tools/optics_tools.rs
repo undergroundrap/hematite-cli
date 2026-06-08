@@ -212,7 +212,7 @@ fn action_diffraction(args: &Value) -> Result<String, String> {
             ));
         }
         let theta_deg = rad_to_deg(sin_theta.asin());
-        let resolving_power_per_order_per_slit = m as f64;
+        let _resolving_power_per_order_per_slit = m as f64;
         return Ok(format!(
             "Diffraction Grating\n\nd·sin(θ) = m·λ\nd = {d:.4e} m ({:.2} lines/mm)\nλ = {lambda_nm:.2} nm\n\nm = {m}: sin(θ) = {:.6},  θ = {theta_deg:.4}°\n\nFor N slits: resolving power R = m·N\nChromatic resolving power λ/Δλ = m·N\n\nMax order: m_max = floor(d/λ) = {}",
             1e-3 / d, m as f64 * lambda / d, (d / lambda) as i32
@@ -276,9 +276,9 @@ fn action_interference(args: &Value) -> Result<String, String> {
         let lambda_film = lambda / n_film;
 
         let condition = if phase_shifts % 2 == 0 {
-            format!("constructive: 2·n·t = m·λ  →  bright for m = 1,2,3...\ndestructive: 2·n·t = (m+½)·λ  →  dark for m = 0,1,2...")
+            "constructive: 2·n·t = m·λ  →  bright for m = 1,2,3...\ndestructive: 2·n·t = (m+½)·λ  →  dark for m = 0,1,2...".to_string()
         } else {
-            format!("constructive: 2·n·t = (m+½)·λ  →  bright for m = 0,1,2...\ndestructive: 2·n·t = m·λ  →  dark for m = 1,2,3...")
+            "constructive: 2·n·t = (m+½)·λ  →  bright for m = 0,1,2...\ndestructive: 2·n·t = m·λ  →  dark for m = 1,2,3...".to_string()
         };
 
         let mut orders = String::new();

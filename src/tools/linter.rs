@@ -204,16 +204,14 @@ async fn run_fix(
                      Run lint_code again to verify remaining warnings.\n\n\
                      {combined}"
                 ))
+            } else if combined.contains("no changes") || combined.contains("0 warnings") {
+                Ok("lint_code [FIX]: no machine-applicable fixes needed.".to_string())
+            } else if combined.contains("uncommitted") || combined.contains("dirty") {
+                Err("lint_code fix: working tree has uncommitted changes. \
+                     Either commit first or pass allow_dirty=true."
+                    .to_string())
             } else {
-                if combined.contains("no changes") || combined.contains("0 warnings") {
-                    Ok("lint_code [FIX]: no machine-applicable fixes needed.".to_string())
-                } else if combined.contains("uncommitted") || combined.contains("dirty") {
-                    Err("lint_code fix: working tree has uncommitted changes. \
-                         Either commit first or pass allow_dirty=true."
-                        .to_string())
-                } else {
-                    Err(format!("lint_code fix failed:\n{combined}"))
-                }
+                Err(format!("lint_code fix failed:\n{combined}"))
             }
         }
     }

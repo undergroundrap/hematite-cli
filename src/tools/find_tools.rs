@@ -113,7 +113,7 @@ fn glob_match_bytes(pat: &[u8], s: &[u8]) -> bool {
         }
         (Some(b'?'), Some(_)) => glob_match_bytes(&pat[1..], &s[1..]),
         (Some(p), Some(c)) => {
-            p.to_ascii_lowercase() == c.to_ascii_lowercase() && glob_match_bytes(&pat[1..], &s[1..])
+            p.eq_ignore_ascii_case(c) && glob_match_bytes(&pat[1..], &s[1..])
         }
         _ => false,
     }

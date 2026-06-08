@@ -475,7 +475,7 @@ fn action_eval(args: &Value) -> Result<String, String> {
     let result = eval_expr(expr, &vars)?;
     let formatted = format_result(result);
 
-    let mut out = format!("calc_tools — eval\n\n");
+    let mut out = "calc_tools — eval\n\n".to_string();
     out.push_str(&format!("  Expression : {}\n", expr));
     if !vars.is_empty() {
         let var_str: Vec<String> = vars.iter().map(|(k, v)| format!("{} = {}", k, v)).collect();
@@ -605,7 +605,7 @@ fn action_rpn(args: &Value) -> Result<String, String> {
     }
 
     let result = stack[0];
-    let mut out = format!("calc_tools — rpn\n\n");
+    let mut out = "calc_tools — rpn\n\n".to_string();
     out.push_str(&format!("  Expression : {}\n", expr));
     out.push_str(&format!("  Result     : {}\n", format_result(result)));
     if !steps.is_empty() {
@@ -640,7 +640,7 @@ fn action_variables(args: &Value) -> Result<String, String> {
         };
 
     let mut vars: std::collections::HashMap<String, f64> = std::collections::HashMap::new();
-    let mut out = format!("calc_tools — variables\n\n");
+    let mut out = "calc_tools — variables\n\n".to_string();
     let mut results: Vec<(String, f64)> = Vec::new();
 
     for stmt in &statements {
@@ -694,7 +694,7 @@ fn action_sequence(args: &Value) -> Result<String, String> {
         "n"
     };
 
-    let mut out = format!("calc_tools — sequence\n\n");
+    let mut out = "calc_tools — sequence\n\n".to_string();
     out.push_str(&format!(
         "  expr = {}  ({} = {}, step = {}, count = {})\n\n",
         expr, var_name, start, step, count

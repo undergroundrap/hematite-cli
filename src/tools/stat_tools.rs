@@ -44,7 +44,7 @@ fn parse_numbers(args: &Value) -> Result<Vec<f64>, String> {
 }
 
 fn parse_delimited(s: &str) -> Result<Vec<f64>, String> {
-    s.split(|c: char| c == ',' || c == '\n' || c == ' ' || c == '\t' || c == ';')
+    s.split([',', '\n', ' ', '\t', ';'])
         .filter(|s| !s.trim().is_empty())
         .enumerate()
         .map(|(i, tok)| {
@@ -137,8 +137,7 @@ fn histogram_action(args: &Value) -> Result<String, String> {
         .get("bins")
         .and_then(|v| v.as_u64())
         .unwrap_or(10)
-        .max(2)
-        .min(50) as usize;
+        .clamp(2, 50) as usize;
     let width = args.get("width").and_then(|v| v.as_u64()).unwrap_or(40) as usize;
 
     let min = data.iter().cloned().fold(f64::INFINITY, f64::min);

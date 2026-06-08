@@ -1,4 +1,4 @@
-// ─── Pure-Rust math utilities ─────────────────────────────────────────────────
+﻿// ─── Pure-Rust math utilities ─────────────────────────────────────────────────
 // Number theory, sequences, combinatorics — no Python sandbox, instant results.
 
 // Index-based loops are standard notation for DP tables, matrix ops, and
@@ -13309,7 +13309,7 @@ pub fn stats_calc(input: &str) -> String {
 
     // Parse numbers — accept space/comma/newline separated, ignore non-numeric tokens
     let numbers: Vec<f64> = input
-        .split(|c: char| c == ',' || c == ' ' || c == '\n' || c == '\t')
+        .split([',', ' ', '\n', '\t'])
         .filter_map(|tok| {
             let t = tok.trim();
             if t.is_empty() {
@@ -14375,7 +14375,7 @@ pub fn electrical_calc(query: &str) -> String {
     // Parse key=value pairs — preserve case in original query for SI prefix detection
     let parse_kv = |key: &str| -> Option<f64> {
         let key_lower = key.to_lowercase();
-        for w in query.trim().split_whitespace() {
+        for w in query.split_whitespace() {
             let wl = w.to_lowercase();
             if wl.starts_with(&format!("{}=", key_lower)) {
                 return parse_si_value(&w[key.len() + 1..]);
@@ -14384,7 +14384,7 @@ pub fn electrical_calc(query: &str) -> String {
         None
     };
 
-    let keyword = words[0].as_ref();
+    let keyword = words[0];
 
     match keyword {
         "ohm" | "ohms" => {
@@ -14697,7 +14697,7 @@ pub fn physics_calc(query: &str) -> String {
     }
 
     let parse_kv = |key: &str| -> Option<f64> {
-        for w in query.trim().split_whitespace() {
+        for w in query.split_whitespace() {
             let wl = w.to_lowercase();
             if wl.starts_with(&format!("{}=", key.to_lowercase())) {
                 return w[key.len() + 1..].parse().ok();
@@ -15996,8 +15996,8 @@ pub fn datetime_calc(query: &str) -> String {
     }
 
     // "unix <timestamp>" — convert Unix epoch to human date
-    if q.starts_with("unix ") {
-        let rest = q[5..].trim();
+    if let Some(unix_rest) = q.strip_prefix("unix ") {
+        let rest = unix_rest.trim();
         if let Ok(ts) = rest.parse::<i64>() {
             use chrono::TimeZone;
             if let chrono::LocalResult::Single(dt) = chrono::Utc.timestamp_opt(ts, 0) {
@@ -16872,10 +16872,10 @@ pub fn trig_calc(query: &str) -> String {
     }
 
     fn parse_angle_rad(s: &str) -> Option<f64> {
-        if s.ends_with("rad") {
-            s[..s.len() - 3].parse::<f64>().ok()
-        } else if s.ends_with("deg") {
-            s[..s.len() - 3].parse::<f64>().ok().map(|d| d.to_radians())
+        if let Some(num) = s.strip_suffix("rad") {
+            num.parse::<f64>().ok()
+        } else if let Some(num) = s.strip_suffix("deg") {
+            num.parse::<f64>().ok().map(|d| d.to_radians())
         } else {
             s.parse::<f64>().ok().map(|d| d.to_radians())
         }
@@ -16898,7 +16898,7 @@ pub fn trig_calc(query: &str) -> String {
     match keyword {
         "asin" | "arcsin" => {
             if let Some(v) = parts.get(1).and_then(|s| s.parse::<f64>().ok()) {
-                if v < -1.0 || v > 1.0 {
+                if !(-1.0..=1.0).contains(&v) {
                     let _ = writeln!(out, "  Domain error: asin input must be in [-1, 1]");
                 } else {
                     let deg = v.asin().to_degrees();
@@ -16913,7 +16913,7 @@ pub fn trig_calc(query: &str) -> String {
         }
         "acos" | "arccos" => {
             if let Some(v) = parts.get(1).and_then(|s| s.parse::<f64>().ok()) {
-                if v < -1.0 || v > 1.0 {
+                if !(-1.0..=1.0).contains(&v) {
                     let _ = writeln!(out, "  Domain error: acos input must be in [-1, 1]");
                 } else {
                     let deg = v.acos().to_degrees();
@@ -18750,7 +18750,7 @@ pub fn json_calc(query: &str) -> String {
                     }
                     _ => {}
                 }
-                let _ = writeln!(out, "");
+                let _ = writeln!(out);
                 let _ = writeln!(out, "{}", fmt_json(&v, 0));
             }
             Err(_) => {
@@ -19150,12 +19150,10 @@ pub fn regex_calc(query: &str) -> String {
                     } else {
                         None
                     }
+                } else if pos == text.len() {
+                    Some(pos)
                 } else {
-                    if pos == text.len() {
-                        Some(pos)
-                    } else {
-                        None
-                    }
+                    None
                 }
             }
             Re::Group(body, gi) => {
@@ -19185,6 +19183,7 @@ pub fn regex_calc(query: &str) -> String {
         }
     }
 
+    #[allow(clippy::type_complexity)]
     fn find_all(
         nodes: &[ReNode],
         text: &[char],
@@ -19662,7 +19661,7 @@ pub fn csv_calc(query: &str) -> String {
                         data.len(),
                         show
                     );
-                    let _ = writeln!(out, "");
+                    let _ = writeln!(out);
                     let table = fmt_table(&headers, data, show);
                     for line in table.lines() {
                         let _ = writeln!(out, "  {}", line);
@@ -20147,9 +20146,7 @@ pub fn jwt_calc(query: &str) -> String {
                 }
                 '}' | ']' => {
                     result.push('\n');
-                    if indent > 0 {
-                        indent -= 1;
-                    }
+                    indent = indent.saturating_sub(1);
                     result.push_str(&"  ".repeat(indent));
                     result.push(c);
                 }
@@ -20178,14 +20175,13 @@ pub fn jwt_calc(query: &str) -> String {
         let after = &json[pos + pat.len()..];
         let colon = after.find(':')?;
         let val_start = after[colon + 1..].trim_start();
-        if val_start.starts_with('"') {
-            let inner = &val_start[1..];
+        if let Some(inner) = val_start.strip_prefix('"') {
             let end = inner.find('"')?;
             Some(inner[..end].to_string())
         } else {
             // number or keyword
             let end = val_start
-                .find(|c: char| c == ',' || c == '}' || c == ']')
+                .find([',', '}', ']'])
                 .unwrap_or(val_start.len());
             Some(val_start[..end].trim().to_string())
         }
@@ -20257,7 +20253,7 @@ pub fn jwt_calc(query: &str) -> String {
         }
 
         if mode == "all" {
-            let _ = writeln!(out, "");
+            let _ = writeln!(out);
             let _ = writeln!(out, "  Key claims:");
             let fields = [
                 ("iss", "Issuer    "),
@@ -20284,7 +20280,7 @@ pub fn jwt_calc(query: &str) -> String {
                 }
             }
             let sig_len = parts[2].len();
-            let _ = writeln!(out, "");
+            let _ = writeln!(out);
             let _ = writeln!(
                 out,
                 "  Signature  : {} chars (not verified — key required)",
@@ -20297,15 +20293,15 @@ pub fn jwt_calc(query: &str) -> String {
     // ── dispatch ─────────────────────────────────────────────────────────
     let token = if ql.starts_with("decode ") {
         let mode = "all";
-        decode_token(&q[7..].trim(), &mut out, mode);
+        decode_token(q[7..].trim(), &mut out, mode);
         let _ = writeln!(out, "{}", sep);
         return out;
     } else if ql.starts_with("claims ") {
-        decode_token(&q[7..].trim(), &mut out, "claims");
+        decode_token(q[7..].trim(), &mut out, "claims");
         let _ = writeln!(out, "{}", sep);
         return out;
     } else if ql.starts_with("header ") {
-        decode_token(&q[7..].trim(), &mut out, "header");
+        decode_token(q[7..].trim(), &mut out, "header");
         let _ = writeln!(out, "{}", sep);
         return out;
     } else {
@@ -20459,8 +20455,8 @@ pub fn url_calc(query: &str) -> String {
             if let Some(cb) = auth_no_user.find(']') {
                 host = auth_no_user[..=cb].to_string();
                 let after = &auth_no_user[cb + 1..];
-                if after.starts_with(':') {
-                    port = after[1..].to_string();
+                if let Some(port_str) = after.strip_prefix(':') {
+                    port = port_str.to_string();
                 }
             }
         } else if let Some(colon) = auth_no_user.rfind(':') {
@@ -20556,7 +20552,7 @@ pub fn url_calc(query: &str) -> String {
         let p = parse_url(url);
         show_parsed(&p, &mut out);
         if !p.query.is_empty() {
-            let _ = writeln!(out, "");
+            let _ = writeln!(out);
             show_params(&p.query, &mut out);
         }
     } else if ql.starts_with("params ") {
@@ -20607,7 +20603,7 @@ pub fn url_calc(query: &str) -> String {
             let p = parse_url(q_trim);
             show_parsed(&p, &mut out);
             if !p.query.is_empty() {
-                let _ = writeln!(out, "");
+                let _ = writeln!(out);
                 show_params(&p.query, &mut out);
             }
         } else {
@@ -20735,7 +20731,7 @@ pub fn cron_calc(query: &str) -> String {
             return format!("every {} {}(s)", rest, unit);
         }
         if s.contains(',') {
-            let parts: Vec<String> = s.split(',').map(|p| label(p)).collect();
+            let parts: Vec<String> = s.split(',').map(label).collect();
             return parts.join(", ");
         }
         if s.contains('/') {
@@ -20853,7 +20849,7 @@ pub fn cron_calc(query: &str) -> String {
             if mins.contains(&m) && hours.contains(&h) && day_match && months.contains(&mo) {
                 results.push(t.format("%Y-%m-%d %H:%M  %a").to_string());
             }
-            t = t + Duration::minutes(1);
+            t += Duration::minutes(1);
         }
         results
     }
@@ -21075,7 +21071,7 @@ pub fn ip_calc(query: &str) -> String {
             tags.push("Link-local / APIPA (169.254.0.0/16)".to_string());
         }
         // Multicast
-        else if a >= 224 && a <= 239 {
+        else if (224..=239).contains(&a) {
             tags.push("Multicast (224.0.0.0/4)".to_string());
         }
         // Reserved / broadcast
@@ -21148,7 +21144,7 @@ pub fn ip_calc(query: &str) -> String {
         let _ = writeln!(out, "  Wildcard mask: {}", fmt_ipv4(!mask));
 
         if ip != network {
-            let _ = writeln!(out, "");
+            let _ = writeln!(out);
             let _ = writeln!(out, "  Host IP : {} (within this network)", fmt_ipv4(ip));
             let tags = classify_ipv4(ip);
             for t in &tags {
@@ -21929,7 +21925,7 @@ pub fn uuid_calc(query: &str) -> String {
         let _ = writeln!(out, "  00000000-0000-0000-0000-000000000000");
         let _ = writeln!(out, "  (Nil UUID — absent/unset value sentinel)");
     } else if ql.starts_with("decode ") {
-        decode_uuid(&q[7..].trim(), &mut out);
+        decode_uuid(q[7..].trim(), &mut out);
     } else if q.len() == 36 && q.chars().filter(|&c| c == '-').count() == 4 {
         decode_uuid(q, &mut out);
     } else {
@@ -22032,7 +22028,7 @@ pub fn diff_calc(query: &str) -> String {
             let _ = writeln!(out, "  Texts are identical");
             return;
         }
-        let _ = writeln!(out, "");
+        let _ = writeln!(out);
         for line in &lines {
             let _ = writeln!(out, "{}", line);
         }
@@ -22053,7 +22049,7 @@ pub fn diff_calc(query: &str) -> String {
                     (Ok(a), Ok(b)) => {
                         let _ = writeln!(out, "  A : {}", parts[0].trim());
                         let _ = writeln!(out, "  B : {}", parts[1].trim());
-                        let _ = writeln!(out, "");
+                        let _ = writeln!(out);
                         run_diff(&a, &b, false, &mut out);
                     }
                     (Err(e), _) => {
@@ -22287,7 +22283,7 @@ pub fn semver_calc(query: &str) -> String {
             (Some(a), Some(b)) => {
                 let _ = writeln!(out, "  A : {}", a);
                 let _ = writeln!(out, "  B : {}", b);
-                let _ = writeln!(out, "");
+                let _ = writeln!(out);
                 match a.cmp(&b) {
                     std::cmp::Ordering::Equal => {
                         let _ = writeln!(out, "  A == B  (equal)");
@@ -22370,7 +22366,6 @@ pub fn semver_calc(query: &str) -> String {
         }
     } else if ql.starts_with("sort ") {
         let mut versions: Vec<SemVer> = q[5..]
-            .trim()
             .split_whitespace()
             .filter_map(SemVer::parse)
             .collect();
@@ -22760,7 +22755,7 @@ pub fn lorem_calc(query: &str) -> String {
             words_out.push(WORDS[i % WORDS.len()]);
         }
         let _ = writeln!(out, "  {}", words_out.join(" "));
-        let _ = writeln!(out, "");
+        let _ = writeln!(out);
         let _ = writeln!(out, "  ({} words)", n);
     } else if ql.starts_with("sentences ") {
         let n: usize = q[10..].trim().parse().unwrap_or(5).min(100);
@@ -22771,13 +22766,13 @@ pub fn lorem_calc(query: &str) -> String {
             let _ = writeln!(out, "  {}", make_sentence(offset, WORDS, len));
             offset += len + 3;
         }
-        let _ = writeln!(out, "");
+        let _ = writeln!(out);
         let _ = writeln!(out, "  ({} sentences)", n);
     } else {
         let n: usize = q.parse().unwrap_or(1).min(20);
         for i in 0..n {
             if i > 0 {
-                let _ = writeln!(out, "");
+                let _ = writeln!(out);
             }
             let para = make_paragraph(i, WORDS);
             // word-wrap at ~80 chars
@@ -22797,7 +22792,7 @@ pub fn lorem_calc(query: &str) -> String {
                 let _ = writeln!(out, "{}", line);
             }
         }
-        let _ = writeln!(out, "");
+        let _ = writeln!(out);
         let _ = writeln!(out, "  ({} paragraph{})", n, if n == 1 { "" } else { "s" });
     }
 
@@ -23004,7 +22999,7 @@ pub fn case_calc(query: &str) -> String {
         }
     }
 
-    let _ = writeln!(out, "");
+    let _ = writeln!(out);
     let _ = writeln!(
         out,
         "  Commands: camel, pascal, snake, kebab, screaming, title, upper, lower, dot, path, all"
@@ -23431,7 +23426,7 @@ pub fn table_calc(query: &str) -> String {
                 "markdown" => {
                     let rendered = render_markdown(&rows);
                     out.push_str(&rendered);
-                    let _ = writeln!(out, "");
+                    let _ = writeln!(out);
                     let _ = writeln!(out, "  ({} rows × {} cols)", nrows, ncols);
                 }
                 "csv_out" => {
@@ -23443,8 +23438,8 @@ pub fn table_calc(query: &str) -> String {
                 _ => {
                     let rendered = render_ascii(&rows);
                     out.push_str(&rendered);
-                    let _ = writeln!(out, "");
-                    let _ = writeln!(out, "");
+                    let _ = writeln!(out);
+                    let _ = writeln!(out);
                     let _ = writeln!(out, "  ({} rows × {} cols)", nrows, ncols);
                 }
             }
@@ -23705,7 +23700,7 @@ pub fn sql_fmt_calc(query: &str) -> String {
         let mut result = joined.clone();
         // Sort by length descending so "GROUP BY" matches before "GROUP"
         let mut clauses: Vec<&str> = newline_before.to_vec();
-        clauses.sort_by(|a, b| b.len().cmp(&a.len()));
+        clauses.sort_by_key(|s| std::cmp::Reverse(s.len()));
         for clause in &clauses {
             // Only replace if preceded by a space or start-of-string, not inside quotes
             let pattern = format!(" {} ", clause);
@@ -23867,15 +23862,15 @@ pub fn http_calc(query: &str) -> String {
         for &(code, name, desc, cat) in CODES {
             if cat != last_cat {
                 if !last_cat.is_empty() {
-                    let _ = writeln!(out, "");
+                    let _ = writeln!(out);
                 }
                 let _ = writeln!(out, "  {}:", cat);
                 last_cat = cat;
             }
             let _ = writeln!(out, "    {:3}  {:<32}  {}", code, name, desc);
         }
-    } else if ql.starts_with("list ") {
-        let filter = ql[5..].trim();
+    } else if let Some(list_rest) = ql.strip_prefix("list ") {
+        let filter = list_rest.trim();
         let prefix_digit = filter.chars().next().filter(|c| c.is_ascii_digit());
         for &(code, name, desc, cat) in CODES {
             let matches = match prefix_digit {
@@ -23892,7 +23887,7 @@ pub fn http_calc(query: &str) -> String {
                 let _ = writeln!(out, "  Code     : {}", code);
                 let _ = writeln!(out, "  Name     : {}", name);
                 let _ = writeln!(out, "  Category : {}", cat);
-                let _ = writeln!(out, "");
+                let _ = writeln!(out);
                 let _ = writeln!(out, "  {}", desc);
             }
             None => {
@@ -23913,7 +23908,7 @@ pub fn http_calc(query: &str) -> String {
             for &&(code, name, desc, _) in &matches {
                 let _ = writeln!(out, "  {:3}  {}", code, name);
                 let _ = writeln!(out, "       {}", desc);
-                let _ = writeln!(out, "");
+                let _ = writeln!(out);
             }
         }
     }
@@ -24041,11 +24036,11 @@ pub fn mime_calc(query: &str) -> String {
             let _ = writeln!(out, "  No MIME type found for '.{}'.", ext);
         } else {
             let _ = writeln!(out, "  Extension : .{}", ext);
-            let _ = writeln!(out, "");
+            let _ = writeln!(out);
             for &&(mime, _, desc) in &found {
                 let _ = writeln!(out, "  MIME      : {}", mime);
                 let _ = writeln!(out, "  Desc      : {}", desc);
-                let _ = writeln!(out, "");
+                let _ = writeln!(out);
             }
         }
     } else if ql.contains('/') {
@@ -24068,7 +24063,7 @@ pub fn mime_calc(query: &str) -> String {
                 let _ = writeln!(out, "  MIME       : {}", mime);
                 let _ = writeln!(out, "  Extensions : {}", ext_str);
                 let _ = writeln!(out, "  Desc       : {}", desc);
-                let _ = writeln!(out, "");
+                let _ = writeln!(out);
             }
         }
     } else {
@@ -24093,7 +24088,7 @@ pub fn mime_calc(query: &str) -> String {
                 };
                 let _ = writeln!(out, "  {}  —  {}", mime, desc);
                 let _ = writeln!(out, "  {}", ext_str);
-                let _ = writeln!(out, "");
+                let _ = writeln!(out);
             }
         }
     }
@@ -24326,7 +24321,6 @@ pub fn xml_calc(query: &str) -> String {
 
     fn minify_xml(xml: &str) -> String {
         let mut result = String::new();
-        let mut in_tag = false;
         let mut in_quote: Option<char> = None;
         let mut prev_ws = false;
         for c in xml.chars() {
@@ -24344,18 +24338,11 @@ pub fn xml_calc(query: &str) -> String {
                     if c == '"' || c == '\'' {
                         in_quote = Some(c);
                         result.push(c);
-                    } else if c == '<' {
-                        in_tag = true;
-                        result.push(c);
-                        prev_ws = false;
-                    } else if c == '>' {
-                        in_tag = false;
+                    } else if c == '<' || c == '>' {
                         result.push(c);
                         prev_ws = false;
                     } else if c.is_whitespace() {
-                        if !prev_ws && !in_tag {
-                            result.push(' ');
-                        } else if !prev_ws && in_tag {
+                        if !prev_ws {
                             result.push(' ');
                         }
                         prev_ws = true;
@@ -24838,10 +24825,10 @@ pub fn net_calc(query: &str) -> String {
         let _ = writeln!(out, "  First host    : {}", fmt_ip(first));
         let _ = writeln!(out, "  Last host     : {}", fmt_ip(last));
         let _ = writeln!(out, "  Usable hosts  : {hosts}");
-        let _ = writeln!(out, "");
+        let _ = writeln!(out);
         let _ = writeln!(out, "  IP (binary)   : {}", bin_ip(ip));
         let _ = writeln!(out, "  Mask (binary) : {}", bin_ip(mask));
-        let _ = writeln!(out, "");
+        let _ = writeln!(out);
         let _ = writeln!(out, "  Class         : {}", classify(ip));
     } else if ql.starts_with("contains ") {
         let rest = &q["contains ".len()..];
@@ -24925,7 +24912,7 @@ pub fn net_calc(query: &str) -> String {
         );
         let _ = writeln!(out, "  Total subnets  : {num_subnets}{more}");
         let _ = writeln!(out, "  Usable hosts   : {usable} per subnet");
-        let _ = writeln!(out, "");
+        let _ = writeln!(out);
         for i in 0..show {
             let offset = (i * subnet_size) as u32;
             let net = base_net.wrapping_add(offset);
@@ -25480,7 +25467,7 @@ pub fn kbd_calc(query: &str) -> String {
         for (name, _) in tools {
             let _ = writeln!(out, "    hematite --kbd {name}");
         }
-        let _ = writeln!(out, "");
+        let _ = writeln!(out);
         let _ = writeln!(out, "  Filter by keyword:");
         let _ = writeln!(out, "    hematite --kbd 'vim search'");
         let _ = writeln!(out, "    hematite --kbd 'git rebase'");
@@ -25490,11 +25477,11 @@ pub fn kbd_calc(query: &str) -> String {
 
         if do_filter {
             let _ = writeln!(out, "  [{tool_name}] filter: '{filter}'");
-            let _ = writeln!(out, "");
+            let _ = writeln!(out);
             let mut last_section = "";
             for (keys, desc) in shortcuts {
-                if keys.starts_with("## ") {
-                    last_section = &keys[3..];
+                if let Some(section) = keys.strip_prefix("## ") {
+                    last_section = section;
                     continue;
                 }
                 let keys_lc = keys.to_lowercase();
@@ -25510,12 +25497,12 @@ pub fn kbd_calc(query: &str) -> String {
         } else {
             let _ = writeln!(out, "  [{tool_name}]");
             for (keys, desc) in shortcuts {
-                if keys.starts_with("## ") {
-                    let _ = writeln!(out, "");
+                if let Some(section) = keys.strip_prefix("## ") {
+                    let _ = writeln!(out);
                     let _ = writeln!(
                         out,
                         "  ─── {} {}",
-                        &keys[3..],
+                        section,
                         "─".repeat(40usize.saturating_sub(keys.len()))
                     );
                 } else {
@@ -25575,7 +25562,7 @@ pub fn duration_calc(query: &str) -> String {
 
     fn ordinal_suffix(n: u32) -> &'static str {
         match n % 100 {
-            11 | 12 | 13 => "th",
+            11..=13 => "th",
             _ => match n % 10 {
                 1 => "st",
                 2 => "nd",
@@ -25872,7 +25859,7 @@ pub fn spark_calc(query: &str) -> String {
     };
 
     let nums: Vec<f64> = data_str
-        .split(|c: char| c == ',' || c == ' ' || c == '\t')
+        .split([',', ' ', '\t'])
         .filter(|s| !s.is_empty())
         .filter_map(|s| s.parse::<f64>().ok())
         .collect();
@@ -25989,7 +25976,7 @@ pub fn template_calc(query: &str) -> String {
         let vars_str = &q[idx + VAR_SEP.len()..];
 
         let mut vars: Vec<(String, String)> = Vec::new();
-        for pair in vars_str.split(|c| c == ',' || c == ';') {
+        for pair in vars_str.split([',', ';']) {
             let pair = pair.trim();
             if let Some(eq) = pair.find('=') {
                 let k = pair[..eq].trim().to_string();
@@ -26072,7 +26059,7 @@ pub fn template_calc(query: &str) -> String {
             out,
             "  Usage: hematite --template '<template> ||| key=value, key2=value2'"
         );
-        let _ = writeln!(out, "");
+        let _ = writeln!(out);
         let _ = writeln!(out, "  Examples:");
         let _ = writeln!(out, r#"    --template 'Hello {{name}}! ||| name=Alice'"#);
         let _ = writeln!(
@@ -26083,7 +26070,7 @@ pub fn template_calc(query: &str) -> String {
             out,
             r#"    --template '{{greeting}}, {{name}}! ||| greeting=Hi; name=Bob'"#
         );
-        let _ = writeln!(out, "");
+        let _ = writeln!(out);
         let _ = writeln!(out, "  Separator between template and vars: |||");
         let _ = writeln!(
             out,
@@ -26203,7 +26190,7 @@ pub fn escape_calc(query: &str) -> String {
                 let _ = writeln!(out, "    sql <text>     — escape SQL LIKE wildcards (%, _)");
                 let _ = writeln!(out, "    unescape <t>   — JSON unescape (basic)");
                 let _ = writeln!(out, "    <text>         — show all escape forms at once");
-                let _ = writeln!(out, "");
+                let _ = writeln!(out);
                 let _ = writeln!(out, r#"  Example: hematite --escape 'hello "world"'"#);
                 let _ = writeln!(out, r#"  Example: hematite --escape 'json She said "hi"'"#);
             } else {
@@ -26314,11 +26301,7 @@ pub fn port_calc(query: &str) -> String {
     let q = query.trim().to_lowercase();
 
     if q.is_empty() || q == "list" || q == "all" {
-        let _ = writeln!(
-            out,
-            "  {:>5}  {:<14}  {:<8}  {}",
-            "PORT", "SERVICE", "PROTO", "DESCRIPTION"
-        );
+        let _ = writeln!(out, "  {:>5}  {:<14}  {:<8}  DESCRIPTION", "PORT", "SERVICE", "PROTO");
         let _ = writeln!(out, "  {}", "─".repeat(56));
         for &(port, name, proto, desc) in PORTS {
             let _ = writeln!(out, "  {:>5}  {:<14}  {:<8}  {}", port, name, proto, desc);
@@ -26364,11 +26347,7 @@ pub fn port_calc(query: &str) -> String {
         let _ = writeln!(out, "  No ports found for '{query}'");
         let _ = writeln!(out, "  Try: port number, service name, or 'list' for all");
     } else {
-        let _ = writeln!(
-            out,
-            "  {:>5}  {:<14}  {:<8}  {}",
-            "PORT", "SERVICE", "PROTO", "DESCRIPTION"
-        );
+        let _ = writeln!(out, "  {:>5}  {:<14}  {:<8}  DESCRIPTION", "PORT", "SERVICE", "PROTO");
         let _ = writeln!(out, "  {}", "─".repeat(56));
         for &&(port, name, proto, desc) in &matches {
             let _ = writeln!(out, "  {:>5}  {:<14}  {:<8}  {}", port, name, proto, desc);
@@ -26398,7 +26377,7 @@ pub fn chars_calc(query: &str) -> String {
             "  Shows codepoint, name, block, category, and HTML entity"
         );
         let _ = writeln!(out, "  for every character in the input.");
-        let _ = writeln!(out, "");
+        let _ = writeln!(out);
         let _ = writeln!(out, "  Examples:");
         let _ = writeln!(out, "    hematite --chars 'Hello'");
         let _ = writeln!(
@@ -26737,7 +26716,7 @@ pub fn chars_calc(query: &str) -> String {
             0x2264 => "&le;".to_string(),
             0x2265 => "&ge;".to_string(),
             0x2665 => "&hearts;".to_string(),
-            cp if cp > 0x7E || cp < 0x20 => format!("&#{};", cp),
+            cp if !(0x20..=0x7E).contains(&cp) => format!("&#{};", cp),
             _ => {
                 let _ = c;
                 String::new()
@@ -26745,17 +26724,13 @@ pub fn chars_calc(query: &str) -> String {
         }
     }
 
-    let _ = writeln!(
-        out,
-        "  {:<6}  {:<8}  {:<10}  {:<26}  {:<10}  {}",
-        "CHAR", "U+", "BYTES", "NAME", "HTML", "BLOCK"
-    );
+    let _ = writeln!(out, "  {:<6}  {:<8}  {:<10}  {:<26}  {:<10}  BLOCK", "CHAR", "U+", "BYTES", "NAME", "HTML");
     let _ = writeln!(out, "  {}", "─".repeat(80));
 
     for c in &chars_to_inspect {
         let cp = *c as u32;
         let display = if cp < 0x20
-            || (cp >= 0x7F && cp <= 0x9F)
+            || (0x7F..=0x9F).contains(&cp)
             || cp == 0x200B
             || cp == 0x200C
             || cp == 0x200D
@@ -27013,11 +26988,7 @@ pub fn tz_calc(query: &str) -> String {
     let sep_idx = q.find(" in ").or_else(|| q.find(" to "));
     if let Some(idx) = sep_idx {
         let left = q_orig[..idx].trim();
-        let right_start = if q[idx..].starts_with(" in ") {
-            idx + 4
-        } else {
-            idx + 4
-        };
+        let right_start = idx + 4;
         let to_zone_str = q[right_start..].trim();
 
         // Parse time from left: "3pm EST", "14:30 UTC", "09:00"
@@ -27499,7 +27470,7 @@ pub fn headers_calc(query: &str) -> String {
                 let _ = writeln!(out, "  {name}");
                 let _ = writeln!(out, "    {desc}");
                 let _ = writeln!(out, "    {example}");
-                let _ = writeln!(out, "");
+                let _ = writeln!(out);
             }
         }
         let _ = writeln!(out, "  Minimal CORS response headers:");
@@ -27522,7 +27493,7 @@ pub fn headers_calc(query: &str) -> String {
                 let _ = writeln!(out, "  {name}");
                 let _ = writeln!(out, "    {desc}");
                 let _ = writeln!(out, "    {example}");
-                let _ = writeln!(out, "");
+                let _ = writeln!(out);
             }
         }
         let _ = writeln!(out, "{sep}");
@@ -27555,7 +27526,7 @@ pub fn headers_calc(query: &str) -> String {
             let _ = writeln!(out, "  {name}  [{cat}]");
             let _ = writeln!(out, "{sep}");
             let _ = writeln!(out, "  {desc}");
-            let _ = writeln!(out, "");
+            let _ = writeln!(out);
             let _ = writeln!(out, "  Example:");
             let _ = writeln!(out, "    {example}");
         }
@@ -27584,7 +27555,7 @@ pub fn headers_calc(query: &str) -> String {
             let _ = writeln!(out, "  {name}  [{cat}]");
             let _ = writeln!(out, "    {desc}");
             let _ = writeln!(out, "    {example}");
-            let _ = writeln!(out, "");
+            let _ = writeln!(out);
         }
     }
 
@@ -27928,11 +27899,11 @@ out/
         let _ = writeln!(out, "  GITIGNORE TEMPLATE GENERATOR");
         let _ = writeln!(out, "{sep}");
         let _ = writeln!(out, "  Available templates:");
-        let _ = writeln!(out, "");
+        let _ = writeln!(out);
         for &(name, aliases, _) in TEMPLATES {
             let _ = writeln!(out, "  {:<14}  aliases: {}", name, aliases.join(", "));
         }
-        let _ = writeln!(out, "");
+        let _ = writeln!(out);
         let _ = writeln!(out, "  Usage:   hematite --gitignore rust");
         let _ = writeln!(out, "  Combine: hematite --gitignore 'node macos vscode'");
         let _ = writeln!(out, "  Pipe:    hematite --gitignore rust > .gitignore");
@@ -27948,7 +27919,7 @@ out/
     for req in &requested {
         let found = TEMPLATES
             .iter()
-            .find(|&&(name, aliases, _)| name == *req || aliases.iter().any(|&a| a == *req));
+            .find(|&&(name, aliases, _)| name == *req || aliases.contains(req));
         if let Some(&(name, _, content)) = found {
             if !matched_names.contains(&name) {
                 matched_names.push(name);
@@ -28387,7 +28358,7 @@ For more information, please refer to <https://unlicense.org>",
     let q_norm = query.trim().to_lowercase().replace(['-', '_', ' '], "");
 
     if q_norm.is_empty() || q_norm == "list" || q_norm == "compare" || q_norm == "all" {
-        let _ = writeln!(out, "  {:<14}  {:<10}  {}", "LICENSE", "SPDX ID", "SUMMARY");
+        let _ = writeln!(out, "  {:<14}  {:<10}  SUMMARY", "LICENSE", "SPDX ID");
         let _ = writeln!(out, "  {}", "─".repeat(56));
         for lic in LICENSES {
             let _ = writeln!(out, "  {:<14}  {:<10}  {}", lic.name, lic.spdx, lic.summary);
@@ -28412,7 +28383,7 @@ For more information, please refer to <https://unlicense.org>",
         let _ = writeln!(out, "  {} — {}", lic.name, lic.spdx);
         let _ = writeln!(out, "{sep}");
         let _ = writeln!(out, "  {}", lic.summary);
-        let _ = writeln!(out, "");
+        let _ = writeln!(out);
         if !lic.permissions.is_empty() {
             let _ = writeln!(out, "  Permissions:");
             for p in lic.permissions {
@@ -28610,7 +28581,7 @@ pub fn json_path_calc(query: &str) -> String {
         }
     } else {
         let _ = writeln!(out, "  Usage: hematite --json-path '<path> ||| <json>'");
-        let _ = writeln!(out, "");
+        let _ = writeln!(out);
         let _ = writeln!(out, "  Path commands:");
         let _ = writeln!(out, "    .               — pretty-print root");
         let _ = writeln!(out, "    .field          — object field");
@@ -28620,7 +28591,7 @@ pub fn json_path_calc(query: &str) -> String {
         let _ = writeln!(out, "    keys            — list top-level keys");
         let _ = writeln!(out, "    type            — show type of each field");
         let _ = writeln!(out, "    length          — array/object/string length");
-        let _ = writeln!(out, "");
+        let _ = writeln!(out);
         let _ = writeln!(out, "  Also: pass bare JSON to pretty-print it.");
     }
 
@@ -29127,7 +29098,7 @@ pub fn regex_ref_calc(query: &str) -> String {
             let _ = writeln!(out, "  {name}");
             let _ = writeln!(out, "    {desc}");
             let _ = writeln!(out, "    {pattern}");
-            let _ = writeln!(out, "");
+            let _ = writeln!(out);
         }
         let _ = writeln!(out, "{sep}");
         return out;
@@ -29156,7 +29127,7 @@ pub fn regex_ref_calc(query: &str) -> String {
             );
             let _ = writeln!(out, "  Description: {desc}");
             let _ = writeln!(out, "  Regex:       {pattern}");
-            let _ = writeln!(out, "");
+            let _ = writeln!(out);
             let _ = writeln!(out, "  Quick test (grep):    grep -P '{pattern}' file.txt");
             let _ = writeln!(out, "  Quick test (ripgrep): rg '{pattern}' file.txt");
         }
@@ -29371,11 +29342,7 @@ pub fn ascii_table_calc(query: &str) -> String {
             "  Full 7-bit ASCII Table  (Dec / Hex / Oct / Char / Name)"
         );
         let _ = writeln!(out, "{sep}");
-        let _ = writeln!(
-            out,
-            "  {:>3}  {:>4}  {:>4}  {:>4}  {}",
-            "Dec", "Hex", "Oct", "Chr", "Description"
-        );
+        let _ = writeln!(out, "  {:>3}  {:>4}  {:>4}  {:>4}  Description", "Dec", "Hex", "Oct", "Chr");
         let _ = writeln!(out, "  {}", "─".repeat(55));
         for &(dec, hex, ch, desc) in ASCII {
             let _ = writeln!(
@@ -29405,11 +29372,7 @@ pub fn ascii_table_calc(query: &str) -> String {
 
     if let Some(f) = filter_fn {
         let _ = writeln!(out, "{sep}");
-        let _ = writeln!(
-            out,
-            "  {:>3}  {:>4}  {:>4}  {:>4}  {}",
-            "Dec", "Hex", "Oct", "Chr", "Description"
-        );
+        let _ = writeln!(out, "  {:>3}  {:>4}  {:>4}  {:>4}  Description", "Dec", "Hex", "Oct", "Chr");
         let _ = writeln!(out, "  {}", "─".repeat(55));
         for &(dec, hex, ch, desc) in ASCII.iter().filter(|&&(d, _, _, _)| f(d)) {
             let _ = writeln!(
@@ -29440,11 +29403,7 @@ pub fn ascii_table_calc(query: &str) -> String {
         let _ = writeln!(out, "       digits, letters, punct, all");
     } else {
         let _ = writeln!(out, "{sep}");
-        let _ = writeln!(
-            out,
-            "  {:>3}  {:>4}  {:>4}  {:>4}  {}",
-            "Dec", "Hex", "Oct", "Chr", "Description"
-        );
+        let _ = writeln!(out, "  {:>3}  {:>4}  {:>4}  {:>4}  Description", "Dec", "Hex", "Oct", "Chr");
         let _ = writeln!(out, "  {}", "─".repeat(55));
         for &&(dec, hex, ch, desc) in &found {
             let _ = writeln!(
@@ -29561,7 +29520,7 @@ pub fn ssl_calc(query: &str) -> String {
                 "-".repeat(50usize.saturating_sub(name.len() + 4))
             );
             let _ = write!(out, "{}", content_fn());
-            let _ = writeln!(out, "");
+            let _ = writeln!(out);
         }
         let _ = writeln!(out, "{sep}");
         return out;
@@ -29759,8 +29718,7 @@ pub fn id_gen_calc(query: &str) -> String {
             .nth(1)
             .and_then(|s| s.parse::<usize>().ok())
             .unwrap_or(21)
-            .max(4)
-            .min(255);
+            .clamp(4, 255);
         let id = nanoid(&rng, size);
         let _ = writeln!(out, "{sep}");
         let _ = writeln!(out, "  NanoID ({size} chars):");
@@ -30263,11 +30221,7 @@ pub fn http_status_calc(query: &str) -> String {
 
     if let Some(f) = cat_filter {
         let _ = writeln!(out, "{sep}");
-        let _ = writeln!(
-            out,
-            "  {:>3}  {:<35} {}",
-            "Code", "Short Name", "Description"
-        );
+        let _ = writeln!(out, "  {:>3}  {:<35} Description", "Code", "Short Name");
         let _ = writeln!(out, "  {}", "─".repeat(55));
         for &(code, _name, short, _note) in CODES.iter().filter(|&&(c, _, _, _)| f(c)) {
             let _ = writeln!(out, "  {code:>3}  {short}");
@@ -30298,7 +30252,7 @@ pub fn http_status_calc(query: &str) -> String {
             let _ = writeln!(out, "  {code}  {short}");
             let _ = writeln!(out, "       {name}");
             let _ = writeln!(out, "       {note}");
-            let _ = writeln!(out, "");
+            let _ = writeln!(out);
         }
         let _ = writeln!(out, "{sep}");
     }
@@ -30428,7 +30382,7 @@ pub fn git_ref_calc(query: &str) -> String {
                 "-".repeat(50usize.saturating_sub(name.len() + 4))
             );
             let _ = write!(out, "{}", f());
-            let _ = writeln!(out, "");
+            let _ = writeln!(out);
         }
         let _ = writeln!(out, "{sep}");
         return out;
@@ -30878,7 +30832,7 @@ pub fn docker_ref_calc(query: &str) -> String {
                 "-".repeat(50usize.saturating_sub(name.len() + 4))
             );
             let _ = write!(out, "{}", f());
-            let _ = writeln!(out, "");
+            let _ = writeln!(out);
         }
         let _ = writeln!(out, "{sep}");
         return out;
@@ -31036,7 +30990,7 @@ pub fn sql_ref_calc(query: &str) -> String {
                 "-".repeat(50usize.saturating_sub(name.len() + 4))
             );
             let _ = write!(out, "{}", f());
-            let _ = writeln!(out, "");
+            let _ = writeln!(out);
         }
         let _ = writeln!(out, "{sep}");
         return out;
@@ -31179,7 +31133,7 @@ pub fn vim_calc(query: &str) -> String {
                 "-".repeat(50usize.saturating_sub(name.len() + 4))
             );
             let _ = write!(out, "{}", f());
-            let _ = writeln!(out, "");
+            let _ = writeln!(out);
         }
         let _ = writeln!(out, "{sep}");
         return out;
@@ -31323,7 +31277,7 @@ pub fn curl_calc(query: &str) -> String {
                 "-".repeat(50usize.saturating_sub(name.len() + 4))
             );
             let _ = write!(out, "{}", f());
-            let _ = writeln!(out, "");
+            let _ = writeln!(out);
         }
         let _ = writeln!(out, "{sep}");
         return out;
@@ -31471,7 +31425,7 @@ pub fn jq_calc(query: &str) -> String {
                 "-".repeat(50usize.saturating_sub(name.len() + 4))
             );
             let _ = write!(out, "{}", f());
-            let _ = writeln!(out, "");
+            let _ = writeln!(out);
         }
         let _ = writeln!(out, "{sep}");
         return out;
@@ -31598,7 +31552,7 @@ pub fn grep_calc(query: &str) -> String {
                 "-".repeat(50usize.saturating_sub(name.len() + 4))
             );
             let _ = write!(out, "{}", f());
-            let _ = writeln!(out, "");
+            let _ = writeln!(out);
         }
         let _ = writeln!(out, "{sep}");
         return out;
@@ -31731,7 +31685,7 @@ pub fn sed_calc(query: &str) -> String {
                 "-".repeat(50usize.saturating_sub(name.len() + 4))
             );
             let _ = write!(out, "{}", f());
-            let _ = writeln!(out, "");
+            let _ = writeln!(out);
         }
         let _ = writeln!(out, "{sep}");
         return out;
@@ -31856,7 +31810,7 @@ pub fn awk_calc(query: &str) -> String {
                 "-".repeat(50usize.saturating_sub(name.len() + 4))
             );
             let _ = write!(out, "{}", f());
-            let _ = writeln!(out, "");
+            let _ = writeln!(out);
         }
         let _ = writeln!(out, "{sep}");
         return out;
@@ -32000,7 +31954,7 @@ pub fn ssh_ref_calc(query: &str) -> String {
                 "-".repeat(50usize.saturating_sub(name.len() + 4))
             );
             let _ = write!(out, "{}", f());
-            let _ = writeln!(out, "");
+            let _ = writeln!(out);
         }
         let _ = writeln!(out, "{sep}");
         return out;
@@ -32119,7 +32073,7 @@ pub fn tar_calc(query: &str) -> String {
                 "-".repeat(50usize.saturating_sub(name.len() + 4))
             );
             let _ = write!(out, "{}", f());
-            let _ = writeln!(out, "");
+            let _ = writeln!(out);
         }
         let _ = writeln!(out, "{sep}");
         return out;
@@ -32267,7 +32221,7 @@ pub fn find_calc(query: &str) -> String {
                 "-".repeat(50usize.saturating_sub(name.len() + 4))
             );
             let _ = write!(out, "{}", f());
-            let _ = writeln!(out, "");
+            let _ = writeln!(out);
         }
         let _ = writeln!(out, "{sep}");
         return out;
@@ -32420,7 +32374,7 @@ pub fn systemd_calc(query: &str) -> String {
                 "-".repeat(50usize.saturating_sub(name.len() + 4))
             );
             let _ = write!(out, "{}", f());
-            let _ = writeln!(out, "");
+            let _ = writeln!(out);
         }
         let _ = writeln!(out, "{sep}");
         return out;
@@ -32581,7 +32535,7 @@ pub fn make_calc(query: &str) -> String {
                 "-".repeat(50usize.saturating_sub(name.len() + 4))
             );
             let _ = write!(out, "{}", f());
-            let _ = writeln!(out, "");
+            let _ = writeln!(out);
         }
         let _ = writeln!(out, "{sep}");
         return out;
@@ -32692,7 +32646,7 @@ pub fn chmod_calc(query: &str) -> String {
                 "-".repeat(50usize.saturating_sub(name.len() + 4))
             );
             let _ = write!(out, "{}", f());
-            let _ = writeln!(out, "");
+            let _ = writeln!(out);
         }
         let _ = writeln!(out, "{sep}");
         return out;
@@ -32825,7 +32779,7 @@ pub fn openssl_calc(query: &str) -> String {
                 "-".repeat(50usize.saturating_sub(name.len() + 4))
             );
             let _ = write!(out, "{}", f());
-            let _ = writeln!(out, "");
+            let _ = writeln!(out);
         }
         let _ = writeln!(out, "{sep}");
         return out;
@@ -32957,7 +32911,7 @@ pub fn nginx_calc(query: &str) -> String {
                 "-".repeat(50usize.saturating_sub(name.len() + 4))
             );
             let _ = write!(out, "{}", f());
-            let _ = writeln!(out, "");
+            let _ = writeln!(out);
         }
         let _ = writeln!(out, "{sep}");
         return out;
@@ -33098,7 +33052,7 @@ pub fn bash_ref_calc(query: &str) -> String {
                 "-".repeat(50usize.saturating_sub(name.len() + 4))
             );
             let _ = write!(out, "{}", f());
-            let _ = writeln!(out, "");
+            let _ = writeln!(out);
         }
         let _ = writeln!(out, "{sep}");
         return out;
@@ -33265,7 +33219,7 @@ pub fn python_ref_calc(query: &str) -> String {
                 "-".repeat(50usize.saturating_sub(name.len() + 4))
             );
             let _ = write!(out, "{}", f());
-            let _ = writeln!(out, "");
+            let _ = writeln!(out);
         }
         let _ = writeln!(out, "{sep}");
         return out;
@@ -33410,7 +33364,7 @@ pub fn rust_ref_calc(query: &str) -> String {
                 "-".repeat(50usize.saturating_sub(name.len() + 4))
             );
             let _ = write!(out, "{}", f());
-            let _ = writeln!(out, "");
+            let _ = writeln!(out);
         }
         let _ = writeln!(out, "{sep}");
         return out;
@@ -33567,7 +33521,7 @@ pub fn go_ref_calc(query: &str) -> String {
                 "-".repeat(50usize.saturating_sub(name.len() + 4))
             );
             let _ = write!(out, "{}", f());
-            let _ = writeln!(out, "");
+            let _ = writeln!(out);
         }
         let _ = writeln!(out, "{sep}");
         return out;
@@ -33736,7 +33690,7 @@ pub fn js_ref_calc(query: &str) -> String {
                 "-".repeat(50usize.saturating_sub(name.len() + 4))
             );
             let _ = write!(out, "{}", f());
-            let _ = writeln!(out, "");
+            let _ = writeln!(out);
         }
         let _ = writeln!(out, "{sep}");
         return out;
@@ -33914,7 +33868,7 @@ pub fn kubectl_calc(query: &str) -> String {
                 "-".repeat(50usize.saturating_sub(name.len() + 4))
             );
             let _ = write!(out, "{}", f());
-            let _ = writeln!(out, "");
+            let _ = writeln!(out);
         }
         let _ = writeln!(out, "{sep}");
         return out;
@@ -34056,7 +34010,7 @@ pub fn tmux_calc(query: &str) -> String {
                 "-".repeat(50usize.saturating_sub(name.len() + 4))
             );
             let _ = write!(out, "{}", f());
-            let _ = writeln!(out, "");
+            let _ = writeln!(out);
         }
         let _ = writeln!(out, "{sep}");
         return out;
@@ -34199,7 +34153,7 @@ pub fn postgres_calc(query: &str) -> String {
                 "-".repeat(50usize.saturating_sub(name.len() + 4))
             );
             let _ = write!(out, "{}", f());
-            let _ = writeln!(out, "");
+            let _ = writeln!(out);
         }
         let _ = writeln!(out, "{sep}");
         return out;
@@ -34371,7 +34325,7 @@ pub fn ts_ref_calc(query: &str) -> String {
                 "-".repeat(50usize.saturating_sub(name.len() + 4))
             );
             let _ = write!(out, "{}", f());
-            let _ = writeln!(out, "");
+            let _ = writeln!(out);
         }
         let _ = writeln!(out, "{sep}");
         return out;
@@ -34525,7 +34479,7 @@ pub fn ansible_calc(query: &str) -> String {
                 "-".repeat(50usize.saturating_sub(name.len() + 4))
             );
             let _ = write!(out, "{}", f());
-            let _ = writeln!(out, "");
+            let _ = writeln!(out);
         }
         let _ = writeln!(out, "{sep}");
         return out;
@@ -34672,7 +34626,7 @@ pub fn terraform_calc(query: &str) -> String {
                 "-".repeat(50usize.saturating_sub(name.len() + 4))
             );
             let _ = write!(out, "{}", f());
-            let _ = writeln!(out, "");
+            let _ = writeln!(out);
         }
         let _ = writeln!(out, "{sep}");
         return out;
@@ -34801,7 +34755,7 @@ pub fn npm_calc(query: &str) -> String {
                 "-".repeat(50usize.saturating_sub(name.len() + 4))
             );
             let _ = write!(out, "{}", f());
-            let _ = writeln!(out, "");
+            let _ = writeln!(out);
         }
         let _ = writeln!(out, "{sep}");
         return out;
@@ -34932,7 +34886,7 @@ pub fn git_adv_calc(query: &str) -> String {
                 "-".repeat(50usize.saturating_sub(name.len() + 4))
             );
             let _ = write!(out, "{}", f());
-            let _ = writeln!(out, "");
+            let _ = writeln!(out);
         }
         let _ = writeln!(out, "{sep}");
         return out;
@@ -35073,7 +35027,7 @@ pub fn docker_adv_calc(query: &str) -> String {
                 "-".repeat(50usize.saturating_sub(name.len() + 4))
             );
             let _ = write!(out, "{}", f());
-            let _ = writeln!(out, "");
+            let _ = writeln!(out);
         }
         let _ = writeln!(out, "{sep}");
         return out;
@@ -35230,7 +35184,7 @@ pub fn systemd_adv_calc(query: &str) -> String {
                 "-".repeat(50usize.saturating_sub(name.len() + 4))
             );
             let _ = write!(out, "{}", f());
-            let _ = writeln!(out, "");
+            let _ = writeln!(out);
         }
         let _ = writeln!(out, "{sep}");
         return out;
@@ -35365,7 +35319,7 @@ pub fn makefile_calc(query: &str) -> String {
                 "-".repeat(50usize.saturating_sub(name.len() + 4))
             );
             let _ = write!(out, "{}", f());
-            let _ = writeln!(out, "");
+            let _ = writeln!(out);
         }
         let _ = writeln!(out, "{sep}");
         return out;
@@ -35500,7 +35454,7 @@ pub fn jinja_calc(query: &str) -> String {
                 "-".repeat(50usize.saturating_sub(name.len() + 4))
             );
             let _ = write!(out, "{}", f());
-            let _ = writeln!(out, "");
+            let _ = writeln!(out);
         }
         let _ = writeln!(out, "{sep}");
         return out;
@@ -35647,7 +35601,7 @@ pub fn http_adv_calc(query: &str) -> String {
                 "-".repeat(50usize.saturating_sub(name.len() + 4))
             );
             let _ = write!(out, "{}", f());
-            let _ = writeln!(out, "");
+            let _ = writeln!(out);
         }
         let _ = writeln!(out, "{sep}");
         return out;
@@ -35804,7 +35758,7 @@ pub fn linux_adv_calc(query: &str) -> String {
                 "-".repeat(50usize.saturating_sub(name.len() + 4))
             );
             let _ = write!(out, "{}", f());
-            let _ = writeln!(out, "");
+            let _ = writeln!(out);
         }
         let _ = writeln!(out, "{sep}");
         return out;
@@ -35957,7 +35911,7 @@ pub fn security_ref_calc(query: &str) -> String {
                 "-".repeat(50usize.saturating_sub(name.len() + 4))
             );
             let _ = write!(out, "{}", f());
-            let _ = writeln!(out, "");
+            let _ = writeln!(out);
         }
         let _ = writeln!(out, "{sep}");
         return out;
@@ -36092,7 +36046,7 @@ pub fn cloud_ref_calc(query: &str) -> String {
                 "-".repeat(50usize.saturating_sub(name.len() + 4))
             );
             let _ = write!(out, "{}", f());
-            let _ = writeln!(out, "");
+            let _ = writeln!(out);
         }
         let _ = writeln!(out, "{sep}");
         return out;
@@ -36248,7 +36202,7 @@ pub fn regex_adv_calc(query: &str) -> String {
                 "-".repeat(50usize.saturating_sub(name.len() + 4))
             );
             let _ = write!(out, "{}", f());
-            let _ = writeln!(out, "");
+            let _ = writeln!(out);
         }
         let _ = writeln!(out, "{sep}");
         return out;
@@ -36397,7 +36351,7 @@ pub fn sql_adv_calc(query: &str) -> String {
                 "-".repeat(50usize.saturating_sub(name.len() + 4))
             );
             let _ = write!(out, "{}", f());
-            let _ = writeln!(out, "");
+            let _ = writeln!(out);
         }
         let _ = writeln!(out, "{sep}");
         return out;
@@ -36543,7 +36497,7 @@ pub fn vim_adv_calc(query: &str) -> String {
                 "-".repeat(50usize.saturating_sub(name.len() + 4))
             );
             let _ = write!(out, "{}", f());
-            let _ = writeln!(out, "");
+            let _ = writeln!(out);
         }
         let _ = writeln!(out, "{sep}");
         return out;
@@ -36688,7 +36642,7 @@ pub fn python_data_calc(query: &str) -> String {
                 "-".repeat(50usize.saturating_sub(name.len() + 4))
             );
             let _ = write!(out, "{}", f());
-            let _ = writeln!(out, "");
+            let _ = writeln!(out);
         }
         let _ = writeln!(out, "{sep}");
         return out;
@@ -36856,7 +36810,7 @@ pub fn css_ref_calc(query: &str) -> String {
                 "-".repeat(50usize.saturating_sub(name.len() + 4))
             );
             let _ = write!(out, "{}", f());
-            let _ = writeln!(out, "");
+            let _ = writeln!(out);
         }
         let _ = writeln!(out, "{sep}");
         return out;
@@ -37007,7 +36961,7 @@ pub fn rust_adv_calc(query: &str) -> String {
                 "-".repeat(50usize.saturating_sub(name.len() + 4))
             );
             let _ = write!(out, "{}", f());
-            let _ = writeln!(out, "");
+            let _ = writeln!(out);
         }
         let _ = writeln!(out, "{sep}");
         return out;
@@ -37165,7 +37119,7 @@ pub fn algo_ref_calc(query: &str) -> String {
                 "-".repeat(50usize.saturating_sub(name.len() + 4))
             );
             let _ = write!(out, "{}", f());
-            let _ = writeln!(out, "");
+            let _ = writeln!(out);
         }
         let _ = writeln!(out, "{sep}");
         return out;
@@ -37332,7 +37286,7 @@ pub fn oop_ref_calc(query: &str) -> String {
                 "-".repeat(50usize.saturating_sub(name.len() + 4))
             );
             let _ = write!(out, "{}", f());
-            let _ = writeln!(out, "");
+            let _ = writeln!(out);
         }
         let _ = writeln!(out, "{sep}");
         return out;
@@ -37494,7 +37448,7 @@ pub fn typescript_adv_calc(query: &str) -> String {
                 "-".repeat(50usize.saturating_sub(name.len() + 4))
             );
             let _ = write!(out, "{}", f());
-            let _ = writeln!(out, "");
+            let _ = writeln!(out);
         }
         let _ = writeln!(out, "{sep}");
         return out;
@@ -37649,7 +37603,7 @@ pub fn bash_adv_calc(query: &str) -> String {
                 "-".repeat(50usize.saturating_sub(name.len() + 4))
             );
             let _ = write!(out, "{}", f());
-            let _ = writeln!(out, "");
+            let _ = writeln!(out);
         }
         let _ = writeln!(out, "{sep}");
         return out;
@@ -37803,7 +37757,7 @@ pub fn network_ref_calc(query: &str) -> String {
                 "-".repeat(50usize.saturating_sub(name.len() + 4))
             );
             let _ = write!(out, "{}", f());
-            let _ = writeln!(out, "");
+            let _ = writeln!(out);
         }
         let _ = writeln!(out, "{sep}");
         return out;
@@ -37960,7 +37914,7 @@ pub fn unicode_ref_calc(query: &str) -> String {
                 "-".repeat(50usize.saturating_sub(name.len() + 4))
             );
             let _ = write!(out, "{}", f());
-            let _ = writeln!(out, "");
+            let _ = writeln!(out);
         }
         let _ = writeln!(out, "{sep}");
         return out;

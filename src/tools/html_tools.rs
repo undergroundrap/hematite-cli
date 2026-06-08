@@ -62,6 +62,7 @@ pub async fn execute(args: &Value) -> Result<String, String> {
 // ── Tokenizer ─────────────────────────────────────────────────────────────────
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 enum HtmlToken {
     Open(String, HashMap<String, String>, bool), // tag, attrs, self-closing
     Close(String),
@@ -100,8 +101,8 @@ fn tokenize(html: &str) -> Vec<HtmlToken> {
             let end = find_tag_end(html, i);
             let inner = &html[i + 1..end.saturating_sub(1)];
             let inner = inner.trim();
-            if inner.starts_with('/') {
-                let tag = inner[1..].trim().to_lowercase();
+            if let Some(rest) = inner.strip_prefix('/') {
+                let tag = rest.trim().to_lowercase();
                 let tag = tag.split_whitespace().next().unwrap_or("").to_string();
                 tokens.push(HtmlToken::Close(tag));
             } else {
@@ -222,9 +223,7 @@ fn strip_html(html: &str) -> String {
                 skip_depth += 1;
             }
             HtmlToken::Close(ref tag) if skip_tags.contains(&tag.as_str()) => {
-                if skip_depth > 0 {
-                    skip_depth -= 1;
-                }
+                skip_depth = skip_depth.saturating_sub(1);
             }
             HtmlToken::Text(ref text) if skip_depth == 0 => {
                 buf.push_str(text);
@@ -539,6 +538,7 @@ fn action_images(html: &str) -> Result<String, String> {
 
 fn action_forms(html: &str) -> Result<String, String> {
     let tokens = tokenize(html);
+    #[allow(clippy::type_complexity)]
     let mut forms: Vec<(
         HashMap<String, String>,
         Vec<(String, HashMap<String, String>)>,

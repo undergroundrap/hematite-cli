@@ -263,19 +263,19 @@ fn pad(args: &serde_json::Value) -> Result<String, String> {
         let pad_len = width - char_count;
         match align {
             "left" => {
-                let padding: String = std::iter::repeat(fill).take(pad_len).collect();
+                let padding: String = std::iter::repeat_n(fill, pad_len).collect();
                 format!("{input}{padding}")
             }
             "center" => {
                 let left_pad = pad_len / 2;
                 let right_pad = pad_len - left_pad;
-                let lp: String = std::iter::repeat(fill).take(left_pad).collect();
-                let rp: String = std::iter::repeat(fill).take(right_pad).collect();
+                let lp: String = std::iter::repeat_n(fill, left_pad).collect();
+                let rp: String = std::iter::repeat_n(fill, right_pad).collect();
                 format!("{lp}{input}{rp}")
             }
             _ => {
                 // right (default)
-                let padding: String = std::iter::repeat(fill).take(pad_len).collect();
+                let padding: String = std::iter::repeat_n(fill, pad_len).collect();
                 format!("{padding}{input}")
             }
         }
@@ -335,8 +335,7 @@ fn repeat(args: &serde_json::Value) -> Result<String, String> {
         return Ok(format!("REPEAT\n{}\n", "─".repeat(50)));
     }
 
-    let result = std::iter::repeat(input.as_str())
-        .take(n)
+    let result = std::iter::repeat_n(input.as_str(), n)
         .collect::<Vec<_>>()
         .join(sep);
 

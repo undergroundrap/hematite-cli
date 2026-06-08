@@ -68,9 +68,9 @@ fn parse_lcov(text: &str) -> Vec<FileCov> {
 
     for line in text.lines() {
         let line = line.trim();
-        if line.starts_with("SF:") {
+        if let Some(sf) = line.strip_prefix("SF:") {
             cur = FileCov::default();
-            cur.path = line[3..].to_string();
+            cur.path = sf.to_string();
             da_map.clear();
             in_record = true;
         } else if line == "end_of_record" {

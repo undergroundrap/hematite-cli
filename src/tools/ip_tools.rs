@@ -126,7 +126,7 @@ fn info(args: &serde_json::Value) -> Result<String, String> {
 
     match ip {
         IpAddr::V4(v4) => {
-            out.push_str(&format!("Version : IPv4\n"));
+            out.push_str("Version : IPv4\n");
             out.push_str(&format!("Class   : {}\n", ipv4_class(v4)));
             out.push_str(&format!("Type    : {}\n", ipv4_type(v4)));
             out.push_str(&format!("Binary  : {}\n", ipv4_to_binary(v4)));
@@ -144,7 +144,7 @@ fn info(args: &serde_json::Value) -> Result<String, String> {
             out.push_str(&format!("IPv4-mapped IPv6 : ::ffff:{}\n", input));
         }
         IpAddr::V6(v6) => {
-            out.push_str(&format!("Version    : IPv6\n"));
+            out.push_str("Version    : IPv6\n");
             out.push_str(&format!("Expanded   : {}\n", expand_ipv6(v6)));
             out.push_str(&format!("Compressed : {v6}\n"));
             out.push_str(&format!("Loopback   : {}\n", v6.is_loopback()));

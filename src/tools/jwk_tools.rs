@@ -70,7 +70,9 @@ struct JwkInfo {
     crv: Option<String>,
     bit_size: Option<usize>,
     has_private: bool,
+    #[allow(dead_code)]
     has_symmetric: bool,
+    #[allow(dead_code)]
     raw: Value,
 }
 

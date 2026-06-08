@@ -27,8 +27,8 @@ fn get_text(args: &Value) -> Result<String, String> {
 }
 
 fn token_estimate(text: &str) -> usize {
-    let by_chars = (text.len() + 3) / 4;
-    let by_words = (text.split_whitespace().count() * 13 + 9) / 10;
+    let by_chars = text.len().div_ceil(4);
+    let by_words = (text.split_whitespace().count() * 13).div_ceil(10);
     (by_chars + by_words) / 2
 }
 
@@ -46,8 +46,8 @@ fn estimate_action(args: &Value) -> Result<String, String> {
     let chars = text.len();
     let words = text.split_whitespace().count();
     let lines = text.lines().count();
-    let by_chars = (chars + 3) / 4;
-    let by_words = (words * 13 + 9) / 10;
+    let by_chars = chars.div_ceil(4);
+    let by_words = (words * 13).div_ceil(10);
     let best = (by_chars + by_words) / 2;
 
     let mut out = format!("Token Estimate\n{}\n\n", "=".repeat(44));
@@ -121,7 +121,7 @@ fn compare_action(args: &Value) -> Result<String, String> {
         .ok_or("Missing 'b' (second text)")?;
     let ta = token_estimate(a);
     let tb = token_estimate(b);
-    let diff = if ta > tb { ta - tb } else { tb - ta };
+    let diff = ta.abs_diff(tb);
     let ratio = if tb > 0 { ta as f64 / tb as f64 } else { 0.0 };
     let mut out = format!("Token Comparison\n{}\n\n", "=".repeat(44));
     out += &format!("A: ~{} tokens  ({} chars)\n", ta, a.len());

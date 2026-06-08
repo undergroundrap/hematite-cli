@@ -2869,7 +2869,7 @@ fn sql_fmt_empty_shows_help() {
 fn parse_cdf_value(out: &str) -> f64 {
     out.lines()
         .find(|l| l.contains("CDF P") && l.contains('≤'))
-        .and_then(|l| l.split('=').last())
+        .and_then(|l| l.split('=').next_back())
         .and_then(|s| s.trim().parse::<f64>().ok())
         .unwrap_or_else(|| panic!("Could not parse CDF value from:\n{out}"))
 }

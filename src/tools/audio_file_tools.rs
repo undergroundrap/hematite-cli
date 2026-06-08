@@ -61,6 +61,7 @@ fn ru24be(b: &[u8], o: usize) -> u32 {
     }
     ((b[o] as u32) << 16) | ((b[o + 1] as u32) << 8) | (b[o + 2] as u32)
 }
+#[allow(dead_code)]
 fn ru24le(b: &[u8], o: usize) -> u32 {
     if o + 2 >= b.len() {
         return 0;
@@ -645,7 +646,7 @@ fn parse_flac(b: &[u8]) -> Option<FlacInfo> {
                     // bits 0-19 = sample_rate, bits 20-22 = channels-1, bits 23-27 = bps-1, bits 28-27+36 = total_samples
                     let sr = ((d[10] as u32) << 12) | ((d[11] as u32) << 4) | ((d[12] as u32) >> 4);
                     let channels = ((d[12] >> 1) & 7) + 1;
-                    let bps = (((d[12] & 1) as u8) << 4) | (d[13] >> 4) + 1;
+                    let bps = ((d[12] & 1) << 4) | ((d[13] >> 4) + 1);
                     let ts = (((d[13] & 0xF) as u64) << 32)
                         | ((d[14] as u64) << 24)
                         | ((d[15] as u64) << 16)

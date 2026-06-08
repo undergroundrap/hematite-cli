@@ -223,7 +223,7 @@ fn parse_exposition(text: &str) -> Vec<Family> {
                 vec![]
             };
 
-            let after = if let Some(b) = label_start {
+            let after = if let Some(_b) = label_start {
                 let c = line.find('}').unwrap_or(name_end);
                 line[c + 1..].trim()
             } else {

@@ -353,7 +353,7 @@ fn validate_action(args: &Value) -> Result<String, String> {
                 // Warn on pinned actions without hash
                 if let Some(uses) = step.get("uses").and_then(|v| v.as_str()) {
                     if uses.contains('@') {
-                        let tag = uses.split('@').last().unwrap_or("");
+                        let tag = uses.split('@').next_back().unwrap_or("");
                         if !tag.chars().all(|c| c.is_ascii_hexdigit()) && tag.len() != 40 {
                             // Not a full SHA — using a mutable tag
                             if !tag.starts_with('v') && !tag.is_empty() {

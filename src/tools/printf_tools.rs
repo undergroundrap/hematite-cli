@@ -426,7 +426,6 @@ fn action_simulate(args: &Value) -> Result<String, String> {
     let sep = "─".repeat(54);
 
     // Rebuild simulated output from scratch by walking format string
-    let mut result = String::new();
     let chars: Vec<char> = fmt.chars().collect();
     let mut out_str = String::new();
     let mut i = 0;
@@ -453,7 +452,7 @@ fn action_simulate(args: &Value) -> Result<String, String> {
         out_str.push(chars[i]);
         i += 1;
     }
-    result = out_str;
+    let result = out_str;
 
     let mut out = format!("Simulate\n{}\n", sep);
     out.push_str(&format!("Format:  \"{}\"\n", fmt));
@@ -624,7 +623,7 @@ fn action_convert(args: &Value) -> Result<String, String> {
     let sep = "─".repeat(54);
     let mut out = format!("Convert Format String\n{}\n", sep);
     out.push_str(&format!("Original (C):  \"{}\"\n\n", fmt));
-    out.push_str(&format!("Language       Format String\n"));
+    out.push_str("Language       Format String\n");
     out.push_str(&format!("{}\n", "─".repeat(54)));
     out.push_str(&format!("C/C++          \"{}\"\n", fmt));
     out.push_str(&format!("Python (%%)     \"{}\"\n", py_percent));

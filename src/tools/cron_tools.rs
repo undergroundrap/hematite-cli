@@ -419,28 +419,22 @@ fn one_line(expr: &CronExpr) -> String {
             }
         }
     }
-    if !minute_any && !hour_any && dom_any && month_any && dow_any {
-        if min_vals.len() == 1 && hr_vals.len() == 1 {
-            return format!("Runs daily at {:02}:{:02} UTC", hr_vals[0], min_vals[0]);
-        }
+    if !minute_any && !hour_any && dom_any && month_any && dow_any && min_vals.len() == 1 && hr_vals.len() == 1 {
+        return format!("Runs daily at {:02}:{:02} UTC", hr_vals[0], min_vals[0]);
     }
-    if !minute_any && !hour_any && dom_any && month_any && !dow_any {
-        if min_vals.len() == 1 && hr_vals.len() == 1 {
-            let dow_desc = describe_field(&expr.dow, "weekday", Some(DOW_NAMES), 0, 6);
-            return format!(
-                "Runs weekly on {} at {:02}:{:02} UTC",
-                dow_desc, hr_vals[0], min_vals[0]
-            );
-        }
+    if !minute_any && !hour_any && dom_any && month_any && !dow_any && min_vals.len() == 1 && hr_vals.len() == 1 {
+        let dow_desc = describe_field(&expr.dow, "weekday", Some(DOW_NAMES), 0, 6);
+        return format!(
+            "Runs weekly on {} at {:02}:{:02} UTC",
+            dow_desc, hr_vals[0], min_vals[0]
+        );
     }
-    if !minute_any && !hour_any && !dom_any && month_any && dow_any {
-        if min_vals.len() == 1 && hr_vals.len() == 1 {
-            let dom_desc = describe_field(&expr.dom, "day", None, 1, 31);
-            return format!(
-                "Runs monthly on {} at {:02}:{:02} UTC",
-                dom_desc, hr_vals[0], min_vals[0]
-            );
-        }
+    if !minute_any && !hour_any && !dom_any && month_any && dow_any && min_vals.len() == 1 && hr_vals.len() == 1 {
+        let dom_desc = describe_field(&expr.dom, "day", None, 1, 31);
+        return format!(
+            "Runs monthly on {} at {:02}:{:02} UTC",
+            dom_desc, hr_vals[0], min_vals[0]
+        );
     }
 
     // Generic fallback

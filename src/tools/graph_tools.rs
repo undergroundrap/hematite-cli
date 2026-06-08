@@ -414,7 +414,7 @@ fn action_shortest(args: &Value) -> Result<String, String> {
                 let mut cur = target.clone();
                 loop {
                     path.push(cur.clone());
-                    if &cur == start {
+                    if cur == start {
                         break;
                     }
                     match prev.get(&cur) {

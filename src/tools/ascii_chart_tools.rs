@@ -109,9 +109,8 @@ fn action_bar(input: &Value) -> Result<String, String> {
             0
         };
 
-        let bar: String = std::iter::repeat(fill_char)
-            .take(bar_len)
-            .chain(std::iter::repeat(empty_char).take(width - bar_len))
+        let bar: String = std::iter::repeat_n(fill_char, bar_len)
+            .chain(std::iter::repeat_n(empty_char, width - bar_len))
             .collect();
 
         if show_negative {
@@ -232,14 +231,14 @@ fn action_line(input: &Value) -> Result<String, String> {
         out.push_str(&format!("  {title}\n\n"));
     }
 
-    for r in 0..height {
+    for (r, row) in grid.iter().enumerate().take(height) {
         let y_val = max_val - (r as f64 / (height - 1) as f64) * range;
         let y_label = if r == 0 || r == height - 1 || r == height / 2 {
             format!("{:>width$.2}", y_val, width = y_label_width)
         } else {
             " ".repeat(y_label_width)
         };
-        let row_str: String = grid[r].iter().collect();
+        let row_str: String = row.iter().collect();
         out.push_str(&format!("{y_label} │{row_str}\n"));
     }
 
@@ -337,14 +336,14 @@ fn action_scatter(input: &Value) -> Result<String, String> {
         out.push_str(&format!("  {title}\n\n"));
     }
 
-    for r in 0..height {
+    for (r, row) in grid.iter().enumerate().take(height) {
         let y_val = y_max - (r as f64 / (height - 1) as f64) * y_range;
         let y_label = if r == 0 || r == height - 1 || r == height / 2 {
             format!("{:>width$.2}", y_val, width = y_label_width)
         } else {
             " ".repeat(y_label_width)
         };
-        let row_str: String = grid[r].iter().collect();
+        let row_str: String = row.iter().collect();
         out.push_str(&format!("{y_label} │{row_str}\n"));
     }
     out.push_str(&format!(

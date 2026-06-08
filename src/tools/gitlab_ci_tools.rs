@@ -279,7 +279,7 @@ fn action_info(doc: &Value) -> Result<String, String> {
     }
 
     // Stage usage analysis
-    out.push_str("\n");
+    out.push('\n');
 
     // List jobs by stage
     let effective_stages: Vec<String> = if declared_stages.is_empty() {
@@ -535,7 +535,6 @@ fn action_validate(doc: &Value) -> Result<String, String> {
         .collect();
 
     let mut job_count = 0;
-    let mut has_any_script = false;
 
     for (key, val) in obj {
         if !is_job(key, val) {
@@ -552,8 +551,6 @@ fn action_validate(doc: &Value) -> Result<String, String> {
         let has_trigger = val.get("trigger").is_some();
         if !has_script && !has_trigger {
             issues.push(format!("Job '{}': missing 'script' (or 'trigger')", key));
-        } else {
-            has_any_script = true;
         }
 
         // Stage must be declared
@@ -597,7 +594,7 @@ fn action_validate(doc: &Value) -> Result<String, String> {
                     .map(|s| s.to_string())
             }
         }) {
-            if img.ends_with(":latest") || (!img.contains(':') && !img.contains('/') == false) {
+            if img.ends_with(":latest") || (!img.contains(':') && img.contains('/')) {
                 // Only warn on explicit :latest
                 if img.ends_with(":latest") {
                     issues.push(format!(

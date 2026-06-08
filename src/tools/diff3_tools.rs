@@ -86,17 +86,17 @@ enum ConflictLine {
 }
 
 fn classify_line(line: &str) -> ConflictLine {
-    if line.starts_with("<<<<<<<") {
+    if let Some(label) = line.strip_prefix("<<<<<<<") {
         ConflictLine::ConflictStart {
-            label: line[7..].trim().to_string(),
+            label: label.trim().to_string(),
         }
     } else if line.starts_with("|||||||") {
         ConflictLine::ConflictBase
     } else if line == "=======" {
         ConflictLine::ConflictSep
-    } else if line.starts_with(">>>>>>>") {
+    } else if let Some(label) = line.strip_prefix(">>>>>>>") {
         ConflictLine::ConflictEnd {
-            label: line[7..].trim().to_string(),
+            label: label.trim().to_string(),
         }
     } else {
         ConflictLine::Normal(line.to_string())
@@ -571,23 +571,23 @@ fn compute_side_change(base: &[String], side: &[String]) -> SideChange {
     let mut insertions: Vec<Vec<String>> = vec![Vec::new(); base.len() + 1];
     let match_map: std::collections::HashMap<usize, usize> = matches.iter().copied().collect();
 
-    for base_idx in 0..base.len() {
+    for (base_idx, slot) in kept.iter_mut().enumerate() {
         if match_map.contains_key(&base_idx) {
-            kept[base_idx] = true;
+            *slot = true;
         }
     }
 
     let mut prev_si: Option<usize> = None;
     for &(bi, si) in &matches {
         let start = prev_si.map(|x| x + 1).unwrap_or(0);
-        for k in start..si {
-            insertions[bi].push(side[k].clone());
+        for item in &side[start..si] {
+            insertions[bi].push(item.clone());
         }
         prev_si = Some(si);
     }
 
     let side_start = prev_si.map(|x| x + 1).unwrap_or(0);
-    let insertions_end: Vec<String> = (side_start..side.len()).map(|k| side[k].clone()).collect();
+    let insertions_end: Vec<String> = side[side_start..].to_vec();
 
     SideChange {
         insertions,
@@ -656,7 +656,7 @@ fn merge3_lines(
     let mut out = String::new();
     let mut conflicts = 0usize;
 
-    for i in 0..n {
+    for (i, line) in base.iter().enumerate().take(n) {
         emit_insertions(
             &sa.insertions[i],
             &sb.insertions[i],
@@ -666,6 +666,7 @@ fn merge3_lines(
             &mut conflicts,
         );
 
+        let _ = line; // i used for indexing insertions/kept
         match (sa.kept[i], sb.kept[i]) {
             (true, true) => {
                 out.push_str(&base[i]);

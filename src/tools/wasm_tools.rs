@@ -160,7 +160,7 @@ fn parse_sections(data: &[u8]) -> Vec<Section> {
     sections
 }
 
-fn find_section<'a>(sections: &'a [Section], id: u8) -> Option<&'a Section> {
+fn find_section(sections: &[Section], id: u8) -> Option<&Section> {
     sections.iter().find(|s| s.id == id)
 }
 
@@ -654,7 +654,7 @@ fn action_imports(data: &[u8]) -> Result<String, String> {
         let sig = if imp.kind == "func" {
             imp.type_idx
                 .and_then(|i| types.get(i as usize))
-                .map(|ft| format_func_sig(ft))
+                .map(format_func_sig)
                 .unwrap_or_default()
         } else {
             String::new()
@@ -741,7 +741,7 @@ fn action_exports(data: &[u8]) -> Result<String, String> {
             let type_idx = func_types.get(local_idx).copied();
             let sig_str = type_idx
                 .and_then(|ti| types.get(ti as usize))
-                .map(|ft| format_func_sig(ft))
+                .map(format_func_sig)
                 .unwrap_or_default();
             if debug_name.is_empty() {
                 sig_str

@@ -217,11 +217,7 @@ fn analyze_statement(line: usize, stmt: &str) -> MigrationOp {
             }
         }
         ("CREATE", "INDEX") | ("CREATE", "UNIQUE") => {
-            let table = if second == "UNIQUE" {
-                extract_table_name(&words, "ON")
-            } else {
-                extract_table_name(&words, "ON")
-            };
+            let table = extract_table_name(&words, "ON");
             let concurrent = upper.contains("CONCURRENTLY");
             let mut notes = Vec::new();
             if !concurrent {
@@ -500,7 +496,7 @@ fn analyze_statement(line: usize, stmt: &str) -> MigrationOp {
             line,
         },
         ("VACUUM", _) | ("ANALYZE", _) | ("REINDEX", _) => MigrationOp {
-            statement: format!("{}", first),
+            statement: first.to_string(),
             kind: first.to_string(),
             risk: RiskLevel::Low,
             notes: vec!["Maintenance operation — may acquire brief locks".to_string()],

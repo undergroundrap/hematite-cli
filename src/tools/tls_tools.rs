@@ -356,7 +356,7 @@ fn decode_supported_groups(data: &[u8]) -> Vec<String> {
         let mut lr = Reader::new(&list_bytes);
         while lr.remaining() >= 2 {
             if let Ok(g) = lr.read_u16be() {
-                groups.push(format!("{}", named_group_name(g)));
+                groups.push(named_group_name(g).to_string());
             }
         }
     }
@@ -763,9 +763,7 @@ fn action_server_hello(data: &[u8]) -> Result<String, String> {
     ));
 
     let (cs_name, cs_grade) = cipher_suite_info(sh.cipher_suite);
-    out.push_str(&format!(
-        "\n── Chosen Cipher Suite ──────────────────────────────────\n"
-    ));
+    out.push_str("\n── Chosen Cipher Suite ──────────────────────────────────\n");
     out.push_str(&format!(
         "  0x{:04x}  {} {} [{}]\n",
         sh.cipher_suite,
@@ -794,12 +792,10 @@ fn action_server_hello(data: &[u8]) -> Result<String, String> {
 
     out.push_str("\n── Security Assessment ──────────────────────────────────\n");
     match cs_grade {
-        "STRONG" => out.push_str(&format!("  [+] Chosen cipher is STRONG (AEAD + PFS)\n")),
-        "GOOD" => out.push_str(&format!("  [~] Chosen cipher is GOOD (PFS but not AEAD)\n")),
-        "WEAK" => out.push_str(&format!(
-            "  [!] Chosen cipher is WEAK (no PFS — RSA key exchange)\n"
-        )),
-        "BROKEN" => out.push_str(&format!("  [X] Chosen cipher is BROKEN — do not use\n")),
+        "STRONG" => out.push_str("  [+] Chosen cipher is STRONG (AEAD + PFS)\n"),
+        "GOOD" => out.push_str("  [~] Chosen cipher is GOOD (PFS but not AEAD)\n"),
+        "WEAK" => out.push_str("  [!] Chosen cipher is WEAK (no PFS — RSA key exchange)\n"),
+        "BROKEN" => out.push_str("  [X] Chosen cipher is BROKEN — do not use\n"),
         _ => {}
     }
 

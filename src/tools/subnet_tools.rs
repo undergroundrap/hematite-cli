@@ -118,14 +118,18 @@ impl Cidr4 {
         }
         (1u64 << (32 - self.prefix)) - 2
     }
-    fn to_string(&self) -> String {
-        format!("{}/{}", fmt_ipv4(self.network), self.prefix)
-    }
+    #[allow(dead_code)]
     fn contains_ip(&self, ip: u32) -> bool {
         ip & self.mask() == self.network
     }
     fn contains_cidr(&self, other: &Cidr4) -> bool {
         other.network & self.mask() == self.network && other.prefix >= self.prefix
+    }
+}
+
+impl std::fmt::Display for Cidr4 {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}/{}", fmt_ipv4(self.network), self.prefix)
     }
 }
 
@@ -212,9 +216,9 @@ fn action_split(cidr_s: &str, n: u64) -> String {
     let _ = writeln!(
         out,
         "\nParent: {}  Mask: {}  Total usable: {}",
-        c.to_string(),
+        c,
         fmt_ipv4(c.mask()),
-        host_count * n as u64
+        host_count * n
     );
     out
 }
@@ -312,7 +316,7 @@ fn action_supernet(ips: &[String]) -> String {
     let mut out = format!(
         "Supernet for {} CIDRs: {}\n\n",
         cidrs.len(),
-        supernet.to_string()
+        supernet
     );
     out.push_str(&format!("  Prefix:    /{}\n", supernet.prefix));
     out.push_str(&format!("  Network:   {}\n", fmt_ipv4(supernet.network)));
@@ -386,9 +390,7 @@ fn action_aggregate(ips: &[String]) -> String {
                 if a.prefix == b.prefix && a.prefix > 0 {
                     let super_prefix = a.prefix - 1;
                     let super_mask = prefix_mask(super_prefix);
-                    if a.network & super_mask == b.network & super_mask
-                        && a.network & super_mask == a.network & super_mask
-                    {
+                    if a.network & super_mask == b.network & super_mask {
                         next.push(Cidr4 {
                             network: a.network & super_mask,
                             prefix: super_prefix,
@@ -634,16 +636,14 @@ pub async fn execute(args: &Value) -> Result<String, String> {
     let action = args
         .get("action")
         .and_then(|v| v.as_str())
-        .unwrap_or_else(|| {
-            if !start.is_empty() && !end.is_empty() {
-                "range"
-            } else if ips.len() > 1 && cidr.is_empty() {
-                "aggregate"
-            } else if !cidr.is_empty() && n > 0 {
-                "split"
-            } else {
-                "hosts"
-            }
+        .unwrap_or(if !start.is_empty() && !end.is_empty() {
+            "range"
+        } else if ips.len() > 1 && cidr.is_empty() {
+            "aggregate"
+        } else if !cidr.is_empty() && n > 0 {
+            "split"
+        } else {
+            "hosts"
         });
 
     let out = match action {

@@ -537,7 +537,7 @@ fn decode_ber_recursive(data: &[u8], depth: usize, out: &mut String, offset_base
 
         // Build tag label
         let tag_label = if tag.class == 0 {
-            format!("{}", ber_universal_name(tag.number))
+            ber_universal_name(tag.number).to_string()
         } else {
             format!(
                 "[{}] {} {}",
@@ -839,13 +839,13 @@ fn format_wifi_ie_value(id: u8, value: &[u8]) -> String {
             format!("{} Mbps", rates.join(", "))
         }
         3 => {
-            if value.len() >= 1 {
+            if !value.is_empty() {
                 return format!("Channel {}", value[0]);
             }
             hex_str(value)
         }
         41 => {
-            if value.len() >= 1 {
+            if !value.is_empty() {
                 let erp = value[0];
                 let mut flags = Vec::new();
                 if erp & 0x01 != 0 {

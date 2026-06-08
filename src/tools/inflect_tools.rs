@@ -88,7 +88,6 @@ fn irregular_plural(word: &str) -> Option<&'static str> {
         "larva" => "larvae",
         "nebula" => "nebulae",
         "vertebra" => "vertebrae",
-        "ox" => "oxen",
         "die" => "dice",
         "knife" => "knives",
         "life" => "lives",
@@ -264,7 +263,6 @@ fn irregular_verb(word: &str) -> Option<(&'static str, &'static str, &'static st
         "deal" => ("deals", "dealing", "dealt"),
         "dig" => ("digs", "digging", "dug"),
         "feed" => ("feeds", "feeding", "fed"),
-        "fight" => ("fights", "fighting", "fought"),
         "hit" => ("hits", "hitting", "hit"),
         "hurt" => ("hurts", "hurting", "hurt"),
         "kneel" => ("kneels", "kneeling", "knelt"),
@@ -276,7 +274,6 @@ fn irregular_verb(word: &str) -> Option<(&'static str, &'static str, &'static st
         "strike" => ("strikes", "striking", "struck"),
         "sweep" => ("sweeps", "sweeping", "swept"),
         "swing" => ("swings", "swinging", "swung"),
-        "take" => ("takes", "taking", "took"),
         "weep" => ("weeps", "weeping", "wept"),
         _ => return None,
     })
@@ -572,7 +569,7 @@ fn is_vowel(b: u8) -> bool {
     matches!(b, b'a' | b'e' | b'i' | b'o' | b'u')
 }
 
-fn should_double(word: &str, lower: &str) -> bool {
+fn should_double(_word: &str, lower: &str) -> bool {
     let len = lower.len();
     if len < 3 {
         return false;

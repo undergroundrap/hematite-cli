@@ -104,7 +104,7 @@ fn action_info(cfg: &Value) -> String {
         .and_then(|v| v.as_array())
         .map(|a| a.len())
         .unwrap_or(0);
-    let setup_after = obj
+    let _setup_after = obj
         .get("setupFilesAfterFramework")
         .and_then(|v| v.as_array())
         .or_else(|| {

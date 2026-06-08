@@ -48,6 +48,20 @@ struct Trie {
     word_count: usize,
 }
 
+fn collect_words(node: &TrieNode, prefix: String, words: &mut Vec<String>) {
+    if node.is_end {
+        words.push(prefix.clone());
+    }
+    let mut sorted_keys: Vec<char> = node.children.keys().cloned().collect();
+    sorted_keys.sort();
+    for ch in sorted_keys {
+        let child = &node.children[&ch];
+        let mut new_prefix = prefix.clone();
+        new_prefix.push(ch);
+        collect_words(child, new_prefix, words);
+    }
+}
+
 impl Trie {
     fn new() -> Self {
         Trie {
@@ -95,24 +109,10 @@ impl Trie {
         self.prefix_node(prefix).is_some()
     }
 
-    fn collect_words<'a>(&'a self, node: &'a TrieNode, prefix: String, words: &mut Vec<String>) {
-        if node.is_end {
-            words.push(prefix.clone());
-        }
-        let mut sorted_keys: Vec<char> = node.children.keys().cloned().collect();
-        sorted_keys.sort();
-        for ch in sorted_keys {
-            let child = &node.children[&ch];
-            let mut new_prefix = prefix.clone();
-            new_prefix.push(ch);
-            self.collect_words(child, new_prefix, words);
-        }
-    }
-
     fn autocomplete(&self, prefix: &str, limit: usize) -> Vec<String> {
         let mut words = Vec::new();
         if let Some(node) = self.prefix_node(prefix) {
-            self.collect_words(node, prefix.to_string(), &mut words);
+            collect_words(node, prefix.to_string(), &mut words);
         }
         words.truncate(limit);
         words
@@ -196,7 +196,7 @@ fn parse_words(v: &Value) -> Result<Vec<String>, String> {
             })
             .collect()
     } else if let Some(s) = v.as_str() {
-        Ok(s.split(|c: char| c == ',' || c == ' ' || c == '\n')
+        Ok(s.split([',', ' ', '\n'])
             .map(|w| w.trim().to_string())
             .filter(|w| !w.is_empty())
             .collect())
@@ -240,7 +240,7 @@ fn action_build(args: &Value) -> Result<String, String> {
     lines.push(String::new());
     lines.push(trie.render_ascii(limit.min(200)));
     lines.push(String::new());
-    lines.push(format!("(* = end of word)"));
+    lines.push("(* = end of word)".to_string());
     Ok(lines.join("\n"))
 }
 
@@ -358,7 +358,7 @@ fn action_suggest(args: &Value) -> Result<String, String> {
 
     // collect all words in trie
     let mut all_words = Vec::new();
-    trie.collect_words(&trie.root, String::new(), &mut all_words);
+    collect_words(&trie.root, String::new(), &mut all_words);
 
     // find words within edit distance 1 (deletion, substitution, insertion, transposition)
     let mut suggestions: Vec<(&str, usize)> = all_words
@@ -416,11 +416,11 @@ fn edit_distance(a: &str, b: &str) -> usize {
     let m = a.len();
     let n = b.len();
     let mut dp = vec![vec![0usize; n + 1]; m + 1];
-    for i in 0..=m {
-        dp[i][0] = i;
+    for (i, row) in dp.iter_mut().enumerate() {
+        row[0] = i;
     }
-    for j in 0..=n {
-        dp[0][j] = j;
+    for (j, cell) in dp[0].iter_mut().enumerate() {
+        *cell = j;
     }
     for i in 1..=m {
         for j in 1..=n {

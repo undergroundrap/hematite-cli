@@ -204,7 +204,7 @@ fn base85_decode(s: &str) -> Result<Vec<u8>, String> {
     let rem = s.len() % 5;
     // Pad encoded string to multiple of 5
     let pad = if rem == 0 { 0 } else { 5 - rem };
-    let padded: String = s.chars().chain(std::iter::repeat('0').take(pad)).collect();
+    let padded: String = s.chars().chain(std::iter::repeat_n('0', pad)).collect();
 
     let mut result = Vec::new();
     for chunk in padded.as_bytes().chunks(5) {

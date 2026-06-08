@@ -4,6 +4,7 @@ use std::f64::consts::PI;
 const H: f64 = 6.62607015e-34;
 const HBAR: f64 = 1.054571817e-34;
 const M_E: f64 = 9.1093837015e-31;
+#[allow(dead_code)]
 const E_CHARGE: f64 = 1.602176634e-19;
 const C: f64 = 2.99792458e8;
 const LAMBDA_C: f64 = 2.42631023867e-12; // Compton wavelength

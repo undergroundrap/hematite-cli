@@ -389,7 +389,7 @@ fn action_sizes(entries: &[Entry], root: &str, top: usize) -> String {
         } else {
             0
         };
-        let bar = "█".repeat((pct / 4).max(1).min(25));
+        let bar = "█".repeat((pct / 4).clamp(1, 25));
         out.push_str(&format!(
             "  {:>10}  {:>3}%  {bar:<25}  {rel}\n",
             human_size(e.size),

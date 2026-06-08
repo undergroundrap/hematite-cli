@@ -178,8 +178,6 @@ fn action_snowflake(args: &Value) -> Result<String, String> {
     let count = get_count(args).clamp(1, 100);
     let machine_id = args.get("machine_id").and_then(|v| v.as_u64()).unwrap_or(1) & 0x3FF;
     let ts_ms = now_ms();
-    let mut seq: u64 = 0;
-
     let mut out = String::from("id_tools — snowflake\n\n");
     out.push_str(
         "Snowflake ID (Twitter-style: 41-bit timestamp + 10-bit machine + 12-bit sequence)\n",
@@ -188,11 +186,10 @@ fn action_snowflake(args: &Value) -> Result<String, String> {
         "Epoch: 2024-01-01T00:00:00Z  |  Machine ID: {machine_id}\n\n"
     ));
 
-    for _ in 0..count {
+    for seq in 0u64..count as u64 {
         let elapsed = ts_ms.saturating_sub(SNOWFLAKE_EPOCH);
         let id: u64 = ((elapsed & 0x1FFFFFFFFFF) << 22) | (machine_id << 12) | (seq & 0xFFF);
         out.push_str(&format!("{id}\n"));
-        seq += 1;
     }
     Ok(out)
 }

@@ -246,19 +246,20 @@ fn action_stress(args: &Value) -> Result<String, String> {
                 dl * 1000.0
             ));
         }
-    } else if !eps.is_nan() && modulus.is_some() {
-        let e = modulus.unwrap();
-        let e_calc = if e < 1e6 { e * 1e9 } else { e };
-        let sigma_calc = e_calc * eps;
-        out.push_str(&format!(
-            "  Young's modulus (E) {:.2} GPa  (given)\n",
-            e_calc / 1e9
-        ));
-        out.push_str(&format!(
-            "  Stress (σ = E·ε)    {:.4e} Pa  ({:.4} MPa)\n",
-            sigma_calc,
-            sigma_calc / 1e6
-        ));
+    } else if !eps.is_nan() {
+        if let Some(e) = modulus {
+            let e_calc = if e < 1e6 { e * 1e9 } else { e };
+            let sigma_calc = e_calc * eps;
+            out.push_str(&format!(
+                "  Young's modulus (E) {:.2} GPa  (given)\n",
+                e_calc / 1e9
+            ));
+            out.push_str(&format!(
+                "  Stress (σ = E·ε)    {:.4e} Pa  ({:.4} MPa)\n",
+                sigma_calc,
+                sigma_calc / 1e6
+            ));
+        }
     }
 
     if sigma.is_nan() && eps.is_nan() {
@@ -334,7 +335,7 @@ fn action_thermal(args: &Value) -> Result<String, String> {
     if let Some(e) = e_gpa {
         let e_si = if e < 1e6 { e * 1e9 } else { e };
         let sigma = e_si * alpha * delta_t.abs();
-        out.push_str(&format!("\n  Thermal stress (fully constrained):\n"));
+        out.push_str("\n  Thermal stress (fully constrained):\n");
         out.push_str(&format!("  E = {:.2} GPa\n", e_si / 1e9));
         out.push_str(&format!(
             "  σ_thermal = E·α·|ΔT| = {:.4e} Pa  ({:.2} MPa)\n",
@@ -516,7 +517,7 @@ fn action_hardness(args: &Value) -> Result<String, String> {
         // Search Mohs table
         let mohs_match = mohs
             .iter()
-            .find(|(name, ..)| name.contains(&lower.as_str()) || lower.contains(name));
+            .find(|(name, ..)| name.contains(lower.as_str()) || lower.contains(name));
         let eng_match = engineering_hardness.iter().find(|(name, ..)| {
             name.to_lowercase().contains(&lower) || lower.contains(&name.to_lowercase())
         });
@@ -772,7 +773,14 @@ fn action_crystal(args: &Value) -> Result<String, String> {
             6.0,
             0.7405,
         ),
-        ("sc", "Simple Cubic (SC)", 0.5236, 6, 1.0, 0.5236),
+        (
+            "sc",
+            "Simple Cubic (SC)",
+            std::f64::consts::FRAC_PI_6,
+            6,
+            1.0,
+            std::f64::consts::FRAC_PI_6,
+        ),
         ("diamond", "Diamond Cubic", 0.3401, 4, 8.0, 0.3401),
     ];
 

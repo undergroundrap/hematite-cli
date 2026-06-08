@@ -293,13 +293,12 @@ fn char_utf8_bytes(c: char) -> Vec<u8> {
 fn char_utf16_bytes(c: char, be: bool) -> Vec<u8> {
     let mut units = [0u16; 2];
     let filled = c.encode_utf16(&mut units);
-    let n = filled.len();
     let mut out = Vec::new();
-    for i in 0..n {
+    for unit in filled {
         let b = if be {
-            units[i].to_be_bytes()
+            unit.to_be_bytes()
         } else {
-            units[i].to_le_bytes()
+            unit.to_le_bytes()
         };
         out.extend_from_slice(&b);
     }
@@ -611,7 +610,7 @@ fn action_encoding(text: &str) -> Result<String, String> {
     let utf16_units: usize = chars.iter().map(|c| c.len_utf16()).sum();
     let utf32_bytes = chars.len() * 4;
 
-    let mut out = format!("ENCODING SIZES\n");
+    let mut out = "ENCODING SIZES\n".to_string();
     out.push_str(&"─".repeat(60));
     out.push('\n');
     out.push_str(&format!("  Characters:      {}\n", chars.len()));
@@ -630,7 +629,7 @@ fn action_encoding(text: &str) -> Result<String, String> {
         utf32_bytes
     ));
     out.push('\n');
-    out.push_str(&format!("  BOM:\n"));
+    out.push_str("  BOM:\n");
     out.push_str("    UTF-8:    ef bb bf\n");
     out.push_str("    UTF-16 BE: fe ff\n");
     out.push_str("    UTF-16 LE: ff fe\n");
@@ -767,7 +766,7 @@ fn action_normalize(text: &str) -> Result<String, String> {
         out.push_str("  Combining marks in this text:\n");
         for (i, &c) in chars.iter().enumerate() {
             let cp = c as u32;
-            if cp >= 0x0300 && cp <= 0x036f {
+            if (0x0300..=0x036f).contains(&cp) {
                 out.push_str(&format!(
                     "    Position {:4}: U+{:04X} (combining diacritical mark)\n",
                     i + 1,

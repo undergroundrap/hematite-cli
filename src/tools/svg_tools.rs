@@ -122,8 +122,8 @@ fn next_token<'a>(src: &'a str, pos: usize) -> Option<(Token<'a>, usize)> {
         };
         let inner = inner.trim();
 
-        if inner.starts_with('/') {
-            let name = inner[1..]
+        if let Some(after_slash) = inner.strip_prefix('/') {
+            let name = after_slash
                 .split_whitespace()
                 .next()
                 .unwrap_or("")
@@ -169,14 +169,14 @@ fn get_attr<'a>(attrs: &'a str, key: &str) -> Option<&'a str> {
     let mut rest = attrs;
     while let Some(pos) = rest.find(key) {
         let after = &rest[pos + key.len()..].trim_start();
-        if after.starts_with('=') {
-            let val = after[1..].trim_start();
-            if val.starts_with('"') {
-                let end = val[1..].find('"').unwrap_or(val.len() - 1);
-                return Some(&val[1..end + 1]);
-            } else if val.starts_with('\'') {
-                let end = val[1..].find('\'').unwrap_or(val.len() - 1);
-                return Some(&val[1..end + 1]);
+        if let Some(after_eq) = after.strip_prefix('=') {
+            let val = after_eq.trim_start();
+            if let Some(val_inner) = val.strip_prefix('"') {
+                let end = val_inner.find('"').unwrap_or(val_inner.len());
+                return Some(&val_inner[..end]);
+            } else if let Some(val_inner) = val.strip_prefix('\'') {
+                let end = val_inner.find('\'').unwrap_or(val_inner.len());
+                return Some(&val_inner[..end]);
             } else {
                 let end = val
                     .find(|c: char| c.is_ascii_whitespace())
@@ -555,7 +555,7 @@ fn format_styles(text: &str) -> String {
                 }
             }
             Token::EndTag { name } => {
-                if strip_ns(name).to_ascii_lowercase() == "style" {
+                if strip_ns(name).eq_ignore_ascii_case("style") {
                     in_style = false;
                 }
             }

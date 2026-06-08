@@ -1,5 +1,4 @@
 use serde_json::Value;
-use std::path::PathBuf;
 use std::time::Duration;
 
 const MAX_OUTPUT: usize = 12 * 1024;
@@ -99,7 +98,7 @@ pub async fn execute_run_tests(args: &Value) -> Result<String, String> {
 }
 
 fn detect_runner(
-    root: &PathBuf,
+    root: &std::path::Path,
     filter: &str,
 ) -> Result<(String, Vec<String>, &'static str), String> {
     if root.join("Cargo.toml").exists() {

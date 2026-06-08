@@ -314,7 +314,7 @@ fn action_decode(data: &[u8], signed: bool) -> Result<String, String> {
         let mut idx = 2;
         while pos < data.len() && idx <= 10 {
             let result = if signed {
-                decode_sleb128(data, pos).map(|(v, n)| (v, n))
+                decode_sleb128(data, pos)
             } else {
                 decode_uleb128(data, pos).map(|(v, n)| (v as i64, n))
             };
@@ -368,7 +368,7 @@ fn action_analyze(data: &[u8], signed: bool) -> Result<String, String> {
         // Figure out where this LEB128 value ends
         let start = pos;
         let result = if signed {
-            decode_sleb128(data, start).map(|(v, n)| (v, n))
+            decode_sleb128(data, start)
         } else {
             decode_uleb128(data, start).map(|(v, n)| (v as i64, n))
         };
@@ -444,7 +444,7 @@ fn action_multi(args: &Value, signed: bool) -> Result<String, String> {
         let mut idx = 1usize;
         while pos < data.len() {
             let result = if signed {
-                decode_sleb128(&data, pos).map(|(v, n)| (v, n))
+                decode_sleb128(&data, pos)
             } else {
                 decode_uleb128(&data, pos).map(|(v, n)| (v as i64, n))
             };
@@ -556,7 +556,7 @@ fn action_explain(val: i64, signed: bool) -> Result<String, String> {
     out.push_str(&format!("  Value:   {} ({:#x})\n", val, val));
     out.push_str(&format!(
         "  Decimal binary: {:b}\n",
-        if val >= 0 { val as u64 } else { val as u64 }
+        val as u64
     ));
     out.push('\n');
     out.push_str(&format!(

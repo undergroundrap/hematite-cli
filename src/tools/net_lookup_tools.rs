@@ -196,7 +196,7 @@ fn port_action(args: &Value) -> Result<String, String> {
 
     let matches: Vec<_> = PORTS
         .iter()
-        .filter(|(p, proto, _, _)| *p == port && proto_filter.as_ref().map_or(true, |f| proto == f))
+        .filter(|(p, proto, _, _)| *p == port && proto_filter.as_ref().is_none_or(|f| proto == f))
         .collect();
 
     if matches.is_empty() {

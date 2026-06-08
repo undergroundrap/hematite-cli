@@ -3,11 +3,6 @@ use serde_json::Value;
 pub async fn execute(args: &Value) -> Result<String, String> {
     let action = if let Some(a) = args.get("action").and_then(|v| v.as_str()) {
         a.to_string()
-    } else if args.get("header").is_some()
-        || args.get("policy").is_some()
-        || args.get("csp").is_some()
-    {
-        "parse".to_string()
     } else {
         "parse".to_string()
     };
@@ -217,14 +212,7 @@ fn explain_action(args: &Value) -> Result<String, String> {
                 parts.push("hash-verified resources".to_string());
             }
             if !hosts.is_empty() {
-                parts.push(format!(
-                    "{}",
-                    hosts
-                        .iter()
-                        .map(|h| h.as_str())
-                        .collect::<Vec<_>>()
-                        .join(", ")
-                ));
+                parts.push(hosts.iter().map(|h| h.as_str()).collect::<Vec<_>>().join(", "));
             }
             if has_unsafe_inline {
                 parts.push("inline (UNSAFE)".to_string());

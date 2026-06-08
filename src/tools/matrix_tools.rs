@@ -135,10 +135,10 @@ fn lu_decompose(m: &Matrix) -> Result<(Matrix, Vec<usize>, i32), String> {
     let mut sign = 1i32;
     for k in 0..n {
         let (mut max_val, mut max_row) = (0.0f64, k);
-        for i in k..n {
-            if a[i][k].abs() > max_val {
-                max_val = a[i][k].abs();
-                max_row = i;
+        for (off, row_a) in a[k..].iter().enumerate() {
+            if row_a[k].abs() > max_val {
+                max_val = row_a[k].abs();
+                max_row = k + off;
             }
         }
         if max_val < 1e-12 {
@@ -162,11 +162,11 @@ fn lu_decompose(m: &Matrix) -> Result<(Matrix, Vec<usize>, i32), String> {
 }
 
 fn determinant(m: &Matrix) -> Result<f64, String> {
-    let n = rows(m);
+    let _n = rows(m);
     let (lu, _, sign) = lu_decompose(m)?;
     let mut det = sign as f64;
-    for i in 0..n {
-        det *= lu[i][i];
+    for (i, row) in lu.iter().enumerate() {
+        det *= row[i];
     }
     Ok(det)
 }
@@ -245,9 +245,9 @@ fn matrix_rank(m: &Matrix) -> usize {
             break;
         }
         let mut pivot = None;
-        for i in row..r {
-            if a[i][col].abs() > 1e-10 {
-                pivot = Some(i);
+        for (off, row_a) in a[row..].iter().enumerate() {
+            if row_a[col].abs() > 1e-10 {
+                pivot = Some(row + off);
                 break;
             }
         }
@@ -334,7 +334,7 @@ fn action_multiply(args: &Value) -> Result<String, String> {
     let a = parse_matrix(args.get("a").ok_or("missing 'a' field")?)?;
     let b = parse_matrix(args.get("b").ok_or("missing 'b' field")?)?;
     let c = multiply(&a, &b)?;
-    let mut out = format!(
+    let out = format!(
         "A ({}×{})\n{}\n\n× B ({}×{})\n{}\n\n= C ({}×{})\n{}",
         rows(&a),
         cols(&a),
@@ -352,7 +352,7 @@ fn action_multiply(args: &Value) -> Result<String, String> {
 fn action_transpose(args: &Value) -> Result<String, String> {
     let m = parse_matrix(args.get("matrix").ok_or("missing 'matrix' field")?)?;
     let t = transpose(&m);
-    let mut out = format!(
+    let out = format!(
         "Original ({}×{})\n{}\n\nTransposed ({}×{})\n{}",
         rows(&m),
         cols(&m),

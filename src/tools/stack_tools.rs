@@ -108,7 +108,7 @@ fn action_stack(args: &Value) -> Result<String, String> {
 
     let mut stack: Vec<String> = initial.clone();
     let mut lines = Vec::new();
-    lines.push(format!("STACK (LIFO)"));
+    lines.push("STACK (LIFO)".to_string());
     lines.push(format!("Initial: {}", fmt_stack(&stack)));
     lines.push(String::new());
 
@@ -118,7 +118,7 @@ fn action_stack(args: &Value) -> Result<String, String> {
         if op_lower.starts_with("push") {
             let val = op.trim()[4..].trim().to_string();
             if val.is_empty() {
-                lines.push(format!("  push   → ERROR: no value specified"));
+                lines.push("  push   → ERROR: no value specified".to_string());
                 continue;
             }
             stack.push(val.clone());

@@ -597,7 +597,7 @@ fn do_errors(args: &Value) -> Result<String, String> {
 // ── string extraction helpers ────────────────────────────────────────────────
 
 /// Extract the first double-quoted string from strace args, like `"/etc/passwd"`.
-fn extract_first_string<'a>(args: &'a str) -> &'a str {
+fn extract_first_string(args: &str) -> &str {
     let bytes = args.as_bytes();
     let mut i = 0;
     while i < bytes.len() {

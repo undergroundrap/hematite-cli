@@ -270,12 +270,11 @@ fn bits_per_weight(quant: &str) -> f64 {
         "q1" | "1bit" | "1" | "iq1_m" | "iq1_s" => 1.7,
         _ => {
             // try parsing a number from e.g. "q4_k" or "4.5bit"
-            if let Some(n) = q
+            if let Ok(n) = q
                 .chars()
                 .filter(|c| c.is_numeric() || *c == '.')
                 .collect::<String>()
                 .parse::<f64>()
-                .ok()
             {
                 n + 0.5
             } else {

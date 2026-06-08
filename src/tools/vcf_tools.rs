@@ -2,6 +2,8 @@ use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::fs;
 
+type VProp = (String, HashMap<String, Vec<String>>, String);
+
 pub fn vcf_tools_schema() -> Value {
     json!({
         "name": "vcf_tools",
@@ -138,7 +140,7 @@ fn parse_vcards(raw: &str) -> Result<Vec<VCard>, String> {
             in_card = false;
         } else if in_card && !line.is_empty() {
             if let Some((name_params, value)) = split_property_line(line) {
-                let (name, params) = parse_name_params(&name_params);
+                let (name, params) = parse_name_params(name_params);
                 props.push((name.to_uppercase(), params, value));
             }
         }
@@ -153,7 +155,7 @@ fn unfold_lines(raw: &str) -> String {
     for line in raw.lines() {
         if !first && (line.starts_with(' ') || line.starts_with('\t')) {
             // continuation line: drop the leading whitespace
-            out.push_str(line.trim_start_matches(|c| c == ' ' || c == '\t'));
+            out.push_str(line.trim_start_matches([' ', '\t']));
         } else {
             if !first {
                 out.push('\n');
@@ -225,7 +227,7 @@ fn extract_types(params: &HashMap<String, Vec<String>>) -> Vec<String> {
     params.get("TYPE").cloned().unwrap_or_default()
 }
 
-fn build_vcard(props: &[(String, HashMap<String, Vec<String>>, String)]) -> VCard {
+fn build_vcard(props: &[VProp]) -> VCard {
     let mut vc = VCard {
         version: String::new(),
         name: StructuredName::default(),

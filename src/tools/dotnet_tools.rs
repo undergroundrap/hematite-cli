@@ -111,7 +111,7 @@ fn attr_val<'a>(attrs: &'a str, name: &str) -> Option<&'a str> {
     let key = format!("{name}=");
     let pos = attrs.find(&key)?;
     let rest = &attrs[pos + key.len()..];
-    let (open, close) = if rest.starts_with('"') {
+    let (_open, close) = if rest.starts_with('"') {
         ('"', '"')
     } else {
         ('\'', '\'')
@@ -476,13 +476,13 @@ fn extract_simple_props(xml: &str) -> Vec<(String, String)> {
     while let Some(pos) = rest.find('<') {
         let slice = &rest[pos + 1..];
         let name_end = slice
-            .find(|c: char| c == '>' || c == ' ' || c == '/')
+            .find(['>', ' ', '/'])
             .unwrap_or(slice.len());
         let tag = &slice[..name_end];
         if !tag.is_empty()
             && !tag.starts_with('/')
             && !tag.starts_with('!')
-            && !skip.iter().any(|s| *s == tag)
+            && !skip.contains(&tag)
         {
             let close = format!("</{tag}>");
             if let Some(gt) = slice.find('>') {

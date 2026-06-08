@@ -440,10 +440,10 @@ fn audit_go(root: &Path) -> Option<String> {
 
     for line in text.lines() {
         let trimmed = line.trim();
-        if trimmed.starts_with("module ") {
-            module_name = trimmed[7..].trim().to_string();
-        } else if trimmed.starts_with("go ") {
-            go_version = trimmed[3..].trim().to_string();
+        if let Some(m) = trimmed.strip_prefix("module ") {
+            module_name = m.trim().to_string();
+        } else if let Some(g) = trimmed.strip_prefix("go ") {
+            go_version = g.trim().to_string();
         } else if trimmed == "require (" {
             in_require = true;
         } else if trimmed == ")" {

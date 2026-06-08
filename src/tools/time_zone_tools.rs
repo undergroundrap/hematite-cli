@@ -52,7 +52,7 @@ fn tz_offset_minutes(tz: &str) -> Option<i32> {
         "NT" | "NST" => -210, // Newfoundland -3:30
         "AST" | "ADT" => -240,
         "EST" => -300,
-        "EDT" | "CST" => -360,
+        "EDT" => -360,
         "CDT" | "MST" => -420,
         "MDT" | "PST" | "PSD" => -480,
         "PDT" | "AKST" => -540,
@@ -72,7 +72,7 @@ fn tz_offset_minutes(tz: &str) -> Option<i32> {
         "ECT" => -300,
         // Europe / Africa
         "CET" | "MET" | "WAT" => 60,
-        "CEST" | "BST" | "IST" | "WEST" => 60, // approximation
+        "CEST" | "BST" | "WEST" => 60, // approximation
         "EET" | "CAT" => 120,
         "EEST" | "FET" | "SAST" => 120,
         "MSK" => 180,
@@ -170,7 +170,7 @@ fn adjust_datetime(
         let min = total.rem_euclid(1440);
         (min / 60, min % 60)
     };
-    let day_delta = (total.div_euclid(1440)).min(1).max(-1);
+    let day_delta = (total.div_euclid(1440)).clamp(-1, 1);
     let (new_y, new_mo, new_d) = adjust_date(y, mo, d, day_delta);
     (new_y, new_mo, new_d, new_h as u32, new_mi as u32)
 }
@@ -275,7 +275,7 @@ fn action_convert(args: &Value) -> Result<String, String> {
     let dow_from = day_of_week(y, mo, d);
     let dow_to = day_of_week(ny, nmo, nd);
 
-    let mut out = format!("time_zone_tools — convert\n\n");
+    let mut out = "time_zone_tools — convert\n\n".to_string();
     out.push_str(&format!(
         "  From : {:04}-{:02}-{:02} {:02}:{:02}  {}  ({})\n",
         y,
@@ -332,7 +332,7 @@ fn action_offset(args: &Value) -> Result<String, String> {
         )
     })?;
 
-    let mut out = format!("time_zone_tools — offset\n\n");
+    let mut out = "time_zone_tools — offset\n\n".to_string();
     out.push_str(&format!("  Timezone : {}\n", tz));
     out.push_str(&format!("  Offset   : {}\n", format_offset(offset)));
     out.push_str(&format!("  Minutes  : {:+}\n", offset));
@@ -403,7 +403,7 @@ fn action_list(args: &Value) -> Result<String, String> {
         ("NZDT", 780, "New Zealand Daylight"),
     ];
 
-    let mut out = format!("time_zone_tools — list\n\n");
+    let mut out = "time_zone_tools — list\n\n".to_string();
     out.push_str(&format!(
         "  {:<12}  {:>8}  {}\n",
         "Abbrev", "UTC", "Description"
@@ -425,9 +425,7 @@ fn action_list(args: &Value) -> Result<String, String> {
         ));
     }
 
-    out.push_str(&format!(
-        "\n  Use 'offset' action to look up a specific timezone.\n"
-    ));
+    out.push_str("\n  Use 'offset' action to look up a specific timezone.\n");
     Ok(out)
 }
 
@@ -522,7 +520,7 @@ fn action_world_clock(args: &Value) -> Result<String, String> {
                 .collect()
         });
 
-    let mut out = format!("time_zone_tools — world clock\n\n");
+    let mut out = "time_zone_tools — world clock\n\n".to_string();
     out.push_str(&format!(
         "  UTC : {:04}-{:02}-{:02} {:02}:{:02}\n\n",
         y, mo, d, h, mi

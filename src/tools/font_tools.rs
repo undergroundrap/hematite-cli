@@ -178,6 +178,7 @@ fn largest_power_of_2_leq(n: u32) -> u32 {
 }
 
 #[derive(Clone, Debug)]
+#[allow(dead_code)]
 struct TableEntry {
     tag: [u8; 4],
     checksum: u32,
@@ -220,6 +221,7 @@ fn table_data<'a>(data: &'a [u8], tables: &[TableEntry], tag: &[u8; 4]) -> Optio
     None
 }
 
+#[allow(dead_code)]
 fn read_u8(data: &[u8], off: usize) -> u8 {
     data.get(off).copied().unwrap_or(0)
 }
@@ -238,6 +240,7 @@ fn read_u32(data: &[u8], off: usize) -> u32 {
     u32::from_be_bytes([data[off], data[off + 1], data[off + 2], data[off + 3]])
 }
 
+#[allow(dead_code)]
 fn read_i16(data: &[u8], off: usize) -> i16 {
     i16::from_be_bytes([
         data.get(off).copied().unwrap_or(0),
@@ -275,6 +278,7 @@ fn name_id_label(id: u16) -> &'static str {
     }
 }
 
+#[allow(dead_code)]
 struct NameRecord {
     platform: u16,
     encoding: u16,
@@ -329,7 +333,7 @@ fn decode_name_string(platform: u16, encoding: u16, raw: &[u8]) -> String {
             .chunks(2)
             .map(|c| {
                 u16::from_be_bytes([
-                    c.get(0).copied().unwrap_or(0),
+                    c.first().copied().unwrap_or(0),
                     c.get(1).copied().unwrap_or(0),
                 ])
             })
@@ -342,7 +346,7 @@ fn decode_name_string(platform: u16, encoding: u16, raw: &[u8]) -> String {
         return raw
             .iter()
             .map(|&b| {
-                if b >= 0x20 && b < 0x80 {
+                if (0x20..0x80).contains(&b) {
                     b as char
                 } else {
                     '?'
@@ -718,7 +722,7 @@ fn format_names(data: &[u8], tables: &[TableEntry]) -> String {
     out
 }
 
-fn format_tables(data: &[u8], tables: &[TableEntry], sfnt_version: u32) -> String {
+fn format_tables(_data: &[u8], tables: &[TableEntry], sfnt_version: u32) -> String {
     let flavor = match sfnt_version {
         0x00010000 => "TrueType",
         0x4F54544F => "OpenType/CFF",

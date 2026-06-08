@@ -51,6 +51,7 @@ fn read_varint(data: &[u8], pos: &mut usize) -> Option<u64> {
     }
 }
 
+#[allow(dead_code)]
 fn varint_len(data: &[u8], start: usize) -> usize {
     let mut i = start;
     while i < data.len() {

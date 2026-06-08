@@ -68,6 +68,7 @@ fn tag_first(xml: &str, tag: &str) -> Option<String> {
     Some(xml[content_start..content_start + end].trim().to_string())
 }
 
+#[allow(dead_code)]
 fn tag_first_attr(xml: &str, tag: &str) -> Option<String> {
     // finds first occurrence of <tag or <tag with attrs
     let pat = format!("<{}", tag);
@@ -77,6 +78,7 @@ fn tag_first_attr(xml: &str, tag: &str) -> Option<String> {
     Some(slice.to_string())
 }
 
+#[allow(dead_code)]
 fn attr_val<'a>(tag_text: &'a str, attr: &str) -> Option<&'a str> {
     let pat = format!("{}=\"", attr);
     let start = tag_text.find(&pat)?;
@@ -112,6 +114,7 @@ struct Dependency {
     classifier: String,
 }
 
+#[allow(dead_code)]
 struct Plugin {
     group_id: String,
     artifact_id: String,
@@ -658,7 +661,7 @@ fn do_properties(xml: &str) -> Result<String, String> {
         if let Some(tag_end) = rest.find('>') {
             let tag_name = rest[..tag_end].trim();
             // skip tags with attributes (e.g. <foo bar="baz">)
-            let bare_tag = if let Some(sp) = tag_name.find(|c: char| c == ' ' || c == '\t') {
+            let bare_tag = if let Some(sp) = tag_name.find([' ', '\t']) {
                 &tag_name[..sp]
             } else {
                 tag_name

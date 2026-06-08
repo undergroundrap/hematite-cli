@@ -1,6 +1,6 @@
 use serde_json::Value;
 use std::collections::{BTreeMap, BTreeSet};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 pub async fn execute(args: &Value) -> Result<String, String> {
     let root = if let Some(r) = args.get("_root").and_then(|v| v.as_str()) {
@@ -72,7 +72,7 @@ fn get_process_env() -> BTreeMap<String, String> {
     std::env::vars().collect()
 }
 
-fn diff_two_files(a: &str, b: &str, root: &PathBuf) -> Result<String, String> {
+fn diff_two_files(a: &str, b: &str, root: &Path) -> Result<String, String> {
     let path_a = if std::path::Path::new(a).is_absolute() {
         PathBuf::from(a)
     } else {
@@ -96,7 +96,7 @@ fn diff_two_files(a: &str, b: &str, root: &PathBuf) -> Result<String, String> {
     )
 }
 
-fn diff_file_vs_process(file: &str, root: &PathBuf) -> Result<String, String> {
+fn diff_file_vs_process(file: &str, root: &Path) -> Result<String, String> {
     let path = if std::path::Path::new(file).is_absolute() {
         PathBuf::from(file)
     } else {
@@ -115,7 +115,7 @@ fn diff_file_vs_process(file: &str, root: &PathBuf) -> Result<String, String> {
 
     render_diff(
         &format!("{file} ({} keys)", file_env.len()),
-        &format!("process env (filtered to file keys)"),
+        "process env (filtered to file keys)",
         &file_env,
         &filtered_proc,
         true,

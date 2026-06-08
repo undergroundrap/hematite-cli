@@ -329,7 +329,9 @@ fn action_toc(args: &Value) -> Result<String, String> {
             counters.pop();
         }
         if counters.last().map(|(l, _)| *l).unwrap_or(0) == level {
-            counters.last_mut().map(|(_, c)| *c += 1);
+            if let Some((_, c)) = counters.last_mut() {
+                *c += 1;
+            }
         } else {
             counters.push((level, 1));
         }

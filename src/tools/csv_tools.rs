@@ -207,7 +207,7 @@ fn stats(args: &Value) -> Result<String, String> {
             };
             let variance = nums.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / nums.len() as f64;
             let stddev = variance.sqrt();
-            out.push_str(&format!("  type: numeric\n"));
+            out.push_str("  type: numeric\n");
             out.push_str(&format!("  min: {min}  max: {max}\n"));
             out.push_str(&format!(
                 "  mean: {mean:.4}  median: {median:.4}  stddev: {stddev:.4}\n"
@@ -518,7 +518,7 @@ fn render_table(headers: &[String], rows: &[Vec<String>], limit: usize) -> Strin
     let mut out = String::new();
 
     // Header
-    out.push_str("┼");
+    out.push('┼');
     for (i, h) in headers.iter().enumerate() {
         let w = widths.get(i).copied().unwrap_or(10);
         out.push_str(&format!(" {:w$} ┼", truncate(h, w)));
@@ -529,7 +529,7 @@ fn render_table(headers: &[String], rows: &[Vec<String>], limit: usize) -> Strin
 
     // Rows
     for row in rows.iter().take(limit) {
-        out.push_str("┼");
+        out.push('┼');
         for (i, _) in headers.iter().enumerate() {
             let w = widths.get(i).copied().unwrap_or(10);
             let cell = row.get(i).map(|s| s.as_str()).unwrap_or("");

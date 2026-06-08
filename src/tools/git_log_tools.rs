@@ -39,6 +39,7 @@ struct Commit {
 /// 1. Pipe-delimited: `%H|%an|%ae|%ai|%s` (most useful)
 /// 2. Oneline: `<hash> <subject>`
 /// 3. Traditional: `commit <hash>\nAuthor: ...\nDate: ...\n\n    <subject>`
+///
 /// Also absorbs `--stat` summary lines that follow a commit.
 fn parse_log(text: &str) -> Vec<Commit> {
     let lines: Vec<&str> = text.lines().collect();
@@ -133,8 +134,7 @@ fn parse_log(text: &str) -> Vec<Commit> {
                 });
                 in_message = false;
             } else if let Some(ref mut c) = current {
-                if trimmed.starts_with("Author: ") {
-                    let author = &trimmed[8..];
+                if let Some(author) = trimmed.strip_prefix("Author: ") {
                     // "Name <email>"
                     if let Some(lt) = author.rfind('<') {
                         c.author_name = author[..lt].trim().to_string();
@@ -142,8 +142,8 @@ fn parse_log(text: &str) -> Vec<Commit> {
                     } else {
                         c.author_name = author.to_string();
                     }
-                } else if trimmed.starts_with("Date:") {
-                    c.date_iso = trimmed[5..].trim().to_string();
+                } else if let Some(date) = trimmed.strip_prefix("Date:") {
+                    c.date_iso = date.trim().to_string();
                 } else if trimmed.is_empty() {
                     in_message = !in_message;
                 } else if in_message && c.subject.is_empty() {
@@ -359,8 +359,7 @@ fn action_frequency(commits: &[Commit]) -> String {
     out.push_str("\nHour of Day (UTC)\n");
     out.push_str(&"─".repeat(50));
     out.push('\n');
-    for h in 0..24usize {
-        let n = hour_counts[h];
+    for (h, &n) in hour_counts.iter().enumerate() {
         if n == 0 {
             continue;
         }

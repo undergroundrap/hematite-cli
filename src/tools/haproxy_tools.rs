@@ -346,7 +346,7 @@ fn parse_server_line(line: &str) -> (String, String, String) {
         .splitn(3, char::is_whitespace)
         .filter(|s| !s.is_empty())
         .collect();
-    let name = parts.get(0).unwrap_or(&"").to_string();
+    let name = parts.first().unwrap_or(&"").to_string();
     let addr = parts.get(1).unwrap_or(&"").to_string();
     let opts = parts.get(2).unwrap_or(&"").to_string();
     (name, addr, opts)

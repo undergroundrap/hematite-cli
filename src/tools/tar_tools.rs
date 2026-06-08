@@ -91,7 +91,7 @@ fn parse_tar(data: &[u8]) -> Result<Vec<TarEntry>, String> {
                 let end = raw.iter().position(|&b| b == 0).unwrap_or(raw.len());
                 pending_long_name = Some(String::from_utf8_lossy(&raw[..end]).to_string());
             }
-            let blocks = (sz as u64 + 511) / 512;
+            let blocks = (sz as u64).div_ceil(512);
             pos += blocks as usize * 512;
             continue;
         }
@@ -114,7 +114,7 @@ fn parse_tar(data: &[u8]) -> Result<Vec<TarEntry>, String> {
 
         pos += 512;
         let data_start = pos;
-        let blocks = (size + 511) / 512;
+        let blocks = size.div_ceil(512);
         pos += blocks as usize * 512;
 
         if !name.is_empty() {
@@ -131,7 +131,7 @@ fn parse_tar(data: &[u8]) -> Result<Vec<TarEntry>, String> {
         }
     }
 
-    if entries.is_empty() && data.len() > 0 {
+    if entries.is_empty() && !data.is_empty() {
         return Err("tar_tools: no entries found — is this a valid uncompressed .tar file?".into());
     }
 

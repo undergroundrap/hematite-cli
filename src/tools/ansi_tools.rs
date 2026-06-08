@@ -16,7 +16,7 @@ pub async fn execute(args: &serde_json::Value) -> Result<String, String> {
 
 // ── Input helper ──────────────────────────────────────────────────────────────
 
-fn get_text<'a>(args: &'a serde_json::Value) -> Result<&'a str, String> {
+fn get_text(args: &serde_json::Value) -> Result<&str, String> {
     args.get("text")
         .or_else(|| args.get("input"))
         .and_then(|v| v.as_str())
@@ -297,41 +297,36 @@ fn parse_action(args: &serde_json::Value) -> Result<String, String> {
                     chars.next();
                     pos += 1;
                     let mut params = String::new();
-                    loop {
-                        match chars.next() {
-                            Some(c) => {
-                                pos += c.len_utf8();
-                                seq.push(c);
-                                if c.is_ascii_alphabetic() {
-                                    // Decode CSI
-                                    let desc = if c == 'm' {
-                                        // SGR
-                                        let codes: Vec<&str> = if params.is_empty() {
-                                            vec!["0"]
-                                        } else {
-                                            params.split(';').collect()
-                                        };
-                                        let names: Vec<&str> =
-                                            codes.iter().map(|p| sgr_name(p.trim())).collect();
-                                        format!("SGR: {}", names.join(", "))
-                                    } else {
-                                        format!(
-                                            "CSI {c} (params: {})",
-                                            if params.is_empty() { "none" } else { &params }
-                                        )
-                                    };
-                                    sequences.push(format!(
-                                        "  pos {:5} │ {:30} │ {}",
-                                        start_pos,
-                                        seq.replace('\x1b', "ESC"),
-                                        desc
-                                    ));
-                                    break;
-                                }
-                                params.push(c);
-                            }
-                            None => break,
+                    for c in chars.by_ref() {
+                        pos += c.len_utf8();
+                        seq.push(c);
+                        if c.is_ascii_alphabetic() {
+                            // Decode CSI
+                            let desc = if c == 'm' {
+                                // SGR
+                                let codes: Vec<&str> = if params.is_empty() {
+                                    vec!["0"]
+                                } else {
+                                    params.split(';').collect()
+                                };
+                                let names: Vec<&str> =
+                                    codes.iter().map(|p| sgr_name(p.trim())).collect();
+                                format!("SGR: {}", names.join(", "))
+                            } else {
+                                format!(
+                                    "CSI {c} (params: {})",
+                                    if params.is_empty() { "none" } else { &params }
+                                )
+                            };
+                            sequences.push(format!(
+                                "  pos {:5} │ {:30} │ {}",
+                                start_pos,
+                                seq.replace('\x1b', "ESC"),
+                                desc
+                            ));
+                            break;
                         }
+                        params.push(c);
                     }
                 }
                 Some(c) => {

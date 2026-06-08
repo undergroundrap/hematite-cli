@@ -30,6 +30,7 @@ const FAT_CIGAM: u32 = 0xBEBA_FECA; // fat BE
 
 // ── byte readers ──────────────────────────────────────────────────────────────
 
+#[allow(dead_code)]
 fn r16le(d: &[u8], o: usize) -> Option<u16> {
     d.get(o..o + 2).map(|b| u16::from_le_bytes([b[0], b[1]]))
 }
@@ -180,6 +181,7 @@ fn fmt_src_ver(v: u64) -> String {
 
 // ── Mach-O header ─────────────────────────────────────────────────────────────
 
+#[allow(dead_code)]
 struct MachHdr {
     is_be: bool,
     is_64: bool,

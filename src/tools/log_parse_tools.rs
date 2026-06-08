@@ -3,8 +3,6 @@ use serde_json::{Map, Value};
 pub async fn execute(args: &Value) -> Result<String, String> {
     let action = if let Some(a) = args.get("action").and_then(|v| v.as_str()) {
         a.to_string()
-    } else if args.get("format").is_some() {
-        "parse".to_string()
     } else {
         "parse".to_string()
     };
@@ -31,6 +29,7 @@ fn get_input(args: &Value) -> Result<String, String> {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+#[allow(dead_code)]
 enum LogFormat {
     JsonLines,
     KeyValue,
@@ -124,12 +123,12 @@ fn parse_kv_line(line: &str) -> Vec<(String, String)> {
         if let Some(eq_pos) = remaining.find('=') {
             let key = remaining[..eq_pos]
                 .trim()
-                .trim_end_matches(|c: char| c == ' ');
+                .trim_end_matches(' ');
             // handle key with spaces (take last word before =)
             let key = key.split_whitespace().last().unwrap_or(key);
             remaining = &remaining[eq_pos + 1..];
-            let (val, rest) = if remaining.starts_with('"') {
-                parse_quoted_value(&remaining[1..])
+            let (val, rest) = if let Some(after_quote) = remaining.strip_prefix('"') {
+                parse_quoted_value(after_quote)
             } else {
                 let end = remaining.find(' ').unwrap_or(remaining.len());
                 (&remaining[..end], &remaining[end..])
@@ -178,11 +177,11 @@ fn parse_apache_line(line: &str) -> Vec<(String, String)> {
             fields.push(("time".to_string(), line[d_start + 1..d_end].to_string()));
             let after_date = &line[d_end + 1..].trim_start();
             // extract "METHOD path PROTO"
-            if after_date.starts_with('"') {
-                let (req, rest) = parse_quoted_value(&after_date[1..]);
+            if let Some(after_date_quote) = after_date.strip_prefix('"') {
+                let (req, rest) = parse_quoted_value(after_date_quote);
                 {
                     let req_parts: Vec<&str> = req.splitn(3, ' ').collect();
-                    if req_parts.len() >= 1 {
+                    if !req_parts.is_empty() {
                         fields.push(("method".to_string(), req_parts[0].to_string()));
                     }
                     if req_parts.len() >= 2 {
@@ -378,13 +377,7 @@ fn filter_action(args: &Value) -> Result<String, String> {
     let mut matched: Vec<&str> = Vec::new();
     for line in &lines {
         let fields: Vec<(String, String)> = match &detected {
-            LogFormat::JsonLines => {
-                if let Some(f) = parse_json_line(line) {
-                    f
-                } else {
-                    vec![]
-                }
-            }
+            LogFormat::JsonLines => parse_json_line(line).unwrap_or_default(),
             LogFormat::KeyValue => parse_kv_line(line),
             LogFormat::ApacheCommon | LogFormat::ApacheCombined | LogFormat::Nginx => {
                 parse_apache_line(line)
@@ -434,7 +427,7 @@ fn stats_action(args: &Value) -> Result<String, String> {
         .and_then(|v| v.as_str());
 
     // Determine the field to aggregate
-    let agg_field = field.unwrap_or_else(|| match &detected {
+    let agg_field = field.unwrap_or(match &detected {
         LogFormat::ApacheCommon | LogFormat::ApacheCombined | LogFormat::Nginx => "status",
         LogFormat::Syslog => "process",
         _ => "level",
@@ -444,13 +437,7 @@ fn stats_action(args: &Value) -> Result<String, String> {
     let mut total = 0usize;
     for line in &lines {
         let fields: Vec<(String, String)> = match &detected {
-            LogFormat::JsonLines => {
-                if let Some(f) = parse_json_line(line) {
-                    f
-                } else {
-                    vec![]
-                }
-            }
+            LogFormat::JsonLines => parse_json_line(line).unwrap_or_default(),
             LogFormat::KeyValue => parse_kv_line(line),
             LogFormat::ApacheCommon | LogFormat::ApacheCombined | LogFormat::Nginx => {
                 parse_apache_line(line)

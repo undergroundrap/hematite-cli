@@ -1,4 +1,4 @@
-use serde_json::{json, Value};
+﻿use serde_json::{json, Value};
 
 pub fn logic_tools_schema() -> Value {
     json!({
@@ -501,10 +501,9 @@ fn action_evaluate(expr_str: &str, vars_val: &Value) -> Result<String, String> {
         for (k, v) in obj {
             let val = match v {
                 Value::Bool(b) => *b,
-                Value::String(s) => match s.to_lowercase().as_str() {
-                    "true" | "t" | "1" | "yes" => true,
-                    _ => false,
-                },
+                Value::String(s) => {
+                    matches!(s.to_lowercase().as_str(), "true" | "t" | "1" | "yes")
+                }
                 Value::Number(n) => n.as_f64().unwrap_or(0.0) != 0.0,
                 _ => false,
             };
@@ -533,7 +532,7 @@ fn action_evaluate(expr_str: &str, vars_val: &Value) -> Result<String, String> {
     let mut out = format!("Expression: {}\n\n", canonical);
     out += "Assignments:\n";
     let mut sorted_vars: Vec<_> = assignment.iter().collect();
-    sorted_vars.sort_by_key(|(k, _)| k.clone());
+    sorted_vars.sort_by_key(|(k, _)| *k);
     for (k, v) in &sorted_vars {
         out += &format!("  {} = {}\n", k, v);
     }
@@ -574,7 +573,7 @@ fn action_sat(expr_str: &str) -> Result<String, String> {
         out += "SATISFIABLE\n\nSatisfying assignment(s):\n";
         for a in &satisfying {
             let mut sorted: Vec<_> = a.iter().collect();
-            sorted.sort_by_key(|(k, _)| k.clone());
+            sorted.sort_by_key(|(k, _)| *k);
             let parts: Vec<String> = sorted
                 .iter()
                 .map(|(k, v)| format!("{}={}", k, if **v { "T" } else { "F" }))
@@ -609,17 +608,16 @@ fn action_tautology(expr_str: &str) -> Result<String, String> {
     }
 
     let mut out = format!("Expression: {}\n\n", canonical);
-    if counterexample.is_none() {
-        out += "TAUTOLOGY — true for all variable assignments.\n";
-    } else {
+    if let Some(a) = counterexample {
         out += "NOT A TAUTOLOGY\n\nCounterexample:\n";
-        let a = counterexample.unwrap();
         let mut sorted: Vec<_> = a.iter().collect();
-        sorted.sort_by_key(|(k, _)| k.clone());
+        sorted.sort_by_key(|(k, _)| *k);
         for (k, v) in &sorted {
             out += &format!("  {} = {}\n", k, if **v { "T" } else { "F" });
         }
         out += "  Result: F\n";
+    } else {
+        out += "TAUTOLOGY — true for all variable assignments.\n";
     }
     Ok(out)
 }
@@ -641,17 +639,16 @@ fn action_contradiction(expr_str: &str) -> Result<String, String> {
     }
 
     let mut out = format!("Expression: {}\n\n", canonical);
-    if witness.is_none() {
-        out += "CONTRADICTION — false for all variable assignments.\n";
-    } else {
+    if let Some(a) = witness {
         out += "NOT A CONTRADICTION\n\nAssignment that makes it true:\n";
-        let a = witness.unwrap();
         let mut sorted: Vec<_> = a.iter().collect();
-        sorted.sort_by_key(|(k, _)| k.clone());
+        sorted.sort_by_key(|(k, _)| *k);
         for (k, v) in &sorted {
             out += &format!("  {} = {}\n", k, if **v { "T" } else { "F" });
         }
         out += "  Result: T\n";
+    } else {
+        out += "CONTRADICTION — false for all variable assignments.\n";
     }
     Ok(out)
 }
@@ -689,7 +686,7 @@ fn action_simplify(expr_str: &str) -> Result<String, String> {
             .iter()
             .map(|a| {
                 let mut sorted: Vec<_> = a.iter().collect();
-                sorted.sort_by_key(|(k, _)| k.clone());
+                sorted.sort_by_key(|(k, _)| *k);
                 let terms: Vec<String> = sorted
                     .iter()
                     .map(|(k, &v)| if v { k.to_string() } else { format!("¬{}", k) })

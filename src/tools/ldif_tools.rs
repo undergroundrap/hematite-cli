@@ -109,13 +109,13 @@ fn parse_ldif(text: &str) -> Vec<LdifEntry> {
         let (attr, value) = if let Some(pos) = line.find(':') {
             let a = line[..pos].trim().to_lowercase();
             let rest = &line[pos + 1..];
-            if rest.starts_with(':') {
+            if let Some(b64) = rest.strip_prefix(':') {
                 // base64-encoded value
-                let decoded = decode_base64_value(rest[1..].trim());
+                let decoded = decode_base64_value(b64.trim());
                 (a, decoded)
-            } else if rest.starts_with('<') {
+            } else if let Some(url) = rest.strip_prefix('<') {
                 // URL reference
-                (a, format!("<URL: {}>", rest[1..].trim()))
+                (a, format!("<URL: {}>", url.trim()))
             } else {
                 (a, rest.trim().to_string())
             }
@@ -187,9 +187,9 @@ fn action_parse(args: &Value) -> Result<String, String> {
 
     let filtered: Vec<&LdifEntry> = entries
         .iter()
-        .filter(|e| dn_filter.map_or(true, |d| e.dn.to_lowercase().contains(&d.to_lowercase())))
+        .filter(|e| dn_filter.is_none_or(|d| e.dn.to_lowercase().contains(&d.to_lowercase())))
         .filter(|e| {
-            query.map_or(true, |q| {
+            query.is_none_or(|q| {
                 let ql = q.to_lowercase();
                 e.dn.to_lowercase().contains(&ql)
                     || e.attributes
@@ -290,10 +290,10 @@ fn action_attrs(args: &Value) -> Result<String, String> {
     for e in &entries {
         let mut seen: std::collections::HashSet<String> = std::collections::HashSet::new();
         for (k, _) in &e.attributes {
-            if attr_filter.map_or(true, |f| k.to_lowercase().contains(&f.to_lowercase())) {
-                if seen.insert(k.clone()) {
-                    *attr_map.entry(k.clone()).or_insert(0) += 1;
-                }
+            if attr_filter.is_none_or(|f| k.to_lowercase().contains(&f.to_lowercase()))
+                && seen.insert(k.clone())
+            {
+                *attr_map.entry(k.clone()).or_insert(0) += 1;
             }
         }
     }
@@ -409,8 +409,8 @@ fn action_summary(args: &Value) -> Result<String, String> {
         let dn_lower = e.dn.to_lowercase();
         for part in dn_lower.split(',') {
             let p = part.trim();
-            if p.starts_with("dc=") {
-                dc_set.insert(p[3..].to_string());
+            if let Some(dc) = p.strip_prefix("dc=") {
+                dc_set.insert(dc.to_string());
             }
         }
     }

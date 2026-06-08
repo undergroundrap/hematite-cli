@@ -166,6 +166,7 @@ fn semitones_to_interval(semitones: u32) -> String {
 // ── Chords ────────────────────────────────────────────────────────────────────
 
 // Returns semitone intervals from root
+#[allow(dead_code)]
 fn chord_intervals(quality: &str) -> Option<Vec<u32>> {
     let q = quality.to_lowercase();
     let q = q.trim();
@@ -233,6 +234,7 @@ fn scale_intervals(quality: &str) -> Option<Vec<u32>> {
     })
 }
 
+#[allow(dead_code)]
 fn semitone_to_name(semitone: u32) -> &'static str {
     NOTE_NAMES[semitone as usize % 12]
 }

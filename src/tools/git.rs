@@ -310,9 +310,9 @@ pub async fn execute_status(_args: &Value) -> Result<String, String> {
             if y != '.' && y != '?' {
                 modified.push(path.to_string());
             }
-        } else if line.starts_with("? ") {
+        } else if let Some(path) = line.strip_prefix("? ") {
             // Untracked: "? path"
-            let path = line[2..].trim();
+            let path = path.trim();
             untracked.push(path.to_string());
         }
     }
@@ -679,7 +679,7 @@ pub async fn execute_changelog(args: &Value) -> Result<String, String> {
     Ok(out)
 }
 
-fn parse_conventional_commit<'a>(subject: &'a str) -> (&'a str, &'a str, &'a str) {
+fn parse_conventional_commit(subject: &str) -> (&str, &str, &str) {
     // Matches: feat(scope): message  OR  feat: message  OR  feat!: message
     let s = subject.trim_start_matches("- ").trim();
     if let Some(colon_pos) = s.find(':') {

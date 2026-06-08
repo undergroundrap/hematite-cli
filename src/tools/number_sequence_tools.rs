@@ -46,7 +46,7 @@ fn parse_numbers(args: &Value) -> Result<Vec<f64>, String> {
     }
     if let Some(s) = args.get("data").and_then(|v| v.as_str()) {
         let nums: Result<Vec<f64>, _> = s
-            .split(|c: char| c == ',' || c == ' ' || c == '\n')
+            .split([',', ' ', '\n'])
             .filter(|t| !t.trim().is_empty())
             .map(|t| {
                 t.trim()
@@ -267,8 +267,8 @@ fn next_terms(seq: &[f64], pattern: &Pattern, n: usize) -> Vec<f64> {
             Pattern::Polynomial { diffs, degree: _ } => {
                 // Extend using Newton's forward difference formula
                 // Apply forward differences: add the constant difference at each level
-                let len = s.len();
-                let mut ext = s.clone();
+                let _len = s.len();
+                let ext = s.clone();
                 // We need the difference table for current ext
                 let mut levels: Vec<Vec<f64>> = vec![ext.clone()];
                 let mut cur = ext.clone();

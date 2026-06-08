@@ -300,8 +300,8 @@ fn png_bpp(ct: u8, bd: u8) -> u8 {
         _ => bd,
     }
 }
-fn png_has_alpha(ct: u8, tRNS: bool) -> bool {
-    ct == 4 || ct == 6 || tRNS
+fn png_has_alpha(ct: u8, t_rns: bool) -> bool {
+    ct == 4 || ct == 6 || t_rns
 }
 
 fn dispatch_png(action: &str, b: &[u8]) -> String {
@@ -516,7 +516,7 @@ fn parse_jpeg(b: &[u8]) -> JpegMeta {
         if marker == 0xD9 {
             break;
         } // EOI
-        if marker == 0xD8 || marker == 0x01 || (marker >= 0xD0 && marker <= 0xD7) {
+        if marker == 0xD8 || marker == 0x01 || (0xD0..=0xD7).contains(&marker) {
             continue;
         }
         if pos + 2 > b.len() {
@@ -787,14 +787,13 @@ fn parse_gif(b: &[u8]) -> GifMeta {
                         // check for NETSCAPE loop extension
                         if pos < b.len() && b[pos] == 11 && pos + 11 < b.len() {
                             let app = &b[pos + 1..pos + 12];
-                            if app == b"NETSCAPE2.0" || app == b"ANIMEXTS1.0" {
-                                if pos + 12 < b.len()
-                                    && b[pos + 12] == 3
-                                    && pos + 15 < b.len()
-                                    && b[pos + 13] == 1
-                                {
-                                    m.loop_count = Some(ru16le(b, pos + 14));
-                                }
+                            if (app == b"NETSCAPE2.0" || app == b"ANIMEXTS1.0")
+                                && pos + 12 < b.len()
+                                && b[pos + 12] == 3
+                                && pos + 15 < b.len()
+                                && b[pos + 13] == 1
+                            {
+                                m.loop_count = Some(ru16le(b, pos + 14));
                             }
                         }
                         pos = skip_sub_blocks(b, pos);

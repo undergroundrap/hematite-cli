@@ -61,7 +61,7 @@ impl Unit {
     fn to_base(&self, v: f64) -> f64 {
         (v + self.offset) * self.factor
     }
-    fn from_base(&self, v: f64) -> f64 {
+    fn unit_from_base(&self, v: f64) -> f64 {
         v / self.factor - self.offset
     }
     fn matches(&self, s: &str) -> bool {
@@ -450,7 +450,7 @@ fn action_convert(args: &Value) -> Result<String, String> {
             ));
         }
 
-        let result = to_unit.from_base(base);
+        let result = to_unit.unit_from_base(base);
         out.push_str(&format!(
             "{} {} = {} {}\n",
             value,
@@ -463,7 +463,7 @@ fn action_convert(args: &Value) -> Result<String, String> {
         // Show all units in the same category
         out.push_str(&format!("All {} conversions:\n\n", from_cat.name));
         for unit in from_cat.units {
-            let result = unit.from_base(base);
+            let result = unit.unit_from_base(base);
             out.push_str(&format!(
                 "  {:>12} {:<8}  ({})\n",
                 format_value(result),
@@ -480,7 +480,7 @@ fn format_value(v: f64) -> String {
         return "0".to_string();
     }
     let abs = v.abs();
-    if abs >= 1e-4 && abs < 1e10 {
+    if (1e-4..1e10).contains(&abs) {
         let s = format!("{:.6}", v);
         let s = s.trim_end_matches('0');
         let s = s.trim_end_matches('.');

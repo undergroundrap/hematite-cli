@@ -306,8 +306,7 @@ fn parse_word_token(tok: &str) -> Option<i64> {
 fn words_to_int(text: &str) -> Result<i64, String> {
     let lower = text.to_lowercase();
     let lower = lower
-        .replace('-', " ")
-        .replace(',', " ")
+        .replace(['-', ','], " ")
         .replace(" and ", " ");
     let tokens: Vec<&str> = lower.split_whitespace().filter(|t| !t.is_empty()).collect();
 

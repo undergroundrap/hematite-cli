@@ -102,7 +102,7 @@ fn nato_to_char(word: &str) -> Option<char> {
         "four" | "fower" => Some('4'),
         "five" | "fife" => Some('5'),
         "six" => Some('6'),
-        "seven" | "seven" => Some('7'),
+        "seven" => Some('7'),
         "eight" | "ait" => Some('8'),
         "nine" | "niner" => Some('9'),
         _ => None,

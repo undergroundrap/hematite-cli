@@ -229,7 +229,7 @@ fn parse_plist(src: &str) -> Result<PlistValue, String> {
     root_value.ok_or_else(|| "plist_tools: no root value found in plist XML".into())
 }
 
-fn push_value(stack: &mut Vec<StackFrame>, val: PlistValue) -> Result<(), String> {
+fn push_value(stack: &mut [StackFrame], val: PlistValue) -> Result<(), String> {
     match stack.last_mut() {
         Some(StackFrame::Dict(entries, pending_key)) => {
             if let Some(key) = pending_key.take() {
@@ -380,7 +380,7 @@ fn navigate_inner<'a>(val: &'a PlistValue, path: &str) -> Result<&'a PlistValue,
     }
 
     // Key segment: read until '.', '[', or end
-    let seg_end = path.find(|c| c == '.' || c == '[').unwrap_or(path.len());
+    let seg_end = path.find(['.', '[']).unwrap_or(path.len());
     let key = &path[..seg_end];
     let rest = &path[seg_end..];
 

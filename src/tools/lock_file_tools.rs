@@ -53,7 +53,7 @@ fn detect_format(args: &Value, text: &str) -> String {
         .or_else(|| args.get("path"))
         .and_then(|v| v.as_str())
     {
-        let name = p.split(['/', '\\']).last().unwrap_or(p).to_lowercase();
+        let name = p.split(['/', '\\']).next_back().unwrap_or(p).to_lowercase();
         if name == "cargo.lock" {
             return "cargo".to_string();
         }
@@ -483,7 +483,7 @@ fn action_search(text: &str, format: &str, args: &Value) -> Result<String, Strin
                 .as_deref()
                 .unwrap_or("")
                 .split('/')
-                .last()
+                .next_back()
                 .unwrap_or("");
             if src.is_empty() {
                 out.push_str(&format!("{:<45} {}\n", p.name, p.version));

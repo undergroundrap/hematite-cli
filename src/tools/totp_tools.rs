@@ -48,7 +48,7 @@ fn sha1(data: &[u8]) -> [u8; 20] {
             w[t] = (w[t - 3] ^ w[t - 8] ^ w[t - 14] ^ w[t - 16]).rotate_left(1);
         }
         let (mut a, mut b, mut c, mut d, mut e) = (h[0], h[1], h[2], h[3], h[4]);
-        for t in 0..80 {
+        for (t, &w_t) in w.iter().enumerate() {
             let (f, k) = match t {
                 0..=19 => ((b & c) | ((!b) & d), 0x5A827999u32),
                 20..=39 => (b ^ c ^ d, 0x6ED9EBA1u32),
@@ -60,7 +60,7 @@ fn sha1(data: &[u8]) -> [u8; 20] {
                 .wrapping_add(f)
                 .wrapping_add(e)
                 .wrapping_add(k)
-                .wrapping_add(w[t]);
+                .wrapping_add(w_t);
             e = d;
             d = c;
             c = b.rotate_left(30);

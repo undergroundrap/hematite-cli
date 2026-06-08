@@ -17,7 +17,7 @@ pub async fn execute(args: &Value) -> Result<String, String> {
     }
 }
 
-fn get_text<'a>(args: &'a Value) -> Result<&'a str, String> {
+fn get_text(args: &Value) -> Result<&str, String> {
     args.get("text")
         .or_else(|| args.get("input"))
         .or_else(|| args.get("label"))
@@ -196,8 +196,8 @@ impl BoxStyle {
 fn draw_box(lines: &[&str], style: BoxStyle, padding: usize) -> String {
     let max_len = lines.iter().map(|l| l.chars().count()).max().unwrap_or(0);
     let inner_w = max_len + padding * 2;
-    let h_str: String = std::iter::repeat(style.h).take(inner_w).collect();
-    let pad_str: String = std::iter::repeat(' ').take(padding).collect();
+    let h_str: String = std::iter::repeat_n(style.h, inner_w).collect();
+    let pad_str: String = std::iter::repeat_n(' ', padding).collect();
 
     let mut out = String::new();
     out.push(style.tl);
@@ -205,7 +205,7 @@ fn draw_box(lines: &[&str], style: BoxStyle, padding: usize) -> String {
     out.push(style.tr);
     out.push('\n');
 
-    let empty_pad: String = std::iter::repeat(' ').take(inner_w).collect();
+    let empty_pad: String = std::iter::repeat_n(' ', inner_w).collect();
     for _ in 0..padding.min(1) {
         out.push(style.v);
         out.push_str(&empty_pad);
@@ -215,9 +215,7 @@ fn draw_box(lines: &[&str], style: BoxStyle, padding: usize) -> String {
 
     for line in lines {
         let len = line.chars().count();
-        let right_pad: String = std::iter::repeat(' ')
-            .take(max_len - len + padding)
-            .collect();
+        let right_pad: String = std::iter::repeat_n(' ', max_len - len + padding).collect();
         out.push(style.v);
         out.push_str(&pad_str);
         out.push_str(line);
@@ -295,12 +293,11 @@ fn action_bar(args: &Value) -> Result<String, String> {
         _ => ('█', ' ', '│', '│'),
     };
 
-    let bar: String = std::iter::repeat(fill_char)
-        .take(filled)
-        .chain(std::iter::repeat(empty_char).take(empty))
+    let bar: String = std::iter::repeat_n(fill_char, filled)
+        .chain(std::iter::repeat_n(empty_char, empty))
         .collect();
 
-    let mut out = format!("ascii_tools — bar\n\n");
+    let mut out = "ascii_tools — bar\n\n".to_string();
     if label.is_empty() {
         out.push_str(&format!("  {}{}{} {:.1}%\n", open, bar, close, pct * 100.0));
     } else {
@@ -375,7 +372,7 @@ fn action_table(args: &Value) -> Result<String, String> {
         _ => ('┌', '┐', '└', '┘', '─', '│', '┬', '┴', '├', '┤', '┼'),
     };
 
-    let mut render_row = |cells: &[String], separator: char| -> String {
+    let render_row = |cells: &[String], separator: char| -> String {
         let mut s = String::new();
         s.push(separator);
         for (i, w) in col_w.iter().enumerate() {
@@ -523,7 +520,7 @@ fn action_tree(args: &Value) -> Result<String, String> {
                 .and_then(|v| v.as_str())
                 .unwrap_or(".")
                 .to_string();
-            let mut out = format!("ascii_tools — tree\n\n");
+            let mut out = "ascii_tools — tree\n\n".to_string();
             out.push_str(&root_label);
             out.push('\n');
 
@@ -575,7 +572,7 @@ fn action_tree(args: &Value) -> Result<String, String> {
         );
     };
 
-    let mut out = format!("ascii_tools — tree\n\n");
+    let mut out = "ascii_tools — tree\n\n".to_string();
     out.push_str(&root_label);
     out.push('\n');
     let count = roots.len();

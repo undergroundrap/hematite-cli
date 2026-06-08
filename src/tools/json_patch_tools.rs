@@ -260,8 +260,9 @@ fn diff_values(a: &Value, b: &Value, path: &str, ops: &mut Vec<Value>) {
                 diff_values(&aa[i], &ba[i], &format!("{path}/{i}"), ops);
             }
             // Extra elements in b → add
-            for i in min_len..ba.len() {
-                ops.push(json!({ "op": "add", "path": format!("{path}/{i}"), "value": &ba[i] }));
+            for (i, val) in ba[min_len..].iter().enumerate() {
+                let idx = min_len + i;
+                ops.push(json!({ "op": "add", "path": format!("{path}/{idx}"), "value": val }));
             }
             // Extra elements in a → remove (in reverse to keep indices stable)
             for i in (min_len..aa.len()).rev() {

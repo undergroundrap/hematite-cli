@@ -49,6 +49,7 @@ fn r64le(d: &[u8], o: usize) -> Option<u64> {
         .map(|b| u64::from_le_bytes(b.try_into().unwrap()))
 }
 
+#[allow(dead_code)]
 fn read_str(d: &[u8], off: usize, max: usize) -> String {
     d.get(off..off + max.min(d.len().saturating_sub(off)))
         .map(|s| {
@@ -228,6 +229,7 @@ struct PcapFile {
     format: String,
     link_type: u32,
     packets: Vec<Packet>,
+    #[allow(dead_code)]
     nano_ts: bool,
     is_be: bool,
 }
@@ -307,7 +309,7 @@ fn parse_pcapng(data: &[u8]) -> Result<PcapFile, String> {
     let be = bom_le != 0x1A2B_3C4D;
 
     let r32 = if be { r32be } else { r32le };
-    let r64 = if be {
+    let _r64 = if be {
         |d: &[u8], o: usize| {
             d.get(o..o + 8)
                 .map(|b| u64::from_be_bytes(b.try_into().unwrap()))
@@ -440,6 +442,7 @@ fn port_proto(port: u16) -> Option<&'static str> {
     }
 }
 
+#[allow(dead_code)]
 fn fmt_endpoint(ip: &str, payload: &Option<Vec<u8>>, ip_proto: u8) -> String {
     if let Some(ref p) = payload {
         if (ip_proto == 6 || ip_proto == 17) && p.len() >= 4 {
@@ -458,7 +461,7 @@ fn parse_dns(buf: &[u8]) -> Option<(String, String, Vec<String>)> {
         return None;
     }
     let qr = (buf[2] >> 7) & 1;
-    let qdcount = u16::from_be_bytes([buf[4], buf[5]]) as usize;
+    let _qdcount = u16::from_be_bytes([buf[4], buf[5]]) as usize;
     let ancount = u16::from_be_bytes([buf[6], buf[7]]) as usize;
 
     // Parse first question
@@ -608,7 +611,7 @@ fn try_parse_http(payload: &[u8]) -> Option<String> {
         let host = s
             .lines()
             .find(|l| l.to_lowercase().starts_with("host:"))
-            .and_then(|l| l.splitn(2, ':').nth(1))
+            .and_then(|l| l.split_once(':').map(|(_, v)| v))
             .map(|h| h.trim())
             .unwrap_or("-");
         return Some(format!("REQUEST {} {} (host: {})", method, path, host));
@@ -737,11 +740,7 @@ fn action_packets(pcap: &PcapFile, limit: usize) -> String {
                 let dp = u16::from_be_bytes([p[2], p[3]]);
                 let tcp_data_off = ((p[12] as usize) >> 4) * 4;
                 if dp == 80 || dp == 8080 || dp == 8000 {
-                    if let Some(h) = p.get(tcp_data_off..).and_then(try_parse_http) {
-                        h
-                    } else {
-                        String::new()
-                    }
+                    p.get(tcp_data_off..).and_then(try_parse_http).unwrap_or_default()
                 } else {
                     String::new()
                 }

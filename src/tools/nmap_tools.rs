@@ -203,11 +203,7 @@ fn action_parse(args: &Value) -> Result<String, String> {
     }
 
     let mut out = String::new();
-    let mut count = 0u64;
-    for h in filtered {
-        if count >= limit {
-            break;
-        }
+    for h in filtered.into_iter().take(limit as usize) {
         let display = if h.hostname.is_empty() {
             h.ip.clone()
         } else {
@@ -220,7 +216,7 @@ fn action_parse(args: &Value) -> Result<String, String> {
         let ports: Vec<&NmapPort> = h
             .ports
             .iter()
-            .filter(|p| state_filter.map_or(true, |s| p.state == s))
+            .filter(|p| state_filter.is_none_or(|s| p.state == s))
             .collect();
         if ports.is_empty() {
             out.push_str("   No matching ports.\n");
@@ -243,7 +239,6 @@ fn action_parse(args: &Value) -> Result<String, String> {
                 ));
             }
         }
-        count += 1;
     }
     Ok(out.trim_start().to_string())
 }

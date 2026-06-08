@@ -27,15 +27,12 @@ pub fn make_schema() -> Value {
 fn load_chart_yaml(args: &Value) -> Result<Option<Yaml>, String> {
     if let Some(dir) = args.get("chart_dir").and_then(|v| v.as_str()) {
         let path = format!("{}/Chart.yaml", dir.trim_end_matches('/'));
-        match std::fs::read_to_string(&path) {
-            Ok(s) => {
-                return Ok(Some(
-                    serde_yaml::from_str(&s)
-                        .map_err(|e| format!("Chart.yaml parse error: {}", e))?,
-                ))
-            }
-            Err(_) => {} // try alternate
-        }
+        if let Ok(s) = std::fs::read_to_string(&path) {
+            return Ok(Some(
+                serde_yaml::from_str(&s)
+                    .map_err(|e| format!("Chart.yaml parse error: {}", e))?,
+            ));
+        } // else try alternate
         let path2 = format!("{}/chart.yaml", dir.trim_end_matches('/'));
         if let Ok(s) = std::fs::read_to_string(&path2) {
             return Ok(Some(

@@ -403,7 +403,7 @@ fn url_action(args: &Value) -> Result<String, String> {
 
     // Extract host (up to first / ? #)
     let host_end = rest
-        .find(|c| c == '/' || c == '?' || c == '#')
+        .find(['/', '?', '#'])
         .unwrap_or(rest.len());
     let host = &rest[..host_end];
 
@@ -643,11 +643,11 @@ fn phone_action(args: &Value) -> Result<String, String> {
             let valid = area
                 .chars()
                 .next()
-                .map_or(false, |c| ('2'..='9').contains(&c))
+                .is_some_and(|c| ('2'..='9').contains(&c))
                 && exchange
                     .chars()
                     .next()
-                    .map_or(false, |c| ('2'..='9').contains(&c));
+                    .is_some_and(|c| ('2'..='9').contains(&c));
             out.push_str(&verdict(
                 valid,
                 if valid {
@@ -669,7 +669,7 @@ fn phone_action(args: &Value) -> Result<String, String> {
             let valid = area
                 .chars()
                 .next()
-                .map_or(false, |c| ('2'..='9').contains(&c));
+                .is_some_and(|c| ('2'..='9').contains(&c));
             out.push_str(&verdict(
                 valid,
                 if valid {
@@ -745,8 +745,8 @@ fn semver_action(args: &Value) -> Result<String, String> {
         }
     }
 
-    let (pre, build) = if pre_and_build.starts_with('+') {
-        ("", &pre_and_build[1..])
+    let (pre, build) = if let Some(build_rest) = pre_and_build.strip_prefix('+') {
+        ("", build_rest)
     } else if let Some(plus_idx) = pre_and_build.find('+') {
         (&pre_and_build[..plus_idx], &pre_and_build[plus_idx + 1..])
     } else {

@@ -648,7 +648,7 @@ fn action_psychro(args: &Value) -> Result<String, String> {
         // Sprung's formula approximation
         let p_v = p_sat_wet - 0.000799 * p_atm * (t_dry - t_wet);
         let p_sat_dry = p_sat(t_dry);
-        let rh = (p_v / p_sat_dry * 100.0).max(0.0).min(100.0);
+        let rh = (p_v / p_sat_dry * 100.0).clamp(0.0, 100.0);
         let w = 0.622 * p_v / (p_atm - p_v);
         // Dew point via Magnus formula
         let ln_term = (rh / 100.0).ln();

@@ -1,6 +1,5 @@
 use base64::engine::general_purpose::STANDARD as B64;
 use base64::Engine;
-use md5::Digest as _;
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 
@@ -131,7 +130,7 @@ fn parse_key_line(line: &str) -> Result<ParsedKey, String> {
         .find(|(_, w)| is_key_type_token(w))
         .ok_or_else(|| "unrecognized key type".to_string())?;
 
-    let key_type_str = words[type_idx];
+    let _key_type_str = words[type_idx];
     let b64_str = words
         .get(type_idx + 1)
         .copied()

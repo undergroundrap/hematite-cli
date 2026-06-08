@@ -53,7 +53,7 @@ struct Dep {
 fn parse_dep_string(s: &str, dep_type: &str) -> Dep {
     // Strip channel prefix: conda-forge::numpy -> numpy
     let s = if s.contains("::") {
-        s.splitn(2, "::").nth(1).unwrap_or(s)
+        s.split_once("::").map(|x| x.1).unwrap_or(s)
     } else {
         s
     };
@@ -214,11 +214,7 @@ fn action_compare(args: &Value) -> Result<String, String> {
     } else {
         load_env(args, "file_a", "yaml_a").or_else(|_| load_env(args, "file_a", "yaml_a"))?
     };
-    let env_b = if args.get("file_b").is_some() {
-        load_env(args, "file_b", "yaml_b")?
-    } else {
-        load_env(args, "file_b", "yaml_b")?
-    };
+    let env_b = load_env(args, "file_b", "yaml_b")?;
 
     let deps_a = extract_deps(&env_a);
     let deps_b = extract_deps(&env_b);

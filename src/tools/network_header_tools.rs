@@ -251,51 +251,49 @@ fn icmpv6_type_name(typ: u8) -> &'static str {
 
 fn action_parse(data: &[u8], hint: &str) -> Result<String, String> {
     let hint_l = hint.to_lowercase();
-    if hint_l == "ethernet" || (data.len() >= 14 && hint_l.is_empty()) {
-        if data.len() >= 14 {
-            let ethertype = u16::from_be_bytes([data[12], data[13]]);
-            if ethertype == 0x0800
-                || ethertype == 0x86DD
-                || ethertype == 0x0806
-                || ethertype >= 0x0600
-            {
-                let mut out = decode_ethernet(data)?;
-                out.push('\n');
-                let inner = &data[14..];
-                if ethertype == 0x0800 && inner.len() >= 20 {
-                    out.push_str(&decode_ipv4(inner)?);
-                } else if ethertype == 0x86DD && inner.len() >= 40 {
-                    out.push_str(&decode_ipv6(inner)?);
-                }
-                return Ok(out);
-            }
-        }
-    }
-
-    if hint_l == "ipv4" || (data.len() >= 1 && (data[0] >> 4) == 4 && hint_l != "ipv6") {
-        if data.len() >= 20 {
-            let mut out = decode_ipv4(data)?;
-            let ihl = (data[0] & 0x0F) as usize * 4;
-            let proto = data[9];
-            let inner = &data[ihl..];
-            if proto == 6 && inner.len() >= 20 {
-                out.push('\n');
-                out.push_str(&decode_tcp(inner)?);
-            } else if proto == 17 && inner.len() >= 8 {
-                out.push('\n');
-                out.push_str(&decode_udp(inner)?);
-            } else if proto == 1 && inner.len() >= 4 {
-                out.push('\n');
-                out.push_str(&decode_icmp(inner)?);
+    if (hint_l == "ethernet" || (data.len() >= 14 && hint_l.is_empty()))
+        && data.len() >= 14
+    {
+        let ethertype = u16::from_be_bytes([data[12], data[13]]);
+        if ethertype == 0x0800
+            || ethertype == 0x86DD
+            || ethertype == 0x0806
+            || ethertype >= 0x0600
+        {
+            let mut out = decode_ethernet(data)?;
+            out.push('\n');
+            let inner = &data[14..];
+            if ethertype == 0x0800 && inner.len() >= 20 {
+                out.push_str(&decode_ipv4(inner)?);
+            } else if ethertype == 0x86DD && inner.len() >= 40 {
+                out.push_str(&decode_ipv6(inner)?);
             }
             return Ok(out);
         }
     }
 
-    if hint_l == "ipv6" || (data.len() >= 1 && (data[0] >> 4) == 6) {
-        if data.len() >= 40 {
-            return decode_ipv6(data);
+    if (hint_l == "ipv4" || (!data.is_empty() && (data[0] >> 4) == 4 && hint_l != "ipv6"))
+        && data.len() >= 20
+    {
+        let mut out = decode_ipv4(data)?;
+        let ihl = (data[0] & 0x0F) as usize * 4;
+        let proto = data[9];
+        let inner = &data[ihl..];
+        if proto == 6 && inner.len() >= 20 {
+            out.push('\n');
+            out.push_str(&decode_tcp(inner)?);
+        } else if proto == 17 && inner.len() >= 8 {
+            out.push('\n');
+            out.push_str(&decode_udp(inner)?);
+        } else if proto == 1 && inner.len() >= 4 {
+            out.push('\n');
+            out.push_str(&decode_icmp(inner)?);
         }
+        return Ok(out);
+    }
+
+    if (hint_l == "ipv6" || (!data.is_empty() && (data[0] >> 4) == 6)) && data.len() >= 40 {
+        return decode_ipv6(data);
     }
 
     if hint_l == "tcp" || data.len() >= 20 {
@@ -461,7 +459,7 @@ fn decode_ipv6(data: &[u8]) -> Result<String, String> {
     let mut out = String::from("IPv6 HEADER\n");
     out.push_str(&"─".repeat(50));
     out.push('\n');
-    out.push_str(&format!("Version        6\n"));
+    out.push_str("Version        6\n");
     out.push_str(&format!(
         "Traffic Class  0x{traffic_class:02X}  DSCP={dscp} ECN={ecn}\n"
     ));

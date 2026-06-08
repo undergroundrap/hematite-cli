@@ -56,7 +56,7 @@ fn load_bytes(args: &serde_json::Value) -> Result<Vec<u8>, String> {
 fn decode_hex_str(s: &str) -> Result<Vec<u8>, String> {
     let clean: String = s.chars().filter(|c| c.is_ascii_hexdigit()).collect();
     if clean.len() % 2 != 0 {
-        return Err(format!("hex_tools: odd number of hex digits in input"));
+        return Err("hex_tools: odd number of hex digits in input".to_string());
     }
     (0..clean.len())
         .step_by(2)
@@ -230,9 +230,7 @@ fn bytes_info(args: &serde_json::Value) -> Result<String, String> {
     out.push_str(&format!("Null bytes    : {null_count}\n"));
     out.push_str(&format!("High bytes    : {high_count} (>0x7F)\n"));
     out.push_str(&format!("Entropy       : {entropy:.2} bits/byte\n"));
-    out.push_str(&format!(
-        "  (0=flat, 8=random; >7.5 suggests compression/encryption)\n"
-    ));
+    out.push_str("  (0=flat, 8=random; >7.5 suggests compression/encryption)\n");
 
     out.push_str("\nTop bytes by frequency:\n");
     for (b, count) in freq_pairs.iter().take(8) {
@@ -410,7 +408,7 @@ fn detect_type(magic: &[u8]) -> &'static str {
         return "UTF-16 text with BOM";
     }
     // Check if all printable ASCII — likely plain text
-    if !magic.is_empty() && magic.iter().all(|&b| b >= 0x09 && b < 0x80) {
+    if !magic.is_empty() && magic.iter().all(|&b| (0x09..0x80).contains(&b)) {
         return "Plain text (UTF-8 or ASCII)";
     }
     "Unknown / binary data"

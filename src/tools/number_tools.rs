@@ -25,7 +25,7 @@ fn get_integer(args: &serde_json::Value) -> Result<i128, String> {
         return Ok(n as i128);
     }
     if let Some(s) = args.get("input").and_then(|v| v.as_str()) {
-        let s = s.trim().replace('_', "").replace(',', "");
+        let s = s.trim().replace(['_', ','], "");
         // Detect prefix
         if s.starts_with("0x") || s.starts_with("0X") {
             return i128::from_str_radix(&s[2..], 16)
@@ -77,7 +77,7 @@ fn convert_base(args: &serde_json::Value) -> Result<String, String> {
         out.push_str(&format!("Binary  : 0b{:b}\n", unsigned));
         out.push_str(&format!("Octal   : 0o{:o}\n", unsigned));
         out.push_str(&format!("Base36  : {}\n", to_base36(unsigned)));
-        if n >= 0 && n <= 3999 {
+        if (0..=3999).contains(&n) {
             if let Some(r) = int_to_roman(n as u32) {
                 out.push_str(&format!("Roman   : {r}\n"));
             }
@@ -91,7 +91,7 @@ fn convert_base(args: &serde_json::Value) -> Result<String, String> {
         10 => format!("{n}"),
         16 => format!("0x{:X}", n as u128),
         36 => to_base36(n as u128),
-        b if b >= 2 && b <= 36 => to_base_n(n as u128, b as u32),
+        b if (2..=36).contains(&b) => to_base_n(n as u128, b as u32),
         _ => {
             return Err(format!(
                 "number_tools: unsupported base {to_base} (use 2–36)"
@@ -135,8 +135,7 @@ fn format_number(args: &serde_json::Value) -> Result<String, String> {
     // Scientific notation
     let scientific = format!("{sign}{:.prec$e}", abs, prec = decimals)
         .replace("e", " × 10^")
-        .replace("× 10^-", "× 10⁻")
-        .replace("× 10^", "× 10^");
+        .replace("× 10^-", "× 10⁻");
 
     // Engineering (exponent multiple of 3)
     let engineering = engineering_notation(n, decimals);
@@ -225,7 +224,7 @@ fn si_format(n: f64) -> String {
 
 fn to_roman(args: &serde_json::Value) -> Result<String, String> {
     let n = get_integer(args)?;
-    if n < 1 || n > 3999 {
+    if !(1..=3999).contains(&n) {
         return Err(format!("number_tools roman: {n} is out of range (1–3999)"));
     }
     let roman = int_to_roman(n as u32).unwrap();

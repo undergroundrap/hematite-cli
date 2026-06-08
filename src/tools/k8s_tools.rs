@@ -71,11 +71,11 @@ fn meta_namespace(doc: &Yaml) -> Option<String> {
         .filter(|s| !s.is_empty())
 }
 
-fn spec<'a>(doc: &'a Yaml) -> Option<&'a Yaml> {
+fn spec(doc: &Yaml) -> Option<&Yaml> {
     doc.get("spec")
 }
 
-fn pod_spec<'a>(doc: &'a Yaml) -> Option<&'a Yaml> {
+fn pod_spec(doc: &Yaml) -> Option<&Yaml> {
     let k = kind(doc).to_lowercase();
     match k.as_str() {
         "pod" => spec(doc),
@@ -97,14 +97,14 @@ fn pod_spec<'a>(doc: &'a Yaml) -> Option<&'a Yaml> {
     }
 }
 
-fn get_containers<'a>(ps: &'a Yaml) -> Vec<&'a Yaml> {
+fn get_containers(ps: &Yaml) -> Vec<&Yaml> {
     ps.get("containers")
         .and_then(|c| c.as_sequence())
         .map(|seq| seq.iter().collect())
         .unwrap_or_default()
 }
 
-fn get_init_containers<'a>(ps: &'a Yaml) -> Vec<&'a Yaml> {
+fn get_init_containers(ps: &Yaml) -> Vec<&Yaml> {
     ps.get("initContainers")
         .and_then(|c| c.as_sequence())
         .map(|seq| seq.iter().collect())

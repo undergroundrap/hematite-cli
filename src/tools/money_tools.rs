@@ -79,7 +79,7 @@ fn compound_interest_action(args: &Value) -> Result<String, String> {
     let effective_rate = ((1.0 + r / n).powf(n) - 1.0) * 100.0;
 
     let symbol = "$";
-    let mut out = format!("Compound Interest\n\n");
+    let mut out = "Compound Interest\n\n".to_string();
     out.push_str(&format!(
         "  Principal:          {}\n",
         fmt_money(principal, symbol, 2)
@@ -121,7 +121,7 @@ fn loan_action(args: &Value) -> Result<String, String> {
 
     if annual_rate == 0.0 {
         let monthly = principal / term_months as f64;
-        let mut out = format!("Loan (0% interest)\n\n");
+        let mut out = "Loan (0% interest)\n\n".to_string();
         out.push_str(&format!(
             "  Principal:        {}\n",
             fmt_money(principal, symbol, 2)
@@ -162,7 +162,7 @@ fn loan_action(args: &Value) -> Result<String, String> {
         }
     }
 
-    let mut out = format!("Loan Amortization\n\n");
+    let mut out = "Loan Amortization\n\n".to_string();
     out.push_str(&format!(
         "  Principal:        {}\n",
         fmt_money(principal, symbol, 2)
@@ -206,7 +206,7 @@ fn apr_to_apy_action(args: &Value) -> Result<String, String> {
 
     let apy = ((1.0 + apr / 100.0 / n).powf(n) - 1.0) * 100.0;
 
-    let mut out = format!("APR to APY\n\n");
+    let mut out = "APR to APY\n\n".to_string();
     out.push_str(&format!("  APR:                {apr:.4}%\n"));
     out.push_str(&format!("  Compounds/Year:     {n}\n"));
     out.push_str(&format!("  APY (effective):    {apy:.4}%\n"));
@@ -230,7 +230,7 @@ fn discount_action(args: &Value) -> Result<String, String> {
     let savings = price * percent / 100.0;
     let sale_price = price - savings;
 
-    let mut out = format!("Discount\n\n");
+    let mut out = "Discount\n\n".to_string();
     out.push_str(&format!(
         "  Original Price:   {}\n",
         fmt_money(price, symbol, 2)
@@ -257,7 +257,7 @@ fn percent_of_action(args: &Value) -> Result<String, String> {
             return Err("money_tools percent_of: 'b'/'total' must not be zero".to_string());
         }
         let pct = a / b * 100.0;
-        let mut out = format!("Percent Of\n\n");
+        let mut out = "Percent Of\n\n".to_string();
         out.push_str(&format!("  {a} is {pct:.4}% of {b}\n"));
         out.push_str(&format!(
             "  {b} is {:.4}% more than {a}\n",
@@ -269,7 +269,7 @@ fn percent_of_action(args: &Value) -> Result<String, String> {
     // Mode 2: what is 'percent'% of 'of'?
     if let (Some(percent), Some(of)) = (get_f64(args, "percent"), get_f64(args, "of")) {
         let result = percent / 100.0 * of;
-        let mut out = format!("Percent Of\n\n");
+        let mut out = "Percent Of\n\n".to_string();
         out.push_str(&format!("  {percent}% of {of} = {result:.4}\n"));
         return Ok(out);
     }
@@ -300,7 +300,7 @@ fn tip_action(args: &Value) -> Result<String, String> {
     let per_person_total = total / people;
     let per_person_tip = tip_amount / people;
 
-    let mut out = format!("Tip Calculator\n\n");
+    let mut out = "Tip Calculator\n\n".to_string();
     out.push_str(&format!(
         "  Bill:               {}\n",
         fmt_money(bill, symbol, 2)
@@ -340,7 +340,7 @@ fn split_bill_action(args: &Value) -> Result<String, String> {
     let grand_total = total + tip_amount;
     let per_person = grand_total / people;
 
-    let mut out = format!("Split Bill\n\n");
+    let mut out = "Split Bill\n\n".to_string();
     out.push_str(&format!(
         "  Bill Total:         {}\n",
         fmt_money(total, symbol, 2)

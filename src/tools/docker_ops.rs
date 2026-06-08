@@ -245,7 +245,7 @@ async fn run_compose_up(args: &Value) -> Result<String, String> {
     })
 }
 
-fn require_container<'a>(args: &'a Value) -> Result<&'a str, String> {
+fn require_container(args: &Value) -> Result<&str, String> {
     args.get("container")
         .and_then(|v| v.as_str())
         .ok_or_else(|| "docker_ops: 'container' is required for this action".to_string())

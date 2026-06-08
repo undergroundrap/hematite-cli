@@ -264,7 +264,7 @@ fn find_license(query: &str) -> Option<&'static License> {
             || l.name.to_lowercase().contains(&q)
             || l.keywords
                 .iter()
-                .any(|k| q.contains(k) || k.contains(&q.as_str()))
+                .any(|k| q.contains(k) || k.contains(q.as_str()))
     })
 }
 

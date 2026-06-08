@@ -66,8 +66,8 @@ fn parse_makefile(text: &str) -> (Vec<MakeTarget>, Vec<MakeVar>, Vec<String>) {
         }
 
         // Comment
-        if trimmed.starts_with('#') {
-            let comment_text = trimmed[1..].trim().to_string();
+        if let Some(comment_rest) = trimmed.strip_prefix('#') {
+            let comment_text = comment_rest.trim().to_string();
             if !comment_text.is_empty() {
                 pending_comment = Some(comment_text);
             }
@@ -76,8 +76,8 @@ fn parse_makefile(text: &str) -> (Vec<MakeTarget>, Vec<MakeVar>, Vec<String>) {
         }
 
         // .PHONY declaration
-        if trimmed.starts_with(".PHONY:") {
-            let rest = &trimmed[7..].trim().to_string();
+        if let Some(phony_rest) = trimmed.strip_prefix(".PHONY:") {
+            let rest = &phony_rest.trim().to_string();
             for name in rest.split_whitespace() {
                 phony_names.push(name.to_string());
             }

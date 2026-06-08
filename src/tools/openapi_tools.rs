@@ -64,11 +64,11 @@ fn spec_version(doc: &Yaml) -> (String, bool) {
     ("unknown".to_string(), false)
 }
 
-fn get_paths<'a>(doc: &'a Yaml) -> Option<&'a serde_yaml::Mapping> {
+fn get_paths(doc: &Yaml) -> Option<&serde_yaml::Mapping> {
     doc.get("paths")?.as_mapping()
 }
 
-fn get_schemas<'a>(doc: &'a Yaml) -> Option<&'a serde_yaml::Mapping> {
+fn get_schemas(doc: &Yaml) -> Option<&serde_yaml::Mapping> {
     // OpenAPI 3.x
     if let Some(schemas) = doc
         .get("components")
@@ -237,8 +237,8 @@ fn endpoints_action(args: &Value) -> Result<String, String> {
     );
 
     // Group by tag if requested, else flat list
-    if filter_tag.is_some() {
-        let tag = filter_tag.unwrap().to_lowercase();
+    if let Some(ft) = filter_tag {
+        let tag = ft.to_lowercase();
         for ep in &endpoints {
             if !ep.tags.iter().any(|t| t.to_lowercase() == tag) {
                 continue;
@@ -292,7 +292,7 @@ fn schemas_action(args: &Value) -> Result<String, String> {
         let schema_type = schema.get("type").map(yaml_str).unwrap_or_default();
         let description = schema.get("description").map(yaml_str).unwrap_or_default();
 
-        out += &format!("{}", name);
+        out += &name;
         if !schema_type.is_empty() {
             out += &format!(" ({})", schema_type);
         }

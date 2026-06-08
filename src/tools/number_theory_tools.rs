@@ -437,7 +437,7 @@ fn action_modpow(args: &Value) -> Result<String, String> {
     }
 
     let result = modpow_u64(base, exp, modulus);
-    let mut out = format!("number_theory_tools — modpow\n\n");
+    let mut out = "number_theory_tools — modpow\n\n".to_string();
     out.push_str(&format!("{}^{} mod {} = {}\n", base, exp, modulus, result));
     Ok(out)
 }
@@ -457,7 +457,7 @@ fn action_modinv(args: &Value) -> Result<String, String> {
     }
 
     let (g, x, _) = gcd_ext(a, m);
-    let mut out = format!("number_theory_tools — modinv\n\n");
+    let mut out = "number_theory_tools — modinv\n\n".to_string();
     if g != 1 {
         out.push_str(&format!(
             "No modular inverse: gcd({}, {}) = {} ≠ 1\n",

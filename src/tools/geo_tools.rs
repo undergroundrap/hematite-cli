@@ -73,7 +73,7 @@ fn action_distance(args: &Value) -> Result<String, String> {
     let mut out = String::from("geo_tools — distance\n\n");
     out.push_str(&format!("From: {:.6}, {:.6}\n", lat1, lng1));
     out.push_str(&format!("To:   {:.6}, {:.6}\n\n", lat2, lng2));
-    out.push_str(&format!("Distance:\n"));
+    out.push_str("Distance:\n");
     out.push_str(&format!("  {:>10.3} km\n", km));
     out.push_str(&format!("  {:>10.3} miles\n", miles));
     out.push_str(&format!("  {:>10.3} nautical miles\n\n", nm));
@@ -203,15 +203,7 @@ fn action_dms(args: &Value) -> Result<String, String> {
             ld, lm, ls, lat_dir, nd, nm, ns, lng_dir
         ));
         out.push_str(&format!(
-            "     {}° {} {} {}  {}° {} {} {}\n",
-            ld,
-            lm,
-            format!("{:.2}", ls),
-            lat_dir,
-            nd,
-            nm,
-            format!("{:.2}", ns),
-            lng_dir
+            "     {ld}° {lm} {ls:.2} {lat_dir}  {nd}° {nm} {ns:.2} {lng_dir}\n"
         ));
     } else {
         // DMS → decimal
@@ -281,7 +273,7 @@ fn action_bbox(args: &Value) -> Result<String, String> {
 
     let mut out = String::from("geo_tools — bbox\n\n");
     out.push_str(&format!("Points: {}\n\n", arr.len()));
-    out.push_str(&format!("Bounding box:\n"));
+    out.push_str("Bounding box:\n");
     out.push_str(&format!("  North: {:.6}\n", max_lat));
     out.push_str(&format!("  South: {:.6}\n", min_lat));
     out.push_str(&format!("  East:  {:.6}\n", max_lng));

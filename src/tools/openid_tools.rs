@@ -54,7 +54,6 @@ fn base64url_decode(input: &str) -> Option<Vec<u8>> {
         3 => format!("{}=", input),
         _ => input.to_string(),
     };
-    use std::io::Read;
     let mut buf = Vec::new();
     let b64 = padded.as_bytes();
     let mut i = 0;
@@ -199,7 +198,7 @@ fn discover_info(doc: &Value) -> String {
     };
 
     let issuer = get_str("issuer");
-    let mut out = format!("OpenID Connect Discovery Document\n");
+    let mut out = "OpenID Connect Discovery Document\n".to_string();
     out.push_str(&format!("Issuer: {}\n\n", issuer));
 
     // Endpoints

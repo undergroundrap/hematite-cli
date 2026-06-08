@@ -153,7 +153,7 @@ fn action_frequency(args: &Value) -> Result<String, String> {
     let unique = pairs.len();
     let shown = pairs.len().min(top_n);
 
-    let mut out = format!("word_tools — frequency\n\n");
+    let mut out = "word_tools — frequency\n\n".to_string();
     out.push_str(&format!(
         "Total words: {}  Unique (after filter): {}\n\n",
         total, unique
@@ -212,7 +212,7 @@ fn action_anagram(args: &Value) -> Result<String, String> {
     all_chars.extend(freq_a.keys());
     all_chars.extend(freq_b.keys());
 
-    let mut out = format!("word_tools — anagram\n\n");
+    let mut out = "word_tools — anagram\n\n".to_string();
     out.push_str(&format!("  A: \"{}\"  ({} letters)\n", word_a, na.len()));
     out.push_str(&format!("  B: \"{}\"  ({} letters)\n\n", word_b, nb.len()));
     out.push_str(&format!(
@@ -292,7 +292,7 @@ fn action_soundex(args: &Value) -> Result<String, String> {
         groups.entry(code).or_default().push(w.clone());
     }
 
-    let mut out = format!("word_tools — soundex\n\n");
+    let mut out = "word_tools — soundex\n\n".to_string();
     if words.len() == 1 {
         let code = soundex_code(&words[0]);
         out.push_str(&format!("  Word:    \"{}\"\n", words[0]));
@@ -341,7 +341,7 @@ fn action_palindrome(args: &Value) -> Result<String, String> {
     let reversed: String = cleaned.chars().rev().collect();
     let is_palindrome = cleaned == reversed;
 
-    let mut out = format!("word_tools — palindrome\n\n");
+    let mut out = "word_tools — palindrome\n\n".to_string();
     out.push_str(&format!("  Input:   \"{}\"\n", text.trim()));
     if !strict {
         out.push_str(&format!("  Cleaned: \"{}\"\n", cleaned));
@@ -444,7 +444,7 @@ fn action_syllables(args: &Value) -> Result<String, String> {
         .max(1);
     let fk_grade = 0.39 * (total_words as f64 / sentences as f64) + 11.8 * avg - 15.59;
 
-    let mut out = format!("word_tools — syllables\n\n");
+    let mut out = "word_tools — syllables\n\n".to_string();
     out.push_str(&format!(
         "  Total words:     {}\n\
          Total syllables: {}\n\

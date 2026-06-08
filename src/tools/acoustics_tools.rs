@@ -216,7 +216,7 @@ fn action_decibels(args: &Value) -> Result<String, String> {
         let mut out = String::from("SOUND PRESSURE LEVEL\n");
         out.push_str("═══════════════════════════════════════\n");
         out.push_str(&format!("  Sound pressure (p)  {:.4e} Pa\n", pressure));
-        out.push_str(&format!("  Reference (p₀)      20 µPa\n"));
+        out.push_str("  Reference (p₀)      20 µPa\n");
         out.push_str(&format!("  SPL = 20·log₁₀(p/p₀) = {:.2} dB\n", spl));
         out.push_str(&format!("  Context             {}\n", spl_context(spl)));
         return Ok(out);
@@ -760,7 +760,7 @@ fn freq_to_note(freq: f64) -> String {
     let a4 = 440.0_f64;
     let semitones = 12.0 * (freq / a4).log2();
     let n = (semitones.round() as i32) + 57;
-    if n < 0 || n > 127 {
+    if !(0..=127).contains(&n) {
         return "—".to_string();
     }
     let octave = n / 12;

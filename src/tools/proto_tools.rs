@@ -55,6 +55,7 @@ struct Message {
     fields: Vec<Field>,
     nested_messages: Vec<String>,
     nested_enums: Vec<String>,
+    #[allow(dead_code)]
     oneofs: Vec<(String, Vec<Field>)>,
     reserved: Vec<String>,
 }
@@ -204,7 +205,7 @@ fn parse_proto(text: &str) -> ProtoFile {
 
     // Strip comments from text for structural parsing
     let stripped = strip_comments(text);
-    let mut pos = 0;
+    let pos = 0;
     let bytes = stripped.as_bytes();
 
     // Simple line-by-line top-level extraction

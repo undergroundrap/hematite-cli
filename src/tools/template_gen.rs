@@ -260,7 +260,7 @@ jobs:
       - run: pytest
 "#))),
 
-        "ci-github-rust" => Ok((".github/workflows/ci.yml", format!(r#"name: CI
+        "ci-github-rust" => Ok((".github/workflows/ci.yml", r#"name: CI
 
 on:
   push:
@@ -293,7 +293,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - run: cargo build --release
-"#))),
+"#.to_string())),
 
         "gitignore-node" => Ok((".gitignore", r#"node_modules/
 dist/

@@ -86,7 +86,7 @@ fn tokenise(src: &str) -> Vec<GTok> {
                 tokens.push(GTok::Str(s));
             }
             c if c.is_ascii_digit()
-                || (c == '-' && chars.get(i + 1).map_or(false, |n| n.is_ascii_digit())) =>
+                || (c == '-' && chars.get(i + 1).is_some_and(|n| n.is_ascii_digit())) =>
             {
                 let start = i;
                 let mut is_float = false;
@@ -139,8 +139,10 @@ fn tokenise(src: &str) -> Vec<GTok> {
 struct FieldDef {
     name: String,
     field_type: String,
+    #[allow(dead_code)]
     non_null: bool,
     args: Vec<ArgDef>,
+    #[allow(dead_code)]
     description: Option<String>,
     deprecated: bool,
 }
@@ -153,6 +155,7 @@ struct ArgDef {
 }
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 enum GqlDef {
     Type {
         name: String,
@@ -420,18 +423,13 @@ impl Parser {
         if matches!(self.peek_cloned(), Some(GTok::Punct('&'))) {
             self.next();
         }
-        loop {
-            match self.peek_cloned() {
-                Some(GTok::Name(n)) => {
-                    self.next();
-                    impls.push(n);
-                    if matches!(self.peek_cloned(), Some(GTok::Punct('&'))) {
-                        self.next();
-                    } else {
-                        break;
-                    }
-                }
-                _ => break,
+        while let Some(GTok::Name(n)) = self.peek_cloned() {
+            self.next();
+            impls.push(n);
+            if matches!(self.peek_cloned(), Some(GTok::Punct('&'))) {
+                self.next();
+            } else {
+                break;
             }
         }
         impls
@@ -508,10 +506,8 @@ impl Parser {
             match keyword.as_str() {
                 "type" | "extend" => {
                     self.next();
-                    if keyword == "extend" {
-                        if matches!(self.peek_cloned(), Some(GTok::Name(_))) {
-                            self.next(); // consume "type" or other keyword
-                        }
+                    if keyword == "extend" && matches!(self.peek_cloned(), Some(GTok::Name(_))) {
+                        self.next(); // consume "type" or other keyword
                     }
                     let name = self.expect_name().unwrap_or_default();
                     let implements = self.parse_implements();
@@ -590,18 +586,13 @@ impl Parser {
                         if matches!(self.peek_cloned(), Some(GTok::Punct('|'))) {
                             self.next();
                         }
-                        loop {
-                            match self.peek_cloned() {
-                                Some(GTok::Name(m)) => {
-                                    self.next();
-                                    members.push(m);
-                                    if matches!(self.peek_cloned(), Some(GTok::Punct('|'))) {
-                                        self.next();
-                                    } else {
-                                        break;
-                                    }
-                                }
-                                _ => break,
+                        while let Some(GTok::Name(m)) = self.peek_cloned() {
+                            self.next();
+                            members.push(m);
+                            if matches!(self.peek_cloned(), Some(GTok::Punct('|'))) {
+                                self.next();
+                            } else {
+                                break;
                             }
                         }
                     }
@@ -865,7 +856,7 @@ fn action_types(text: &str, args: &Value) -> Result<String, String> {
         let name_matches = |name: &str| {
             filter
                 .as_deref()
-                .map_or(true, |f| name.to_lowercase().contains(f))
+                .is_none_or(|f| name.to_lowercase().contains(f))
         };
 
         match def {
@@ -1146,7 +1137,7 @@ fn action_validate(text: &str) -> Result<String, String> {
                 }
                 for f in fields {
                     let base = base_type(&f.field_type);
-                    if base.chars().next().map_or(false, |c| c.is_uppercase())
+                    if base.chars().next().is_some_and(|c| c.is_uppercase())
                         && !builtin_scalars.contains(&base)
                     {
                         let is_output_only = defs

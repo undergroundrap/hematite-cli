@@ -506,7 +506,7 @@ fn parse_fasta_text(text: &str) -> Vec<FastaRecord> {
 
     for line in text.lines() {
         let line = line.trim();
-        if line.starts_with('>') {
+        if let Some(stripped) = line.strip_prefix('>') {
             if !current_header.is_empty() {
                 records.push(FastaRecord {
                     header: current_header.clone(),
@@ -514,7 +514,7 @@ fn parse_fasta_text(text: &str) -> Vec<FastaRecord> {
                 });
                 current_seq.clear();
             }
-            current_header = line[1..].to_string();
+            current_header = stripped.to_string();
         } else if !line.is_empty() && !line.starts_with(';') {
             current_seq.push_str(line);
         }

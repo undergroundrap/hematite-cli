@@ -374,10 +374,11 @@ fn action_tree(args: &Value) -> Result<String, String> {
     let root = args.get("root").and_then(|v| v.as_str()).unwrap_or("root");
     let children_val = args.get("children").or_else(|| args.get("nodes"));
 
-    let mut dot = format!("digraph Tree {{\n");
+    let mut dot = "digraph Tree {\n".to_string();
     dot.push_str("    rankdir=TB;\n");
     dot.push_str("    node [shape=box];\n\n");
 
+    #[allow(dead_code)]
     fn add_node(
         dot: &mut String,
         parent_id: &str,

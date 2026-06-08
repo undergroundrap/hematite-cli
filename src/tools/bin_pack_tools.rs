@@ -265,7 +265,7 @@ fn action_pack(fields: &[Field], values: &[Value], names: &[String]) -> Result<S
         match &field.ftype {
             FieldType::I8 => {
                 let n = val_to_i64(val, "int8")?;
-                if n < -128 || n > 127 {
+                if !(-128..=127).contains(&n) {
                     return Err(format!("{}: value {} out of int8 range", name, n));
                 }
                 bytes.push(n as i8 as u8);
@@ -295,7 +295,7 @@ fn action_pack(fields: &[Field], values: &[Value], names: &[String]) -> Result<S
             }
             FieldType::I16 => {
                 let n = val_to_i64(val, "int16")?;
-                if n < -32768 || n > 32767 {
+                if !(-32768..=32767).contains(&n) {
                     return Err(format!("{}: value {} out of int16 range", name, n));
                 }
                 let b = if field.big_endian {

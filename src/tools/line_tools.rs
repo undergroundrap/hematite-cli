@@ -234,7 +234,7 @@ fn sort(args: &serde_json::Value) -> Result<String, String> {
             na.partial_cmp(&nb).unwrap_or(std::cmp::Ordering::Equal)
         });
     } else if ignore_case {
-        lines.sort_by(|a, b| a.to_lowercase().cmp(&b.to_lowercase()));
+        lines.sort_by_key(|a| a.to_lowercase());
     } else {
         lines.sort();
     }

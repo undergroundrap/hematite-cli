@@ -155,8 +155,7 @@ fn action_dft(args: &Value) -> Result<String, String> {
         .map(|(r, i)| (r * r + i * i).sqrt())
         .fold(0.0_f64, f64::max);
 
-    for k in 0..display_n {
-        let (re, im) = spec[k];
+    for (k, &(re, im)) in spec[..display_n].iter().enumerate() {
         let mag = (re * re + im * im).sqrt();
         let phase = im.atan2(re).to_degrees();
         let freq_str = if let Some(fs) = sr {
@@ -234,7 +233,7 @@ fn action_convolve(args: &Value) -> Result<String, String> {
         return Err("Both 'samples' and 'kernel' must be non-empty.".into());
     }
     let y = convolve(&x, &h);
-    let mut out = format!("Convolution\n\n");
+    let mut out = "Convolution\n\n".to_string();
     out.push_str(&format!("  Input  x: {} samples\n", x.len()));
     out.push_str(&format!("  Kernel h: {} taps\n", h.len()));
     out.push_str(&format!("  Output y: {} samples\n\n", y.len()));
@@ -290,7 +289,7 @@ fn bessel_i0(x: f64) -> f64 {
 fn action_window(args: &Value) -> Result<String, String> {
     let wtype = args["window_type"].as_str().unwrap_or("hamming");
     let n = args["length"].as_u64().unwrap_or(32) as usize;
-    if n < 2 || n > 4096 {
+    if !(2..=4096).contains(&n) {
         return Err("'length' must be between 2 and 4096.".into());
     }
     let beta = args["beta"].as_f64().unwrap_or(5.0);
@@ -420,7 +419,7 @@ fn action_fir(args: &Value) -> Result<String, String> {
         _ => design_fir_lp(cutoff, taps, &win), // lowpass
     };
 
-    let mut out = format!("FIR Filter Design\n\n");
+    let mut out = "FIR Filter Design\n\n".to_string();
     out.push_str(&format!("  Type:    {} ({})\n", ftype, wtype));
     out.push_str(&format!("  Taps:    {}\n", taps));
     out.push_str(&format!("  Cutoff:  {:.4}", cutoff));
@@ -585,7 +584,7 @@ fn action_resample(args: &Value) -> Result<String, String> {
     let start = delay.min(filtered.len());
     let y: Vec<f64> = filtered[start..].iter().step_by(down).cloned().collect();
 
-    let expected = (x.len() * up + down - 1) / down;
+    let expected = (x.len() * up).div_ceil(down);
     let mut out = format!("Resample — {}↑ {}↓\n\n", up, down);
     out.push_str(&format!("  Input:    {} samples\n", x.len()));
     out.push_str(&format!(
@@ -645,7 +644,7 @@ fn action_autocorr(args: &Value) -> Result<String, String> {
         let norm = if r0v.abs() > 1e-12 { rk / r0v } else { 0.0 };
         let bar_len = (norm.abs() * 20.0).round() as usize;
         let bar = if norm >= 0.0 {
-            format!("{}", "█".repeat(bar_len))
+            "█".repeat(bar_len)
         } else {
             format!("-{}", "▒".repeat(bar_len))
         };

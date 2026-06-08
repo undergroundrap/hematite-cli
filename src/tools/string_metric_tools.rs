@@ -29,8 +29,8 @@ fn levenshtein_distance(a: &str, b: &str) -> usize {
     let m = a.len();
     let n = b.len();
     let mut dp = vec![vec![0usize; n + 1]; m + 1];
-    for i in 0..=m {
-        dp[i][0] = i;
+    for (i, row) in dp.iter_mut().enumerate() {
+        row[0] = i;
     }
     for j in 0..=n {
         dp[0][j] = j;
@@ -53,8 +53,8 @@ fn damerau_levenshtein_distance(a: &str, b: &str) -> usize {
     let m = a.len();
     let n = b.len();
     let mut dp = vec![vec![0usize; n + 1]; m + 1];
-    for i in 0..=m {
-        dp[i][0] = i;
+    for (i, row) in dp.iter_mut().enumerate() {
+        row[0] = i;
     }
     for j in 0..=n {
         dp[0][j] = j;
@@ -236,7 +236,7 @@ fn action_levenshtein(args: &Value) -> Result<String, String> {
         1.0 - dist as f64 / max_len as f64
     };
 
-    let mut out = format!("string_metric_tools — levenshtein\n\n");
+    let mut out = "string_metric_tools — levenshtein\n\n".to_string();
     out.push_str(&format!("  A: \"{}\"\n", a));
     out.push_str(&format!("  B: \"{}\"\n\n", b));
     out.push_str(&format!("  Edit distance : {}\n", dist));
@@ -283,7 +283,7 @@ fn action_damerau(args: &Value) -> Result<String, String> {
         1.0 - dist as f64 / max_len as f64
     };
 
-    let mut out = format!("string_metric_tools — damerau-levenshtein\n\n");
+    let mut out = "string_metric_tools — damerau-levenshtein\n\n".to_string();
     out.push_str(&format!("  A: \"{}\"\n", a));
     out.push_str(&format!("  B: \"{}\"\n\n", b));
     out.push_str(&format!("  Damerau distance: {}\n", dist));
@@ -315,7 +315,7 @@ fn action_jaro(args: &Value) -> Result<String, String> {
         "Different"
     };
 
-    let mut out = format!("string_metric_tools — jaro\n\n");
+    let mut out = "string_metric_tools — jaro\n\n".to_string();
     out.push_str(&format!("  A: \"{}\"\n", a));
     out.push_str(&format!("  B: \"{}\"\n\n", b));
     out.push_str(&format!(
@@ -343,7 +343,7 @@ fn action_jaro_winkler(args: &Value) -> Result<String, String> {
         .map(|(c, _)| *c)
         .collect();
 
-    let mut out = format!("string_metric_tools — jaro-winkler\n\n");
+    let mut out = "string_metric_tools — jaro-winkler\n\n".to_string();
     out.push_str(&format!("  A: \"{}\"\n", a));
     out.push_str(&format!("  B: \"{}\"\n\n", b));
     out.push_str(&format!(
@@ -380,7 +380,7 @@ fn action_hamming(args: &Value) -> Result<String, String> {
         1.0 - dist as f64 / len as f64
     };
 
-    let mut out = format!("string_metric_tools — hamming\n\n");
+    let mut out = "string_metric_tools — hamming\n\n".to_string();
     out.push_str(&format!("  A: \"{}\"\n", a));
     out.push_str(&format!("  B: \"{}\"\n\n", b));
     out.push_str(&format!("  Hamming distance: {}\n", dist));
@@ -423,7 +423,7 @@ fn action_lcs(args: &Value) -> Result<String, String> {
         lcs_len as f64 / b.chars().count() as f64
     };
 
-    let mut out = format!("string_metric_tools — lcs\n\n");
+    let mut out = "string_metric_tools — lcs\n\n".to_string();
     out.push_str(&format!("  A: \"{}\"\n", a));
     out.push_str(&format!("  B: \"{}\"\n\n", b));
     out.push_str(&format!("  LCS           : \"{}\"\n", lcs));
@@ -459,7 +459,7 @@ fn action_similarity(args: &Value) -> Result<String, String> {
 
     let avg = (lev_sim + jaro + jw + dice) / 4.0;
 
-    let mut out = format!("string_metric_tools — similarity\n\n");
+    let mut out = "string_metric_tools — similarity\n\n".to_string();
     out.push_str(&format!("  A: \"{}\"\n", a));
     out.push_str(&format!("  B: \"{}\"\n\n", b));
     out.push_str(&format!(
@@ -550,7 +550,7 @@ fn action_fuzzy_match(args: &Value) -> Result<String, String> {
 
     scored.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
 
-    let mut out = format!("string_metric_tools — fuzzy match\n\n");
+    let mut out = "string_metric_tools — fuzzy match\n\n".to_string();
     out.push_str(&format!("  Query: \"{}\"\n", query));
     out.push_str(&format!(
         "  {} candidates  top {} shown\n\n",

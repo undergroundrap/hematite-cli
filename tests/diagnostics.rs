@@ -18136,7 +18136,7 @@ fn test_password_gen_no_ambiguous() {
         .find(|l| l.trim_start().starts_with("Password"))
         .unwrap_or("");
     let password = password_line.split(':').nth(1).unwrap_or("").trim();
-    assert!(!password.contains('0') || true); // just check it ran OK
+    // just check it ran OK — password is non-empty (checked on next line)
     assert!(!password.is_empty());
 }
 
@@ -21335,9 +21335,8 @@ fn test_routing_detects_rss_tools() {
 fn test_keyval_tools_set_get() {
     use hematite::tools::keyval_tools;
     use serde_json::json;
-    use std::path::PathBuf;
     let rt = tokio::runtime::Runtime::new().unwrap();
-    let store = PathBuf::from(std::env::temp_dir()).join("hematite_test_kv.json");
+    let store = std::env::temp_dir().join("hematite_test_kv.json");
     let store_str = store.to_str().unwrap();
 
     // Set a value
@@ -21372,9 +21371,8 @@ fn test_keyval_tools_set_get() {
 fn test_keyval_tools_list() {
     use hematite::tools::keyval_tools;
     use serde_json::json;
-    use std::path::PathBuf;
     let rt = tokio::runtime::Runtime::new().unwrap();
-    let store = PathBuf::from(std::env::temp_dir()).join("hematite_test_kv2.json");
+    let store = std::env::temp_dir().join("hematite_test_kv2.json");
     let store_str = store.to_str().unwrap();
 
     rt.block_on(keyval_tools::execute(
@@ -21403,9 +21401,8 @@ fn test_keyval_tools_list() {
 fn test_keyval_tools_delete() {
     use hematite::tools::keyval_tools;
     use serde_json::json;
-    use std::path::PathBuf;
     let rt = tokio::runtime::Runtime::new().unwrap();
-    let store = PathBuf::from(std::env::temp_dir()).join("hematite_test_kv3.json");
+    let store = std::env::temp_dir().join("hematite_test_kv3.json");
     let store_str = store.to_str().unwrap();
 
     rt.block_on(keyval_tools::execute(
@@ -21440,9 +21437,8 @@ fn test_keyval_tools_delete() {
 fn test_keyval_tools_namespace() {
     use hematite::tools::keyval_tools;
     use serde_json::json;
-    use std::path::PathBuf;
     let rt = tokio::runtime::Runtime::new().unwrap();
-    let store = PathBuf::from(std::env::temp_dir()).join("hematite_test_kv4.json");
+    let store = std::env::temp_dir().join("hematite_test_kv4.json");
     let store_str = store.to_str().unwrap();
 
     rt.block_on(keyval_tools::execute(&json!({"action": "set", "key": "version", "value": "1.0", "ns": "build", "store": store_str}))).unwrap();
@@ -21464,9 +21460,8 @@ fn test_keyval_tools_namespace() {
 fn test_keyval_tools_clear() {
     use hematite::tools::keyval_tools;
     use serde_json::json;
-    use std::path::PathBuf;
     let rt = tokio::runtime::Runtime::new().unwrap();
-    let store = PathBuf::from(std::env::temp_dir()).join("hematite_test_kv5.json");
+    let store = std::env::temp_dir().join("hematite_test_kv5.json");
     let store_str = store.to_str().unwrap();
 
     rt.block_on(keyval_tools::execute(
@@ -34405,7 +34400,8 @@ fn test_signal_tools_error_no_samples_dft() {
     let result = rt.block_on(hematite::tools::signal_tools::execute(
         &serde_json::json!({"action": "dft"}),
     ));
-    assert!(result.is_err() || result.unwrap().contains("Error") || true);
+    // missing `samples` arg should produce an error or an error message
+    assert!(result.is_err() || result.unwrap().contains("Error"));
 }
 
 #[test]
@@ -37071,16 +37067,13 @@ fn test_ssh_key_tools_validate_invalid() {
         }),
     ));
     // Should either succeed with INVALID verdict, or err on truly malformed input
-    match result {
-        Ok(out) => {
-            assert!(
-                out.contains("INVALID") || out.contains("error") || out.contains("invalid"),
-                "should flag invalid key: {}",
-                out
-            );
-        }
-        Err(_) => {} // acceptable — malformed key can return Err
-    }
+    if let Ok(out) = result {
+        assert!(
+            out.contains("INVALID") || out.contains("error") || out.contains("invalid"),
+            "should flag invalid key: {}",
+            out
+        );
+    } // Err(_) is acceptable — malformed key can return Err
 }
 
 // ─── wireguard_tools routing tests ───────────────────────────────────────────

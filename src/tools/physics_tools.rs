@@ -285,7 +285,7 @@ fn fmt_sci(v: f64) -> String {
         return "0".to_string();
     }
     let exp = v.abs().log10().floor() as i32;
-    if exp >= -3 && exp <= 6 {
+    if (-3..=6).contains(&exp) {
         if exp >= 0 {
             format!("{}", v)
         } else {
@@ -613,12 +613,14 @@ fn solve_work(vars: &HashMap<String, f64>) -> Result<(String, f64, &'static str)
     }
 }
 
+type SolveFn = fn(&HashMap<String, f64>) -> Result<(String, f64, &'static str), String>;
+
 struct FormulaEntry {
     name: &'static str,
     description: &'static str,
     domain: &'static str,
     vars: &'static [(&'static str, &'static str)],
-    solve: fn(&HashMap<String, f64>) -> Result<(String, f64, &'static str), String>,
+    solve: SolveFn,
 }
 
 const FORMULAS: &[FormulaEntry] = &[

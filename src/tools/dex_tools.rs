@@ -24,6 +24,7 @@ const DEX_MAGIC_PREFIX: &[u8] = b"dex\n";
 const ENDIAN_CONSTANT: u32 = 0x1234_5678;
 const REVERSE_ENDIAN_CONSTANT: u32 = 0x7856_3412;
 
+#[allow(dead_code)]
 struct DexHeader {
     version: String,
     checksum: u32,

@@ -45,6 +45,7 @@ pub async fn execute(args: &Value) -> Result<String, String> {
 // ── Parsing ───────────────────────────────────────────────────────────────────
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 struct EnvEntry {
     key: String,
     value: String,
@@ -98,7 +99,7 @@ fn strip_inline_comment(s: &str) -> String {
     let mut chars = s.chars().peekable();
     let mut result = String::new();
 
-    while let Some(c) = chars.next() {
+    for c in chars.by_ref() {
         match c {
             '"' if !in_single => in_double = !in_double,
             '\'' if !in_double => in_single = !in_single,

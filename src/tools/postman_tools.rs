@@ -224,13 +224,13 @@ fn action_parse(args: &Value) -> Result<String, String> {
     let filtered: Vec<&Request> = requests
         .iter()
         .filter(|r| {
-            folder_filter.map_or(true, |f| {
+            folder_filter.is_none_or(|f| {
                 r.folder.to_lowercase().contains(&f.to_lowercase())
             })
         })
-        .filter(|r| method_filter.as_deref().map_or(true, |m| r.method == m))
+        .filter(|r| method_filter.as_deref().is_none_or(|m| r.method == m))
         .filter(|r| {
-            query_filter.map_or(true, |q| {
+            query_filter.is_none_or(|q| {
                 r.name.to_lowercase().contains(&q.to_lowercase())
                     || r.url.to_lowercase().contains(&q.to_lowercase())
             })
@@ -285,9 +285,9 @@ fn action_requests(args: &Value) -> Result<String, String> {
 
     let filtered: Vec<&Request> = requests
         .iter()
-        .filter(|r| method_filter.as_deref().map_or(true, |m| r.method == m))
+        .filter(|r| method_filter.as_deref().is_none_or(|m| r.method == m))
         .filter(|r| {
-            query.map_or(true, |q| {
+            query.is_none_or(|q| {
                 r.name.to_lowercase().contains(&q.to_lowercase())
                     || r.url.to_lowercase().contains(&q.to_lowercase())
             })

@@ -118,11 +118,7 @@ fn eval_single_path<'a>(root: &'a Value, path: &str) -> Result<Vec<&'a Value>, S
     }
 
     // Strip leading dot
-    let path = if path.starts_with('.') {
-        &path[1..]
-    } else {
-        path
-    };
+    let path = path.strip_prefix('.').unwrap_or(path);
 
     if path.is_empty() {
         return Ok(vec![root]);
@@ -185,7 +181,7 @@ fn apply_builtin<'a>(
             Value::Object(map) => {
                 Err(format!("__builtin_values_object:{}", {
                     let vals: Vec<String> =
-                        map.values().map(|v| format_scalar(v)).collect();
+                        map.values().map(format_scalar).collect();
                     vals.join("\n")
                 }))
             }
@@ -431,7 +427,7 @@ fn action_query(args: &Value) -> Result<String, String> {
             .as_array()
             .ok_or("jq_tools: '[]' requires an array value")?;
         if arr.is_empty() {
-            return Ok(format!("(empty array)\n\n0 results"));
+            return Ok("(empty array)\n\n0 results".to_string());
         }
         let mut out = String::new();
         for item in arr {
@@ -498,11 +494,10 @@ fn action_query(args: &Value) -> Result<String, String> {
 fn action_keys(args: &Value) -> Result<String, String> {
     let json = resolve_json(args)?;
     let target = if let Some(p) = path_arg(args) {
-        navigate(&json, p.trim_start_matches('.')).map(|v| v.clone())
+        navigate(&json, p.trim_start_matches('.')).cloned()
     } else {
         Ok(json.clone())
-    }
-    .map_err(|e| e)?;
+    }?;
 
     match &target {
         Value::Object(map) => {
@@ -531,7 +526,7 @@ fn action_keys(args: &Value) -> Result<String, String> {
 fn action_values(args: &Value) -> Result<String, String> {
     let json = resolve_json(args)?;
     let target = if let Some(p) = path_arg(args) {
-        navigate(&json, p.trim_start_matches('.')).map(|v| v.clone())
+        navigate(&json, p.trim_start_matches('.')).cloned()
     } else {
         Ok(json.clone())
     }?;
@@ -561,7 +556,7 @@ fn action_values(args: &Value) -> Result<String, String> {
 fn action_flatten(args: &Value) -> Result<String, String> {
     let json = resolve_json(args)?;
     let target = if let Some(p) = path_arg(args) {
-        navigate(&json, p.trim_start_matches('.')).map(|v| v.clone())
+        navigate(&json, p.trim_start_matches('.')).cloned()
     } else {
         Ok(json.clone())
     }?;
@@ -602,7 +597,7 @@ fn flatten_recursive(arr: &[Value], depth: usize) -> Vec<Value> {
 fn action_map(args: &Value) -> Result<String, String> {
     let json = resolve_json(args)?;
     let target = if let Some(p) = path_arg(args) {
-        navigate(&json, p.trim_start_matches('.')).map(|v| v.clone())
+        navigate(&json, p.trim_start_matches('.')).cloned()
     } else {
         Ok(json.clone())
     }?;
@@ -640,7 +635,7 @@ fn action_map(args: &Value) -> Result<String, String> {
 fn action_filter(args: &Value) -> Result<String, String> {
     let json = resolve_json(args)?;
     let target = if let Some(p) = path_arg(args) {
-        navigate(&json, p.trim_start_matches('.')).map(|v| v.clone())
+        navigate(&json, p.trim_start_matches('.')).cloned()
     } else {
         Ok(json.clone())
     }?;
@@ -759,7 +754,7 @@ fn action_filter(args: &Value) -> Result<String, String> {
 fn action_count(args: &Value) -> Result<String, String> {
     let json = resolve_json(args)?;
     let target = if let Some(p) = path_arg(args) {
-        navigate(&json, p.trim_start_matches('.')).map(|v| v.clone())
+        navigate(&json, p.trim_start_matches('.')).cloned()
     } else {
         Ok(json.clone())
     }?;
@@ -776,7 +771,7 @@ fn action_count(args: &Value) -> Result<String, String> {
 fn action_type(args: &Value) -> Result<String, String> {
     let json = resolve_json(args)?;
     let target = if let Some(p) = path_arg(args) {
-        navigate(&json, p.trim_start_matches('.')).map(|v| v.clone())
+        navigate(&json, p.trim_start_matches('.')).cloned()
     } else {
         Ok(json.clone())
     }?;

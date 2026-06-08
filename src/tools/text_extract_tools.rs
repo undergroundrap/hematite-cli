@@ -253,7 +253,7 @@ fn action_hashes(text: &str, dedup: bool, limit: usize) -> String {
     let re5 = re_md5();
 
     // Collect SHA-256 positions to exclude from shorter matches
-    let mut sha256_spans: Vec<(usize, usize)> = re256
+    let sha256_spans: Vec<(usize, usize)> = re256
         .find_iter(text)
         .map(|m| (m.start(), m.end()))
         .collect();

@@ -51,7 +51,7 @@ fn parse_items(v: &Value) -> Result<Vec<f64>, String> {
             .map(|x| x.as_f64().ok_or_else(|| format!("non-numeric item: {x}")))
             .collect()
     } else if let Some(s) = v.as_str() {
-        s.split(|c: char| c == ',' || c == ' ')
+        s.split([',', ' '])
             .map(|w| w.trim())
             .filter(|w| !w.is_empty())
             .map(|w| w.parse::<f64>().map_err(|_| format!("not a number: '{w}'")))
@@ -348,7 +348,7 @@ fn heap_sort(mut arr: Vec<f64>, max_steps: usize) -> SortResult {
     let mut steps = Vec::new();
 
     fn sift_down(
-        arr: &mut Vec<f64>,
+        arr: &mut [f64],
         start: usize,
         end: usize,
         comparisons: &mut usize,
@@ -598,7 +598,7 @@ fn action_sort(args: &Value) -> Result<String, String> {
             lines.push(format!("  {:>3}. {}", i + 1, step));
         }
         if result.steps.len() >= max_steps {
-            lines.push(format!("  ... (use max_steps to see more)"));
+            lines.push("  ... (use max_steps to see more)".to_string());
         }
     }
 

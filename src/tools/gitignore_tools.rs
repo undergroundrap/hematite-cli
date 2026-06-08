@@ -73,7 +73,7 @@ fn parse_gitignore(text: &str) -> Vec<GitignorePattern> {
     text.lines()
         .map(|l| l.trim())
         .filter(|l| !l.is_empty() && !l.starts_with('#'))
-        .map(|l| GitignorePattern::parse(l))
+        .map(GitignorePattern::parse)
         .collect()
 }
 
@@ -85,7 +85,7 @@ fn pattern_matches_path(pat: &GitignorePattern, path: &str) -> bool {
         let seg = &pat.segments[0];
         let seg_lower = seg.to_lowercase();
         // match against last component or any component
-        let filename = path_lower.split('/').last().unwrap_or(&path_lower);
+        let filename = path_lower.split('/').next_back().unwrap_or(&path_lower);
         if glob_segment_match(&seg_lower, filename) {
             return true;
         }
@@ -180,14 +180,12 @@ fn parse_action(args: &Value) -> Result<String, String> {
             section.clear();
             continue;
         }
-        if trimmed.starts_with('#') {
+        if let Some(rest) = trimmed.strip_prefix('#') {
             comment_count += 1;
-            let comment = &trimmed[1..].trim().to_string();
-            if !comment.is_empty() {
-                if section.is_empty() {
-                    section = comment.to_string();
-                    out += &format!("[{}]\n", comment);
-                }
+            let comment = &rest.trim().to_string();
+            if !comment.is_empty() && section.is_empty() {
+                section = comment.to_string();
+                out += &format!("[{}]\n", comment);
             }
             continue;
         }

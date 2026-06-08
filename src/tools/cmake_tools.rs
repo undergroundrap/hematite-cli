@@ -55,8 +55,8 @@ fn strip_comments(text: &str) -> String {
             // Strip # comments not inside quotes
             let mut in_q = false;
             let mut result = String::new();
-            let mut chars = line.chars().peekable();
-            while let Some(c) = chars.next() {
+            let chars = line.chars();
+            for c in chars {
                 match c {
                     '"' => {
                         in_q = !in_q;

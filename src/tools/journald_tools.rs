@@ -47,6 +47,7 @@ fn priority_icon(p: u8) -> &'static str {
 // ── data model ────────────────────────────────────────────────────────────────
 
 #[derive(Debug, Clone, Default)]
+#[allow(dead_code)]
 struct JournalEntry {
     timestamp_us: u64,
     unit: String,

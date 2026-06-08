@@ -149,7 +149,7 @@ fn action_flowchart(args: &Value) -> Result<String, String> {
     if let Some(steps) = args.get("steps").and_then(|v| v.as_array()) {
         let step_strs: Vec<&str> = steps.iter().filter_map(|v| v.as_str()).collect();
         for (i, step) in step_strs.iter().enumerate() {
-            out.push_str(&format!("    {}[\"{}\"]\n", format!("step{}", i), step));
+            out.push_str(&format!("    step{}[\"{}\"]\n", i, step));
         }
         for i in 0..step_strs.len().saturating_sub(1) {
             out.push_str(&format!("    step{} --> step{}\n", i, i + 1));

@@ -173,7 +173,7 @@ where
     for line in text.lines() {
         let trimmed = line.trim();
         if !in_block {
-            if trimmed == &format!("{} (", keyword) {
+            if trimmed == format!("{} (", keyword) {
                 in_block = true;
                 continue;
             }

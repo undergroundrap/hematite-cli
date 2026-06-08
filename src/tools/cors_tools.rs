@@ -42,6 +42,7 @@ pub fn cors_tools_schema() -> Value {
     })
 }
 
+#[allow(dead_code)]
 struct CorsConfig {
     allowed_origins: Vec<String>,
     allowed_methods: Vec<String>,
@@ -511,7 +512,7 @@ fn action_preflight(args: &Value) -> Result<String, String> {
 
     let mut out = String::from("CORS PREFLIGHT SIMULATION\n=========================\n\n");
     out.push_str("--- Preflight Request (Browser sends) ---\n");
-    out.push_str(&format!("OPTIONS /api/endpoint HTTP/1.1\n"));
+    out.push_str("OPTIONS /api/endpoint HTTP/1.1\n");
     out.push_str(&format!("Origin: {}\n", origin));
     out.push_str(&format!("Access-Control-Request-Method: {}\n", method));
     out.push_str(&format!(

@@ -47,6 +47,7 @@ struct Component {
     version: Option<String>,
     license: Option<String>,
     purl: Option<String>,
+    #[allow(dead_code)]
     component_type: Option<String>,
     supplier: Option<String>,
 }
@@ -200,15 +201,11 @@ fn extract_cdx_license(c: &Value) -> Option<String> {
         let parts: Vec<String> = arr
             .iter()
             .filter_map(|l| {
-                if let Some(id) = l["license"]["id"].as_str() {
-                    Some(id.to_string())
-                } else if let Some(name) = l["license"]["name"].as_str() {
-                    Some(name.to_string())
-                } else if let Some(expr) = l["expression"].as_str() {
-                    Some(expr.to_string())
-                } else {
-                    None
-                }
+                l["license"]["id"]
+                    .as_str()
+                    .or_else(|| l["license"]["name"].as_str())
+                    .or_else(|| l["expression"].as_str())
+                    .map(|s| s.to_string())
             })
             .collect();
         if !parts.is_empty() {

@@ -436,7 +436,7 @@ fn validate_action(args: &Value) -> Result<String, String> {
                 label
             ));
         }
-        if names.iter().any(|n| *n == "_") {
+        if names.contains(&"_") {
             default_server_count += 1;
         }
 

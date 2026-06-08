@@ -100,7 +100,7 @@ fn action_rle(args: &Value) -> Result<String, String> {
                 .ok_or("pass 'encoded' string to decode")?;
             let decoded = rle_decode(encoded)?;
             let mut lines = Vec::new();
-            lines.push(format!("RLE Decode"));
+            lines.push("RLE Decode".to_string());
             lines.push(format!(
                 "  Input:   {} chars — {:?}",
                 encoded.len(),
@@ -136,7 +136,7 @@ fn action_rle(args: &Value) -> Result<String, String> {
                 )
             };
             let mut lines = Vec::new();
-            lines.push(format!("RLE Encode"));
+            lines.push("RLE Encode".to_string());
             lines.push(format!(
                 "  Input:   {} chars — {:?}",
                 text.len(),
@@ -158,12 +158,8 @@ fn action_rle(args: &Value) -> Result<String, String> {
             lines.push(format!("  Result:  {}", saving));
             lines.push(format!("  Ratio:   {:.3}", ratio));
             lines.push(String::new());
-            lines.push(format!(
-                "  Best for: highly repetitive sequences (e.g. 'AAAAAABBB')"
-            ));
-            lines.push(format!(
-                "  Worst for: diverse text — every unique char costs 1 extra byte"
-            ));
+            lines.push("  Best for: highly repetitive sequences (e.g. 'AAAAAABBB')".to_string());
+            lines.push("  Worst for: diverse text — every unique char costs 1 extra byte".to_string());
             Ok(lines.join("\n"))
         }
     }
@@ -260,7 +256,7 @@ fn action_lz(args: &Value) -> Result<String, String> {
         .iter()
         .filter(|t| matches!(t, LzToken::BackRef { .. }))
         .count();
-    let total_output_chars: usize = tokens
+    let _total_output_chars: usize = tokens
         .iter()
         .map(|t| match t {
             LzToken::Literal(_) => 1,
@@ -298,7 +294,7 @@ fn action_lz(args: &Value) -> Result<String, String> {
     lines.push(String::new());
 
     // show up to 15 tokens
-    lines.push(format!("Token stream (first {}):", "20".to_string()));
+    lines.push("Token stream (first 20):".to_string());
     for (i, tok) in tokens.iter().take(20).enumerate() {
         match tok {
             LzToken::Literal(c) => lines.push(format!("  {:>3}. LIT {:?}", i + 1, c)),
@@ -387,7 +383,7 @@ fn action_analyze(args: &Value) -> Result<String, String> {
     };
 
     let mut lines = Vec::new();
-    lines.push(format!("Compressibility Analysis"));
+    lines.push("Compressibility Analysis".to_string());
     lines.push(format!("  Characters:       {}", n));
     lines.push(format!("  Bytes (UTF-8):    {}", bytes));
     lines.push(format!("  Unique chars:     {}", freq.len()));
@@ -411,7 +407,7 @@ fn action_analyze(args: &Value) -> Result<String, String> {
     lines.push(String::new());
     lines.push(format!("Verdict: {}", verdict));
     lines.push(String::new());
-    lines.push(format!("Top characters (by frequency):"));
+    lines.push("Top characters (by frequency):".to_string());
     for (ch, count) in freq.iter().take(8) {
         let pct = *count as f64 / n as f64 * 100.0;
         let bar = "#".repeat((*count * 30 / freq[0].1).max(1));
@@ -458,7 +454,7 @@ fn action_huffman(args: &Value) -> Result<String, String> {
         lines.push(format!(
             "  Compressed size: {} bits = {} bytes (with 1 bit/char)",
             cnt,
-            (cnt + 7) / 8
+            cnt.div_ceil(8)
         ));
         return Ok(lines.join("\n"));
     }
@@ -466,9 +462,9 @@ fn action_huffman(args: &Value) -> Result<String, String> {
     // build Huffman tree via symbol weights
     // represent each node as (weight, depth_sum, nodes)
     // simplified: derive code lengths from optimal Huffman tree using iterative merging
-    let mut weights: Vec<f64> = symbols.iter().map(|(_, c)| *c as f64).collect();
+    let weights: Vec<f64> = symbols.iter().map(|(_, c)| *c as f64).collect();
     let mut lengths = vec![0u32; k];
-    let mut node_weights = weights.clone();
+    let node_weights = weights.clone();
 
     // iterative Huffman: merge two smallest, track depths
     let mut active: Vec<(f64, Vec<usize>)> = symbols
@@ -519,12 +515,12 @@ fn action_huffman(args: &Value) -> Result<String, String> {
     lines.push(format!(
         "  Original size:    {} bits ({} bytes, 8 bits/char)",
         original_bits,
-        (original_bits + 7) / 8
+        original_bits.div_ceil(8)
     ));
     lines.push(format!(
         "  Huffman size:     {} bits ({} bytes)",
         compressed_bits,
-        (compressed_bits + 7) / 8
+        compressed_bits.div_ceil(8)
     ));
     lines.push(format!(
         "  Compression:      {:.1}%  ({:.3}x)",

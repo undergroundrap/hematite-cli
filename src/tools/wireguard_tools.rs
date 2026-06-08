@@ -93,8 +93,10 @@ fn parse_config(text: &str) -> Result<Config, String> {
             if let Some(p) = current_peer.take() {
                 peers.push(p);
             }
-            let mut p = Peer::default();
-            p.name = pending_name.take();
+            let p = Peer {
+                name: pending_name.take(),
+                ..Default::default()
+            };
             current_peer = Some(p);
             in_interface = false;
             continue;

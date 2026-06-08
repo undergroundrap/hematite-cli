@@ -120,8 +120,8 @@ fn action_info(cfg: &Value) -> String {
         if let Some(rd) = co.get("rootDir").and_then(|v| v.as_str()) {
             out.push_str(&format!("  rootDir:      {}\n", rd));
         }
-        let noEmit = co.get("noEmit").and_then(|v| v.as_bool()).unwrap_or(false);
-        if noEmit {
+        let no_emit = co.get("noEmit").and_then(|v| v.as_bool()).unwrap_or(false);
+        if no_emit {
             out.push_str("  noEmit:       true\n");
         }
         let composite = co

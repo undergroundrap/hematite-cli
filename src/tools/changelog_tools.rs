@@ -50,11 +50,11 @@ fn parse_changelog(text: &str) -> Vec<Release> {
         let trimmed = line.trim();
 
         // Version heading: ## [x.y.z] or ## [Unreleased] with optional date
-        if trimmed.starts_with("## ") {
+        if let Some(heading) = trimmed.strip_prefix("## ") {
             // Flush current section
             if let Some(ref mut rel) = current {
                 if let Some(sec) = current_section.take() {
-                    rel.sections.push((sec, current_items.drain(..).collect()));
+                    rel.sections.push((sec, std::mem::take(&mut current_items)));
                 }
                 rel.raw_body = body_lines.join("\n");
                 releases.push(rel.clone());
@@ -63,7 +63,6 @@ fn parse_changelog(text: &str) -> Vec<Release> {
             current_items.clear();
             current_section = None;
 
-            let heading = &trimmed[3..];
             let yanked = heading.to_uppercase().contains("[YANKED]");
 
             // Extract version and date
@@ -79,12 +78,12 @@ fn parse_changelog(text: &str) -> Vec<Release> {
         }
 
         // Section heading within a release: ### Added / ### Changed / etc.
-        if trimmed.starts_with("### ") {
+        if let Some(sec_name) = trimmed.strip_prefix("### ") {
             if let Some(ref mut rel) = current {
                 if let Some(sec) = current_section.take() {
-                    rel.sections.push((sec, current_items.drain(..).collect()));
+                    rel.sections.push((sec, std::mem::take(&mut current_items)));
                 }
-                current_section = Some(trimmed[4..].trim().to_string());
+                current_section = Some(sec_name.trim().to_string());
                 current_items.clear();
             }
             body_lines.push(line);
@@ -139,8 +138,8 @@ fn parse_version_heading(heading: &str) -> (String, Option<String>) {
         }
     };
 
-    let date = if rest.starts_with("- ") {
-        Some(rest[2..].trim().to_string())
+    let date = if let Some(d) = rest.strip_prefix("- ") {
+        Some(d.trim().to_string())
     } else if !rest.is_empty() {
         Some(rest.to_string())
     } else {

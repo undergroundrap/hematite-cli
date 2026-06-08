@@ -93,6 +93,7 @@ impl<'a> Reader<'a> {
 }
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 enum CpEntry {
     Utf8(String),
     Integer(i32),
@@ -114,6 +115,7 @@ enum CpEntry {
     Placeholder,
 }
 
+#[allow(dead_code)]
 struct MemberInfo {
     access_flags: u16,
     name_index: u16,
@@ -735,8 +737,8 @@ fn action_imports(cf: &ClassFile) -> String {
             let resolved = if name.starts_with('[') {
                 // Array — extract element class if object type
                 let elem = name.trim_start_matches('[');
-                if elem.starts_with('L') {
-                    elem[1..].trim_end_matches(';').replace('/', ".")
+                if let Some(stripped) = elem.strip_prefix('L') {
+                    stripped.trim_end_matches(';').replace('/', ".")
                 } else {
                     continue;
                 }

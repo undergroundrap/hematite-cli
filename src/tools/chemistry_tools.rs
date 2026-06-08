@@ -362,8 +362,8 @@ fn balance_equation(equation: &str) -> Result<String, String> {
         let pc = pivot_col[r];
         let pv = matrix[r][pc];
         let mut rhs_val = rat_mul(matrix[r][cols], (1, 1));
-        for c in (pc + 1)..cols {
-            let contrib = rat_mul(matrix[r][c], coeff[c]);
+        for (c, &mc) in matrix[r][(pc + 1)..cols].iter().enumerate().map(|(i, v)| (pc + 1 + i, v)) {
+            let contrib = rat_mul(mc, coeff[c]);
             rhs_val = rat_sub(rhs_val, contrib);
         }
         coeff[pc] = rat_reduce(rat_div(rhs_val, pv));
@@ -606,9 +606,7 @@ fn action_ph(args: &Value) -> String {
         out.push_str(&format!("Ka = {:.4e}  \u{2192}  pKa = {:.4}\n", ka, pka));
         if let (Some(a), Some(b)) = (acid, base) {
             let ph = pka + (b / a).log10();
-            out.push_str(&format!(
-                "Henderson-Hasselbalch: pH = pKa + log([A\u{207B}]/[HA])\n"
-            ));
+            out.push_str("Henderson-Hasselbalch: pH = pKa + log([A\u{207B}]/[HA])\n");
             out.push_str(&format!(
                 "pH = {:.4} + log({:.4}/{:.4}) = {:.4}\n",
                 pka, b, a, ph

@@ -39,6 +39,7 @@ struct IpTable {
 }
 
 #[derive(Clone, Debug, Default)]
+#[allow(dead_code)]
 struct Chain {
     name: String,
     policy: String,
@@ -192,13 +193,13 @@ fn parse_tables(text: &str) -> Vec<IpTable> {
             continue;
         }
 
-        if line.starts_with('*') {
+        if let Some(table_name) = line.strip_prefix('*') {
             if let Some(t) = current_table.take() {
                 tables.push(t);
             }
             chain_names.clear();
             current_table = Some(IpTable {
-                name: line[1..].to_string(),
+                name: table_name.to_string(),
                 ..Default::default()
             });
         } else if line == "COMMIT" {
@@ -210,7 +211,7 @@ fn parse_tables(text: &str) -> Vec<IpTable> {
             // :CHAIN POLICY [packets:bytes]
             let parts: Vec<&str> = line.split_whitespace().collect();
             let name = parts
-                .get(0)
+                .first()
                 .map(|s| s.trim_start_matches(':'))
                 .unwrap_or("")
                 .to_string();
@@ -275,19 +276,19 @@ fn action_parse(args: &Value) -> Result<String, String> {
     let mut out = String::new();
     for t in tables
         .iter()
-        .filter(|t| table_filter.map_or(true, |f| t.name == f))
+        .filter(|t| table_filter.is_none_or(|f| t.name == f))
     {
         out.push_str(&format!("\n## Table: {}\n", t.name.to_uppercase()));
         for chain in &t.chains {
-            if chain_filter.as_deref().map_or(false, |f| chain.name != f) {
+            if chain_filter.as_deref().is_some_and(|f| chain.name != f) {
                 continue;
             }
             let filtered_rules: Vec<&Rule> = chain
                 .rules
                 .iter()
-                .filter(|r| target_filter.as_deref().map_or(true, |tf| r.target == tf))
+                .filter(|r| target_filter.as_deref().is_none_or(|tf| r.target == tf))
                 .filter(|r| {
-                    query.map_or(true, |q| r.raw.to_lowercase().contains(&q.to_lowercase()))
+                    query.is_none_or(|q| r.raw.to_lowercase().contains(&q.to_lowercase()))
                 })
                 .collect();
 
@@ -358,7 +359,7 @@ fn action_chains(args: &Value) -> Result<String, String> {
 
     for t in tables
         .iter()
-        .filter(|t| table_filter.map_or(true, |f| t.name == f))
+        .filter(|t| table_filter.is_none_or(|f| t.name == f))
     {
         for chain in &t.chains {
             let policy = if chain.policy == "-" {
@@ -396,17 +397,17 @@ fn action_rules(args: &Value) -> Result<String, String> {
     let mut all_rules: Vec<(String, &Rule)> = Vec::new();
     for t in tables
         .iter()
-        .filter(|t| table_filter.map_or(true, |f| t.name == f))
+        .filter(|t| table_filter.is_none_or(|f| t.name == f))
     {
         for chain in &t.chains {
-            if chain_filter.as_deref().map_or(false, |f| chain.name != f) {
+            if chain_filter.as_deref().is_some_and(|f| chain.name != f) {
                 continue;
             }
             for r in &chain.rules {
-                if target_filter.as_deref().map_or(false, |tf| r.target != tf) {
+                if target_filter.as_deref().is_some_and(|tf| r.target != tf) {
                     continue;
                 }
-                if query.map_or(false, |q| !r.raw.to_lowercase().contains(&q.to_lowercase())) {
+                if query.is_some_and(|q| !r.raw.to_lowercase().contains(&q.to_lowercase())) {
                     continue;
                 }
                 all_rules.push((t.name.clone(), r));

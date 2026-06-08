@@ -101,7 +101,7 @@ fn decode_base64(s: &str) -> Result<Vec<u8>, String> {
     while i < chars.len() {
         let mut buf = [0u32; 4];
         let mut group_len = 0;
-        for slot in 0..4 {
+        for (slot, slot_val) in buf.iter_mut().enumerate() {
             if i >= chars.len() {
                 break;
             }
@@ -117,7 +117,7 @@ fn decode_base64(s: &str) -> Result<Vec<u8>, String> {
             if v == 0xff {
                 return Err("msgpack_tools: invalid base64 character".into());
             }
-            buf[slot] = v as u32;
+            *slot_val = v as u32;
             group_len = slot + 1;
         }
         if group_len >= 2 {

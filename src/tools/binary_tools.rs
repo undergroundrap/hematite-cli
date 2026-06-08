@@ -65,7 +65,7 @@ fn auto_width(n: u64) -> u32 {
     } else {
         let bits = 64 - n.leading_zeros();
         // round up to nearest byte boundary
-        ((bits + 7) / 8) * 8
+        bits.div_ceil(8) * 8
     }
 }
 
@@ -108,20 +108,20 @@ fn action_info(args: &Value) -> Result<String, String> {
     let parity = if popcount % 2 == 0 { "even" } else { "odd" };
     let gray = n ^ (n >> 1);
 
-    let mut out = format!("binary_tools — info\n\n");
+    let mut out = "binary_tools — info\n\n".to_string();
     out.push_str(&format!("  Decimal  : {}\n", n));
     out.push_str(&format!("  Hex      : 0x{:X} (0x{:x})\n", n, n));
     out.push_str(&format!("  Octal    : 0o{:o}\n", n));
     out.push_str(&format!("  Binary   : {}\n", nibble_str(n, w)));
     out.push_str(&format!("  Width    : {} bits ({} bytes)\n", w, w / 8));
-    out.push_str(&format!("\n"));
+    out.push('\n');
     out.push_str(&format!("  Popcount : {} bit(s) set\n", popcount));
     out.push_str(&format!("  Parity   : {}\n", parity));
     out.push_str(&format!("  Leading  : {} zero bit(s)\n", leading));
     out.push_str(&format!("  Trailing : {} zero bit(s)\n", trailing));
     out.push_str(&format!("  MSB      : bit {}\n", 63 - n.leading_zeros()));
-    out.push_str(&format!("  LSB      : bit 0\n"));
-    out.push_str(&format!("\n"));
+    out.push_str("  LSB      : bit 0\n");
+    out.push('\n');
     out.push_str(&format!("  Gray code: {} (0x{:X})\n", gray, gray));
     out.push_str(&format!("  NOT      : 0x{:X}\n", !n & ((1u64 << w) - 1)));
 
@@ -167,7 +167,7 @@ fn action_flags(args: &Value) -> Result<String, String> {
         })
         .unwrap_or_default();
 
-    let mut out = format!("binary_tools — flags\n\n");
+    let mut out = "binary_tools — flags\n\n".to_string();
     out.push_str(&format!("  Value: {} (0x{:X})\n\n", n, n));
     out.push_str(&format!(
         "  {:>4}  {:>12}  {}\n",
@@ -215,7 +215,7 @@ fn action_pack(args: &Value) -> Result<String, String> {
 
     let mut result: u64 = 0;
     let mut total_bits: u32 = 0;
-    let mut out = format!("binary_tools — pack\n\n");
+    let mut out = "binary_tools — pack\n\n".to_string();
     out.push_str(&format!(
         "  {:<20}  {:>6}  {:>10}  {}\n",
         "Field", "Bits", "Value", "Binary"
@@ -234,7 +234,7 @@ fn action_pack(args: &Value) -> Result<String, String> {
             .get("value")
             .or_else(|| field.get("v"))
             .and_then(|v| v.as_u64())
-            .ok_or_else(|| format!("Field {i}: missing 'value'"))? as u64;
+            .ok_or_else(|| format!("Field {i}: missing 'value'"))?;
         let default_name = format!("field{i}");
         let name = field
             .get("name")
@@ -284,7 +284,7 @@ fn action_unpack(args: &Value) -> Result<String, String> {
         .map(|f| f.get("bits").and_then(|v| v.as_u64()).unwrap_or(0) as u32)
         .sum();
 
-    let mut out = format!("binary_tools — unpack\n\n");
+    let mut out = "binary_tools — unpack\n\n".to_string();
     out.push_str(&format!("  Input : {} (0x{:X})\n", n, n));
     out.push_str(&format!("  Layout: {} bits\n\n", total_bits));
     out.push_str(&format!(
@@ -362,14 +362,14 @@ fn action_ops(args: &Value) -> Result<String, String> {
     };
     let mask_w = if w >= 64 { u64::MAX } else { (1u64 << w) - 1 };
 
-    let mut out = format!("binary_tools — ops\n\n");
+    let mut out = "binary_tools — ops\n\n".to_string();
     out.push_str(&format!("  A = {} (0x{:X})\n", a, a));
     if let Some(b_val) = b {
         out.push_str(&format!("  B = {} (0x{:X})\n", b_val, b_val));
     }
     out.push_str(&format!("  Width = {} bits, Shift = {}\n\n", w, shift));
 
-    out.push_str(&format!("  Unary on A:\n"));
+    out.push_str("  Unary on A:\n");
     out.push_str(&format!(
         "    NOT A           : 0x{:X}  ({})\n",
         !a & mask_w,
@@ -415,7 +415,7 @@ fn action_ops(args: &Value) -> Result<String, String> {
     out.push_str(&format!("    GRAY(A)         : 0x{:X}\n", a ^ (a >> 1)));
 
     if let Some(b_val) = b {
-        out.push_str(&format!("\n  Binary on A, B:\n"));
+        out.push_str("\n  Binary on A, B:\n");
         out.push_str(&format!(
             "    A AND B         : 0x{:X}  ({})\n",
             a & b_val,

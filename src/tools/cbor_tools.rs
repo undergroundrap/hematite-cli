@@ -103,7 +103,7 @@ fn decode_base64_str(s: &str) -> Result<Vec<u8>, String> {
     while i < chars.len() {
         let mut group_len = 0;
         let mut acc = 0u32;
-        for slot in 0..4 {
+        for (slot, buf_slot) in buf.iter_mut().enumerate() {
             if i >= chars.len() {
                 break;
             }
@@ -122,9 +122,9 @@ fn decode_base64_str(s: &str) -> Result<Vec<u8>, String> {
                     chars[i - 1] as char
                 ));
             }
-            buf[slot] = v as u32;
+            *buf_slot = v as u32;
             group_len = slot + 1;
-            acc = (acc << 6) | buf[slot];
+            acc = (acc << 6) | *buf_slot;
         }
         let _ = acc;
         // decode via direct byte ops

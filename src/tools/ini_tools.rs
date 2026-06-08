@@ -61,13 +61,10 @@ fn parse_ini(text: &str) -> IniDoc {
         }
 
         // Key = value (also accept key: value)
-        let sep = if let Some(p) = line.find('=') {
-            Some(('=', p))
-        } else if let Some(p) = line.find(':') {
-            Some((':', p))
-        } else {
-            None
-        };
+        let sep = line
+            .find('=')
+            .map(|p| ('=', p))
+            .or_else(|| line.find(':').map(|p| (':', p)));
 
         if let Some((_, pos)) = sep {
             let key = line[..pos].trim().to_string();

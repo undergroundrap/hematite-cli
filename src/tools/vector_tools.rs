@@ -143,7 +143,7 @@ fn normalize(v: &[f64]) -> Result<Vec<f64>, String> {
     Ok(v.iter().map(|x| x / mag).collect())
 }
 
-fn get_v<'a>(args: &'a Value) -> &'a Value {
+fn get_v(args: &Value) -> &Value {
     if !args["v"].is_null() {
         &args["v"]
     } else {
@@ -151,7 +151,7 @@ fn get_v<'a>(args: &'a Value) -> &'a Value {
     }
 }
 
-fn get_a<'a>(args: &'a Value) -> &'a Value {
+fn get_a(args: &Value) -> &Value {
     if !args["a"].is_null() {
         &args["a"]
     } else {

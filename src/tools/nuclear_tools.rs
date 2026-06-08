@@ -1,6 +1,7 @@
 use serde_json::{Map, Value};
 
 const LN2: f64 = std::f64::consts::LN_2;
+#[allow(dead_code)]
 const C: f64 = 2.99792458e8;
 const EV_TO_J: f64 = 1.602176634e-19;
 const M_U_KG: f64 = 1.66053906660e-27;
@@ -279,8 +280,8 @@ fn action_halflife(args: &Value) -> Result<String, String> {
     out.push_str(&format!("  T½ (half-life)     = {t_half:.6e} s\n"));
     out.push_str(&format!("  λ  (decay const)   = {lambda:.6e} s⁻¹\n"));
     out.push_str(&format!("  τ  (mean lifetime) = {tau:.6e} s\n\n"));
-    out.push_str(&format!("  After  1 T½:  50.000% remains\n"));
-    out.push_str(&format!("  After  2 T½:  25.000% remains\n"));
+    out.push_str("  After  1 T½:  50.000% remains\n");
+    out.push_str("  After  2 T½:  25.000% remains\n");
     out.push_str(&format!(
         "  After 10 T½: {:6.4}% remains\n",
         100.0 * 0.5_f64.powi(10)
@@ -539,7 +540,7 @@ fn action_carbon_dating(args: &Value) -> Result<String, String> {
             "  C-14 remaining: {ratio:.4} ({:.2}%)\n",
             ratio * 100.0
         ));
-        out.push_str(&format!("  t = −(1/λ)·ln(N/N₀)\n"));
+        out.push_str("  t = −(1/λ)·ln(N/N₀)\n");
         out.push_str(&format!("    = {t_years:.0} years  ({t_s:.3e} s)\n\n"));
         out.push_str("  Note: assumes constant atmospheric C-14.\n");
         out.push_str("  Calibration (dendrochronology) needed for accuracy.\n");

@@ -185,12 +185,10 @@ fn parse_action(args: &serde_json::Value) -> Result<String, String> {
             } else {
                 var.value.clone()
             }
+        } else if var.value.len() <= 4 {
+            "*".repeat(var.value.len())
         } else {
-            if var.value.len() <= 4 {
-                "*".repeat(var.value.len())
-            } else {
-                format!("{}...", &var.value[..2])
-            }
+            format!("{}...", &var.value[..2])
         };
         out.push_str(&format!(
             "{:<key_w$}  {:4}  {}\n",

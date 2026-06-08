@@ -92,7 +92,7 @@ fn strip_line_comments(text: &str) -> String {
             }
             continue;
         }
-        if (c == '"' || c == '\'') {
+        if c == '"' || c == '\'' {
             in_str = true;
             str_char = c;
             out.push(c);
@@ -100,7 +100,7 @@ fn strip_line_comments(text: &str) -> String {
         }
         if c == '/' && chars.peek() == Some(&'/') {
             // line comment — skip to end of line
-            while let Some(nc) = chars.next() {
+            for nc in chars.by_ref() {
                 if nc == '\n' {
                     out.push('\n');
                     break;
@@ -170,7 +170,7 @@ fn parse_dep_notation(raw: &str) -> (String, String, String, String) {
 
     // GAV string "group:artifact:version"
     let parts: Vec<&str> = inner.splitn(3, ':').collect();
-    let group = parts.get(0).unwrap_or(&"").to_string();
+    let group = parts.first().unwrap_or(&"").to_string();
     let artifact = parts.get(1).unwrap_or(&"").to_string();
     let version = parts.get(2).unwrap_or(&"").to_string();
     let kind = if wrapper.is_empty() {
@@ -340,10 +340,10 @@ fn collect_plugins(text: &str, _is_kts: bool) -> Vec<GradlePlugin> {
         }
 
         // kotlin("jvm") style
-        if t.starts_with("kotlin(") {
+        if let Some(rest_k) = t.strip_prefix("kotlin(") {
             let id = format!(
                 "org.jetbrains.kotlin.{}",
-                extract_first_string(&t["kotlin(".len()..])
+                extract_first_string(rest_k)
             );
             let version = if let Some(vi) = t.find("version") {
                 let after = &t[vi + "version".len()..].trim_start();
@@ -360,8 +360,8 @@ fn collect_plugins(text: &str, _is_kts: bool) -> Vec<GradlePlugin> {
         }
 
         // Legacy: apply plugin: 'foo'
-        if t.starts_with("apply plugin:") {
-            let id = extract_first_string(&t["apply plugin:".len()..]);
+        if let Some(rest_ap) = t.strip_prefix("apply plugin:") {
+            let id = extract_first_string(rest_ap);
             if !id.is_empty() {
                 plugins.push(GradlePlugin {
                     id,
@@ -376,17 +376,17 @@ fn collect_plugins(text: &str, _is_kts: bool) -> Vec<GradlePlugin> {
 
 fn extract_first_string(s: &str) -> String {
     let s = s.trim();
-    if s.starts_with('"') {
-        if let Some(end) = s[1..].find('"') {
-            return s[1..end + 1].to_string();
+    if let Some(rest) = s.strip_prefix('"') {
+        if let Some(end) = rest.find('"') {
+            return rest[..end].to_string();
         }
-    } else if s.starts_with('\'') {
-        if let Some(end) = s[1..].find('\'') {
-            return s[1..end + 1].to_string();
+    } else if let Some(rest) = s.strip_prefix('\'') {
+        if let Some(end) = rest.find('\'') {
+            return rest[..end].to_string();
         }
-    } else if s.starts_with('(') {
+    } else if let Some(rest) = s.strip_prefix('(') {
         // strip paren then look for string
-        return extract_first_string(&s[1..]);
+        return extract_first_string(rest);
     }
     String::new()
 }
@@ -414,7 +414,7 @@ fn collect_tasks(text: &str, is_kts: bool) -> Vec<GradleTask> {
         if !is_kts && t.starts_with("task ") {
             let rest = &t["task ".len()..];
             let name_end = rest
-                .find(|c: char| c == '(' || c == ' ' || c == '{')
+                .find(['(', ' ', '{'])
                 .unwrap_or(rest.len());
             let name = rest[..name_end].trim().to_string();
             let task_type = if rest.contains("type:") {
@@ -462,7 +462,7 @@ fn extract_groovy_type(s: &str) -> String {
     if let Some(pos) = s.find("type:") {
         let after = s[pos + 5..].trim();
         let end = after
-            .find(|c: char| c == ')' || c == ',' || c == ' ' || c == '{')
+            .find([')', ',', ' ', '{'])
             .unwrap_or(after.len());
         return after[..end].trim().to_string();
     }
@@ -484,10 +484,10 @@ fn extract_depends_on_from_block(lines: &[&str], start: usize) -> Vec<String> {
     // look in the next 20 lines for dependsOn
     for line in lines.iter().skip(start).take(20) {
         let t = line.trim();
-        if t.starts_with("dependsOn") {
+        if let Some(rest_dep) = t.strip_prefix("dependsOn") {
             // dependsOn "task1", "task2"  or  dependsOn(tasks.named("foo"))
             let rest =
-                &t["dependsOn".len()..].trim_start_matches(|c| c == '(' || c == ':' || c == ' ');
+                rest_dep.trim_start_matches(['(', ':', ' ']);
             for part in rest.split(',') {
                 let s = part
                     .trim()
@@ -507,9 +507,8 @@ fn extract_depends_on_from_block(lines: &[&str], start: usize) -> Vec<String> {
 fn extract_description_from_block(lines: &[&str], start: usize) -> String {
     for line in lines.iter().skip(start).take(10) {
         let t = line.trim();
-        if t.starts_with("description") {
-            let rest = &t["description".len()..];
-            let rest = rest.trim_start_matches(|c| c == ' ' || c == '=' || c == ':');
+        if let Some(rest) = t.strip_prefix("description") {
+            let rest = rest.trim_start_matches([' ', '=', ':']);
             return extract_first_string(rest);
         }
         if t == "}" {
@@ -547,8 +546,7 @@ fn collect_properties(text: &str, is_kts: bool) -> Vec<(String, String)> {
             }
         } else {
             // ext.foo = "bar"
-            if t.starts_with("ext.") {
-                let rest = &t["ext.".len()..];
+            if let Some(rest) = t.strip_prefix("ext.") {
                 if let Some(eq) = rest.find('=') {
                     let name = rest[..eq].trim().to_string();
                     let val = extract_first_string(rest[eq + 1..].trim());
@@ -683,8 +681,8 @@ fn extract_simple_val(text: &str, key: &str) -> Option<String> {
     // group = "foo"  or  group = 'foo'  or  group("foo")
     for line in text.lines() {
         let t = line.trim();
-        if t.starts_with(key) {
-            let rest = &t[key.len()..].trim_start();
+        if let Some(rest_v) = t.strip_prefix(key) {
+            let rest = rest_v.trim_start();
             if rest.starts_with('=') || rest.starts_with("(\"") || rest.starts_with("('") {
                 let after = rest.trim_start_matches('=').trim_start_matches('(').trim();
                 let val = extract_first_string(after);
@@ -787,7 +785,9 @@ fn do_deps(text: &str, is_kts: bool, args: &Value) -> Result<String, String> {
 // Minimal LinkedHashSet-like collection (insertion-ordered unique values)
 mod std {
     pub use ::std::*;
+    #[allow(dead_code)]
     pub struct LinkedHashSet<T>(Vec<T>);
+    #[allow(dead_code)]
     impl<T: PartialEq> LinkedHashSet<T> {
         pub fn new() -> Self {
             LinkedHashSet(Vec::new())

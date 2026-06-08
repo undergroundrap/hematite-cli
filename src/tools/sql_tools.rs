@@ -239,6 +239,7 @@ struct Table {
     columns: Vec<Column>,
     primary_keys: Vec<String>, // from table-level PK constraint
     foreign_keys: Vec<(String, String, String)>, // (col, ref_table, ref_col)
+    #[allow(dead_code)]
     indexes: Vec<String>,
 }
 
@@ -279,7 +280,7 @@ fn parse_create_table(stmt: &str) -> Option<Table> {
     };
     let raw_name = ws.get(name_idx)?.clone();
     // Strip schema prefix if present (schema.name → name)
-    let table_name = raw_name.split('.').last().unwrap_or(&raw_name).to_string();
+    let table_name = raw_name.split('.').next_back().unwrap_or(&raw_name).to_string();
 
     // Extract the body between the outermost parens
     let body = extract_paren_body(stmt)?;
@@ -426,9 +427,7 @@ fn extract_default_value(def: &str) -> Option<String> {
                 break;
             }
             depth -= 1;
-        } else if c == ',' && depth == 0 {
-            break;
-        } else if c.is_whitespace() && depth == 0 && !val.is_empty() {
+        } else if depth == 0 && (c == ',' || (c.is_whitespace() && !val.is_empty())) {
             break;
         }
         val.push(c);

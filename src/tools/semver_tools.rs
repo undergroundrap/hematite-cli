@@ -169,7 +169,7 @@ fn version_satisfies(v: &SemVer, range: &str) -> Result<bool, String> {
 fn single_constraint(v: &SemVer, constraint: &str) -> Result<bool, String> {
     let c = constraint.trim();
 
-    if c == "*" || c == "" {
+    if c == "*" || c.is_empty() {
         return Ok(true);
     }
 

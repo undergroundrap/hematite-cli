@@ -145,7 +145,7 @@ fn stats(args: &serde_json::Value) -> Result<String, String> {
         match event {
             Event::Start(Tag::Heading { level, .. }) => {
                 let n = heading_level_num(&level) as usize;
-                if n >= 1 && n <= 6 {
+                if (1..=6).contains(&n) {
                     h_levels[n - 1] += 1;
                 }
                 heading_count += 1;
@@ -267,7 +267,7 @@ fn extract(args: &serde_json::Value) -> Result<String, String> {
                         };
                     }
                     Event::Text(s) if in_block => {
-                        if lang_filter.map_or(true, |f| current_lang.starts_with(f)) {
+                        if lang_filter.is_none_or(|f| current_lang.starts_with(f)) {
                             results.push((current_lang.clone(), s.to_string()));
                         }
                     }

@@ -314,6 +314,7 @@ struct CertInfo {
     pub_key_bits: Option<usize>,
     is_ca: Option<bool>,
     sans: Vec<String>,
+    #[allow(dead_code)]
     key_usage: Vec<String>,
     ext_key_usage: Vec<String>,
 }

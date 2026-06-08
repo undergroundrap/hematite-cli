@@ -307,26 +307,12 @@ fn action_search(matches: &[Match], truncated: bool, limit: usize) -> String {
     unique_files.sort_unstable();
     unique_files.dedup();
 
-    let mut out = format!(
-        "{} matches in {} file(s)\n",
-        matches
-            .iter()
-            .filter(|m| !m.text.starts_with("--\n") && !m.text.starts_with('-'))
-            .count()
-            + matches
-                .iter()
-                .filter(|m| !m.text.starts_with("--\n") && !m.text.starts_with('-'))
-                .count()
-                .min(0),
-        unique_files.len()
-    );
-
-    // Recount properly
+    // Count actual matches
     let real_count = matches
         .iter()
         .filter(|m| !m.text.starts_with('-') && !m.text.starts_with("--"))
         .count();
-    out = format!("{} matches in {} file(s)\n", real_count, unique_files.len());
+    let mut out = format!("{} matches in {} file(s)\n", real_count, unique_files.len());
 
     out.push_str(&"─".repeat(60));
     out.push('\n');
