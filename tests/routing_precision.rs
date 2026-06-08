@@ -210,3 +210,165 @@ fn test_routing_app_crashes_in_multi_topic() {
         "should detect resource_load"
     );
 }
+
+// ── 0.8.0 wave topics ──────────────────────────────────────────────────────
+
+#[test]
+fn test_routing_detects_mdm_enrollment_topic() {
+    assert_eq!(
+        preferred_host_inspection_topic("Is this machine enrolled in Intune?"),
+        Some("mdm_enrollment")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("Check MDM enrollment state on this device."),
+        Some("mdm_enrollment")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("Show Autopilot and device enrollment status."),
+        Some("mdm_enrollment")
+    );
+}
+
+#[test]
+fn test_routing_detects_storage_spaces_topic() {
+    assert_eq!(
+        preferred_host_inspection_topic("Check Windows Storage Spaces health."),
+        Some("storage_spaces")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("Show storage pool status and virtual disk health."),
+        Some("storage_spaces")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("Is my storage pool degraded?"),
+        Some("storage_spaces")
+    );
+}
+
+#[test]
+fn test_routing_detects_defender_quarantine_topic() {
+    assert_eq!(
+        preferred_host_inspection_topic("Show Defender quarantine history."),
+        Some("defender_quarantine")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("What malware has Defender detected on this machine?"),
+        Some("defender_quarantine")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("Show threat history and detection log."),
+        Some("defender_quarantine")
+    );
+}
+
+#[test]
+fn test_routing_detects_domain_health_topic() {
+    assert_eq!(
+        preferred_host_inspection_topic("Can this machine reach its domain controller?"),
+        Some("domain_health")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("Check DC connectivity and LDAP port reachability."),
+        Some("domain_health")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("Is Kerberos working and can the machine reach the DC?"),
+        Some("domain_health")
+    );
+}
+
+#[test]
+fn test_routing_detects_service_dependencies_topic() {
+    assert_eq!(
+        preferred_host_inspection_topic("What services depend on the Print Spooler?"),
+        Some("service_dependencies")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("Show the service dependency graph."),
+        Some("service_dependencies")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("What will break if I stop this service?"),
+        Some("service_dependencies")
+    );
+}
+
+#[test]
+fn test_routing_detects_wmi_health_topic() {
+    assert_eq!(
+        preferred_host_inspection_topic("Check WMI repository health."),
+        Some("wmi_health")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("Is the WMI repository corrupt?"),
+        Some("wmi_health")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("WMI is broken and tools keep failing."),
+        Some("wmi_health")
+    );
+}
+
+#[test]
+fn test_routing_detects_local_security_policy_topic() {
+    assert_eq!(
+        preferred_host_inspection_topic("What is the local password policy on this machine?"),
+        Some("local_security_policy")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("Check account lockout threshold and policy."),
+        Some("local_security_policy")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("Show the NTLM authentication level."),
+        Some("local_security_policy")
+    );
+}
+
+#[test]
+fn test_routing_detects_usb_history_topic() {
+    assert_eq!(
+        preferred_host_inspection_topic("Show USB device history for this machine."),
+        Some("usb_history")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("What USB storage devices have been connected?"),
+        Some("usb_history")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("USB forensic audit — what drives have been plugged in?"),
+        Some("usb_history")
+    );
+}
+
+#[test]
+fn test_routing_detects_print_spooler_topic() {
+    assert_eq!(
+        preferred_host_inspection_topic("Check the Print Spooler service state."),
+        Some("print_spooler")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("Is this machine vulnerable to PrintNightmare?"),
+        Some("print_spooler")
+    );
+    assert_eq!(
+        preferred_host_inspection_topic("Show spooler service and printer queue."),
+        Some("print_spooler")
+    );
+}
+
+#[test]
+fn test_routing_0_8_0_wave_multi_topic() {
+    let topics = all_host_inspection_topics(
+        "Check MDM enrollment, WMI repository health, and storage pool status.",
+    );
+    assert!(
+        topics.contains(&"mdm_enrollment"),
+        "should detect mdm_enrollment"
+    );
+    assert!(topics.contains(&"wmi_health"), "should detect wmi_health");
+    assert!(
+        topics.contains(&"storage_spaces"),
+        "should detect storage_spaces"
+    );
+}
