@@ -31,6 +31,8 @@ allow = [
     "CDLA-Permissive-2.0",
     # language-tokenizer via misaki-rs/kokoros
     "WTFPL",
+    # libbz2-rs-sys via bzip2 -> zip
+    "bzip2-1.0.6",
 ]
 
 # These crates use the deprecated SPDX identifier "LGPL-3.0" instead of "LGPL-3.0-only"
