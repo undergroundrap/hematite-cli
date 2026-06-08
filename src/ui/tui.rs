@@ -200,12 +200,12 @@ fn runtime_fix_path(app: &App) -> String {
         RuntimeIssueKind::NoModel => {
             if session_provider == "Ollama" {
                 format!(
-                    "Shortest fix: pull or run a chat model in Ollama, then keep `api_url` on `{}`. Hematite cannot safely auto-load that model for you here.",
+                    "Shortest fix: run `ollama pull qwen2.5-coder:7b` (or another chat model), keep `api_url` on `{}`. Run `/runtime` to re-check status once the model is loaded.",
                     crate::agent::config::DEFAULT_OLLAMA_API_URL
                 )
             } else {
                 format!(
-                    "Shortest fix: load a coding model in LM Studio and keep the local server on `{}`. Hematite cannot safely auto-load that model for you here.",
+                    "Shortest fix: download LM Studio (lmstudio.ai), load a model (e.g. Qwen/Qwen3.5-9B Q4_K_M), start the server on `{}`. Run `/runtime` to re-check status once the server is up.",
                     crate::agent::config::DEFAULT_LM_STUDIO_API_URL
                 )
             }
@@ -4906,9 +4906,12 @@ pub async fn run_app<B: Backend>(
                         }
                         if now_no_model && !was_no_model {
                             let mut guidance = if provider_name == "Ollama" {
-                                "No coding model is currently available from Ollama. Pull or load a chat model in Ollama, then keep `api_url` pointed at `http://localhost:11434/v1`. If you also want semantic search, set `/embed prefer <id>` to an Ollama embedding model.".to_string()
+                                format!(
+                                    "No coding model is available from Ollama. Hematite is pointed at {} but found no loaded model.\n\n  Quick fix: `ollama pull qwen2.5-coder:7b` or `ollama run llama3.2` — Hematite will detect it automatically.\n\n  For semantic search: `ollama pull nomic-embed-text` then `/embed prefer nomic-embed-text`.\n\n  Type `/runtime` to check connection status. The RT:MOD badge in the status bar clears when a model is ready.",
+                                    crate::agent::config::DEFAULT_OLLAMA_API_URL
+                                )
                             } else {
-                                "No coding model loaded. Load a model in LM Studio (e.g. Qwen/Qwen3.5-9B Q4_K_M) and start the server on port 1234. Optionally also load an embedding model for semantic search.".to_string()
+                                "No coding model is loaded. Hematite needs a local model server before it can work.\n\n  LM Studio (default): lmstudio.ai — download, open a model (e.g. Qwen/Qwen3.5-9B Q4_K_M), start the local server on port 1234. Hematite will detect it automatically.\n\n  Ollama: `ollama pull qwen2.5-coder:7b`, then `/provider ollama` and restart.\n\n  Type `/runtime` to check connection status. The RT:MOD badge in the status bar clears when a model is ready.".to_string()
                             };
                             if let Some((alt_name, alt_url)) =
                                 crate::runtime::detect_alternative_provider(&provider_name).await
