@@ -88,6 +88,7 @@ cargo fmt
 cargo check --tests
 cargo test --test diagnostics
 cargo test --test routing_precision
+cargo deny check
 powershell -ExecutionPolicy Bypass -File scripts/verify-doc-sync.ps1
 ```
 

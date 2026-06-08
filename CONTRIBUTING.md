@@ -85,6 +85,7 @@ Use this loop for normal feature work before you commit:
 cargo fmt
 cargo check --tests
 cargo test --test diagnostics
+cargo deny check
 pwsh ./scripts/package-windows.ps1 -AddToPath
 ```
 
@@ -96,6 +97,8 @@ What each command is doing, in plain English:
   This is the fast "does the project still compile?" pass. It checks normal code and test code without doing the slow full release link step.
 - `cargo test --test diagnostics`
   This runs the focused diagnostics suite where a lot of Hematite's behavior checks live. If you changed a tool, routing rule, memory behavior, or workflow, this is the fastest proof that the feature still behaves the way you think it does.
+- `cargo deny check`
+  This validates licenses, bans duplicate crates, and checks security advisories. Run it whenever Cargo.toml or any transitive dependency changes. New crates occasionally use non-standard SPDX license identifiers that must be explicitly allowed in `deny.toml`.
 - `pwsh ./scripts/package-windows.ps1 -AddToPath`
   This builds the real local portable you actually run from the terminal. In practice, this is the closest thing to "test the real app like a user would use it" before you commit or release.
 
