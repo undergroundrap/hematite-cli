@@ -1066,6 +1066,12 @@ fn estimate_serialized_tokens<T: Serialize + ?Sized>(value: &T) -> usize {
         .map_or(0, |bytes| bytes.len() / 4 + 1)
 }
 
+/// Returns the estimated token cost of serialising `tools` into the request JSON.
+/// Exposed so `enforce_prompt_budget` can use the same accounting as `preflight_chat_request`.
+pub fn estimate_tool_schema_tokens(tools: &[ToolDefinition]) -> usize {
+    estimate_serialized_tokens(tools)
+}
+
 const IMAGE_PART_TOKEN_ESTIMATE: usize = 1024;
 
 pub fn estimate_message_tokens(message: &ChatMessage) -> usize {

@@ -3432,9 +3432,11 @@ pub async fn generate_inspect_output(topics_csv: &str) -> String {
         .collect();
 
     if topics.is_empty() {
-        return "No topics specified. Example: hematite --inspect wifi,latency,dns_cache\n\
-                Run `hematite --inventory` to list all 128+ available topics.\n"
-            .to_string();
+        return format!(
+            "No topics specified. Example: hematite --inspect wifi,latency,dns_cache\n\
+             Run `hematite --inventory` to list all {}+ available topics.\n",
+            crate::INSPECT_HOST_TOPIC_COUNT
+        );
     }
 
     let total = topics.len();

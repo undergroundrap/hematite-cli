@@ -49,26 +49,31 @@ pub fn get_tools() -> Vec<ToolDefinition> {
         ),
         make_tool(
             "run_code",
-            "Execute a short JavaScript/TypeScript or Python snippet in a sandboxed subprocess. \
-             No network access, no filesystem escape, hard 10-second timeout. \
+            "Execute a short JavaScript/TypeScript or Python snippet in a subprocess. \
+             Hard 10-second timeout (up to 60 with timeout_seconds). \
              Use this to verify logic, test algorithms, compute values, or test functions \
              when you need real output rather than a guess. \
              ALWAYS include the `language` field — there is no default. \
              \
              JAVASCRIPT/TYPESCRIPT (language: \"javascript\"): \
-             Runs via Deno, NOT Node.js. `require()` does not exist — never use it. \
-             URL imports (e.g. from 'https://deno.land/...') are blocked — network is off. \
-             Use built-in Web APIs only: `crypto.subtle`, `TextEncoder`, `URL`, `atob`/`btoa`, etc. \
+             Runs via Deno with OS-level sandboxing: no network, no env, no subprocesses, \
+             read/write limited to the workspace directory. NOT Node.js — `require()` does not exist. \
+             URL imports are blocked (network is off). Use built-in Web APIs only: \
+             `crypto.subtle`, `TextEncoder`, `URL`, `atob`/`btoa`, etc. \
              SHA-256 example: \
                const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('hello')); \
                console.log([...new Uint8Array(buf)].map(b=>b.toString(16).padStart(2,'0')).join('')); \
              \
              PYTHON (language: \"python\"): \
-             Standard library is available. `hashlib`, `json`, `math`, `datetime`, `re`, `itertools` all work. \
-             `subprocess`, `socket`, `urllib`, `requests` are blocked. \
+             Best-effort accident guard only — NOT a security sandbox. \
+             `subprocess`, `socket`, `urllib`, `requests` are monkey-patched out, but the interpreter \
+             retains full filesystem access. Treat as trusted-operator execution. \
+             Standard library is available: `hashlib`, `json`, `math`, `datetime`, `re`, `itertools` all work. \
              SHA-256 example: import hashlib; print(hashlib.sha256(b'hello').hexdigest()) \
+             Prefer Deno (javascript) when sandboxing matters. \
              \
-             Do NOT use this tool for PowerShell or shell scripting. This is strictly for high-precision computation in JavaScript, TypeScript, or Python only. \
+             Do NOT use this tool for PowerShell or shell scripting. This is strictly for \
+             high-precision computation in JavaScript, TypeScript, or Python only. \
              Do NOT fall back to shell to run deno, python, or node — use this tool directly.",
             serde_json::json!({
                 "type": "object",

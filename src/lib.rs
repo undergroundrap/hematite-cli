@@ -17,6 +17,11 @@ pub const HEMATITE_AUTHOR: &str = "Ocean Bennett";
 pub const HEMATITE_REPOSITORY_URL: &str = "https://github.com/undergroundrap/hematite-cli";
 pub const HEMATITE_SHORT_DESCRIPTION: &str =
     "Local-first AI coding harness — Senior SysAdmin, Network Admin, Data Analyst, and Software Engineer in your terminal.";
+
+/// Authoritative count of unique `inspect_host` topics/aliases.
+/// Keep this in sync with the match arms in `src/tools/host_inspect.rs`.
+/// All topic-count strings in prompts, MCP server, and docs derive from this.
+pub const INSPECT_HOST_TOPIC_COUNT: usize = 134;
 const HEMATITE_GIT_COMMIT_SHORT_RAW: &str = env!("HEMATITE_GIT_COMMIT_SHORT");
 const HEMATITE_GIT_EXACT_TAG_RAW: &str = env!("HEMATITE_GIT_EXACT_TAG");
 const HEMATITE_GIT_DIRTY_RAW: &str = env!("HEMATITE_GIT_DIRTY");

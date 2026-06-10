@@ -12527,9 +12527,92 @@ pub fn needs_babel_tools(user_input: &str) -> bool {
                 || lower.contains("validate")))
 }
 
+/// Returns `true` when the query has a dedicated native tool that fully covers what `shell`
+/// would be used for — in that case `shell` should be excluded from the active tool list so
+/// the model cannot fall back to it.
+///
+/// Only include predicates whose corresponding native tool is a **complete** replacement:
+/// pure data/format/analysis operations that never need an OS process. Build/test/lint
+/// predicates are intentionally excluded because their dedicated tools (`run_tests`,
+/// `format_code`, `lint_code`) internally invoke shell themselves.
+pub fn shell_has_native_replacement(user_input: &str) -> bool {
+    // Network / HTTP
+    needs_http_request(user_input)
+    // Docker (static ops and file parsing)
+    || needs_docker_ops(user_input)
+    || needs_docker_compose_tools(user_input)
+    || needs_dockerfile_tools(user_input)
+    // Data formats
+    || needs_json_tools(user_input)
+    || needs_yaml_tools(user_input)
+    || needs_toml_tools(user_input)
+    || needs_xml_tools(user_input)
+    || needs_csv_tools(user_input)
+    // Text / diff
+    || needs_regex_tools(user_input)
+    || needs_diff_tools(user_input)
+    || needs_diff3_tools(user_input)
+    // Encoding / hashing / hex (never shell)
+    || needs_encode_tools(user_input)
+    || needs_hash_tools(user_input)
+    || needs_hex_tools(user_input)
+    // Network address analysis
+    || needs_ip_tools(user_input)
+    || needs_subnet_tools(user_input)
+    || needs_url_tools(user_input)
+    // Database (read-only SQLite client)
+    || needs_sqlite_tools(user_input)
+    // Archives (inspection only)
+    || needs_archive_tools(user_input)
+    // Kubernetes / Helm manifest parsing (static)
+    || needs_k8s_tools(user_input)
+    || needs_helm_tools(user_input)
+    // Security analysis (static scan)
+    || needs_secret_scan(user_input)
+    // Pure utility generators
+    || needs_uuid_gen(user_input)
+    || needs_date_tools(user_input)
+    || needs_duration_tools(user_input)
+    || needs_semver_tools(user_input)
+    || needs_jwt_tools(user_input)
+    || needs_password_gen(user_input)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn shell_excluded_for_pure_native_tool_queries() {
+        // These should all trigger shell exclusion — dedicated tools exist
+        assert!(shell_has_native_replacement("parse this CSV file"));
+        assert!(shell_has_native_replacement("format json output"));
+        assert!(shell_has_native_replacement(
+            "make a get request to https://api.example.com"
+        ));
+        assert!(shell_has_native_replacement("docker ps to list containers"));
+        assert!(shell_has_native_replacement("validate yaml config"));
+        assert!(shell_has_native_replacement("generate a uuid"));
+        assert!(shell_has_native_replacement("sha256 hash this string"));
+        assert!(shell_has_native_replacement(
+            "scan for secrets in this repo"
+        ));
+        assert!(shell_has_native_replacement("parse this yaml file"));
+        assert!(shell_has_native_replacement("parse json response"));
+    }
+
+    #[test]
+    fn shell_not_excluded_for_build_run_queries() {
+        // These should NOT exclude shell — the dedicated tools use shell themselves
+        assert!(!shell_has_native_replacement("run cargo fmt"));
+        assert!(!shell_has_native_replacement("run the test suite"));
+        assert!(!shell_has_native_replacement(
+            "run cargo clippy and fix warnings"
+        ));
+        assert!(!shell_has_native_replacement(
+            "build the project with release flag"
+        ));
+    }
 
     #[test]
     fn classify_query_intent_routes_creator_questions_to_about() {

@@ -1,7 +1,6 @@
 use super::inference::InferenceEngine;
-use super::parser::{Hunk, WorkerTask};
-use std::fs;
-use std::path::{Path, PathBuf};
+use super::parser::WorkerTask;
+use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::oneshot;
 use tokio::task::JoinSet;
@@ -24,7 +23,8 @@ pub enum SwarmMessage {
     Done,
 }
 
-/// The Core parallel orchestrator locking background models to strict 12GB KV cache boundaries.
+/// Parallel worker orchestrator. Dispatches tasks to background inference threads
+/// with VRAM-aware throttling and a human-review gate before applying any output.
 pub struct SwarmCoordinator {
     pub engine: Arc<InferenceEngine>,
     pub scratch_dir: PathBuf,
@@ -118,39 +118,49 @@ impl SwarmCoordinator {
                 );
 
                 // Use the generate_task_worker path which respects asymmetric model IDs
-                if let Ok(res) = engine_clone.generate_task_worker(&prompt, true).await {
-                    let _ = tx_clone
-                        .send(SwarmMessage::Progress(task.id.clone(), 75))
-                        .await;
+                match engine_clone.generate_task_worker(&prompt, true).await {
+                    Ok(res) => {
+                        let _ = tx_clone
+                            .send(SwarmMessage::Progress(task.id.clone(), 75))
+                            .await;
 
-                    // 3) Push directly into Scratchpad isolating original File Locks
-                    let _ = std::fs::write(&scratch_path, res.clone());
-                    let _ = tx_clone
-                        .send(SwarmMessage::Progress(task.id.clone(), 100))
-                        .await;
+                        // 3) Push directly into Scratchpad isolating original File Locks
+                        let _ = std::fs::write(&scratch_path, res.clone());
+                        let _ = tx_clone
+                            .send(SwarmMessage::Progress(task.id.clone(), 100))
+                            .await;
 
-                    // 4) High-End Oversight: Trigger Human Review for EVERY successful generation
-                    let target_path = PathBuf::from(task.target.clone());
-                    let before = if target_path.is_file() {
-                        std::fs::read_to_string(&target_path)
-                            .unwrap_or_else(|_| "[Error reading context]".to_string())
-                    } else {
-                        format!("[SYNERGY: Exploring {}]", task.target)
-                    };
+                        // 4) High-End Oversight: Trigger Human Review for EVERY successful generation
+                        let target_path = PathBuf::from(task.target.clone());
+                        let before = if target_path.is_file() {
+                            std::fs::read_to_string(&target_path)
+                                .unwrap_or_else(|_| "[Error reading context]".to_string())
+                        } else {
+                            format!("[SYNERGY: Exploring {}]", task.target)
+                        };
 
-                    let (res_tx, res_rx) = oneshot::channel();
-                    let _ = tx_clone
-                        .send(SwarmMessage::ReviewRequest {
-                            worker_id: task.id.clone(),
-                            file_path: target_path.clone(),
-                            before,
-                            after: res.clone(),
-                            tx: res_tx,
-                        })
-                        .await;
+                        let (res_tx, res_rx) = oneshot::channel();
+                        let _ = tx_clone
+                            .send(SwarmMessage::ReviewRequest {
+                                worker_id: task.id.clone(),
+                                file_path: target_path.clone(),
+                                before,
+                                after: res.clone(),
+                                tx: res_tx,
+                            })
+                            .await;
 
-                    // Sync 2-Way Lock completely halting execution until Architect signs off
-                    let _ = res_rx.await;
+                        // Block until the operator accepts or rejects the diff.
+                        let _ = res_rx.await;
+                    }
+                    Err(e) => {
+                        let _ = tx_clone
+                            .send(SwarmMessage::Progress(
+                                format!("worker {} failed: {e}", task.id),
+                                0,
+                            ))
+                            .await;
+                    }
                 }
             };
 
@@ -161,115 +171,9 @@ impl SwarmCoordinator {
             }
         }
 
-        // Orchestrator patiently waits natively evaluating background executions
-        while join_set.join_next().await.is_some() {
-            // Evaluates patches passively
-        }
+        while join_set.join_next().await.is_some() {}
 
         let _ = progression_tx.send(SwarmMessage::Done).await;
-        Ok(())
-    }
-
-    /// Evaluates compiled scratchpad chunks backwards utilizing Reverse sorting organically slicing VRAM limits natively!
-    #[allow(dead_code)]
-    pub async fn apply_patches_descending(
-        &self,
-        file_path: &Path,
-        mut hunks: Vec<Hunk>,
-        progression_tx: tokio::sync::mpsc::Sender<SwarmMessage>,
-    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        let content = fs::read_to_string(file_path)?;
-        let mut lines: Vec<String> = {
-            let n = content.matches('\n').count() + 1;
-            let mut v = Vec::with_capacity(n);
-            v.extend(content.lines().map(|s| s.to_string()));
-            v
-        };
-
-        // The Golden Rule: Sort Descending natively
-        hunks.sort_by_key(|h| h.sort_key());
-
-        let mut i = 0;
-        while i < hunks.len() {
-            let current = &hunks[i];
-
-            // Look ahead for overlaps (Conflicts)
-            if i + 1 < hunks.len() && hunks[i + 1].end_line >= current.start_line {
-                // CONFLICT DETECTED: Tier 1 Synthesis Merge Pass targeting isolated context ranges
-                let mut retry_count = 0u32;
-                const MAX_CONFLICT_RETRIES: u32 = 3;
-                loop {
-                    if retry_count >= MAX_CONFLICT_RETRIES {
-                        // Give up and skip both conflicting hunks.
-                        i += 2;
-                        break;
-                    }
-                    // Safety Net Context Expansion: Double the inference bounds on retry dynamically mapping logic
-                    let padding: usize = 10 + (retry_count as usize * 10);
-                    // start_line is 1-indexed; subtract 1 to convert to 0-indexed, then subtract padding.
-                    let conflict_start = hunks[i + 1].start_line.saturating_sub(padding + 1);
-                    let conflict_end = (current.end_line + padding).min(lines.len());
-                    let context = lines[conflict_start..conflict_end].join("\n");
-
-                    let prompt = if retry_count == 0 {
-                        format!("CONFLICT in {}.\nContext:\n{}\n\nWorker {} wants: {}\nWorker {} wants: {}\nResolve these into one block.",
-                        file_path.display(), context, current.worker_id, current.content, hunks[i+1].worker_id, hunks[i+1].content)
-                    } else {
-                        format!("CRITICAL: Your previous synthesis for this conflict was REJECTED by the human architect.\nThe merge you proposed was logically unsound.\nDO NOT REPEAT MISTAKES.\n\nCONFLICT in {}.\nContext:\n{}\n\nWorker {} wants: {}\nWorker {} wants: {}\nResolve these into one robust logical block.",
-                        file_path.display(), context, current.worker_id, current.content, hunks[i+1].worker_id, hunks[i+1].content)
-                    };
-
-                    // Scale Chaos temperature natively explicitly to evade deterministic loops
-                    let temp = if retry_count > 0 { 0.7 } else { 0.1 };
-
-                    let resolved_block = self
-                        .engine
-                        .generate_task_with_temp(&prompt, temp, true)
-                        .await
-                        .map_err(|e| -> Box<dyn std::error::Error + Send + Sync> {
-                            Box::from(e)
-                        })?;
-
-                    // Cross the dimensional bound! Halt Background native evaluating physical Main interaction!
-                    let (response_tx, response_rx) = oneshot::channel();
-                    let _ = progression_tx
-                        .send(SwarmMessage::ReviewRequest {
-                            worker_id: current.worker_id.clone(),
-                            file_path: file_path.to_path_buf(),
-                            before: context.clone(),
-                            after: resolved_block.clone(),
-                            tx: response_tx,
-                        })
-                        .await;
-
-                    // Sync 2-Way Lock completely halting Orchestrator
-                    match response_rx.await.unwrap_or(ReviewResponse::Reject) {
-                        ReviewResponse::Accept => {
-                            lines.splice(conflict_start..conflict_end, vec![resolved_block]);
-                            i += 2;
-                            break;
-                        }
-                        ReviewResponse::Retry => {
-                            retry_count += 1;
-                            continue; // Organically loops back utilizing dynamically expanded Context and Chaos Temps
-                        }
-                        ReviewResponse::Reject => {
-                            i += 2; // Jump over merged hunk traces explicitly abandoning patch overlay
-                            break;
-                        }
-                    }
-                }
-            } else {
-                // Safe absolute hunk application preventing index drift identically
-                let start_idx = current.start_line.saturating_sub(1);
-                let end_idx = current.end_line.min(lines.len());
-                let range = start_idx..end_idx;
-                lines.splice(range, vec![current.content.clone()]);
-                i += 1;
-            }
-        }
-
-        fs::write(file_path, lines.join("\n"))?;
         Ok(())
     }
 }

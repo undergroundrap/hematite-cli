@@ -2,6 +2,15 @@
 
 use serde::Serialize;
 
+// ── Tool output overflow policy ───────────────────────────────────────────────
+
+/// Maximum bytes returned by `dispatch_tool` before the full output is spilled
+/// to `.hematite/scratch/` and a read_file hint is returned instead.
+///
+/// Tools that already apply their own tighter cap (e.g. `shell`, `read_file`)
+/// are exempt; this constant is the backstop for every other tool.
+pub const TOOL_OUTPUT_CAP: usize = 8_192;
+
 // ── Per-turn context budget ledger ────────────────────────────────────────────
 
 /// Token cost of a single tool result within a turn.

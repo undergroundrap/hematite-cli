@@ -1,9 +1,18 @@
-//! Sandboxed code execution tool.
+//! Code execution tool.
 //!
-//! Lets the model write and run code in a restricted subprocess — no network,
-//! no filesystem escape, hard timeout. Supports JavaScript/TypeScript (Deno)
-//! and Python. Neither runtime is bundled; we detect what's available and
-//! report clearly when nothing is found.
+//! Lets the model write and run code in a subprocess with a hard timeout.
+//! Supports JavaScript/TypeScript (Deno) and Python.
+//!
+//! **Isolation levels differ by runtime:**
+//! - **Deno** — real OS-level sandbox: `--deny-net`, `--deny-env`, `--deny-run`,
+//!   `--deny-ffi`, `--deny-sys`; read/write limited to the workspace directory.
+//! - **Python** — best-effort accident guard only. `socket`, `subprocess`,
+//!   `urllib`, and a handful of other modules are monkey-patched out, but the
+//!   interpreter retains full filesystem access and `ctypes` is not blocked.
+//!   Treat Python execution as trusted-operator access, not an isolation boundary.
+//!
+//! Neither runtime is bundled; we detect what's available and report clearly
+//! when nothing is found.
 
 use serde_json::Value;
 use std::io::Write;

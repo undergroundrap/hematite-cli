@@ -4,7 +4,7 @@
 // stderr is the only safe log channel — stdout is the protocol wire.
 //
 // Exposes:
-//   inspect_host — 116+ read-only diagnostic topics (SysAdmin, Network Admin,
+//   inspect_host — 134+ read-only diagnostic topics (SysAdmin, Network Admin,
 //                  hardware, security, developer tooling)
 //
 // Privacy modes:
@@ -195,12 +195,16 @@ async fn dispatch_tool_call(
         .and_then(|v| v.as_str())
         .ok_or_else(|| "Missing tool name in tools/call params".to_string())?;
 
-    // Strip args to declared schema fields only (jailbreak resistance: Phase 5)
+    // Strip args to declared schema fields only (jailbreak resistance: Phase 5).
+    // Allowed keys are derived from the tool's own inputSchema.properties so the
+    // allowlist stays in sync automatically when new fields are added to tool_list().
+    let allowed_keys = schema_properties_for(name);
     let args = sanitize_args(
         params
             .get("arguments")
             .cloned()
             .unwrap_or_else(|| Value::Object(Default::default())),
+        &allowed_keys,
     );
 
     match name {
@@ -309,30 +313,43 @@ async fn dispatch_tool_call(
     }
 }
 
-/// Strip MCP call arguments to the declared schema fields.
-/// Unknown keys are silently dropped — they cannot influence tool behavior.
-fn sanitize_args(args: Value) -> Value {
-    const ALLOWED: &[&str] = &[
-        "topic",
-        "host",
-        "port",
-        "name",
-        "type",
-        "path",
-        "process",
-        "event_id",
-        "log",
-        "source",
-        "hours",
-        "level",
-        "issue",
-        "max_entries",
-    ];
+/// Return the set of property names declared in a tool's inputSchema.properties.
+///
+/// This is the single source of truth for which argument keys are allowed for
+/// a given tool.  When `tool_list()` gains new properties they are automatically
+/// permitted — no second list to update.
+fn schema_properties_for(tool_name: &str) -> std::collections::HashSet<String> {
+    let tools = tool_list();
+    let Some(arr) = tools.as_array() else {
+        return Default::default();
+    };
+    for entry in arr {
+        let entry_name = entry.get("name").and_then(|v| v.as_str()).unwrap_or("");
+        if entry_name != tool_name {
+            continue;
+        }
+        if let Some(props) = entry
+            .get("inputSchema")
+            .and_then(|s| s.get("properties"))
+            .and_then(|p| p.as_object())
+        {
+            return props.keys().cloned().collect();
+        }
+    }
+    Default::default()
+}
+
+/// Strip MCP call arguments to the tool's declared schema fields.
+///
+/// Unknown keys are silently dropped — they cannot influence tool behavior or
+/// be used for prompt injection.  Pass the result of `schema_properties_for`
+/// as `allowed`; when `allowed` is empty (unknown tool) no arguments pass.
+fn sanitize_args(args: Value, allowed: &std::collections::HashSet<String>) -> Value {
     match args {
         Value::Object(map) => {
             let cleaned: serde_json::Map<String, Value> = map
                 .into_iter()
-                .filter(|(k, _)| ALLOWED.contains(&k.as_str()))
+                .filter(|(k, _)| allowed.contains(k.as_str()))
                 .collect();
             Value::Object(cleaned)
         }
@@ -344,7 +361,7 @@ fn tool_list() -> Value {
     json!([
         {
             "name": "inspect_host",
-            "description": "Run a read-only diagnostic inspection of the local machine. Returns grounded data from 116+ topics covering SysAdmin, Network Admin, hardware, security, and developer tooling. No mutations — all reads. Works on Windows, Linux, and macOS.",
+            "description": "Run a read-only diagnostic inspection of the local machine. Returns grounded data from 134+ topics covering SysAdmin, Network Admin, hardware, security, and developer tooling. No mutations — all reads. Works on Windows, Linux, and macOS.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -431,4 +448,63 @@ async fn send_parse_error(
         "error": { "code": -32700, "message": "Parse error" }
     });
     send_response(&resp, writer).await
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // Stage 3-B: schema_properties_for must derive its allowed set from tool_list().
+    #[test]
+    fn schema_properties_for_inspect_host_contains_core_fields() {
+        let props = schema_properties_for("inspect_host");
+        for field in &["topic", "host", "port", "name", "path", "issue"] {
+            assert!(
+                props.contains(*field),
+                "inspect_host schema should declare field '{field}'"
+            );
+        }
+    }
+
+    #[test]
+    fn schema_properties_for_unknown_tool_returns_empty() {
+        let props = schema_properties_for("does_not_exist");
+        assert!(
+            props.is_empty(),
+            "unknown tool should yield an empty allowlist"
+        );
+    }
+
+    // Stage 3-B: sanitize_args must pass only keys in the per-tool allowlist.
+    #[test]
+    fn sanitize_args_drops_undeclared_keys() {
+        let allowed: std::collections::HashSet<String> =
+            ["topic", "host"].iter().map(|s| s.to_string()).collect();
+
+        let args = serde_json::json!({
+            "topic": "network",
+            "host": "8.8.8.8",
+            "injected_field": "evil payload",
+            "__proto__": "also evil",
+        });
+        let cleaned = sanitize_args(args, &allowed);
+        let obj = cleaned.as_object().expect("result must be an object");
+        assert_eq!(obj.len(), 2);
+        assert!(obj.contains_key("topic"));
+        assert!(obj.contains_key("host"));
+        assert!(!obj.contains_key("injected_field"));
+        assert!(!obj.contains_key("__proto__"));
+    }
+
+    #[test]
+    fn sanitize_args_empty_allowlist_drops_everything() {
+        let allowed = std::collections::HashSet::new();
+        let args = serde_json::json!({"topic": "processes", "extra": "data"});
+        let cleaned = sanitize_args(args, &allowed);
+        assert_eq!(
+            cleaned.as_object().map(|o| o.len()).unwrap_or(0),
+            0,
+            "empty allowlist should drop all keys"
+        );
+    }
 }

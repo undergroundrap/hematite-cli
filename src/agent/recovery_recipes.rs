@@ -147,15 +147,25 @@ pub struct RecoveryContext {
     attempts: HashMap<RecoveryScenario, u32>,
     /// Total transient provider retries consumed this turn across all inference calls.
     transient_retries_this_turn: u32,
+    /// Empty-response nudges consumed this turn (model returned blank synthesis).
+    empty_response_nudges_this_turn: u8,
+    /// Implement-plan nudges consumed this turn (model answered without implementing).
+    implement_plan_nudges_this_turn: u8,
 }
 
 /// Maximum transient provider retries allowed across an entire multi-step turn.
 const MAX_TRANSIENT_RETRIES_PER_TURN: u32 = 3;
+/// Maximum times we nudge the model to produce a visible response per turn.
+const MAX_EMPTY_RESPONSE_NUDGES_PER_TURN: u8 = 2;
+/// Maximum times we nudge the model to stop planning and start implementing per turn.
+const MAX_IMPLEMENT_PLAN_NUDGES_PER_TURN: u8 = 1;
 
 impl RecoveryContext {
     pub fn clear(&mut self) {
         self.attempts.clear();
         self.transient_retries_this_turn = 0;
+        self.empty_response_nudges_this_turn = 0;
+        self.implement_plan_nudges_this_turn = 0;
     }
 
     pub fn attempt_count(&self, scenario: RecoveryScenario) -> u32 {
@@ -170,6 +180,29 @@ impl RecoveryContext {
             // Reset the per-scenario counter so attempt_recovery allows the attempt.
             self.attempts.remove(&RecoveryScenario::ProviderDegraded);
             self.attempts.remove(&RecoveryScenario::EmptyModelResponse);
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Returns `Some(nudge_number)` (1 or 2) when an empty-response nudge is available,
+    /// or `None` when the per-turn budget is exhausted. Nudge number lets callers pick
+    /// an escalating prompt without a separate counter variable.
+    pub fn consume_empty_response_nudge(&mut self) -> Option<u8> {
+        if self.empty_response_nudges_this_turn < MAX_EMPTY_RESPONSE_NUDGES_PER_TURN {
+            self.empty_response_nudges_this_turn += 1;
+            Some(self.empty_response_nudges_this_turn)
+        } else {
+            None
+        }
+    }
+
+    /// Returns true when an implement-plan nudge is still available this turn.
+    /// Capped at one nudge so the model can't be forced into an infinite plan loop.
+    pub fn consume_implement_plan_nudge(&mut self) -> bool {
+        if self.implement_plan_nudges_this_turn < MAX_IMPLEMENT_PLAN_NUDGES_PER_TURN {
+            self.implement_plan_nudges_this_turn += 1;
             true
         } else {
             false

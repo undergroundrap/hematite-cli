@@ -1,17 +1,20 @@
 name: CI
 
 on:
-  workflow_dispatch:
+  pull_request:
   push:
+    branches:
+      - main
     tags:
       - "v*"
+  workflow_dispatch:
 
 env:
   CARGO_TERM_COLOR: always
   RUST_BACKTRACE: 1
 
 jobs:
-  # Fast checks that don't require compilation (no ORT download needed)
+  # Fast style / supply-chain checks — no ORT download needed
   lint:
     name: Format & Audit
     runs-on: ubuntu-latest
@@ -20,10 +23,13 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@stable
         with:
-          components: rustfmt
+          components: rustfmt, clippy
 
       - name: Check formatting
         run: cargo fmt --all --check
+
+      - name: Clippy (deny warnings)
+        run: cargo clippy --all-targets -- -D warnings
 
       - name: Install cargo-audit
         uses: taiki-e/install-action@v2
@@ -40,3 +46,22 @@ jobs:
 
       - name: Supply chain check
         run: cargo deny check
+
+  # Build + unit/integration tests on both platforms
+  test:
+    name: Test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Build (debug)
+        run: cargo build --tests
+
+      - name: Run lib + integration tests
+        run: cargo test --lib --tests -- --test-threads=4

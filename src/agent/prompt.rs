@@ -116,9 +116,11 @@ impl SystemPromptBuilder {
         static_sections.push("# IDENTITY & TONE".to_string());
         static_sections.push(format!("{} \
                              Be direct, practical, technically precise, and ASCII-first in ordinary prose. \
-                             You provide 100% workstation visibility across 81+ read-only diagnostic topics (Hardware, Network, Security, OS). \
+                             You provide 100% workstation visibility across {topic_count}+ read-only diagnostic topics (Hardware, Network, Security, OS). \
                              For simple questions, answer briefly in plain language. \
-                             Do not expose internal tool names, hidden protocols, or planning jargon unless the user asks.", workspace_framing));
+                             Do not expose internal tool names, hidden protocols, or planning jargon unless the user asks.",
+                             workspace_framing,
+                             topic_count = crate::INSPECT_HOST_TOPIC_COUNT));
         static_sections.push(format!(
             "- Running Hematite build: {}",
             crate::hematite_version_display()
@@ -134,7 +136,8 @@ impl SystemPromptBuilder {
 
         static_sections.push(format!("\n# BASE INSTRUCTIONS\n{base_instructions}"));
 
-        if let Some(home) = std::env::var_os("USERPROFILE") {
+        let home_dir = std::env::var_os("USERPROFILE").or_else(|| std::env::var_os("HOME"));
+        if let Some(home) = home_dir {
             let global_path = PathBuf::from(home).join(".hematite").join("CLAUDE.md");
             if global_path.exists() {
                 if let Ok(content) = fs::read_to_string(&global_path) {
@@ -230,13 +233,14 @@ impl SystemPromptBuilder {
             "\n- Hematite Build: {}",
             crate::hematite_version_display()
         );
-        if let Ok(user) = std::env::var("USERPROFILE") {
-            let _ = write!(prompt, "\n- USERPROFILE (Authoritative): {user}");
+        let user_home = std::env::var("USERPROFILE").or_else(|_| std::env::var("HOME"));
+        if let Ok(user) = user_home {
+            let _ = write!(prompt, "\n- User Home (Authoritative): {user}");
         }
         if let Ok(comp) = std::env::var("COMPUTERNAME") {
             let _ = write!(prompt, "\n- COMPUTERNAME (Authoritative): {comp}");
         }
-        prompt.push_str("\n- Operating System: Windows (User workspace)");
+        let _ = write!(prompt, "\n- Operating System: {}", std::env::consts::OS);
 
         if git::is_git_repo(&self.workspace_root) {
             if let Ok(branch) = git::get_active_branch(&self.workspace_root) {

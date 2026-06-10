@@ -84,7 +84,7 @@ use crate::agent::routing::{
     needs_vector_tools, needs_video_file_tools, needs_wasm_tools, needs_web_manifest_tools,
     needs_webhook_tools, needs_wireguard_tools, needs_word_tools, needs_xml_tools,
     needs_yaml_tools, preferred_host_inspection_topic, preferred_maintainer_workflow,
-    preferred_workspace_workflow, DirectAnswerKind, QueryIntentClass,
+    preferred_workspace_workflow, shell_has_native_replacement, DirectAnswerKind, QueryIntentClass,
 };
 use crate::agent::tool_registry::dispatch_builtin_tool;
 use crate::agent::truncation::safe_head;
@@ -8684,7 +8684,6 @@ impl ConversationManager {
         // Safety cap – never spin forever on a broken model.
         let max_iters = 25;
         let mut consecutive_errors = 0;
-        let mut empty_cleaned_nudges = 0u8;
         let mut first_iter = true;
         let _called_this_turn: std::collections::HashSet<String> = std::collections::HashSet::new();
         // Track identical tool results within this turn to detect logical loops.
@@ -8860,9 +8859,44 @@ impl ConversationManager {
                 }
             }
             prompt_msgs.extend(messages);
-            if let Some(budget_note) =
-                enforce_prompt_budget(&mut prompt_msgs, self.engine.current_context_length())
+
+            // Build turn_tools before enforce_prompt_budget so the trimmer can account
+            // for the tool-schema token cost and agree with preflight_chat_request.
+            let turn_tools = if yolo
+                || (explicit_search_request && grounded_research_results.is_some())
             {
+                // FORCE NLG ONLY: Hide all tools to ensure a plain text summary.
+                Vec::new()
+            } else if intent.sovereign_mode {
+                self.tools
+                    .iter()
+                    .filter(|t| {
+                        t.function.name != "shell" && t.function.name != "run_workspace_workflow"
+                    })
+                    .cloned()
+                    .collect::<Vec<_>>()
+            } else if shell_has_native_replacement(&effective_user_input) {
+                // A dedicated native tool fully covers this query — exclude `shell` so the model
+                // cannot fall back to it. Build/test/lint predicates are intentionally not in this
+                // branch because their dedicated tools still invoke shell internally.
+                self.tools
+                    .iter()
+                    .filter(|t| t.function.name != "shell")
+                    .cloned()
+                    .collect::<Vec<_>>()
+            } else {
+                crate::agent::tool_select::select_tools(
+                    &self.tools,
+                    &effective_user_input,
+                    self.engine.current_context_length(),
+                )
+            };
+
+            if let Some(budget_note) = enforce_prompt_budget(
+                &mut prompt_msgs,
+                &turn_tools,
+                self.engine.current_context_length(),
+            ) {
                 self.emit_operator_checkpoint(
                     &tx,
                     OperatorCheckpointState::BudgetReduced,
@@ -8882,23 +8916,6 @@ impl ConversationManager {
             }
             self.emit_prompt_pressure_for_messages(&tx, &prompt_msgs)
                 .await;
-
-            let turn_tools = if yolo
-                || (explicit_search_request && grounded_research_results.is_some())
-            {
-                // FORCE NLG ONLY: Hide all tools to ensure a plain text summary.
-                Vec::new()
-            } else if intent.sovereign_mode {
-                self.tools
-                    .iter()
-                    .filter(|t| {
-                        t.function.name != "shell" && t.function.name != "run_workspace_workflow"
-                    })
-                    .cloned()
-                    .collect::<Vec<_>>()
-            } else {
-                self.tools.clone()
-            };
 
             let context_prep_ms = context_prep_start.elapsed().as_millis();
             let inference_start = tokio::time::Instant::now();
@@ -10204,72 +10221,51 @@ impl ConversationManager {
                 let cleaned = crate::agent::inference::strip_think_blocks(&response_text);
 
                 if implement_current_plan && !implementation_started {
-                    loop_intervention = Some(
-                        "Do not stop at analysis. Implement the current saved plan now using built-in workspace tools and the target files already named in the plan. Only answer without edits if you have a concrete blocking question.".to_string(),
-                    );
-                    continue;
+                    if self.recovery_context.consume_implement_plan_nudge() {
+                        loop_intervention = Some(
+                            "Do not stop at analysis. Implement the current saved plan now using built-in workspace tools and the target files already named in the plan. Only answer without edits if you have a concrete blocking question.".to_string(),
+                        );
+                        continue;
+                    }
                 }
 
                 // [Hardened Interface] Strictly respect the stripper.
                 // If it's empty after stripping think blocks, the model thought through its
                 // answer but forgot to emit it (common with Qwen3 models in architect/ask mode).
-                // Nudge it rather than silently dropping the turn — but cap at 2 retries so a
-                // model that keeps returning whitespace/empty doesn't spin all 25 iterations.
+                // Nudge it rather than silently dropping the turn, capped at 2 retries via the
+                // unified per-turn retry budget so a model that keeps returning empty doesn't
+                // spin all 25 iterations independently of other retry paths.
                 if cleaned.is_empty() {
-                    empty_cleaned_nudges += 1;
-                    if empty_cleaned_nudges == 1 {
-                        loop_intervention = Some(
-                            "Your visible response was empty. The tool already returned data. \
-                             Write your answer now in plain text — no <think> tags, no tool calls. \
-                             State the key facts in 2-5 sentences and stop."
-                                .to_string(),
-                        );
-                        continue;
-                    } else if empty_cleaned_nudges == 2 {
-                        loop_intervention = Some(
-                            "EMPTY RESPONSE. Do NOT use <think>. Do NOT call tools. \
-                             Write the answer in plain text right now. \
-                             Example format: \"Your CPU is X. Your GPU is Y. You have Z GB of RAM.\""
-                                .to_string(),
-                        );
-                        continue;
-                    }
-                    if let Some(summary) = maybe_deterministic_sovereign_closeout(
-                        self.session_memory.current_plan.as_ref(),
-                        mutation_occurred,
-                    ) {
-                        self.history.push(ChatMessage::assistant_text(&summary));
-                        self.transcript.log_agent(&summary);
-                        for chunk in chunk_text(&summary, 8) {
-                            let _ = tx.send(InferenceEvent::Token(chunk)).await;
+                    match self.recovery_context.consume_empty_response_nudge() {
+                        Some(1) => {
+                            loop_intervention = Some(
+                                "Your visible response was empty. The tool already returned data. \
+                                 Write your answer now in plain text — no <think> tags, no tool calls. \
+                                 State the key facts in 2-5 sentences and stop."
+                                    .to_string(),
+                            );
+                            continue;
                         }
-                        let _ = tx.send(InferenceEvent::Done).await;
-                        return Ok(());
-                    }
-
-                    let last_was_tool = self
-                        .history
-                        .last()
-                        .map(|m| m.role == "tool")
-                        .unwrap_or(false);
-                    if last_was_tool {
-                        let fallback = "[Proof successful. See tool output above for results.]";
-                        self.history.push(ChatMessage::assistant_text(fallback));
-                        self.transcript.log_agent(fallback);
-                        for chunk in chunk_text(fallback, 8) {
-                            let _ = tx.send(InferenceEvent::Token(chunk)).await;
+                        Some(2) => {
+                            loop_intervention = Some(
+                                "EMPTY RESPONSE. Do NOT use <think>. Do NOT call tools. \
+                                 Write the answer in plain text right now. \
+                                 Example format: \"Your CPU is X. Your GPU is Y. You have Z GB of RAM.\""
+                                    .to_string(),
+                            );
+                            continue;
                         }
-                        let _ = tx.send(InferenceEvent::Done).await;
-                        return Ok(());
+                        _ => {
+                            // Budget exhausted — emit a typed failure and stop the turn.
+                            self.emit_runtime_failure(
+                                &tx,
+                                RuntimeFailureClass::EmptyModelResponse,
+                                "Model returned no visible response after nudge attempts.",
+                            )
+                            .await;
+                            break;
+                        }
                     }
-
-                    self.emit_runtime_failure(
-                        &tx,
-                        RuntimeFailureClass::EmptyModelResponse,
-                        "Model returned empty content after 2 nudge attempts.",
-                    )
-                    .await;
-                    break;
                 }
 
                 let architect_handoff = self.persist_architect_handoff(&cleaned);
@@ -11135,13 +11131,32 @@ impl ConversationManager {
 
 // ── Tool dispatcher ───────────────────────────────────────────────────────────
 
+/// Tools that manage their own output size — exempt from the backstop cap so
+/// we don't double-truncate or strip their specialised navigation hints.
+const SELF_CAPPING_TOOLS: &[&str] = &["shell", "read_file", "inspect_lines", "tail_file"];
+
 pub async fn dispatch_tool(
     name: &str,
     args: &Value,
     config: &crate::agent::config::HematiteConfig,
     budget_tokens: usize,
 ) -> Result<String, String> {
-    dispatch_builtin_tool(name, args, config, budget_tokens).await
+    let result = dispatch_builtin_tool(name, args, config, budget_tokens).await;
+
+    // Backstop overflow guard: cap any tool output that exceeds TOOL_OUTPUT_CAP.
+    // Self-capping tools are exempt because they already produce bounded output
+    // with their own navigation hints.
+    if SELF_CAPPING_TOOLS.contains(&name) {
+        return result;
+    }
+    match result {
+        Ok(output) => Ok(cap_output_for_tool(
+            &output,
+            crate::agent::economics::TOOL_OUTPUT_CAP,
+            name,
+        )),
+        Err(e) => Err(e),
+    }
 }
 
 fn normalize_fix_plan_issue_text(text: &str) -> Option<String> {
@@ -13210,10 +13225,13 @@ fn normalize_prompt_start(messages: &mut Vec<ChatMessage>) {
 
 fn enforce_prompt_budget(
     prompt_msgs: &mut Vec<ChatMessage>,
+    tools: &[ToolDefinition],
     context_length: usize,
 ) -> Option<String> {
     let target_tokens = ((context_length as f64) * 0.68) as usize;
-    if estimate_prompt_tokens(prompt_msgs) <= target_tokens {
+    // Include the tool-schema token cost so this trimmer agrees with preflight_chat_request.
+    let tool_schema_tokens = crate::agent::inference::estimate_tool_schema_tokens(tools);
+    if estimate_prompt_tokens(prompt_msgs) + tool_schema_tokens <= target_tokens {
         return None;
     }
 
@@ -13231,7 +13249,7 @@ fn enforce_prompt_budget(
         v
     };
     for idx in tool_indices.iter().rev().copied() {
-        if estimate_prompt_tokens(prompt_msgs) <= target_tokens {
+        if estimate_prompt_tokens(prompt_msgs) + tool_schema_tokens <= target_tokens {
             break;
         }
         let original = prompt_msgs[idx].content.as_str().to_string();
@@ -13256,7 +13274,7 @@ fn enforce_prompt_budget(
             .take(tool_indices.len().saturating_sub(2))
             .copied()
         {
-            if estimate_prompt_tokens(prompt_msgs) <= target_tokens {
+            if estimate_prompt_tokens(prompt_msgs) + tool_schema_tokens <= target_tokens {
                 break;
             }
             prompt_msgs[idx].content = MessageContent::Text(
@@ -13269,7 +13287,7 @@ fn enforce_prompt_budget(
     // 3. Trim older long chat messages, but preserve the final user request.
     let last_user_idx = prompt_msgs.iter().rposition(|m| m.role == "user");
     for idx in 1..prompt_msgs.len() {
-        if estimate_prompt_tokens(prompt_msgs) <= target_tokens {
+        if estimate_prompt_tokens(prompt_msgs) + tool_schema_tokens <= target_tokens {
             break;
         }
         if Some(idx) == last_user_idx {
@@ -13286,7 +13304,9 @@ fn enforce_prompt_budget(
     // 4. Middle-Out Condensation: Drop oldest tool and assistant messages first, preserving ALL user instructions.
     let preserve_last_user_idx = prompt_msgs.iter().rposition(|m| m.role == "user");
     let mut idx = 1usize;
-    while estimate_prompt_tokens(prompt_msgs) > target_tokens && prompt_msgs.len() > 2 {
+    while estimate_prompt_tokens(prompt_msgs) + tool_schema_tokens > target_tokens
+        && prompt_msgs.len() > 2
+    {
         if idx >= prompt_msgs.len() {
             break;
         }
@@ -13305,7 +13325,9 @@ fn enforce_prompt_budget(
 
     // 5. If STILL over budget (e.g. user pasted a giant file in the prompt), drop oldest user messages except the latest.
     let mut idx = 1usize;
-    while estimate_prompt_tokens(prompt_msgs) > target_tokens && prompt_msgs.len() > 2 {
+    while estimate_prompt_tokens(prompt_msgs) + tool_schema_tokens > target_tokens
+        && prompt_msgs.len() > 2
+    {
         if Some(idx) == preserve_last_user_idx {
             idx += 1;
             if idx >= prompt_msgs.len() {
@@ -15037,5 +15059,117 @@ error[E0308]: mismatched types
         assert!(ollama.contains("Ollama supports coding and embed model load/list/unload"));
         let lms = ConversationManager::provider_model_controls_summary("LM Studio");
         assert!(lms.contains("LM Studio supports coding and embed model load/unload"));
+    }
+
+    // Stage 1-F regression guard: cap_output_for_tool must truncate oversized output
+    // and write the full content to scratch so the model can recover it with read_file.
+    #[test]
+    fn cap_output_for_tool_truncates_and_writes_scratch() {
+        // Produce output that exceeds the backstop cap defined in economics.rs.
+        let cap = crate::agent::economics::TOOL_OUTPUT_CAP;
+        let oversized = "A".repeat(cap + 1_000);
+        let result = cap_output_for_tool(&oversized, cap, "test_tool");
+
+        // The returned string must fit within the cap (plus a short tail notice).
+        // We allow a reasonable margin for the notice text.
+        assert!(
+            result.len() <= cap + 512,
+            "capped result ({} bytes) should not exceed cap ({}) + notice margin",
+            result.len(),
+            cap
+        );
+
+        // The capped string must not contain the full content.
+        assert!(
+            result.len() < oversized.len(),
+            "capped result must be shorter than the original oversized output"
+        );
+
+        // The truncation notice must guide the model to use read_file.
+        assert!(
+            result.contains("truncated") || result.contains("capped"),
+            "truncation notice missing from capped output"
+        );
+    }
+
+    // Stage 1-F: TOOL_OUTPUT_CAP constant must be publicly accessible from economics.rs.
+    #[test]
+    fn tool_output_cap_constant_is_reachable() {
+        // This test simply confirms the constant compiles and has a sane value.
+        let cap = crate::agent::economics::TOOL_OUTPUT_CAP;
+        assert!(cap >= 4_096, "TOOL_OUTPUT_CAP should be at least 4 KiB");
+        assert!(cap <= 65_536, "TOOL_OUTPUT_CAP should not exceed 64 KiB");
+    }
+
+    // Stage 1-D regression guard: enforce_prompt_budget must include tool-schema
+    // token cost in its budget accounting, matching preflight_chat_request.
+    //
+    // Before the fix the trimmer counted only message tokens; preflight counted
+    // message + schema tokens.  The disagreement caused the trimmer to report
+    // "already within budget" while preflight still blocked the request.
+    //
+    // This test constructs a scenario where:
+    //   message tokens alone    < 68 % target  (old trimmer would NOT fire)
+    //   message + schema tokens > 68 % target  (corrected trimmer MUST fire)
+    #[test]
+    fn enforce_prompt_budget_accounts_for_tool_schema_tokens() {
+        let context_length = 8_192usize;
+        let target = ((context_length as f64) * 0.68) as usize; // 5570
+
+        // A single tool with a 3 000-char description contributes ~776 schema tokens
+        // (serde_json serialisation ≈ 3 100 chars → 3 100/4 + 1).  776 > 512
+        // (the worst-case per-iteration message overshoot of two 1 000-char messages),
+        // so the assertion "messages alone < target" is guaranteed at loop exit.
+        let tools = vec![ToolDefinition {
+            tool_type: "function".to_string(),
+            function: ToolFunction {
+                name: "heavy_tool".to_string(),
+                description: "X".repeat(3_000),
+                parameters: serde_json::json!({"type": "object", "properties": {}}),
+            },
+            metadata: crate::agent::inference::tool_metadata_for_name("heavy_tool"),
+        }];
+        let tool_toks = crate::agent::inference::estimate_tool_schema_tokens(&tools);
+        assert!(
+            tool_toks > 512,
+            "test invariant: tool_toks ({tool_toks}) must exceed 512 \
+             (max two-message overshoot) to guarantee 'messages alone < target'"
+        );
+        assert!(tool_toks < target);
+
+        // Build message history using 1 000-char chunks (≈ 256 tokens each).
+        // Loop until the combined (messages + tool-schema) total exceeds the target.
+        let mut msgs: Vec<ChatMessage> = vec![ChatMessage::user("context seed")];
+        let chunk = "Y".repeat(1_000);
+        while estimate_prompt_tokens(&msgs) + tool_toks <= target {
+            msgs.push(ChatMessage::user(&chunk));
+            msgs.push(ChatMessage::assistant_text(&chunk));
+        }
+
+        let before_toks = estimate_prompt_tokens(&msgs);
+
+        // Loop postcondition: combined total exceeds target.
+        assert!(
+            before_toks + tool_toks > target,
+            "precondition: msg ({before_toks}) + tools ({tool_toks}) must exceed target ({target})"
+        );
+        // Messages alone still fit — the tool schema is the deciding factor.
+        // Guaranteed because tool_toks > 512 > max single-iteration overshoot.
+        assert!(
+            before_toks < target,
+            "messages alone ({before_toks}) should fit within target ({target}) before trimming"
+        );
+
+        let result = enforce_prompt_budget(&mut msgs, &tools, context_length);
+        assert!(
+            result.is_some(),
+            "enforce_prompt_budget must fire when message + schema tokens exceed the 68% target"
+        );
+
+        let after_toks = estimate_prompt_tokens(&msgs);
+        assert!(
+            after_toks + tool_toks <= target,
+            "after trim: msg ({after_toks}) + tools ({tool_toks}) must fit within target ({target})"
+        );
     }
 }

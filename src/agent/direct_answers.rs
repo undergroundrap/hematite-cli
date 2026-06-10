@@ -96,7 +96,7 @@ pub(crate) fn build_architect_session_reset_plan() -> crate::tools::plan::PlanHa
 }
 pub fn build_inspect_inventory() -> String {
     "\
-Hematite inspect_host  —  128 available topics
+Hematite inspect_host  —  134 available topics
 
 SYSTEM & HEALTH (24)
   health_report    summary          hardware         os_config
