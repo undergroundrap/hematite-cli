@@ -529,6 +529,7 @@ fn resource_type_hint(service: &str, resource: &str) -> String {
 fn action_arn(args: &Value) -> Result<String, String> {
     let input = args
         .get("input")
+        .or_else(|| args.get("arn"))
         .or_else(|| args.get("query"))
         .and_then(|v| v.as_str())
         .ok_or("Provide 'input' with an ARN string (e.g. arn:aws:s3:::my-bucket)")?;
@@ -633,6 +634,8 @@ fn parse_s3_uri(input: &str) -> Result<(String, String), String> {
 fn action_s3(args: &Value) -> Result<String, String> {
     let input = args
         .get("input")
+        .or_else(|| args.get("uri"))
+        .or_else(|| args.get("url"))
         .or_else(|| args.get("query"))
         .and_then(|v| v.as_str())
         .ok_or("Provide 'input' with an S3 URI (s3://bucket/key) or HTTPS URL")?;

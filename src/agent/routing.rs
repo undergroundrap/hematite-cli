@@ -11867,6 +11867,18 @@ pub fn needs_aws_tools(user_input: &str) -> bool {
             "arn partition",
             "s3 bucket url",
             "s3.amazonaws.com",
+            "us-east-",
+            "us-west-",
+            "eu-west-",
+            "eu-central-",
+            "eu-north-",
+            "ap-southeast-",
+            "ap-northeast-",
+            "ap-south-",
+            "ca-central-",
+            "sa-east-",
+            "me-south-",
+            "af-south-",
         ],
     )
 }
