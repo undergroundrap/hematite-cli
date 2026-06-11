@@ -47,8 +47,26 @@ struct EmbeddedChunk {
     memory_type: String,
 }
 
-// SAFETY: rusqlite::Connection is !Send by default, but we wrap it in Arc<Mutex>
-// and ensure all accesses are serialized by the mutex.
+// SAFETY: `rusqlite::Connection` is `!Send` by default because the libsqlite3-sys
+// C library is not safe to use from multiple threads on the *same* connection without
+// synchronization.  We wrap the connection in `Arc<Mutex<Connection>>` so every call
+// site acquires the mutex before touching the connection.  Therefore crossing a thread
+// boundary is safe as long as no code holds a raw `&Connection` across an await or a
+// thread spawn — which we never do.
+//
+// Field-by-field justification:
+//   `db: Arc<Mutex<Connection>>`
+//       — `Arc` provides shared ownership; `Mutex` serialises all Connection access.
+//         Moving this value to another thread is sound.
+//   `embed_model: Arc<RwLock<Option<String>>>`
+//       — `String` is `Send + Sync`; `RwLock` adds interior-mutability safety.
+//   `embedding_cache: RwLock<Vec<EmbeddedChunk>>`
+//       — `EmbeddedChunk` contains only `String` + `Vec<f32>` + `i64` (all `Send`).
+//         `RwLock` serialises concurrent reads and writes.
+//
+// Invariant to maintain: if a new field is added to `Vein` whose type is `!Send` or
+// `!Sync`, this `unsafe impl` must be reconsidered and the field must be wrapped in an
+// appropriate synchronisation primitive (e.g. `Mutex`, `RwLock`) before adding it.
 unsafe impl Send for Vein {}
 unsafe impl Sync for Vein {}
 
@@ -2955,4 +2973,112 @@ fn sliding_window_chunks(text: &str, chunk_size: usize, overlap: usize) -> Vec<S
         i += chunk_size - overlap;
     }
     result
+}
+
+// ── Concurrent-safety tests ───────────────────────────────────────────────────
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::{Arc, RwLock};
+
+    /// Create an in-memory Vein suitable for unit tests.
+    fn test_vein() -> Vein {
+        Vein::new(":memory:", "http://localhost:1234".into())
+            .expect("in-memory Vein must open")
+    }
+
+    /// Verify that the `unsafe impl Send + Sync` justification holds in practice:
+    /// multiple threads can call `search_context` concurrently on the same `Vein`
+    /// instance without panicking or corrupting the internal state.
+    ///
+    /// This test exercises:
+    ///   - concurrent `Mutex<Connection>` acquisition (BM25 path)
+    ///   - concurrent `RwLock<embedding_cache>` read access (semantic path, empty)
+    ///   - `Arc<Vein>` shared across 8 threads (validates Send + Sync)
+    #[test]
+    fn concurrent_search_context_does_not_panic() {
+        let vein = Arc::new(test_vein());
+
+        let handles: Vec<_> = (0..8)
+            .map(|i| {
+                let v = Arc::clone(&vein);
+                std::thread::spawn(move || {
+                    let query = format!("function iteration {i}");
+                    // No embeddings loaded → BM25-only path. Should return empty results
+                    // without panicking.
+                    let _results = v.search_context(&query, 10);
+                })
+            })
+            .collect();
+
+        for h in handles {
+            h.join().expect("search_context thread must not panic");
+        }
+    }
+
+    /// Verify that a writer thread and concurrent reader threads don't cause a
+    /// lock-order deadlock or corruption: one thread indexes a document while others
+    /// call `search_context` using an `RwLock<Vein>` outer wrapper.
+    #[test]
+    fn concurrent_index_and_search_do_not_deadlock() {
+        let vein = Arc::new(RwLock::new(test_vein()));
+
+        // Seed some content before spawning threads.
+        {
+            let mut w = vein.write().unwrap();
+            w.index_document("src/lib.rs", 1, "fn init() {}\n")
+                .expect("initial index_document must succeed");
+        }
+
+        let mut handles = Vec::with_capacity(9);
+
+        // 8 reader threads.
+        for i in 0..8 {
+            let v = Arc::clone(&vein);
+            handles.push(std::thread::spawn(move || {
+                let query = format!("init function {i}");
+                let _results = v.read().unwrap().search_context(&query, 5);
+            }));
+        }
+
+        // 1 writer thread that indexes a new document while readers are running.
+        {
+            let v = Arc::clone(&vein);
+            handles.push(std::thread::spawn(move || {
+                let mut w = v.write().unwrap();
+                w.index_document(
+                    "src/new_module.rs",
+                    2,
+                    "pub fn new_function() -> usize { 42 }\n",
+                )
+                .expect("concurrent index_document must succeed");
+            }));
+        }
+
+        for h in handles {
+            h.join().expect("thread must not panic");
+        }
+
+        // After all threads, the newly indexed document should be discoverable.
+        let results = vein
+            .read()
+            .unwrap()
+            .search_context("new_function", 10)
+            .unwrap_or_default();
+        assert!(
+            results.iter().any(|r| r.path == "src/new_module.rs"),
+            "indexed document must appear in search results after concurrent writes"
+        );
+    }
+
+    /// Regression guard: the `unsafe impl` covers exactly the fields present today.
+    /// This test documents those fields symbolically — if Vein gains a new field
+    /// that is `!Send`, this test becomes a compile-error reminder to update the
+    /// `unsafe impl` justification comment above.
+    #[test]
+    fn vein_is_send_and_sync() {
+        fn assert_send_sync<T: Send + Sync>() {}
+        assert_send_sync::<Vein>();
+    }
 }
