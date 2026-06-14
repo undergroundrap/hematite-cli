@@ -26,7 +26,7 @@ Runs in your terminal with a local model on LM Studio, Ollama, or another OpenAI
 ```
 hematite --mcp-server
 ```
-Claude Desktop, OpenClaw, Cursor, Windsurf — any MCP-capable agent — connects to Hematite over the Model Context Protocol and calls its 128+ host inspection tools directly. The cloud model handles the reasoning. Hematite handles the grounded local observation. No local model required on your end. The cloud agent gets real machine data — actual processes, live network state, hardware telemetry — and can reason about it with full frontier intelligence.
+Claude and Codex CLI — the best local coding agents right now — connect to Hematite over the Model Context Protocol and call its 128+ host inspection tools directly. The cloud model handles the reasoning. Hematite handles the grounded local observation. No local model required on your end. The cloud agent gets real machine data — actual processes, live network state, hardware telemetry — and can reason about it with full frontier intelligence.
 
 **3. Privacy gateway — grounded data in, identity never out**
 
