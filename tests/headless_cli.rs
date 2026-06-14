@@ -74,7 +74,10 @@ fn assert_json(content: &str, ctx: &str) {
 /// Assert every non-empty line of an NDJSON stream is a JSON object.
 fn assert_ndjson(content: &str, ctx: &str) {
     let lines: Vec<&str> = content.lines().filter(|l| !l.trim().is_empty()).collect();
-    assert!(!lines.is_empty(), "{ctx}: expected at least one NDJSON line");
+    assert!(
+        !lines.is_empty(),
+        "{ctx}: expected at least one NDJSON line"
+    );
     for line in &lines {
         let t = line.trim();
         assert!(
@@ -99,7 +102,10 @@ fn assert_html(content: &str, ctx: &str) {
 #[test]
 fn smoke_inspect_summary_md() {
     let c = run(&["--inspect", "summary", "--report-format", "md"]);
-    assert!(!c.trim().is_empty(), "--inspect summary md must be non-empty");
+    assert!(
+        !c.trim().is_empty(),
+        "--inspect summary md must be non-empty"
+    );
 }
 
 #[test]

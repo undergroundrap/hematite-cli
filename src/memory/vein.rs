@@ -2984,8 +2984,7 @@ mod tests {
 
     /// Create an in-memory Vein suitable for unit tests.
     fn test_vein() -> Vein {
-        Vein::new(":memory:", "http://localhost:1234".into())
-            .expect("in-memory Vein must open")
+        Vein::new(":memory:", "http://localhost:1234".into()).expect("in-memory Vein must open")
     }
 
     /// Verify that the `unsafe impl Send + Sync` justification holds in practice:
