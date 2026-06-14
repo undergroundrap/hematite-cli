@@ -10220,13 +10220,11 @@ impl ConversationManager {
                 // 2. Process and stream the final answer to the chat interface.
                 let cleaned = crate::agent::inference::strip_think_blocks(&response_text);
 
-                if implement_current_plan && !implementation_started {
-                    if self.recovery_context.consume_implement_plan_nudge() {
-                        loop_intervention = Some(
-                            "Do not stop at analysis. Implement the current saved plan now using built-in workspace tools and the target files already named in the plan. Only answer without edits if you have a concrete blocking question.".to_string(),
-                        );
-                        continue;
-                    }
+                if implement_current_plan && !implementation_started && self.recovery_context.consume_implement_plan_nudge() {
+                    loop_intervention = Some(
+                        "Do not stop at analysis. Implement the current saved plan now using built-in workspace tools and the target files already named in the plan. Only answer without edits if you have a concrete blocking question.".to_string(),
+                    );
+                    continue;
                 }
 
                 // [Hardened Interface] Strictly respect the stripper.

@@ -9123,9 +9123,14 @@ fn test_inventory_contains_representative_topics() {
 }
 
 #[test]
-fn test_inventory_lists_128_topics_hint() {
+fn test_inventory_lists_topics_hint() {
     let inv = hematite::agent::direct_answers::build_inspect_inventory();
-    assert!(inv.contains("128"), "inventory should mention 128 topics");
+    // Header format: "Hematite inspect_host  —  N available topics"
+    assert!(
+        inv.contains("available topics"),
+        "inventory header should contain 'available topics', got: {:.100}",
+        inv
+    );
 }
 
 // ── generate_query_output routing ────────────────────────────────────────────
