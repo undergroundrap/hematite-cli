@@ -31,7 +31,7 @@ fn get_bytes(args: &Value) -> Option<Vec<u8>> {
         .and_then(|v| v.as_str())
     {
         let clean: String = h.chars().filter(|c| c.is_ascii_hexdigit()).collect();
-        if clean.len() % 2 != 0 {
+        if !clean.len().is_multiple_of(2) {
             return None;
         }
         (0..clean.len() / 2)
@@ -231,8 +231,7 @@ fn dispatch_wav(action: &str, b: &[u8]) -> String {
             if m.data_size == 0 {
                 issues.push("Empty data chunk".to_string());
             }
-            let expected_br =
-                (m.sample_rate as u32) * (m.channels as u32) * (m.bits_per_sample as u32 / 8);
+            let expected_br = m.sample_rate * (m.channels as u32) * (m.bits_per_sample as u32 / 8);
             if m.audio_format == 1 && expected_br != m.byte_rate {
                 issues.push(format!(
                     "Byte rate mismatch: header={} expected={}",

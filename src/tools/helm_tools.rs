@@ -1,4 +1,4 @@
-use serde_json::{json, Value};
+﻿use serde_json::{json, Value};
 use serde_yaml::Value as Yaml;
 use std::collections::HashMap;
 
@@ -284,7 +284,7 @@ fn action_values(values: &Yaml) -> Result<String, String> {
 
     // Type summary
     let mut tc_list: Vec<_> = type_counts.into_iter().collect();
-    tc_list.sort_by(|a, b| b.1.cmp(&a.1));
+    tc_list.sort_by_key(|b| std::cmp::Reverse(b.1));
     let type_str: Vec<String> = tc_list
         .iter()
         .map(|(t, c)| format!("{} ×{}", t, c))

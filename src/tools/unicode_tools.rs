@@ -1,4 +1,4 @@
-use serde_json::{json, Value};
+﻿use serde_json::{json, Value};
 
 pub fn unicode_tools_schema() -> Value {
     json!({
@@ -385,7 +385,7 @@ fn action_scripts(text: &str) -> Result<String, String> {
 
     let total: usize = counts.values().sum();
     let mut sorted: Vec<(&'static str, usize)> = counts.into_iter().collect();
-    sorted.sort_by(|a, b| b.1.cmp(&a.1));
+    sorted.sort_by_key(|b| std::cmp::Reverse(b.1));
 
     let mut out = format!("SCRIPT DISTRIBUTION — {} non-whitespace chars\n", total);
     out.push_str(&"─".repeat(50));
@@ -398,7 +398,7 @@ fn action_scripts(text: &str) -> Result<String, String> {
     out.push('\n');
 
     for (script, count) in &sorted {
-        let pct = if total > 0 { *count * 100 / total } else { 0 };
+        let pct = (*count * 100).checked_div(total).unwrap_or(0);
         let bar_len = (pct / 2).min(25);
         let bar: String = "█".repeat(bar_len);
         out.push_str(&format!(
@@ -434,14 +434,14 @@ fn action_blocks(text: &str) -> Result<String, String> {
 
     let total: usize = counts.values().sum();
     let mut sorted: Vec<(&'static str, usize)> = counts.into_iter().collect();
-    sorted.sort_by(|a, b| b.1.cmp(&a.1));
+    sorted.sort_by_key(|b| std::cmp::Reverse(b.1));
 
     let mut out = format!("UNICODE BLOCK DISTRIBUTION — {} chars\n", total);
     out.push_str(&"─".repeat(60));
     out.push('\n');
 
     for (block, count) in &sorted {
-        let pct = if total > 0 { *count * 100 / total } else { 0 };
+        let pct = (*count * 100).checked_div(total).unwrap_or(0);
         out.push_str(&format!(
             "  {:<40}  {:>6}  ({:>3}%)\n",
             truncate(block, 40),

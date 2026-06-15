@@ -52,7 +52,7 @@ fn base16_decode(s: &str) -> Result<Vec<u8>, String> {
         .chars()
         .filter(|c| !c.is_whitespace() && *c != '-')
         .collect();
-    if s.len() % 2 != 0 {
+    if !s.len().is_multiple_of(2) {
         return Err(format!("Base16 string length {} must be even", s.len()));
     }
     (0..s.len())

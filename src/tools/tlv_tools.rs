@@ -110,7 +110,7 @@ pub async fn execute(args: &Value) -> Result<String, String> {
 
 fn parse_hex(s: &str) -> Result<Vec<u8>, String> {
     let clean: String = s.chars().filter(|c| c.is_ascii_hexdigit()).collect();
-    if clean.len() % 2 != 0 {
+    if !clean.len().is_multiple_of(2) {
         return Err(format!(
             "Odd hex digit count ({}). Provide an even number of hex digits.",
             clean.len()
@@ -647,7 +647,7 @@ fn format_dhcp_value(code: u8, value: &[u8]) -> String {
         }
         3 | 4 | 5 | 6 | 7 | 42 | 44 => {
             // List of 4-byte IP addresses
-            if value.len() % 4 == 0 && !value.is_empty() {
+            if value.len().is_multiple_of(4) && !value.is_empty() {
                 let ips: Vec<String> = value
                     .chunks(4)
                     .map(|c| format!("{}.{}.{}.{}", c[0], c[1], c[2], c[3]))
@@ -679,11 +679,9 @@ fn format_dhcp_value(code: u8, value: &[u8]) -> String {
                 return format!("{}.{}.{}.{}", value[0], value[1], value[2], value[3]);
             }
         }
-        57 => {
-            if value.len() == 2 {
-                let n = u16::from_be_bytes([value[0], value[1]]);
-                return format!("{} bytes", n);
-            }
+        57 if value.len() == 2 => {
+            let n = u16::from_be_bytes([value[0], value[1]]);
+            return format!("{} bytes", n);
         }
         _ => {}
     }

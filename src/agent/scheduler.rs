@@ -1,16 +1,20 @@
+#[cfg(target_os = "windows")]
 const TASK_NAME: &str = "Hematite Health Check";
+#[cfg(target_os = "windows")]
 const TASK_SWEEP_NAME: &str = "Hematite Maintenance Sweep";
+#[cfg(target_os = "windows")]
 const TASK_TIMELINE_NAME: &str = "Hematite Timeline Capture";
+#[cfg(target_os = "windows")]
 const TASK_ALERT_NAME: &str = "Hematite Alert Rules";
 
 pub fn register_alert_task(cadence: &str, exe_path: &str) -> Result<String, String> {
     #[cfg(not(target_os = "windows"))]
     {
         let _ = (cadence, exe_path);
-        return Err("Scheduled tasks require Windows (schtasks.exe).\n\
+        Err("Scheduled tasks require Windows (schtasks.exe).\n\
              On Linux/macOS use cron instead:\n\
                0 * * * * hematite --alert-rule-run"
-            .into());
+            .into())
     }
 
     #[cfg(target_os = "windows")]
@@ -108,10 +112,10 @@ pub fn register_timeline_task(exe_path: &str) -> Result<String, String> {
     #[cfg(not(target_os = "windows"))]
     {
         let _ = exe_path;
-        return Err("Scheduled tasks require Windows (schtasks.exe).\n\
+        Err("Scheduled tasks require Windows (schtasks.exe).\n\
              On Linux/macOS use cron instead:\n\
                0 3 * * * hematite --timeline-capture"
-            .into());
+            .into())
     }
 
     #[cfg(target_os = "windows")]
@@ -212,10 +216,10 @@ pub fn register_sweep_task(cadence: &str, exe_path: &str) -> Result<String, Stri
     #[cfg(not(target_os = "windows"))]
     {
         let _ = (cadence, exe_path);
-        return Err("Scheduled tasks require Windows (schtasks.exe).\n\
+        Err("Scheduled tasks require Windows (schtasks.exe).\n\
              On Linux/macOS use cron instead:\n\
                hematite --fix-all --report-format html"
-            .into());
+            .into())
     }
 
     #[cfg(target_os = "windows")]
@@ -329,10 +333,10 @@ pub fn register_scheduled_task(cadence: &str, exe_path: &str) -> Result<String, 
     #[cfg(not(target_os = "windows"))]
     {
         let _ = (cadence, exe_path);
-        return Err("Scheduled tasks require Windows (schtasks.exe).\n\
+        Err("Scheduled tasks require Windows (schtasks.exe).\n\
              On Linux/macOS use cron instead:\n\
                hematite --triage --report-format html"
-            .into());
+            .into())
     }
 
     #[cfg(target_os = "windows")]

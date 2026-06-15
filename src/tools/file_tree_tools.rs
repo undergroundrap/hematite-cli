@@ -1,4 +1,4 @@
-use serde_json::{json, Value};
+﻿use serde_json::{json, Value};
 
 pub fn file_tree_tools_schema() -> Value {
     json!({
@@ -305,7 +305,7 @@ fn action_stats(entries: &[Entry]) -> String {
     }
 
     let mut ext_list: Vec<_> = by_ext.into_iter().collect();
-    ext_list.sort_by(|a, b| b.1 .0.cmp(&a.1 .0));
+    ext_list.sort_by_key(|b| std::cmp::Reverse(b.1 .0));
 
     let mut out = format!(
         "Directory stats\n{:─<40}\n{} files  {}  |  {} dirs\n\nBy extension:\n",
@@ -371,7 +371,7 @@ fn action_json(
 
 fn action_sizes(entries: &[Entry], root: &str, top: usize) -> String {
     let mut files: Vec<_> = entries.iter().filter(|e| !e.is_dir).collect();
-    files.sort_by(|a, b| b.size.cmp(&a.size));
+    files.sort_by_key(|b| std::cmp::Reverse(b.size));
 
     let total: u64 = files.iter().map(|e| e.size).sum();
     let mut out = format!("Largest files (top {top}) — total {}\n", human_size(total));

@@ -1,4 +1,4 @@
-use serde_json::Value;
+﻿use serde_json::Value;
 
 pub async fn execute(args: &Value) -> Result<String, String> {
     let action = args
@@ -274,7 +274,7 @@ fn action_analyze(args: &Value) -> Result<String, String> {
         .map(|(i, &f)| ((b'a' + i as u8) as char, f, f as f64 / total as f64 * 100.0))
         .filter(|(_, f, _)| *f > 0)
         .collect();
-    pairs.sort_by(|a, b| b.1.cmp(&a.1));
+    pairs.sort_by_key(|b| std::cmp::Reverse(b.1));
 
     for (c, count, pct) in &pairs {
         let bar_len = (*pct / 0.5).round() as usize;

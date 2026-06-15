@@ -1,4 +1,4 @@
-use serde_json::{json, Value};
+﻿use serde_json::{json, Value};
 
 pub fn compression_tools_schema() -> Value {
     json!({
@@ -366,7 +366,7 @@ fn action_analyze(args: &Value) -> Result<String, String> {
         }
         map.into_iter().collect()
     };
-    freq.sort_by(|a, b| b.1.cmp(&a.1));
+    freq.sort_by_key(|b| std::cmp::Reverse(b.1));
 
     // run-length
     let rle = rle_encode(text);

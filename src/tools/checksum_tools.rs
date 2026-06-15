@@ -25,7 +25,7 @@ fn get_bytes(args: &Value) -> Result<Vec<u8>, String> {
     }
     if let Some(h) = args.get("hex").and_then(|v| v.as_str()) {
         let cleaned: String = h.chars().filter(|c| c.is_ascii_hexdigit()).collect();
-        if cleaned.len() % 2 != 0 {
+        if !cleaned.len().is_multiple_of(2) {
             return Err("Hex string must have an even number of digits".to_string());
         }
         let bytes = (0..cleaned.len())

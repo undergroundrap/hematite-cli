@@ -1,4 +1,4 @@
-use serde_json::{json, Value};
+﻿use serde_json::{json, Value};
 use std::collections::HashMap;
 
 pub fn chemistry_tools_schema() -> Value {
@@ -341,6 +341,7 @@ fn balance_equation(equation: &str) -> Result<String, String> {
             for r in 0..rows {
                 if r != cur_row && matrix[r][col].0 != 0 {
                     let factor = rat_div(matrix[r][col], pv);
+                    #[allow(clippy::needless_range_loop)]
                     for c in 0..=cols {
                         let sub = rat_mul(factor, matrix[cur_row][c]);
                         let old = matrix[r][c];

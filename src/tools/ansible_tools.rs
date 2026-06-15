@@ -1,4 +1,4 @@
-use serde_json::{json, Value};
+﻿use serde_json::{json, Value};
 use serde_yaml::Value as Yaml;
 
 pub fn make_schema() -> Value {
@@ -299,7 +299,7 @@ fn action_parse(plays: &[Yaml]) -> Result<String, String> {
             *mod_counts.entry(t.module.clone()).or_insert(0) += 1;
         }
         let mut mod_list: Vec<_> = mod_counts.into_iter().collect();
-        mod_list.sort_by(|a, b| b.1.cmp(&a.1));
+        mod_list.sort_by_key(|b| std::cmp::Reverse(b.1));
         if !mod_list.is_empty() {
             let top: Vec<String> = mod_list
                 .iter()

@@ -1,4 +1,4 @@
-use serde_json::{json, Value};
+﻿use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::fs;
 
@@ -481,7 +481,7 @@ fn action_codons(seq: &str, seq_type: &str) -> String {
 
     for aa in &aas {
         let mut entries = aa_codons[aa].clone();
-        entries.sort_by(|a, b| b.1.cmp(&a.1));
+        entries.sort_by_key(|b| std::cmp::Reverse(b.1));
         for (codon, count) in entries {
             let pct = if total_codons > 0 {
                 (count as f64 / total_codons as f64) * 100.0

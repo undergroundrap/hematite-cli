@@ -133,7 +133,7 @@ fn unwrap_woff(bytes: &[u8]) -> Result<Vec<u8>, String> {
                 let orig_len = read_u32(bytes, rec + 12) as usize;
                 let checksum = read_u32(bytes, rec + 16);
                 // Align to 4 bytes
-                while out.len() % 4 != 0 {
+                while !out.len().is_multiple_of(4) {
                     out.push(0);
                 }
                 let table_off = out.len() as u32;
@@ -503,10 +503,8 @@ fn cmap_coverage(data: &[u8], tables: &[TableEntry]) -> (usize, bool, bool, bool
                     best_format4 = Some(offset);
                 }
             }
-            12 => {
-                if best_format12.is_none() {
-                    best_format12 = Some(offset);
-                }
+            12 if best_format12.is_none() => {
+                best_format12 = Some(offset);
             }
             _ => {}
         }

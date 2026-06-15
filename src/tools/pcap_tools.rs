@@ -1,4 +1,4 @@
-use serde_json::{json, Value};
+﻿use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::fs;
 
@@ -360,9 +360,9 @@ fn parse_pcapng(data: &[u8]) -> Result<PcapFile, String> {
                     }
                 }
             }
-            0x0000_0002 => {
+            0x0000_0002
                 // OPB — Obsolete Packet Block
-                if block_len >= 28 {
+                if block_len >= 28 => {
                     let cap_len = r32(data, off + 12).unwrap_or(0) as usize;
                     let orig_len = r32(data, off + 8).unwrap_or(0);
                     let ts_hi = r32(data, off + 16).unwrap_or(0) as u64;
@@ -384,7 +384,6 @@ fn parse_pcapng(data: &[u8]) -> Result<PcapFile, String> {
                         num += 1;
                     }
                 }
-            }
             _ => {}
         }
         off += block_len;
@@ -803,7 +802,7 @@ fn action_protocols(pcap: &PcapFile) -> String {
     }
 
     let mut entries: Vec<(String, usize)> = counts.into_iter().collect();
-    entries.sort_by(|a, b| b.1.cmp(&a.1));
+    entries.sort_by_key(|b| std::cmp::Reverse(b.1));
 
     let mut out = String::new();
     out.push_str("PROTOCOL DISTRIBUTION\n");
@@ -850,7 +849,7 @@ fn action_conversations(pcap: &PcapFile) -> String {
     }
 
     let mut entries: Vec<((String, String), (usize, u64))> = pairs.into_iter().collect();
-    entries.sort_by(|a, b| b.1 .0.cmp(&a.1 .0));
+    entries.sort_by_key(|b| std::cmp::Reverse(b.1 .0));
 
     let mut out = String::new();
     out.push_str("TOP CONVERSATIONS\n");

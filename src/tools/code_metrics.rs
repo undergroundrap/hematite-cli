@@ -1,4 +1,4 @@
-use serde_json::Value;
+﻿use serde_json::Value;
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
@@ -235,7 +235,7 @@ fn format_report(files: &[FileStats], root: &Path) -> Result<String, String> {
 
     // Top 10 largest files by line count
     let mut sorted: Vec<&FileStats> = files.iter().collect();
-    sorted.sort_by(|a, b| b.lines.cmp(&a.lines));
+    sorted.sort_by_key(|b| std::cmp::Reverse(b.lines));
     let top_files = &sorted[..sorted.len().min(10)];
 
     let root_str = root.to_string_lossy();
@@ -278,7 +278,7 @@ fn format_report(files: &[FileStats], root: &Path) -> Result<String, String> {
     out.push_str("\nBY LANGUAGE (top 12 by code lines)\n");
     type ExtEntry<'a> = (&'a str, (usize, usize, usize, usize));
     let mut ext_vec: Vec<ExtEntry<'_>> = by_ext.into_iter().collect();
-    ext_vec.sort_by(|a, b| b.1 .2.cmp(&a.1 .2));
+    ext_vec.sort_by_key(|b| std::cmp::Reverse(b.1 .2));
     for (ext, (file_count, lines, code, _)) in ext_vec.iter().take(12) {
         out.push_str(&format!(
             "  {:12}  {:>5} files  {:>8} lines  {:>8} code\n",

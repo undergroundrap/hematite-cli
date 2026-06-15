@@ -1,4 +1,4 @@
-use serde_json::Value;
+﻿use serde_json::Value;
 
 pub async fn execute(args: &Value) -> Result<String, String> {
     let action = args
@@ -32,8 +32,8 @@ fn levenshtein_distance(a: &str, b: &str) -> usize {
     for (i, row) in dp.iter_mut().enumerate() {
         row[0] = i;
     }
-    for j in 0..=n {
-        dp[0][j] = j;
+    for (j, cell) in dp[0].iter_mut().enumerate() {
+        *cell = j;
     }
     for i in 1..=m {
         for j in 1..=n {
@@ -56,8 +56,8 @@ fn damerau_levenshtein_distance(a: &str, b: &str) -> usize {
     for (i, row) in dp.iter_mut().enumerate() {
         row[0] = i;
     }
-    for j in 0..=n {
-        dp[0][j] = j;
+    for (j, cell) in dp[0].iter_mut().enumerate() {
+        *cell = j;
     }
     for i in 1..=m {
         for j in 1..=n {

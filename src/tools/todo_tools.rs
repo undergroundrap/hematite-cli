@@ -1,4 +1,4 @@
-use serde_json::{json, Value};
+﻿use serde_json::{json, Value};
 
 pub fn todo_tools_schema() -> Value {
     json!({
@@ -257,7 +257,7 @@ fn action_stats(findings: &[Finding]) -> String {
     }
 
     let mut entries: Vec<_> = counts.into_iter().collect();
-    entries.sort_by(|a, b| b.1.cmp(&a.1));
+    entries.sort_by_key(|b| std::cmp::Reverse(b.1));
 
     let total: usize = entries.iter().map(|(_, c)| c).sum();
     let mut files: Vec<&str> = findings.iter().map(|f| f.file.as_str()).collect();
@@ -341,7 +341,7 @@ fn action_files(findings: &[Finding], top: usize) -> String {
     }
 
     let mut entries: Vec<_> = file_counts.into_iter().collect();
-    entries.sort_by(|a, b| b.1.cmp(&a.1));
+    entries.sort_by_key(|b| std::cmp::Reverse(b.1));
 
     let mut out = String::new();
     out.push_str(&format!(

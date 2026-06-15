@@ -515,7 +515,7 @@ fn action_explain(data: &[u8]) -> Result<String, String> {
 fn load_input(args: &Value) -> Result<Vec<u8>, String> {
     if let Some(hex) = args.get("hex").and_then(Value::as_str) {
         let clean: String = hex.chars().filter(|c| c.is_ascii_hexdigit()).collect();
-        if clean.len() % 2 != 0 {
+        if !clean.len().is_multiple_of(2) {
             return Err("odd-length hex string".into());
         }
         (0..clean.len() / 2)

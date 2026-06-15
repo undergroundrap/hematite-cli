@@ -410,7 +410,7 @@ fn base64url_decode(s: &str) -> Option<Vec<u8>> {
     const CHARS: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
     let padded: String = {
         let mut p = s.replace('-', "+").replace('_', "/");
-        while p.len() % 4 != 0 {
+        while !p.len().is_multiple_of(4) {
             p.push('=');
         }
         p

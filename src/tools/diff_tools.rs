@@ -479,11 +479,9 @@ fn diff_stat(args: &Value) -> Result<String, String> {
 
     let total_left = left_lines.len();
     let total_right = right_lines.len();
-    let similarity = if total_left + total_right > 0 {
-        (2 * kept * 100) / (total_left + total_right)
-    } else {
-        100
-    };
+    let similarity = (2 * kept * 100)
+        .checked_div(total_left + total_right)
+        .unwrap_or(100);
 
     let bar_width = 40usize;
     let added_bar = if added + deleted > 0 {

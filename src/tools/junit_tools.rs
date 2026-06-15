@@ -1,4 +1,4 @@
-use quick_xml::events::Event;
+﻿use quick_xml::events::Event;
 use quick_xml::Reader;
 use serde_json::{json, Value};
 use std::collections::HashMap;
@@ -328,7 +328,7 @@ fn action_failures(suites: &[TestSuite]) -> Result<String, String> {
 
 fn action_summary(suites: &[TestSuite]) -> Result<String, String> {
     let (tests, passed, failures, errors, skipped, time) = totals(suites);
-    let pass_pct = if tests > 0 { passed * 100 / tests } else { 0 };
+    let pass_pct = (passed * 100).checked_div(tests).unwrap_or(0);
     let status = if failures + errors == 0 {
         "PASSED ✓"
     } else {

@@ -636,11 +636,10 @@ fn action_minify(sql: &str) -> Result<String, String> {
 
     let original = sql.len();
     let minified = out.len();
-    let savings = if original > 0 {
-        100 - (minified * 100 / original)
-    } else {
-        0
-    };
+    let savings = (minified * 100)
+        .checked_div(original)
+        .map(|pct| 100 - pct)
+        .unwrap_or(0);
     let mut result = String::new();
     writeln!(result, "Minified SQL").ok();
     writeln!(result, "{}", "─".repeat(60)).ok();

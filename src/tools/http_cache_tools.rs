@@ -94,7 +94,7 @@ fn secs_to_human(s: u64) -> String {
     if (s % 3600) / 60 > 0 {
         parts.push(format!("{}m", (s % 3600) / 60));
     }
-    if s % 60 > 0 {
+    if !s.is_multiple_of(60) {
         parts.push(format!("{}s", s % 60));
     }
     parts.join(" ")

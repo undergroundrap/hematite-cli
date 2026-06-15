@@ -107,7 +107,7 @@ fn hex_decode(args: &serde_json::Value) -> Result<String, String> {
     let input = get_input(args)?;
     let clean: String = input.chars().filter(|c| !c.is_whitespace()).collect();
 
-    if clean.len() % 2 != 0 {
+    if !clean.len().is_multiple_of(2) {
         return Err("encode_tools: hex string must have an even number of characters".to_string());
     }
 

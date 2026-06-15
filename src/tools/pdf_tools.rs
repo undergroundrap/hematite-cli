@@ -29,7 +29,7 @@ fn get_bytes(args: &Value) -> Option<Vec<u8>> {
         fs::read(p).ok()
     } else if let Some(h) = args.get("hex").and_then(|v| v.as_str()) {
         let clean: String = h.chars().filter(|c| c.is_ascii_hexdigit()).collect();
-        if clean.len() % 2 != 0 {
+        if !clean.len().is_multiple_of(2) {
             return None;
         }
         (0..clean.len() / 2)

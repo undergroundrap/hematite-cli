@@ -1,4 +1,4 @@
-pub async fn execute(args: &serde_json::Value) -> Result<String, String> {
+﻿pub async fn execute(args: &serde_json::Value) -> Result<String, String> {
     let action = args
         .get("action")
         .and_then(|v| v.as_str())
@@ -55,7 +55,7 @@ fn load_bytes(args: &serde_json::Value) -> Result<Vec<u8>, String> {
 
 fn decode_hex_str(s: &str) -> Result<Vec<u8>, String> {
     let clean: String = s.chars().filter(|c| c.is_ascii_hexdigit()).collect();
-    if clean.len() % 2 != 0 {
+    if !clean.len().is_multiple_of(2) {
         return Err("hex_tools: odd number of hex digits in input".to_string());
     }
     (0..clean.len())
@@ -212,7 +212,7 @@ fn bytes_info(args: &serde_json::Value) -> Result<String, String> {
         .filter(|(_, &c)| c > 0)
         .map(|(b, &c)| (b as u8, c))
         .collect();
-    freq_pairs.sort_by(|a, b| b.1.cmp(&a.1));
+    freq_pairs.sort_by_key(|b| std::cmp::Reverse(b.1));
 
     // Shannon entropy estimate
     let entropy = freq_pairs.iter().fold(0.0f64, |acc, (_, count)| {

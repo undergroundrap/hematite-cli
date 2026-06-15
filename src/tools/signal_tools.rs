@@ -373,7 +373,7 @@ fn action_fir(args: &Value) -> Result<String, String> {
     if taps < 3 {
         taps = 3;
     }
-    if taps % 2 == 0 {
+    if taps.is_multiple_of(2) {
         taps += 1;
     } // force odd
 

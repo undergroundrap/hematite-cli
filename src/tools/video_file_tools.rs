@@ -28,7 +28,7 @@ fn get_bytes(args: &Value) -> Option<Vec<u8>> {
         fs::read(p).ok()
     } else if let Some(h) = args.get("hex").and_then(|v| v.as_str()) {
         let clean: String = h.chars().filter(|c| c.is_ascii_hexdigit()).collect();
-        if clean.len() % 2 != 0 {
+        if !clean.len().is_multiple_of(2) {
             return None;
         }
         (0..clean.len() / 2)
@@ -285,30 +285,26 @@ fn walk_boxes(b: &[u8], mut pos: usize, end: usize, depth: u32, meta: &mut Mp4Me
                     }
                 }
             }
-            "stsd" => {
-                if data_start + 8 <= box_end {
-                    let entry_start = data_start + 8;
-                    if entry_start + 8 <= box_end {
-                        let codec_tag = fourcc(tag4(b, entry_start + 4));
-                        if let Some(vt) = meta.video_tracks.last_mut() {
-                            if vt.codec.is_empty() {
-                                vt.codec =
-                                    format!("{} ({})", codec_name(&codec_tag), codec_tag.trim());
-                                if entry_start + 32 <= box_end {
-                                    vt.width = ru16be(b, entry_start + 28) as u32;
-                                    vt.height = ru16be(b, entry_start + 30) as u32;
-                                }
+            "stsd" if data_start + 8 <= box_end => {
+                let entry_start = data_start + 8;
+                if entry_start + 8 <= box_end {
+                    let codec_tag = fourcc(tag4(b, entry_start + 4));
+                    if let Some(vt) = meta.video_tracks.last_mut() {
+                        if vt.codec.is_empty() {
+                            vt.codec = format!("{} ({})", codec_name(&codec_tag), codec_tag.trim());
+                            if entry_start + 32 <= box_end {
+                                vt.width = ru16be(b, entry_start + 28) as u32;
+                                vt.height = ru16be(b, entry_start + 30) as u32;
                             }
-                        } else if let Some(at) = meta.audio_tracks.last_mut() {
-                            if at.codec.is_empty() {
-                                at.codec =
-                                    format!("{} ({})", codec_name(&codec_tag), codec_tag.trim());
-                                if entry_start + 26 <= box_end {
-                                    at.channels = ru16be(b, entry_start + 24);
-                                }
-                                if entry_start + 32 <= box_end {
-                                    at.sample_rate = ru32be(b, entry_start + 28) >> 16;
-                                }
+                        }
+                    } else if let Some(at) = meta.audio_tracks.last_mut() {
+                        if at.codec.is_empty() {
+                            at.codec = format!("{} ({})", codec_name(&codec_tag), codec_tag.trim());
+                            if entry_start + 26 <= box_end {
+                                at.channels = ru16be(b, entry_start + 24);
+                            }
+                            if entry_start + 32 <= box_end {
+                                at.sample_rate = ru32be(b, entry_start + 28) >> 16;
                             }
                         }
                     }
@@ -958,8 +954,8 @@ fn parse_avi(b: &[u8]) -> Option<AviMeta> {
                                     // audio: rate/scale
                                     let scale = ru32le(b, q + 8 + 20);
                                     let rate = ru32le(b, q + 8 + 24);
-                                    if scale > 0 {
-                                        meta.audio_sample_rate = rate / scale;
+                                    if let Some(r) = rate.checked_div(scale) {
+                                        meta.audio_sample_rate = r;
                                     }
                                 }
                             } else if st_tag == b"strf" && q + 8 <= b.len() {

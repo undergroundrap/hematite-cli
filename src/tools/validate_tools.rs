@@ -452,7 +452,7 @@ fn luhn_check(s: &str) -> bool {
             }
         })
         .sum();
-    sum % 10 == 0
+    sum.is_multiple_of(10)
 }
 
 fn card_network(digits: &str) -> &'static str {
@@ -513,7 +513,7 @@ fn isbn10_check(s: &str) -> bool {
         .enumerate()
         .map(|(i, &d)| (10 - i as u32) * d)
         .sum();
-    sum % 11 == 0
+    sum.is_multiple_of(11)
 }
 
 fn isbn13_check(s: &str) -> bool {
@@ -530,7 +530,7 @@ fn isbn13_check(s: &str) -> bool {
         .enumerate()
         .map(|(i, &d)| if i % 2 == 0 { d } else { d * 3 })
         .sum();
-    sum % 10 == 0
+    sum.is_multiple_of(10)
 }
 
 fn isbn_action(args: &Value) -> Result<String, String> {

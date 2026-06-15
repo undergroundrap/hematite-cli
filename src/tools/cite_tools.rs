@@ -673,7 +673,7 @@ fn validate_isbn(isbn: &str) -> String {
                 .enumerate()
                 .map(|(i, &d)| d * (10 - i as u32))
                 .sum();
-            let valid = sum % 11 == 0;
+            let valid = sum.is_multiple_of(11);
             out.push_str(&format!(
                 "Format : ISBN-10\nStatus : {}\n",
                 if valid {
@@ -692,7 +692,7 @@ fn validate_isbn(isbn: &str) -> String {
                     .enumerate()
                     .map(|(i, &d)| if i % 2 == 0 { d } else { d * 3 })
                     .sum();
-                let valid = sum % 10 == 0;
+                let valid = sum.is_multiple_of(10);
                 out.push_str(&format!(
                     "Format : ISBN-13\nStatus : {}\n",
                     if valid {

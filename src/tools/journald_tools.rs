@@ -1,4 +1,4 @@
-use serde_json::{json, Value};
+﻿use serde_json::{json, Value};
 use std::collections::HashMap;
 
 pub fn make_schema() -> Value {
@@ -110,7 +110,7 @@ fn days_to_ymd(mut days: u64) -> (u32, u32, u32) {
 }
 
 fn is_leap(y: u32) -> bool {
-    (y % 4 == 0 && y % 100 != 0) || y % 400 == 0
+    (y.is_multiple_of(4) && !y.is_multiple_of(100)) || y.is_multiple_of(400)
 }
 
 // ── parser ────────────────────────────────────────────────────────────────────
@@ -280,7 +280,7 @@ fn action_units(entries: &[JournalEntry]) -> String {
     }
     let mut ranked: Vec<(String, u32, u8)> =
         counts.into_iter().map(|(u, (n, p))| (u, n, p)).collect();
-    ranked.sort_by(|a, b| b.1.cmp(&a.1));
+    ranked.sort_by_key(|b| std::cmp::Reverse(b.1));
 
     let total = entries.len() as f64;
     let mut out = format!(
@@ -462,7 +462,7 @@ fn action_summary(entries: &[JournalEntry]) -> String {
     }
     let mut top_units: Vec<(&str, u32)> =
         unit_counts.iter().map(|(u, &n)| (u.as_str(), n)).collect();
-    top_units.sort_by(|a, b| b.1.cmp(&a.1));
+    top_units.sort_by_key(|b| std::cmp::Reverse(b.1));
 
     let mut out = "─── journald Summary ───\n\n".to_string();
     out.push_str(&format!("  Total entries : {}\n", entries.len()));

@@ -87,7 +87,7 @@ fn get_value(args: &Value) -> Result<i64, String> {
 
 fn parse_hex(s: &str) -> Result<Vec<u8>, String> {
     let clean: String = s.chars().filter(|c| c.is_ascii_hexdigit()).collect();
-    if clean.len() % 2 != 0 {
+    if !clean.len().is_multiple_of(2) {
         return Err(format!("Odd hex digit count ({})", clean.len()));
     }
     (0..clean.len())
@@ -255,7 +255,7 @@ fn action_encode(val: i64, signed: bool) -> Result<String, String> {
     if bytes.len() > 1 {
         out.push_str(&format!(
             "               first byte                {}last byte\n",
-            " ".repeat((bits_per_group[0].len() + 1) * (bytes.len() - 2).max(0))
+            " ".repeat((bits_per_group[0].len() + 1) * (bytes.len() - 2))
         ));
     }
 

@@ -1,4 +1,4 @@
-use serde_json::Value;
+﻿use serde_json::Value;
 
 pub async fn execute(args: &Value) -> Result<String, String> {
     let action = args
@@ -161,11 +161,7 @@ fn histogram_action(args: &Value) -> Result<String, String> {
     for (i, &count) in counts.iter().enumerate() {
         let lo = min + i as f64 * bin_size;
         let hi = lo + bin_size;
-        let bar_len = if max_count > 0 {
-            (count * width) / max_count
-        } else {
-            0
-        };
+        let bar_len = (count * width).checked_div(max_count).unwrap_or(0);
         let bar = "█".repeat(bar_len);
         out.push_str(&format!(
             "  [{:>8} – {:>8}]  {:>4}  {}\n",

@@ -83,7 +83,7 @@ fn get_names(args: &Value) -> Vec<String> {
 
 fn parse_hex(s: &str) -> Result<Vec<u8>, String> {
     let clean: String = s.chars().filter(|c| c.is_ascii_hexdigit()).collect();
-    if clean.len() % 2 != 0 {
+    if !clean.len().is_multiple_of(2) {
         return Err(format!(
             "Odd hex digit count ({}). Provide an even number of hex digits.",
             clean.len()

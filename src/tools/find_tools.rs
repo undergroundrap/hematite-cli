@@ -1,4 +1,4 @@
-use serde_json::{json, Value};
+﻿use serde_json::{json, Value};
 
 pub fn find_tools_schema() -> Value {
     json!({
@@ -344,7 +344,7 @@ fn action_count(results: &[Found]) -> String {
 
 fn action_sizes(results: &[Found], root: &str) -> String {
     let mut files: Vec<_> = results.iter().filter(|r| !r.is_dir).collect();
-    files.sort_by(|a, b| b.size.cmp(&a.size));
+    files.sort_by_key(|b| std::cmp::Reverse(b.size));
 
     let total: u64 = files.iter().map(|f| f.size).sum();
     let mut out = format!("{} file(s)  total {}\n", files.len(), human_size(total));
@@ -367,7 +367,7 @@ fn action_sizes(results: &[Found], root: &str) -> String {
 
 fn action_recent(results: &[Found], root: &str, limit: usize, now: u64) -> String {
     let mut files: Vec<_> = results.iter().filter(|r| !r.is_dir).collect();
-    files.sort_by(|a, b| b.modified_secs.cmp(&a.modified_secs));
+    files.sort_by_key(|b| std::cmp::Reverse(b.modified_secs));
 
     let mut out = format!(
         "{} file(s) sorted by modification time\n",

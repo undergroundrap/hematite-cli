@@ -1,4 +1,4 @@
-use serde_json::{json, Value};
+﻿use serde_json::{json, Value};
 
 pub async fn execute(args: &Value) -> Result<String, String> {
     let action = args.get("action").and_then(|v| v.as_str()).unwrap_or("");
@@ -213,6 +213,7 @@ fn action_line(input: &Value) -> Result<String, String> {
             let row2 = row2.min(height - 1);
 
             if col2 > col1 {
+                #[allow(clippy::needless_range_loop)]
                 for col in col1..col2 {
                     let t = (col - col1) as f64 / (col2 - col1) as f64;
                     let row = (row1 as f64 + t * (row2 as f64 - row1 as f64)).round() as usize;

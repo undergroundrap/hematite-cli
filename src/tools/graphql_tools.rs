@@ -1152,11 +1152,9 @@ fn action_validate(text: &str) -> Result<String, String> {
                     }
                 }
             }
-            GqlDef::Operation { kind, name, fields } => {
-                if fields.is_empty() {
-                    let op_name = name.as_deref().unwrap_or("(anonymous)");
-                    warnings.push(format!("{} '{}' selects no fields", kind, op_name));
-                }
+            GqlDef::Operation { kind, name, fields } if fields.is_empty() => {
+                let op_name = name.as_deref().unwrap_or("(anonymous)");
+                warnings.push(format!("{} '{}' selects no fields", kind, op_name));
             }
             _ => {}
         }

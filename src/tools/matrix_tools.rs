@@ -1,4 +1,4 @@
-use serde_json::Value;
+﻿use serde_json::Value;
 
 pub async fn execute(args: &Value) -> Result<String, String> {
     let action = args
@@ -149,9 +149,11 @@ fn lu_decompose(m: &Matrix) -> Result<(Matrix, Vec<usize>, i32), String> {
             perm.swap(k, max_row);
             sign = -sign;
         }
+        #[allow(clippy::needless_range_loop)]
         for i in (k + 1)..n {
             let factor = a[i][k] / a[k][k];
             a[i][k] = factor;
+            #[allow(clippy::needless_range_loop)]
             for j in (k + 1)..n {
                 let v = a[k][j];
                 a[i][j] -= factor * v;
@@ -178,6 +180,7 @@ fn inverse(m: &Matrix) -> Result<Matrix, String> {
     }
     let (lu, perm, _) = lu_decompose(m)?;
     let mut inv = vec![vec![0.0f64; n]; n];
+    #[allow(clippy::needless_range_loop)]
     for col in 0..n {
         let mut b = vec![0.0f64; n];
         for i in 0..n {
@@ -257,12 +260,15 @@ fn matrix_rank(m: &Matrix) -> usize {
         };
         a.swap(row, p);
         let scale = a[row][col];
+        #[allow(clippy::needless_range_loop)]
         for j in 0..c {
             a[row][j] /= scale;
         }
+        #[allow(clippy::needless_range_loop)]
         for i in 0..r {
             if i != row && a[i][col].abs() > 1e-10 {
                 let factor = a[i][col];
+                #[allow(clippy::needless_range_loop)]
                 for j in 0..c {
                     let v = a[row][j];
                     a[i][j] -= factor * v;

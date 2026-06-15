@@ -66,7 +66,7 @@ fn load_bytes(args: &Value) -> Result<Vec<u8>, String> {
 
 fn decode_hex(s: &str) -> Result<Vec<u8>, String> {
     let s: String = s.chars().filter(|c| !c.is_whitespace()).collect();
-    if s.len() % 2 != 0 {
+    if !s.len().is_multiple_of(2) {
         return Err("msgpack_tools: hex string must have even length".into());
     }
     (0..s.len() / 2)

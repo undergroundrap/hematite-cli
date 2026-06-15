@@ -57,7 +57,7 @@ fn load_data(args: &Value) -> Result<Vec<u8>, String> {
 
 fn parse_hex(s: &str) -> Result<Vec<u8>, String> {
     let clean: String = s.chars().filter(|c| c.is_ascii_hexdigit()).collect();
-    if clean.len() % 2 != 0 {
+    if !clean.len().is_multiple_of(2) {
         return Err("Odd hex digit count.".into());
     }
     (0..clean.len())

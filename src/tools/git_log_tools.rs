@@ -1,4 +1,4 @@
-use serde_json::{json, Value};
+﻿use serde_json::{json, Value};
 use std::collections::HashMap;
 
 pub fn make_schema() -> Value {
@@ -285,7 +285,7 @@ fn action_authors(commits: &[Commit]) -> String {
         .into_iter()
         .map(|(name, (n, email))| (n, name, email))
         .collect();
-    ranked.sort_by(|a, b| b.0.cmp(&a.0));
+    ranked.sort_by_key(|b| std::cmp::Reverse(b.0));
 
     let total = commits.len() as f64;
     let mut out = format!(
@@ -396,7 +396,7 @@ fn action_files(commits: &[Commit]) -> String {
     out.push_str(&"─".repeat(80));
     out.push('\n');
     let mut sorted: Vec<&Commit> = commits.iter().filter(|c| c.stat_files > 0).collect();
-    sorted.sort_by(|a, b| b.stat_files.cmp(&a.stat_files));
+    sorted.sort_by_key(|b| std::cmp::Reverse(b.stat_files));
     for c in sorted.iter().take(30) {
         let subj = if c.subject.len() > 32 {
             format!("{}..", &c.subject[..30])
@@ -473,7 +473,7 @@ fn action_summary(commits: &[Commit]) -> String {
         *counts.entry(c.author_name.as_str()).or_default() += 1;
     }
     let mut ranked: Vec<(&str, u32)> = counts.into_iter().collect();
-    ranked.sort_by(|a, b| b.1.cmp(&a.1));
+    ranked.sort_by_key(|b| std::cmp::Reverse(b.1));
     out.push_str("\n  Top contributors:\n");
     for (name, n) in ranked.iter().take(5) {
         out.push_str(&format!("    {:<25} {} commits\n", name, n));

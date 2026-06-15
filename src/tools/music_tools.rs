@@ -146,7 +146,7 @@ fn semitones_to_interval(semitones: u32) -> String {
     if semitones == 0 {
         return "Unison (0 semitones)".to_string();
     }
-    if semitones % 12 == 0 {
+    if semitones.is_multiple_of(12) {
         return format!("{} octave(s)", semitones / 12);
     }
     let octaves = semitones / 12;

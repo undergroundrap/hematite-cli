@@ -438,7 +438,7 @@ fn read_bytes(args: &Value) -> Result<Vec<u8>, String> {
         std::fs::read(fp).map_err(|e| format!("Cannot read '{}': {}", fp, e))
     } else if let Some(hex) = args["hex"].as_str() {
         let clean: String = hex.chars().filter(|c| c.is_ascii_hexdigit()).collect();
-        if clean.len() % 2 != 0 {
+        if !clean.len().is_multiple_of(2) {
             return Err("Hex string has odd length".into());
         }
         (0..clean.len())

@@ -1,4 +1,4 @@
-use regex::Regex;
+﻿use regex::Regex;
 
 pub async fn execute(args: &serde_json::Value) -> Result<String, String> {
     let action = args
@@ -308,7 +308,7 @@ fn unique(args: &serde_json::Value) -> Result<String, String> {
         })
         .collect();
     if sorted {
-        entries.sort_by(|a, b| b.1.cmp(&a.1)); // sort by frequency desc
+        entries.sort_by_key(|b| std::cmp::Reverse(b.1)); // sort by frequency desc
     }
 
     let mut out = format!("LINE UNIQUE\n{}\n", "─".repeat(50));

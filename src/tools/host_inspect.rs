@@ -1,4 +1,4 @@
-use crate::agent::truncation::safe_head;
+﻿use crate::agent::truncation::safe_head;
 use serde_json::Value;
 use std::collections::HashSet;
 use std::fmt::Write as _;
@@ -355,6 +355,7 @@ mod privilege_hint_tests {
 
 #[cfg(test)]
 mod event_query_tests {
+    #[cfg(target_os = "windows")]
     use super::is_event_query_no_results_message;
 
     #[cfg(target_os = "windows")]
@@ -5546,7 +5547,7 @@ foreach ($root in $devRoots) {
                             });
                         }
                     }
-                    path_entries.sort_by(|a, b| b.bytes.cmp(&a.bytes));
+                    path_entries.sort_by_key(|b| std::cmp::Reverse(b.bytes));
                 }
 
                 // Parse artifacts
@@ -5576,7 +5577,7 @@ foreach ($root in $devRoots) {
                             });
                         }
                     }
-                    art_entries.sort_by(|a, b| b.bytes.cmp(&a.bytes));
+                    art_entries.sort_by_key(|b| std::cmp::Reverse(b.bytes));
                 }
 
                 // ── Output: Drive overview ────────────────────────────────

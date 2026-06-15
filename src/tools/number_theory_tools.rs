@@ -1,4 +1,4 @@
-use serde_json::Value;
+﻿use serde_json::Value;
 
 pub async fn execute(args: &Value) -> Result<String, String> {
     let action = args
@@ -27,9 +27,9 @@ fn trial_factor(mut n: u64) -> Vec<(u64, u32)> {
         return factors;
     }
     for p in [2u64, 3] {
-        if n % p == 0 {
+        if n.is_multiple_of(p) {
             let mut exp = 0u32;
-            while n % p == 0 {
+            while n.is_multiple_of(p) {
                 n /= p;
                 exp += 1;
             }
@@ -39,9 +39,9 @@ fn trial_factor(mut n: u64) -> Vec<(u64, u32)> {
     let mut d = 5u64;
     let mut step = 2u64;
     while d * d <= n {
-        if n % d == 0 {
+        if n.is_multiple_of(d) {
             let mut exp = 0u32;
-            while n % d == 0 {
+            while n.is_multiple_of(d) {
                 n /= d;
                 exp += 1;
             }
@@ -63,13 +63,13 @@ fn is_prime(n: u64) -> bool {
     if n == 2 || n == 3 {
         return true;
     }
-    if n % 2 == 0 || n % 3 == 0 {
+    if n.is_multiple_of(2) || n.is_multiple_of(3) {
         return false;
     }
     let mut d = 5u64;
     let mut step = 2u64;
     while d * d <= n {
-        if n % d == 0 {
+        if n.is_multiple_of(d) {
             return false;
         }
         d += step;
@@ -371,7 +371,7 @@ fn action_gcd_lcm(args: &Value, action: &str) -> Result<String, String> {
             out.push_str("  → {} and {} are COPRIME\n");
         }
     } else {
-        let lcm = if g == 0 { 0 } else { a / g * b };
+        let lcm = a.checked_div(g).map(|q| q * b).unwrap_or(0);
         out.push_str(&format!("LCM({}, {}) = {}\n", a, b, lcm));
         out.push_str(&format!("GCD({}, {}) = {} (used internally)\n", a, b, g));
         out.push_str(&format!(

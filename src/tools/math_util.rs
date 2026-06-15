@@ -17,12 +17,12 @@ fn is_prime(n: u64) -> bool {
     if n < 4 {
         return true;
     }
-    if n % 2 == 0 || n % 3 == 0 {
+    if n.is_multiple_of(2) || n.is_multiple_of(3) {
         return false;
     }
     let mut i = 5u64;
     while i * i <= n {
-        if n % i == 0 || n % (i + 2) == 0 {
+        if n.is_multiple_of(i) || n.is_multiple_of(i + 2) {
             return false;
         }
         i += 6;
@@ -36,9 +36,9 @@ fn factorize(mut n: u64) -> Vec<(u64, u32)> {
         return factors;
     }
     for p in [2u64, 3] {
-        if n % p == 0 {
+        if n.is_multiple_of(p) {
             let mut exp = 0u32;
-            while n % p == 0 {
+            while n.is_multiple_of(p) {
                 n /= p;
                 exp += 1;
             }
@@ -47,17 +47,17 @@ fn factorize(mut n: u64) -> Vec<(u64, u32)> {
     }
     let mut i = 5u64;
     while i * i <= n {
-        if n % i == 0 {
+        if n.is_multiple_of(i) {
             let mut exp = 0u32;
-            while n % i == 0 {
+            while n.is_multiple_of(i) {
                 n /= i;
                 exp += 1;
             }
             factors.push((i, exp));
         }
-        if n % (i + 2) == 0 {
+        if n.is_multiple_of(i + 2) {
             let mut exp = 0u32;
-            while n % (i + 2) == 0 {
+            while n.is_multiple_of(i + 2) {
                 n /= i + 2;
                 exp += 1;
             }
@@ -611,7 +611,7 @@ fn gcd(a: u128, b: u128) -> u128 {
 
 pub fn gcd_lcm(a: u128, b: u128) -> String {
     let g = gcd(a, b);
-    let l = if g == 0 { 0 } else { a / g * b };
+    let l = a.checked_div(g).map(|q| q * b).unwrap_or(0);
     format!("GCD({a}, {b}) = {g}\nLCM({a}, {b}) = {l}")
 }
 
@@ -655,7 +655,7 @@ pub fn number_theory(query: &str) -> String {
         }
         "crt" => {
             // Interleaved: crt r1 m1 r2 m2 ...
-            if tokens.len() < 5 || tokens.len() % 2 == 0 {
+            if tokens.len() < 5 || tokens.len().is_multiple_of(2) {
                 return "Usage: crt r1 m1 r2 m2 [r3 m3 ...]\n  Example: crt 2 3 3 5  (x ≡ 2 mod 3 and x ≡ 3 mod 5)".into();
             }
             let pairs: Vec<(i128, i128)> = tokens[1..]
@@ -801,7 +801,7 @@ pub fn number_theory(query: &str) -> String {
                 Ok(v) => v,
                 Err(_) => return format!("Not a number: {}", tokens[1]),
             };
-            if n <= 2 || n % 2 != 0 {
+            if n <= 2 || !n.is_multiple_of(2) {
                 return format!("{} must be even and > 2 for Goldbach's conjecture.", n);
             }
             let pairs: Vec<(u64, u64)> = (2..=n / 2)
@@ -891,7 +891,7 @@ fn nt_report(n: u64) -> String {
     let _ = writeln!(out, "  Euler's totient φ(n) = {}", euler_totient(n));
     let _ = writeln!(out, "  Möbius μ(n) = {}", mobius(n));
     if n < 1_000_000 {
-        let sigma: u64 = (1..=n).filter(|d| n % d == 0).sum();
+        let sigma: u64 = (1..=n).filter(|d| n.is_multiple_of(*d)).sum();
         let _ = writeln!(out, "  Sum of divisors σ(n) = {}", sigma);
         if sigma == 2 * n {
             let _ = writeln!(out, "  → Perfect number!");
@@ -901,7 +901,7 @@ fn nt_report(n: u64) -> String {
             let _ = writeln!(out, "  → Deficient number");
         }
     }
-    if n >= 4 && n % 2 == 0 {
+    if n >= 4 && n.is_multiple_of(2) {
         if let Some((p, q)) = (2..=n / 2)
             .filter(|&p| is_prime(p) && is_prime(n - p))
             .map(|p| (p, n - p))
@@ -972,7 +972,7 @@ fn mobius(n: u64) -> i32 {
             return 0;
         }
     }
-    if factors.len() % 2 == 0 {
+    if factors.len().is_multiple_of(2) {
         1
     } else {
         -1
@@ -8493,7 +8493,7 @@ fn interp_parse_points(s: &str) -> Option<Vec<(f64, f64)>> {
         .split([',', ' ', '\t'].as_ref())
         .filter_map(|t| t.trim().parse::<f64>().ok())
         .collect();
-    if tokens.len() < 4 || tokens.len() % 2 != 0 {
+    if tokens.len() < 4 || !tokens.len().is_multiple_of(2) {
         return None;
     }
     Some(tokens.chunks(2).map(|c| (c[0], c[1])).collect())
@@ -11486,7 +11486,7 @@ pub fn cipher_calc(query: &str) -> String {
         key_chars.sort_by_key(|&(_, c)| c);
         let col_order: Vec<usize> = key_chars.iter().map(|&(i, _)| i).collect();
 
-        let pad: usize = if text.len() % num_cols == 0 {
+        let pad: usize = if text.len().is_multiple_of(num_cols) {
             0
         } else {
             num_cols - text.len() % num_cols
@@ -11715,7 +11715,7 @@ pub fn validate_calc(input: &str) -> String {
                     }
                 })
                 .sum();
-            Some(sum % 10 == 0)
+            Some(sum.is_multiple_of(10))
         } else {
             None
         }
@@ -11809,7 +11809,7 @@ pub fn validate_calc(input: &str) -> String {
                             }
                         })
                         .sum();
-                    if sum % 10 == 0 {
+                    if sum.is_multiple_of(10) {
                         let _ =
                             writeln!(out, "  Correct check digit: {} (replace last digit)", check);
                         break;
@@ -11837,7 +11837,7 @@ pub fn validate_calc(input: &str) -> String {
             .enumerate()
             .map(|(i, &d)| (10 - i as u32) * d)
             .sum();
-        let valid = sum % 11 == 0;
+        let valid = sum.is_multiple_of(11);
         let _ = writeln!(out, "  ─── ISBN-10 ───");
         let _ = writeln!(
             out,
@@ -11871,7 +11871,7 @@ pub fn validate_calc(input: &str) -> String {
             .enumerate()
             .map(|(i, &d)| if i % 2 == 0 { d } else { d * 3 })
             .sum();
-        let valid = sum % 10 == 0;
+        let valid = sum.is_multiple_of(10);
         let prefix = &clean[..3];
         let kind = if prefix == "978" || prefix == "979" {
             "ISBN-13"
@@ -13207,7 +13207,7 @@ pub fn text_stats(input: &str) -> String {
         }
     }
     let mut char_sorted: Vec<(char, usize)> = char_freq.into_iter().collect();
-    char_sorted.sort_by(|a, b| b.1.cmp(&a.1));
+    char_sorted.sort_by_key(|b| std::cmp::Reverse(b.1));
 
     // ─── Average word length ───
     let total_word_chars: usize = words
@@ -13225,7 +13225,7 @@ pub fn text_stats(input: &str) -> String {
         .iter()
         .map(|w| (w, w.chars().filter(|c| c.is_alphabetic()).count()))
         .collect();
-    word_lengths.sort_by(|a, b| b.1.cmp(&a.1));
+    word_lengths.sort_by_key(|b| std::cmp::Reverse(b.1));
     word_lengths.dedup_by_key(|w| w.1);
 
     // ─── Output ───
@@ -13339,7 +13339,7 @@ pub fn stats_calc(input: &str) -> String {
     let range = max - min;
 
     // Median
-    let median = if n % 2 == 0 {
+    let median = if n.is_multiple_of(2) {
         (sorted[n / 2 - 1] + sorted[n / 2]) / 2.0
     } else {
         sorted[n / 2]
@@ -13518,7 +13518,7 @@ pub fn stats_calc(input: &str) -> String {
     for (i, &c) in counts.iter().enumerate() {
         let lo = min + i as f64 * bin_width;
         let hi = lo + bin_width;
-        let bar_len = if max_count > 0 { c * 30 / max_count } else { 0 };
+        let bar_len = (c * 30).checked_div(max_count).unwrap_or(0);
         let bar: String = "█".repeat(bar_len);
         let _ = writeln!(out, "  [{:>8.2}, {:>8.2})  {:>4}  {}", lo, hi, c, bar);
     }
@@ -13788,7 +13788,7 @@ pub fn encode_calc(query: &str) -> String {
             let _ = writeln!(out, "  Hex Decode");
             let _ = writeln!(out, "  Input:   {}", payload);
             let cleaned: String = payload.chars().filter(|c| c.is_ascii_hexdigit()).collect();
-            if cleaned.len() % 2 != 0 {
+            if !cleaned.len().is_multiple_of(2) {
                 let _ = writeln!(out, "  Error:   odd number of hex digits");
             } else {
                 let bytes: Result<Vec<u8>, _> = (0..cleaned.len())
@@ -16243,8 +16243,8 @@ pub fn number_theory_calc(query: &str) -> String {
         let mut result = n;
         let mut p = 2u64;
         while p * p <= n {
-            if n % p == 0 {
-                while n % p == 0 {
+            if n.is_multiple_of(p) {
+                while n.is_multiple_of(p) {
                     n /= p;
                 }
                 result -= result / p;
@@ -16335,11 +16335,10 @@ pub fn number_theory_calc(query: &str) -> String {
                 parts.get(2).and_then(|s| s.parse::<u64>().ok()),
             ) {
                 let g = gcd(a as u128, b as u128);
-                let l = if g == 0 {
-                    0u128
-                } else {
-                    (a as u128) / g * (b as u128)
-                };
+                let l = (a as u128)
+                    .checked_div(g)
+                    .map(|q| q * (b as u128))
+                    .unwrap_or(0u128);
                 let _ = writeln!(out, "  a              : {}", a);
                 let _ = writeln!(out, "  b              : {}", b);
                 let _ = writeln!(out, "  GCD(a, b)      : {}", g);
@@ -16360,11 +16359,10 @@ pub fn number_theory_calc(query: &str) -> String {
                 parts.get(2).and_then(|s| s.parse::<u64>().ok()),
             ) {
                 let g = gcd(a as u128, b as u128);
-                let l = if g == 0 {
-                    0u128
-                } else {
-                    (a as u128) / g * (b as u128)
-                };
+                let l = (a as u128)
+                    .checked_div(g)
+                    .map(|q| q * (b as u128))
+                    .unwrap_or(0u128);
                 let _ = writeln!(out, "  a              : {}", a);
                 let _ = writeln!(out, "  b              : {}", b);
                 let _ = writeln!(out, "  LCM(a, b)      : {}", l);
@@ -25931,7 +25929,7 @@ pub fn spark_calc(query: &str) -> String {
             let _ = writeln!(out, "{sep}");
             let mut sorted = nums.clone();
             sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
-            let median = if sorted.len() % 2 == 0 {
+            let median = if sorted.len().is_multiple_of(2) {
                 (sorted[sorted.len() / 2 - 1] + sorted[sorted.len() / 2]) / 2.0
             } else {
                 sorted[sorted.len() / 2]

@@ -1500,7 +1500,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let years_1 = rem.min(1460) / 365;
         let rem = rem - years_1 * 365;
         let year = 1970 + years_400 * 400 + years_100 * 100 + years_4 * 4 + years_1;
-        let leap = u64::from(year % 4 == 0 && (year % 100 != 0 || year % 400 == 0));
+        let leap = u64::from(
+            year.is_multiple_of(4) && (!year.is_multiple_of(100) || year.is_multiple_of(400)),
+        );
         let month_days: [u64; 12] = [31, 28 + leap, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
         let mut rem = rem;
         let mut month = 1u64;

@@ -1,4 +1,4 @@
-use serde_json::Value;
+﻿use serde_json::Value;
 
 pub async fn execute(args: &Value) -> Result<String, String> {
     let action = args
@@ -217,7 +217,7 @@ fn action_summary(har: &Value) -> Result<String, String> {
     if !mime_counts.is_empty() {
         out.push_str("\nContent types:\n");
         let mut mt_vec: Vec<_> = mime_counts.into_iter().collect();
-        mt_vec.sort_by(|a, b| b.1.cmp(&a.1));
+        mt_vec.sort_by_key(|b| std::cmp::Reverse(b.1));
         for (mt, count) in mt_vec.iter().take(8) {
             out.push_str(&format!("  {:4}  {}\n", count, mt));
         }

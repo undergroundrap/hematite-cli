@@ -1,4 +1,4 @@
-pub async fn execute(args: &serde_json::Value) -> Result<String, String> {
+﻿pub async fn execute(args: &serde_json::Value) -> Result<String, String> {
     let action = args
         .get("action")
         .and_then(|v| v.as_str())
@@ -345,7 +345,7 @@ fn factorize(args: &serde_json::Value) -> Result<String, String> {
     let mut remaining = n as u64;
     let mut d = 2u64;
     while d * d <= remaining {
-        while remaining % d == 0 {
+        while remaining.is_multiple_of(d) {
             factors.push(d);
             remaining /= d;
         }
@@ -396,7 +396,7 @@ fn gcd_lcm(args: &serde_json::Value) -> Result<String, String> {
         .unsigned_abs();
 
     let gcd = euclid_gcd(a_val, b_val);
-    let lcm = if gcd == 0 { 0 } else { a_val / gcd * b_val };
+    let lcm = a_val.checked_div(gcd).map(|q| q * b_val).unwrap_or(0);
 
     Ok(format!(
         "GCD / LCM\n{}\na   : {a_val}\nb   : {b_val}\nGCD : {gcd}\nLCM : {lcm}",

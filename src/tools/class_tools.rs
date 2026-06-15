@@ -800,7 +800,7 @@ pub async fn execute(args: &Value) -> Result<String, String> {
         std::fs::read(file_path).map_err(|e| format!("cannot read file '{}': {}", file_path, e))?
     } else if let Some(hex_str) = args.get("hex").and_then(|v| v.as_str()) {
         let clean: String = hex_str.chars().filter(|c| c.is_ascii_hexdigit()).collect();
-        if clean.len() % 2 != 0 {
+        if !clean.len().is_multiple_of(2) {
             return Err("hex string has odd length".to_string());
         }
         (0..clean.len() / 2)

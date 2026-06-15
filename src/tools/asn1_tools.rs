@@ -546,9 +546,9 @@ fn decode_cert_summary(data: &[u8]) -> Result<String, String> {
                             format!("(time) {}", String::from_utf8_lossy(vdata)),
                         ));
                     }
-                    2 => {
+                    2
                         // INTEGER
-                        if tag.length > 0 && tag.length <= 20 {
+                        if tag.length > 0 && tag.length <= 20 => {
                             let hex: String = vdata
                                 .iter()
                                 .map(|b| format!("{b:02x}"))
@@ -556,7 +556,6 @@ fn decode_cert_summary(data: &[u8]) -> Result<String, String> {
                                 .join(":");
                             results.push((tag.tag_num, format!("(int) {hex}")));
                         }
-                    }
                     _ => {}
                 }
             }
@@ -663,7 +662,7 @@ fn decode_cert_summary(data: &[u8]) -> Result<String, String> {
 fn load_data(args: &Value) -> Result<Vec<u8>, String> {
     if let Some(hex_val) = args.get("hex").and_then(|v| v.as_str()) {
         let cleaned: String = hex_val.chars().filter(|c| c.is_ascii_hexdigit()).collect();
-        if cleaned.len() % 2 != 0 {
+        if !cleaned.len().is_multiple_of(2) {
             return Err("Hex string has odd number of digits".into());
         }
         let bytes: Result<Vec<u8>, _> = (0..cleaned.len() / 2)

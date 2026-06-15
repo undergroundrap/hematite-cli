@@ -1,4 +1,4 @@
-use serde_json::Value;
+﻿use serde_json::Value;
 
 pub async fn execute(args: &Value) -> Result<String, String> {
     let action = if let Some(a) = args.get("action").and_then(|v| v.as_str()) {
@@ -335,7 +335,7 @@ fn detect_action(args: &Value) -> Result<String, String> {
             }
         })
         .collect();
-    matches.sort_by(|a, b| b.1.cmp(&a.1));
+    matches.sort_by_key(|b| std::cmp::Reverse(b.1));
 
     let mut out = format!("License Detection\n{}\n\n", "=".repeat(44));
     if matches.is_empty() {

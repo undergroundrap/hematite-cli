@@ -1,4 +1,4 @@
-use serde_json::{json, Value};
+﻿use serde_json::{json, Value};
 use std::collections::HashMap;
 
 pub fn make_schema() -> Value {
@@ -258,7 +258,7 @@ fn do_summary(args: &Value) -> Result<String, String> {
         .into_iter()
         .map(|(k, (cnt, err, us))| (k, cnt, err, us))
         .collect();
-    sorted.sort_by(|a, b| b.1.cmp(&a.1));
+    sorted.sort_by_key(|b| std::cmp::Reverse(b.1));
 
     let limit = args.get("limit").and_then(|v| v.as_u64()).unwrap_or(30) as usize;
     let total: u64 = sorted.iter().map(|r| r.1).sum();
@@ -451,7 +451,7 @@ fn do_files(args: &Value) -> Result<String, String> {
 
     // Top-accessed paths
     let mut top: Vec<_> = path_counts.iter().filter(|(p, _)| !p.is_empty()).collect();
-    top.sort_by(|a, b| b.1 .0.cmp(&a.1 .0));
+    top.sort_by_key(|b| std::cmp::Reverse(b.1 .0));
     if !top.is_empty() {
         out.push('\n');
         out.push_str("Most accessed paths:\n");

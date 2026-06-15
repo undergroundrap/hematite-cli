@@ -1,4 +1,4 @@
-use serde_json::Value;
+﻿use serde_json::Value;
 
 pub fn make_schema() -> Value {
     serde_json::json!({
@@ -511,7 +511,7 @@ fn dispatch(action: &str, text: &str, fmt: &str, limit: usize) -> String {
             }
             let total = sbom.components.len();
             let mut sorted: Vec<(String, usize)> = counts.into_iter().collect();
-            sorted.sort_by(|a, b| b.1.cmp(&a.1));
+            sorted.sort_by_key(|b| std::cmp::Reverse(b.1));
 
             let mut out = format!("LICENSE DISTRIBUTION ({} components)\n\n", total);
             let bar_width = 30usize;

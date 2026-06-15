@@ -367,7 +367,7 @@ fn fmt_rational(num: u32, den: u32, tag: u16) -> String {
         _ => {
             if den == 1 {
                 format!("{}", num)
-            } else if num % den == 0 {
+            } else if num.is_multiple_of(den) {
                 format!("{}", num / den)
             } else {
                 format!("{:.4}", num as f64 / den as f64)
